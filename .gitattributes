@@ -1,0 +1,12 @@
+# Text source of truth — normalize to CRLF (VBA/VBE convention) and diff as text.
+*.bas   text eol=crlf
+*.cls   text eol=crlf
+*.frm   text eol=crlf
+*.vba   text eol=crlf
+Word.officeUI text
+
+# Binary artifacts — never munge, never line-diff.
+*.frx   binary
+*.dotm  binary
+*.dotx  binary
+*.bin   binary

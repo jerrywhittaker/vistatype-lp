@@ -1,0 +1,190 @@
+Attribute VB_Name = "LP_Picture_Alignment_Form"
+Attribute VB_Base = "0{45C5AD66-5449-4F07-B316-3AEDD1C24ADE}{5F1ACBCC-CE00-408D-8549-A6F11D208391}"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Attribute VB_TemplateDerived = False
+Attribute VB_Customizable = False
+' Lp_Picture_Alignment_Form
+'
+' Version 1.0  Date: 4/11/2025
+'
+
+Private Sub CmdCancel_Click()
+    Unload Me
+End Sub
+
+Private Sub CmdOkay_Click()
+    Application.Run MacroName:="Sh_Create_Temp_Bookmark"
+    Application.ScreenUpdating = False
+    Unload Me
+      
+    If AllPicturesInDocButton Then
+        If CenterButton Then
+            For Each oILShp In ActiveDocument.InlineShapes
+                oILShp.Select
+                If ExcludeTablesButton And Selection.Information(wdWithInTable) Then
+                    GoTo skip1
+                End If
+                Selection.ParagraphFormat.Alignment = wdAlignParagraphCenter
+skip1:
+            Next
+        Else 'LeftAllineButton
+            For Each oILShp In ActiveDocument.InlineShapes
+            oILShp.Select
+            If ExcludeTablesButton And Selection.Information(wdWithInTable) Then
+                GoTo skip2
+            End If
+            Selection.ParagraphFormat.Alignment = wdAlignParagraphLeft
+skip2:
+            Next
+        End If
+    End If
+
+    If SelectedItemOrRangeButton Then
+
+        If Selection.Type = wdSelectionNormal Or Selection.Information(wdWithInTable) Or Selection.InlineShapes.count = 1 Then
+        Else
+            MsgBox "Nothing is selected or the selected picture is NOT inline", , "VistaType LP (148)"
+            End
+        End If
+        
+        '****************************
+        ' selected Picture in a table
+        '****************************
+        ' Check if the selection is within a table
+        If Selection.Information(wdWithInTable) Then
+            Dim tblf As Table
+            Set tblf = Selection.Tables(1) ' Get the active table
+            ' check if  full table selection by comparing ranges bypass if true - only single pic in table selected
+            If Selection.Range.start = tblf.Range.start And Selection.Range.End = tblf.Range.End Then
+                GoTo Skip3
+            End If
+            ' Check if the selection is an InlineShape (e.g., picture)
+            If Selection.InlineShapes.count > 0 Then
+                'On Error Resume Next
+                Dim pic1 As inlineShape
+                Set pic1 = Selection.InlineShapes(1)
+                ' Align the picture within the table cell
+                If LeftAlignButton Then
+                    Selection.ParagraphFormat.Alignment = wdAlignParagraphLeft
+                Else 'Center Button
+                    Selection.ParagraphFormat.Alignment = wdAlignParagraphCenter
+                End If
+            Else
+                MsgBox "The selection in the table is not a picture.", , "VistaType LP (149)"
+            End If
+            GoTo eom
+        End If 'SelectedItemOrRangeButton
+        
+Skip3:
+        '****************************
+        ' selected Picture
+        '****************************
+        ' Check if the selection contains exactly one inline shape (e.g., a picture)
+        If Selection.InlineShapes.count = 1 Then
+            Dim shp1 As inlineShape
+            Set shp1 = Selection.InlineShapes(1)
+    
+            ' Center the picture by aligning its paragraph
+            If LeftAlignButton Then
+                shp1.Range.ParagraphFormat.Alignment = wdAlignParagraphLeft
+            Else 'Center Button
+                shp1.Range.ParagraphFormat.Alignment = wdAlignParagraphCenter
+            GoTo eom
+            End If 'Selection.InlineShapes.Count = 1
+        End If
+       
+        '****************************
+        ' selected table
+        '****************************
+        Dim tbl As Table
+        Dim cell As cell
+        Dim shp As inlineShape
+        
+        ' Check if the entire table is selected
+        If Selection.Information(wdWithInTable) Then
+            Set tbl = Selection.Tables(1) ' Get the selected table
+            
+            ' Verify if the entire table is selected
+            If Selection.Range.start = tbl.Range.start And Selection.Range.End = tbl.Range.End Then
+                ' Loop through each cell in the table
+                For Each cell In tbl.Range.Cells
+                    ' Loop through inline shapes (pictures) in the cell
+                    For Each shp In cell.Range.InlineShapes
+                        shp.Select
+                        'Selection.ParagraphFormat.Alignment = wdAlignParagraphCenter
+                        If LeftAlignButton Then
+                            Selection.ParagraphFormat.Alignment = wdAlignParagraphLeft
+                        Else 'Center Button
+                            Selection.ParagraphFormat.Alignment = wdAlignParagraphCenter
+                        End If
+                    Next shp
+                Next cell
+            End If
+            GoTo eom:
+        End If
+        
+        '*******************************************
+        ' Selected Text range with or without tables
+        '*******************************************
+        Dim selRange As Range
+        Dim inlineShape As inlineShape
+        
+        ' Validate the selection
+        If Selection.Type <> wdSelectionNormal Then
+            MsgBox "Please select text containing pictures to align.", vbExclamation
+            Exit Sub
+        End If
+        
+        ' Set the range to the selection
+        Set selRange = Selection.Range
+        
+        ' Loop through all inline shapes in the document
+        For Each inlineShape In ActiveDocument.InlineShapes
+            With inlineShape
+                ' Check if the inline shape is within the selected range
+                If .Range.InRange(selRange) Then
+                    ' Determine inclusion/exclusion of pictures in tables
+                    If IncludeTablesButton Or (ExcludeTablesButton And .Range.Tables.count = 0) Then
+                        ' Apply alignment based on button settings
+                        If LeftAlignButton Then
+                            .Range.ParagraphFormat.Alignment = wdAlignParagraphLeft
+                        ElseIf CenterButton Then
+                            .Range.ParagraphFormat.Alignment = wdAlignParagraphCenter
+                        End If
+                    End If
+                End If
+            End With
+        Next inlineShape
+        
+    End If 'SelectedItemOrRangeButton
+    
+eom: 'End of Macro
+
+    Application.Run MacroName:="Sh_Create_Temp_Bookmark"
+    Selection.Collapse
+    Application.ScreenUpdating = True
+    Application.ScreenRefresh
+    On Error GoTo 0
+
+End Sub
+
+Private Sub UserForm_Initialize()
+
+    ' From: https://www.thespreadsheetguru.com/the-code-vault/launch-vba-userforms-in-correct-window-with-dual-monitors
+    ' Start Userform Centered inside Word Screen (for dual monitors)
+    Me.StartUpPosition = 0
+    Me.Left = Application.Left + (0.5 * Application.Width) - (0.5 * Me.Width)
+    Me.Top = Application.Top + (0.5 * Application.Height) - (0.5 * Me.Height)
+    
+    Application.Run MacroName:="Sh_Create_Temp_Bookmark"
+
+End Sub
+
+Private Sub userform_terminate() 'red X was clicked
+    Unload Me
+End Sub
+
+

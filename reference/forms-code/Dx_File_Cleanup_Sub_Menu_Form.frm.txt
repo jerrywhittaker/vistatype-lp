@@ -1,0 +1,41 @@
+Attribute VB_Name = "Dx_File_Cleanup_Sub_Menu_Form"
+Attribute VB_Base = "0{06F187D4-9481-47F7-9BC3-1822697B6551}{B10100A2-C3B5-4A53-900C-9E443344719E}"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Attribute VB_TemplateDerived = False
+Attribute VB_Customizable = False
+' Dx_File_Cleanup_Sub_Menu_Form
+' Version 1.0
+' Date: 5/22/2018
+
+
+Private Sub Cmd_Cancel_Click()
+    Unload Me
+End Sub
+
+Private Sub Fix_Errors_Button_Click()
+    Dx_File_Cleanup_Sub_Menu_Form.Hide
+    Application.Run MacroName:="Dx_Fix_Common_File_Errors"
+End Sub
+
+Private Sub Del_Para_Marks_Button_Click()
+    Dx_File_Cleanup_Sub_Menu_Form.Hide
+    Application.Run MacroName:="Dx_Replace_Multiple_Para_Marks_With_Warning"
+End Sub
+
+Private Sub userform_terminate() 'red X was clicked
+    Unload Me
+End Sub
+
+Private Sub UserForm_Initialize()
+
+    ' From: https://www.thespreadsheetguru.com/the-code-vault/launch-vba-userforms-in-correct-window-with-dual-monitors
+    ' Start Userform Centered inside Word Screen (for dual monitors)
+    Me.StartUpPosition = 0
+    Me.Left = Application.Left + (0.5 * Application.Width) - (0.5 * Me.Width)
+    Me.Top = Application.Top + (0.5 * Application.Height) - (0.5 * Me.Height)
+
+End Sub
+

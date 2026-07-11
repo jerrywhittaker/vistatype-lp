@@ -1,0 +1,69 @@
+Attribute VB_Name = "Dx_Bullet_Removal_Form"
+Attribute VB_Base = "0{F3BE6EFF-0725-4794-8FB6-20F83E2B4A40}{74D7A89C-3ED4-4AA0-947E-5D193A176893}"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Attribute VB_TemplateDerived = False
+Attribute VB_Customizable = False
+
+
+Private Sub CmdCancel_Click()
+    Unload Me
+    End
+End Sub
+
+Private Sub CmdOkay_Click()
+    If TOC1 Then
+        Dx_GP_String_2 = "T1"
+        Unload Me
+    End If
+    
+    If TOC2 Then
+        Dx_GP_String_2 = "T2"
+        Unload Me
+    End If
+
+    If List1 Then
+        Dx_GP_String_2 = "L1"
+        Unload Me
+    End If
+    
+    If List2 Then
+        Dx_GP_String_2 = "L2"
+        Unload Me
+    End If
+    
+    If BodyText Then
+        Dx_GP_String_2 = "B"
+        Unload Me
+    End If
+    
+    If Unchanged Then
+        Dx_GP_String_2 = "U"
+        Unload Me
+    End If
+
+End Sub
+
+Private Sub More_Info_Click()
+    Sh_Hyperlink_Info_Form.Show
+End Sub
+
+Private Sub Remove_Hyperlinks_Click()
+        Dx_GP_String_1 = "Remove_Hyper"
+End Sub
+
+Private Sub UserForm_Initialize()
+    Remove_Hyperlinks = False
+    Dx_GP_String_1 = ""
+    
+    ' From: https://www.thespreadsheetguru.com/the-code-vault/launch-vba-userforms-in-correct-window-with-dual-monitors
+    ' Start Userform Centered inside Word Screen (for dual monitors)
+    Me.StartUpPosition = 0
+    Me.Left = Application.Left + (0.5 * Application.Width) - (0.5 * Me.Width)
+    Me.Top = Application.Top + (0.5 * Application.Height) - (0.5 * Me.Height)
+    
+End Sub
+
+

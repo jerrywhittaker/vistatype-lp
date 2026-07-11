@@ -1,0 +1,76 @@
+Attribute VB_Name = "Dx_Choose_Translation_Form"
+Attribute VB_Base = "0{2A443BE8-05E4-463D-B0C3-DF02D025FE4F}{7BC99D90-B600-49BB-A9E2-39919F61470B}"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Attribute VB_TemplateDerived = False
+Attribute VB_Customizable = False
+'Dx_Choose_Translation_Form
+' Version: 1.1 Date: 3/9/2024 - removed "End" from Sub Cmd_Cancel_Click
+'
+Private Sub Cmd_Cancel_Click()
+    Unload Me 'close this form
+End Sub
+
+Private Sub Cmd_BANA_EBAE_Button_Click()
+    Dx_UEB_EBAE_String = "EBAE"
+    ' if the BrailleType stored in the document variables is non existant then
+    ' create an undefined BrailleType
+    BrlType = "Undefined"
+    On Error Resume Next
+    BrlType = ActiveDocument.Variables("Undefined")
+    ActiveDocument.Variables("BrailleType").Delete
+    ActiveDocument.Variables.Add Name:="BrailleType", Value:="EBAT" 'place EBAE Textbook type into document info
+    Unload Me 'close this form
+End Sub
+
+Private Sub Cmd_BANA_EBAE_Nemeth_Button_Click()
+    Dx_UEB_EBAE_String = "EBAE Nemeth"
+    ' if the BrailleType stored in the document variables is non existant then
+    ' create an undefined BrailleType
+    BrlType = "Undefined"
+    On Error Resume Next
+    BrlType = ActiveDocument.Variables("Undefined")
+    ActiveDocument.Variables("BrailleType").Delete
+    ActiveDocument.Variables.Add Name:="BrailleType", Value:="EBAN" 'place EBAE Nemeth type into document info
+    Unload Me 'close this form
+End Sub
+
+Private Sub Cmd_BANA_UEB_Button_Click()
+    Dx_UEB_EBAE_String = "UEB"
+    ' if the BrailleType stored in the document variables is non existant then
+    ' create an undefined BrailleType
+    BrlType = "Undefined"
+    On Error Resume Next
+    BrlType = ActiveDocument.Variables("Undefined")
+    ActiveDocument.Variables("BrailleType").Delete
+    ActiveDocument.Variables.Add Name:="BrailleType", Value:="UEBT" 'place UEB Textbook type into document info
+    Unload Me 'close this form
+End Sub
+
+Private Sub Cmd_BANA_UEB_Nemeth_Button_Click()
+    Dx_UEB_EBAE_String = "UEB Nemeth"
+    ' if the BrailleType stored in the document variables is non existant then
+    ' create an undefined BrailleType
+    BrlType = "Undefined"
+    On Error Resume Next
+    BrlType = ActiveDocument.Variables("Undefined")
+    ActiveDocument.Variables("BrailleType").Delete
+    ActiveDocument.Variables.Add Name:="BrailleType", Value:="UEBN" 'place UEB Nemeth type into document info
+    Unload Me 'close this form
+End Sub
+
+
+
+Private Sub UserForm_Initialize()
+
+    Application.Run MacroName:="MS_Set_Word_Config_For_Braille"
+    
+    ' From: https://www.thespreadsheetguru.com/the-code-vault/launch-vba-userforms-in-correct-window-with-dual-monitors
+    ' Start Userform Centered inside Word Screen (for dual monitors)
+    Me.StartUpPosition = 0
+    Me.Left = Application.Left + (0.5 * Application.Width) - (0.5 * Me.Width)
+    Me.Top = Application.Top + (0.5 * Application.Height) - (0.5 * Me.Height)
+
+End Sub

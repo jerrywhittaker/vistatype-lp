@@ -1,0 +1,25 @@
+Attribute VB_Name = "Sh_Hyperlink_Info_Form"
+Attribute VB_Base = "0{AD2DC10E-E5E6-4B58-AF59-7E86615EB1D0}{E67AEAC9-DB2E-4526-A93D-6AB3F03FA7DE}"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Attribute VB_TemplateDerived = False
+Attribute VB_Customizable = False
+
+Private Sub Close_Me_Click()
+    Unload Me 'close this form
+End Sub
+
+Private Sub userform_terminate() 'red X was clicked
+    Unload Me
+End Sub
+
+Private Sub UserForm_Initialize()
+    ' From: https://www.thespreadsheetguru.com/the-code-vault/launch-vba-userforms-in-correct-window-with-dual-monitors
+    ' Start Userform Centered inside Word Screen (for dual monitors)
+    Me.StartUpPosition = 0
+    Me.Left = Application.Left + (0.5 * Application.Width) - (0.5 * Me.Width)
+    Me.Top = Application.Top + (0.5 * Application.Height) - (0.5 * Me.Height)
+End Sub
+

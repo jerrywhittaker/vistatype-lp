@@ -1,0 +1,25 @@
+Attribute VB_Name = "Sh_Pg_Validation_Overview_Form"
+Attribute VB_Base = "0{3E90F86B-86BD-4D48-9ACC-D296E1191393}{B8E693F2-7DE0-4F2E-8901-486774444EB2}"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Attribute VB_TemplateDerived = False
+Attribute VB_Customizable = False
+
+Private Sub CloseButton_Click()
+    Unload Me
+End Sub
+
+Private Sub userform_terminate() 'red X was clicked
+    Unload Me
+End Sub
+
+Private Sub UserForm_Initialize()
+    ' From: https://www.thespreadsheetguru.com/the-code-vault/launch-vba-userforms-in-correct-window-with-dual-monitors
+    ' Start Userform Centered inside Word Screen (for dual monitors)
+    Me.StartUpPosition = 0
+    Me.Left = Application.Left + (0.5 * Application.Width) - (0.5 * Me.Width)
+    Me.Top = Application.Top + (0.5 * Application.Height) - (0.5 * Me.Height)
+End Sub
+

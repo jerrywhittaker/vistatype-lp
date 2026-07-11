@@ -1,0 +1,12 @@
+# Copy to build.config and edit. build.config is gitignored (per-machine settings).
+
+# SSH target for the Windows box that has Word installed.
+# Assumes Windows OpenSSH Server is enabled and key-based login works:
+#   ssh WIN_HOST   should log in without a password prompt.
+WIN_HOST = user@windows-box
+
+# Working directory ON the Windows box (use forward slashes; OpenSSH accepts them).
+WIN_DIR = C:/build/vistatype
+
+# Path to powershell on the Windows box (Windows PowerShell 5.1 or pwsh 7+).
+WIN_PWSH = powershell

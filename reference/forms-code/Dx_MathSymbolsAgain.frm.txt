@@ -1,0 +1,31 @@
+Attribute VB_Name = "Dx_MathSymbolsAgain"
+Attribute VB_Base = "0{72562B0E-1B39-463B-840C-303BA38003B6}{47EEF0B8-EDEA-42DA-8737-C80BD324D51C}"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Attribute VB_TemplateDerived = False
+Attribute VB_Customizable = False
+
+Private Sub CommandButton1_Click()
+    Dx_MathSymbolsForm.Show
+    Unload Me
+End Sub
+
+Private Sub userform_terminate() 'red X was clicked
+    Unload Dx_MathSymbolsForm
+    Unload Me
+End Sub
+
+Private Sub UserForm_Initialize()
+
+    ' From: https://www.thespreadsheetguru.com/the-code-vault/launch-vba-userforms-in-correct-window-with-dual-monitors
+    ' Start Userform Centered inside Word Screen (for dual monitors)
+    Me.StartUpPosition = 0
+    Me.Left = Application.Left + (0.5 * Application.Width) - (0.5 * Me.Width)
+    Me.Top = Application.Top + (0.5 * Application.Height) - (0.5 * Me.Height)
+
+End Sub
+
+
+

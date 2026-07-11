@@ -1,0 +1,61 @@
+Attribute VB_Name = "Sh_NonModalMessageForm"
+Attribute VB_Base = "0{4ECF53D1-5917-4DB7-9B68-D5BEAAC0A11B}{2A2D7974-9CC6-41FC-A239-2A74493EA47A}"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Attribute VB_TemplateDerived = False
+Attribute VB_Customizable = False
+
+Option Explicit
+
+Private SpinFrames As Variant
+Private Frame As Long
+Private SpinnerRunning As Boolean
+
+Private Sub UserForm_Initialize()
+    SpinFrames = Array("|", "/", "", "\")
+    Frame = 0
+    SpinnerRunning = False
+End Sub
+
+Private Sub UserForm_Activate()
+    CenterOnActiveScreen
+End Sub
+
+Public Sub StartSpinner()
+    If SpinnerRunning Then Exit Sub
+    SpinnerRunning = True
+    Frame = 0
+    SpinTick
+End Sub
+
+Public Sub StopSpinner()
+    SpinnerRunning = False
+End Sub
+
+Public Sub SpinTick()
+    If Not SpinnerRunning Then Exit Sub
+
+    Me.SpinnerBox.Caption = SpinFrames(Frame)
+    Frame = (Frame + 1) Mod (UBound(SpinFrames) + 1)
+    Me.Repaint
+
+    Application.OnTime Now + TimeValue("0:00:01"), "Sh_SpinTick"
+End Sub
+
+Public Sub SetActivityMessage(ByVal sText As String)
+    Me.ActivityMsg.Caption = sText
+    Me.Repaint
+End Sub
+
+Private Sub CenterOnActiveScreen()
+    Dim w As Long, h As Long
+    w = Application.UsableWidth
+    h = Application.UsableHeight
+
+    Me.StartUpPosition = 0
+    Me.Left = (w - Me.Width) / 2
+    Me.Top = (h - Me.Height) / 2
+End Sub
+

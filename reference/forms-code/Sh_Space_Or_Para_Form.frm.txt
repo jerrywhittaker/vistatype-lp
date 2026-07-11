@@ -1,0 +1,32 @@
+Attribute VB_Name = "Sh_Space_Or_Para_Form"
+Attribute VB_Base = "0{ABF4354A-803C-4860-A3B9-B4B9A6E0F8D7}{76775DAF-DA4D-4590-ADC7-F12E0CAB0ECA}"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Attribute VB_TemplateDerived = False
+Attribute VB_Customizable = False
+Private Sub Cmd_Cancel_Click()
+    Sh_GP_String_1 = ""
+    Unload Me
+End Sub
+
+Private Sub Cmd_Okay_Click()
+    If Para_Mark Then
+        Sh_GP_String_1 = "Para"
+    End If
+    If Space Then
+        Sh_GP_String_1 = "Space"
+    End If
+    Unload Me
+End Sub
+
+Private Sub UserForm_Initialize()
+    ' From: https://www.thespreadsheetguru.com/the-code-vault/launch-vba-userforms-in-correct-window-with-dual-monitors
+    ' Start Userform Centered inside Word Screen (for dual monitors)
+    Me.StartUpPosition = 0
+    Me.Left = Application.Left + (0.5 * Application.Width) - (0.5 * Me.Width)
+    Me.Top = Application.Top + (0.5 * Application.Height) - (0.5 * Me.Height)
+End Sub
+
+

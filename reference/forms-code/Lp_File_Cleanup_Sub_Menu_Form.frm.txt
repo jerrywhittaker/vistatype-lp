@@ -1,0 +1,59 @@
+Attribute VB_Name = "Lp_File_Cleanup_Sub_Menu_Form"
+Attribute VB_Base = "0{E722568D-8D4A-4049-9F3D-13120A11BE88}{23FFF7C4-43D5-43F8-A952-7FA68CA44F67}"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Attribute VB_TemplateDerived = False
+Attribute VB_Customizable = False
+'Lp_File_Cleanup_Sub_Menu_Form
+'
+' Version: 1.1  Date: 1/22/2026 - refresh screen before messages
+' Version: 1.0  Date: 5/7/2025 - full rewright
+'
+
+Private Sub CancelButton_Click()
+    Selection.Collapse 'clear selection
+    Unload Me
+End Sub
+
+Private Sub OkayButton_Click()
+
+    Lp_File_Cleanup_Sub_Menu_Form.Hide
+    
+    If FixCommonErrors Then
+        Application.Run MacroName:="Lp_Fix_Common_File_Errors"
+    End If
+    
+    If RemoveParaMarks Then
+        Application.Run MacroName:="Lp_Replace_Multiple_Para_Marks_With_Warning"
+    End If
+    
+    ' Turn screen updating back on
+    Application.ScreenUpdating = True
+
+    ' Force Word to repaint the screen NOW
+    DoEvents
+
+    If FixCommonErrors Or RemoveParaMarks Then
+        MsgBox "Selected cleanup(s) complete", , "VistaType LP (187)"
+    Else
+        If Not (FixCommonErrors Or RemoveParaMarks) Then
+            MsgBox "Canceled... No cleanup selected", , "VistaType LP (188)"
+        End If
+    End If
+    
+    Selection.Collapse 'clear selection
+    Unload Me
+End Sub
+
+Private Sub UserForm_Initialize()
+    Application.Run MacroName:="MS_Set_Word_Config_For_Large_Print"
+    ' From: https://www.thespreadsheetguru.com/the-code-vault/launch-vba-userforms-in-correct-window-with-dual-monitors
+    ' Start Userform Centered inside Word Screen (for dual monitors)
+    Me.StartUpPosition = 0
+    Me.Left = Application.Left + (0.5 * Application.Width) - (0.5 * Me.Width)
+    Me.Top = Application.Top + (0.5 * Application.Height) - (0.5 * Me.Height)
+End Sub
+
+

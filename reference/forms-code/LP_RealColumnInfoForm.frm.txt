@@ -1,0 +1,26 @@
+Attribute VB_Name = "LP_RealColumnInfoForm"
+Attribute VB_Base = "0{6A0FF361-1F79-4EB4-9CCC-E92383EC14A3}{A20512A9-B42C-48C7-B3D7-20627F644741}"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Attribute VB_TemplateDerived = False
+Attribute VB_Customizable = False
+
+Private Sub CommandButton1_Click()
+  Unload Me
+End Sub
+
+Private Sub userform_terminate() 'red X was clicked
+    Unload Me
+End Sub
+
+Private Sub UserForm_Initialize()
+    Application.Run MacroName:="MS_Set_Word_Config_For_Large_Print"
+    ' From: https://www.thespreadsheetguru.com/the-code-vault/launch-vba-userforms-in-correct-window-with-dual-monitors
+    ' Start Userform Centered inside Word Screen (for dual monitors)
+    Me.StartUpPosition = 0
+    Me.Left = Application.Left + (0.5 * Application.Width) - (0.5 * Me.Width)
+    Me.Top = Application.Top + (0.5 * Application.Height) - (0.5 * Me.Height)
+    
+End Sub

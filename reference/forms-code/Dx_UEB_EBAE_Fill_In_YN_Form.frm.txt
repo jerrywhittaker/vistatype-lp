@@ -1,0 +1,39 @@
+Attribute VB_Name = "Dx_UEB_EBAE_Fill_In_YN_Form"
+Attribute VB_Base = "0{B43B74A1-9CBD-4BC5-93CA-179325A78F5B}{AD3ACBBA-33AF-487D-BEF3-BB34C25045CD}"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Attribute VB_TemplateDerived = False
+Attribute VB_Customizable = False
+
+' Date: 6/23/2018
+' Version: 1.5
+
+Private Sub CmdCancel_Click()
+    Unload Me 'close this form
+    End
+End Sub
+Private Sub CmdNO_Click()
+    Dx_UEB_EBAE_Boolean = False
+    Unload Me 'close this form
+End Sub
+Private Sub CmdYES_Click()
+    Dx_UEB_EBAE_Boolean = True
+    Unload Me 'close this form
+End Sub
+Private Sub UserForm_Initialize()
+    If Dx_UEB_EBAE_Boolean = True Then
+         Dx_UEB_EBAE_Fill_In_YN_Form.CmdYES.SetFocus
+    Else
+        Dx_UEB_EBAE_Fill_In_YN_Form.CmdNO.SetFocus
+    End If
+    
+    ' From: https://www.thespreadsheetguru.com/the-code-vault/launch-vba-userforms-in-correct-window-with-dual-monitors
+    ' Start Userform Centered inside Word Screen (for dual monitors)
+    Me.StartUpPosition = 0
+    Me.Left = Application.Left + (0.5 * Application.Width) - (0.5 * Me.Width)
+    Me.Top = Application.Top + (0.5 * Application.Height) - (0.5 * Me.Height)
+End Sub
+
+

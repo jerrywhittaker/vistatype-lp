@@ -1,0 +1,32 @@
+Attribute VB_Name = "Lp_ReAttachWarning_Form"
+Attribute VB_Base = "0{11AE500B-8E8E-4D22-AD70-778260F5492D}{6334E560-F457-4F30-9BFA-73811A7411BC}"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Attribute VB_TemplateDerived = False
+Attribute VB_Customizable = False
+Private Sub CmdNoButton_Click()
+    Unload Me
+End Sub
+
+Private Sub CmdYesButton_Click()
+    Lp_GP_String_1 = "Doc_Is_Already_LP"
+    Lp_ReAttachWarning_Form.Hide
+    LP_Attach_An_Lp_Template_Form.Show
+    Unload Me
+End Sub
+
+Private Sub userform_terminate() 'red X was clicked
+    Unload Me
+End Sub
+
+Private Sub UserForm_Initialize()
+    Application.Run MacroName:="MS_Set_Word_Config_For_Large_Print"
+    ' From: https://www.thespreadsheetguru.com/the-code-vault/launch-vba-userforms-in-correct-window-with-dual-monitors
+    ' Start Userform Centered inside Word Screen (for dual monitors)
+    Me.StartUpPosition = 0
+    Me.Left = Application.Left + (0.5 * Application.Width) - (0.5 * Me.Width)
+    Me.Top = Application.Top + (0.5 * Application.Height) - (0.5 * Me.Height)
+End Sub
+
