@@ -11,13 +11,18 @@
 #   make read    Refresh reference/ from Normal.dotm using the Linux-only decompressor
 #                (read/diff aid; does NOT need Windows and is NOT import-ready).
 #   make deploy  Promote dist/Normal.dotm to the repo root (the deployable copy).
+#   make installer  Stage shipping files and compile the Inno Setup installer on
+#                the Windows box; copies Setup.exe back to dist/.
 #   make clean   Remove dist/ and build/ scratch.
 
 -include build.config
 WIN_PWSH ?= powershell
-DOTM     := Normal.dotm
-DOTX     := LargePrintTemplate.dotx
-RIBBON   := Word.officeUI
+WIN_ISCC ?= "C:/Program Files (x86)/Inno Setup 6/ISCC.exe"
+DOTM      := Normal.dotm
+DOTX      := LargePrintTemplate.dotx
+RIBBON    := Word.officeUI
+SHIP_DOTM := LPandBRL.dotm
+APPVER    := 2.2.3
 
 SSH := ssh $(WIN_HOST)
 WSCRIPTS := $(WIN_DIR)/tools/windows
@@ -63,7 +68,20 @@ deploy:
 	cp dist/$(RIBBON) $(RIBBON)
 	@echo "Promoted dist/ artifacts to repo root."
 
+# --- stage the three shipping files into dist/ under their SHIPPED names ---
+stage: build
+	cp dist/$(DOTM) dist/$(SHIP_DOTM)
+	@echo "Staged dist/$(SHIP_DOTM), dist/$(DOTX), dist/$(RIBBON) for packaging."
+
+# --- compile the Inno Setup installer on the Windows box ---
+installer: check-config stage
+	$(SSH) "if not exist \"$(WIN_DIR)\" mkdir \"$(WIN_DIR)\""
+	scp -q -r installer dist "$(WIN_HOST):$(WIN_DIR)/"
+	$(SSH) '$(WIN_ISCC) "/DSrcDir=$(WIN_DIR)/dist" "/DAppVer=$(APPVER)" "$(WIN_DIR)/installer/vistatype.iss"'
+	scp -q "$(WIN_HOST):$(WIN_DIR)/dist/VistaType-LP-Setup-$(APPVER).exe" dist/
+	@echo "Built dist/VistaType-LP-Setup-$(APPVER).exe"
+
 clean:
 	rm -rf dist build
 
-.PHONY: help check-config push-src pull build read deploy clean
+.PHONY: help check-config push-src pull build read deploy stage installer clean
