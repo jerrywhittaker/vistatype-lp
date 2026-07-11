@@ -1,0 +1,102 @@
+<customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui">
+  <ribbon>
+    <tabs>
+    <tab id="tab_Braille_Macros" label="Braille Macros" insertBeforeMso="TabInsert">
+      <group id="grp_mso_c1_18B5F8FF" label="Attach" autoScale="true">
+        <button id="btn_Dx_Attach_BANA_Template" label="Attach BANA Template" imageMso="HappyFace" onAction="RibbonAction" tag="Dx_Attach_BANA_Template"/>
+      </group>
+      <group id="grp_mso_c1_18AD7D7A" label="File Cleanup" autoScale="true">
+        <button id="btn_Dx_File_Fix_Sequence" label="Full File Cleanup" imageMso="FormatPainter" onAction="RibbonAction" tag="Dx_File_Fix_Sequence"/>
+        <button id="btn_Dx_Selected_File_CleanUp" label="Selection Clean Up" imageMso="SelectRecord" onAction="RibbonAction" tag="Dx_Selected_File_CleanUp"/>
+      </group>
+      <group id="grp_mso_c6_19F8EF46" label="Reference Page Number Formatting" imageMso="WindowsCascade" autoScale="true">
+        <button id="btn_Dx_AutoTag_Page_Numbers" label="AutoTag Ref Pages" imageMso="ViewGridlinesFrontPage" onAction="RibbonAction" tag="Dx_AutoTag_Page_Numbers"/>
+        <button id="btn_Dx_Ref_Pg_Number_Sequence_Menu" label="Validate $pg Tags" imageMso="PanAndZoomWindow" onAction="RibbonAction" tag="Dx_Ref_Pg_Number_Sequence_Menu"/>
+        <button id="btn_Dx_Manual_Tag_with_Dollar_pg" label="Manual Tag Ref Page" imageMso="Breakpoint" onAction="RibbonAction" tag="Dx_Manual_Tag_with_Dollar_pg"/>
+        <button id="btn_Dx_Format_Tagged_Page_Numbers" label="Format $pg Tags" imageMso="AppointmentColor2" onAction="RibbonAction" tag="Dx_Format_Tagged_Page_Numbers"/>
+        <button id="btn_Dx_Embed_Ref_Pg_No" label="Embed Ref Pg Numb" imageMso="HorizontalSpacingDecrease" onAction="RibbonAction" tag="Dx_Embed_Ref_Pg_No"/>
+        <button id="btn_Dx_UnEmbed_Ref_Pg_No" label="UnEmbed Ref Pg Numb" imageMso="HorizontalSpacingIncrease" onAction="RibbonAction" tag="Dx_UnEmbed_Ref_Pg_No"/>
+      </group>
+      <group id="grp_mso_c1_1761941" label="Other Formatting Tools" autoScale="true">
+        <button id="btn_Dx_Add_Color_To_Foreign_Language_Words" label="Foreign Lang in Color" imageMso="AppointmentColorDialog" onAction="RibbonAction" tag="Dx_Add_Color_To_Foreign_Language_Words"/>
+        <button id="btn_Dx_Spelling_List" label="Format Spelling List" imageMso="MailMergeResultsPreview" onAction="RibbonAction" tag="Dx_Spelling_List"/>
+        <button id="btn_Dx_Horz_List_To_Vertical" label="Horiz List to Vertical" imageMso="_3DPerspectiveIncrease" onAction="RibbonAction" tag="Dx_Horz_List_To_Vertical"/>
+        <button id="btn_Dx_Format_Exercise_Lv_1_and_Lv_2" label="Exercise Levels 1 &amp;&amp; 2" imageMso="Pushpin" onAction="RibbonAction" tag="Dx_Format_Exercise_Lv_1_and_Lv_2"/>
+        <button id="btn_Dx_Type_Dashes" label="Dashes/Primes/Fractions" imageMso="SelectionPaneHidden" onAction="RibbonAction" tag="Dx_Type_Dashes"/>
+        <button id="btn_Dx_Compress_Linear_Math" label="Compress Linear Math" imageMso="HorizontalSpacingDecrease" onAction="RibbonAction" tag="Dx_Compress_Linear_Math"/>
+      </group>
+      <group id="grp_mso_c1_22F6ED22" label="Export/Import" autoScale="true">
+        <button id="btn_Dx_ExportSelectionToNewFile" label="Export Sel to New Doc" imageMso="SourceControlCheckOut" onAction="RibbonAction" tag="Dx_ExportSelectionToNewFile"/>
+        <button id="btn_Dx_Import_Exported_Selection_File" label="Import to Current Doc" imageMso="SourceControlCheckIn" onAction="RibbonAction" tag="Dx_Import_Exported_Selection_File"/>
+      </group>
+      <group id="grp_mso_c1_2D85A3" label="DAISY, NIMAS, and Text Tools" autoScale="true">
+        <button id="btn_DN_Menu_Starter" label="DAISY or NIMAS to Word" imageMso="MailMergeResultsPreview" onAction="RibbonAction" tag="DN_Menu_Starter"/>
+        <button id="btn_DN_Remove_Para_Formatting_From_Text_Files" label="Text File Para Fix" imageMso="HighImportance" onAction="RibbonAction" tag="DN_Remove_Para_Formatting_From_Text_Files"/>
+      </group>
+      <group id="grp_mso_c1_1B3AAB8" label="Help" autoScale="true">
+        <button id="btn_Dx_Video_Links" label="Video Links &amp;&amp; Practice Files" imageMso="MsnLogo" onAction="RibbonAction" tag="Dx_Video_Links"/>
+        <button id="btn_Dx_About" label="Version &amp;&amp; Updates" imageMso="TagMarkComplete" onAction="RibbonAction" tag="Dx_About"/>
+      </group>
+    </tab>
+    <tab id="tab_VistaType_LP" label="VistaType LP" insertBeforeMso="TabInsert">
+      <group id="grp_mso_c2_56E551D" label="Attach" imageMso="FileNew" autoScale="true">
+        <button id="btn_LP_Attach_LP_Template" label="Attach LP Template" imageMso="FileNew" onAction="RibbonAction" tag="LP_Attach_LP_Template"/>
+      </group>
+      <group id="grp_mso_c1_1C1CE543" label="File Cleanup" autoScale="true">
+        <button id="btn_Lp_File_Fix_Sequence" label="Full File Cleanup" imageMso="FormatPainter" onAction="RibbonAction" tag="Lp_File_Fix_Sequence"/>
+        <button id="btn_Lp_Selected_File_CleanUp" label="Selection Cleanup" imageMso="SelectRecord" onAction="RibbonAction" tag="Lp_Selected_File_CleanUp"/>
+      </group>
+      <group id="grp_mso_c1_1F535F05" label="Reference Page Numbers" autoScale="true">
+        <button id="btn_Lp_AutoTag_Page_Numbers" label="AutoTag Ref Pages" imageMso="ViewGridlinesFrontPage" onAction="RibbonAction" tag="Lp_AutoTag_Page_Numbers"/>
+        <button id="btn_Lp_Validate_Dollar_PG" label="Validate $pg Tags" imageMso="PanAndZoomWindow" onAction="RibbonAction" tag="Lp_Validate_Dollar_PG"/>
+        <button id="btn_Lp_Manual_Tag_with_Dollar_pg" label="Manual Tag Ref Page" imageMso="Breakpoint" onAction="RibbonAction" tag="Lp_Manual_Tag_with_Dollar_pg"/>
+        <button id="btn_Lp_Format_Page_Numbers" label="Format $pg Tags" imageMso="AppointmentColor1" onAction="RibbonAction" tag="Lp_Format_Page_Numbers"/>
+      </group>
+      <group id="grp_mso_c1_156034D5" label="Other Formatting Tools" autoScale="true">
+        <button id="btn_Lp_Format_Exercise_Lv_1_and_Lv_2" label="Format Exercise" imageMso="Pushpin" onAction="RibbonAction" tag="Lp_Format_Exercise_Lv_1_and_Lv_2"/>
+        <button id="btn_Lp_Type_Fill_In_Line" label="Fill-In Line" imageMso="VisibilityHidden" onAction="RibbonAction" tag="Lp_Type_Fill_In_Line"/>
+        <button id="btn_Lp_Horz_List_To_Vertical" label="Horiz List to Vertical" imageMso="_3DPerspectiveIncrease" onAction="RibbonAction" tag="Lp_Horz_List_To_Vertical"/>
+        <button id="btn_Lp_Table_Tools" label="Table and TOC Tools" imageMso="ViewSheetGridlines" onAction="RibbonAction" tag="Lp_Table_Tools"/>
+        <button id="btn_Lp_Compress_Linear_Math" label="Compress Linear Math" imageMso="HorizontalSpacingDecrease" onAction="RibbonAction" tag="Lp_Compress_Linear_Math"/>
+        <button id="btn_Lp_Picture_Tools_Menu_Starter" label="Bkgrnd &amp;&amp; Picture Tools" imageMso="InsertDrawingCanvas" onAction="RibbonAction" tag="Lp_Picture_Tools_Menu_Starter"/>
+      </group>
+      <group id="grp_mso_c1_13B4A91B" label="Export/Import" autoScale="true">
+        <button id="btn_Lp_Export_Selection_To_NewFile" label="Export Sel to New Doc" imageMso="SourceControlCheckOut" onAction="RibbonAction" tag="Lp_Export_Selection_To_NewFile"/>
+        <button id="btn_Lp_Import_Exported_Selection_File" label="Import to Current Doc" imageMso="SourceControlCheckIn" onAction="RibbonAction" tag="Lp_Import_Exported_Selection_File"/>
+      </group>
+      <group id="grp_mso_c1_8EE27D9" label="DAISY, NIMAS and Text Tools" autoScale="true">
+        <button id="btn_DN_Menu_Starter_x" label="DAISY or NIMAS to Word" imageMso="MailMergeResultsPreview" onAction="RibbonAction" tag="DN_Menu_Starter"/>
+        <button id="btn_DN_Remove_Para_Formatting_From_Text_Files_x" label="Text File Para Fix" imageMso="HighImportance" onAction="RibbonAction" tag="DN_Remove_Para_Formatting_From_Text_Files"/>
+      </group>
+      <group id="grp_mso_c1_312CDAA" label="Help" autoScale="true">
+        <button id="btn_Lp_Video_Links" label="Videos and Practice Files" imageMso="MsnLogo" onAction="RibbonAction" tag="Lp_Video_Links"/>
+        <button id="btn_Lp_About" label="Version &amp;&amp; Updates" imageMso="TagMarkComplete" onAction="RibbonAction" tag="Lp_About"/>
+      </group>
+    </tab>
+    <tab id="tab_LP_and_BRL_QAT_Icons" label="LP and BRL QAT Icons" insertBeforeMso="TabInsert">
+      <group id="grp_mso_c2_4EA2EBA" label=" " autoScale="true">
+        <control idMso="FileOpenUsingBackstage"/>
+        <control idMso="FileSave"/>
+        <control idMso="FileNewDefault"/>
+        <button id="btn_Sh_Doc_Info" label="Document Settings" imageMso="Info" onAction="RibbonAction" tag="Sh_Doc_Info"/>
+        <control idMso="ZoomTwoPages"/>
+        <control idMso="ViewDraftView"/>
+        <control idMso="ViewPrintLayoutView"/>
+        <control idMso="SetLanguageMenu"/>
+        <control idMso="StyleGalleryClassic"/>
+        <control idMso="DocumentTemplate"/>
+        <control idMso="AutoFormat"/>
+        <control idMso="AutoCorrect"/>
+        <control idMso="StylesPane"/>
+        <control idMso="Font"/>
+        <control idMso="FontSize"/>
+        <button id="btn_Lp_Toggle_Space_After_Current_Para" label="No Space After this Paragraph" imageMso="SlidesPerPageSlideOutline" onAction="RibbonAction" tag="Lp_Toggle_Space_After_Current_Para"/>
+        <button id="btn_Lp_Keep_With_Next_Para" label="Keep Paragraph With Next Paragraph" imageMso="Pushpin" onAction="RibbonAction" tag="Lp_Keep_With_Next_Para"/>
+        <button id="btn_Sh_Move_Paragraph_To_Next_Page" label="Move Paragraph to Next Page" imageMso="_3DPerspectiveDecrease" onAction="RibbonAction" tag="Sh_Move_Paragraph_To_Next_Page"/>
+        <button id="btn_Sh_Keep_Lines_Of_Para_Together" label="Do Not Split Paragraph Across Pages" imageMso="Lock" onAction="RibbonAction" tag="Sh_Keep_Lines_Of_Para_Together"/>
+        <button id="btn_Sh_Apply_Title_Case_Capitalization" label="Convert Paragraph to Title Case" imageMso="CharacterBorder" onAction="RibbonAction" tag="Sh_Apply_Title_Case_Capitalization"/>
+      </group>
+    </tab>
+    </tabs>
+  </ribbon>
+</customUI>

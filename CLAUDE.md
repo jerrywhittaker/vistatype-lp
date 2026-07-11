@@ -35,15 +35,24 @@ invoke VBA subs to clean up, format, and tag the document.
 ```
 src/vba/        canonical VBA text: *.bas (std modules), *.cls (class/document modules)
 src/forms/      canonical UserForms: *.frm + *.frx (binary layout)
-src/ribbon/     Word.officeUI ribbon XML (plain file; edit directly, no Word needed)
+src/ribbon/     customUI14.xml — embedded ribbon (source of truth); Word.officeUI (legacy)
 Normal.dotm     shell/base + current deployable build (project references + non-VBA parts)
 LargePrintTemplate.dotx   the attached large-print template (styles/page setup)
-Word.officeUI   deployable ribbon (mirror of src/ribbon)
+Word.officeUI   legacy global ribbon (no longer shipped; kept for reference)
 tools/windows/  Export-Vba.ps1 / Import-Vba.ps1 — run in Word on the build box
-tools/lib/      decompress_vba.py — Linux-only VBA reader (read/diff aid)
+tools/lib/      decompress_vba.py (reader); officeui_to_customui.py + inject_customui.py (ribbon); extract_qat.py (QAT list)
+installer/      Inno Setup installer (vistatype.iss) + scripts/ (QAT merge/remove) — replaces manual file-copy install
 reference/      generated read aids (gitignored mirror + interim form-code dump)
-Makefile        pull / build / read / deploy targets  (see DEVELOPMENT.md)
+Makefile        pull / build / ribbon / read / deploy / stage / installer  (see DEVELOPMENT.md)
 ```
+
+The ribbon is **embedded** in `LPandBRL.dotm` (`src/ribbon/customUI14.xml`), so it merges
+with each user's ribbon instead of overwriting it — the old `Word.officeUI` file is no
+longer shipped. Every ribbon button routes through one VBA dispatcher, `RibbonAction`
+(`src/vba/RibbonCallbacks.bas`), which runs the macro named in the control's `tag`. The
+QAT can't be set from a template, so the **installer** merges VistaType's 6 quick-access
+icons into each user's own `Word.officeUI` non-destructively (`installer/scripts/`,
+list in `installer/qat-controls.xml`).
 
 ## Build & edit workflow (short version)
 

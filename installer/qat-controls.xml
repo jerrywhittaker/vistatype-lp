@@ -1,0 +1,8 @@
+<qatControls>
+  <button macro="Sh_Doc_Info" label="Document Settings" imageMso="Info"/>
+  <button macro="Lp_Toggle_Space_After_Current_Para" label="No Space After this Paragraph" imageMso="SlidesPerPageSlideOutline"/>
+  <button macro="Lp_Keep_With_Next_Para" label="Keep Paragraph With Next Paragraph" imageMso="Pushpin"/>
+  <button macro="Sh_Move_Paragraph_To_Next_Page" label="Move Paragraph to Next Page" imageMso="_3DPerspectiveDecrease"/>
+  <button macro="Sh_Keep_Lines_Of_Para_Together" label="Do Not Split Paragraph Across Pages" imageMso="Lock"/>
+  <button macro="Sh_Apply_Title_Case_Capitalization" label="Convert Paragraph to Title Case" imageMso="CharacterBorder"/>
+</qatControls>

@@ -4,12 +4,16 @@
 ;  Replaces the manual "copy three files to three locations" procedure.
 ;  Per-user install (no admin needed); everything lands in the user's profile.
 ;
+;  The ribbon is now EMBEDDED in LPandBRL.dotm (customUI14.xml), so there is no
+;  Word.officeUI file to install and the user's own ribbon/QAT is never touched.
+;
 ;  What it does automatically (each item is a support call it removes):
 ;    * Copies LPandBRL.dotm            -> %AppData%\Microsoft\Word\STARTUP
 ;                                         (creates STARTUP if it doesn't exist)
 ;    * Copies LargePrintTemplate.dotx  -> %AppData%\Microsoft\Templates
-;    * Copies Word.officeUI            -> %AppData%\Microsoft\Office
-;                                         (backs up the user's existing one first)
+;    * Merges VistaType's QAT icons INTO the user's own Word.officeUI
+;      (Merge-Qat.ps1) -- pre-stocks the quick-access toolbar without touching
+;      the user's ribbon or their own QAT items; uninstall removes only ours
 ;    * Registers the STARTUP folder as a Word Trusted Location
 ;    * Deletes the obsolete "Large Print Templates" folder
 ;    * Refuses to run while Word or Outlook is open (with a clear message)
@@ -25,7 +29,6 @@
 #define AppVer      "2.2.3"
 #define DotmName    "LPandBRL.dotm"
 #define DotxName    "LargePrintTemplate.dotx"
-#define RibbonName  "Word.officeUI"
 ; Directory holding the three shipping files (staged by `make installer`).
 #ifndef SrcDir
   #define SrcDir "..\dist"
@@ -48,20 +51,35 @@ WizardStyle=modern
 UninstallDisplayName=VistaType LP + Braille Macros
 
 [Files]
-; Macro add-in -> STARTUP (DefaultDirName). {app} == the STARTUP folder here.
-Source: "{#SrcDir}\{#DotmName}";   DestDir: "{app}";                         Flags: ignoreversion
+; Macro add-in (with embedded ribbon) -> STARTUP. {app} == the STARTUP folder here.
+Source: "{#SrcDir}\{#DotmName}";   DestDir: "{app}";                             Flags: ignoreversion
 ; Large-print styles template -> user Templates folder.
 Source: "{#SrcDir}\{#DotxName}";   DestDir: "{userappdata}\Microsoft\Templates"; Flags: ignoreversion
-; Ribbon/QAT -> Office folder. Existing file is backed up in CurStepChanged.
-Source: "{#SrcDir}\{#RibbonName}"; DestDir: "{userappdata}\Microsoft\Office";     Flags: ignoreversion
+; QAT merge helpers -> a persistent per-user folder (needed again at uninstall).
+Source: "scripts\Merge-Qat.ps1";   DestDir: "{userappdata}\VistaType LP"; Flags: ignoreversion
+Source: "scripts\Remove-Qat.ps1";  DestDir: "{userappdata}\VistaType LP"; Flags: ignoreversion
+Source: "qat-controls.xml";        DestDir: "{userappdata}\VistaType LP"; Flags: ignoreversion
+
+[Run]
+; Non-destructively merge VistaType's QAT icons into the user's own Word.officeUI.
+Filename: "powershell.exe"; \
+  Parameters: "-ExecutionPolicy Bypass -NoProfile -File ""{userappdata}\VistaType LP\Merge-Qat.ps1"" -Fragment ""{userappdata}\VistaType LP\qat-controls.xml"""; \
+  Flags: runhidden; StatusMsg: "Adding VistaType quick-access icons..."
+
+[UninstallRun]
+; Remove only VistaType's QAT icons, leaving the user's own ribbon/QAT intact.
+Filename: "powershell.exe"; \
+  Parameters: "-ExecutionPolicy Bypass -NoProfile -File ""{userappdata}\VistaType LP\Remove-Qat.ps1"""; \
+  Flags: runhidden; RunOnceId: "RemoveVistaTypeQat"
 
 [InstallDelete]
 ; Remove the obsolete template folder from older versions.
 Type: filesandordirs; Name: "{userappdata}\Microsoft\Templates\Large Print Templates"
 
 [UninstallDelete]
-Type: files; Name: "{app}\{#DotmName}"
-Type: files; Name: "{userappdata}\Microsoft\Templates\{#DotxName}"
+Type: files;          Name: "{app}\{#DotmName}"
+Type: files;          Name: "{userappdata}\Microsoft\Templates\{#DotxName}"
+Type: filesandordirs; Name: "{userappdata}\VistaType LP"
 
 [Code]
 const
@@ -99,19 +117,8 @@ end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 var
-  Office, Ribbon, Backup, Ver, Key: String;
+  Ver, Key: String;
 begin
-  if CurStep = ssInstall then
-  begin
-    { Back up an existing Word.officeUI before we overwrite it, so the user's
-      own ribbon/QAT can be restored. Only if no backup already exists. }
-    Office := ExpandConstant('{userappdata}\Microsoft\Office');
-    Ribbon := Office + '\{#RibbonName}';
-    Backup := Office + '\Word.officeUI.vistatype-backup';
-    if FileExists(Ribbon) and (not FileExists(Backup)) then
-      FileCopy(Ribbon, Backup, False);
-  end;
-
   if CurStep = ssPostInstall then
   begin
     { Register the STARTUP folder as a Word Trusted Location so macros run
