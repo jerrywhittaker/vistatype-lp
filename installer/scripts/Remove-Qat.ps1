@@ -1,8 +1,9 @@
 <#
 Remove-Qat.ps1  --  run by the uninstaller, per-user.
 
-Removes ONLY VistaType's quick-access-toolbar buttons (idQ prefix "x1:VT_") from the
-user's Word.officeUI, leaving their ribbon and their own QAT items intact.
+Removes ONLY VistaType's quick-access-toolbar items -- our buttons and our group
+separator, all marked with the idQ prefix "x1:VT_" -- from the user's Word.officeUI,
+leaving their ribbon and their own QAT items intact.
 #>
 $ErrorActionPreference = "Stop"
 

@@ -3,6 +3,9 @@
 Replaces the manual "copy three files to three locations" procedure with a single
 per-user `Setup.exe`. No admin rights required.
 
+> This file is developer-facing (how the installer is built and what it does). The
+> **end-user install guide** is [`../docs/Installation-Guide.md`](../docs/Installation-Guide.md).
+
 ## What it automates (each was a recurring support call)
 
 | Manual step in the old doc | Installer does it |
@@ -11,7 +14,7 @@ per-user `Setup.exe`. No admin rights required.
 | Copy `LargePrintTemplate.dotx` to Templates | ✔ automatic |
 | Copy `Word.officeUI`, export/import your QAT first | ✘ **gone** — ribbon is embedded in the `.dotm` and merges non-destructively |
 | Pre-stock the QAT quick-access icons | ✔ **merges** VistaType's icons into the user's own `Word.officeUI` (their ribbon/QAT untouched) |
-| "Macros won't run" → Trust Center fiddling | ✔ registers STARTUP as a **Trusted Location** |
+| "Macros won't run" → Trust Center fiddling | ✔ registers STARTUP as a **Trusted Location** + allows **network** trusted locations (roaming `%AppData%`) |
 | Delete obsolete "Large Print Templates" folder | ✔ automatic |
 | "Close Word and Outlook first" | ✔ refuses to run if they're open |
 | (none — was impossible by hand) | ✔ clean **Uninstall** entry (removes only our QAT icons) |
@@ -39,6 +42,12 @@ The Trusted-Location registry write, the Word/Outlook running-check, and the QAT
 real machine. The QAT merge logic was validated in a Python simulation (preserves the
 user's own ribbon/QAT, idempotent, clean uninstall), but confirm on a real profile —
 including a machine that already has a customized `Word.officeUI`. Test on a clean
-Windows profile before shipping. Known limits the installer **cannot** fix (they need code-signing or
-IT involvement): enterprise Group Policy that disables trusted locations, or a policy
-requiring add-ins to be signed by a trusted publisher.
+Windows profile before shipping.
+
+Note: enabling `AllowNetworkLocations` lets Word honor trusted locations on network
+paths for that user (needed for roaming/redirected `%AppData%`). It slightly broadens
+trust Word-wide, which is the right call for this user base but worth being aware of.
+
+Known limits the installer **cannot** fix (they need code-signing or IT involvement):
+enterprise Group Policy that disables trusted locations, or a policy requiring add-ins
+to be signed by a trusted publisher.

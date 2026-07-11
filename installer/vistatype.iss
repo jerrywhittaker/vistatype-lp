@@ -14,7 +14,8 @@
 ;    * Merges VistaType's QAT icons INTO the user's own Word.officeUI
 ;      (Merge-Qat.ps1) -- pre-stocks the quick-access toolbar without touching
 ;      the user's ribbon or their own QAT items; uninstall removes only ours
-;    * Registers the STARTUP folder as a Word Trusted Location
+;    * Registers the STARTUP folder as a Word Trusted Location (and allows
+;      network trusted locations, for roaming/redirected %AppData% profiles)
 ;    * Deletes the obsolete "Large Print Templates" folder
 ;    * Refuses to run while Word or Outlook is open (with a clear message)
 ;    * Provides a clean uninstaller
@@ -128,6 +129,12 @@ begin
     Ver := OfficeVersion();
     if Ver <> '' then
     begin
+      { Allow trusted locations that resolve to a network path. Many institutional
+        users have roaming/redirected %AppData%, so the STARTUP folder is a network
+        location; without this, Word ignores the trusted location below. }
+      RegWriteDWordValue(HKCU, 'Software\Microsoft\Office\' + Ver
+        + '\Word\Security\Trusted Locations', 'AllowNetworkLocations', 1);
+
       Key := 'Software\Microsoft\Office\' + Ver
            + '\Word\Security\Trusted Locations\VistaTypeStartup';
       RegWriteStringValue(HKCU, Key, 'Path', ExpandConstant('{app}\'));

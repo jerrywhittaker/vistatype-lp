@@ -42,6 +42,7 @@ Word.officeUI   legacy global ribbon (no longer shipped; kept for reference)
 tools/windows/  Export-Vba.ps1 / Import-Vba.ps1 — run in Word on the build box
 tools/lib/      decompress_vba.py (reader); officeui_to_customui.py + inject_customui.py (ribbon); extract_qat.py (QAT list)
 installer/      Inno Setup installer (vistatype.iss) + scripts/ (QAT merge/remove) — replaces manual file-copy install
+docs/           Installation-Guide.md — end-user (transcriber) install instructions
 reference/      generated read aids (gitignored mirror + interim form-code dump)
 Makefile        pull / build / ribbon / read / deploy / stage / installer  (see DEVELOPMENT.md)
 ```

@@ -53,12 +53,20 @@ $ribbon = Get-OrCreate $root   "ribbon"
 $qat    = Get-OrCreate $ribbon "qat"
 $shared = Get-OrCreate $qat    "sharedControls"
 
-# Remove any previously-injected VistaType buttons (idempotent reinstall/upgrade).
+# Remove any previously-injected VistaType items (idempotent reinstall/upgrade).
+# This also strips our old separator, so the block is rebuilt cleanly each time.
 foreach ($c in @($shared.ChildNodes)) {
     if ($c.GetAttribute("idQ") -like "x1:VT_*") { [void]$shared.RemoveChild($c) }
 }
 
-# Append our buttons.
+# Keep VistaType's icons together as one contiguous block at the end of the QAT.
+# If the user already has their own QAT items, put a separator before our block so
+# ours are visually grouped and set apart from theirs.
+if ($shared.ChildNodes.Count -gt 0) {
+    $sep = $doc.CreateElement("mso", "separator", $MSO)
+    $sep.SetAttribute("idQ", "x1:VT_Separator")
+    [void]$shared.AppendChild($sep)
+}
 foreach ($b in $buttons) {
     $btn = $doc.CreateElement("mso", "button", $MSO)
     $btn.SetAttribute("idQ", "x1:VT_" + $b.macro)
