@@ -40,7 +40,7 @@
     </tab>
     <tab id="tab_VistaType_LP" label="VistaType LP" insertBeforeMso="TabInsert">
       <group id="grp_mso_c2_56E551D" label="Attach" imageMso="FileNew" autoScale="true">
-        <button id="btn_LP_Attach_LP_Template" label="Attach LP Template" imageMso="FileNew" onAction="RibbonAction" tag="LP_Attach_LP_Template"/>
+        <button id="btn_Lp_Attach_Lp_Template" label="Attach LP Template" imageMso="FileNew" onAction="RibbonAction" tag="Lp_Attach_Lp_Template"/>
       </group>
       <group id="grp_mso_c1_1C1CE543" label="File Cleanup" autoScale="true">
         <button id="btn_Lp_File_Fix_Sequence" label="Full File Cleanup" imageMso="FormatPainter" onAction="RibbonAction" tag="Lp_File_Fix_Sequence"/>

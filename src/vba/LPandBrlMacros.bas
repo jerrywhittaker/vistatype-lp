@@ -151,7 +151,7 @@ Sub AutoOpen()
                 Application.Run MacroName:="MS_Set_Word_Config_For_Large_Print"
                 Application.Run MacroName:="Lp_Set_Display_For_Large_Print"
                 Lp_GP_String_3 = "Bypass Cleanup Checks"
-                Application.Run MacroName:="Lp_Attach_LP_Template"
+                Application.Run MacroName:="Lp_Attach_Lp_Template"
                 Exit Sub
             Else ' is a large print document with current LP template attached
                 Application.Run MacroName:="MS_Set_Word_Config_For_Large_Print"
@@ -6123,7 +6123,7 @@ End Sub   '*** end of Dx_Add_Qmark_To_Incomplete_Equations macro ***
 ' \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \
 '------------------------------------------------------------------------------------
 
-Sub LP_Attach_LP_Template()
+Sub Lp_Attach_Lp_Template()
     '
     ' Description: Attaches large print template to document
     '
@@ -6186,18 +6186,18 @@ Conclusion:
     '------------------------------------------------------------------------------------
     If (Lp_Is_The_Attached_Template_LP = True And InStr(UCase(ActiveDocument.AttachedTemplate.Name), UCase("Normal.do")) = 0) Then
         Lp_ReAttachWarning_Form.Show
-        GoTo eom  ' by-pass the "LP_Attach_An_Lp_Template_Form.show" - which will be called from "Lp_ReAttachWarning_Form.show"
+        GoTo eom  ' by-pass the "Lp_Attach_An_Lp_Template_Form.show" - which will be called from "Lp_ReAttachWarning_Form.show"
     End If
 
     '------------------------------------------------------------------------------------
-    ' Invoke the form called "LP_Attach_LP_Template_Form"
+    ' Invoke the form called "Lp_Attach_Lp_Template_Form"
     '------------------------------------------------------------------------------------
 
-    LP_Attach_An_Lp_Template_Form.Show
+    Lp_Attach_An_Lp_Template_Form.Show
     
 eom:
         
-End Sub      '   *********** end of LP_Attach_LP_Template Macro ******************************
+End Sub      '   *********** end of Lp_Attach_Lp_Template Macro ******************************
 
 Sub Lp_Remove_Box_Bullets_Bullets_and_Numbers()
 '
@@ -6543,7 +6543,7 @@ DoEvents
     Application.Run MacroName:="Lp_Fix_Em_Dash_Space_Errors"
 DoEvents
     Application.Run MacroName:="Lp_Fix_Normal_Styles"  'no longer ruins picture placement (left, right, center)
-    'Application.Run MacroName:="LP_ReplaceNBSP_ExcludePrintPgNumbAndTables" 'run before Lp_Remove_Multi_Spaces
+    'Application.Run MacroName:="Lp_ReplaceNBSP_ExcludePrintPgNumbAndTables" 'run before Lp_Remove_Multi_Spaces
            'takes too long on large docs
 DoEvents
     Application.Run MacroName:="Lp_Remove_Multi_Spaces"
@@ -6559,7 +6559,7 @@ DoEvents
     'Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     Application.Run MacroName:="Lp_Convert_Hyperliks_To_Text"  'convert all (including hidden links) links to text (except internal links)
 DoEvents
-    Application.Run MacroName:="LP_Convert_Hyper_To_Addresses" 'convert all text links to active links
+    Application.Run MacroName:="Lp_Convert_Hyper_To_Addresses" 'convert all text links to active links
 DoEvents
     Application.Run MacroName:="Lp_Replace_Compact_Fractions_With_Fraction_Text"
 DoEvents
@@ -6569,7 +6569,7 @@ DoEvents
 DoEvents
     Application.Run MacroName:="Lp_Convert_Ordinal_Numbers"
 DoEvents
-    Application.Run MacroName:="LP_Delete_Zero_Width_Spaces"
+    Application.Run MacroName:="Lp_Delete_Zero_Width_Spaces"
 DoEvents
 
     ActiveDocument.UndoClear
@@ -8611,7 +8611,7 @@ End Sub  '***** end of Lp_Manual_Tag_with_Dollar_pg Macro *****
 
 Sub Lp_Kill_The_Hyperlinks()
 '
-' LP_Kill_The_Hyperlinks Macro
+' Lp_Kill_The_Hyperlinks Macro
 '
 ' Author: Jerry Whittaker -  jerry@thewhittakers.org
 '
@@ -8651,7 +8651,7 @@ Sub Lp_Kill_The_Hyperlinks()
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     'ActiveDocument.UndoClear
         
-End Sub '***** End of LP_Kill_The_Hyperlinks Macro ******************
+End Sub '***** End of Lp_Kill_The_Hyperlinks Macro ******************
 
 Sub Lp_Fix_Para_Space_Errors()
 '
@@ -9009,7 +9009,7 @@ Sub Lp_Toggle_Page_Color()
 '
 ' Lp_Toggle_Page_Color macro
 '
-' Version: 1.3  Date: 10/18/2020 - added LP_Set_Doc_Background_Form
+' Version: 1.3  Date: 10/18/2020 - added Lp_Set_Doc_Background_Form
 ' Version: 1.0   Date: 5/18/2016
 '
 ' Author: Jerry Whittaker - jerry@thewhittakers.org
@@ -9017,7 +9017,7 @@ Sub Lp_Toggle_Page_Color()
     Application.Run MacroName:="Sh_Is_Doc_Open"
     Application.Run MacroName:="Lp_Is_Lp_Template_Attached"
     
-    LP_Set_Doc_Background_Form.Show
+    Lp_Set_Doc_Background_Form.Show
     
 End Sub  '*** end of Lp_Toggle_Page_Color macro ***
 
@@ -9038,7 +9038,7 @@ Sub Lp_Selected_File_CleanUp()
 
 End Sub  '*** end of Lp_Selected_File_CleanUp macro ***
 
-Sub LP_Convert_Hyper_To_Addresses()
+Sub Lp_Convert_Hyper_To_Addresses()
 '
 ' Version: 1.2   Date: 1/8/2019
 ' Version: 1.1   Date: 6/9/2016
@@ -9122,7 +9122,7 @@ On Error Resume Next
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     ActiveDocument.UndoClear
     
-End Sub  '*** end of LP_Convert_Hyper_To_Addresses ***
+End Sub  '*** end of Lp_Convert_Hyper_To_Addresses ***
 
 Sub Lp_Remove_Txt_Bxs_And_Frames()
     '
@@ -10514,7 +10514,7 @@ Sub Lp_Set_Display_For_Large_Print()
     
 End Sub
 
-Sub Lp_Is_LP_Template_Attached()
+Sub Lp_Is_Lp_Template_Attached()
 '
 ' Version: 1.0  Date: 12/9/2018
 '
@@ -10524,7 +10524,7 @@ Sub Lp_Is_LP_Template_Attached()
         End
     End If
     
-End Sub   '*** end of Lp_Is_LP_Template_Attached macro ***
+End Sub   '*** end of Lp_Is_Lp_Template_Attached macro ***
 
 Function Lp_Is_The_Attached_Template_LP()
 '
@@ -10965,7 +10965,7 @@ Sub Lp_Table_Convert_R_Only_Table_To_List()
 
 End Sub  '*** end Lp_Table_Convert_R_Only_Table_To_List macro ****
 
-Sub LP_Convert_Table_To_Pseudo_Columns()
+Sub Lp_Convert_Table_To_Pseudo_Columns()
     '
     ' Retains table format but looks like columns
     '
@@ -11280,9 +11280,9 @@ Sub Lp_Attach_The_Template()
     ' Version: 1.0  Date: 11/8/2020
     '
     
-   'LP_Attach_An_Lp_Template_Form.Hide ' hide the user form for fontsize and media type'+++++ new non-modal form code
+   'Lp_Attach_An_Lp_Template_Form.Hide ' hide the user form for fontsize and media type'+++++ new non-modal form code
 
-    Unload LP_Attach_An_Lp_Template_Form
+    Unload Lp_Attach_An_Lp_Template_Form
 
     'save the name of the current document
     Dim currentdoc As Document
@@ -11324,7 +11324,7 @@ AvoidCrash:
                 .UpdateStylesOnOpen = True
                 .AttachedTemplate = TemplatePathandName
                 .UpdateStylesOnOpen = False  ' supresses any further style updates
-                .Application.Run MacroName:="Lp_Remove_All_Styles_Except_LP_Styles"
+                .Application.Run MacroName:="Lp_Remove_All_Styles_Except_Lp_Styles"
             Else
                 Unload Sh_NonModalMessageForm
                 MsgBox " Cannot continue!" + vbCr + vbCr + "The template file: " + TemplatePathandName + " does not exist." + vbCr + vbCr + "Install the file and try again.", , "VistaType LP (141)"
@@ -12167,11 +12167,11 @@ Sub Lp_Replace_Strong_With_Bold()
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
  
-    Application.Run MacroName:="Lp_Remove_All_Styles_Except_LP_Styles"
+    Application.Run MacroName:="Lp_Remove_All_Styles_Except_Lp_Styles"
 
 End Sub   '*** end of Lp_Replace_Strong_With_Bold macro ***
 
-Sub Lp_Remove_All_Styles_Except_LP_Styles()
+Sub Lp_Remove_All_Styles_Except_Lp_Styles()
 '
 ' Removes all styles except LP Styles from the Styles Pane
 '
@@ -12209,7 +12209,7 @@ Sub Lp_Remove_All_Styles_Except_LP_Styles()
         Next oStyle
     End With
     
-End Sub   '*** end of Lp_Remove_All_Styles_Except_LP_Styles macro ***
+End Sub   '*** end of Lp_Remove_All_Styles_Except_Lp_Styles macro ***
 
 Sub Lp_RemoveHeadAndFoot()
 
@@ -12657,7 +12657,7 @@ Sub Lp_SetPicturesToInlineAndLockAspectRatio()
     
 End Sub   '*** end of macro Lp_SetPicturesToInlineAndLockAspectRatio ***
 
-Sub LP_Delete_Zero_Width_Spaces()
+Sub Lp_Delete_Zero_Width_Spaces()
 '
 ' Version: 1.0 Date: 6/18/2025
 '
@@ -12677,7 +12677,7 @@ Sub LP_Delete_Zero_Width_Spaces()
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
     
-End Sub   '*** end of LP_Delete_Zero_Width_Spaces macro ***
+End Sub   '*** end of Lp_Delete_Zero_Width_Spaces macro ***
 
 Sub Lp_Table_Apply_Character_Case_To_Row_Headers()
 '
@@ -13458,7 +13458,7 @@ Sub Lp_ValidateTableIntegrityForListOrRotation()
       Application.Run MacroName:="Lp_Table_Convert_Table_Format_Error"
     End If
 
-End Sub  '*** end of LP_ValidateTableIntegrityForListOrRotation ***
+End Sub  '*** end of Lp_ValidateTableIntegrityForListOrRotation ***
 
 Sub Lp_DoesRangeHaveATOCStyle()
 '
@@ -14677,7 +14677,7 @@ Sub Lp_Replace_Underline_Tab_With_Underlined_Underscore()
 End Sub  '*** end of Lp_Replace_Underline_Tab_With_Underline macro ***
 
 
-Sub LP_ReplaceNBSP_ExcludePrintPgNumbAndTables()
+Sub Lp_ReplaceNBSP_ExcludePrintPgNumbAndTables()
     '
     ' NBSP = Non-Breaking Space
     '
@@ -14704,7 +14704,7 @@ Sub LP_ReplaceNBSP_ExcludePrintPgNumbAndTables()
             End With
         End If
     Next para
-End Sub   '*** end of macro LP_ReplaceNBSP_ExcludePrintPgNumbAndTables ***
+End Sub   '*** end of macro Lp_ReplaceNBSP_ExcludePrintPgNumbAndTables ***
 
 Sub Lp_Delete_Square_Bullet()
 '

@@ -83,7 +83,7 @@ runs in Word (this drove the remote-build design; see DEVELOPMENT.md).
 
 Everything is namespaced by a short prefix — grep by it to find a feature area:
 
-- `Lp_` / `LP_` — Large Print features (93 subs) — the "VistaType LP" ribbon tab.
+- `Lp_` — Large Print features (~98 subs) — the "VistaType LP" ribbon tab.
 - `Dx_` — Duxbury/braille features (68 subs) — the "Braille Macros" ribbon tab (DBT + BANA).
 - `Sh_` — Shared helpers used by both (28 subs), e.g. `Sh_Doc_Info`, title-case, keep-together.
 - `DN_` — DAISY / NIMAS / text-file tools.
