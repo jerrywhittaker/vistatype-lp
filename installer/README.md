@@ -17,6 +17,7 @@ per-user `Setup.exe`. No admin rights required.
 | "Macros won't run" → Trust Center fiddling | ✔ registers STARTUP as a **Trusted Location** + allows **network** trusted locations (roaming `%AppData%`) |
 | Delete obsolete "Large Print Templates" folder | ✔ automatic |
 | "Close Word and Outlook first" | ✔ refuses to run if they're open |
+| Show the license / give the user a copy | ✔ displays **GPLv3** during setup and installs a `LICENSE.txt` copy |
 | (none — was impossible by hand) | ✔ clean **Uninstall** entry (removes only our QAT icons) |
 
 The installer ships **two** files (`.dotm` + `.dotx`), not three. The QAT icons are

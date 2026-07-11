@@ -82,7 +82,8 @@ deploy:
 # Ribbon is embedded in the .dotm now, so only two files ship (no Word.officeUI).
 stage: build
 	cp dist/$(DOTM) dist/$(SHIP_DOTM)
-	@echo "Staged dist/$(SHIP_DOTM) + dist/$(DOTX) for packaging."
+	cp LICENSE dist/LICENSE.txt
+	@echo "Staged dist/$(SHIP_DOTM) + dist/$(DOTX) + dist/LICENSE.txt for packaging."
 
 # --- compile the Inno Setup installer on the Windows box ---
 installer: check-config stage

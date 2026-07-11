@@ -40,6 +40,10 @@ AppName=VistaType LP + Braille Macros
 AppVersion={#AppVer}
 AppPublisher=Jerry Whittaker
 AppPublisherURL=mailto:jerry@thewhittakers.org
+AppCopyright=Copyright (C) 2015-2026 Jerry Whittaker (GNU GPL v3.0)
+; Show the GPLv3 during install. (GPL governs copying/modifying, not mere use, so this
+; page is informational; switch to InfoBeforeFile if you'd rather not require "I accept".)
+LicenseFile={#SrcDir}\LICENSE.txt
 DefaultDirName={userappdata}\Microsoft\Word\STARTUP
 DisableDirPage=yes
 DisableProgramGroupPage=yes
@@ -60,6 +64,8 @@ Source: "{#SrcDir}\{#DotxName}";   DestDir: "{userappdata}\Microsoft\Templates";
 Source: "scripts\Merge-Qat.ps1";   DestDir: "{userappdata}\VistaType LP"; Flags: ignoreversion
 Source: "scripts\Remove-Qat.ps1";  DestDir: "{userappdata}\VistaType LP"; Flags: ignoreversion
 Source: "qat-controls.xml";        DestDir: "{userappdata}\VistaType LP"; Flags: ignoreversion
+; Install a copy of the GPL so the user "receives a copy of the license" per the GPL.
+Source: "{#SrcDir}\LICENSE.txt";   DestDir: "{userappdata}\VistaType LP"; Flags: ignoreversion
 
 [Run]
 ; Non-destructively merge VistaType's QAT icons into the user's own Word.officeUI.
