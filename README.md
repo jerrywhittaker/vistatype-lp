@@ -11,7 +11,7 @@ numbers, converting lists and tables, handling images, tagging DAISY/NIMAS text,
 
 - **Version:** 2.2.3
 - **Author:** Jerry Whittaker · jerry@thewhittakers.org
-- **Copyright:** © 2015–2026 Jerry Whittaker. All rights reserved.
+- **License:** [GNU General Public License v3.0](LICENSE) · © 2015–2026 Jerry Whittaker
 
 ---
 
@@ -82,6 +82,16 @@ End users install with a single per-user `Setup.exe` (no admin required) — see
 [Installation Guide](docs/Installation-Guide.md). It places the add-in and template,
 embeds the ribbon (merging non-destructively with the user's own), pre-stocks the
 Quick Access Toolbar icons, and configures Word's trust settings so the macros run.
+
+---
+
+## License
+
+VistaType LP is free software licensed under the **GNU General Public License v3.0** —
+see [`LICENSE`](LICENSE). You may use, study, share, and modify it; if you distribute a
+modified version, you must also make your source available under the GPL.
+
+© 2015–2026 Jerry Whittaker. The Software is provided "as is", without warranty of any kind.
 
 ---
 
