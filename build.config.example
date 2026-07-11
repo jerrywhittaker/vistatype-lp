@@ -3,7 +3,16 @@
 # SSH target for the Windows box that has Word installed.
 # Assumes Windows OpenSSH Server is enabled and key-based login works:
 #   ssh WIN_HOST   should log in without a password prompt.
-WIN_HOST = user@windows-box
+#
+# Recommended: define a Host alias in ~/.ssh/config and use it here, so the
+# hostname, user, and private-key path stay out of the repo (see DEVELOPMENT.md
+# "Secrets / credentials"). Never put a key or password in this file.
+#   # ~/.ssh/config
+#   Host vistatype-build
+#       HostName windows-box.local      # or the VM's IP
+#       User builduser
+#       IdentityFile ~/.ssh/id_vistatype_build
+WIN_HOST = vistatype-build
 
 # Working directory ON the Windows box (use forward slashes; OpenSSH accepts them).
 WIN_DIR = C:/build/vistatype

@@ -54,10 +54,36 @@ and leaves the user's own ribbon/QAT alone, and it loads/unloads with the add-in
      [`docs/Build-VM-Setup.md`](docs/Build-VM-Setup.md) — recommended, so the pipeline
      never touches your daily-driver Word and you can snapshot a pristine Word for
      installer testing.
-2. On **Linux**: `cp build.config.example build.config` and set `WIN_HOST` / `WIN_DIR`.
+2. On **Linux**: define a host alias in `~/.ssh/config` (keeps the hostname, user, and
+   key path out of the repo), then point `build.config` at it:
+   ```
+   # ~/.ssh/config
+   Host vistatype-build
+       HostName windows-box.local      # or the VM's IP
+       User builduser
+       IdentityFile ~/.ssh/id_vistatype_build
+   ```
+   Then `cp build.config.example build.config` and set `WIN_HOST = vistatype-build`
+   plus `WIN_DIR`. (You can also put the full `user@host` in `WIN_HOST` directly and
+   skip the alias — but the alias keeps machine-specific details in `~/.ssh`, not `src/`.)
 3. **Seed canonical source** (the current `src/` was bootstrapped by the Linux reader,
    which cannot produce valid `.frx`): run `make pull` once. This exports IDE-native
    `.bas/.cls/.frm/.frx` from `Normal.dotm` into `src/`. Review with `git diff`, commit.
+
+## Secrets / credentials
+
+There are **no secrets in this repo, and none should ever be added.** The build pipeline
+authenticates to the Windows box with an SSH **key pair**, and the private key lives in
+`~/.ssh/` — outside the repo, shared with the rest of your SSH usage. The Makefile only
+ever runs `ssh $(WIN_HOST)`; your SSH agent/config resolves the key.
+
+- `build.config` (gitignored, seeded from `build.config.example`) holds connection
+  *coordinates* only — `WIN_HOST`, `WIN_DIR`, paths. Nothing here is sensitive.
+- **Never** put a private key, password, or token in the repo tree, even gitignored — a
+  stray `git add -f` or a `.gitignore` typo would leak it. Keys stay in `~/.ssh/`, where
+  their permissions and agent integration work correctly.
+- No separate `.env` file is needed: `build.config` already is the per-machine,
+  gitignored settings file.
 
 ## Everyday loop
 
