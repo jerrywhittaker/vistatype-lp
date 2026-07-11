@@ -50,6 +50,10 @@ and leaves the user's own ribbon/QAT alone, and it loads/unloads with the add-in
 1. On the **Windows box**: enable OpenSSH Server, set up key login so `ssh WIN_HOST`
    works with no password. In Word: *Options → Trust Center → Macro Settings →
    ☑ Trust access to the VBA project object model*.
+   - Building the Windows box as a clean Hyper-V VM? Follow
+     [`docs/Build-VM-Setup.md`](docs/Build-VM-Setup.md) — recommended, so the pipeline
+     never touches your daily-driver Word and you can snapshot a pristine Word for
+     installer testing.
 2. On **Linux**: `cp build.config.example build.config` and set `WIN_HOST` / `WIN_DIR`.
 3. **Seed canonical source** (the current `src/` was bootstrapped by the Linux reader,
    which cannot produce valid `.frx`): run `make pull` once. This exports IDE-native
