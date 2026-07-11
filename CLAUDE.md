@@ -42,9 +42,9 @@ Word.officeUI   legacy global ribbon (no longer shipped; kept for reference)
 tools/windows/  Export-Vba.ps1 / Import-Vba.ps1 — run in Word on the build box
 tools/lib/      decompress_vba.py (reader); officeui_to_customui.py + inject_customui.py (ribbon); extract_qat.py (QAT list)
 installer/      Inno Setup installer (vistatype.iss) + scripts/ (QAT merge/remove) — replaces manual file-copy install
-docs/           Installation-Guide.md — end-user (transcriber) install instructions
+docs/           Installation-Guide.md (end-user install); Build-VM-Setup.md (Hyper-V build/test box); Software-Agreement.md (GPLv3 About-dialog text)
 reference/      generated read aids (gitignored mirror + interim form-code dump)
-Makefile        pull / build / ribbon / read / deploy / stage / installer  (see DEVELOPMENT.md)
+Makefile        pull / build / ribbon / qat / read / deploy / stage / installer  (see DEVELOPMENT.md)
 ```
 
 The ribbon is **embedded** in `LPandBRL.dotm` (`src/ribbon/customUI14.xml`), so it merges
@@ -63,6 +63,13 @@ source into `dist/Normal.dotm` (Word regenerates p-code) and copies it back; smo
 in Word, then `make deploy`. Never edit `Normal.dotm` by hand. `make pull` refreshes
 `src/` from the `.dotm` (canonical export, needed to (re)seed valid `.frx`); `make read`
 dumps readable source with the Linux decompressor without needing Windows.
+
+**Keep this file in sync.** When you change the build pipeline or architecture —
+`Makefile`, `DEVELOPMENT.md`, anything under `tools/`, `src/ribbon/`, or `installer/`,
+or the build config — update this file's **Repo layout** and **Build & edit workflow**
+sections in the *same* change. A project `PostToolUse` hook
+(`.claude/hooks/claude-md-sync.py`, wired in `.claude/settings.json`) reminds Claude Code
+to do this automatically after editing any of those files.
 
 Why not compile on Linux: `vbaProject.bin` stores compiled **p-code** alongside source,
 and only Word's VBA engine can regenerate it correctly — so the compile step always

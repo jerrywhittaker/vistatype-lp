@@ -100,3 +100,12 @@ automated.
 - **Version bumps**: follow the in-file convention — update the per-sub `' Version`
   comment and add a dated line to the `LPandBrlMacros` header changelog and the About
   forms' version string.
+
+## Keeping CLAUDE.md in sync
+
+`CLAUDE.md` documents the build pipeline and architecture. A project `PostToolUse` hook
+(`.claude/hooks/claude-md-sync.py`, registered in `.claude/settings.json`) watches for
+edits to pipeline-defining files — this file, the `Makefile`, and anything under
+`tools/`, `src/ribbon/`, or `installer/` — and reminds Claude Code to reconcile
+`CLAUDE.md` in the same change. It only nudges; the actual edit is Claude's. Disable or
+review it via `/hooks`.
