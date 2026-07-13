@@ -45,6 +45,9 @@ AppCopyright=Copyright (C) 2015-2026 Jerry Whittaker (GNU GPL v3.0)
 ; page is informational; switch to InfoBeforeFile if you'd rather not require "I accept".)
 LicenseFile={#SrcDir}\LICENSE.txt
 DefaultDirName={userappdata}\Microsoft\Word\STARTUP
+; {app} is Word's STARTUP folder, which Word scans for templates -- keep the uninstaller
+; (unins000.exe/.dat) OUT of it, in our own per-user folder instead.
+UninstallFilesDir={userappdata}\VistaType LP
 DisableDirPage=yes
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
@@ -82,6 +85,10 @@ Filename: "powershell.exe"; \
 [InstallDelete]
 ; Remove the obsolete template folder from older versions.
 Type: filesandordirs; Name: "{userappdata}\Microsoft\Templates\Large Print Templates"
+; Remove a stale uninstaller left in the STARTUP folder by pre-fix installers (it now lives
+; in {userappdata}\VistaType LP). {app} is the STARTUP folder here.
+Type: files; Name: "{app}\unins000.exe"
+Type: files; Name: "{app}\unins000.dat"
 
 [UninstallDelete]
 Type: files;          Name: "{app}\{#DotmName}"
