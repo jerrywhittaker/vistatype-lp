@@ -92,13 +92,52 @@ Public PPO As String  ' Print Page Orintation (L=Landscape, P=Portrait)
 Public DM As String   ' Document Media - can be "Paper" (P) or "Screen" (S)
 Public MirrorString As String ' yes or no
 
+' --- Application-event wiring -------------------------------------------------------------
+' The add-in ships in Word's STARTUP folder, where AutoOpen/AutoNew/AutoClose do NOT fire per
+' document (only AutoExec fires from a STARTUP global template). So document-type detection is
+' driven by Word application events (see the VtEvents class), hooked once in AutoExec.
+' gEvents is module-level so the event sink survives for the whole Word session. If hooking
+' fails, gEvents stays Nothing and the Auto* stubs below run the same logic - keeping behaviour
+' correct if the add-in is instead loaded as Normal.dotm (the old deployment).
+Dim gEvents As VtEvents
+Public Sh_LastDocEvent As String   ' diagnostic breadcrumb: last document event handled
+
+Sub AutoExec()
+    ' Runs once when Word starts (fires even from a STARTUP global template, unlike AutoOpen).
+    On Error Resume Next
+    Set gEvents = New VtEvents
+    Set gEvents.App = Application
+    If Not gEvents Is Nothing Then
+        If gEvents.App Is Nothing Then Set gEvents = Nothing   ' event hook failed
+    End If
+    ' A document opened as part of Word startup opens before this hook exists; handle it now.
+    If (Not gEvents Is Nothing) And Documents.count > 0 Then Sh_HandleDocumentOpened
+End Sub
+
+Public Function Sh_GetLastDocEvent() As String
+    Sh_GetLastDocEvent = Sh_LastDocEvent
+End Function
+
 Sub AutoNew()
+    ' Back-compat stub: only acts if app events aren't hooked (i.e. loaded as Normal.dotm).
+    If gEvents Is Nothing Then Sh_HandleDocumentNew
+End Sub
+
+Sub Sh_HandleDocumentNew()
+    Sh_LastDocEvent = "NewDocument"
     Application.Run MacroName:="MS_Set_Word_Config_For_New_Install"
 End Sub
 
 Sub AutoOpen()
+    ' Back-compat stub: only acts if app events aren't hooked (i.e. loaded as Normal.dotm).
+    If gEvents Is Nothing Then Sh_HandleDocumentOpened
+End Sub
+
+Sub Sh_HandleDocumentOpened()
+    Sh_LastDocEvent = "DocumentOpen"
     '
-    ' This macro runs when ANY word document is opened
+    ' Runs for every opened document - via VtEvents.App_DocumentOpen (STARTUP), or AutoOpen
+    ' when loaded as Normal.dotm.
     ' If the document is a large print document then setting for Large Print are made - if doc is braille then brille settings are made
     '   otherwise the settings for a normal document are made.
     '
@@ -173,8 +212,15 @@ eom: 'End of Macro
 End Sub   '*** end of AutoOpen() macro ***
 
 Sub AutoClose()
+    ' Back-compat stub: only acts if app events aren't hooked (i.e. loaded as Normal.dotm).
+    If gEvents Is Nothing Then Sh_HandleDocumentClosing
+End Sub
+
+Sub Sh_HandleDocumentClosing()
+    Sh_LastDocEvent = "DocumentClose"
     '
-    ' This macro runs when ANY word document is closed
+    ' Runs when a document is closing - via VtEvents.App_DocumentBeforeClose (STARTUP), or
+    ' AutoClose when loaded as Normal.dotm.
     ' If the document is a large print document then the styles pane, rulers, and crop marks are turned off
     '
     ' Version 1.1  Date:  12/16/2021 - set on error - crashes if image is selected when document is closed    Application.TaskPanes(wdTaskPaneFormatting).Visible = True
@@ -11449,8 +11495,8 @@ DoEvents
 DoEvents
     ' Make the document visible and active on screen
     currentdoc.Activate
-    
-    CommandBars("Styles").Visible = True
+
+    Sh_SetBarVisible "Styles", True
 
     MsgBox "The VistaType LP template has been attached." _
     & vbCrLf & vbCrLf & "File stabilization requires an immediate save. SAVE NOW!", vbInformation, "VistaType LP (186)"
@@ -12703,7 +12749,7 @@ Sub Lp_Table_Apply_Character_Case_To_Row_Headers()
             Sh_Apply_Title_Case_Capitalization
             
         ElseIf InStr(Lp_GP_String_3, "U") > 0 Then
-            ' Uppercase only az, keep formatting
+            ' Uppercase only a–z, keep formatting
             For i = 1 To rng.Characters.count
                 With rng.Characters(i)
                     If .Text Like "[a-z]" Then .Text = UCase(.Text)
@@ -12738,7 +12784,7 @@ Sub Lp_Table_Apply_Character_Case_To_Column_Headers()
             Sh_Apply_Title_Case_Capitalization
 
         ElseIf InStr(Lp_GP_String_3, "U") > 0 Then
-            ' Uppercase only az, preserving formatting
+            ' Uppercase only a–z, preserving formatting
             For i = 1 To rng.Characters.count
                 With rng.Characters(i)
                     If .Text Like "[a-z]" Then .Text = UCase(.Text)
@@ -13439,7 +13485,7 @@ Sub Lp_ValidateTableIntegrityForListOrRotation()
         On Error Resume Next
         Set rw = tbl.rows(i)
         If Err.Number <> 0 Then
-            ' If we cant access this row, treat as non-uniform and clear error
+            ' If we can’t access this row, treat as non-uniform and clear error
             nonUniform = True
             Err.Clear
             On Error GoTo 0
@@ -13568,7 +13614,7 @@ Sub Lp_Table_Convert_RC_Table_To_List()
     Dim TempFileName As String
     Dim d As Document
 
-    ' Step 1: Modify Row 1  add ":" to each cell
+    ' Step 1: Modify Row 1 – add ":" to each cell
     For i = 2 To totalRows
         With tbl.cell(i, 1).Range
             ' Move the end back one hit to stay inside the cell (avoiding the end-of-cell marker)
@@ -13578,7 +13624,7 @@ Sub Lp_Table_Convert_RC_Table_To_List()
         End With
     Next i
 
-    ' Step 2: Modify Column 1, Rows 2 to last  safely add ":"
+    ' Step 2: Modify Column 1, Rows 2 to last – safely add ":"
         For i = 2 To totalRows
             With tbl.cell(i, 1).Range
                 ' 1. Pull the end of the range back by 1 to skip the "End of Cell" marker
@@ -13966,7 +14012,7 @@ Function Sh_IsValidRomanNumeral(s As String) As Boolean
     s = Trim(UCase(s))
     If Len(s) = 0 Then Exit Function
 
-    ' Reject if any character isnt a Roman letter
+    ' Reject if any character isn’t a Roman letter
     For i = 1 To Len(s)
         If InStr(validChars, Mid(s, i, 1)) = 0 Then Exit Function
     Next i
@@ -14354,7 +14400,7 @@ Sub Lp_TOC_CleanAndFormat_TOC()
         .Replacement.Text = " "
         .Execute Replace:=wdReplaceAll
         
-        ' Ellipsis  U+2026
+        ' Ellipsis … U+2026
         .Text = ChrW(&H2026)
         .Replacement.Text = ""
         .Execute Replace:=wdReplaceAll
@@ -14415,7 +14461,7 @@ Sub Lp_TOC_CleanAndFormat_TOC()
         .Replacement.Text = " "
         .Execute Replace:=wdReplaceAll
         
-        ' Any bullet character (common set:  ? ? ? ? ? U+F0B7 etc.)
+        ' Any bullet character (common set: • ? ? ? ? ? U+F0B7 etc.)
         .Text = "[" & ChrW(&H2022) & ChrW(&H2023) & ChrW(&H25AA) & ChrW(&H25E6) & ChrW(&H25CF) & ChrW(&H25CB) & ChrW(&HF0B7) & "]"
         .Replacement.Text = ""
         .Execute Replace:=wdReplaceAll
@@ -15625,8 +15671,8 @@ Sub Sh_Remove_Spaces_Before_Punctuation()
     Selection.Find.ClearFormatting
     Selection.Find.Replacement.ClearFormatting
     With Selection.Find
-        .Text = "^032{1,}"
-        .Replacement.Text = ""
+        .Text = "^032{1,}’"
+        .Replacement.Text = "’"
         .Forward = True
         .Wrap = wdFindContinue
         .Format = False
@@ -15641,8 +15687,8 @@ Sub Sh_Remove_Spaces_Before_Punctuation()
     Selection.Find.ClearFormatting
     Selection.Find.Replacement.ClearFormatting
     With Selection.Find
-        .Text = "^032{1,}"
-        .Replacement.Text = ""
+        .Text = "‘^032{1,}"
+        .Replacement.Text = "‘"
         .Forward = True
         .Wrap = wdFindContinue
         .Format = False
@@ -15657,8 +15703,8 @@ Sub Sh_Remove_Spaces_Before_Punctuation()
     Selection.Find.ClearFormatting
     Selection.Find.Replacement.ClearFormatting
     With Selection.Find
-        .Text = "^032{1,}"
-        .Replacement.Text = ""
+        .Text = "^032{1,}’"
+        .Replacement.Text = "’"
         .Forward = True
         .Wrap = wdFindContinue
         .Format = False
@@ -15737,8 +15783,8 @@ Sub Sh_Remove_Spaces_Before_Punctuation()
     Selection.Find.ClearFormatting
     Selection.Find.Replacement.ClearFormatting
     With Selection.Find
-        .Text = "^032{1,}"
-        .Replacement.Text = ""
+        .Text = "‘^032{1,}"
+        .Replacement.Text = "‘"
         .Forward = True
         .Wrap = wdFindContinue
         .Format = False
@@ -15753,8 +15799,8 @@ Sub Sh_Remove_Spaces_Before_Punctuation()
     Selection.Find.ClearFormatting
     Selection.Find.Replacement.ClearFormatting
     With Selection.Find
-        .Text = "^032{1,}"
-        .Replacement.Text = ""
+        .Text = "^032{1,}’"
+        .Replacement.Text = "’"
         .Forward = True
         .Wrap = wdFindContinue
         .Format = False
@@ -16271,9 +16317,9 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     tempDoc.Range.Text = fileContent
 
     '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-    CommandBars("Styles").Visible = False
-    CommandBars("Navigation").Visible = False
-    
+    Sh_SetBarVisible "Styles", False
+    Sh_SetBarVisible "Navigation", False
+
     Sh_NonModalMessageForm.Show vbModeless
     Dim msgBody As String
     msgBody = "Converting a " & Sh_GP_String_1 & " file into a Word file." & _

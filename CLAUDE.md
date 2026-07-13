@@ -77,14 +77,24 @@ runs in Word (this drove the remote-build design; see DEVELOPMENT.md).
 
 ### Notable modules
 
-- **`LPandBrlMacros`** — the engine (~16,500 lines). Contains `AutoOpen`, `AutoNew`,
-  `AutoClose`, all ribbon handlers, and orchestrators like `Lp_File_Fix_Sequence`,
-  `Dx_File_Fix_Sequence`, `Lp_Get_Doc_Setup_Params`, `Lp_Is_The_Attached_Template_LP`,
-  and `MS_Set_Word_Config_For_New_Install`.
+- **`LPandBrlMacros`** — the engine (~16,500 lines). Contains `AutoExec`, the document-event
+  handlers (`Sh_HandleDocumentOpened`/`New`/`Closing`), all ribbon handlers, and orchestrators
+  like `Lp_File_Fix_Sequence`, `Dx_File_Fix_Sequence`, `Lp_Get_Doc_Setup_Params`,
+  `Lp_Is_The_Attached_Template_LP`, and `MS_Set_Word_Config_For_New_Install`.
+- **`VtEvents`** (class) — Word application-event sink (`WithEvents Application`). Hooked once
+  by `AutoExec`, it drives document-type detection via `DocumentOpen`/`NewDocument`/
+  `DocumentBeforeClose` so detection fires even when the add-in is loaded from the STARTUP
+  folder (where `AutoOpen` would not). The `AutoOpen`/`AutoNew`/`AutoClose` macros remain as
+  thin back-compat stubs used only if the add-in is instead loaded as `Normal.dotm`.
 - **`LpExportImportSelectedText` / `DxExportImportSelectedText`** — round-tripping selected
   text to/from separate files.
 - **`ShNonModalMessage`** — shared non-modal status messaging.
 - **~45 UserForms** — dialogs, prefixed by domain (see below).
+
+The built add-in's **VBA project is named `LPandBRL`** (not `Normal`): it ships in Word's
+STARTUP folder loaded alongside the user's own `Normal.dotm`, and two loaded projects can't
+share the name `Normal`. `Import-Vba.ps1` sets this name at build time (`-ProjectName`,
+`PROJNAME` in the Makefile); nothing in the code references the project name.
 
 ### Naming convention (prefixes)
 

@@ -1,0 +1,103 @@
+VERSION 5.00
+Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Dx_Choose_BANA_Template_Form 
+   Caption         =   "Choose the BANA Braille template to be attached"
+   ClientHeight    =   4344
+   ClientLeft      =   120
+   ClientTop       =   450
+   ClientWidth     =   5820
+   OleObjectBlob   =   "Dx_Choose_BANA_Template_Form.frx":0000
+   StartUpPosition =   1  'CenterOwner
+End
+Attribute VB_Name = "Dx_Choose_BANA_Template_Form"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+' Dx_Choose_BANA_Template_Form
+
+' Version 1.6  Date: 3/11/2026 - BANA Braile 2024 back in loop
+' version 1.5  Date: 2/5/2026 - killed dotx* change - if Duxbury ever gets things together for BANA Braile 2024
+' Version 1.4  Date: 3/12/2025 - added wild card (*) to .dot to enable .dotx file types to be located
+' Version 1.3  Date: 2/29/2024 - added "Shell "C:\WINDOWS\explorer.exe " when not BANA Template found
+' Version 1.2  Date: 2/25/2024 - fixed but which said not template when only was found
+' Version 1.1  Date: 2/19/2018 - automatically select the last entry in the list
+'
+Private Sub CmdCancel_Click()
+    Unload Me 'unload the list form
+    MsgBox "No template selected... attachment canceled", , "Braille Macros"
+    End
+End Sub
+
+Sub CmdOkay_Click()
+    If List_File_Box.Value <> "" Then
+        Dx_BANA_Template_Name = List_File_Box.Value
+        Unload Me 'unload the list form
+    Else
+       MsgBox "Select the text before choosing Attach"
+    End If
+End Sub
+
+Private Sub UserForm_Initialize()
+
+    Dim fileName As String
+    Dim Counter As Integer
+    Counter = 0
+    
+    'Create a dynamic array variable, and then declare its initial size
+    Dim DirectoryListArray() As String
+    ReDim DirectoryListArray(100) ' can hold up to 100 file names
+    
+    'Limit file names to BANA Templates
+    '******** change to .doc* when Duxbury gets their act together
+    Path = Environ("APPDATA") + "\Microsoft\Templates\BANA Braille*.do*"  'added wild card (*) to .dot to enable .dotx file types to be found
+    fileName = Dir$(Path)
+    
+    'Loop through all the files in the directory by using Dir$ function
+    Do While fileName <> ""
+        DirectoryListArray(Counter) = fileName
+        fileName = Dir$
+        ' accept BANA Templates with years 2014 and greater
+        If Val(Mid(DirectoryListArray(Counter), 14, 4)) > 2013 Then
+            Counter = Counter + 1
+        End If
+    Loop
+
+    If Counter = 0 Then
+        lngChoice = MsgBox("There are no BANA Templates in the Templates folder!" + vbCr + vbCr _
+            & "Do you want to view the contents of the templates folder?", vbYesNo + vbDefaultButton2, "Braille Macros")
+        If lngChoice = vbYes Then
+            Dim Foldername As String
+            Foldername = Options.DefaultFilePath(wdUserTemplatesPath)
+            Shell "C:\WINDOWS\explorer.exe """ & Foldername & "", vbNormalFocus
+            Unload Me
+            End
+        Else
+            Unload Me
+            End
+        End If
+    End If
+
+    'Reset the size of the array without losing its values by using Redim Preserve
+    If Counter > -1 Then
+
+    Counter = Counter - 1
+
+        ReDim Preserve DirectoryListArray(Counter)
+    End If
+      
+    ' puts the chosen file names in the Value property of the List_File_Box
+    List_File_Box.List = DirectoryListArray
+
+    List_File_Box.Selected(Counter) = True  'highlight the last entry in the box
+    
+    ' From: https://www.thespreadsheetguru.com/the-code-vault/launch-vba-userforms-in-correct-window-with-dual-monitors
+    ' Start Userform Centered inside Word Screen (for dual monitors)
+    Me.StartUpPosition = 0
+    Me.Left = Application.Left + (0.5 * Application.Width) - (0.5 * Me.Width)
+    Me.Top = Application.Top + (0.5 * Application.Height) - (0.5 * Me.Height)
+
+End Sub
+
+
+
+
