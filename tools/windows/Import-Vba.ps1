@@ -24,11 +24,18 @@ Usage (typically invoked over SSH by the Makefile):
 param(
     [Parameter(Mandatory=$true)][string]$Shell,     # existing .dotm used as the base
     [Parameter(Mandatory=$true)][string]$SrcRoot,
-    [Parameter(Mandatory=$true)][string]$OutDotm
+    [Parameter(Mandatory=$true)][string]$OutDotm,
+    [string]$ProjectName = "LPandBRL"               # VBA project name of the built add-in
 )
 $ErrorActionPreference = "Stop"
 
 $CT_StdModule = 1; $CT_ClassModule = 2; $CT_MSForm = 3; $CT_Document = 100
+
+# Repo code modules are UTF-8; Word imports .bas/.cls as system ANSI (Windows-1252). Convert
+# UTF-8 -> ANSI before handing a module to Word so chars like the smart quotes / bullet /
+# en-dash used in the find-and-replace macros survive. Export-Vba.ps1 does the reverse.
+$Ansi = [System.Text.Encoding]::GetEncoding(0)          # system ANSI (cp1252 on this box)
+$Utf8 = New-Object System.Text.UTF8Encoding($false)     # UTF-8, no BOM
 
 # Work on a copy so the shell .dotm is never mutated in place.
 New-Item -ItemType Directory -Force -Path (Split-Path $OutDotm) | Out-Null
@@ -37,7 +44,7 @@ Copy-Item -Path $Shell -Destination $OutDotm -Force
 function Strip-ClsHeader([string]$path) {
     # Return the code body of a .cls/.bas with the VERSION/BEGIN..END block and
     # leading "Attribute VB_*" lines removed (used for Document-module code replace).
-    $lines = Get-Content -LiteralPath $path
+    $lines = [System.IO.File]::ReadAllText($path, $Utf8) -split "`r`n|`n"
     $out = New-Object System.Collections.Generic.List[string]
     $inBeginBlock = $false; $started = $false
     foreach ($ln in $lines) {
@@ -56,10 +63,20 @@ function Strip-ClsHeader([string]$path) {
 $word = New-Object -ComObject Word.Application
 $word.Visible = $false
 $word.DisplayAlerts = 0
+# Suppress AutoOpen/AutoNew/etc. so opening the shell doesn't run macros (AutoOpen pops
+# MsgBox dialogs) and hang the headless build.
+$word.WordBasic.DisableAutoMacros(1)
 try {
     $doc  = $word.Documents.Open($OutDotm, $false, $false)
     $proj = $doc.VBProject
     if ($proj -eq $null) { throw "No VBProject. Enable 'Trust access to the VBA project object model'." }
+
+    # Guard against a silent codeless build: if the shell's project enumerates 0 components
+    # (most commonly because it is password-locked in the VBE), stop rather than ship an
+    # empty .dotm. See DEVELOPMENT.md ("The VBA project must not be locked").
+    if ($proj.VBComponents.Count -eq 0) {
+        throw "VBProject '$($proj.Name)' has 0 components. A password-locked project also enumerates 0 - unlock it in the VBE (Tools, project Properties, Protection tab). See DEVELOPMENT.md."
+    }
 
     # Names of document-type components (code-replaced, never removed/imported).
     $docComps = @{}
@@ -91,8 +108,21 @@ try {
             if ($body.Trim().Length -gt 0) { $cm.AddFromString($body) }
         } else {
             Write-Host "import module $($_.Name)"
-            $proj.VBComponents.Import($_.FullName) | Out-Null
+            # Import needs an ANSI file (Word reads .bas/.cls in the system codepage); write a
+            # temp copy transcoded UTF-8 -> ANSI, keeping the extension so the type is inferred.
+            $tmp = Join-Path ([System.IO.Path]::GetTempPath()) $_.Name
+            [System.IO.File]::WriteAllText($tmp, [System.IO.File]::ReadAllText($_.FullName, $Utf8), $Ansi)
+            try   { $proj.VBComponents.Import($tmp) | Out-Null }
+            finally { Remove-Item $tmp -Force -ErrorAction SilentlyContinue }
         }
+    }
+
+    # Rename the VBA project away from 'Normal' so it does not collide with the user's own
+    # Normal.dotm project when this add-in is loaded from the STARTUP folder. VBProject.Name
+    # is writable (unlike the project password); no code references the project name.
+    if ($ProjectName -and $proj.Name -ne $ProjectName) {
+        Write-Host "rename VBA project '$($proj.Name)' -> '$ProjectName'"
+        $proj.Name = $ProjectName
     }
 
     $doc.Save()

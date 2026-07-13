@@ -115,6 +115,29 @@ automated.
 
 ## Gotchas baked into the tooling
 
+- **The VBA project must not be locked.** A password-locked project ("Lock project for
+  viewing" in the VBE) enumerates as **0 components** through Word's object model, and
+  there is no API to unlock it — so `make pull`/`make build` would silently produce an
+  empty result. Both scripts now hard-fail on a 0-component project instead. If you see
+  that error, open the shell in Word's VBE (Alt+F11 → Tools → *&lt;project&gt; Properties*
+  → **Protection** → uncheck "Lock project for viewing", clear the password), save, and
+  re-seed the shell. Keep the shipped project unlocked (the source is GPLv3 and public
+  anyway).
+- **Encoding: repo source is UTF-8; Word uses ANSI (Windows-1252).** Word exports/imports
+  `.bas`/`.cls` in the system ANSI codepage, but the repo keeps them UTF-8. `Export-Vba.ps1`
+  transcodes ANSI→UTF-8 after export and `Import-Vba.ps1` transcodes UTF-8→ANSI before
+  import, so characters like the smart quotes / ellipsis / bullet / en-dash / fractions
+  used in the find-and-replace macros round-trip losslessly. Forms (`.frm`) are ASCII and
+  the `.frx` is binary, so both are left exactly as Word writes them. (The Linux reader
+  `decompress_vba.py` also decodes cp1252 — decoding as latin-1 turns those bytes into C1
+  control codes.)
+- **Build renames the VBA project to `LPandBRL`.** The add-in ships in Word's STARTUP folder
+  loaded alongside the user's own `Normal.dotm`; two loaded projects can't both be named
+  `Normal`, so `Import-Vba.ps1` renames the built project (`-ProjectName`, default `LPandBRL`,
+  fed by `PROJNAME` in the Makefile). Because STARTUP globals don't fire `AutoOpen` per
+  document, document-type detection runs through Word application events (the `VtEvents` class,
+  hooked by `AutoExec`) — see CLAUDE.md "Notable modules". Nothing references the project name,
+  so the rename is safe.
 - **`ThisDocument`** is a Document module — it can't be Import-ed. `Import-Vba.ps1`
   clears its code module and refills it from `src/vba/ThisDocument.cls`.
 - **Forms** must round-trip as `.frm` + `.frx` (the `.frx` holds images/binary layout).

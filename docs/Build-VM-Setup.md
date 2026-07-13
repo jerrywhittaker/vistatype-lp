@@ -123,6 +123,12 @@ Then `Restart-Service sshd`.
 - Install Word from your VM Word installer.
 - Enable *File → Options → Trust Center → Trust Center Settings → Macro Settings →*
   **☑ Trust access to the VBA project object model** (required by the import/export build).
+  This corresponds to `AccessVBOM=1` under
+  `HKCU\Software\Microsoft\Office\16.0\Word\Security`; the build cannot read the VBA
+  project without it.
+- The shell `Normal.dotm` you build from **must not have a locked VBA project** — a
+  password-locked project reads as 0 components over automation and silently produces an
+  empty build (see DEVELOPMENT.md "The VBA project must not be locked").
 
 **Inno Setup:** install Inno Setup 6 (default path `C:\Program Files (x86)\Inno Setup 6`).
 

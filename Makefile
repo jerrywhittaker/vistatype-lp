@@ -25,6 +25,7 @@ DOTM      := Normal.dotm
 DOTX      := LargePrintTemplate.dotx
 RIBBON    := Word.officeUI
 SHIP_DOTM := LPandBRL.dotm
+PROJNAME  := LPandBRL
 APPVER    := 2.2.3
 
 SSH := ssh $(WIN_HOST)
@@ -54,7 +55,7 @@ pull: check-config push-src
 
 # --- build the shipping .dotm from src/ via Word, then embed the ribbon ---
 build: check-config push-src
-	$(SSH) '$(WIN_PWSH) -ExecutionPolicy Bypass -File $(WSCRIPTS)/Import-Vba.ps1 -Shell "$(WIN_DIR)/$(DOTM)" -SrcRoot "$(WIN_DIR)/src" -OutDotm "$(WIN_DIR)/dist/$(DOTM)"'
+	$(SSH) '$(WIN_PWSH) -ExecutionPolicy Bypass -File $(WSCRIPTS)/Import-Vba.ps1 -Shell "$(WIN_DIR)/$(DOTM)" -SrcRoot "$(WIN_DIR)/src" -OutDotm "$(WIN_DIR)/dist/$(DOTM)" -ProjectName $(PROJNAME)'
 	mkdir -p dist
 	scp -q "$(WIN_HOST):$(WIN_DIR)/dist/$(DOTM)" dist/$(DOTM)
 	python3 tools/lib/inject_customui.py dist/$(DOTM) src/ribbon/customUI14.xml

@@ -110,8 +110,12 @@ def main():
     count = 0
     for stream, off in module_offsets(dir_stream):
         raw = ole.openstream("VBA/" + stream).read()
-        src = decompress(raw[off:]).decode("latin-1")
-        with open(os.path.join(outdir, stream + ".vba"), "w") as fh:
+        # VBA stores module source in the system ANSI codepage (Windows-1252 for Western
+        # installs), NOT ISO-8859-1: e.g. byte 0x91/0x92 are the smart quotes U+2018/U+2019,
+        # 0x96 an en-dash, 0x85 an ellipsis. Decoding as latin-1 turns those into C1 control
+        # codes. cp1252 recovers the intended punctuation.
+        src = decompress(raw[off:]).decode("cp1252", errors="replace")
+        with open(os.path.join(outdir, stream + ".vba"), "w", encoding="utf-8") as fh:
             fh.write(src)
         count += 1
     print(f"Wrote {count} modules to {outdir}/")
