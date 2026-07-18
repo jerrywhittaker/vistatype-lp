@@ -35,7 +35,7 @@ Installed by the Inno Setup installer (`installer/vistatype.iss`):
 
 - `LPandBRL.dotm` → `%AppData%\Microsoft\Word\STARTUP\` (Word auto-loads it as a global add-in)
 - `LargePrintTemplate.dotx` → `%AppData%\Microsoft\Templates\`; attached to each LP document
-- VistaType's 6 QAT icons are **merged into the user's own `Word.officeUI`** (never shipped as a whole file); the embedded ribbon supplies the tabs
+- VistaType's **standard QAT toolbar** (`installer/qat-template.officeUI`) is installed into the user's own `Word.officeUI` (both Roaming and Local), preserving their ribbon and appending their own QAT icons; the embedded ribbon supplies the tabs
 
 ## Repo layout
 
@@ -47,8 +47,8 @@ LPandBRL.dotm   the .dotm shell/base (tracked): project references + non-VBA par
 LargePrintTemplate.dotx   the attached large-print template (styles/page setup)
 Word.officeUI   legacy global ribbon (no longer shipped; kept for reference)
 tools/windows/  Export-Vba.ps1 / Import-Vba.ps1 — run in Word on the build box
-tools/lib/      decompress_vba.py (reader); officeui_to_customui.py + inject_customui.py (ribbon); extract_qat.py (QAT list)
-installer/      Inno Setup installer (vistatype.iss) + scripts/ (QAT merge/remove) — replaces manual file-copy install
+tools/lib/      decompress_vba.py (reader); officeui_to_customui.py + inject_customui.py (ribbon); extract_qat.py (obsolete/reference — QAT is now qat-template.officeUI)
+installer/      Inno Setup installer (vistatype.iss) + scripts/ (QAT merge/remove) + qat-template.officeUI (the standard QAT) — replaces manual file-copy install
 docs/           Installation-Guide.md (end-user install); Build-VM-Setup.md (Hyper-V build/test box); Software-Agreement.md (GPLv3 About-dialog text)
 reference/      generated read aids (gitignored mirror + interim form-code dump)
 Makefile        pull / build / ribbon / qat / read / deploy / stage / installer  (see DEVELOPMENT.md)
@@ -58,9 +58,22 @@ The ribbon is **embedded** in `LPandBRL.dotm` (`src/ribbon/customUI14.xml`), so 
 with each user's ribbon instead of overwriting it — the old `Word.officeUI` file is no
 longer shipped. Every ribbon button routes through one VBA dispatcher, `RibbonAction`
 (`src/vba/RibbonCallbacks.bas`), which runs the macro named in the control's `tag`. The
-QAT can't be set from a template, so the **installer** merges VistaType's 6 quick-access
-icons into each user's own `Word.officeUI` non-destructively (`installer/scripts/`,
-list in `installer/qat-controls.xml`).
+QAT can't be set from a template's customUI, so the **installer** imposes VistaType's standard
+QAT — the full hand-maintained toolbar in `installer/qat-template.officeUI` — via
+`installer/scripts/Merge-Qat.ps1` (uninstall reverses it with `Remove-Qat.ps1`). It is
+non-destructive: only the QAT `sharedControls` are replaced (the user's ribbon customizations are
+kept), any QAT icons the user added themselves are re-appended to the **right** of the VistaType
+block (deduped), and the user's original `Word.officeUI` is backed up (`.vtqatbak`) so uninstall
+restores it (or deletes the file if we created it). Three subtleties that make it actually work:
+- **Location:** Word reads `Word.officeUI` from `%APPDATA%` (Roaming) on most machines but from
+  `%LOCALAPPDATA%` (Local) when the profile roams/redirects or Office can't roam, so the merge
+  writes **both** (Word honors whichever it uses; the other is ignored).
+- **Format:** each VistaType QAT entry is a **reference to the add-in's own ribbon control** —
+  `<mso:control idQ="x1:btn_<macro>">`, where the `x1` namespace is the installed
+  `LPandBRL.dotm`'s full path — the exact shape Word itself writes when a user adds one of our
+  ribbon buttons to the QAT by hand. (Standalone `onAction` macro buttons did **not** display.)
+- **Template:** `qat-template.officeUI` is hand-edited (`__VT_DOTM_PATH__` is substituted with the
+  install path at merge time); its `btn_<macro>` ids must match `src/ribbon/customUI14.xml`.
 
 ## Build & edit workflow (short version)
 

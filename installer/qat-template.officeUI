@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- VistaType standard Quick Access Toolbar template (hand-maintained; the source of truth
+     for the QAT the installer imposes). Merge-Qat.ps1 substitutes __VT_DOTM_PATH__ with the
+     installed LPandBRL.dotm path, swaps these sharedControls in as the user's QAT, preserves
+     the user's own ribbon customizations, and appends any QAT icons the user added themselves
+     to the RIGHT of this block. Edit this file to change the standard toolbar.
+     The x1:btn_<macro> entries reference ribbon buttons defined in src/ribbon/customUI14.xml
+     (id="btn_<macro>"); imageMso must match. visible="false" entries hide default QAT items. -->
+<mso:customUI xmlns:x1="__VT_DOTM_PATH__" xmlns:msox="http://schemas.microsoft.com/office/2006/01/customui/special" xmlns:mso="http://schemas.microsoft.com/office/2009/07/customui">
+  <mso:ribbon>
+    <mso:qat>
+      <mso:sharedControls>
+        <mso:control idQ="mso:AutoSaveSwitch" visible="false"/>
+        <mso:control idQ="mso:FileSendAsAttachment" visible="false" insertBeforeQ="mso:FileNewDefault"/>
+        <mso:control idQ="mso:FilePrintQuick" visible="false" insertBeforeQ="mso:FileNewDefault"/>
+        <mso:control idQ="mso:PrintPreviewAndPrint" visible="false" insertBeforeQ="mso:FileNewDefault"/>
+        <mso:control idQ="mso:WritingAssistanceCheckDocument" visible="false" insertBeforeQ="mso:FileNewDefault"/>
+        <mso:control idQ="mso:ReadAloud" visible="false" insertBeforeQ="mso:FileNewDefault"/>
+        <mso:control idQ="mso:Undo" visible="false" insertBeforeQ="mso:FileNewDefault"/>
+        <mso:control idQ="mso:RedoOrRepeat" visible="false" insertBeforeQ="mso:FileNewDefault"/>
+        <mso:control idQ="mso:TableDrawTable" visible="false" insertBeforeQ="mso:FileNewDefault"/>
+        <mso:control idQ="mso:PointerModeOptions" visible="false" insertBeforeQ="mso:FileNewDefault"/>
+        <mso:control idQ="mso:FileOpenUsingBackstage" visible="true" insertBeforeQ="mso:FileNewDefault"/>
+        <mso:control idQ="mso:FileSave" visible="true" insertBeforeQ="mso:FileNewDefault"/>
+        <mso:control idQ="mso:FileNewDefault" visible="true"/>
+        <mso:separator idQ="msox:sep1" visible="true"/>
+        <mso:control idQ="x1:btn_Sh_Doc_Info" visible="true" imageMso="Info"/>
+        <mso:separator idQ="msox:sep2" visible="true"/>
+        <mso:control idQ="mso:ZoomTwoPages" visible="true"/>
+        <mso:control idQ="mso:ViewDraftView" visible="true"/>
+        <mso:control idQ="mso:ViewPrintLayoutView" visible="true"/>
+        <mso:control idQ="mso:ParagraphMarks" visible="true"/>
+        <mso:control idQ="mso:SetLanguageMenu" visible="true"/>
+        <mso:control idQ="mso:StyleGalleryClassic" visible="true"/>
+        <mso:control idQ="mso:DocumentTemplate" visible="true"/>
+        <mso:separator idQ="msox:sep3" visible="true"/>
+        <mso:control idQ="mso:AutoFormat" visible="true"/>
+        <mso:control idQ="mso:AutoCorrect" visible="true"/>
+        <mso:control idQ="mso:StylesPane" visible="true"/>
+        <mso:control idQ="mso:Font" visible="true"/>
+        <mso:control idQ="mso:FontSize" visible="true"/>
+        <mso:separator idQ="msox:sep4" visible="true"/>
+        <mso:control idQ="x1:btn_Lp_Toggle_Space_After_Current_Para" visible="true" imageMso="SlidesPerPageSlideOutline"/>
+        <mso:control idQ="x1:btn_Lp_Keep_With_Next_Para" visible="true" imageMso="Pushpin"/>
+        <mso:control idQ="x1:btn_Sh_Move_Paragraph_To_Next_Page" visible="true" imageMso="_3DPerspectiveDecrease"/>
+        <mso:control idQ="x1:btn_Sh_Keep_Lines_Of_Para_Together" visible="true" imageMso="Lock"/>
+        <mso:control idQ="x1:btn_Sh_Apply_Title_Case_Capitalization" visible="true" imageMso="CharacterBorder"/>
+      </mso:sharedControls>
+    </mso:qat>
+  </mso:ribbon>
+</mso:customUI>

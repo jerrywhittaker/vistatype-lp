@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
-"""Extract VistaType's QAT macro buttons from Word.officeUI into a data fragment.
+"""OBSOLETE / REFERENCE ONLY -- no longer part of the build or install pipeline.
 
-The installer merges these into each user's own Word.officeUI (non-destructively),
-so a fresh install arrives with the VistaType quick-access icons pre-stocked while
-the user's ribbon and their own QAT items are left untouched.
+The QAT is now a hand-maintained full toolbar in installer/qat-template.officeUI, which the
+installer imposes via installer/scripts/Merge-Qat.ps1 (referencing the add-in's ribbon
+controls, writing both the Roaming and Local Word.officeUI). This extractor used to emit the
+old installer/qat-controls.xml (macro-button list); that file has been removed. Kept only as a
+reference for how the legacy Word.officeUI QAT was parsed. Edit qat-template.officeUI by hand.
 
-Emits installer/qat-controls.xml -- a simple, namespace-free list the install-time
-PowerShell reads:
+This extractor only ever emitted the custom macro buttons:
 
     <qatControls>
       <button macro="Sh_Doc_Info" label="Document Settings" imageMso="Info"/>
       ...
     </qatControls>
 
-Usage:  python3 tools/lib/extract_qat.py [Word.officeUI] [installer/qat-controls.xml]
+Usage (reference only):  python3 tools/lib/extract_qat.py [Word.officeUI] [out.xml]
 """
 import sys
 import xml.etree.ElementTree as ET

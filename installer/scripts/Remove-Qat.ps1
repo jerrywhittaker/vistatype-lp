@@ -1,25 +1,57 @@
 <#
 Remove-Qat.ps1  --  run by the uninstaller, per-user.
 
-Removes ONLY VistaType's quick-access-toolbar items -- our buttons and our group
-separator, all marked with the idQ prefix "x1:VT_" -- from the user's Word.officeUI,
-leaving their ribbon and their own QAT items intact.
+Restores the user's Quick Access Toolbar to what it was before VistaType was installed.
+Merge-Qat backed up the pristine Word.officeUI once (as "<file>.vtqatbak"); here we restore it
+and delete the backup. If there is no backup (we created the file from scratch), we instead
+strip only VistaType's own items -- our ribbon-control references (idQ prefix maps to a
+namespace = the LPandBRL.dotm path) plus legacy "x1:VT_"/"msox:VT_" markers -- and leave the
+user's ribbon and their own QAT items intact. Cleans BOTH the Roaming and Local copies.
 #>
 $ErrorActionPreference = "Stop"
 
 $MSO = "http://schemas.microsoft.com/office/2009/07/customui"
-$Target = Join-Path $env:APPDATA "Microsoft\Office\Word.officeUI"
-if (-not (Test-Path -LiteralPath $Target)) { exit 0 }
+$Targets = @(
+    (Join-Path $env:APPDATA      "Microsoft\Office\Word.officeUI"),
+    (Join-Path $env:LOCALAPPDATA "Microsoft\Office\Word.officeUI")
+)
 
-[xml]$doc = Get-Content -LiteralPath $Target -Raw
-$ns = New-Object System.Xml.XmlNamespaceManager($doc.NameTable)
-$ns.AddNamespace("mso", $MSO)
+foreach ($Target in $Targets) {
+    $bak = "$Target.vtqatbak"
+    if (Test-Path -LiteralPath $bak) {
+        if ((Get-Item -LiteralPath $bak).Length -eq 0) {
+            # Empty sentinel: there was no original -- we created the file, so remove it.
+            if (Test-Path -LiteralPath $Target) { Remove-Item -LiteralPath $Target -Force }
+            Write-Host "Removed VistaType-created QAT file $Target"
+        } else {
+            # Restore the pristine pre-install QAT.
+            Copy-Item -LiteralPath $bak -Destination $Target -Force
+            Write-Host "Restored pre-install QAT for $Target"
+        }
+        Remove-Item -LiteralPath $bak -Force
+        continue
+    }
+    if (-not (Test-Path -LiteralPath $Target)) { continue }
 
-$shared = $doc.SelectSingleNode("//mso:qat/mso:sharedControls", $ns)
-if ($shared) {
+    # No backup: strip only VistaType items.
+    [xml]$doc = Get-Content -LiteralPath $Target -Raw
+    $root = $doc.DocumentElement
+    $ns = New-Object System.Xml.XmlNamespaceManager($doc.NameTable)
+    $ns.AddNamespace("mso", $MSO)
+    $shared = $doc.SelectSingleNode("//mso:qat/mso:sharedControls", $ns)
+    if (-not $shared) { continue }
+
     $removed = 0
     foreach ($c in @($shared.ChildNodes)) {
-        if ($c.GetAttribute("idQ") -like "x1:VT_*") { [void]$shared.RemoveChild($c); $removed++ }
+        $idQ = $c.GetAttribute("idQ"); if (-not $idQ) { continue }
+        $isOurs = ($idQ -like "x1:VT_*" -or $idQ -like "msox:VT_*")
+        if (-not $isOurs -and $idQ.Contains(":")) {
+            $prefix = $idQ.Substring(0, $idQ.IndexOf(":"))
+            if ($prefix -ne "mso" -and ($root.GetAttribute("xmlns:$prefix") -like "*LPandBRL.dotm")) {
+                $isOurs = $true
+            }
+        }
+        if ($isOurs) { [void]$shared.RemoveChild($c); $removed++ }
     }
     if ($removed -gt 0) {
         $settings = New-Object System.Xml.XmlWriterSettings
@@ -27,5 +59,5 @@ if ($shared) {
         $writer = [System.Xml.XmlWriter]::Create($Target, $settings)
         try { $doc.Save($writer) } finally { $writer.Close() }
     }
-    Write-Host "Removed $removed VistaType QAT buttons from $Target"
+    Write-Host "Removed $removed VistaType QAT item(s) from $Target"
 }

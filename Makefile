@@ -66,7 +66,9 @@ build: check-config push-src
 ribbon:
 	python3 tools/lib/officeui_to_customui.py $(RIBBON) src/ribbon/customUI14.xml
 
-# --- regenerate the installer's QAT icon list from the legacy Word.officeUI ---
+# --- OBSOLETE: the QAT is now a hand-maintained full toolbar in installer/qat-template.officeUI
+# --- (imposed by installer/scripts/Merge-Qat.ps1). extract_qat.py / this target are no longer
+# --- part of the pipeline; kept only for reference. Edit qat-template.officeUI by hand.
 qat:
 	python3 tools/lib/extract_qat.py $(RIBBON) installer/qat-controls.xml
 

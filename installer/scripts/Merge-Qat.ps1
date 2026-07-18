@@ -1,84 +1,147 @@
 <#
 Merge-Qat.ps1  --  run by the installer, per-user, on the target machine.
 
-Non-destructively adds VistaType's quick-access-toolbar icons to the user's own
-Word.officeUI. Their ribbon and their existing QAT items are left untouched; only
-our buttons (marked with an "x1:VT_" idQ prefix) are added. Idempotent: re-running
-replaces our buttons rather than duplicating them.
+Installs VistaType's standard Quick Access Toolbar (from qat-template.officeUI) while being
+non-destructive to the user:
+  * Only the QAT sharedControls are replaced; the user's ribbon customizations (tabs, etc.)
+    in Word.officeUI are left untouched.
+  * Any QAT icons the user added themselves are preserved and re-appended to the RIGHT of the
+    VistaType block (deduped against it).
+  * The user's original Word.officeUI is backed up (once) so uninstall can restore it.
 
-The ribbon TABS come from the embedded customUI in LPandBRL.dotm; this script only
-touches the QAT, which a template add-in cannot populate on its own.
+Two things that make it actually work (learned the hard way):
+  1. LOCATION. Word reads Word.officeUI from %APPDATA% (Roaming) on most machines but from
+     %LOCALAPPDATA% (Local) when the profile roams/redirects or Office can't roam. We don't
+     know which a machine uses, so we write BOTH.
+  2. FORMAT. VistaType QAT buttons are REFERENCES to the add-in's own ribbon controls
+     (<mso:control idQ="x1:btn_<macro>"> with x1 = the installed .dotm's path) -- the exact
+     shape Word writes when a user adds one of our ribbon buttons to the QAT by hand.
 
-Usage:  powershell -ExecutionPolicy Bypass -File Merge-Qat.ps1 -Fragment qat-controls.xml
+Usage:  powershell -ExecutionPolicy Bypass -File Merge-Qat.ps1 -Template qat-template.officeUI
 #>
 param(
-    [Parameter(Mandatory=$true)][string]$Fragment
+    [Parameter(Mandatory=$true)][string]$Template
 )
 $ErrorActionPreference = "Stop"
 
-$MSO = "http://schemas.microsoft.com/office/2009/07/customui"
-$X1  = "http://schemas.microsoft.com/office/2009/07/customui/macro"
-$Target = Join-Path $env:APPDATA "Microsoft\Office\Word.officeUI"
+$MSO      = "http://schemas.microsoft.com/office/2009/07/customui"
+$MSOX     = "http://schemas.microsoft.com/office/2006/01/customui/special"
+$XMLNS    = "http://www.w3.org/2000/xmlns/"
+$DotmPath = Join-Path $env:APPDATA "Microsoft\Word\STARTUP\LPandBRL.dotm"
 
-[xml]$frag = Get-Content -LiteralPath $Fragment -Raw
-$buttons = @($frag.qatControls.button)
+$Targets = @(
+    (Join-Path $env:APPDATA      "Microsoft\Office\Word.officeUI"),
+    (Join-Path $env:LOCALAPPDATA "Microsoft\Office\Word.officeUI")
+)
 
-if (Test-Path -LiteralPath $Target) {
-    [xml]$doc = Get-Content -LiteralPath $Target -Raw
-} else {
-    New-Item -ItemType Directory -Force -Path (Split-Path $Target) | Out-Null
-    [xml]$doc = "<mso:customUI xmlns:x1=`"$X1`" xmlns:mso=`"$MSO`">" +
-                "<mso:ribbon><mso:qat><mso:sharedControls></mso:sharedControls>" +
-                "</mso:qat></mso:ribbon></mso:customUI>"
+function Split-IdQ($idQ) {
+    $i = $idQ.IndexOf(":")
+    if ($i -lt 0) { return @($null, $idQ) }
+    return @($idQ.Substring(0,$i), $idQ.Substring($i+1))
 }
-$root = $doc.DocumentElement
-
-# idQ="x1:VT_..." needs the x1 macro namespace declared on the root.
-if ([string]::IsNullOrEmpty($root.GetAttribute("xmlns:x1"))) {
-    $root.SetAttribute("xmlns:x1", $X1)
+# The URI an idQ prefix maps to (mso/msox are well-known; others come from xmlns decls).
+function Resolve-Uri($doc, $prefix) {
+    if ($prefix -eq "mso")  { return $MSO }
+    if ($prefix -eq "msox") { return $MSOX }
+    if (-not $prefix) { return $null }
+    $n = $doc.DocumentElement.GetAttributeNode($prefix, $XMLNS)
+    if ($n) { return $n.Value }
+    return $null
 }
-
-$ns = New-Object System.Xml.XmlNamespaceManager($doc.NameTable)
-$ns.AddNamespace("mso", $MSO)
-
-function Get-OrCreate($parent, $name) {
-    $node = $parent.SelectSingleNode("mso:$name", $ns)
-    if (-not $node) {
-        $node = $doc.CreateElement("mso", $name, $MSO)
-        [void]$parent.AppendChild($node)
+# Reuse an existing prefix mapping to $uri; else declare $preferred if free; else vt1, vt2 ...
+function Ensure-Prefix($rootEl, $doc, $uri, $preferred) {
+    foreach ($a in $rootEl.Attributes) {
+        if ($a.Prefix -eq "xmlns" -and $a.Value -eq $uri) { return $a.LocalName }
     }
-    return $node
+    $try = $preferred; $n = 1
+    while ($rootEl.GetAttributeNode($try, $XMLNS)) { $try = "vt$n"; $n++ }
+    $decl = $doc.CreateAttribute("xmlns", $try, $XMLNS); $decl.Value = $uri
+    [void]$rootEl.Attributes.Append($decl)
+    return $try
 }
-$ribbon = Get-OrCreate $root   "ribbon"
-$qat    = Get-OrCreate $ribbon "qat"
-$shared = Get-OrCreate $qat    "sharedControls"
-
-# Remove any previously-injected VistaType items (idempotent reinstall/upgrade).
-# This also strips our old separator, so the block is rebuilt cleanly each time.
-foreach ($c in @($shared.ChildNodes)) {
-    if ($c.GetAttribute("idQ") -like "x1:VT_*") { [void]$shared.RemoveChild($c) }
-}
-
-# Keep VistaType's icons together as one contiguous block at the end of the QAT.
-# If the user already has their own QAT items, put a separator before our block so
-# ours are visually grouped and set apart from theirs.
-if ($shared.ChildNodes.Count -gt 0) {
-    $sep = $doc.CreateElement("mso", "separator", $MSO)
-    $sep.SetAttribute("idQ", "x1:VT_Separator")
-    [void]$shared.AppendChild($sep)
-}
-foreach ($b in $buttons) {
-    $btn = $doc.CreateElement("mso", "button", $MSO)
-    $btn.SetAttribute("idQ", "x1:VT_" + $b.macro)
-    $btn.SetAttribute("label", $b.label)
-    if ($b.imageMso) { $btn.SetAttribute("imageMso", $b.imageMso) }
-    $btn.SetAttribute("onAction", $b.macro)
-    $btn.SetAttribute("visible", "true")
-    [void]$shared.AppendChild($btn)
+function Get-OrCreate($doc, $ns, $parent, $name) {
+    $n = $parent.SelectSingleNode("mso:$name", $ns)
+    if (-not $n) { $n = $doc.CreateElement("mso", $name, $MSO); [void]$parent.AppendChild($n) }
+    return $n
 }
 
-$settings = New-Object System.Xml.XmlWriterSettings
-$settings.Encoding = New-Object System.Text.UTF8Encoding($false)  # UTF-8, no BOM
-$writer = [System.Xml.XmlWriter]::Create($Target, $settings)
-try { $doc.Save($writer) } finally { $writer.Close() }
-Write-Host "Merged $($buttons.Count) VistaType QAT buttons into $Target"
+# --- Load the template and pin its x1 namespace to this machine's add-in path. ---
+$tplText = (Get-Content -LiteralPath $Template -Raw).Replace("__VT_DOTM_PATH__", $DotmPath)
+[xml]$tpl = $tplText
+$tplShared = $tpl.SelectSingleNode("//*[local-name()='sharedControls']")
+$tplItems  = @($tplShared.ChildNodes | Where-Object { $_.NodeType -eq 'Element' })
+
+# (uri|local) set the template provides, so user items already covered aren't re-added.
+$tplKeys = @{}
+foreach ($it in $tplItems) {
+    $idQ = $it.GetAttribute("idQ"); if (-not $idQ) { continue }
+    $p, $l = Split-IdQ $idQ
+    $tplKeys["$(Resolve-Uri $tpl $p)|$l"] = $true
+}
+
+function Merge-One([string]$Target) {
+    # Back up the pristine original ONCE, for uninstall. If there is no original (we're
+    # creating the file), leave an EMPTY sentinel so a re-run never captures our own output
+    # and uninstall knows to delete the file rather than "restore" a VistaType QAT.
+    $bak = "$Target.vtqatbak"
+    $exists = Test-Path -LiteralPath $Target
+    if (-not $exists) { New-Item -ItemType Directory -Force -Path (Split-Path $Target) | Out-Null }
+    if (-not (Test-Path -LiteralPath $bak)) {
+        if ($exists) { Copy-Item -LiteralPath $Target -Destination $bak -Force }
+        else         { New-Item -ItemType File -Path $bak -Force | Out-Null }
+    }
+    if ($exists) {
+        [xml]$doc = Get-Content -LiteralPath $Target -Raw
+    } else {
+        [xml]$doc = "<mso:customUI xmlns:mso=`"$MSO`"><mso:ribbon><mso:qat>" +
+                    "<mso:sharedControls></mso:sharedControls></mso:qat></mso:ribbon></mso:customUI>"
+    }
+    $root = $doc.DocumentElement
+    $ns = New-Object System.Xml.XmlNamespaceManager($doc.NameTable)
+    $ns.AddNamespace("mso", $MSO)
+
+    $ribbon = Get-OrCreate $doc $ns $root   "ribbon"
+    $qat    = Get-OrCreate $doc $ns $ribbon "qat"
+    $shared = Get-OrCreate $doc $ns $qat    "sharedControls"
+
+    # Prefixes for the template's custom namespaces (add-in path + separators ns).
+    $vtPrefix  = Ensure-Prefix $root $doc $DotmPath "x1"
+    $sepPrefix = Ensure-Prefix $root $doc $MSOX     "msox"
+
+    # Snapshot the user's existing QAT items, then clear the block.
+    $userItems = @($shared.ChildNodes | Where-Object { $_.NodeType -eq 'Element' })
+    foreach ($c in $userItems) { [void]$shared.RemoveChild($c) }
+
+    # 1) Lay down the VistaType standard toolbar (template), rewriting its custom-ns prefixes.
+    foreach ($it in $tplItems) {
+        $el = $doc.CreateElement("mso", $it.LocalName, $MSO)
+        foreach ($a in $it.Attributes) {
+            $val = $a.Value
+            if ($a.Name -eq "idQ") {
+                $p, $l = Split-IdQ $val
+                if     ($p -eq "x1")   { $val = "${vtPrefix}:$l" }
+                elseif ($p -eq "msox") { $val = "${sepPrefix}:$l" }
+            }
+            $el.SetAttribute($a.Name, $val)
+        }
+        [void]$shared.AppendChild($el)
+    }
+
+    # 2) Re-append the user's own QAT icons to the RIGHT: skip separators and anything the
+    #    template already provides (deduped by resolved namespace + local name).
+    foreach ($u in $userItems) {
+        if ($u.LocalName -eq "separator") { continue }
+        $idQ = $u.GetAttribute("idQ"); if (-not $idQ) { continue }
+        $p, $l = Split-IdQ $idQ
+        if ($tplKeys.ContainsKey("$(Resolve-Uri $doc $p)|$l")) { continue }
+        [void]$shared.AppendChild($u)     # keeps its own prefix, whose decl is still on root
+    }
+
+    $settings = New-Object System.Xml.XmlWriterSettings
+    $settings.Encoding = New-Object System.Text.UTF8Encoding($false)  # UTF-8, no BOM
+    $writer = [System.Xml.XmlWriter]::Create($Target, $settings)
+    try { $doc.Save($writer) } finally { $writer.Close() }
+    Write-Host "Installed VistaType QAT into $Target"
+}
+
+foreach ($t in $Targets) { Merge-One $t }

@@ -66,14 +66,14 @@ Source: "{#SrcDir}\{#DotxName}";   DestDir: "{userappdata}\Microsoft\Templates";
 ; QAT merge helpers -> a persistent per-user folder (needed again at uninstall).
 Source: "scripts\Merge-Qat.ps1";   DestDir: "{userappdata}\VistaType LP"; Flags: ignoreversion
 Source: "scripts\Remove-Qat.ps1";  DestDir: "{userappdata}\VistaType LP"; Flags: ignoreversion
-Source: "qat-controls.xml";        DestDir: "{userappdata}\VistaType LP"; Flags: ignoreversion
+Source: "qat-template.officeUI";   DestDir: "{userappdata}\VistaType LP"; Flags: ignoreversion
 ; Install a copy of the GPL so the user "receives a copy of the license" per the GPL.
 Source: "{#SrcDir}\LICENSE.txt";   DestDir: "{userappdata}\VistaType LP"; Flags: ignoreversion
 
 [Run]
-; Non-destructively merge VistaType's QAT icons into the user's own Word.officeUI.
+; Install VistaType's standard QAT (preserving the user's own icons + ribbon customizations).
 Filename: "powershell.exe"; \
-  Parameters: "-ExecutionPolicy Bypass -NoProfile -File ""{userappdata}\VistaType LP\Merge-Qat.ps1"" -Fragment ""{userappdata}\VistaType LP\qat-controls.xml"""; \
+  Parameters: "-ExecutionPolicy Bypass -NoProfile -File ""{userappdata}\VistaType LP\Merge-Qat.ps1"" -Template ""{userappdata}\VistaType LP\qat-template.officeUI"""; \
   Flags: runhidden; StatusMsg: "Adding VistaType quick-access icons..."
 
 [UninstallRun]
