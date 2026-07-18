@@ -17,7 +17,9 @@ Attribute VB_Name = "LPandBrlMacros"
 '
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - LP - 7/18/2026 - MS_Set_Word_Config_For_New_Install now writes Options/AutoCorrect only when they differ (idempotent), so it no longer triggers Office's "restart to apply privacy settings" notice on new docs
+' Notes:    - LP - 7/18/2026 - Lp_Attach_The_Template / Sh_Convert_XML_File_To_Word_Document: Save As now uses a single Word Dialog object for .Display + .Execute so the file saves under the name the user types (two separate Dialogs() references lost the typed name); also removed the "template has been attached" prompt from the LP attach
+'           - LP - 7/18/2026 - Lp_Attach_The_Template and Sh_Convert_XML_File_To_Word_Document now stabilize the document BEFORE saving, so each writes the file only once (attach/convert -> stabilize -> save) instead of save -> stabilize -> save
+'           - LP - 7/18/2026 - MS_Set_Word_Config_For_New_Install now writes Options/AutoCorrect only when they differ (idempotent), so it no longer triggers Office's "restart to apply privacy settings" notice on new docs
 '           - LP - 7/2/2026 - revision to file cleanup and normalization
 '           - LP - 6/26/2026 - Revison of non-modal messaging - template normalizion optimized
 '           - LP - 6/22/2026 - Revison of non-modal messaging
@@ -11306,6 +11308,8 @@ Sub Lp_Attach_The_Template()
 
     ' Attaches the LP template with style changes
     '
+    ' Version: 2.8  Date: 7/18/2026 - removed the "template has been attached" prompt; Save As now uses one dialog object so the file saves under the name the user types
+    ' Version: 2.7  Date: 7/18/2026 - stabilize the document before saving; now saves only once (attach->stabilize->save)
     ' Version: 2.6  Date: 7/3/2026 - changed external app order
     ' Version: 2.5  Date: 3/5/2026 - added non-modal message
     ' Version: 2.4  Date: 10/13/2025 - Moved "Lp_ResizePicturesAndShapesToFitPageWidthAndPageHeight" from runnining only on new documents
@@ -11499,17 +11503,43 @@ DoEvents
 
     Sh_SetBarVisible "Styles", True
 
-    MsgBox "The VistaType LP template has been attached." _
-    & vbCrLf & vbCrLf & "File stabilization requires an immediate save. SAVE NOW!", vbInformation, "VistaType LP (186)"
-    
     Dim doc As Document
     Dim userChoice As VbMsgBoxResult
     Set doc = ActiveDocument
-    
+
+    ' Stabilize the document FIRST, then save it exactly once (attach -> stabilize -> save).
+    Sh_NonModalMessageForm.Show vbModeless
+    Sh_NonModalMessageForm.SetActivityMessage "Repaginating the document"
+    DoEvents
+    Sh_PauseSeconds 3   'pause for nn seconds
+
+    doc.Repaginate
+
+    Sh_NonModalMessageForm.Show vbModeless
+    Sh_NonModalMessageForm.SetActivityMessage "Updating document fields"
+    DoEvents
+    Sh_PauseSeconds 3   'pause for nn seconds
+
+    doc.Fields.Update
+    doc.UndoClear
+
+    ' Hide the progress form momentarily so Windows can cleanly shift focus to the Save As dialog
+    Sh_NonModalMessageForm.Hide
+
+    ' Force the Word Application and your specific document to the front
+    Application.Activate
+    currentdoc.Activate
+    DoEvents
+
+    Dim dlgSaveAs As Dialog
 SaveTheFile:
  'jw
+    ' Capture ONE dialog object and use it for BOTH .Display and .Execute, so the file is
+    ' saved under the name the user types. (A separate Dialogs(wdDialogFileSaveAs) reference
+    ' for .Execute ignores the typed name and re-saves under the document's current/default name.)
+    Set dlgSaveAs = Dialogs(wdDialogFileSaveAs)
     ' .Display ONLY opens the window to get the file name; it does NOT save yet
-    If Dialogs(wdDialogFileSaveAs).Display <> -1 Then
+    If dlgSaveAs.Display <> -1 Then
         ' User canceled the dialog
         userChoice = MsgBox( _
             "You have canceled the Save." & vbCrLf & vbCrLf & _
@@ -11517,7 +11547,7 @@ SaveTheFile:
             "Do you want to reconsider saving this file?", _
             vbYesNo + vbExclamation, _
             "Save As Canceled")
-            
+
         If userChoice = vbNo Then
             Unload Sh_NonModalMessageForm
             Exit Sub
@@ -11527,48 +11557,17 @@ SaveTheFile:
     Else
         ' 1. Show the non-modal form BEFORE saving
         Sh_NonModalMessageForm.Show vbModeless
-        
+
         'Sh_NonModalMessageForm.LblMessage ""
-        Sh_NonModalMessageForm.SetActivityMessage "Saving the document. Activity spinner is idle."
+        Sh_NonModalMessageForm.SetActivityMessage "Saving the stabilized document. Activity spinner is idle."
         DoEvents
-        
-        ' 2. Execute the save command while the message is visible on screen
-        Dialogs(wdDialogFileSaveAs).Execute
-        
+
+        ' 2. Execute the save on the SAME dialog object so the typed name is used
+        dlgSaveAs.Execute
+
         ' 3. Keep the message up for a brief moment so they see it finish
         Sh_PauseSeconds 3
     End If
-
-    ' Hide the progress form momentarily so Windows can cleanly shift focus
-    Sh_NonModalMessageForm.Hide
-    
-    ' Force the Word Application and your specific document to the front
-    Application.Activate
-    currentdoc.Activate
-    DoEvents
-    
-    ' Now stabilize the document.
-    Sh_NonModalMessageForm.Show vbModeless
-    Sh_NonModalMessageForm.SetActivityMessage "Repaginating the document"
-    DoEvents
-    Sh_PauseSeconds 3   'pause for nn seconds
-    
-    doc.Repaginate
-    
-    Sh_NonModalMessageForm.Show vbModeless
-    Sh_NonModalMessageForm.SetActivityMessage "Updating document fields"
-    DoEvents
-    Sh_PauseSeconds 3   'pause for nn seconds
-        
-    doc.Fields.Update
-    doc.UndoClear
-    
-    Sh_NonModalMessageForm.Show vbModeless
-    Sh_NonModalMessageForm.SetActivityMessage "Saving the stabilized document"
-    DoEvents
-    Sh_PauseSeconds 3   'pause for nn seconds
-    
-    doc.Save
 
     'Unload the progress form completely
     Unload Sh_NonModalMessageForm
@@ -16248,6 +16247,8 @@ Sub Sh_Convert_XML_File_To_Word_Document()
 '
 ' Automatically converts an .xml (NIMAS or DAISY) file into a Word Document with reference pages tagged with $pg
 '
+' Version: 1.3  Date: 7/18/2026 - Save As now uses one dialog object so the file saves under the name the user types
+' Version: 1.2  Date: 7/18/2026 - stabilize the document before saving; now saves only once (stabilize->save)
 ' Version: 1.1  Date: 7/8/2026 - added non modal message code - and file stabilization code
 ' Version: 1.0  Date: 3/3/2026
 '
@@ -16460,17 +16461,49 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     
     MsgBox "Here is the " & Sh_GP_String_1 & " file in Word format." & _
     vbCrLf & vbCrLf & "All reference page numbers have been tagged with $pg tags ready for validation." & _
-    vbCrLf & vbCrLf & "SAVE THIS FILE AS A WORD DOCUMENT WITH A .docx FILE TYPE NOW!", vbInformation
+    vbCrLf & vbCrLf & "The document will now be stabilized and then saved as a Word document with a .docx file type.", vbInformation
     
     Dim doc As Document
     Dim userChoice As VbMsgBoxResult
     Set doc = ActiveDocument
     
+    ' Stabilize the document FIRST, then save it exactly once (stabilize -> save).
+    Set currentdoc = doc
+
+    Sh_NonModalMessageForm.Show vbModeless
+    Sh_NonModalMessageForm.SetActivityMessage "Repaginating the document"
+    DoEvents
+    Sh_PauseSeconds 3   'pause for nn seconds
+
+    doc.Repaginate
+
+    Sh_NonModalMessageForm.Show vbModeless
+    Sh_NonModalMessageForm.SetActivityMessage "Updating document fields"
+    DoEvents
+    Sh_PauseSeconds 3   'pause for nn seconds
+
+    doc.Fields.Update
+    doc.UndoClear
+
+    ' Hide the progress form momentarily so Windows can cleanly shift focus to the Save As dialog
+    Sh_NonModalMessageForm.Hide
+
+    ' Force the Word Application and your specific document to the front
+    Application.Activate
+    currentdoc.Activate
+    DoEvents
+
+    Dim dlgSaveAs As Dialog
 SaveTheFile:
-    ' If the document is unnamed, force the Save As dialog
+    ' Now save the stabilized document exactly once.
     If doc.Path = "" Then
+        ' Unnamed document: force the Save As dialog.
+        ' Capture ONE dialog object and use it for BOTH .Display and .Execute, so the file
+        ' is saved under the name the user types. (A separate Dialogs(wdDialogFileSaveAs)
+        ' reference for .Execute ignores the typed name and uses the document's default name.)
+        Set dlgSaveAs = Dialogs(wdDialogFileSaveAs)
         ' .Display ONLY opens the window to get the file name; it does NOT save yet
-        If Dialogs(wdDialogFileSaveAs).Display <> -1 Then
+        If dlgSaveAs.Display <> -1 Then
             ' User canceled the dialog
             userChoice = MsgBox( _
                 "You canceled the Save As." & vbCrLf & vbCrLf & _
@@ -16478,8 +16511,9 @@ SaveTheFile:
                 "Do you want to reconsider and save this file?", _
                 vbYesNo + vbExclamation, _
                 "Save As Canceled")
-                
+
             If userChoice = vbNo Then
+                Unload Sh_NonModalMessageForm
                 Exit Sub
             Else
                 GoTo SaveTheFile
@@ -16488,50 +16522,24 @@ SaveTheFile:
             ' --- SUCCESSFUL FILE CHOICE ---
             ' 1. Show the non-modal form BEFORE saving
             Sh_NonModalMessageForm.Show vbModeless
-            Sh_NonModalMessageForm.SetActivityMessage "Saving the document. Activity spinner is idle."
+            Sh_NonModalMessageForm.SetActivityMessage "Saving the stabilized document. Activity spinner is idle."
             DoEvents
-            
-            ' 2. Execute the save command while the message is visible on screen
-            Dialogs(wdDialogFileSaveAs).Execute
-            
+
+            ' 2. Execute the save on the SAME dialog object so the typed name is used
+            dlgSaveAs.Execute
+
             ' 3. Keep the message up for a brief moment so they see it finish
             Sh_PauseSeconds 2
         End If
-    End If
-    
-    ' At this point the document HAS a real file path.
-    Set currentdoc = doc
+    Else
+        ' Named document: save it in place, exactly once.
+        Sh_NonModalMessageForm.Show vbModeless
+        Sh_NonModalMessageForm.SetActivityMessage "Saving the stabilized document"
+        DoEvents
+        Sh_PauseSeconds 3   'pause for nn seconds
 
-    ' Hide the progress form momentarily so Windows can cleanly shift focus
-    Sh_NonModalMessageForm.Hide
-    
-    ' Force the Word Application and your specific document to the front
-    Application.Activate
-    currentdoc.Activate
-    DoEvents
-    
-    ' Now stabilize the document.
-    Sh_NonModalMessageForm.Show vbModeless
-    Sh_NonModalMessageForm.SetActivityMessage "Repaginating the document"
-    DoEvents
-    Sh_PauseSeconds 3   'pause for nn seconds
-    
-    doc.Repaginate
-    
-    Sh_NonModalMessageForm.Show vbModeless
-    Sh_NonModalMessageForm.SetActivityMessage "Updating document fields"
-    DoEvents
-    Sh_PauseSeconds 3   'pause for nn seconds
-        
-    doc.Fields.Update
-    doc.UndoClear
-    
-    Sh_NonModalMessageForm.Show vbModeless
-    Sh_NonModalMessageForm.SetActivityMessage "Saving the stabilized document"
-    DoEvents
-    Sh_PauseSeconds 3   'pause for nn seconds
-    
-    doc.Save
+        doc.Save
+    End If
 
     'Unload the progress form completely
     Unload Sh_NonModalMessageForm
