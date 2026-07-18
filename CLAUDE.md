@@ -6,29 +6,36 @@ visually impaired readers, and **braille** source files for the Duxbury Braille 
 copyright 2015–2026.
 
 The repo keeps the **text source of truth** under `src/` and treats the binary Office
-artifacts as build outputs. All real logic lives in the VBA project embedded in
-`Normal.dotm`. Because VBA can only be compiled by Word itself, builds run on a remote
-Windows+Word box driven over SSH — see **`DEVELOPMENT.md`** for the full workflow.
-`src/` is authoritative; **never hand-edit `Normal.dotm`.**
+artifacts as build outputs. The real logic is authored as text under `src/vba` and
+`src/forms`; `make build` compiles it (in Word) into the shipping add-in `LPandBRL.dotm`.
+Because VBA can only be compiled by Word itself, builds run on a remote Windows+Word box
+driven over SSH — see **`DEVELOPMENT.md`** for the full workflow. `src/` is authoritative;
+**never hand-edit `LPandBRL.dotm`** — it is a build output.
 
-## The three files and how they work together
+## The pieces and how they work together
 
-| File | What it is | Role |
+The source of truth is `src/`. The items below are the *built* artifacts (and their
+sources) that ship or that Word loads.
+
+| Piece | What it is | Role |
 |------|-----------|------|
-| `Normal.dotm` | Word global macro template (macro-enabled) | **The code.** Holds the entire VBA project: ~208 subs/functions in `LPandBrlMacros`, plus 45+ UserForms. Loaded by Word at startup, so its macros are available to every document. This is where all behavior lives. |
-| `Word.officeUI` | Ribbon customization XML | **The UI.** Defines the custom ribbon tabs **"VistaType LP"** (large print) and **"Braille Macros"** (DBT/BANA), plus a QAT icon group. Each button's `onAction` names a VBA sub in `Normal.dotm`. |
-| `LargePrintTemplate.dotx` | Word document template | **The style set.** The template *attached to a user's large-print document* (vs. `Normal.dotm` which is the global template). Supplies paragraph/character styles and page setup. The VBA references it by name in 7+ places; `AutoOpen` treats a document as "large print" when this template is attached. |
+| `LPandBRL.dotm` | Word add-in template (macro-enabled), built from `src/` | **The code.** The entire compiled VBA project — ~208 subs/functions in `LPandBrlMacros`, plus 45+ UserForms — and the embedded ribbon (below). Loaded from Word's `STARTUP` folder, so its macros are available to every document. Behavior is *authored* under `src/vba`/`src/forms`; this is where it *runs*. |
+| Embedded ribbon (`src/ribbon/customUI14.xml`) | Ribbon customization XML, embedded into `LPandBRL.dotm` at build time | **The UI.** Defines the custom ribbon tabs **"VistaType LP"** (large print) and **"Braille Macros"** (DBT/BANA). Every button's `tag` names a VBA sub, dispatched through one `RibbonAction` handler. Because it is *embedded* (not the old global `Word.officeUI`), it **merges** with the user's ribbon instead of replacing it. |
+| `LargePrintTemplate.dotx` | Word document template | **The style set.** The template *attached to a user's large-print document* (vs. `LPandBRL.dotm`, the global add-in loaded for every document). Supplies paragraph/character styles and page setup. The VBA references it by name in 7+ places, and treats a document as "large print" when this template is attached. |
 
-Flow: User opens/creates a doc → `Normal.dotm`'s `AutoOpen`/`AutoNew` run → detects
-whether the attached template is `LargePrintTemplate.dotx` (large print), a BANA braille
-template, or neither → configures Word accordingly → the ribbon buttons from `Word.officeUI`
-invoke VBA subs to clean up, format, and tag the document.
+Flow: User opens/creates a doc → `LPandBRL.dotm`'s Word **application events** fire (the
+`VtEvents` sink, hooked by `AutoExec`) → detect whether the attached template is
+`LargePrintTemplate.dotx` (large print), a BANA braille template, or neither → configure
+Word accordingly → the embedded-ribbon buttons invoke VBA subs (via `RibbonAction`) to
+clean up, format, and tag the document.
 
 ## Deployment locations (on a transcriber's Windows PC)
 
-- `Normal.dotm` → `%AppData%\Microsoft\Templates\` (Word's global template)
-- `LargePrintTemplate.dotx` → Word user templates folder; attached to each LP document
-- `Word.officeUI` → `%AppData%\Microsoft\Office\` (Word reads ribbon customizations here)
+Installed by the Inno Setup installer (`installer/vistatype.iss`):
+
+- `LPandBRL.dotm` → `%AppData%\Microsoft\Word\STARTUP\` (Word auto-loads it as a global add-in)
+- `LargePrintTemplate.dotx` → `%AppData%\Microsoft\Templates\`; attached to each LP document
+- VistaType's 6 QAT icons are **merged into the user's own `Word.officeUI`** (never shipped as a whole file); the embedded ribbon supplies the tabs
 
 ## Repo layout
 
@@ -36,7 +43,7 @@ invoke VBA subs to clean up, format, and tag the document.
 src/vba/        canonical VBA text: *.bas (std modules), *.cls (class/document modules)
 src/forms/      canonical UserForms: *.frm + *.frx (binary layout)
 src/ribbon/     customUI14.xml — embedded ribbon (source of truth); Word.officeUI (legacy)
-Normal.dotm     shell/base + current deployable build (project references + non-VBA parts)
+LPandBRL.dotm   the .dotm shell/base (tracked): project references + non-VBA parts; build base
 LargePrintTemplate.dotx   the attached large-print template (styles/page setup)
 Word.officeUI   legacy global ribbon (no longer shipped; kept for reference)
 tools/windows/  Export-Vba.ps1 / Import-Vba.ps1 — run in Word on the build box
@@ -59,8 +66,8 @@ list in `installer/qat-controls.xml`).
 
 Full detail in **`DEVELOPMENT.md`**. In brief: edit text under `src/`, then
 `make build` ships it to the remote Windows+Word box over SSH, which imports the
-source into `dist/Normal.dotm` (Word regenerates p-code) and copies it back; smoke-test
-in Word, then `make deploy`. Never edit `Normal.dotm` by hand. `make pull` refreshes
+source into `dist/LPandBRL.dotm` (Word regenerates p-code) and copies it back; smoke-test
+in Word, then `make deploy`. Never edit `LPandBRL.dotm` by hand. `make pull` refreshes
 `src/` from the `.dotm` (canonical export, needed to (re)seed valid `.frx`); `make read`
 dumps readable source with the Linux decompressor without needing Windows.
 
@@ -106,8 +113,8 @@ Everything is namespaced by a short prefix — grep by it to find a feature area
 - `DN_` — DAISY / NIMAS / text-file tools.
 - `MS_` — Microsoft Word configuration/normalization (`MS_Set_Word_Config_For_New_Install`).
 
-The `Word.officeUI` `onAction` values map 1:1 to these subs (e.g. button
-`Lp_File_Fix_Sequence` → `Sub Lp_File_Fix_Sequence`).
+Each embedded-ribbon button's `tag` names one of these subs (e.g. `tag="Lp_File_Fix_Sequence"`
+→ `Sub Lp_File_Fix_Sequence`), run by the shared `RibbonAction` dispatcher.
 
 ### Editing convention
 
@@ -141,9 +148,9 @@ bump the per-sub version comment and add a dated line to the header changelog.
 ## Practical notes for changes
 
 - To inspect or diff logic, extract `vbaProject.bin` as above; do **not** try to read
-  `Normal.dotm` directly as text.
+  `LPandBRL.dotm` directly as text.
 - Re-packaging edited VBA back into a `.dotm` cannot be done reliably by hand on this
   (Linux) box — real edits are made in Word's VBA editor on Windows and the `.dotm` re-saved.
-- `Word.officeUI` and `LargePrintTemplate.dotx` are plain zip/XML and can be edited as XML,
-  but keep `onAction` names in sync with the VBA subs, and keep style IDs stable (documents
-  in the field reference them).
+- `src/ribbon/customUI14.xml` and `LargePrintTemplate.dotx` are plain XML / zip+XML and can
+  be edited directly, but keep control `tag` names in sync with the VBA subs, and keep style
+  IDs stable (documents in the field reference them).

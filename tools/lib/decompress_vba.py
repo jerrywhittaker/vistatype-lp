@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Linux-only VBA source reader for VistaType LP.
 
-Reads Normal.dotm (a zip), pulls word/vbaProject.bin (an OLE compound file),
+Reads LPandBRL.dotm (a zip), pulls word/vbaProject.bin (an OLE compound file),
 decompresses the MS-OVBA-compressed module streams, and writes plain-text source
 to reference/vba-src/ for reading, diffing, and code review.
 
@@ -10,7 +10,7 @@ binaries are not reconstructed). The authoritative source tree under src/ is
 produced by tools/windows/Export-Vba.ps1 running in Word. See CLAUDE.md.
 
 Usage:  python3 tools/lib/decompress_vba.py [path-to.dotm] [out-dir]
-        defaults: Normal.dotm  ->  reference/vba-src/
+        defaults: LPandBRL.dotm  ->  reference/vba-src/
 
 Requires: olefile  (pure-Python; no Office needed).
 """
@@ -98,7 +98,7 @@ def module_offsets(dir_stream: bytes):
 
 
 def main():
-    dotm = sys.argv[1] if len(sys.argv) > 1 else "Normal.dotm"
+    dotm = sys.argv[1] if len(sys.argv) > 1 else "LPandBRL.dotm"
     outdir = sys.argv[2] if len(sys.argv) > 2 else os.path.join("reference", "vba-src")
     os.makedirs(outdir, exist_ok=True)
 

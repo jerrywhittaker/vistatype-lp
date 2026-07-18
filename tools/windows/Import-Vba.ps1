@@ -17,9 +17,9 @@ PREREQUISITE: same "Trust access to the VBA project object model" as Export-Vba.
 
 Usage (typically invoked over SSH by the Makefile):
     powershell -ExecutionPolicy Bypass -File Import-Vba.ps1 `
-        -Shell "C:\build\vistatype\Normal.dotm" `
+        -Shell "C:\build\vistatype\LPandBRL.dotm" `
         -SrcRoot "C:\build\vistatype\src" `
-        -OutDotm "C:\build\vistatype\dist\Normal.dotm"
+        -OutDotm "C:\build\vistatype\dist\LPandBRL.dotm"
 #>
 param(
     [Parameter(Mandatory=$true)][string]$Shell,     # existing .dotm used as the base

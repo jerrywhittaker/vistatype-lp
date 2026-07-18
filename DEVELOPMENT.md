@@ -6,14 +6,14 @@ edit text, run `make`, and get a finished `.dotm` back — you never open Word b
 
 ## Source of truth
 
-`src/` is authoritative. **Never hand-edit `Normal.dotm`** — it is a build output.
+`src/` is authoritative. **Never hand-edit `LPandBRL.dotm`** — it is a build output.
 
 ```
 src/vba/        *.bas standard modules, *.cls class/document modules   (canonical text)
 src/forms/      *.frm UserForms + *.frx binary layout                  (canonical)
 src/ribbon/     customUI14.xml — embedded ribbon (source of truth)
                 Word.officeUI  — legacy global ribbon (kept for reference)
-Normal.dotm     the shell/base .dotm: project references + non-VBA parts (tracked)
+LPandBRL.dotm   the shell/base .dotm: project references + non-VBA parts (tracked)
 LargePrintTemplate.dotx   the attached large-print template (styles/page setup; tracked)
 dist/           build outputs (gitignored)
 reference/      read-only aids (gitignored mirror + interim form-code dump)
@@ -68,7 +68,7 @@ and leaves the user's own ribbon/QAT alone, and it loads/unloads with the add-in
    skip the alias — but the alias keeps machine-specific details in `~/.ssh`, not `src/`.)
 3. **Seed canonical source** (the current `src/` was bootstrapped by the Linux reader,
    which cannot produce valid `.frx`): run `make pull` once. This exports IDE-native
-   `.bas/.cls/.frm/.frx` from `Normal.dotm` into `src/`. Review with `git diff`, commit.
+   `.bas/.cls/.frm/.frx` from `LPandBRL.dotm` into `src/`. Review with `git diff`, commit.
 
 ## Secrets / credentials
 
@@ -89,20 +89,20 @@ ever runs `ssh $(WIN_HOST)`; your SSH agent/config resolves the key.
 
 ```
 edit src/vba/*.bas        # or src/forms, src/ribbon — on Linux, in git
-make build                # Word imports src/ -> dist/Normal.dotm, copied back here
-# smoke-test dist/Normal.dotm in Word (see below), then:
+make build                # Word imports src/ -> dist/LPandBRL.dotm, copied back here
+# smoke-test dist/LPandBRL.dotm in Word (see below), then:
 make deploy               # promote dist/ artifacts to repo root
 git add -A && git commit
 ```
 
-- `make read` — regenerate `reference/vba-src/` from `Normal.dotm` with the Linux-only
+- `make read` — regenerate `reference/vba-src/` from `LPandBRL.dotm` with the Linux-only
   decompressor. Handy for diffing what's actually compiled into the binary; needs no Windows.
 - `make pull` — pull canonical VBA source back into `src/` after anyone edits in the VBE.
 
 ## Always smoke-test a build
 
 `make build` produces a `.dotm` but does not prove it runs. Before `make deploy`,
-open `dist/Normal.dotm` in Word once and confirm:
+open `dist/LPandBRL.dotm` in Word once and confirm:
 - the VBA project compiles (VBE → *Debug → Compile*);
 - the three tabs appear (**VistaType LP**, **Braille Macros**, **LP and BRL QAT Icons**)
   and merge with — don't replace — your normal ribbon;
@@ -144,7 +144,7 @@ automated.
   The Linux reader can't rebuild `.frx`; that's why `make pull` (Word export) is the
   canonical seeder for `src/forms/`.
 - **Project references** (MSWORD.OLB, FM20.DLL/MSForms, scrrun.dll, stdole) and the
-  attached-toolbar ribbon live in the shell `Normal.dotm`, not in `src/`. The build
+  attached-toolbar ribbon live in the shell `LPandBRL.dotm`, not in `src/`. The build
   imports code *into a copy of that shell*, so those are preserved automatically.
 - **Version bumps**: follow the in-file convention — update the per-sub `' Version`
   comment and add a dated line to the `LPandBrlMacros` header changelog and the About

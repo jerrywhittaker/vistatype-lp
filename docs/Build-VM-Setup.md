@@ -126,7 +126,7 @@ Then `Restart-Service sshd`.
   This corresponds to `AccessVBOM=1` under
   `HKCU\Software\Microsoft\Office\16.0\Word\Security`; the build cannot read the VBA
   project without it.
-- The shell `Normal.dotm` you build from **must not have a locked VBA project** — a
+- The shell `LPandBRL.dotm` you build from **must not have a locked VBA project** — a
   password-locked project reads as 0 components over automation and silently produces an
   empty build (see DEVELOPMENT.md "The VBA project must not be locked").
 

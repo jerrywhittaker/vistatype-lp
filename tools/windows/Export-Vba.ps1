@@ -17,7 +17,7 @@ PREREQUISITE (one-time, on the Windows box):
 
 Usage (typically invoked over SSH by the Makefile):
     powershell -ExecutionPolicy Bypass -File Export-Vba.ps1 `
-        -Dotm "C:\build\vistatype\Normal.dotm" -SrcRoot "C:\build\vistatype\src"
+        -Dotm "C:\build\vistatype\LPandBRL.dotm" -SrcRoot "C:\build\vistatype\src"
 #>
 param(
     [Parameter(Mandatory=$true)][string]$Dotm,

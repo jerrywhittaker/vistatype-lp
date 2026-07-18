@@ -4,16 +4,16 @@
 # Linux, so `make build` and `make pull` drive a remote Windows+Word box over SSH
 # (see build.config). You stay in this terminal; Word is invisible infrastructure.
 #
-#   make pull    Export VBA from Normal.dotm INTO src/  (canonical; run once to seed,
+#   make pull    Export VBA from LPandBRL.dotm INTO src/  (canonical; run once to seed,
 #                or after anyone edits in the Word VBE). Overwrites src/vba + src/forms.
-#   make build   Import src/ into dist/Normal.dotm via Word, then embed the ribbon
+#   make build   Import src/ into dist/LPandBRL.dotm via Word, then embed the ribbon
 #                (customUI14.xml) and stage the .dotx. Smoke-test before deploying.
 #   make ribbon  Regenerate src/ribbon/customUI14.xml from the legacy Word.officeUI.
 #   make qat     Regenerate installer/qat-controls.xml from the legacy Word.officeUI.
-#   make read    Refresh reference/ from Normal.dotm using the Linux-only decompressor
+#   make read    Refresh reference/ from LPandBRL.dotm using the Linux-only decompressor
 #                (read/diff aid; does NOT need Windows and is NOT import-ready).
-#   make deploy  Promote dist/Normal.dotm (embedded ribbon) to the repo root.
-#   make stage   Copy the shipping files into dist/ under their shipped names.
+#   make deploy  Promote dist/LPandBRL.dotm (embedded ribbon) to the repo root.
+#   make stage   Copy the license into dist/ alongside the built shipping files.
 #   make installer  Compile the Inno Setup installer on the Windows box; copies the
 #                Setup.exe back to dist/. Ships two files (.dotm + .dotx).
 #   make clean   Remove dist/ and build/ scratch.
@@ -21,12 +21,12 @@
 -include build.config
 WIN_PWSH ?= powershell
 WIN_ISCC ?= "C:/Program Files (x86)/Inno Setup 6/ISCC.exe"
-DOTM      := Normal.dotm
+DOTM      := LPandBRL.dotm
 DOTX      := LargePrintTemplate.dotx
 RIBBON    := Word.officeUI
-SHIP_DOTM := LPandBRL.dotm
 PROJNAME  := LPandBRL
 APPVER    := 2.2.3
+SETUP_EXE := VistaType-LP-Setup-$(APPVER).exe
 
 SSH := ssh $(WIN_HOST)
 WSCRIPTS := $(WIN_DIR)/tools/windows
@@ -79,20 +79,24 @@ deploy:
 	cp dist/$(DOTM) $(DOTM)
 	@echo "Promoted dist/$(DOTM) (embedded ribbon) to repo root."
 
-# --- stage the shipping files into dist/ under their SHIPPED names ---
-# Ribbon is embedded in the .dotm now, so only two files ship (no Word.officeUI).
+# --- stage the shipping files into dist/ for packaging ---
+# `build` already produces dist/$(DOTM) (embedded ribbon) + dist/$(DOTX); the ribbon is
+# embedded in the .dotm now, so only those two files ship (no Word.officeUI). Add the license.
 stage: build
-	cp dist/$(DOTM) dist/$(SHIP_DOTM)
 	cp LICENSE dist/LICENSE.txt
-	@echo "Staged dist/$(SHIP_DOTM) + dist/$(DOTX) + dist/LICENSE.txt for packaging."
+	@echo "Staged dist/$(DOTM) + dist/$(DOTX) + dist/LICENSE.txt for packaging."
 
 # --- compile the Inno Setup installer on the Windows box ---
+# The finished Setup.exe is copied both back to local dist/ and onto the build box's
+# Desktop, so it's one double-click away when you test the install on the VM. The Desktop
+# path is resolved on the box (GetFolderPath handles OneDrive-redirected Desktops).
 installer: check-config stage
 	$(SSH) "if not exist \"$(WIN_DIR)\" mkdir \"$(WIN_DIR)\""
 	scp -q -r installer dist "$(WIN_HOST):$(WIN_DIR)/"
 	$(SSH) '$(WIN_ISCC) "/DSrcDir=$(WIN_DIR)/dist" "/DAppVer=$(APPVER)" "$(WIN_DIR)/installer/vistatype.iss"'
-	scp -q "$(WIN_HOST):$(WIN_DIR)/dist/VistaType-LP-Setup-$(APPVER).exe" dist/
-	@echo "Built dist/VistaType-LP-Setup-$(APPVER).exe"
+	scp -q "$(WIN_HOST):$(WIN_DIR)/dist/$(SETUP_EXE)" dist/
+	$(SSH) '$(WIN_PWSH) -NoProfile -Command "Copy-Item \"$(WIN_DIR)/dist/$(SETUP_EXE)\" ([Environment]::GetFolderPath(\"Desktop\")) -Force"'
+	@echo "Built dist/$(SETUP_EXE) (also copied to the build box Desktop)."
 
 clean:
 	rm -rf dist build

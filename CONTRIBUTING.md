@@ -58,7 +58,7 @@ Full setup detail is in [`DEVELOPMENT.md`](DEVELOPMENT.md).
 | The installer | `installer/` (`vistatype.iss`, `scripts/`) | `make installer` |
 | Docs | `*.md`, `docs/` | — |
 
-**Never hand-edit `Normal.dotm`** — it's the build shell, not source.
+**Never hand-edit `LPandBRL.dotm`** — it's the build shell, not source.
 
 Handy targets:
 
@@ -88,7 +88,7 @@ make installer# build the Setup.exe
 ## Testing your change
 
 Because there are no unit tests, **exercise the change in real Word** before submitting.
-After `make build`, open `dist/Normal.dotm` and confirm:
+After `make build`, open `dist/LPandBRL.dotm` and confirm:
 
 - the VBA project **compiles** (VBE → *Debug → Compile*);
 - the **ribbon loads** — the *VistaType LP* / *Braille Macros* tabs appear and buttons run;

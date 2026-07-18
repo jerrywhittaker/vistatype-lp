@@ -21,7 +21,7 @@ The product is three Office artifacts that work together:
 
 | Artifact | Role |
 |---|---|
-| `LPandBRL.dotm` (built from `Normal.dotm` shell) | **The engine.** The whole VBA project — ~208 subs/functions in `LPandBrlMacros` plus 45+ UserForms — and the embedded ribbon. Loaded from Word's `STARTUP` folder. |
+| `LPandBRL.dotm` (built from `src/` onto the tracked `.dotm` shell) | **The engine.** The whole VBA project — ~208 subs/functions in `LPandBrlMacros` plus 45+ UserForms — and the embedded ribbon. Loaded from Word's `STARTUP` folder. |
 | `LargePrintTemplate.dotx` | **The styles.** The large-print paragraph/character styles and page setup, attached to each large-print document. |
 | Embedded ribbon (`customUI14.xml`) | **The UI.** The two ribbon tabs, embedded in the `.dotm` so they *merge* with the user's ribbon instead of replacing it. |
 
@@ -56,7 +56,7 @@ src/ribbon/     customUI14.xml (embedded ribbon) + legacy Word.officeUI
 installer/      Inno Setup installer + QAT-merge scripts
 tools/          extract / build / ribbon helpers (Python + PowerShell)
 docs/           end-user installation guide
-Normal.dotm     the .dotm shell (project references + non-VBA parts)
+LPandBRL.dotm   the .dotm shell (tracked; project references + non-VBA parts; the build base)
 LargePrintTemplate.dotx   the large-print styles template
 ```
 
