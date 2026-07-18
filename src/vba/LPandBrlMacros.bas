@@ -17,7 +17,8 @@ Attribute VB_Name = "LPandBrlMacros"
 '
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - LP - 7/2/2026 - revision to file cleanup and normalization
+' Notes:    - LP - 7/18/2026 - MS_Set_Word_Config_For_New_Install now writes Options/AutoCorrect only when they differ (idempotent), so it no longer triggers Office's "restart to apply privacy settings" notice on new docs
+'           - LP - 7/2/2026 - revision to file cleanup and normalization
 '           - LP - 6/26/2026 - Revison of non-modal messaging - template normalizion optimized
 '           - LP - 6/22/2026 - Revison of non-modal messaging
 '           - LP - 6/22/2026 - ajusted timeing in Lp_Table_Convert_Options_Form using multiple "do events" to make sure that the proper doc is displayed at the end of the procedure
@@ -14794,6 +14795,10 @@ Sub MS_Set_Word_Config_For_New_Install()
     '
     ' Author: Jerry Whittaker -  jerry@thewhittakers.org
     '
+    ' Version: 2.2  Date: 7/18/2026 - only write Options/AutoCorrect that actually differ (idempotent),
+    '                                 so re-running on every new doc no longer churns Word's roaming
+    '                                 settings and triggers Office's "restart to apply your privacy
+    '                                 settings" notice; also stops silently re-clobbering user prefs.
     ' Version: 2.1  Date: 10/27/2021 - set for wdShowFilterStylesAll
     ' Version: 2.0  Date: 10/19/2021 - added removal of compact fractions
     ' Version: 1.9  Date: 3/1/2020 - added set view to print view
@@ -14807,48 +14812,50 @@ Sub MS_Set_Word_Config_For_New_Install()
     ActiveDocument.StyleSortMethod = wdStyleSortRecommended
     ActiveDocument.FormattingShowFilter = wdShowFilterStylesAll
     
-     With Options
-        .AutoFormatAsYouTypeApplyHeadings = False
-        .AutoFormatAsYouTypeApplyBorders = True
-        .AutoFormatAsYouTypeApplyBulletedLists = True
-        .AutoFormatAsYouTypeApplyNumberedLists = True
-        .AutoFormatAsYouTypeApplyTables = True
-        .AutoFormatAsYouTypeReplaceQuotes = True
-        .AutoFormatAsYouTypeReplaceSymbols = True
-        .AutoFormatAsYouTypeReplaceOrdinals = True
-        .AutoFormatAsYouTypeReplaceFractions = True
-        .AutoFormatAsYouTypeReplacePlainTextEmphasis = False
-        .AutoFormatAsYouTypeReplaceHyperlinks = True
-        .AutoFormatAsYouTypeFormatListItemBeginning = True
-        .AutoFormatAsYouTypeDefineStyles = False
-        .TabIndentKey = True
+    ' Only write settings that differ from their target, so re-running this on every new
+    ' document doesn't hand Word's (roaming) settings store a no-op "change" each time.
+    With Options
+        If .AutoFormatAsYouTypeApplyHeadings <> False Then .AutoFormatAsYouTypeApplyHeadings = False
+        If .AutoFormatAsYouTypeApplyBorders <> True Then .AutoFormatAsYouTypeApplyBorders = True
+        If .AutoFormatAsYouTypeApplyBulletedLists <> True Then .AutoFormatAsYouTypeApplyBulletedLists = True
+        If .AutoFormatAsYouTypeApplyNumberedLists <> True Then .AutoFormatAsYouTypeApplyNumberedLists = True
+        If .AutoFormatAsYouTypeApplyTables <> True Then .AutoFormatAsYouTypeApplyTables = True
+        If .AutoFormatAsYouTypeReplaceQuotes <> True Then .AutoFormatAsYouTypeReplaceQuotes = True
+        If .AutoFormatAsYouTypeReplaceSymbols <> True Then .AutoFormatAsYouTypeReplaceSymbols = True
+        If .AutoFormatAsYouTypeReplaceOrdinals <> True Then .AutoFormatAsYouTypeReplaceOrdinals = True
+        If .AutoFormatAsYouTypeReplaceFractions <> True Then .AutoFormatAsYouTypeReplaceFractions = True
+        If .AutoFormatAsYouTypeReplacePlainTextEmphasis <> False Then .AutoFormatAsYouTypeReplacePlainTextEmphasis = False
+        If .AutoFormatAsYouTypeReplaceHyperlinks <> True Then .AutoFormatAsYouTypeReplaceHyperlinks = True
+        If .AutoFormatAsYouTypeFormatListItemBeginning <> True Then .AutoFormatAsYouTypeFormatListItemBeginning = True
+        If .AutoFormatAsYouTypeDefineStyles <> False Then .AutoFormatAsYouTypeDefineStyles = False
+        If .TabIndentKey <> True Then .TabIndentKey = True
     End With
 
     With AutoCorrect
-        .CorrectInitialCaps = True
-        .CorrectSentenceCaps = True
-        .CorrectDays = True
-        .CorrectCapsLock = True
-        .replaceText = True
-        .ReplaceTextFromSpellingChecker = True
-        .CorrectKeyboardSetting = False
-        .DisplayAutoCorrectOptions = True
-        .CorrectTableCells = True
+        If .CorrectInitialCaps <> True Then .CorrectInitialCaps = True
+        If .CorrectSentenceCaps <> True Then .CorrectSentenceCaps = True
+        If .CorrectDays <> True Then .CorrectDays = True
+        If .CorrectCapsLock <> True Then .CorrectCapsLock = True
+        If .replaceText <> True Then .replaceText = True
+        If .ReplaceTextFromSpellingChecker <> True Then .ReplaceTextFromSpellingChecker = True
+        If .CorrectKeyboardSetting <> False Then .CorrectKeyboardSetting = False
+        If .DisplayAutoCorrectOptions <> True Then .DisplayAutoCorrectOptions = True
+        If .CorrectTableCells <> True Then .CorrectTableCells = True
     End With
 
     With Options
-        .AutoFormatApplyHeadings = True
-        .AutoFormatApplyLists = True
-        .AutoFormatApplyBulletedLists = True
-        .AutoFormatApplyOtherParas = True
-        .AutoFormatReplaceQuotes = True
-        .AutoFormatReplaceSymbols = True
-        .AutoFormatReplaceOrdinals = True
-        .AutoFormatReplaceFractions = True
-        .AutoFormatReplacePlainTextEmphasis = True
-        .AutoFormatReplaceHyperlinks = True
-        .AutoFormatPreserveStyles = True
-        .AutoFormatPlainTextWordMail = True
+        If .AutoFormatApplyHeadings <> True Then .AutoFormatApplyHeadings = True
+        If .AutoFormatApplyLists <> True Then .AutoFormatApplyLists = True
+        If .AutoFormatApplyBulletedLists <> True Then .AutoFormatApplyBulletedLists = True
+        If .AutoFormatApplyOtherParas <> True Then .AutoFormatApplyOtherParas = True
+        If .AutoFormatReplaceQuotes <> True Then .AutoFormatReplaceQuotes = True
+        If .AutoFormatReplaceSymbols <> True Then .AutoFormatReplaceSymbols = True
+        If .AutoFormatReplaceOrdinals <> True Then .AutoFormatReplaceOrdinals = True
+        If .AutoFormatReplaceFractions <> True Then .AutoFormatReplaceFractions = True
+        If .AutoFormatReplacePlainTextEmphasis <> True Then .AutoFormatReplacePlainTextEmphasis = True
+        If .AutoFormatReplaceHyperlinks <> True Then .AutoFormatReplaceHyperlinks = True
+        If .AutoFormatPreserveStyles <> True Then .AutoFormatPreserveStyles = True
+        If .AutoFormatPlainTextWordMail <> True Then .AutoFormatPlainTextWordMail = True
     End With
     
     ActiveWindow.View.ShowAll = True
