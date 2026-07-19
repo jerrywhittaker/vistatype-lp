@@ -13,6 +13,7 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
+
 ' Lp_TOC_Color_Bars_Form
 '
 ' Converts lead lines in TOC styles to alternating color of choice - changes tab value of dots to none

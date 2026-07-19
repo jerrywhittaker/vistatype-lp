@@ -203,7 +203,7 @@ Private Sub Dx_UpdateProgressBar(msg As String, pct As Long)
     
     ' 2. Update the UI
     Application.StatusBar = "[" & bars & "] " & pct & "% - " & msg
-    Call Sh_ShowNonModalMessage("Braille Marcros are Working", _
+    Call Sh_ShowNonModalMessage("Braille Macros are Working", _
          msg & " (" & pct & "%)" & vbCrLf & "Progress: [" & bars & "]")
     
     ' 3. Force the pause so the user sees the update

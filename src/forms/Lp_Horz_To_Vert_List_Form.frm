@@ -13,6 +13,7 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
+
 ' Lp_Horz_To_Vert_List_Form
 
 ' Version 1.5 3/10/2026 - trapped crash on sort of non-sortable selection

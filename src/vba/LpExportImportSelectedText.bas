@@ -23,7 +23,7 @@ Sub Lp_Export_Selection_To_NewFile()
     
     ' 1. VALIDATION & MASTER SAVE
     Set srcDoc = ActiveDocument
-    If srcDoc.ReadOnly Then MsgBox "Selections cannot exported from this file because it is marked as Read-Only.", vbCritical: Exit Sub
+    If srcDoc.ReadOnly Then MsgBox "Selections cannot be exported from this file because it is marked as Read-Only.", vbCritical: Exit Sub
     If Selection.Type = wdSelectionIP Then
         MsgBox "Select text to be exported first.", vbExclamation, "VistaType LP (224)"
         Exit Sub
@@ -120,9 +120,9 @@ Sub Lp_Export_Selection_To_NewFile()
     
     ' 6. FINAL CHOICE (STILL IN MASTER)
     userChoice = MsgBox("Export Successful." & vbCrLf & vbCrLf & _
-                        "The exported file will appeare in Word's recent file list." & vbCrLf & vbCrLf & _
+                        "The exported file will appear in Word's recent file list." & vbCrLf & vbCrLf & _
                         "Delete the selected text from this file?", _
-                        vbYesNo + vbQuestion, "VistaType Lp (227)")
+                        vbYesNo + vbQuestion, "VistaType LP (227)")
 
     If userChoice = vbYes Then
         ' SMART DELETE

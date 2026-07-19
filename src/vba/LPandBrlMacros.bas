@@ -2948,7 +2948,7 @@ LoopEnd:
     If TagCounter = 0 Then
         MsgBox "There are no tagged page numbers in this document.", , "Braille Macros"
     Else
-        If MsgBox("There are " + Trim(Str(TagCounter)) + " page numbers in the docoument." + vbCr + vbCr _
+        If MsgBox("There are " + Trim(Str(TagCounter)) + " page numbers in the document." + vbCr + vbCr _
                 + "Do you want to validate the tagged page numbers?", vbYesNo, "Braille Macros") = vbYes Then
             Sh_Validation_Choices_Form.Show
         End If
@@ -6256,7 +6256,7 @@ Sub Lp_Attach_Lp_Template()
 Conclusion:
     If IsFontInstalled = False Then
         If MsgBox("Tahoma font is not installed. When Tahoma is missing, the computer will substitute an unsatisfactory font " _
-        + "resulting in significant size and readability differences. Do you wish continue?", vbYesNo + vbDefaultButton2, "VistaType LP (182)") = vbNo Then
+        + "resulting in significant size and readability differences. Do you wish to continue?", vbYesNo + vbDefaultButton2, "VistaType LP (182)") = vbNo Then
             End
         End If
     End If
@@ -8677,7 +8677,7 @@ LoopEnd:
     If TagCounter = 0 Then
         MsgBox "There are no tagged page numbers in this document.", , "VistaType LP (128)"
     Else
-        If MsgBox("There are " + Trim(Str(TagCounter)) + " page numbers in the docoument." + vbCr + vbCr _
+        If MsgBox("There are " + Trim(Str(TagCounter)) + " page numbers in the document." + vbCr + vbCr _
         + "Do you want to validate the tagged page numbers?", vbYesNo, "VistaType LP (182)") = vbYes Then
             Application.Run MacroName:="Lp_Validate_Dollar_pg"
         End If
@@ -10339,7 +10339,7 @@ Sub Lp_Table_Tools()
     Application.Run MacroName:="Lp_Is_Lp_Template_Attached"
 
     If (ActiveDocument.Tables.count = 0 Or Not Selection.Information(wdWithInTable)) And Not Selection.Range.Paragraphs.count > 1 Then
-        MsgBox "Select a TABLE (or place cursor in a table) or select a range containing a TOC. Selected TOC range may include embeded non-TOC Styles.", , "VistaType LP (172)"
+        MsgBox "Select a TABLE (or place cursor in a table) or select a range containing a TOC. Selected TOC range may include embedded non-TOC Styles.", , "VistaType LP (172)"
         End
     End If
 
@@ -11009,7 +11009,7 @@ Sub Lp_Check_Compatibility()
     & vbCr & "This document is running in 'Compatibility Mode', is a PDF file, " _
     & vbCr & "an HTML file, a text file, or other non-docx file type." & vbCr _
     & vbCr & "For large print documents, the file must be edited and saved with a .docx" _
-    & " extention otherwise the document will have border formatting problems." & vbCr _
+    & " extension otherwise the document will have border formatting problems." & vbCr _
     & vbCr & "To correct this issue, save this file as a .docx file and continue." & vbCr _
     & vbCr & "To make .docx the default for Word, go to .File/Options/Save to set the default file type.", , "VistaType LP (136)"
     End
@@ -11023,12 +11023,12 @@ Sub Lp_Table_Convert_Table_Format_Error()
   ' Version: 1.0  Date: 12/20/2019
   '
     MsgBox "Table conversion terminated." & vbCrLf _
-    & vbCrLf & "The table contains merged or split cells, an embeded table, or is" _
+    & vbCrLf & "The table contains merged or split cells, an embedded table, or is" _
     & vbCrLf & "not rectangular or square in shape." _
     & vbCrLf & vbCrLf & "All columns must have the same number of cells." _
     & vbCrLf & vbCrLf & "All rows must have the same number of cells." _
     & vbCrLf & vbCrLf & "If you are trying to convert the table to a list, fix the problems " _
-    & vbCrLf & "in origional table and try again." _
+    & vbCrLf & "in the original table and try again." _
     & vbCrLf & vbCrLf & "If you are trying to rotate the table, use Excel's Transposition feature.", , "VistaType LP (137)"
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     End
@@ -11568,7 +11568,7 @@ DoEvents
         
     End If
     
-Sh_NonModalMessageForm.SetActivityMessage "Ajusting oversize pictures to fit within margins"
+Sh_NonModalMessageForm.SetActivityMessage "Adjusting oversize pictures to fit within margins"
 DoEvents
 
     Application.Run MacroName:="Lp_SetPicturesToInlineAndLockAspectRatio"
@@ -16739,7 +16739,7 @@ Sub Non_modal_Test()
     Application.Activate
     DoEvents
     
-Sh_NonModalMessageForm.SetActivityMessage "Attaching the LP template and adding new pages. For large files this will more time."
+Sh_NonModalMessageForm.SetActivityMessage "Attaching the LP template and adding new pages. For large files this will take more time."
     '  dummy measurment line                   ____________________________________________
     
     '*************** END FILL-IN AND SHOW NON-MODAL MESSAGE BOX *************
