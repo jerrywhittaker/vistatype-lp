@@ -14425,6 +14425,9 @@ End Sub
 
 Sub Lp_TOC_CleanAndFormat_TOC()
     '
+    ' Version 1.1  Date: 7/18/2026 - perf: nbsp removal now a single Find pass, and the bold-map
+    '                                read/write enumerates characters once each way instead of
+    '                                indexed Characters(i) (O(n) vs O(n^2) per paragraph). Same output.
     ' Version 1.0  Date: 9/1/2025
     '
 
@@ -14621,13 +14624,17 @@ Sub Lp_TOC_CleanAndFormat_TOC()
         GoTo NextPara
     End If
 
-    ' Remove all non-breaking spaces from the paragraph
-    For i = paraRange.Characters.count To 1 Step -1
-        Set charRange = paraRange.Characters(i)
-        If charRange.Text = Chr(160) Then
-            charRange.Text = " "
-        End If
-    Next i
+    ' Remove all non-breaking spaces from the paragraph (single Find pass, not a per-character scan)
+    With paraRange.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
+        .Text = Chr(160)
+        .Replacement.Text = " "
+        .Forward = True
+        .Wrap = wdFindStop
+        .Format = False
+        .Execute Replace:=wdReplaceAll
+    End With
 
 NextPara:
 Next para
@@ -14676,15 +14683,22 @@ Next para
         If Not hasNumberOrRoman Then
             charCount = paraRange.Characters.count - 1
             If charCount > 0 Then
+                ' Enumerate characters once each way (O(n)); indexed Characters(i) is O(n^2).
                 ReDim boldMap(1 To charCount)
-                For i = 1 To charCount
-                    boldMap(i) = paraRange.Characters(i).Font.Bold
-                Next i
+                i = 0
+                For Each charRange In paraRange.Characters
+                    i = i + 1
+                    If i > charCount Then Exit For
+                    boldMap(i) = charRange.Font.Bold
+                Next charRange
                 para.Style = ActiveDocument.Styles("Normal")
                 para.SpaceAfter = 0
-                For i = 1 To charCount
-                    paraRange.Characters(i).Font.Bold = boldMap(i)
-                Next i
+                i = 0
+                For Each charRange In paraRange.Characters
+                    i = i + 1
+                    If i > charCount Then Exit For
+                    charRange.Font.Bold = boldMap(i)
+                Next charRange
             Else
                 para.Style = ActiveDocument.Styles("Normal")
                 para.SpaceAfter = 0
