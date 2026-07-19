@@ -17,7 +17,8 @@ Attribute VB_Name = "LPandBrlMacros"
 '
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - LP - 7/18/2026 - Attach performance on large files: Lp_Normalize_Styles sets space-after once at the story level (was a per-paragraph loop), and Lp_Replace_Multiple_Para_Marks_No_Warning walks paragraphs via .Previous instead of indexed paras(i) (~O(n) vs ~O(n^2)); behavior unchanged
+' Notes:    - Perf (Tier 1) - 7/18/2026 - ScreenUpdating discipline: 48 chained cleanup subs (Lp_/Dx_/Sh_/MS_ Fix/Replace/Convert/Remove/Format/AutoTag families) now CAPTURE the prior ScreenUpdating state on entry and RESTORE it on exit (su_Prev) instead of unconditionally forcing True. When run inside a screen-off orchestrator (Lp_Attach_The_Template, Sh_Convert_XML_File_To_Word_Document, the cleanup forms) they no longer each force a full repaint mid-sequence; standalone behavior is identical. Lp_File_Cleanup_Sub_Menu_Form holds updating off across its selected cleanups. No logic change.
+'           - LP - 7/18/2026 - Attach performance on large files: Lp_Normalize_Styles sets space-after once at the story level (was a per-paragraph loop), and Lp_Replace_Multiple_Para_Marks_No_Warning walks paragraphs via .Previous instead of indexed paras(i) (~O(n) vs ~O(n^2)); behavior unchanged
 '           - LP - 7/18/2026 - Lp_Attach_The_Template / Sh_Convert_XML_File_To_Word_Document: Save As now uses a single Word Dialog object for .Display + .Execute so the file saves under the name the user types (two separate Dialogs() references lost the typed name); also removed the "template has been attached" prompt from the LP attach
 '           - LP - 7/18/2026 - Lp_Attach_The_Template and Sh_Convert_XML_File_To_Word_Document now stabilize the document BEFORE saving, so each writes the file only once (attach/convert -> stabilize -> save) instead of save -> stabilize -> save
 '           - LP - 7/18/2026 - MS_Set_Word_Config_For_New_Install now writes Options/AutoCorrect only when they differ (idempotent), so it no longer triggers Office's "restart to apply privacy settings" notice on new docs
@@ -267,6 +268,8 @@ Sub Dx_Attach_BANA_Template()
 '
 ' Author: Jerry Whittaker - jerry@thewhittakers.org
 
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False
     
     ' If no document is active then create a new blank document
@@ -353,7 +356,7 @@ Sub Dx_Attach_BANA_Template()
     'converts Word Lang Tags into DBT foreign language tags - BANA template must be attached for this to work
     Application.Run MacroName:="Dx_Add_Color_To_Foreign_Language_Words"
     Application.Run MacroName:="Dx_Remove_Txt_Bxs_And_Frames"
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
     Application.ScreenRefresh
     MsgBox (ActiveDocument.AttachedTemplate) + " template has been attached!", , "Braille Macros"
 
@@ -568,6 +571,8 @@ Sub Dx_Fix_Para_Space_Errors()
 '
     Dim Limited_Selection As Boolean
 
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
     Application.Run MacroName:="Sh_Create_Temp_Bookmark"
@@ -707,7 +712,7 @@ Sub Dx_Fix_Para_Space_Errors()
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
     Selection.Collapse Direction:=wdCollapseStart
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
 
     
 End Sub '***** End of Dx_Fix_Para_Space_Errors ********
@@ -720,6 +725,8 @@ Sub Dx_Remove_Multi_Spaces()
 '
     Dim Limited_Selection As Boolean
 
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
     Application.Run MacroName:="Sh_Create_Temp_Bookmark"
@@ -779,7 +786,7 @@ Sub Dx_Remove_Multi_Spaces()
 
     Selection.Collapse Direction:=wdCollapseStart
 
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
     
 End Sub  '***** End of Dx_Remove_Multi_Spaces ********
 
@@ -792,6 +799,8 @@ Sub Dx_Replace_NonBreaking_Spaces()
 '
     Dim Limited_Selection As Boolean
 
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
     Application.Run MacroName:="Sh_Create_Temp_Bookmark"
@@ -848,7 +857,7 @@ Sub Dx_Replace_NonBreaking_Spaces()
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
     Selection.Collapse Direction:=wdCollapseStart
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
     
 End Sub  '***** End of Dx_Replace_NonBreaking_Spaces ********
 
@@ -1175,6 +1184,8 @@ Sub Dx_Embed_Ref_Pg_No()
         End
     End If
     
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
     Selection.HomeKey Unit:=wdLine
@@ -1197,7 +1208,7 @@ Sub Dx_Embed_Ref_Pg_No()
     Selection.MoveDown Unit:=wdParagraph, count:=1
     Application.Run MacroName:="Dx_Set_DBT_Codes_Color_and_Style"
     
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
     
 End Sub '*** end of Dx_Embed_Ref_Pg_No *****
 Sub Dx_UnEmbed_Ref_Pg_No()
@@ -1215,6 +1226,8 @@ Sub Dx_UnEmbed_Ref_Pg_No()
 '
     ' is the BANA Template Attached... if not terminate macro
     Application.Run MacroName:="Dx_Is_BANA_Template_Attached"
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
     
@@ -1266,7 +1279,7 @@ Sub Dx_UnEmbed_Ref_Pg_No()
     Application.ScreenUpdating = False
     Selection.HomeKey Unit:=wdLine
     Application.Run MacroName:="Dx_Set_DBT_Codes_Color_and_Style"
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
     
 End Sub   '*** end of Dx_UnEmbed_Ref_Pg_No macro ***
 
@@ -1333,6 +1346,8 @@ Sub Dx_Convert_Auto_List_To_Text()
     Dim NormalFont As String
     Dim rng As Range
     
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
     Application.Run MacroName:="Sh_Create_Temp_Bookmark"
@@ -1462,7 +1477,7 @@ Sub Dx_Convert_Auto_List_To_Text()
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
     Selection.Collapse Direction:=wdCollapseStart
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
     
 End Sub  '**** end of Dx_Convert_Auto_List_To_Text Macro ***********
 
@@ -1481,6 +1496,8 @@ Sub Dx_Replace_Tabs_With_Single_Space()
 '
     Dim Limited_Selection As Boolean
     
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
     Application.Run MacroName:="Sh_Create_Temp_Bookmark"
@@ -1579,7 +1596,7 @@ Sub Dx_Replace_Tabs_With_Single_Space()
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
     Selection.Collapse Direction:=wdCollapseStart
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
     
 End Sub  '*** end of Dx_Replace_Tabs_With_Single_Space Macro ***
 
@@ -1607,6 +1624,8 @@ Sub Dx_Fix_Common_File_Errors()
     ActiveDocument.Bookmarks.Add Name:="GlobalCleanupPlaceholder"
     '------------------------------------------------------
    
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
     '------------- start cleanup ------------------
@@ -1692,7 +1711,7 @@ Sub Dx_Fix_Common_File_Errors()
        
     ActiveDocument.UndoClear
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
 
     If ActiveDocument.Bookmarks.Exists("GlobalCleanupPlaceholder") = True Then
         ActiveDocument.Bookmarks("GlobalCleanupPlaceholder").Select 'moves to bookmark location
@@ -1893,6 +1912,8 @@ Sub Dx_Remove_Txt_Bxs_And_Frames()
     '
     Dim Limited_Selection As Boolean
     
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
     Application.Run MacroName:="Sh_Create_Temp_Bookmark"
@@ -1977,7 +1998,7 @@ Sub Dx_Remove_Txt_Bxs_And_Frames()
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
     Selection.Collapse Direction:=wdCollapseStart
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
 
 End Sub '***** end of Dx_Remove_Txt_Bxs_And_Frames macro *****
 
@@ -2262,6 +2283,8 @@ Sub Dx_AutoTag_Page_Numbers()
 
     Application.Run MacroName:="Dx_Is_BANA_Template_Attached"
     Application.Run MacroName:="Dx_Fix_Para_Space_Errors"
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     Application.Run MacroName:="Sh_Create_Temp_Bookmark"
     
@@ -2895,7 +2918,7 @@ LoopEnd:
     ' Replace color and style of DBT Codes
     Application.Run MacroName:="Dx_Set_DBT_Codes_Color_and_Style"
     
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     ActiveDocument.UndoClear
     
@@ -2943,6 +2966,8 @@ Sub Dx_Replace_Straight_Quotes_With_Smart_Quotes()
 '
 ' Call: Application.Run MacroName:="Dx_Replace_Straight_Quotes_With_Smart_Quotes"
 '
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
 
     '*********************************************************************
@@ -2993,7 +3018,7 @@ Sub Dx_Replace_Straight_Quotes_With_Smart_Quotes()
         End With
         Selection.Find.Execute Replace:=wdReplaceAll
         
-        Application.ScreenUpdating = True ' Turn screen updating on
+        Application.ScreenUpdating = su_Prev ' Turn screen updating on
         
 End Sub  '***** end of Dx_Replace_Straight_Quotes_With_Smart_Quotes Macro ******
 
@@ -3016,6 +3041,8 @@ Sub Dx_Format_Exercise_Lv_1_and_Lv_2()
     Dx_UEB_EBAE_Fill_In_YN_Form.Show  'ask user if fill-in indicators are wanted for answers
     Unload Dx_UEB_EBAE_Fill_In_YN_Form
 
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     'Application.ScreenUpdating = False ' Turn screen updating off
     Application.Run MacroName:="Dx_Copy_To_Temp_Doc"
     Application.Run MacroName:="Sh_Is_End_Paragraph_Mark_Included"
@@ -3709,7 +3736,7 @@ Sub Dx_Format_Exercise_Lv_1_and_Lv_2()
 
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     'ActiveDocument.UndoClear ' No undo
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
        
 End Sub  '***** end of Dx_Format_Exercise_Lv_1_and_Lv_2 Macro *****
 
@@ -3945,6 +3972,8 @@ End Sub '***** End of Dx_Is_Text_Selected *************
 '
     Dim Limited_Selection As Boolean
     
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
     If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
@@ -3997,7 +4026,7 @@ End Sub '***** End of Dx_Is_Text_Selected *************
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     ActiveDocument.UndoClear
        
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
     
 End Sub '***** end of Dx_Replace_Small_Caps_With_All_Caps Macro *****
 
@@ -4027,11 +4056,13 @@ Sub Dx_Copy_From_Temp_Doc()
 ' Date: 9/9/2018
 ' Version: 1.5
 '
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     Selection.WholeStory
     Selection.Copy 'copy the selected text to the clipboard
     ActiveDocument.Close SaveChanges:=False 'close the temp doc without saving
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
     Selection.Paste 'paste the clipboard back into the original document
     Application.Run MacroName:="MS_Set_Word_Config_For_Braille"
 
@@ -4074,6 +4105,8 @@ Sub Dx_Kill_The_Hyperlinks()
 
     Dim Limited_Selection As Boolean
     
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
     Application.Run MacroName:="Sh_Create_Temp_Bookmark"
@@ -4118,7 +4151,7 @@ Sub Dx_Kill_The_Hyperlinks()
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
     Selection.Collapse Direction:=wdCollapseStart
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
     
 End Sub '***** End of Dx_Kill_The_Hyperlinks Macro *******************
 
@@ -4131,6 +4164,8 @@ Sub Dx_Remove_Bullets()
 ' Version 1.2
 ' Date: 12/29/2016
 '
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
     Dim Limited_Selection As Boolean
@@ -4278,7 +4313,7 @@ Sub Dx_Remove_Bullets()
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     ActiveDocument.UndoClear
     Selection.Collapse Direction:=wdCollapseStart
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
     
 End Sub '****** end of Dx_Remove_Bullets Macro *****
 
@@ -4519,6 +4554,8 @@ Sub Dx_Convert_Hyper_To_Addresses()
 ' Version: 1.2 Date: 11/16/2016
 '
 
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
     Dim Limited_Selection As Boolean
@@ -4598,7 +4635,7 @@ Sub Dx_Convert_Hyper_To_Addresses()
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
     Selection.Collapse Direction:=wdCollapseStart
-    Application.ScreenUpdating = True ' Turn screen updating ong
+    Application.ScreenUpdating = su_Prev ' Turn screen updating ong
     
 End Sub  '*** end of Dx_Convert_Hyper_To_Addresses ***
 
@@ -4616,6 +4653,8 @@ Sub Dx_Replace_Manual_Line_Break()
 '
     Dim Limited_Selection As Boolean
 
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
     Application.Run MacroName:="Sh_Create_Temp_Bookmark"
@@ -4720,7 +4759,7 @@ Sub Dx_Replace_Manual_Line_Break()
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
     Selection.Collapse Direction:=wdCollapseStart
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
     
 End Sub  '*** end of Dx_Replace_Manual_Line_Break ***
 
@@ -5427,6 +5466,8 @@ Sub Dx_Convert_Hyperliks_To_Text()
     Dim i As Long, rng As Range
     Dim LinkString As String
     
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False    ' Turn screen updating off
     Application.ScreenRefresh
     
@@ -5464,7 +5505,7 @@ Sub Dx_Convert_Hyperliks_To_Text()
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
     
-    Application.ScreenUpdating = True    ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev    ' Turn screen updating on
     Application.ScreenRefresh
 
 End Sub   '*** end of Dx_Convert_Hyperliks_To_Text macro ***
@@ -6038,6 +6079,8 @@ Sub Dx_Replace_Multiple_Para_Marks_No_Warning()
 '
     Dim Limited_Selection As Boolean
     
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
     Application.Run MacroName:="Sh_Remove_Temp_Bookmark"
@@ -6078,7 +6121,7 @@ Sub Dx_Replace_Multiple_Para_Marks_No_Warning()
 
     Selection.EndKey Unit:=wdStory
 
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
     Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
     Selection.Collapse 'clear selection
     Application.ScreenRefresh
@@ -6263,6 +6306,8 @@ Sub Lp_Remove_Box_Bullets_Bullets_and_Numbers()
 '
     Dim Limited_Selection As Boolean
     
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
     Application.Run MacroName:="Sh_Remove_Temp_Bookmark"
@@ -6382,7 +6427,7 @@ Sub Lp_Remove_Box_Bullets_Bullets_and_Numbers()
     
     'Selection.EndKey Unit:=wdStory
     'Selection.Delete Unit:=wdCharacter, Count:=1
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
     Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
     Selection.Collapse 'clear selection
     Application.ScreenRefresh
@@ -6559,6 +6604,8 @@ Sub Lp_Fix_Common_File_Errors()
     '   Delete zero width spaces - often place by AI
     '   Resize pictures in tables to comfortably fit with the cell
     
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
     Selection.Collapse 'clear selection
@@ -6629,7 +6676,7 @@ DoEvents
         ActiveDocument.Bookmarks("CleanupBookmark").Delete
     End If
 
-    'Application.ScreenUpdating = True    ' Turn screen updating on
+    'Application.ScreenUpdating = su_Prev    ' Turn screen updating on
 
     Application.ScreenRefresh
     
@@ -6651,6 +6698,8 @@ Sub Lp_Convert_Hyperliks_To_Text()
     Dim i As Long, rng As Range
     Dim LinkString As String
     
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False    ' Turn screen updating off
     ' convert internal hyperlinks - not used for large print
     On Error Resume Next
@@ -6687,7 +6736,7 @@ Sub Lp_Convert_Hyperliks_To_Text()
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
     
-    Application.ScreenUpdating = True    ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev    ' Turn screen updating on
     Application.ScreenRefresh
 
 End Sub   '*** end of Lp_Convert_Hyperliks_To_Text macro ***
@@ -7818,6 +7867,8 @@ Sub Lp_Convert_Auto_List_To_Text()
     Dim NormalFont As String
     Dim rng As Range
     
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
     Application.Run MacroName:="Sh_Remove_Temp_Bookmark"    'prevents error when creating temp bkmrk when the bkmrk already exists
@@ -7944,7 +7995,7 @@ Sub Lp_Convert_Auto_List_To_Text()
     
     Selection.EndKey Unit:=wdStory
     Selection.Delete Unit:=wdCharacter, count:=1
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
     Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
     Selection.Collapse 'clear selection
     Application.ScreenRefresh
@@ -8012,6 +8063,8 @@ Sub Lp_Format_Page_Numbers()
         End
     End If
     
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
     If ActiveDocument.Bookmarks.Exists("TempPgNoFormat") = True Then
@@ -8164,7 +8217,7 @@ Sub Lp_Format_Page_Numbers()
         
     ActiveDocument.UndoClear
 
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
     
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     
@@ -8186,6 +8239,8 @@ Sub Lp_AutoTag_Page_Numbers()
 
     Dim strLength As Integer
 
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     Application.Run MacroName:="Sh_Is_Doc_Open"
     Application.Run MacroName:="MS_Set_Word_Config_For_Large_Print"
@@ -8603,7 +8658,7 @@ LoopEnd:
     Selection.HomeKey Unit:=wdStory
     Selection.Delete Unit:=wdCharacter, count:=1
 
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     
     'Count the tags
@@ -8672,6 +8727,8 @@ Sub Lp_Kill_The_Hyperlinks()
 
     Dim Limited_Selection As Boolean
     
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
     Application.Run MacroName:="Sh_Remove_Temp_Bookmark"
@@ -8694,7 +8751,7 @@ Sub Lp_Kill_The_Hyperlinks()
     
     Selection.EndKey Unit:=wdStory
     Selection.Delete Unit:=wdCharacter, count:=1
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
     Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
     Selection.Collapse 'clear selection
     Application.ScreenRefresh
@@ -8716,6 +8773,8 @@ Sub Lp_Fix_Para_Space_Errors()
 '
     Dim Limited_Selection As Boolean
     
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
     Application.Run MacroName:="Sh_Remove_Temp_Bookmark"
@@ -8822,7 +8881,7 @@ On Error GoTo 0
 
     Selection.EndKey Unit:=wdStory
     Selection.Delete Unit:=wdCharacter, count:=1
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
     Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
     Selection.Collapse 'clear selection
     Application.ScreenRefresh
@@ -8901,6 +8960,8 @@ Sub Lp_Remove_Multi_Spaces()
 '
     Dim Limited_Selection As Boolean
     
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
     Application.Run MacroName:="Sh_Remove_Temp_Bookmark"
@@ -8937,7 +8998,7 @@ Sub Lp_Remove_Multi_Spaces()
     
     Selection.EndKey Unit:=wdStory
     'Selection.Delete Unit:=wdCharacter, Count:=1
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
     Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
     Selection.Collapse 'clear selection
     Application.ScreenRefresh
@@ -8976,6 +9037,8 @@ Sub Lp_Copy_To_Temp_Doc()
     Set origDoc = ActiveDocument
     
     ' START GLOBAL FREEZE
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False
     
     ' 3. Create the document
@@ -9008,7 +9071,7 @@ Sub Lp_Copy_To_Temp_Doc()
 
     ' 7. Final handoff
     tempDoc.Activate
-    Application.ScreenUpdating = True
+    Application.ScreenUpdating = su_Prev
 
 End Sub '*** end of Lp_Copy_To_Temp_Doc Macro ***
 
@@ -9104,6 +9167,8 @@ Sub Lp_Convert_Hyper_To_Addresses()
     Dim strLinkText As String
     Dim Limited_Selection As Boolean
     
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
     Application.Run MacroName:="Sh_Remove_Temp_Bookmark"
@@ -9165,7 +9230,7 @@ On Error Resume Next
     
     Selection.EndKey Unit:=wdStory
     Selection.Delete Unit:=wdCharacter, count:=1
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
     Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
     Selection.Collapse 'clear selection
     Application.ScreenRefresh
@@ -9202,6 +9267,8 @@ Sub Lp_Remove_Txt_Bxs_And_Frames()
     
     Dim Limited_Selection As Boolean
     
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
     Application.Run MacroName:="Sh_Remove_Temp_Bookmark"
@@ -9261,7 +9328,7 @@ Sub Lp_Remove_Txt_Bxs_And_Frames()
     
     Selection.EndKey Unit:=wdStory
     Selection.Delete Unit:=wdCharacter, count:=1
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
     Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
     Selection.Collapse 'clear selection
     Application.ScreenRefresh
@@ -9293,6 +9360,8 @@ Sub Lp_Replace_Manual_Line_Break()
 
     ReplaceType = Sh_GP_String_1
     
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
     Application.Run MacroName:="Sh_Remove_Temp_Bookmark"
@@ -9372,7 +9441,7 @@ Sub Lp_Replace_Manual_Line_Break()
         Selection.Paste 'AndFormat (wdFormatOriginalFormatting)
     End If
     
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
     Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
     Selection.Collapse 'clear selection
     Application.ScreenRefresh
@@ -9397,6 +9466,8 @@ Sub Lp_Replace_Tabs_With_Single_Space()
     
     Dim Limited_Selection As Boolean
     
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
     Application.Run MacroName:="Sh_Remove_Temp_Bookmark"
@@ -9438,7 +9509,7 @@ Sub Lp_Replace_Tabs_With_Single_Space()
     
     Selection.EndKey Unit:=wdStory
     Selection.Delete Unit:=wdCharacter, count:=1
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
     Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
     Selection.Collapse 'clear selection
     Application.ScreenRefresh
@@ -9459,6 +9530,8 @@ Sub Lp_Replace_Small_Caps_With_All_Caps()
 '
     Dim Limited_Selection As Boolean
     
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
     Application.Run MacroName:="Sh_Remove_Temp_Bookmark"
@@ -9507,7 +9580,7 @@ Sub Lp_Replace_Small_Caps_With_All_Caps()
     
     Selection.EndKey Unit:=wdStory
     Selection.Delete Unit:=wdCharacter, count:=1
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
     Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
     Selection.Collapse 'clear selection
     Application.ScreenRefresh
@@ -9699,6 +9772,8 @@ Sub Lp_Format_Exercise_Lv_1_and_Lv_2()
        
     Application.Run MacroName:="Sh_Create_Temp_Bookmark"
        
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     Application.Run MacroName:="Lp_Copy_To_Temp_Doc"
     Application.ScreenUpdating = False ' Turn screen updating off
@@ -10094,7 +10169,7 @@ Sub Lp_Format_Exercise_Lv_1_and_Lv_2()
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     'ActiveDocument.UndoClear ' No undo
     Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
     Application.ScreenRefresh
        
 End Sub  '***** end of Lp_Format_Exercise_Lv_1_and_Lv_2 Macro *****
@@ -10105,6 +10180,8 @@ Sub Lp_Remove_Tabs_Before_and_After_Para_Marks()
 ' Date: 1/23/2017
 ' Version: 1.0
 '
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
 
     Selection.Find.ClearFormatting
@@ -10138,7 +10215,7 @@ Sub Lp_Remove_Tabs_Before_and_After_Para_Marks()
     Selection.Find.Execute Replace:=wdReplaceAll
    
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
     
 End Sub  '***** End of Lp_Remove_Tabs_Before_and_After_Para_Marks macro ********
 Sub Lp_Remove_Tab_Plus_Space_Combos()
@@ -10954,6 +11031,8 @@ End Sub
 
 Sub Lp_Table_Convert_R_Only_Table_To_List()
 '
+Dim su_Prev As Boolean
+su_Prev = Application.ScreenUpdating
 ' Version: 1.3  Date: 8/14/2025 - removed 40% screen - added Application.ScreenUpdating = False
 ' Version: 1.2  Date: 7/22/2025 - Removed "Remove manual line breaks, tabs and extra spaces from table"
 '                                 routines and places into Lp_Table_Cleanup_For_Roation_And_List()
@@ -11011,7 +11090,7 @@ Sub Lp_Table_Convert_R_Only_Table_To_List()
      Selection.Paste
      DoEvents
 
-     Application.ScreenUpdating = True
+     Application.ScreenUpdating = su_Prev
      Application.ScreenRefresh
 
      'delete temp file
@@ -11069,6 +11148,8 @@ Sub Lp_Convert_Table_To_Pseudo_Columns()
         Exit Sub
     End If
     
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False
 
     ' 5. CREATE BACKUP AT END OF DOCUMENT
@@ -11133,7 +11214,7 @@ Sub Lp_Convert_Table_To_Pseudo_Columns()
     End If
 
     ' 9. REFRESH AND FINISH
-    Application.ScreenUpdating = True
+    Application.ScreenUpdating = su_Prev
     DoEvents               ' Yields execution so Word can catch up
     Application.ScreenRefresh ' Forces the visual update
     
@@ -11143,7 +11224,7 @@ Sub Lp_Convert_Table_To_Pseudo_Columns()
     Exit Sub
 
 ErrorHandler:
-    Application.ScreenUpdating = True
+    Application.ScreenUpdating = su_Prev
     If Not objUndo Is Nothing Then objUndo.EndCustomRecord
     MsgBox "Error: " & Err.Description, vbCritical
 End Sub
@@ -11218,6 +11299,8 @@ Sub Lp_Convert_Table_To_Real_Columns()
     objUndo.StartCustomRecord "Convert Table to Columns"
     
     ' 5. SCREEN CONTROL
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False
 
     ' 6. ISOLATE SECTION WITH BREAKS
@@ -11250,7 +11333,7 @@ Sub Lp_Convert_Table_To_Real_Columns()
     End With
     
     ' 10. REFRESH VISUALS
-    Application.ScreenUpdating = True
+    Application.ScreenUpdating = su_Prev
     DoEvents
     Application.ScreenRefresh
     
@@ -12615,6 +12698,8 @@ Sub Lp_Resize_Images()
     
     Dim i As Long
         
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating of
      
     ' A single image is selected - selection can be within text or in a table
@@ -12676,7 +12761,7 @@ Sub Lp_Resize_Images()
     End If
    
     Selection.Collapse 'clear selection
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
     Application.ScreenRefresh
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     ActiveDocument.UndoClear
@@ -13102,6 +13187,8 @@ Sub Lp_Table_Convert_NoRC_Table_To_List()
 ' version: 1.3  Date: 8/16/2025 - added clear clipboard
 ' Version: 1.2  Date: 8/15/2025 - remove para mark at top placed by Lp_Copy_To_Temp_Doc
 '                               - added Application.Run MacroName:="Lp_Table_Style_InCell_Para_And_Image"
+Dim su_Prev As Boolean
+su_Prev = Application.ScreenUpdating
 ' Version: 1.1  Date: 814/2025  - remove 40% screen setting - added Application.ScreenUpdating = False
 ' Version: 1.0  Date: 8/8/2025
 '
@@ -13165,7 +13252,7 @@ Sub Lp_Table_Convert_NoRC_Table_To_List()
      Selection.Paste
      DoEvents
 
-     Application.ScreenUpdating = True
+     Application.ScreenUpdating = su_Prev
      Application.ScreenRefresh
 
      'delete temp file
@@ -13366,6 +13453,8 @@ Sub Lp_Table_Transpose_Table()
     cols = src.Columns.count
     Set tblStyle = src.Style
 
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False
 
     ' Insert destination table immediately after the source
@@ -13402,7 +13491,7 @@ Sub Lp_Table_Transpose_Table()
         dst.Range.Previous.Delete
     End If
 
-    Application.ScreenUpdating = True
+    Application.ScreenUpdating = su_Prev
 
 End Sub   '*** end of Lp_Table_Transpose_Table ***
 
@@ -13657,6 +13746,8 @@ Sub Lp_Table_Convert_RC_Table_To_List()
     delim = " " ' Delimiter after the prefixed header text (adjust if needed)
     
     On Error GoTo CleanFail
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False
     If Not Application.UndoRecord Is Nothing Then
         Application.UndoRecord.StartCustomRecord "Style, Prefix, Remove Header (First Table)"
@@ -13801,7 +13892,7 @@ NextCell:
      Selection.Paste
      DoEvents
 
-     Application.ScreenUpdating = True
+     Application.ScreenUpdating = su_Prev
      Application.ScreenRefresh
 
      'delete temp file
@@ -13829,7 +13920,7 @@ DoEvents
     
 CleanExit:
     If undoOn Then Application.UndoRecord.EndCustomRecord
-    Application.ScreenUpdating = True
+    Application.ScreenUpdating = su_Prev
     Exit Sub
 
 CleanFail:
@@ -15022,6 +15113,8 @@ Sub MS_Set_Word_Config_For_Braille()
     '
     ActiveDocument.ActiveWindow.View.ReadingLayout = False  'will crash if document is in reading view ... close reading view
     
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     ActiveDocument.FormattingShowNextLevel = False
     ActiveDocument.StyleSortMethod = wdStyleSortRecommended
@@ -15109,7 +15202,7 @@ Sub MS_Set_Word_Config_For_Braille()
 
     MS_Word_Config = "Word is configured for braille"
     
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
     Application.ScreenRefresh
 
 End Sub  '*** end of  MS_Set_Word_Config_For_Braille macro***
@@ -15269,6 +15362,8 @@ Sub Sh_Para_Before_Dollar()
 '
 ' Author: Jerry Whittaker - jerry@thewhittakers.org
 '
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
     ' find $pg and put a para mark before it
@@ -15326,7 +15421,7 @@ Sub Sh_Para_Before_Dollar()
     
     ActiveDocument.UndoClear
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    Application.ScreenUpdating = True ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev ' Turn screen updating on
     
 End Sub '*** end of Sh_Para_Before_Dollar macro ***
 
@@ -16076,6 +16171,8 @@ Sub Sh_Fix_Ref_Pages_Before_and_After_Tables()
     Dim doc As Document
     Set doc = ActiveDocument
 
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False
 
     ' We loop backwards to maintain document stability
@@ -16101,7 +16198,7 @@ Sub Sh_Fix_Ref_Pages_Before_and_After_Tables()
 
     ' Move cursor back to the start
     doc.Range(0, 0).Select
-    Application.ScreenUpdating = True
+    Application.ScreenUpdating = su_Prev
     
 End Sub   '*** end of Sh_Fix_Ref_Pages_Before_and_After_Tables macro ***
 

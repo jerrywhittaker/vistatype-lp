@@ -28,6 +28,9 @@ Private Sub OkayButton_Click()
 
     Lp_File_Cleanup_Sub_Menu_Form.Hide
     
+    ' Hold screen updating off across the selected cleanup(s); restored to True below.
+    Application.ScreenUpdating = False
+    
     If FixCommonErrors Then
         Application.Run MacroName:="Lp_Fix_Common_File_Errors"
     End If
