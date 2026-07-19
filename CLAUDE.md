@@ -133,7 +133,7 @@ Each embedded-ribbon button's `tag` names one of these subs (e.g. `tag="Lp_File_
 
 Every sub is versioned inline via a comment block (Version/Date/Author). The module header
 of `LPandBrlMacros` keeps a running dated changelog. Current version string in the About
-forms: **VistaType LP (150)** / v2.2.3. When changing behavior, follow the existing pattern:
+forms: **VistaType LP (150)** / v3.0. When changing behavior, follow the existing pattern:
 bump the per-sub version comment and add a dated line to the header changelog.
 
 ## Domain concepts

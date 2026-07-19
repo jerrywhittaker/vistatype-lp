@@ -1,6 +1,6 @@
 # VistaType LP + Braille Macros — Installation Guide
 
-**Version 2.2.3**
+**Version 3.0**
 
 VistaType LP adds tools to Microsoft Word for producing **large-print** documents and
 **braille** source files (for the Duxbury Braille Translator). This guide covers
@@ -23,7 +23,7 @@ installing it with the new **one-click installer**.
 
 ## Install in three steps
 
-1. **Download** `VistaType-LP-Setup-2.2.3.exe`.
+1. **Download** `VistaType-LP-Setup-3.0.exe`.
 2. **Close Word and Outlook**, then **double-click** the installer.
    - If Windows shows a blue *“Windows protected your PC”* message, click **More info →
      Run anyway**. (This appears because the installer isn’t code-signed; it is safe.)

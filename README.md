@@ -9,7 +9,7 @@ large-print styles template. It adds two ribbon tabs — **VistaType LP** and **
 Macros** — with one-click tools for cleaning up source files, formatting reference page
 numbers, converting lists and tables, handling images, tagging DAISY/NIMAS text, and more.
 
-- **Version:** 2.2.3
+- **Version:** 3.0
 - **Author:** Jerry Whittaker · jerry@thewhittakers.org
 - **License:** [GNU General Public License v3.0](LICENSE) · © 2015–2026 Jerry Whittaker
 
