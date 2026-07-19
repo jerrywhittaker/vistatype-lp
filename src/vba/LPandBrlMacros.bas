@@ -17,7 +17,8 @@ Attribute VB_Name = "LPandBrlMacros"
 '
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - LP - 7/18/2026 - Lp_Attach_The_Template / Sh_Convert_XML_File_To_Word_Document: Save As now uses a single Word Dialog object for .Display + .Execute so the file saves under the name the user types (two separate Dialogs() references lost the typed name); also removed the "template has been attached" prompt from the LP attach
+' Notes:    - LP - 7/18/2026 - Attach performance on large files: Lp_Normalize_Styles sets space-after once at the story level (was a per-paragraph loop), and Lp_Replace_Multiple_Para_Marks_No_Warning walks paragraphs via .Previous instead of indexed paras(i) (~O(n) vs ~O(n^2)); behavior unchanged
+'           - LP - 7/18/2026 - Lp_Attach_The_Template / Sh_Convert_XML_File_To_Word_Document: Save As now uses a single Word Dialog object for .Display + .Execute so the file saves under the name the user types (two separate Dialogs() references lost the typed name); also removed the "template has been attached" prompt from the LP attach
 '           - LP - 7/18/2026 - Lp_Attach_The_Template and Sh_Convert_XML_File_To_Word_Document now stabilize the document BEFORE saving, so each writes the file only once (attach/convert -> stabilize -> save) instead of save -> stabilize -> save
 '           - LP - 7/18/2026 - MS_Set_Word_Config_For_New_Install now writes Options/AutoCorrect only when they differ (idempotent), so it no longer triggers Office's "restart to apply privacy settings" notice on new docs
 '           - LP - 7/2/2026 - revision to file cleanup and normalization
@@ -9571,37 +9572,44 @@ End Sub    '***   end of  Lp_Replace_Multiple_Para_Marks_With_Warning macro ***
      
 Sub Lp_Replace_Multiple_Para_Marks_No_Warning()
 '
+'  Version: 1.6  Date: 7/18/2026 - walk paragraphs via .Previous (linked) instead of
+'                                  indexed paras(i); ~O(n) vs ~O(n^2) on large files.
+'                                  Same collapse-runs-of-blanks-to-one behavior.
 '  Version: 1.5  Date: 7/2/2026 - complete rewrite
 '
     Dim doc As Document
-    Dim paras As Paragraphs
-    Dim i As Long
-    Dim txt As String
+    Dim p As Paragraph
+    Dim prevP As Paragraph
 
     Set doc = ActiveDocument
-    Set paras = doc.Paragraphs
+    Set p = doc.Paragraphs.Last
 
-    For i = paras.count To 2 Step -1
-
-        txt = paras(i).Range.Text
-        txt = Replace(txt, vbCr, "")
-        txt = Trim$(txt)
-
-        If Len(txt) = 0 Then
-
-            txt = paras(i - 1).Range.Text
-            txt = Replace(txt, vbCr, "")
-            txt = Trim$(txt)
-
-            If Len(txt) = 0 Then
-                paras(i).Range.Delete
+    ' Walk backward via the linked .Previous so we never random-index the (slow) Paragraphs
+    ' collection. Capture prevP BEFORE any delete: deleting p invalidates p, not prevP.
+    ' Delete a blank paragraph only when the one before it is also blank -> a run of 2+
+    ' blank paragraphs collapses to a single blank paragraph (unchanged behavior).
+    Do While Not (p Is Nothing)
+        Set prevP = p.Previous          ' Nothing at the first paragraph
+        If Not (prevP Is Nothing) Then
+            If Lp_IsBlankParaMark(p) And Lp_IsBlankParaMark(prevP) Then
+                p.Range.Delete
             End If
-
         End If
-DoEvents
-    Next i
-   
+        Set p = prevP
+        DoEvents
+    Loop
+
 End Sub   '***** Lp_Replace_Multiple_Para_Marks_No_Warning ********
+
+Private Function Lp_IsBlankParaMark(p As Paragraph) As Boolean
+    ' Exact blank test the old indexed loop used: strip paragraph marks, then Trim$.
+    ' Note: intentionally does NOT strip tabs/nbsp, so a tab-only paragraph is NOT blank.
+    Dim txt As String
+    txt = p.Range.Text
+    txt = Replace(txt, vbCr, "")
+    txt = Trim$(txt)
+    Lp_IsBlankParaMark = (Len(txt) = 0)
+End Function   '***** Lp_IsBlankParaMark ********
 
 Function Lp_IsEmptyPara(p As Paragraph) As Boolean
     Dim txt As String
@@ -14033,6 +14041,7 @@ End Function   '*** end of Function Sh_IsValidRomanNumeral ***
 
 Sub Lp_Normalize_Styles()
     '
+    ' Version: 3.2  Date: 7/18/2026 - space-after now set once at story level (was a per-paragraph loop)
     ' Version: 3.1  Date: 7/6/2026 - optimized style updates, preserved all status messages and DoEvents
     ' Modifies the font sizes and character spacing of the document based on Lp_Base_Font_Size
     '
@@ -14085,12 +14094,11 @@ Sub Lp_Normalize_Styles()
     Sh_NonModalMessageForm.SetActivityMessage "Setting spacing between paragraphs"
     DoEvents
 
-    Dim SpcFollowingPara As Paragraph
+    ' Same value on every paragraph => one story-level assignment instead of a per-paragraph
+    ' loop. On Error Resume Next preserves the original no-op behavior when Lp_Base_Font_Size
+    ' is "" (type mismatch, swallowed); a numeric string like "18" coerces to 18 pt as before.
     On Error Resume Next
-    For Each SpcFollowingPara In ActiveDocument.Paragraphs
-        SpcFollowingPara.SpaceAfter = Lp_Base_Font_Size
-        DoEvents
-    Next SpcFollowingPara
+    ActiveDocument.Content.ParagraphFormat.SpaceAfter = Lp_Base_Font_Size
     On Error GoTo 0
     DoEvents
     '***** End Setting space after para Size ****
