@@ -14840,10 +14840,32 @@ Sub Lp_ReplaceNBSP_ExcludePrintPgNumbAndTables()
     '
     ' NBSP = Non-Breaking Space
     '
+    ' Version 1.1  Date: 7/18/2026 - fast path: when the document has no tables, strip NBSP in a
+    '                                single document-wide Find/ReplaceAll instead of one Find per
+    '                                paragraph. (NOTE: the per-paragraph style test below compares
+    '                                against Print Pg Numb but the real style is Print Pg Num, so it
+    '                                never actually excludes; with no tables every paragraph is
+    '                                stripped anyway, making the one-pass result identical. The
+    '                                style-name typo is a separate correctness fix, left as-is.)
     ' Version 1.0  Date: 10/16/2025
     '
     Dim para As Paragraph
     Dim rng As Range
+    
+    ' Fast path -- no tables means no paragraph is excluded below; strip NBSP in one pass.
+    If ActiveDocument.Tables.count = 0 Then
+        With ActiveDocument.Content.Find
+            .ClearFormatting
+            .Replacement.ClearFormatting
+            .Text = Chr(160)
+            .Replacement.Text = " "
+            .Forward = True
+            .Wrap = wdFindContinue
+            .Format = False
+            .Execute Replace:=wdReplaceAll
+        End With
+        Exit Sub
+    End If
     
     For Each para In ActiveDocument.Paragraphs
         ' Skip if style is "Print Pg Numb" OR if inside a table
