@@ -9645,6 +9645,7 @@ End Sub    '***   end of  Lp_Replace_Multiple_Para_Marks_With_Warning macro ***
      
 Sub Lp_Replace_Multiple_Para_Marks_No_Warning()
 '
+'  Version: 1.7  Date: 7/18/2026 - throttle DoEvents to every 200 paragraphs (was every one)
 '  Version: 1.6  Date: 7/18/2026 - walk paragraphs via .Previous (linked) instead of
 '                                  indexed paras(i); ~O(n) vs ~O(n^2) on large files.
 '                                  Same collapse-runs-of-blanks-to-one behavior.
@@ -9661,6 +9662,9 @@ Sub Lp_Replace_Multiple_Para_Marks_No_Warning()
     ' collection. Capture prevP BEFORE any delete: deleting p invalidates p, not prevP.
     ' Delete a blank paragraph only when the one before it is also blank -> a run of 2+
     ' blank paragraphs collapses to a single blank paragraph (unchanged behavior).
+    ' DoEvents only every 200 paragraphs (keeps Word responsive without paying the message-
+    ' pump cost on every iteration of a loop that can run thousands of times on large docs).
+    Dim deCount As Long
     Do While Not (p Is Nothing)
         Set prevP = p.Previous          ' Nothing at the first paragraph
         If Not (prevP Is Nothing) Then
@@ -9669,7 +9673,8 @@ Sub Lp_Replace_Multiple_Para_Marks_No_Warning()
             End If
         End If
         Set p = prevP
-        DoEvents
+        deCount = deCount + 1
+        If deCount Mod 200 = 0 Then DoEvents
     Loop
 
 End Sub   '***** Lp_Replace_Multiple_Para_Marks_No_Warning ********
