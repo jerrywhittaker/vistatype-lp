@@ -18,7 +18,8 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Perf (Tier 1) - 7/18/2026 - ScreenUpdating discipline: 48 chained cleanup subs (Lp_/Dx_/Sh_/MS_ Fix/Replace/Convert/Remove/Format/AutoTag families) now CAPTURE the prior ScreenUpdating state on entry and RESTORE it on exit (su_Prev) instead of unconditionally forcing True. When run inside a screen-off orchestrator (Lp_Attach_The_Template, Sh_Convert_XML_File_To_Word_Document, the cleanup forms) they no longer each force a full repaint mid-sequence; standalone behavior is identical. Lp_File_Cleanup_Sub_Menu_Form holds updating off across its selected cleanups. No logic change.
+' Notes:    - LP - 7/20/2026 - Lp_Remove_All_Styles_Except_Lp_Styles now converts in-use non-LP custom paragraph/linked styles to Normal before deleting them (foreign OCR/import/web-paste body styles are neutralized, not just dropped from the styles pane); built-in styles stay protected by the BuiltIn=False guard; whitelist membership is now an exact comma-delimited match instead of an InStr substring
+'           - Perf (Tier 1) - 7/18/2026 - ScreenUpdating discipline: 48 chained cleanup subs (Lp_/Dx_/Sh_/MS_ Fix/Replace/Convert/Remove/Format/AutoTag families) now CAPTURE the prior ScreenUpdating state on entry and RESTORE it on exit (su_Prev) instead of unconditionally forcing True. When run inside a screen-off orchestrator (Lp_Attach_The_Template, Sh_Convert_XML_File_To_Word_Document, the cleanup forms) they no longer each force a full repaint mid-sequence; standalone behavior is identical. Lp_File_Cleanup_Sub_Menu_Form holds updating off across its selected cleanups. No logic change.
 '           - LP - 7/18/2026 - Attach performance on large files: Lp_Normalize_Styles sets space-after once at the story level (was a per-paragraph loop), and Lp_Replace_Multiple_Para_Marks_No_Warning walks paragraphs via .Previous instead of indexed paras(i) (~O(n) vs ~O(n^2)); behavior unchanged
 '           - LP - 7/18/2026 - Lp_Attach_The_Template / Sh_Convert_XML_File_To_Word_Document: Save As now uses a single Word Dialog object for .Display + .Execute so the file saves under the name the user types (two separate Dialogs() references lost the typed name); also removed the "template has been attached" prompt from the LP attach
 '           - LP - 7/18/2026 - Lp_Attach_The_Template and Sh_Convert_XML_File_To_Word_Document now stabilize the document BEFORE saving, so each writes the file only once (attach/convert -> stabilize -> save) instead of save -> stabilize -> save
@@ -12316,41 +12317,85 @@ End Sub   '*** end of Lp_Replace_Strong_With_Bold macro ***
 
 Sub Lp_Remove_All_Styles_Except_Lp_Styles()
 '
-' Removes all styles except LP Styles from the Styles Pane
+' Removes all styles except LP styles from the Styles Pane. Non-LP custom
+' PARAGRAPH/LINKED styles that are actually in use have their text reassigned to
+' Normal first, then the now-unused style is deleted -- so foreign body styles
+' carried in from OCR / imports / web paste are neutralized, not just left in the
+' pane. Built-in Word styles (Heading 1-5, TOC 1-5, List Paragraph, List Bullet,
+' Header, Footer, ...) are never touched: the BuiltIn = False guard protects them.
 '
+' Version: 1.3  Date: 7/20/2026 - in-use non-LP custom paragraph/linked styles are now
+'                                 converted to Normal before deletion (were kept if in use);
+'                                 whitelist test is exact (comma-delimited) instead of InStr substring;
+'                                 collect-then-process so styles aren't deleted mid-enumeration
 ' Version: 1.2  Date: 1/23/2024 - added "Words Black Inverted" and "Para Black Inverted"
 ' Version: 1.1  Date: 2/19/2023 - added "Para Black" and "Words Black"
 ' Version: 1.0  Date: 11/2/2021
 '
-    With ActiveDocument
-       ' Delete all non-LP styles and any styles which are not built-in Word Styles
-        Dim oStyle As Style
-        Dim LpStyles As String ' list of LP styles - not to be removed
-        Dim styleName As String
+    Dim oStyle As Style
+    Dim st As Style
+    Dim LpStyles As String        ' LP styles to KEEP (comma-delimited, wrapped in commas)
+    Dim styleName As String
+    Dim doomed As Collection      ' non-LP custom style names, collected before any deletion
+    Dim nm As Variant
 
-        LpStyles = "1 point,Gray Scale Table,Yellow on Black Screen Table,Yellow on White Paper Table," _
-        & "Normal,List,List 1,Text Blue,Text Green,Text Orange,Text Red,Text Violet," _
-        & "Box Black,Box Blue,Box Orange,Box Red,Box Violet,Box White," _
-        & "Words Aqua,Words Black,Words Blue,Words Green,Words Pink,Words Tan,Words Yellow," _
-        & "Para Aqua,Para Black,Para Blue,Para Green,Para Tan,Para Yellow,Print Pg Num,Words Black Inverted," _
-        & "Para Black Inverted"
+    ' Wrapped in commas on both ends so membership is an EXACT match:
+    '   InStr(LpStyles, "," & name & ",")  -- so "Para" no longer matches "Para Aqua", etc.
+    LpStyles = ",1 point,Gray Scale Table,Yellow on Black Screen Table,Yellow on White Paper Table," _
+    & "Normal,List,List 1,Text Blue,Text Green,Text Orange,Text Red,Text Violet," _
+    & "Box Black,Box Blue,Box Orange,Box Red,Box Violet,Box White," _
+    & "Words Aqua,Words Black,Words Blue,Words Green,Words Pink,Words Tan,Words Yellow," _
+    & "Para Aqua,Para Black,Para Blue,Para Green,Para Tan,Para Yellow,Print Pg Num,Words Black Inverted," _
+    & "Para Black Inverted,"
 
-        For Each oStyle In ActiveDocument.Styles
-            'Only check out non-built-in styles
-            If oStyle.BuiltIn = False Then
-                With ActiveDocument.Content.Find
-                    .ClearFormatting
-                    styleName = oStyle.NameLocal
-                    If InStr(LpStyles, styleName) = 0 Then ' this style was not in the LpStyles list
-                        'MsgBox StyleName 'style will be deleted if it is not a Word built-in styl
-                        .Style = oStyle.NameLocal
-                        .Execute findText:="", Format:=True
-                        If .found = False Then oStyle.Delete
-                    End If
-                End With
+    ' Pass 1: collect the non-built-in, non-LP style names. We do NOT delete inside this
+    ' For Each -- removing items from the Styles collection mid-enumeration skips styles.
+    Set doomed = New Collection
+    For Each oStyle In ActiveDocument.Styles
+        If oStyle.BuiltIn = False Then
+            styleName = oStyle.NameLocal
+            If InStr(LpStyles, "," & styleName & ",") = 0 Then
+                doomed.Add styleName
             End If
-        Next oStyle
-    End With
+        End If
+    Next oStyle
+
+    ' Pass 2: neutralize + remove each collected style.
+    For Each nm In doomed
+        On Error Resume Next
+        Set st = Nothing
+        Set st = ActiveDocument.Styles(CStr(nm))
+        If Not st Is Nothing Then
+            Select Case st.Type
+                Case wdStyleTypeParagraph, wdStyleTypeLinked
+                    ' Reassign any text using this style to Normal, then drop the style.
+                    With ActiveDocument.Content.Find
+                        .ClearFormatting
+                        .Style = CStr(nm)
+                        .Replacement.ClearFormatting
+                        .Replacement.Style = ActiveDocument.Styles(wdStyleNormal)
+                        .Text = ""
+                        .Replacement.Text = ""
+                        .Forward = True
+                        .Wrap = wdFindContinue
+                        .Format = True
+                        .MatchWildcards = False
+                        .Execute Replace:=wdReplaceAll
+                    End With
+                    ActiveDocument.Styles(CStr(nm)).Delete
+                Case Else
+                    ' Character / table / list styles can't become the paragraph style Normal --
+                    ' keep the prior rule: delete only if the style is not in use.
+                    With ActiveDocument.Content.Find
+                        .ClearFormatting
+                        .Style = CStr(nm)
+                        .Execute findText:="", Format:=True
+                        If .found = False Then ActiveDocument.Styles(CStr(nm)).Delete
+                    End With
+            End Select
+        End If
+        On Error GoTo 0
+    Next nm
     
 End Sub   '*** end of Lp_Remove_All_Styles_Except_Lp_Styles macro ***
 
