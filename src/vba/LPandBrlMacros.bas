@@ -18,7 +18,8 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - LP - 7/20/2026 - Lp_Remove_All_Styles_Except_Lp_Styles now converts in-use non-LP custom paragraph/linked styles to Normal before deleting them (foreign OCR/import/web-paste body styles are neutralized, not just dropped from the styles pane); built-in styles stay protected by the BuiltIn=False guard; whitelist membership is now an exact comma-delimited match instead of an InStr substring
+' Notes:    - Sh - 7/21/2026 - Sh_Convert_XML_File_To_Word_Document (DAISY/NIMAS -> Word) perf: ScreenUpdating now stays off through the whole import/repaginate region; live spell/grammar check and background pagination are silenced during it (captured + restored before the Save As UI); the HTML imports in Draft view; the fixed DoEvents pauses are trimmed (~18s -> ~2s); the redundant post-Unlink Fields.Update pass is dropped; and images embed via BreakLink without a per-image .Update disk re-fetch
+'           - LP - 7/20/2026 - Lp_Remove_All_Styles_Except_Lp_Styles now converts in-use non-LP custom paragraph/linked styles to Normal before deleting them (foreign OCR/import/web-paste body styles are neutralized, not just dropped from the styles pane); built-in styles stay protected by the BuiltIn=False guard; whitelist membership is now an exact comma-delimited match instead of an InStr substring
 '           - Perf (Tier 1) - 7/18/2026 - ScreenUpdating discipline: 48 chained cleanup subs (Lp_/Dx_/Sh_/MS_ Fix/Replace/Convert/Remove/Format/AutoTag families) now CAPTURE the prior ScreenUpdating state on entry and RESTORE it on exit (su_Prev) instead of unconditionally forcing True. When run inside a screen-off orchestrator (Lp_Attach_The_Template, Sh_Convert_XML_File_To_Word_Document, the cleanup forms) they no longer each force a full repaint mid-sequence; standalone behavior is identical. Lp_File_Cleanup_Sub_Menu_Form holds updating off across its selected cleanups. No logic change.
 '           - LP - 7/18/2026 - Attach performance on large files: Lp_Normalize_Styles sets space-after once at the story level (was a per-paragraph loop), and Lp_Replace_Multiple_Para_Marks_No_Warning walks paragraphs via .Previous instead of indexed paras(i) (~O(n) vs ~O(n^2)); behavior unchanged
 '           - LP - 7/18/2026 - Lp_Attach_The_Template / Sh_Convert_XML_File_To_Word_Document: Save As now uses a single Word Dialog object for .Display + .Execute so the file saves under the name the user types (two separate Dialogs() references lost the typed name); also removed the "template has been attached" prompt from the LP attach
@@ -16439,6 +16440,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
 '
 ' Automatically converts an .xml (NIMAS or DAISY) file into a Word Document with reference pages tagged with $pg
 '
+' Version: 1.4  Date: 7/21/2026 - perf: ScreenUpdating stays off through the whole import/repaginate region; live spell/grammar check + background pagination silenced during it (restored after); HTML imported in Draft view; fixed DoEvents pauses trimmed (~18s -> ~2s); redundant post-Unlink Fields.Update dropped; images embed via BreakLink without a per-image .Update disk re-fetch
 ' Version: 1.3  Date: 7/18/2026 - Save As now uses one dialog object so the file saves under the name the user types
 ' Version: 1.2  Date: 7/18/2026 - stabilize the document before saving; now saves only once (stabilize->save)
 ' Version: 1.1  Date: 7/8/2026 - added non modal message code - and file stabilization code
@@ -16468,6 +16470,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     Dim fileContent As String
     
     Dim origState As Long, origTop As Long, origLeft As Long
+    Dim su_Prev As Boolean, pag_Prev As Boolean, spell_Prev As Boolean, gram_Prev As Boolean
 
     ' --- Step 1: Window Setup ---
     origState = ActiveWindow.WindowState
@@ -16537,7 +16540,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     DoEvents
     
     Sh_NonModalMessageForm.Show vbModeless
-    Sh_PauseSeconds 3   'pause nn seconds
+    Sh_PauseSeconds 0.3   'brief tick so the status form paints
     DoEvents
 
     Dim rng As Range
@@ -16567,7 +16570,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     Sh_NonModalMessageForm.Show vbModeless
     Sh_NonModalMessageForm.SetActivityMessage "Creating .txt file with .xml code and creating .html file"
     DoEvents
-    Sh_PauseSeconds 3   'pause for nn seconds
+    Sh_PauseSeconds 0.3   'brief tick so the status form paints
 
     ' --- Step 7: Fix Images (Base Href) ---
     baseFolder = "file:///" & Replace(folderPath, "\", "/")
@@ -16607,43 +16610,58 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     Sh_NonModalMessageForm.Show vbModeless
     Sh_NonModalMessageForm.SetActivityMessage "Creating Word file. Activity Spinner is idle. Large files may take several minutes to convert."
     DoEvents
-    Sh_PauseSeconds 3   'pause for nn seconds
+    Sh_PauseSeconds 0.3   'brief tick so the status form paints
 
+    ' --- Speed: silence background work for the whole heavy region (InsertFile, image
+    ' embedding, repaginate). ScreenUpdating stays OFF until every heavy step is done; the
+    ' *_Prev locals are restored just before the Save As UI further below. ---
+    su_Prev = Application.ScreenUpdating
+    pag_Prev = Application.Options.Pagination
+    spell_Prev = Application.Options.CheckSpellingAsYouType
+    gram_Prev = Application.Options.CheckGrammarAsYouType
     Application.ScreenUpdating = False
-    
+    Application.Options.Pagination = False
+    Application.Options.CheckSpellingAsYouType = False
+    Application.Options.CheckGrammarAsYouType = False
+
     ' Supress the initial security warning during import
     Application.DisplayAlerts = wdAlertsNone
-    
+
+    ' Import + process in Draft view with proofing marks off -- far less work than Print
+    ' view / live spell+grammar checking on a large imported book.
+    On Error Resume Next
+    finalDoc.ActiveWindow.View.Type = wdNormalView
+    finalDoc.ShowSpellingErrors = False
+    finalDoc.ShowGrammaticalErrors = False
+    On Error GoTo 0
+
     ' Use InsertFile instead of Copy/Paste to prevent the 0x5 Clipboard Crash
     finalDoc.Range.InsertFile fileName:=htmlPath, ConfirmConversions:=False
-    
-    ' Permanently embed all images and break links so the security warning goes away forever
+
+    ' Permanently embed all images and break links so the security warning goes away forever.
+    ' BreakLink embeds the image InsertFile already loaded, so no per-image .Update re-fetch
+    ' from disk is needed -- that re-fetch was the biggest cost on image-heavy books.
     Dim shp As inlineShape
     For Each shp In finalDoc.InlineShapes
         If Not shp.LinkFormat Is Nothing Then
             shp.LinkFormat.SavePictureWithDocument = True
-            shp.LinkFormat.Update
             shp.LinkFormat.BreakLink
         End If
     Next shp
-    
+
     ' Unlink any remaining field codes Word might complain about
     finalDoc.Fields.Unlink
 
     ' Turn alerts back on
     Application.DisplayAlerts = wdAlertsAll
-    
+
     With finalDoc.Range.Font
         .Name = "Courier New": .Size = 10
     End With
     Sh_Color_Dollar_PG_Red
-    
-    Application.ScreenUpdating = True
-    finalDoc.Activate: ActiveWindow.View.Type = wdPrintView
-    Application.ScreenRefresh
-    
-    start = Timer
-    Do While Timer < start + 1.5: DoEvents: Loop
+
+    finalDoc.Activate
+    Sh_PauseSeconds 0.3   'brief tick (ScreenUpdating still off through repaginate below)
     
     ' Make the document visible and active on screen
     Sh_NonModalMessageForm.Hide ' Hide the progress form so it doesn't block the document
@@ -16665,17 +16683,21 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     Sh_NonModalMessageForm.Show vbModeless
     Sh_NonModalMessageForm.SetActivityMessage "Repaginating the document"
     DoEvents
-    Sh_PauseSeconds 3   'pause for nn seconds
+    Sh_PauseSeconds 0.3   'brief tick so the status form paints
 
     doc.Repaginate
-
-    Sh_NonModalMessageForm.Show vbModeless
-    Sh_NonModalMessageForm.SetActivityMessage "Updating document fields"
-    DoEvents
-    Sh_PauseSeconds 3   'pause for nn seconds
-
-    doc.Fields.Update
     doc.UndoClear
+
+    ' --- Speed: heavy work is done. Restore screen + background settings (and Print view)
+    ' before the Save As UI so the dialog/status form render normally. (Fields.Unlink above
+    ' already made every field static text, so the old Fields.Update pass here was redundant.) ---
+    Application.Options.CheckGrammarAsYouType = gram_Prev
+    Application.Options.CheckSpellingAsYouType = spell_Prev
+    Application.Options.Pagination = pag_Prev
+    On Error Resume Next
+    finalDoc.ActiveWindow.View.Type = wdPrintView
+    On Error GoTo 0
+    Application.ScreenUpdating = su_Prev
 
     ' Hide the progress form momentarily so Windows can cleanly shift focus to the Save As dialog
     Sh_NonModalMessageForm.Hide
@@ -16684,6 +16706,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     Application.Activate
     currentdoc.Activate
     DoEvents
+    Sh_PauseSeconds 0.5   'brief settle so the Save As dialog receives focus cleanly
 
     Dim dlgSaveAs As Dialog
 SaveTheFile:
@@ -16721,14 +16744,14 @@ SaveTheFile:
             dlgSaveAs.Execute
 
             ' 3. Keep the message up for a brief moment so they see it finish
-            Sh_PauseSeconds 2
+            Sh_PauseSeconds 1
         End If
     Else
         ' Named document: save it in place, exactly once.
         Sh_NonModalMessageForm.Show vbModeless
         Sh_NonModalMessageForm.SetActivityMessage "Saving the stabilized document"
         DoEvents
-        Sh_PauseSeconds 3   'pause for nn seconds
+        Sh_PauseSeconds 0.5   'brief tick so the status form paints
 
         doc.Save
     End If
