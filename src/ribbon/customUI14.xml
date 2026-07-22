@@ -73,7 +73,7 @@
         <button id="btn_Lp_About" label="Version &amp;&amp; Updates" imageMso="TagMarkComplete" onAction="RibbonAction" tag="Lp_About"/>
       </group>
     </tab>
-    <tab id="tab_LP_and_BRL_QAT_Icons" label="LP and BRL QAT Icons" insertBeforeMso="TabInsert">
+    <tab id="tab_LP_and_BRL_QAT_Icons" label="LP and BRL QAT Icons" insertBeforeMso="TabInsert" visible="false">
       <group id="grp_mso_c2_4EA2EBA" label=" " autoScale="true">
         <control idMso="FileOpenUsingBackstage"/>
         <control idMso="FileSave"/>

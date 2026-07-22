@@ -14320,7 +14320,7 @@ Sub Lp_Normalize_Styles()
     End If
     On Error GoTo 0
 
-    Sh_NonModalMessageForm.SetActivityMessage "Setting table borders weights"
+    Sh_NonModalMessageForm.SetActivityMessage "Setting table border weights"
     DoEvents
 
     For Each tbl In ActiveDocument.Tables
