@@ -133,9 +133,9 @@ Each embedded-ribbon button's `tag` names one of these subs (e.g. `tag="Lp_File_
 
 Every sub is versioned inline via a comment block (Version/Date/Author). The module header
 of `LPandBrlMacros` keeps a running dated changelog. Current version: the shipped
-package/installer is **3.0.2** (`APPVER` in the Makefile, `AppVer` in
+package/installer is **3.0.3** (`APPVER` in the Makefile, `AppVer` in
 `installer/vistatype.iss`, which drives the `VistaType-LP-Setup-<ver>.exe` name); the About
-form's `VersionLabel` caption reads **v3.0.2**. (The `VistaType LP (NNN)` numbers in MsgBox
+form's `VersionLabel` caption reads **v3.0.3**. (The `VistaType LP (NNN)` numbers in MsgBox
 titles are per-dialog IDs, *not* version numbers.) When changing behavior, follow the existing
 pattern: bump the per-sub version comment and add a dated line to the header changelog.
 
