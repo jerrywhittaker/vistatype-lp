@@ -16443,6 +16443,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
 '
 ' Automatically converts an .xml (NIMAS or DAISY) file into a Word Document with reference pages tagged with $pg
 '
+' Version: 1.6  Date: 7/22/2026 - fix black Word workspace behind the "conversion complete" message: ScreenUpdating/Print view are restored (with a ScreenRefresh) BEFORE that message box instead of after the repaginate; background pagination and live spell/grammar stay suppressed through the repaginate
 ' Version: 1.5  Date: 7/21/2026 - <prodnote> content (body text and in tables) is now emitted as <p class="Prodnote"> so it imports carrying the "Prodnote" paragraph style (see Sh_Tag_Prodnotes_As_Prodnote_Style); requires "Prodnote" in the LpStyles keep-list
 ' Version: 1.4  Date: 7/21/2026 - perf: ScreenUpdating stays off through the whole import/repaginate region; live spell/grammar check + background pagination silenced during it (restored after); HTML imported in Draft view; fixed DoEvents pauses trimmed (~18s -> ~2s); redundant post-Unlink Fields.Update dropped; images embed via BreakLink without a per-image .Update disk re-fetch
 ' Version: 1.3  Date: 7/18/2026 - Save As now uses one dialog object so the file saves under the name the user types
@@ -16673,8 +16674,19 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     End With
     Sh_Color_Dollar_PG_Red
 
+    ' Repaint BEFORE the "conversion complete" message box: turn ScreenUpdating back on,
+    ' come out of Draft into Print view, and force a refresh. Without this the message box
+    ' appears over a workspace Word never painted, which shows BLACK instead of the normal
+    ' gray surround (the document page itself still looks white).
+    ' Background pagination and live spell/grammar stay OFF through the repaginate below --
+    ' those are the expensive ones and they cause no painting artifacts.
     finalDoc.Activate
-    Sh_PauseSeconds 0.3   'brief tick (ScreenUpdating still off through repaginate below)
+    On Error Resume Next
+    finalDoc.ActiveWindow.View.Type = wdPrintView
+    On Error GoTo 0
+    Application.ScreenUpdating = su_Prev
+    Application.ScreenRefresh
+    Sh_PauseSeconds 0.3
     
     ' Make the document visible and active on screen
     Sh_NonModalMessageForm.Hide ' Hide the progress form so it doesn't block the document
@@ -16701,16 +16713,13 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     doc.Repaginate
     doc.UndoClear
 
-    ' --- Speed: heavy work is done. Restore screen + background settings (and Print view)
-    ' before the Save As UI so the dialog/status form render normally. (Fields.Unlink above
-    ' already made every field static text, so the old Fields.Update pass here was redundant.) ---
+    ' --- Speed: heavy work is done. Restore the background-processing options we silenced.
+    ' (ScreenUpdating and Print view were already restored before the message box above, so
+    ' the workspace paints correctly there. Fields.Unlink already made every field static
+    ' text, so the old Fields.Update pass here was redundant.) ---
     Application.Options.CheckGrammarAsYouType = gram_Prev
     Application.Options.CheckSpellingAsYouType = spell_Prev
     Application.Options.Pagination = pag_Prev
-    On Error Resume Next
-    finalDoc.ActiveWindow.View.Type = wdPrintView
-    On Error GoTo 0
-    Application.ScreenUpdating = su_Prev
 
     ' Hide the progress form momentarily so Windows can cleanly shift focus to the Save As dialog
     Sh_NonModalMessageForm.Hide
