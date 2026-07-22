@@ -18,7 +18,8 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Sh - 7/21/2026 - Sh_Convert_XML_File_To_Word_Document (DAISY/NIMAS -> Word) perf: ScreenUpdating now stays off through the whole import/repaginate region; live spell/grammar check and background pagination are silenced during it (captured + restored before the Save As UI); the HTML imports in Draft view; the fixed DoEvents pauses are trimmed (~18s -> ~2s); the redundant post-Unlink Fields.Update pass is dropped; and images embed via BreakLink without a per-image .Update disk re-fetch
+' Notes:    - Sh - 7/21/2026 - DAISY/NIMAS -> Word: <prodnote> content (body text and inside tables) is now emitted as <p class="Prodnote"> with an mso-style-name rule so Word's HTML import applies the "Prodnote" paragraph style. New helper Sh_Tag_Prodnotes_As_Prodnote_Style handles both real shapes (NIMAS bare-text prodnotes, DAISY prodnotes containing <p> children, which span lines and so are string-parsed rather than wildcard-matched). "Prodnote" added to the LpStyles keep-list in Lp_Remove_All_Styles_Except_Lp_Styles so attaching the LP template does not flatten it back to Normal. EXPERIMENTAL - Prodnote style must exist in LargePrintTemplate.dotx
+'           - Sh - 7/21/2026 - Sh_Convert_XML_File_To_Word_Document (DAISY/NIMAS -> Word) perf: ScreenUpdating now stays off through the whole import/repaginate region; live spell/grammar check and background pagination are silenced during it (captured + restored before the Save As UI); the HTML imports in Draft view; the fixed DoEvents pauses are trimmed (~18s -> ~2s); the redundant post-Unlink Fields.Update pass is dropped; and images embed via BreakLink without a per-image .Update disk re-fetch
 '           - LP - 7/20/2026 - Lp_Remove_All_Styles_Except_Lp_Styles now converts in-use non-LP custom paragraph/linked styles to Normal before deleting them (foreign OCR/import/web-paste body styles are neutralized, not just dropped from the styles pane); built-in styles stay protected by the BuiltIn=False guard; whitelist membership is now an exact comma-delimited match instead of an InStr substring
 '           - Perf (Tier 1) - 7/18/2026 - ScreenUpdating discipline: 48 chained cleanup subs (Lp_/Dx_/Sh_/MS_ Fix/Replace/Convert/Remove/Format/AutoTag families) now CAPTURE the prior ScreenUpdating state on entry and RESTORE it on exit (su_Prev) instead of unconditionally forcing True. When run inside a screen-off orchestrator (Lp_Attach_The_Template, Sh_Convert_XML_File_To_Word_Document, the cleanup forms) they no longer each force a full repaint mid-sequence; standalone behavior is identical. Lp_File_Cleanup_Sub_Menu_Form holds updating off across its selected cleanups. No logic change.
 '           - LP - 7/18/2026 - Attach performance on large files: Lp_Normalize_Styles sets space-after once at the story level (was a per-paragraph loop), and Lp_Replace_Multiple_Para_Marks_No_Warning walks paragraphs via .Previous instead of indexed paras(i) (~O(n) vs ~O(n^2)); behavior unchanged
@@ -12325,6 +12326,8 @@ Sub Lp_Remove_All_Styles_Except_Lp_Styles()
 ' pane. Built-in Word styles (Heading 1-5, TOC 1-5, List Paragraph, List Bullet,
 ' Header, Footer, ...) are never touched: the BuiltIn = False guard protects them.
 '
+' Version: 1.4  Date: 7/21/2026 - added "Prodnote" to the LP keep-list so the DAISY/NIMAS
+'                                 converter's Prodnote-styled paragraphs survive template attach
 ' Version: 1.3  Date: 7/20/2026 - in-use non-LP custom paragraph/linked styles are now
 '                                 converted to Normal before deletion (were kept if in use);
 '                                 whitelist test is exact (comma-delimited) instead of InStr substring;
@@ -12347,7 +12350,7 @@ Sub Lp_Remove_All_Styles_Except_Lp_Styles()
     & "Box Black,Box Blue,Box Orange,Box Red,Box Violet,Box White," _
     & "Words Aqua,Words Black,Words Blue,Words Green,Words Pink,Words Tan,Words Yellow," _
     & "Para Aqua,Para Black,Para Blue,Para Green,Para Tan,Para Yellow,Print Pg Num,Words Black Inverted," _
-    & "Para Black Inverted,"
+    & "Para Black Inverted,Prodnote,"
 
     ' Pass 1: collect the non-built-in, non-LP style names. We do NOT delete inside this
     ' For Each -- removing items from the Styles collection mid-enumeration skips styles.
@@ -16440,6 +16443,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
 '
 ' Automatically converts an .xml (NIMAS or DAISY) file into a Word Document with reference pages tagged with $pg
 '
+' Version: 1.5  Date: 7/21/2026 - <prodnote> content (body text and in tables) is now emitted as <p class="Prodnote"> so it imports carrying the "Prodnote" paragraph style (see Sh_Tag_Prodnotes_As_Prodnote_Style); requires "Prodnote" in the LpStyles keep-list
 ' Version: 1.4  Date: 7/21/2026 - perf: ScreenUpdating stays off through the whole import/repaginate region; live spell/grammar check + background pagination silenced during it (restored after); HTML imported in Draft view; fixed DoEvents pauses trimmed (~18s -> ~2s); redundant post-Unlink Fields.Update dropped; images embed via BreakLink without a per-image .Update disk re-fetch
 ' Version: 1.3  Date: 7/18/2026 - Save As now uses one dialog object so the file saves under the name the user types
 ' Version: 1.2  Date: 7/18/2026 - stabilize the document before saving; now saves only once (stabilize->save)
@@ -16576,7 +16580,16 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     baseFolder = "file:///" & Replace(folderPath, "\", "/")
     baseFolder = Replace(baseFolder, " ", "%20")
     
-    fileContent = "<html><head><meta charset=""UTF-8""><base href=""" & baseFolder & """></head><body>" & fileContent & "</body></html>"
+    ' Mark <prodnote> content (body text and inside tables) so it imports carrying the
+    ' "Prodnote" paragraph style. Word's HTML importer strips unknown tags like <prodnote>,
+    ' so the content must already be <p class="Prodnote"> by the time the HTML is imported.
+    fileContent = Sh_Tag_Prodnotes_As_Prodnote_Style(fileContent)
+
+    ' The mso-style-name rule is what makes Word's HTML importer map class="Prodnote"
+    ' onto the Word paragraph style named "Prodnote".
+    fileContent = "<html><head><meta charset=""UTF-8""><base href=""" & baseFolder & """>" & _
+                  "<style>p.Prodnote{mso-style-name:""Prodnote"";}</style>" & _
+                  "</head><body>" & fileContent & "</body></html>"
 
     ' --- Step 8: Save Outputs using UTF-8 Stream (Fixes Black Diamonds) ---
     Dim outStream As Object
@@ -16769,6 +16782,65 @@ SaveTheFile:
     MsgBox "Conversion is complete and the file has been stabilized and saved", vbInformation, "Operation Complete"
     
 End Sub   '*** end of Sh_Convert_XML_File_To_Word_Document macro ***
+
+Function Sh_Tag_Prodnotes_As_Prodnote_Style(ByVal src As String) As String
+'
+' Rewrites DTBook <prodnote> blocks so the converted Word document carries the "Prodnote"
+' paragraph style on the prodnote's content -- in the body text and inside tables.
+'
+' Word's HTML importer strips unknown tags such as <prodnote> and keeps only their text,
+' so the marking has to happen in the string BEFORE Sh_Convert_XML_File_To_Word_Document
+' imports the generated .html. Two shapes occur in real books:
+'   NIMAS: <prodnote render="optional">bare text</prodnote>
+'   DAISY: <prodnote imgref=".." ..><p id="..">text</p><p id="..">text</p></prodnote>
+' DAISY prodnotes span several lines, so this is done with string parsing rather than a
+' Word wildcard Find (wildcards cannot match across paragraph marks).
+'
+' For the DAISY shape each inner <p> gets class="Prodnote"; for the NIMAS shape the bare
+' text is wrapped in a single <p class="Prodnote"> paragraph. The <prodnote> wrapper itself
+' is dropped either way (Word would discard it anyway).
+'
+' NOTE: "Prodnote" must stay in the LpStyles keep-list in
+' Lp_Remove_All_Styles_Except_Lp_Styles, or attaching the LP template will convert these
+' paragraphs back to Normal and delete the style.
+'
+' Version: 1.0  Date: 7/21/2026
+'
+    Dim outStr As String
+    Dim pos As Long, openStart As Long, openEnd As Long, closeStart As Long
+    Dim inner As String
+    Const CLOSETAG As String = "</prodnote>"
+
+    pos = 1
+    Do
+        openStart = InStr(pos, src, "<prodnote", vbTextCompare)
+        If openStart = 0 Then Exit Do
+        openEnd = InStr(openStart, src, ">")                      ' end of the opening tag
+        If openEnd = 0 Then Exit Do
+        closeStart = InStr(openEnd, src, CLOSETAG, vbTextCompare)
+        If closeStart = 0 Then Exit Do
+
+        ' everything ahead of this prodnote passes through untouched
+        outStr = outStr & Mid$(src, pos, openStart - pos)
+
+        inner = Mid$(src, openEnd + 1, closeStart - openEnd - 1)
+
+        If InStr(1, inner, "<p ", vbTextCompare) > 0 Or InStr(1, inner, "<p>", vbTextCompare) > 0 Then
+            ' DAISY shape -- style each paragraph the prodnote already contains
+            inner = Replace(inner, "<p ", "<p class=""Prodnote"" ", , , vbTextCompare)
+            inner = Replace(inner, "<p>", "<p class=""Prodnote"">", , , vbTextCompare)
+            outStr = outStr & inner
+        Else
+            ' NIMAS shape -- bare text becomes one Prodnote paragraph
+            outStr = outStr & "<p class=""Prodnote"">" & inner & "</p>"
+        End If
+
+        pos = closeStart + Len(CLOSETAG)
+    Loop
+
+    outStr = outStr & Mid$(src, pos)
+    Sh_Tag_Prodnotes_As_Prodnote_Style = outStr
+End Function   '*** end of Sh_Tag_Prodnotes_As_Prodnote_Style function ***
 
 Sub Sh_PauseSeconds(ByVal Seconds As Single)
     Dim startTime As Single
