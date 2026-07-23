@@ -204,12 +204,14 @@ Sub Sh_HandleDocumentOpened()
                 Exit Sub
             Else ' is a large print document with current LP template attached
                 Application.Run MacroName:="MS_Set_Word_Config_For_Large_Print"
-                Application.Run MacroName:="Lp_Set_Display_For_Large_Print"
                 ' Show "Prodnote" in the Styles pane if this document actually contains
                 ' prodnotes. A document saved while the style was hidden stays hidden
                 ' otherwise, because Word only clears <w:semiHidden/> (via unhideWhenUsed)
                 ' when a style is newly APPLIED -- never on open for text already styled.
+                ' This runs BEFORE Lp_Set_Display_For_Large_Print so that the pane is turned
+                ' on and filtered last, with the style visibility already correct.
                 Application.Run MacroName:="Lp_Set_Prodnote_Style_Visibility"
+                Application.Run MacroName:="Lp_Set_Display_For_Large_Print"
         End If
         
     Else ' check if it is a braille document
