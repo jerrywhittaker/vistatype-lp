@@ -27,7 +27,7 @@
 ;  and running-Office detection are correct in principle but unverified here.
 ; ============================================================================
 
-#define AppVer      "3.0.3"
+#define AppVer      "3.0.4"
 #define DotmName    "LPandBRL.dotm"
 #define DotxName    "LargePrintTemplate.dotx"
 ; Directory holding the three shipping files (staged by `make installer`).
