@@ -12415,28 +12415,41 @@ Sub Lp_Delete_Prodnote_Paragraphs()
 ' Prodnote paragraphs are produced by the DAISY/NIMAS converter (see
 ' Sh_Tag_Prodnotes_As_Prodnote_Style) and by the "Prodnote" style in the LP template.
 '
-' If the document has no "Prodnote" style at all, the user is told and nothing happens.
-' Otherwise the deletion is confirmed Yes/No before anything is removed.
+' Requires an open document with the large print template attached, and at least one
+' paragraph actually styled Prodnote. Otherwise the user is told and nothing happens.
+' The deletion is confirmed Yes/No before anything is removed.
 '
+' Version: 1.1  Date: 7/22/2026 - now guards on Lp_Is_Lp_Template_Attached (open doc + LP
+'                                 template) and tests Prodnote USAGE rather than the style
+'                                 merely existing; "No prodnotes found" when none are used
 ' Version: 1.0  Date: 7/22/2026
 '
-    Sh_Is_Doc_Open
+    ' Guard: a document must be open AND the large print template attached.
+    ' Lp_Is_Lp_Template_Attached does both (it calls Sh_Is_Doc_Open itself) and stops with
+    ' "VistaType large print template is not attached" when the document is not LP.
+    Application.Run MacroName:="Lp_Is_Lp_Template_Attached"
 
-    Dim sTest As Style
-    Dim styleExists As Boolean
+    ' --- 1. Collect the paragraphs actually styled Prodnote ---
+    ' This doubles as the usage test: the style existing in the template is not enough, and
+    ' since every LP document now defines "Prodnote", existence would almost always be True.
+    ' Comparing style names is safe even if no Prodnote style exists (nothing matches).
+    ' Collecting up front also avoids deleting while walking the collection, which would
+    ' skip paragraphs (For Each is O(n); indexed Paragraphs(i) would be O(n^2)).
+    Dim para As Paragraph
+    Dim marked As Collection
+    Dim i As Long
+    Dim deleted As Long
+    Dim su_Prev As Boolean
 
-    ' --- 1. Does a "Prodnote" style exist in this document? ---
-    ' Trap the lookup rather than using .InUse -- InUse also reports True for styles that
-    ' were merely modified, so it is not a reliable existence test.
-    On Error Resume Next
-    Set sTest = ActiveDocument.Styles("Prodnote")
-    styleExists = (Err.Number = 0)
-    Err.Clear
-    On Error GoTo 0
+    Set marked = New Collection
+    For Each para In ActiveDocument.Paragraphs
+        If StrComp(para.Style.NameLocal, "Prodnote", vbTextCompare) = 0 Then
+            marked.Add para.Range
+        End If
+    Next para
 
-    If Not styleExists Then
-        MsgBox "This document does not contain a ""Prodnote"" style." & vbCr & vbCr & _
-               "There is nothing to delete.", vbInformation, "VistaType LP (228)"
+    If marked.count = 0 Then
+        MsgBox "No prodnotes found", vbInformation, "VistaType LP (228)"
         Exit Sub
     End If
 
@@ -12446,25 +12459,9 @@ Sub Lp_Delete_Prodnote_Paragraphs()
         Exit Sub
     End If
 
-    ' --- 3. Collect the matching paragraphs FIRST, then delete back-to-front ---
-    ' Deleting while walking the Paragraphs collection would skip paragraphs; collecting
-    ' the ranges up front (For Each is O(n); indexed Paragraphs(i) would be O(n^2)) and
-    ' deleting in reverse keeps every remaining range valid.
-    Dim para As Paragraph
-    Dim marked As Collection
-    Dim i As Long
-    Dim deleted As Long
-    Dim su_Prev As Boolean
-
+    ' --- 3. Delete back-to-front so the remaining ranges stay valid ---
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False
-
-    Set marked = New Collection
-    For Each para In ActiveDocument.Paragraphs
-        If StrComp(para.Style.NameLocal, "Prodnote", vbTextCompare) = 0 Then
-            marked.Add para.Range
-        End If
-    Next para
 
     Dim total As Long
     total = marked.count
