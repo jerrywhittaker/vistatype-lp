@@ -16613,6 +16613,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
 '
 ' Automatically converts an .xml (NIMAS or DAISY) file into a Word Document with reference pages tagged with $pg
 '
+' Version: 1.7  Date: 7/23/2026 - the "Prodnote" style is set red (EE0000, same as the LP template) in the converted document, which is built from Normal and so would otherwise show prodnotes as plain body text until the LP template is attached
 ' Version: 1.6  Date: 7/22/2026 - fix black Word workspace behind the "conversion complete" message: ScreenUpdating/Print view are restored (with a ScreenRefresh) BEFORE that message box instead of after the repaginate; background pagination and live spell/grammar stay suppressed through the repaginate
 ' Version: 1.5  Date: 7/21/2026 - <prodnote> content (body text and in tables) is now emitted as <p class="Prodnote"> so it imports carrying the "Prodnote" paragraph style (see Sh_Tag_Prodnotes_As_Prodnote_Style); requires "Prodnote" in the LpStyles keep-list
 ' Version: 1.4  Date: 7/21/2026 - perf: ScreenUpdating stays off through the whole import/repaginate region; live spell/grammar check + background pagination silenced during it (restored after); HTML imported in Draft view; fixed DoEvents pauses trimmed (~18s -> ~2s); redundant post-Unlink Fields.Update dropped; images embed via BreakLink without a per-image .Update disk re-fetch
@@ -16842,6 +16843,19 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     With finalDoc.Range.Font
         .Name = "Courier New": .Size = 10
     End With
+
+    ' Make the "Prodnote" style red in the converted document. This document is created from
+    ' Normal (Documents.Add), so Word invents "Prodnote" from the mso-style-name rule in the
+    ' generated HTML with no formatting of its own -- prodnotes would otherwise look like
+    ' ordinary body text until the LP template is attached. EE0000 = RGB(238, 0, 0) is the
+    ' same red the Prodnote style carries in LargePrintTemplate.dotx, so the colour does not
+    ' shift when that template is attached later. Silently skipped when the book contained no
+    ' prodnotes (Word never creates the style, so the lookup fails).
+    On Error Resume Next
+    finalDoc.Styles("Prodnote").Font.Color = RGB(238, 0, 0)
+    Err.Clear
+    On Error GoTo 0
+
     Sh_Color_Dollar_PG_Red
 
     ' Repaint BEFORE the "conversion complete" message box: turn ScreenUpdating back on,
