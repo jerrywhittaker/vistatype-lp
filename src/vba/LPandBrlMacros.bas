@@ -150,6 +150,7 @@ Sub Sh_HandleDocumentOpened()
     ' If the document is a large print document then setting for Large Print are made - if doc is braille then brille settings are made
     '   otherwise the settings for a normal document are made.
     '
+    ' Version 1.5  Date: 7/23/2026 - LP documents now call Lp_Set_Prodnote_Style_Visibility on open, so "Prodnote" shows in the Styles pane when the document contains prodnotes (a file saved while the style was hidden stayed hidden)
     ' Version 1.4  Date: 2/16/2026 - added call to p_CheckAndAssistDocumentState to check block and read only status
     ' Version 1.3  Date: 2/17/2024 - added Dx_GP_String_1 = "Doc_Is_Already_Brl" to bypass cleanup questions
     ' Version 1.2  Date: 10/22/2021 - Added section to determine if doc has obsolete lp template attached
@@ -204,6 +205,11 @@ Sub Sh_HandleDocumentOpened()
             Else ' is a large print document with current LP template attached
                 Application.Run MacroName:="MS_Set_Word_Config_For_Large_Print"
                 Application.Run MacroName:="Lp_Set_Display_For_Large_Print"
+                ' Show "Prodnote" in the Styles pane if this document actually contains
+                ' prodnotes. A document saved while the style was hidden stays hidden
+                ' otherwise, because Word only clears <w:semiHidden/> (via unhideWhenUsed)
+                ' when a style is newly APPLIED -- never on open for text already styled.
+                Application.Run MacroName:="Lp_Set_Prodnote_Style_Visibility"
         End If
         
     Else ' check if it is a braille document
@@ -12429,19 +12435,33 @@ Sub Lp_Set_Prodnote_Style_Visibility()
 '
 ' Style.Visibility = True sets <w:semiHidden/> (hides); False clears it (shows).
 '
+' Usage is tested with a style Find rather than a VBA paragraph loop: this runs on every
+' document open, and Word's native Find is far faster than walking Paragraphs on a large
+' book -- especially in the "no prodnotes" case, where a loop would have to visit every
+' paragraph before concluding the style is unused.
+'
+' Version: 1.1  Date: 7/23/2026 - usage tested with Find instead of a paragraph loop (open-time speed)
 ' Version: 1.0  Date: 7/23/2026
 '
-    Dim para As Paragraph
     Dim used As Boolean
+    Dim rng As Range
 
-    For Each para In ActiveDocument.Paragraphs
-        If StrComp(para.Style.NameLocal, "Prodnote", vbTextCompare) = 0 Then
-            used = True
-            Exit For          ' one is enough -- no need to walk the rest of the document
-        End If
-    Next para
+    On Error Resume Next          ' a document with no "Prodnote" style at all just stays False
 
-    On Error Resume Next
+    Set rng = ActiveDocument.Content
+    With rng.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
+        .Text = ""
+        .Style = ActiveDocument.Styles("Prodnote")
+        .Format = True
+        .Forward = True
+        .Wrap = wdFindStop
+        .MatchWildcards = False
+        .Execute
+        used = .found
+    End With
+
     ActiveDocument.Styles("Prodnote").Visibility = Not used
     Err.Clear
     On Error GoTo 0
