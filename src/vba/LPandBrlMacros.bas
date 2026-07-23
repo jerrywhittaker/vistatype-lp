@@ -12409,6 +12409,105 @@ Sub Lp_Remove_All_Styles_Except_Lp_Styles()
     
 End Sub   '*** end of Lp_Remove_All_Styles_Except_Lp_Styles macro ***
 
+Sub Lp_Delete_Prodnote_Paragraphs()
+'
+' Deletes every paragraph styled "Prodnote" -- in the body text and inside tables.
+' Prodnote paragraphs are produced by the DAISY/NIMAS converter (see
+' Sh_Tag_Prodnotes_As_Prodnote_Style) and by the "Prodnote" style in the LP template.
+'
+' If the document has no "Prodnote" style at all, the user is told and nothing happens.
+' Otherwise the deletion is confirmed Yes/No before anything is removed.
+'
+' Version: 1.0  Date: 7/22/2026
+'
+    Sh_Is_Doc_Open
+
+    Dim sTest As Style
+    Dim styleExists As Boolean
+
+    ' --- 1. Does a "Prodnote" style exist in this document? ---
+    ' Trap the lookup rather than using .InUse -- InUse also reports True for styles that
+    ' were merely modified, so it is not a reliable existence test.
+    On Error Resume Next
+    Set sTest = ActiveDocument.Styles("Prodnote")
+    styleExists = (Err.Number = 0)
+    Err.Clear
+    On Error GoTo 0
+
+    If Not styleExists Then
+        MsgBox "This document does not contain a ""Prodnote"" style." & vbCr & vbCr & _
+               "There is nothing to delete.", vbInformation, "VistaType LP (228)"
+        Exit Sub
+    End If
+
+    ' --- 2. Confirm before deleting anything ---
+    If MsgBox("Do you want to delete all paragraphs styled as Prodnote?", _
+              vbYesNo + vbQuestion, "VistaType LP (229)") <> vbYes Then
+        Exit Sub
+    End If
+
+    ' --- 3. Collect the matching paragraphs FIRST, then delete back-to-front ---
+    ' Deleting while walking the Paragraphs collection would skip paragraphs; collecting
+    ' the ranges up front (For Each is O(n); indexed Paragraphs(i) would be O(n^2)) and
+    ' deleting in reverse keeps every remaining range valid.
+    Dim para As Paragraph
+    Dim marked As Collection
+    Dim i As Long
+    Dim deleted As Long
+    Dim su_Prev As Boolean
+
+    su_Prev = Application.ScreenUpdating
+    Application.ScreenUpdating = False
+
+    Set marked = New Collection
+    For Each para In ActiveDocument.Paragraphs
+        If StrComp(para.Style.NameLocal, "Prodnote", vbTextCompare) = 0 Then
+            marked.Add para.Range
+        End If
+    Next para
+
+    Dim total As Long
+    total = marked.count
+
+    For i = total To 1 Step -1
+        On Error Resume Next
+        marked(i).Delete
+        Err.Clear
+        On Error GoTo 0
+    Next i
+
+    ' A Prodnote paragraph that is the ONLY content of a table cell (or the final paragraph
+    ' of the document) keeps its paragraph mark -- Word will not delete an end-of-cell
+    ' marker. Its text goes, but an EMPTY paragraph still styled Prodnote survives, which
+    ' would keep the style in use and therefore visible in the Styles pane. Reset those to
+    ' Normal so no Prodnote-styled paragraph is left behind.
+    Dim residual As Long
+    For Each para In ActiveDocument.Paragraphs
+        If StrComp(para.Style.NameLocal, "Prodnote", vbTextCompare) = 0 Then
+            On Error Resume Next
+            para.Style = ActiveDocument.Styles(wdStyleNormal)
+            Err.Clear
+            On Error GoTo 0
+            residual = residual + 1
+        End If
+    Next para
+
+    deleted = total - residual
+
+    Application.ScreenUpdating = su_Prev
+    Application.ScreenRefresh
+
+    Dim msg As String
+    msg = deleted & " paragraph(s) styled as Prodnote were deleted."
+    If residual > 0 Then
+        msg = msg & vbCr & vbCr & residual & " more were the only content of a table cell, " & _
+              "so the cell could not be removed. Their text was deleted and the empty " & _
+              "paragraph reset to Normal."
+    End If
+    MsgBox msg, vbInformation, "VistaType LP (230)"
+
+End Sub   '*** end of Lp_Delete_Prodnote_Paragraphs macro ***
+
 Sub Lp_RemoveHeadAndFoot()
 
 ' from: https://word.tips.net/T001777_Deleting_All_Headers_and_Footers.html

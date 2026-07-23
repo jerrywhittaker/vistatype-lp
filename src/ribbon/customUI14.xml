@@ -46,6 +46,9 @@
         <button id="btn_Lp_File_Fix_Sequence" label="Full File Cleanup" imageMso="FormatPainter" onAction="RibbonAction" tag="Lp_File_Fix_Sequence"/>
         <button id="btn_Lp_Selected_File_CleanUp" label="Selection Cleanup" imageMso="SelectRecord" onAction="RibbonAction" tag="Lp_Selected_File_CleanUp"/>
       </group>
+      <group id="grp_Lp_Prodnote" label="Prodnote" autoScale="true">
+        <button id="btn_Lp_Delete_Prodnote_Paragraphs" label="Delete Prodnotes" imageMso="Delete" onAction="RibbonAction" tag="Lp_Delete_Prodnote_Paragraphs"/>
+      </group>
       <group id="grp_mso_c1_1F535F05" label="Reference Page Numbers" autoScale="true">
         <button id="btn_Lp_AutoTag_Page_Numbers" label="AutoTag Ref Pages" imageMso="ViewGridlinesFrontPage" onAction="RibbonAction" tag="Lp_AutoTag_Page_Numbers"/>
         <button id="btn_Lp_Validate_Dollar_PG" label="Validate $pg Tags" imageMso="PanAndZoomWindow" onAction="RibbonAction" tag="Lp_Validate_Dollar_PG"/>
