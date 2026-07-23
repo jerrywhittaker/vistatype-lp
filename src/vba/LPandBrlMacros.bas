@@ -11408,7 +11408,8 @@ Sub Lp_Attach_The_Template()
 
     ' Attaches the LP template with style changes
     '
-    ' Version: 2.9  Date: 7/22/2026 - the force-all-styles-visible loop now skips "Prodnote" so it stays hide-until-used (only appears in the Styles pane once the document contains one)
+    ' Version: 3.0  Date: 7/23/2026 - reverted the 2.9 "Prodnote" exception: Style.Visibility = True sets <w:semiHidden/> (it HIDES), so the pre-attach loop hides every style as its comment says, and excluding Prodnote only stopped it being hidden
+    ' Version: 2.9  Date: 7/22/2026 - (superseded) skipped "Prodnote" in the pre-attach visibility loop
     ' Version: 2.8  Date: 7/18/2026 - removed the "template has been attached" prompt; Save As now uses one dialog object so the file saves under the name the user types
     ' Version: 2.7  Date: 7/18/2026 - stabilize the document before saving; now saves only once (attach->stabilize->save)
     ' Version: 2.6  Date: 7/3/2026 - changed external app order
@@ -11460,12 +11461,10 @@ DoEvents
         Dim oSty As Style
             With ActiveDocument
             For Each oSty In .Styles
-                ' "Prodnote" is deliberately hide-until-used (semiHidden in the LP template)
-                ' so it only shows in the Styles pane once the document actually contains one.
-                ' Force-showing it here would defeat that on any document that already has it.
-                If StrComp(oSty.NameLocal, "Prodnote", vbTextCompare) <> 0 Then
-                    .Styles(oSty.NameLocal).Visibility = True
-                End If
+                ' Style.Visibility = True sets <w:semiHidden/>, i.e. it HIDES the style
+                ' (verified against the saved XML), so this loop hides every existing style
+                ' before the LP template is attached -- as the comment above says.
+                .Styles(oSty.NameLocal).Visibility = True
             Next oSty
          End With
 
@@ -12419,6 +12418,9 @@ Sub Lp_Delete_Prodnote_Paragraphs()
 ' paragraph actually styled Prodnote. Otherwise the user is told and nothing happens.
 ' The deletion is confirmed Yes/No before anything is removed.
 '
+' Version: 1.2  Date: 7/23/2026 - after the deletion the Prodnote style is hidden again
+'                                 (Visibility = True -> semiHidden), since Word drops
+'                                 semiHidden from the local definition once a style is used
 ' Version: 1.1  Date: 7/22/2026 - now guards on Lp_Is_Lp_Template_Attached (open doc + LP
 '                                 template) and tests Prodnote USAGE rather than the style
 '                                 merely existing; "No prodnotes found" when none are used
@@ -12490,6 +12492,16 @@ Sub Lp_Delete_Prodnote_Paragraphs()
     Next para
 
     deleted = total - residual
+
+    ' No prodnotes remain, so hide the Prodnote style again. This is needed because Word
+    ' drops <w:semiHidden/> from a document's LOCAL style definition as soon as the style is
+    ' used -- without this the style would keep showing in the Styles pane even though the
+    ' document no longer contains a single prodnote.
+    ' Style.Visibility = True sets <w:semiHidden/> (verified against the document XML).
+    On Error Resume Next
+    ActiveDocument.Styles("Prodnote").Visibility = True
+    Err.Clear
+    On Error GoTo 0
 
     Application.ScreenUpdating = su_Prev
     Application.ScreenRefresh
