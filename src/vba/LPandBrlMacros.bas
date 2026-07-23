@@ -11408,6 +11408,7 @@ Sub Lp_Attach_The_Template()
 
     ' Attaches the LP template with style changes
     '
+    ' Version: 2.9  Date: 7/22/2026 - the force-all-styles-visible loop now skips "Prodnote" so it stays hide-until-used (only appears in the Styles pane once the document contains one)
     ' Version: 2.8  Date: 7/18/2026 - removed the "template has been attached" prompt; Save As now uses one dialog object so the file saves under the name the user types
     ' Version: 2.7  Date: 7/18/2026 - stabilize the document before saving; now saves only once (attach->stabilize->save)
     ' Version: 2.6  Date: 7/3/2026 - changed external app order
@@ -11459,7 +11460,12 @@ DoEvents
         Dim oSty As Style
             With ActiveDocument
             For Each oSty In .Styles
-                .Styles(oSty.NameLocal).Visibility = True
+                ' "Prodnote" is deliberately hide-until-used (semiHidden in the LP template)
+                ' so it only shows in the Styles pane once the document actually contains one.
+                ' Force-showing it here would defeat that on any document that already has it.
+                If StrComp(oSty.NameLocal, "Prodnote", vbTextCompare) <> 0 Then
+                    .Styles(oSty.NameLocal).Visibility = True
+                End If
             Next oSty
          End With
 
