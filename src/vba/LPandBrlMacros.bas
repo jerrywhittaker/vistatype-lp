@@ -11408,6 +11408,7 @@ Sub Lp_Attach_The_Template()
 
     ' Attaches the LP template with style changes
     '
+    ' Version: 3.1  Date: 7/23/2026 - calls Lp_Set_Prodnote_Style_Visibility after the attach so "Prodnote" shows in the Styles pane when the document uses it (the pre-attach hide-all loop hid it, and unhideWhenUsed does not fire for a style that was already in use, e.g. a converted DAISY/NIMAS document)
     ' Version: 3.0  Date: 7/23/2026 - reverted the 2.9 "Prodnote" exception: Style.Visibility = True sets <w:semiHidden/> (it HIDES), so the pre-attach loop hides every style as its comment says, and excluding Prodnote only stopped it being hidden
     ' Version: 2.9  Date: 7/22/2026 - (superseded) skipped "Prodnote" in the pre-attach visibility loop
     ' Version: 2.8  Date: 7/18/2026 - removed the "template has been attached" prompt; Save As now uses one dialog object so the file saves under the name the user types
@@ -11589,7 +11590,14 @@ Sh_NonModalMessageForm.SetActivityMessage "Setting tabs for TOCs and reference p
 DoEvents
 
     Application.Run MacroName:="Lp_Set_TOC_and_Print_Page_Num_Tab_Stops"
-    
+
+    ' Show "Prodnote" in the Styles pane only if this document actually uses it. Needed
+    ' because the pre-attach loop above hides EVERY style, and the template's
+    ' <w:unhideWhenUsed/> only fires when a style is newly APPLIED -- it does not
+    ' retroactively un-hide a style that was already in use, as in a converted DAISY/NIMAS
+    ' document whose prodnotes are already styled.
+    Application.Run MacroName:="Lp_Set_Prodnote_Style_Visibility"
+
     ' Turn on print view and styles pane
     Application.Run MacroName:="Lp_Set_Display_For_Large_Print"
     Application.Run MacroName:="MS_Set_Word_Config_For_Large_Print"
@@ -12408,6 +12416,38 @@ Sub Lp_Remove_All_Styles_Except_Lp_Styles()
     
 End Sub   '*** end of Lp_Remove_All_Styles_Except_Lp_Styles macro ***
 
+Sub Lp_Set_Prodnote_Style_Visibility()
+'
+' Shows the "Prodnote" style in the Styles pane only when the document actually contains at
+' least one paragraph styled Prodnote; hides it otherwise.
+'
+' Word cannot be relied on to do this by itself: <w:unhideWhenUsed/> only clears
+' <w:semiHidden/> at the moment a style is APPLIED, so a style that is already in use when
+' it gets hidden (for example by the hide-every-style loop in Lp_Attach_The_Template) stays
+' hidden. Equally, Word drops semiHidden permanently once a style has been used, so a style
+' does not re-hide itself after its last paragraph is deleted.
+'
+' Style.Visibility = True sets <w:semiHidden/> (hides); False clears it (shows).
+'
+' Version: 1.0  Date: 7/23/2026
+'
+    Dim para As Paragraph
+    Dim used As Boolean
+
+    For Each para In ActiveDocument.Paragraphs
+        If StrComp(para.Style.NameLocal, "Prodnote", vbTextCompare) = 0 Then
+            used = True
+            Exit For          ' one is enough -- no need to walk the rest of the document
+        End If
+    Next para
+
+    On Error Resume Next
+    ActiveDocument.Styles("Prodnote").Visibility = Not used
+    Err.Clear
+    On Error GoTo 0
+
+End Sub   '*** end of Lp_Set_Prodnote_Style_Visibility macro ***
+
 Sub Lp_Delete_Prodnote_Paragraphs()
 '
 ' Deletes every paragraph styled "Prodnote" -- in the body text and inside tables.
@@ -12493,15 +12533,9 @@ Sub Lp_Delete_Prodnote_Paragraphs()
 
     deleted = total - residual
 
-    ' No prodnotes remain, so hide the Prodnote style again. This is needed because Word
-    ' drops <w:semiHidden/> from a document's LOCAL style definition as soon as the style is
-    ' used -- without this the style would keep showing in the Styles pane even though the
-    ' document no longer contains a single prodnote.
-    ' Style.Visibility = True sets <w:semiHidden/> (verified against the document XML).
-    On Error Resume Next
-    ActiveDocument.Styles("Prodnote").Visibility = True
-    Err.Clear
-    On Error GoTo 0
+    ' Re-hide the Prodnote style now that nothing uses it (Word drops <w:semiHidden/> from
+    ' the local definition once a style has been used, so it will not re-hide itself).
+    Application.Run MacroName:="Lp_Set_Prodnote_Style_Visibility"
 
     Application.ScreenUpdating = su_Prev
     Application.ScreenRefresh
