@@ -12470,7 +12470,7 @@ Sub Lp_Set_Prodnote_Style_Visibility()
 
 End Sub   '*** end of Lp_Set_Prodnote_Style_Visibility macro ***
 
-Sub Lp_Delete_Prodnote_Paragraphs()
+Sub Sh_Delete_Prodnote_Paragraphs()
 '
 ' Deletes every paragraph styled "Prodnote" -- in the body text and inside tables.
 ' Prodnote paragraphs are produced by the DAISY/NIMAS converter (see
@@ -12571,7 +12571,7 @@ Sub Lp_Delete_Prodnote_Paragraphs()
     End If
     MsgBox msg, vbInformation, "VistaType LP (230)"
 
-End Sub   '*** end of Lp_Delete_Prodnote_Paragraphs macro ***
+End Sub   '*** end of Sh_Delete_Prodnote_Paragraphs macro ***
 
 Sub Lp_RemoveHeadAndFoot()
 
