@@ -12502,6 +12502,8 @@ Sub Sh_Delete_Prodnote_Paragraphs()
 ' removed. Shared: usable from both the Large Print and Braille Macros tabs, so it does NOT
 ' require the LP template -- only that a document is open.
 '
+' Version: 1.4  Date: 7/24/2026 - message-box titles now follow the document type: "VistaType LP"
+'                                 for a large print document, "Braille Macros" otherwise
 ' Version: 1.3  Date: 7/23/2026 - dropped the LP-template guard so it works on Braille
 '                                 documents too; now only checks that a document is open
 ' Version: 1.2  Date: 7/23/2026 - after the deletion the Prodnote style is hidden again
@@ -12515,6 +12517,12 @@ Sub Sh_Delete_Prodnote_Paragraphs()
     ' Guard: a document must be open. No LP-template requirement -- this is shared with the
     ' Braille tab, and Braille documents can carry prodnotes too.
     Application.Run MacroName:="Sh_Is_Doc_Open"
+
+    ' This macro is shared. Title its message boxes for the document type: "VistaType LP" for
+    ' a large print document, "Braille Macros" otherwise (a braille document, or a plain
+    ' converted document that is neither) -- so a braille user does not see a "VistaType LP" title.
+    Dim isLP As Boolean
+    isLP = (Lp_Is_The_Attached_Template_LP = True)
 
     ' --- 1. Collect the paragraphs actually styled Prodnote ---
     ' This doubles as the usage test: the style existing in the template is not enough, and
@@ -12536,13 +12544,13 @@ Sub Sh_Delete_Prodnote_Paragraphs()
     Next para
 
     If marked.count = 0 Then
-        MsgBox "No prodnotes found", vbInformation, "VistaType LP (228)"
+        MsgBox "No prodnotes found", vbInformation, IIf(isLP, "VistaType LP (228)", "Braille Macros")
         Exit Sub
     End If
 
     ' --- 2. Confirm before deleting anything ---
     If MsgBox("Do you want to delete all paragraphs styled as Prodnote?", _
-              vbYesNo + vbQuestion, "VistaType LP (229)") <> vbYes Then
+              vbYesNo + vbQuestion, IIf(isLP, "VistaType LP (229)", "Braille Macros")) <> vbYes Then
         Exit Sub
     End If
 
@@ -12592,7 +12600,7 @@ Sub Sh_Delete_Prodnote_Paragraphs()
               "so the cell could not be removed. Their text was deleted and the empty " & _
               "paragraph reset to Normal."
     End If
-    MsgBox msg, vbInformation, "VistaType LP (230)"
+    MsgBox msg, vbInformation, IIf(isLP, "VistaType LP (230)", "Braille Macros")
 
 End Sub   '*** end of Sh_Delete_Prodnote_Paragraphs macro ***
 
