@@ -150,7 +150,8 @@ Sub Sh_HandleDocumentOpened()
     ' If the document is a large print document then setting for Large Print are made - if doc is braille then brille settings are made
     '   otherwise the settings for a normal document are made.
     '
-    ' Version 1.5  Date: 7/23/2026 - LP documents now call Lp_Set_Prodnote_Style_Visibility on open, so "Prodnote" shows in the Styles pane when the document contains prodnotes (a file saved while the style was hidden stayed hidden)
+    ' Version 1.6  Date: 7/24/2026 - Sh_Set_Prodnote_Style_Visibility now runs for EVERY opened document (any template), not just large print, so the Prodnote style is removed from the Styles pane whenever the document contains no prodnotes regardless of the attached template
+    ' Version 1.5  Date: 7/23/2026 - LP documents now called the Prodnote visibility helper on open (superseded by 1.6)
     ' Version 1.4  Date: 2/16/2026 - added call to p_CheckAndAssistDocumentState to check block and read only status
     ' Version 1.3  Date: 2/17/2024 - added Dx_GP_String_1 = "Doc_Is_Already_Brl" to bypass cleanup questions
     ' Version 1.2  Date: 10/22/2021 - Added section to determine if doc has obsolete lp template attached
@@ -204,13 +205,6 @@ Sub Sh_HandleDocumentOpened()
                 Exit Sub
             Else ' is a large print document with current LP template attached
                 Application.Run MacroName:="MS_Set_Word_Config_For_Large_Print"
-                ' Show "Prodnote" in the Styles pane if this document actually contains
-                ' prodnotes. A document saved while the style was hidden stays hidden
-                ' otherwise, because Word only clears <w:semiHidden/> (via unhideWhenUsed)
-                ' when a style is newly APPLIED -- never on open for text already styled.
-                ' This runs BEFORE Lp_Set_Display_For_Large_Print so that the pane is turned
-                ' on and filtered last, with the style visibility already correct.
-                Application.Run MacroName:="Lp_Set_Prodnote_Style_Visibility"
                 Application.Run MacroName:="Lp_Set_Display_For_Large_Print"
         End If
         
@@ -223,7 +217,12 @@ Sub Sh_HandleDocumentOpened()
             Application.Run MacroName:="MS_Set_Word_Config_For_New_Install"
          End If
     End If
-    
+
+    ' Prodnote in the Styles pane only when the document uses it -- for EVERY template
+    ' (large print, braille, or Normal). The attached-template name must not matter here, so
+    ' this runs after the per-template config above rather than inside the large-print branch.
+    Application.Run MacroName:="Sh_Set_Prodnote_Style_Visibility"
+
 eom: 'End of Macro
 
 End Sub   '*** end of AutoOpen() macro ***
@@ -11604,7 +11603,7 @@ DoEvents
     ' <w:unhideWhenUsed/> only fires when a style is newly APPLIED -- it does not
     ' retroactively un-hide a style that was already in use, as in a converted DAISY/NIMAS
     ' document whose prodnotes are already styled.
-    Application.Run MacroName:="Lp_Set_Prodnote_Style_Visibility"
+    Application.Run MacroName:="Sh_Set_Prodnote_Style_Visibility"
 
     ' Turn on print view and styles pane
     Application.Run MacroName:="Lp_Set_Display_For_Large_Print"
@@ -12424,38 +12423,46 @@ Sub Lp_Remove_All_Styles_Except_Lp_Styles()
     
 End Sub   '*** end of Lp_Remove_All_Styles_Except_Lp_Styles macro ***
 
-Sub Lp_Set_Prodnote_Style_Visibility()
+Sub Sh_Set_Prodnote_Style_Visibility()
 '
-' Shows the "Prodnote" style in the Styles pane only when the document actually contains at
-' least one paragraph styled Prodnote; hides it otherwise.
+' Keeps "Prodnote" in the Styles pane ONLY when the document actually contains at least one
+' paragraph styled Prodnote. When the document uses it, the style is made visible; when
+' nothing uses it, the style is DELETED from the document. Shared by Large Print and Braille.
 '
-' Word cannot be relied on to do this by itself: <w:unhideWhenUsed/> only clears
-' <w:semiHidden/> at the moment a style is APPLIED, so a style that is already in use when
-' it gets hidden (for example by the hide-every-style loop in Lp_Attach_The_Template) stays
-' hidden. Equally, Word drops semiHidden permanently once a style has been used, so a style
-' does not re-hide itself after its last paragraph is deleted.
+' Why delete rather than just hide (Style.Visibility = semiHidden): semiHidden only removes a
+' style under the "Recommended" styles-pane filter. Large print and braille documents set that
+' filter, but a document with the Normal template attached is configured by
+' MS_Set_Word_Config_For_New_Install, which sets the pane to "All styles" (wdShowFilterStylesAll)
+' -- and under "All styles" a semiHidden style still shows. So hiding cannot work there, and the
+' behaviour would depend on which template is attached. Deleting the unused style removes it from
+' the pane under ANY filter and for ANY template.
 '
-' Style.Visibility = True sets <w:semiHidden/> (hides); False clears it (shows).
+' Deleting is safe: it happens only when the usage test finds no paragraph in the style, so no
+' text reverts. The style is not lost -- it returns from the LP template on the next attach, and
+' the DAISY/NIMAS converter re-creates it when it emits prodnotes.
 '
-' Usage is tested with a style Find rather than a VBA paragraph loop: this runs on every
-' document open, and Word's native Find is far faster than walking Paragraphs on a large
-' book -- especially in the "no prodnotes" case, where a loop would have to visit every
-' paragraph before concluding the style is unused.
+' Usage is tested with a style Find (fast; this also runs on every document open) rather than a
+' VBA paragraph loop.
 '
+' Version: 2.0  Date: 7/24/2026 - renamed Lp_ -> Sh_ (shared). Deletes the unused style instead of only setting semiHidden, so removal works for any attached template / pane filter, not just Recommended
 ' Version: 1.1  Date: 7/23/2026 - usage tested with Find instead of a paragraph loop (open-time speed)
 ' Version: 1.0  Date: 7/23/2026
 '
+    Dim st As Style
     Dim used As Boolean
     Dim rng As Range
 
-    On Error Resume Next          ' a document with no "Prodnote" style at all just stays False
+    On Error Resume Next
+    Set st = ActiveDocument.Styles("Prodnote")
+    On Error GoTo 0
+    If st Is Nothing Then Exit Sub          ' no Prodnote style in this document -- nothing to do
 
     Set rng = ActiveDocument.Content
     With rng.Find
         .ClearFormatting
         .Replacement.ClearFormatting
         .Text = ""
-        .Style = ActiveDocument.Styles("Prodnote")
+        .Style = st
         .Format = True
         .Forward = True
         .Wrap = wdFindStop
@@ -12464,11 +12471,16 @@ Sub Lp_Set_Prodnote_Style_Visibility()
         used = .found
     End With
 
-    ActiveDocument.Styles("Prodnote").Visibility = Not used
+    On Error Resume Next
+    If used Then
+        st.Visibility = False               ' make sure a used style is shown
+    Else
+        st.Delete                           ' unused -> remove it from the pane entirely
+    End If
     Err.Clear
     On Error GoTo 0
 
-End Sub   '*** end of Lp_Set_Prodnote_Style_Visibility macro ***
+End Sub   '*** end of Sh_Set_Prodnote_Style_Visibility macro ***
 
 Sub Sh_Delete_Prodnote_Paragraphs()
 '
@@ -12559,7 +12571,7 @@ Sub Sh_Delete_Prodnote_Paragraphs()
 
     ' Re-hide the Prodnote style now that nothing uses it (Word drops <w:semiHidden/> from
     ' the local definition once a style has been used, so it will not re-hide itself).
-    Application.Run MacroName:="Lp_Set_Prodnote_Style_Visibility"
+    Application.Run MacroName:="Sh_Set_Prodnote_Style_Visibility"
 
     Application.ScreenUpdating = su_Prev
     Application.ScreenRefresh
