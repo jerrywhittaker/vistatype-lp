@@ -12476,10 +12476,13 @@ Sub Sh_Delete_Prodnote_Paragraphs()
 ' Prodnote paragraphs are produced by the DAISY/NIMAS converter (see
 ' Sh_Tag_Prodnotes_As_Prodnote_Style) and by the "Prodnote" style in the LP template.
 '
-' Requires an open document with the large print template attached, and at least one
-' paragraph actually styled Prodnote. Otherwise the user is told and nothing happens.
-' The deletion is confirmed Yes/No before anything is removed.
+' Requires an open document with at least one paragraph actually styled Prodnote. Otherwise
+' the user is told and nothing happens. The deletion is confirmed Yes/No before anything is
+' removed. Shared: usable from both the Large Print and Braille Macros tabs, so it does NOT
+' require the LP template -- only that a document is open.
 '
+' Version: 1.3  Date: 7/23/2026 - dropped the LP-template guard so it works on Braille
+'                                 documents too; now only checks that a document is open
 ' Version: 1.2  Date: 7/23/2026 - after the deletion the Prodnote style is hidden again
 '                                 (Visibility = True -> semiHidden), since Word drops
 '                                 semiHidden from the local definition once a style is used
@@ -12488,10 +12491,9 @@ Sub Sh_Delete_Prodnote_Paragraphs()
 '                                 merely existing; "No prodnotes found" when none are used
 ' Version: 1.0  Date: 7/22/2026
 '
-    ' Guard: a document must be open AND the large print template attached.
-    ' Lp_Is_Lp_Template_Attached does both (it calls Sh_Is_Doc_Open itself) and stops with
-    ' "VistaType large print template is not attached" when the document is not LP.
-    Application.Run MacroName:="Lp_Is_Lp_Template_Attached"
+    ' Guard: a document must be open. No LP-template requirement -- this is shared with the
+    ' Braille tab, and Braille documents can carry prodnotes too.
+    Application.Run MacroName:="Sh_Is_Doc_Open"
 
     ' --- 1. Collect the paragraphs actually styled Prodnote ---
     ' This doubles as the usage test: the style existing in the template is not enough, and
