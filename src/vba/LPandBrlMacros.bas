@@ -12596,6 +12596,116 @@ Sub Sh_Delete_Prodnote_Paragraphs()
 
 End Sub   '*** end of Sh_Delete_Prodnote_Paragraphs macro ***
 
+Sub Dx_Change_Prodnotes_To_Transcriber_Notes()
+'
+' Braille: restyle every paragraph currently styled "Prodnote" -- in the body text and inside
+' tables -- to the "TranscriberNote" style. Prodnote paragraphs come from the DAISY/NIMAS
+' converter; in a braille document they should instead carry the braille TranscriberNote style.
+'
+' Requires an open document with a BANA Braille template attached (the attached-template name
+' begins with "BANA Braille"; the ".dot"/".dotx" extension is part of the name and does not
+' affect the begins-with test). The document must contain a "Prodnote" style and at least one
+' paragraph that uses it; otherwise the user is told and nothing happens. The change is
+' confirmed Yes/No before anything is restyled.
+'
+' Version: 1.0  Date: 7/24/2026
+'
+    Dim tmplName As String
+    Dim stProd As Style
+    Dim stTrans As Style
+    Dim rng As Range
+    Dim used As Boolean
+    Dim su_Prev As Boolean
+
+    ' 1. A document must be open.
+    Application.Run MacroName:="Sh_Is_Doc_Open"
+
+    ' 2. A BANA Braille template must be attached (name begins with "BANA Braille").
+    On Error Resume Next
+    tmplName = ActiveDocument.AttachedTemplate.Name
+    On Error GoTo 0
+    If StrComp(Left(tmplName, Len("BANA Braille")), "BANA Braille", vbTextCompare) <> 0 Then
+        MsgBox "This macro needs a BANA Braille template attached to the document." & vbCr & vbCr & _
+               "Attach a BANA Braille template and try again.", vbExclamation, "Braille Macros"
+        Exit Sub
+    End If
+
+    ' 3. The document must contain a "Prodnote" style.
+    On Error Resume Next
+    Set stProd = ActiveDocument.Styles("Prodnote")
+    On Error GoTo 0
+    If stProd Is Nothing Then
+        MsgBox "This document does not contain a ""Prodnote"" style." & vbCr & vbCr & _
+               "There is nothing to change.", vbInformation, "Braille Macros"
+        Exit Sub
+    End If
+
+    ' 4. ...and at least one paragraph must actually use it.
+    Set rng = ActiveDocument.Content
+    With rng.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
+        .Text = ""
+        .Style = stProd
+        .Format = True
+        .Forward = True
+        .Wrap = wdFindStop
+        .MatchWildcards = False
+        .Execute
+        used = .found
+    End With
+    If Not used Then
+        MsgBox "No prodnotes found", vbInformation, "Braille Macros"
+        Exit Sub
+    End If
+
+    ' 5. The target "TranscriberNote" style must exist (supplied by the BANA template).
+    On Error Resume Next
+    Set stTrans = ActiveDocument.Styles("TranscriberNote")
+    On Error GoTo 0
+    If stTrans Is Nothing Then
+        MsgBox "This document does not contain a ""TranscriberNote"" style." & vbCr & vbCr & _
+               "Attach a BANA Braille template that defines the TranscriberNote style and try again.", _
+               vbExclamation, "Braille Macros"
+        Exit Sub
+    End If
+
+    ' 6. Confirm before changing anything.
+    If MsgBox("Change all paragraphs styled Prodnote into Transcriber Notes?", _
+              vbYesNo + vbQuestion, "Braille Macros") <> vbYes Then
+        Exit Sub
+    End If
+
+    ' 7. Restyle Prodnote -> TranscriberNote across the whole story (body text and tables) in a
+    '    single style Find/Replace, which reassigns the paragraph style everywhere it is used.
+    su_Prev = Application.ScreenUpdating
+    Application.ScreenUpdating = False
+
+    With ActiveDocument.Content.Find
+        .ClearFormatting
+        .Style = stProd
+        .Replacement.ClearFormatting
+        .Replacement.Style = stTrans
+        .Text = ""
+        .Replacement.Text = ""
+        .Forward = True
+        .Wrap = wdFindContinue
+        .Format = True
+        .MatchWildcards = False
+        .Execute Replace:=wdReplaceAll
+    End With
+
+    ' Prodnote is now unused; apply the shared rule so it drops out of the Styles pane.
+    Application.Run MacroName:="Sh_Set_Prodnote_Style_Visibility"
+
+    Application.ScreenUpdating = su_Prev
+    Application.ScreenRefresh
+
+    MsgBox "All paragraphs styled Prodnote have been changed to Transcriber Notes.", _
+           vbInformation, "Braille Macros"
+
+End Sub   '*** end of Dx_Change_Prodnotes_To_Transcriber_Notes macro ***
+
 Sub Lp_RemoveHeadAndFoot()
 
 ' from: https://word.tips.net/T001777_Deleting_All_Headers_and_Footers.html
