@@ -13,6 +13,7 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
+
 ' Author: Jerry Whittaker -  jerry@thewhittakers.org
 
 ' Version: 1.3  Date: 12/10/2019 - added alternative short url
