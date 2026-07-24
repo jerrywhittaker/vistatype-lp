@@ -260,6 +260,7 @@ Sub Dx_Attach_BANA_Template()
 '    Converts word foreign language tags to BANA template styles
 '    Turns show-all status on
 '
+'  Version: 3.2  Date: 7/24/2026 - repaint (ScreenUpdating on + ScreenRefresh) before the template-choice and translation-choice forms; they were shown while ScreenUpdating was off, so the Word workspace behind them rendered black instead of the normal gray
 '  Version: 3.1  Date: 6/29/2025 - added Copy BANA Braille Template From Word Startup Folder to Templates Folder - Duxbury began
 '                                  to place the BANA Braille 2025.dotx in the Word startup folder - need to copy to templates folder
 '                                  or this attachment routine will not work - the template file will reside in both folders
@@ -317,19 +318,27 @@ Sub Dx_Attach_BANA_Template()
     ' Get BANA Template Choice from user
     Dx_BANA_Template_Name = ""
 
+    ' Repaint before the interactive form/dialogs below. ScreenUpdating has been off since the
+    ' top of the macro, so a form shown now would sit over an unpainted (black) workspace
+    ' instead of the normal gray. Turn it back off after the choice for the attach that follows.
+    Application.ScreenUpdating = True
+    Application.ScreenRefresh
+
     ' If more than one template is found then place the names of all BANA Braille
     ' templates in a list box for the user to select
     If Dx_BANA_Template_Name = "" Then
         Dx_Choose_BANA_Template_Form.Show 'present list box for choice
     End If
-    
+
     Unload Dx_Choose_BANA_Template_Form
-    
+
     If Dx_BANA_Template_Name = "" Then ' likely that the user hit the close-window X
         MsgBox "No template selected... attachment canceled", , "Braille Macros"
         End
     End If
-        
+
+    Application.ScreenUpdating = False
+
     ' attach BANA template
     Dim TemplatePathandName As String
     TemplatePathandName = Options.DefaultFilePath(wdUserTemplatesPath) + "\" + Dx_BANA_Template_Name
@@ -356,11 +365,18 @@ Sub Dx_Attach_BANA_Template()
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     ActiveDocument.UndoClear
 
+    ' Repaint again before the translation-type form (the attach/config/view change above ran
+    ' with ScreenUpdating off, so the workspace behind this form would otherwise be black).
+    Application.ScreenUpdating = True
+    Application.ScreenRefresh
+
     ' Get the braille translation type (UEB or EBAE) - forces a choice
     Dx_UEB_EBAE_String = ""
     Do While Dx_UEB_EBAE_String = ""
         Dx_Choose_Translation_Form.Show
     Loop
+
+    Application.ScreenUpdating = False
 
     Dx_Attached_BANA_Template = Dx_BANA_Template_Name
 
