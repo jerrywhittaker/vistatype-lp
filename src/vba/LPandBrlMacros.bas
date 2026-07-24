@@ -12444,6 +12444,7 @@ Sub Sh_Set_Prodnote_Style_Visibility()
 ' Usage is tested with a style Find (fast; this also runs on every document open) rather than a
 ' VBA paragraph loop.
 '
+' Version: 2.1  Date: 7/24/2026 - a used style is normalized to Priority 2 with semiHidden cleared, so files saved by earlier builds stop showing Prodnote at high priority / marked hide-until-used
 ' Version: 2.0  Date: 7/24/2026 - renamed Lp_ -> Sh_ (shared). Deletes the unused style instead of only setting semiHidden, so removal works for any attached template / pane filter, not just Recommended
 ' Version: 1.1  Date: 7/23/2026 - usage tested with Find instead of a paragraph loop (open-time speed)
 ' Version: 1.0  Date: 7/23/2026
@@ -12473,7 +12474,14 @@ Sub Sh_Set_Prodnote_Style_Visibility()
 
     On Error Resume Next
     If used Then
-        st.Visibility = False               ' make sure a used style is shown
+        ' Normalize a used style so it shows as a plain Prodnote entry, matching the LP
+        ' template, and fix up documents saved by earlier builds that hid it or gave it a
+        ' high priority: Priority 2 (Word displays this; the .docx stores uiPriority 1) and
+        ' cleared semiHidden. (VBA cannot clear <w:unhideWhenUsed/> on a pre-existing style;
+        ' that legacy flag is corrected only by re-attaching the template, which now carries
+        ' a clean Prodnote definition.)
+        st.Priority = 2
+        st.Visibility = False
     Else
         st.Delete                           ' unused -> remove it from the pane entirely
     End If
