@@ -9,7 +9,7 @@
         <button id="btn_Dx_File_Fix_Sequence" label="Full File Cleanup" imageMso="FormatPainter" onAction="RibbonAction" tag="Dx_File_Fix_Sequence"/>
         <button id="btn_Dx_Selected_File_CleanUp" label="Selection Clean Up" imageMso="SelectRecord" onAction="RibbonAction" tag="Dx_Selected_File_CleanUp"/>
         <button id="btn_Sh_Delete_Prodnote_Paragraphs_x" label="Delete Prodnotes" imageMso="Delete" onAction="RibbonAction" tag="Sh_Delete_Prodnote_Paragraphs"/>
-        <button id="btn_Dx_Change_Prodnotes_To_Transcriber_Notes" label="Change Prodnotes into Transcriber Notes" imageMso="ReviewNewComment" onAction="RibbonAction" tag="Dx_Change_Prodnotes_To_Transcriber_Notes"/>
+        <button id="btn_Dx_Change_Prodnotes_To_Transcriber_Notes" label="Prodnote &#8594; TN" imageMso="ReviewNewComment" onAction="RibbonAction" tag="Dx_Change_Prodnotes_To_Transcriber_Notes"/>
       </group>
       <group id="grp_mso_c6_19F8EF46" label="Reference Page Number Formatting" imageMso="WindowsCascade" autoScale="true">
         <button id="btn_Dx_AutoTag_Page_Numbers" label="AutoTag Ref Pages" imageMso="ViewGridlinesFrontPage" onAction="RibbonAction" tag="Dx_AutoTag_Page_Numbers"/>
