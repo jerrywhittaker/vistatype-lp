@@ -117,12 +117,18 @@ git merge --ff-only dev
 git tag -a v3.0.7 -m "VistaType LP 3.0.7"
 git checkout dev
 git push origin master dev --follow-tags      # only when you're ready to publish
-gh release create v3.0.7 dist/VistaType-LP-Setup-3.0.7.exe
+gh release create v3.0.7 dist/VistaType-LP-Setup-3.0.7.exe --title "VistaType LP 3.0.7"
+gh release view v3.0.7 --json assets          # verify: must list the .exe, not []
 ```
 
-Attach the built `Setup.exe` to the GitHub release: the VBA build is not byte-reproducible
-(Word regenerates p-code), so checking out an old tag and rebuilding does **not** reproduce
-the binary that shipped. The archived installer is the real rollback.
+**The `.exe` is the release.** A GitHub release without `VistaType-LP-Setup-<ver>.exe`
+attached ships nothing — the "Source code (zip)" GitHub adds automatically is VBA text files,
+which no transcriber can install. Push the tag and create the release-with-asset in the same
+sitting; a bare tag already shows up as a "release" in GitHub's UI.
+
+It is also the only true copy: the VBA build is not byte-reproducible (Word regenerates
+p-code), so checking out an old tag and rebuilding does **not** give back the binary that
+shipped. The uploaded installer is the real rollback.
 
 ## Always smoke-test a build
 
