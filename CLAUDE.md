@@ -19,7 +19,7 @@ sources) that ship or that Word loads.
 
 | Piece | What it is | Role |
 |------|-----------|------|
-| `LPandBRL.dotm` | Word add-in template (macro-enabled), built from `src/` | **The code.** The entire compiled VBA project — ~208 subs/functions in `LPandBrlMacros`, plus 45+ UserForms — and the embedded ribbon (below). Loaded from Word's `STARTUP` folder, so its macros are available to every document. Behavior is *authored* under `src/vba`/`src/forms`; this is where it *runs*. |
+| `LPandBRL.dotm` | Word add-in template (macro-enabled), built from `src/` | **The code.** The entire compiled VBA project — ~208 subs/functions in `LPandBrlMacros`, plus 43 UserForms — and the embedded ribbon (below). Loaded from Word's `STARTUP` folder, so its macros are available to every document. Behavior is *authored* under `src/vba`/`src/forms`; this is where it *runs*. |
 | Embedded ribbon (`src/ribbon/customUI14.xml`) | Ribbon customization XML, embedded into `LPandBRL.dotm` at build time | **The UI.** Defines the custom ribbon tabs **"VistaType LP"** (large print) and **"Braille Macros"** (DBT/BANA). Every button's `tag` names a VBA sub, dispatched through one `RibbonAction` handler. Because it is *embedded* (not the old global `Word.officeUI`), it **merges** with the user's ribbon instead of replacing it. |
 | `LargePrintTemplate.dotx` | Word document template | **The style set.** The template *attached to a user's large-print document* (vs. `LPandBRL.dotm`, the global add-in loaded for every document). Supplies paragraph/character styles and page setup. The VBA references it by name in 7+ places, and treats a document as "large print" when this template is attached. |
 
@@ -77,12 +77,13 @@ restores it (or deletes the file if we created it). Three subtleties that make i
 
 ## Build & edit workflow (short version)
 
-Full detail in **`DEVELOPMENT.md`**. In brief: edit text under `src/`, then
-`make build` ships it to the remote Windows+Word box over SSH, which imports the
-source into `dist/LPandBRL.dotm` (Word regenerates p-code) and copies it back; smoke-test
-in Word, then `make deploy`. Never edit `LPandBRL.dotm` by hand. `make pull` refreshes
-`src/` from the `.dotm` (canonical export, needed to (re)seed valid `.frx`); `make read`
-dumps readable source with the Linux decompressor without needing Windows.
+Full detail in **`DEVELOPMENT.md`**. In brief: **on the `dev` branch** (never `master` — see
+*Git workflow and releases* below) edit text under `src/`, then `make build` ships it to the
+remote Windows+Word box over SSH, which imports the source into `dist/LPandBRL.dotm` (Word
+regenerates p-code) and copies it back; smoke-test in Word, then `make deploy`. Never edit
+`LPandBRL.dotm` by hand. `make pull` refreshes `src/` from the `.dotm` (canonical export,
+needed to (re)seed valid `.frx`); `make read` dumps readable source with the Linux
+decompressor without needing Windows. Releases go out from `master` via `make installer`.
 
 **Keep this file in sync.** When you change the build pipeline or architecture —
 `Makefile`, `DEVELOPMENT.md`, anything under `tools/`, `src/ribbon/`, or `installer/`,
@@ -109,7 +110,7 @@ runs in Word (this drove the remote-build design; see DEVELOPMENT.md).
 - **`LpExportImportSelectedText` / `DxExportImportSelectedText`** — round-tripping selected
   text to/from separate files.
 - **`ShNonModalMessage`** — shared non-modal status messaging.
-- **~45 UserForms** — dialogs, prefixed by domain (see below).
+- **43 UserForms** — dialogs, prefixed by domain (see below).
 
 The built add-in's **VBA project is named `LPandBRL`** (not `Normal`): it ships in Word's
 STARTUP folder loaded alongside the user's own `Normal.dotm`, and two loaded projects can't
@@ -132,12 +133,92 @@ Each embedded-ribbon button's `tag` names one of these subs (e.g. `tag="Lp_File_
 ### Editing convention
 
 Every sub is versioned inline via a comment block (Version/Date/Author). The module header
-of `LPandBrlMacros` keeps a running dated changelog. Current version: the shipped
-package/installer is **3.0.5** (`APPVER` in the Makefile, `AppVer` in
-`installer/vistatype.iss`, which drives the `VistaType-LP-Setup-<ver>.exe` name); the About
-form's `VersionLabel` caption reads **v3.0.5**. (The `VistaType LP (NNN)` numbers in MsgBox
-titles are per-dialog IDs, *not* version numbers.) When changing behavior, follow the existing
+of `LPandBrlMacros` keeps a running dated changelog. The version number lives in **four**
+places that must always agree — `APPVER` (Makefile), `AppVer` (`installer/vistatype.iss`,
+which drives the `VistaType-LP-Setup-<ver>.exe` name), the LP **and** Braille About dialogs'
+`VersionLabel` caption (stored in the binary `.frx`), and this file. **What actually shipped
+is the newest `v*` tag on `master`** — not whatever these files say, since a version bump is
+prepared on `dev` before it is released. (The `VistaType LP (NNN)` numbers in MsgBox titles
+are per-dialog IDs, *not* version numbers.) When changing behavior, follow the existing
 pattern: bump the per-sub version comment and add a dated line to the header changelog.
+
+## Git workflow and releases
+
+This add-in ships to working transcribers, so a release must stay **stable and revertable**.
+Two branches, fast-forward only, one tag per release.
+
+- **`master` = the last released version.** Always shippable. **Never commit to it directly**
+  and never run `make deploy` while sitting on it.
+- **`dev` = all day-to-day work.** Small, focused commits, exactly as before.
+- **A release is `dev` fast-forwarded into `master`, then tagged `vX.Y.Z`.**
+
+Work only ever moves `dev` → `master`, never the reverse. Hold to that and the fast-forward
+always succeeds.
+
+### Why fast-forward only (do not "just merge")
+
+`LPandBRL.dotm`, `LargePrintTemplate.dotx`, and every form `.frx` are tracked **binaries**.
+Git cannot merge them — a real merge conflicts, and a wrongly-resolved `.frx` silently
+corrupts a dialog's layout. `--ff-only` never runs the merge algorithm, so binaries can never
+conflict, and history stays linear. If a fast-forward is ever *refused*, something committed
+onto `master` directly — stop and ask Jerry rather than forcing a merge.
+
+### Cutting a release (the checklist — walk Jerry through it, one step at a time)
+
+1. **Confirm `dev` is ready** — `git status` clean, the change-set smoke-tested in Word.
+2. **Bump the version in all four places** above (the `.frx` captions are edited headless over
+   SSH via the VBA object model, *not* the form designer — see `DEVELOPMENT.md`).
+3. **`make installer`** — rebuilds the `.dotm` from `src/` so the new `.frx`/ribbon/VBA compile
+   in, compiles `Setup.exe`, copies it to `dist/` and the VM Desktop. Verify the built `.dotm`'s
+   About caption reads the new version.
+4. **Jerry installs and tests from the Setup.exe.** **Word must be fully closed first** — Word
+   locks the STARTUP `.dotm` and the install silently no-ops otherwise (symptom: About still
+   shows the old version).
+5. **Commit the bump and the rebuilt `.dotm` on `dev`.**
+6. **Only when Jerry says the build is good**, release:
+
+   ```bash
+   git checkout master
+   git merge --ff-only dev
+   git tag -a v3.0.7 -m "VistaType LP 3.0.7"
+   git checkout dev            # go straight back to dev; never linger on master
+   ```
+
+7. **Push only when Jerry explicitly says "push"** (see below):
+   `git push origin master dev --follow-tags`
+8. **Archive the actual installer on the tag** — the VBA build is *not* byte-reproducible
+   (Word regenerates p-code), so rebuilding an old tag will not give back the binary that
+   shipped. Attach it:
+   `gh release create v3.0.7 dist/VistaType-LP-Setup-3.0.7.exe --title "VistaType LP 3.0.7"`
+9. Delete the superseded `VistaType-LP-Setup-*.exe` from `dist/` and the VM Desktop (keep old
+   real releases).
+
+### Recovering from a bad release
+
+- **For a transcriber, right now:** have them reinstall the previous `Setup.exe` from its
+  GitHub release. Fastest fix; no rebuild involved.
+- **For the source:** `git checkout v3.0.6 && make build`.
+- **Hotfix on top of a release** (when `dev` has already moved on):
+
+  ```bash
+  git checkout -b hotfix/3.0.7 v3.0.6    # branch from the TAG, not from dev
+  # fix, bump to 3.0.7, make installer, test
+  git checkout master && git merge --ff-only hotfix/3.0.7
+  git tag -a v3.0.7 -m "VistaType LP 3.0.7"
+  git checkout dev && git rebase master  # rebase, NOT merge — keeps ff-only working
+  ```
+
+### Rules for Claude
+
+- **Never push** — not `master`, not `dev`, not tags — until Jerry says the word "push". He
+  reviews and installs the Setup.exe first. Honor this every time.
+- **Never commit on `master`.** Check `git branch --show-current` before committing; if it
+  says `master`, switch to `dev` first.
+- **Never force-push, never rewrite a published tag**, and never delete a `v*` tag without
+  being asked — the tags are the recovery points.
+- This workflow is new to Jerry. **Guide him through the release steps explicitly** — say which
+  command comes next and what it will do, run the git steps for him, and confirm each stage
+  landed before moving on. Don't assume he knows the branch he is on; tell him.
 
 ## Domain concepts
 

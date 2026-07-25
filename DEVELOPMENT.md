@@ -87,7 +87,11 @@ ever runs `ssh $(WIN_HOST)`; your SSH agent/config resolves the key.
 
 ## Everyday loop
 
+**Work on `dev`, never on `master`.** `master` holds the last *released* version and only ever
+moves forward by a fast-forward at release time. Check with `git branch --show-current`.
+
 ```
+git checkout dev          # if you aren't already there
 edit src/vba/*.bas        # or src/forms, src/ribbon — on Linux, in git
 make build                # Word imports src/ -> dist/LPandBRL.dotm, copied back here
 # smoke-test dist/LPandBRL.dotm in Word (see below), then:
@@ -98,6 +102,27 @@ git add -A && git commit
 - `make read` — regenerate `reference/vba-src/` from `LPandBRL.dotm` with the Linux-only
   decompressor. Handy for diffing what's actually compiled into the binary; needs no Windows.
 - `make pull` — pull canonical VBA source back into `src/` after anyone edits in the VBE.
+
+## Cutting a release
+
+`master` = last released, `dev` = work in progress, one annotated `vX.Y.Z` tag per release,
+merges are **`--ff-only`** (the tracked `.dotm`/`.dotx`/`.frx` binaries cannot be merged by
+git — a fast-forward never tries). The full step-by-step checklist, the hotfix procedure, and
+how to revert a bad release live in **`CLAUDE.md` → "Git workflow and releases"**. Short form:
+
+```
+# on dev: bump the version in all four places, make installer, install & test, commit
+git checkout master
+git merge --ff-only dev
+git tag -a v3.0.7 -m "VistaType LP 3.0.7"
+git checkout dev
+git push origin master dev --follow-tags      # only when you're ready to publish
+gh release create v3.0.7 dist/VistaType-LP-Setup-3.0.7.exe
+```
+
+Attach the built `Setup.exe` to the GitHub release: the VBA build is not byte-reproducible
+(Word regenerates p-code), so checking out an old tag and rebuilding does **not** reproduce
+the binary that shipped. The archived installer is the real rollback.
 
 ## Always smoke-test a build
 
