@@ -12,6 +12,47 @@ Because VBA can only be compiled by Word itself, builds run on a remote Windows+
 driven over SSH — see **`DEVELOPMENT.md`** for the full workflow. `src/` is authoritative;
 **never hand-edit `LPandBRL.dotm`** — it is a build output.
 
+## How to talk to Jerry
+
+**Plain English. Always.** This governs every reply, not just the git parts.
+
+Jerry is a capable programmer — he wrote this entire ~16,500-line system himself over
+roughly twenty years. **Speak Word and VBA to him freely and without translation:** subs,
+modules, UserForms, `.frx`, ranges, styles, `ScreenUpdating`, attached templates, AutoCorrect
+entries, wildcards, section breaks, DBT translation tables. That is his working vocabulary
+and he knows it better than you do.
+
+What he does *not* use is the vocabulary of professional software engineering — version
+control, build pipelines, and release process. He never needed it: he was one person editing
+a `.dotm` in the VBA editor. So **the jargon to strip is process jargon, not programming
+jargon.**
+
+**Do not use these without plainly saying what they mean** (or better, avoid them entirely):
+branch, merge, fast-forward, rebase, cherry-pick, HEAD, upstream, remote, origin, checkout,
+staging, working tree, diff, CI/CD, pipeline, artifact, idempotent, atomic, regression,
+refactor, blocking, upstream/downstream.
+
+Say the **effect**, not the mechanism:
+
+| Instead of | Say |
+|---|---|
+| "I'll cherry-pick this onto `master` and rebase `dev`." | "I'll put this on the released version, then copy it into your working copy." |
+| "`master` is an ancestor of `dev`, so it'll fast-forward." | "Your working copy already contains everything that's released, so releasing is just moving a marker." |
+| "This commit is a no-op." | "This one changes nothing — it's already in there." |
+| "Resolve the conflict in the `.frx`." | "Two edits touched the same dialog's layout; I need you to look at it." |
+| "I'll stage and commit the diff." | "I'll save these changes into the history." |
+
+Other rules:
+- **Lead with what happened or what he should do**, then the reason. Not the reverse.
+- When a term is unavoidable because he'll *see* it — in git's own output, or on a GitHub
+  page — name it once, explain it in a clause, and point him at
+  `docs/Daily-Workflow-and-Releases.md`, which has a glossary.
+- **Never say "just"** ("just rebase onto…"). It makes unfamiliar things sound obvious.
+- **Don't over-explain programming itself.** Simplify the *process* vocabulary; do not
+  simplify the code, the Word behavior, or the reasoning. Explaining what a loop is would be
+  as wrong as saying "rebase" unexplained. He is experienced, not a beginner.
+- Short paragraphs. One idea each. He is reading this in a terminal between Word sessions.
+
 ## The pieces and how they work together
 
 The source of truth is `src/`. The items below are the *built* artifacts (and their
@@ -156,7 +197,42 @@ Two branches, fast-forward only, one tag per release.
 - **A release is `dev` fast-forwarded into `master`, then tagged `vX.Y.Z`.**
 
 Work only ever moves `dev` → `master`, never the reverse. Hold to that and the fast-forward
-always succeeds.
+always succeeds. **One sanctioned exception: documentation** — see immediately below.
+
+### Documentation-only changes go straight to `master`
+
+Jerry reads the guide from a bookmark that points at `master`
+(`github.com/jerrywhittaker/vistatype-lp/blob/master/docs/Daily-Workflow-and-Releases.md`).
+Holding a doc fix until the next release means he reads stale instructions in the meantime,
+which is backwards — documentation ships no code and cannot break a release.
+
+**Qualifies only if the change touches nothing outside these paths:**
+`docs/**`, `CLAUDE.md`, `DEVELOPMENT.md`, `README*`.
+One file under `src/`, the `Makefile`, `installer/`, or any `.dotm`/`.dotx`/`.frx` disqualifies
+it — that is a code change and goes through `dev` like everything else.
+
+**Verify before committing, every time** — do not eyeball it:
+
+```bash
+git diff --name-only HEAD          # and/or --cached; must list only the paths above
+```
+
+**Procedure — write it on `master`, then carry it into `dev`:**
+
+```bash
+git checkout master
+# make the edits, or cherry-pick them if they were already written on dev
+git commit ...
+git push origin master             # push freely: docs only. Code still waits for "push".
+git checkout dev && git merge master
+```
+
+That last line is not optional. It keeps `master` an ancestor of `dev` so the next release
+still fast-forwards. **Authoring on `master` and merging into `dev` is strictly better than
+committing on `dev` and cherry-picking to `master`** — cherry-picking leaves the two branches
+permanently diverged and the next release fails.
+
+The "never commit on `master`" rule below still holds for everything else.
 
 ### Why fast-forward only (do not "just merge")
 
@@ -271,15 +347,20 @@ does not, tell Jerry before starting other work — an unfolded hotfix is a bug 
 
 ### Rules for Claude
 
-- **Never push** — not `master`, not `dev`, not tags — until Jerry says the word "push". He
-  reviews and installs the Setup.exe first. Honor this every time.
-- **Never commit on `master`.** Check `git branch --show-current` before committing; if it
-  says `master`, switch to `dev` first.
+- **Never push code** — not `master`, not `dev`, not tags — until Jerry says the word "push".
+  He reviews and installs the Setup.exe first. Honor this every time. *Documentation-only
+  changes are exempt* (see above): push those freely so his bookmark stays current.
+- **Never commit code on `master`.** Check `git branch --show-current` before committing; if
+  it says `master`, switch to `dev` first. The lone exception is a documentation-only change,
+  verified with `git diff --name-only`.
 - **Never force-push, never rewrite a published tag**, and never delete a `v*` tag without
   being asked — the tags are the recovery points.
+- **Never publish a release without its `.exe`** — see the non-negotiable section above.
 - This workflow is new to Jerry. **Guide him through the release steps explicitly** — say which
   command comes next and what it will do, run the git steps for him, and confirm each stage
   landed before moving on. Don't assume he knows the branch he is on; tell him.
+- **Say it in plain English** — see *How to talk to Jerry* at the top of this file. Process
+  jargon is the thing to strip; Word and VBA terms are fine.
 
 ## Domain concepts
 
