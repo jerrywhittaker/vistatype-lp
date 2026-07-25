@@ -108,7 +108,8 @@ git add -A && git commit
 `master` = last released, `dev` = work in progress, one annotated `vX.Y.Z` tag per release,
 merges are **`--ff-only`** (the tracked `.dotm`/`.dotx`/`.frx` binaries cannot be merged by
 git — a fast-forward never tries). The full step-by-step checklist, the hotfix procedure, and
-how to revert a bad release live in **`CLAUDE.md` → "Git workflow and releases"**. Short form:
+how to revert a bad release live in **`CLAUDE.md` → "Git workflow and releases"**, with a
+plain-language walkthrough in **`docs/Daily-Workflow-and-Releases.md`**. Short form:
 
 ```
 # on dev: bump the version in all four places, make installer, install & test, commit

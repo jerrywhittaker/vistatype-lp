@@ -49,7 +49,7 @@ Word.officeUI   legacy global ribbon (no longer shipped; kept for reference)
 tools/windows/  Export-Vba.ps1 / Import-Vba.ps1 — run in Word on the build box
 tools/lib/      decompress_vba.py (reader); officeui_to_customui.py + inject_customui.py (ribbon); extract_qat.py (obsolete/reference — QAT is now qat-template.officeUI)
 installer/      Inno Setup installer (vistatype.iss) + scripts/ (QAT merge/remove) + qat-template.officeUI (the standard QAT) — replaces manual file-copy install
-docs/           Installation-Guide.md (end-user install); Build-VM-Setup.md (Hyper-V build/test box); Software-Agreement.md (GPLv3 About-dialog text)
+docs/           Daily-Workflow-and-Releases.md (Jerry's plain-language guide to dev/master, building, releasing, and what to ask Claude); Installation-Guide.md (end-user install); Build-VM-Setup.md (Hyper-V build/test box); Software-Agreement.md (GPLv3 About-dialog text)
 reference/      generated read aids (gitignored mirror + interim form-code dump)
 Makefile        pull / build / ribbon / qat / read / deploy / stage / installer  (see DEVELOPMENT.md)
 ```
@@ -146,6 +146,9 @@ pattern: bump the per-sub version comment and add a dated line to the header cha
 
 This add-in ships to working transcribers, so a release must stay **stable and revertable**.
 Two branches, fast-forward only, one tag per release.
+
+> Jerry's plain-language version of this section is **`docs/Daily-Workflow-and-Releases.md`**.
+> Keep the two in step, and point him there when he asks how any of this works.
 
 - **`master` = the last released version.** Always shippable. **Never commit to it directly**
   and never run `make deploy` while sitting on it.
