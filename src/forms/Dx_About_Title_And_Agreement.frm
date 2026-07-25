@@ -16,6 +16,7 @@ Attribute VB_Exposed = False
 
 ' Author: Jerry Whittaker -  jerry@thewhittakers.org
 
+' Version: 1.4  Date: 7/24/2026 - Label5 version caption bumped 3.0.5 -> 3.0.6 (caption lives in the .frx)
 ' Version: 1.3  Date: 12/10/2019 - added alternative short url
 ' Version: 1.2  Date: 3/17/2017
 

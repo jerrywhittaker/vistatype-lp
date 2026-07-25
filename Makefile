@@ -25,7 +25,7 @@ DOTM      := LPandBRL.dotm
 DOTX      := LargePrintTemplate.dotx
 RIBBON    := Word.officeUI
 PROJNAME  := LPandBRL
-APPVER    := 3.0.5
+APPVER    := 3.0.6
 SETUP_EXE := VistaType-LP-Setup-$(APPVER).exe
 
 SSH := ssh $(WIN_HOST)
