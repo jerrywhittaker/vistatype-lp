@@ -178,8 +178,9 @@ of `LPandBrlMacros` keeps a running dated changelog. The version number lives in
 places that must always agree — `APPVER` (Makefile), `AppVer` (`installer/vistatype.iss`,
 which drives the `VistaType-LP-Setup-<ver>.exe` name), the LP **and** Braille About dialogs'
 `VersionLabel` caption (stored in the binary `.frx`), and this file. **What actually shipped
-is the newest `v*` tag on `master`** — not whatever these files say, since a version bump is
-prepared on `dev` before it is released. (The `VistaType LP (NNN)` numbers in MsgBox titles
+is the newest `v*` tag on `master`** — not whatever these files say. Those four normally read
+a working `3.0.X` number that has never been released; see *Version numbering* below. (The
+`VistaType LP (NNN)` numbers in MsgBox titles
 are per-dialog IDs, *not* version numbers.) When changing behavior, follow the existing
 pattern: bump the per-sub version comment and add a dated line to the header changelog.
 
@@ -194,10 +195,39 @@ Two branches, fast-forward only, one tag per release.
 - **`master` = the last released version.** Always shippable. **Never commit to it directly**
   and never run `make deploy` while sitting on it.
 - **`dev` = all day-to-day work.** Small, focused commits, exactly as before.
-- **A release is `dev` fast-forwarded into `master`, then tagged `vX.Y.Z`.**
+- **A release is `dev` fast-forwarded into `master`, then tagged.**
 
 Work only ever moves `dev` → `master`, never the reverse. Hold to that and the fast-forward
 always succeeds. **One sanctioned exception: documentation** — see immediately below.
+
+### Version numbering — the third number is internal, not a release
+
+Jerry's rule, set 2026-07-25: **the third number is a private build counter, not a shipping
+version.** Do not confuse a version bump with a release.
+
+- **Third number — `3.0.6`, `3.0.7`, `3.0.8` …** — day-to-day builds on `dev`. Bump freely,
+  build the installer, have Jerry install and test it, commit. **Nothing is tagged, nothing
+  is pushed to `master`, nothing is published.** These numbers exist so Jerry can tell one
+  test build from the next in the About box. After `3.1` ships, the counter carries on as
+  `3.1.1`, `3.1.2`, … — still internal.
+- **`X.Y` — `3.1`, `3.2`, `3.3` …** — actual releases. A release takes the next `X.Y`, never
+  a third number. Several `3.0.X` builds' worth of work rolls up into one `3.1`.
+- **Fourth number — `3.1.0.1`, `3.1.0.2` …** — a **hotfix** to a released `X.Y`. Read it as
+  "3.1, repair 1". Note the `.0`: released `3.1` is `3.1.0`, so hotfixes hang off that and
+  **can never collide** with the internal `3.1.1`, `3.1.2` builds on `dev`. That separation
+  is the whole reason for the fourth number.
+
+**Only Jerry starts a release, and he starts it by name** — "let's release 3.1". Until he
+says that, `master` does not move, no `v*` tag is created, and nothing is published, no
+matter how many builds have accumulated on `dev`. Do not propose a release just because a
+build tested clean; a clean build is the *normal* end of a day's work here.
+
+When he does say it: renumber all four places from the working `3.0.X` to the release
+`X.Y`, rebuild (the number is compiled into the About dialogs' `.frx`), let him test *that*
+installer, and only then run the release checklist below.
+
+The two lanes never interfere, so — unlike the old scheme — a hotfix never forces `dev`'s
+working number to move.
 
 ### Documentation-only changes go straight to `master`
 
@@ -244,9 +274,12 @@ onto `master` directly — stop and ask Jerry rather than forcing a merge.
 
 ### Cutting a release (the checklist — walk Jerry through it, one step at a time)
 
+0. **Jerry has said "let's release 3.1"** (or the equivalent). Without that, stop — there is
+   no release. See *Version numbering* above.
 1. **Confirm `dev` is ready** — `git status` clean, the change-set smoke-tested in Word.
-2. **Bump the version in all four places** above (the `.frx` captions are edited headless over
-   SSH via the VBA object model, *not* the form designer — see `DEVELOPMENT.md`).
+2. **Renumber from the working `3.0.X` to the release `X.Y` in all four places** above (the
+   `.frx` captions are edited headless over SSH via the VBA object model, *not* the form
+   designer — see `DEVELOPMENT.md`).
 3. **`make installer`** — rebuilds the `.dotm` from `src/` so the new `.frx`/ribbon/VBA compile
    in, compiles `Setup.exe`, copies it to `dist/` and the VM Desktop. Verify the built `.dotm`'s
    About caption reads the new version.
@@ -261,7 +294,7 @@ onto `master` directly — stop and ask Jerry rather than forcing a merge.
    ```bash
    git checkout master
    git merge --ff-only dev
-   git tag -a v3.0.7 -m "VistaType LP 3.0.7"
+   git tag -a v3.1 -m "VistaType LP 3.1"
    git checkout dev            # go straight back to dev; never linger on master
    ```
 
@@ -271,9 +304,9 @@ onto `master` directly — stop and ask Jerry rather than forcing a merge.
 
    ```bash
    git push origin master dev --follow-tags
-   gh release create v3.0.7 dist/VistaType-LP-Setup-3.0.7.exe \
-       --title "VistaType LP 3.0.7" --notes "<what changed, in transcriber-facing terms>"
-   gh release view v3.0.7 --json assets    # VERIFY: must list the .exe, not []
+   gh release create v3.1 dist/VistaType-LP-Setup-3.1.exe \
+       --title "VistaType LP 3.1" --notes "<what changed, in transcriber-facing terms>"
+   gh release view v3.1 --json assets      # VERIFY: must list the .exe, not []
    ```
 
 9. Delete the superseded `VistaType-LP-Setup-*.exe` from `dist/` and the VM Desktop (keep old
@@ -304,7 +337,8 @@ Hard rules:
 
 - **For a transcriber, right now:** have them reinstall the previous `Setup.exe` from its
   GitHub release. Fastest fix; no rebuild involved.
-- **For the source:** `git checkout v3.0.6 && make build`.
+- **For the source:** `git checkout v3.1 && make build`.
+
 ### Hotfix — an emergency fix for the *released* version
 
 Use when someone in the field needs a fix now and `dev` holds half-finished work that must
@@ -312,14 +346,17 @@ not ship. Jerry's plain-language version is in `docs/Daily-Workflow-and-Releases
 
 **Part 1 — ship the fix from the released line.** Branch from the **tag**, never from `dev`:
 
+A hotfix takes the **fourth** number off the released one: `3.1` → `3.1.0.1` → `3.1.0.2`.
+Never a third number — that lane belongs to `dev`'s internal builds.
+
 ```bash
-git checkout -b hotfix/3.0.7 v3.0.6    # the TAG — an exact copy of what shipped
+git checkout -b hotfix/3.1.0.1 v3.1     # the TAG — an exact copy of what shipped
 # fix, bump the version, make installer, Jerry installs and tests
-git checkout master && git merge --ff-only hotfix/3.0.7
-git tag -a v3.0.7 -m "VistaType LP 3.0.7"
-git push origin master --follow-tags   # only when Jerry says "push"
-gh release create v3.0.7 dist/VistaType-LP-Setup-3.0.7.exe --title "VistaType LP 3.0.7"
-git branch -d hotfix/3.0.7             # merged; the tag is the permanent record
+git checkout master && git merge --ff-only hotfix/3.1.0.1
+git tag -a v3.1.0.1 -m "VistaType LP 3.1.0.1"
+git push origin master --follow-tags    # only when Jerry says "push"
+gh release create v3.1.0.1 dist/VistaType-LP-Setup-3.1.0.1.exe --title "VistaType LP 3.1.0.1"
+git branch -d hotfix/3.1.0.1            # merged; the tag is the permanent record
 ```
 
 **Part 2 — fold the fix back into `dev`. Do not skip this.** The fix exists only on the
@@ -335,8 +372,10 @@ cosmetic and costs nothing: `master` remains an ancestor of `dev`, so the next r
 fast-forwards. (Rebase is fine *only* if `dev` has never been pushed.)
 
 Two things that bite:
-- **Version collision.** If `dev` already bumped to 3.0.7, the hotfix takes 3.0.7 and `dev`'s
-  pending release must move to 3.0.8. Re-bump all four places on `dev` after the merge.
+- **Version numbers do *not* collide** under this scheme — the hotfix uses the fourth slot
+  (`3.1.0.1`) and `dev`'s working builds use the third (`3.1.4`). Leave `dev`'s number alone
+  after the merge; it still becomes the next `X.Y` when Jerry calls the release. Only the
+  four version locations *on the hotfix branch* get touched.
 - **Binary conflicts.** `LPandBRL.dotm` is a build output — never hand-resolve it; take either
   side and `make build` to regenerate. A conflicting `.frx` is *source* (form layout) and does
   need real attention — surface it to Jerry rather than guessing.
@@ -347,6 +386,9 @@ does not, tell Jerry before starting other work — an unfolded hotfix is a bug 
 
 ### Rules for Claude
 
+- **Never start a release Jerry did not ask for.** Bumping `3.0.6` → `3.0.7` and building an
+  installer is ordinary work; moving `master`, tagging, and publishing happen *only* after he
+  says "let's release 3.1". A build that tests clean is not a cue to release it.
 - **Never push code** — not `master`, not `dev`, not tags — until Jerry says the word "push".
   He reviews and installs the Setup.exe first. Honor this every time. *Documentation-only
   changes are exempt* (see above): push those freely so his bookmark stays current.
