@@ -15,6 +15,7 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 ' Lp_Set_Doc_Background_Form
 '
+' Version: 1.4  Date: 7/24/2026 - no longer runs "MS_Set_Word_Config_For_Large_Print" on form open
 ' Version: 1.3  Date: 11/8/2025 - added  Sh_Write_Document_Variables "Media", "Paper"
 ' Version: 1.2  Date: 11/9/2023 - added "VistaType" to msgbox
 ' Version: 1.1  Date: 12/3/2020 - rewrite to check for document media type
@@ -64,7 +65,9 @@ Private Sub userform_terminate() 'red X was clicked
 End Sub
 
 Private Sub UserForm_Initialize()
-    Application.Run MacroName:="MS_Set_Word_Config_For_Large_Print"
+    ' 7/24/2026 - removed "MS_Set_Word_Config_For_Large_Print": opening the document already
+    '             configures Word for large print, and re-running it here reset the user's
+    '             Styles-pane options (show filter / sort order) every time this form opened.
     ' From: https://www.thespreadsheetguru.com/the-code-vault/launch-vba-userforms-in-correct-window-with-dual-monitors
     ' Start Userform Centered inside Word Screen (for dual monitors)
     Me.StartUpPosition = 0

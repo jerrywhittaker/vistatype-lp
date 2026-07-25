@@ -14,6 +14,7 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 ' Lp_Bakgrnd_Picture_Menu_Form
+' Version: 1.4  Date: 7/24/2026 - no longer runs "MS_Set_Word_Config_For_Large_Print" on form open
 ' Version 1.3 Date: 4/12/2025 - added Center_Or_Left_Align_Pictures_Form
 ' Version 1.2 Date: 4/9/2025
 ' Version 1.1 Date: 1/9/2023
@@ -88,7 +89,9 @@ Private Sub userform_terminate() 'red X was clicked
 End Sub
 
 Private Sub UserForm_Initialize()
-    Application.Run MacroName:="MS_Set_Word_Config_For_Large_Print"
+    ' 7/24/2026 - removed "MS_Set_Word_Config_For_Large_Print": opening the document already
+    '             configures Word for large print, and re-running it here reset the user's
+    '             Styles-pane options (show filter / sort order) every time this form opened.
     ' From: https://www.thespreadsheetguru.com/the-code-vault/launch-vba-userforms-in-correct-window-with-dual-monitors
     ' Start Userform Centered inside Word Screen (for dual monitors)
     Me.StartUpPosition = 0

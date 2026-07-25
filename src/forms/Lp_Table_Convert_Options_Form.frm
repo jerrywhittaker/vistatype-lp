@@ -17,6 +17,7 @@ Attribute VB_Exposed = False
 '
 ' Author: Jerry Whittaker - jerry@thewhittakers.org
 '
+' Version: 1.9  Date: 7/24/2026 - no longer runs "MS_Set_Word_Config_For_Large_Print" on form open
 ' Version: 1.8  Date: 6/22/2026 - ajusted timing with "do events" to make sure that the original document is shown at the end of the rotation
 ' Version: 1.7  Date: 5/5/2026  - fixed bug in table rotation that prevented temp files from being closed
 ' Version: 1.6  Date: 1/28/2026 - revised import code into original doc from temp doc
@@ -567,7 +568,9 @@ Sub UserForm_Initialize()
         DisplayHeadersInBold = False
     End If
     
-    Application.Run MacroName:="MS_Set_Word_Config_For_Large_Print"
+    ' 7/24/2026 - removed "MS_Set_Word_Config_For_Large_Print": opening the document already
+    '             configures Word for large print, and re-running it here reset the user's
+    '             Styles-pane options (show filter / sort order) every time this form opened.
     ' From: https://www.thespreadsheetguru.com/the-code-vault/launch-vba-userforms-in-correct-window-with-dual-monitors
     ' Start Userform Centered inside Word Screen (for dual monitors)
     Me.StartUpPosition = 0

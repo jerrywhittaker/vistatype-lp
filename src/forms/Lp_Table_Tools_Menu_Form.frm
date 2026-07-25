@@ -15,6 +15,7 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 'Lp_Table_And_TOC_Tools_Menu_Form
 '
+' Version: 2.2  Date: 7/24/2026 - no longer runs "MS_Set_Word_Config_For_Large_Print" on form open
 ' Version: 2.1  Date: 5/28/2025 - moved check for a selected table to Lp_Color_Bars_For_TOCs_Form
 ' Version: 2.0  Date: 4/19/2024 - error tapping added
 ' Version: 1.9  Date: 3/9/2023 - added additional table weight procedures
@@ -233,7 +234,9 @@ Private Sub UserForm_Initialize()
     
     Application.Run MacroName:="Lp_Get_Doc_Setup_Params"
     
-    Application.Run MacroName:="MS_Set_Word_Config_For_Large_Print"
+    ' 7/24/2026 - removed "MS_Set_Word_Config_For_Large_Print": opening the document already
+    '             configures Word for large print, and re-running it here reset the user's
+    '             Styles-pane options (show filter / sort order) every time this form opened.
     
     ' From: https://www.thespreadsheetguru.com/the-code-vault/launch-vba-userforms-in-correct-window-with-dual-monitors
     ' Start Userform Centered inside Word Screen (for dual monitors)

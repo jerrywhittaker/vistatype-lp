@@ -16,6 +16,7 @@ Attribute VB_Exposed = False
 
 ' Lp_Selected_Cleanup_Form
 '
+' Version: 1.8  Date: 7/24/2026 - no longer runs "MS_Set_Word_Config_For_Large_Print" on form open
 ' Version: 1.7 Date: 1/20/2024 - added Lp_Italics_To_Dashed_Underline
 ' Version: 1.6 Date: 10/12/2023 - Revsion of items - added msg if no selection made
 ' Version: 1.5 Date: 8/5/2021 - added highlight remove, lp box remove, lp word background color remove, lp para background color remove
@@ -89,7 +90,9 @@ Private Sub userform_terminate() 'red X was clicked
 End Sub
   
 Private Sub UserForm_Initialize()
-    Application.Run MacroName:="MS_Set_Word_Config_For_Large_Print"
+    ' 7/24/2026 - removed "MS_Set_Word_Config_For_Large_Print": opening the document already
+    '             configures Word for large print, and re-running it here reset the user's
+    '             Styles-pane options (show filter / sort order) every time this form opened.
     ' From: https://www.thespreadsheetguru.com/the-code-vault/launch-vba-userforms-in-correct-window-with-dual-monitors
     ' Start Userform Centered inside Word Screen (for dual monitors)
     Me.StartUpPosition = 0
