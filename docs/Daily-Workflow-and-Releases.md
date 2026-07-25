@@ -17,13 +17,13 @@ dev  ──●──●──●──●──●   <-- everything you're worki
        \
 master ●                <-- the last version you actually released
        │
-     v3.0.5             <-- a tag: a permanent bookmark of exactly what shipped
+       v3.1             <-- a tag: a permanent bookmark of exactly what shipped
 ```
 
 - **`dev`** is your workbench. All edits, experiments, and fixes go here. It can be messy.
 - **`master`** is the shelf holding **the last version you released to transcribers**. It
   only ever changes on release day.
-- A **tag** (`v3.0.5`, `v3.0.6`, …) is a permanent bookmark. Tags are how you go back.
+- A **tag** (`v3.1`, `v3.2`, …) is a permanent bookmark. Tags are how you go back.
 
 **Why bother?** So that if a new version turns out to be broken, the last good one is still
 sitting there, untouched and clearly labeled — and you can put a transcriber back on it in
@@ -71,8 +71,8 @@ Skim this once. Come back to it whenever a word trips you up — that's all it's
 - **Build** — turning the source text into the actual working add-in file
   (`LPandBRL.dotm`). Word has to do this part, over on the Windows box.
 - **Installer / `Setup.exe`** — the single file a transcriber double-clicks, e.g.
-  `VistaType-LP-Setup-3.0.6.exe`.
-- **Tag** — a permanent, unchanging bookmark on one exact point in history, like `v3.0.6`.
+  `VistaType-LP-Setup-3.1.exe`.
+- **Tag** — a permanent, unchanging bookmark on one exact point in history, like `v3.1`.
   This is how you find and return to precisely what shipped.
 - **Release** — a published version on GitHub: a tag, plus the `Setup.exe` attached to it,
   plus notes. **Without the `.exe` attached it isn't a release** — see the rule further down.
@@ -138,20 +138,58 @@ You test from the **installer**, the way a transcriber would.
 
 ---
 
+## What the version numbers mean
+
+There are two kinds of number, and only one of them is a release.
+
+| Number | What it is | Who sees it |
+|---|---|---|
+| **3.0.6, 3.0.7, 3.0.8 …** | Your working builds — the third number. Bump one whenever you want a fresh installer to test. | Only you |
+| **3.1, 3.2, 3.3 …** | An actual release. | Transcribers |
+| **3.1.0.1, 3.1.0.2 …** | An emergency fix to something already released — a hotfix. Four numbers. | Transcribers |
+
+**The third number is just a counter for you.** It exists so that when you install a test
+build and open the About box, you can tell it apart from yesterday's. Bumping it, building
+an installer, and testing it is ordinary work — it happens as often as you like and it
+publishes nothing. After 3.1 ships, that counter carries on as 3.1.1, 3.1.2, and so on —
+still yours, still private.
+
+**Releases take the next whole number: 3.1, then 3.2.** A dozen `3.0.X` test builds normally
+roll up into one `3.1`. When you're ready, whatever number `dev` happens to be sitting on
+gets renumbered to `3.1` and *that* is what ships.
+
+**Nothing gets released until you say so, by name:**
+
+> *"Let's release 3.1."*
+
+Until you say that, Claude will build and bump as much as you want but will not move
+`master`, will not tag anything, and will not publish. A build that tests clean is not a
+reason to release it — that's just a normal day's work here.
+
+> **Why a hotfix gets a fourth number.** An emergency repair to 3.1 goes out as **3.1.0.1** —
+> read it as *"3.1, repair 1"*. It needs its own slot because the third number is already
+> spoken for by your private test builds; if a hotfix used it, an emergency repair and a
+> half-tested workbench build could end up with the same number. The fourth number keeps the
+> two apart permanently. See the hotfix section below.
+
+---
+
 ## Cutting a release
 
 A release is: move `master` forward, bookmark it with a tag, and publish the `.exe` on
-GitHub. Claude walks you through it — you can simply say **"let's release 3.0.7"** — but
+GitHub. Claude walks you through it — you can simply say **"let's release 3.1"** — but
 here is what's happening.
 
 ### Step 1 — Make sure `dev` is ready
 
 Everything committed, and you're happy with the change-set.
 
-### Step 2 — Bump the version number
+### Step 2 — Renumber to the release number
 
-It lives in **four** places that must all agree. Say **"bump the version to 3.0.7"** and
-Claude updates all four:
+Your working number (say `3.0.8`) becomes the release number, `3.1`.
+
+It lives in **four** places that must all agree. Say **"let's release 3.1"** and Claude
+updates all four:
 
 1. `Makefile` — names the installer file
 2. `installer/vistatype.iss` — what Windows shows in *Programs & Features*
@@ -173,7 +211,7 @@ When you're happy: **"looks good, release it and push"**.
 
 Claude then:
 - moves `master` forward to match `dev`
-- creates the tag `v3.0.7`
+- creates the tag `v3.1`
 - puts you back on `dev`
 - pushes to GitHub
 - **publishes the release with the `.exe` attached**
@@ -194,7 +232,7 @@ the program — it's a folder of VBA text files, and nobody can install it. So a
 without the `.exe` looks perfectly official and gives people **nothing usable**.
 
 There's a second reason. The add-in **cannot be rebuilt identically**. Word regenerates
-part of the file every time it compiles, so building version 3.0.5 again next year will
+part of the file every time it compiles, so building version 3.1 again next year will
 *not* produce the same file you shipped. **The `.exe` you upload is the only real copy of
 that release.** If it isn't on GitHub, it effectively doesn't exist.
 
@@ -209,7 +247,7 @@ Send them the previous release's `.exe` from its GitHub release page and have th
 reinstall (Word closed). That's the fastest fix — nothing to rebuild.
 
 **You want the code back the way it was at a release.**
-Say **"go back to what we shipped in 3.0.6"**.
+Say **"go back to what we shipped in 3.1"**.
 
 **You undid too much / something looks lost.**
 Say so. Git keeps almost everything for a long time, including things that look deleted.
@@ -224,12 +262,12 @@ That's a hotfix — next section.
 
 ### The situation
 
-3.0.6 is out in the world. You're partway through 3.0.7 on `dev` — three of five changes
-done, nothing tested, definitely not shippable. A transcriber calls: something in 3.0.6 is
-broken and they're stuck.
+3.1 is out in the world. You're partway toward the next release on `dev` — three of five
+changes done, working build 3.1.4, nothing tested, definitely not shippable. A transcriber
+calls: something in 3.1 is broken and they're stuck.
 
 You need to get *one small fix* to that person **today**, without shipping your
-half-finished 3.0.7 work along with it.
+half-finished work along with it.
 
 That's what a hotfix is: **a repair to the released version, shipped on its own.**
 
@@ -237,25 +275,25 @@ That's what a hotfix is: **a repair to the released version, shipped on its own.
 
 Whatever is on `dev` goes out as one package. Fixing the bug there means shipping your
 unfinished work with it. The trick is to go back to **exactly what the transcriber has
-installed** — which is what the tag `v3.0.6` marks — and fix *that*.
+installed** — which is what the tag `v3.1` marks — and fix *that*.
 
 ### How it works
 
-**Step 1 — Fix the released version.** Claude starts a temporary branch from the `v3.0.6`
+**Step 1 — Fix the released version.** Claude starts a temporary branch from the `v3.1`
 tag: an exact copy of what shipped, with none of your in-progress work in it. The fix goes
-there, gets built and tested, and is released as **3.0.7**.
+there, gets built and tested, and is released as **3.1.0.1** — *"3.1, with one repair."*
 
 ```
    dev     ●──●──●          <-- your half-finished work: untouched throughout
           /
    master ●
-          v3.0.6            <-- what the transcriber has
+          v3.1              <-- what the transcriber has
 ```
 ```
-   dev     ●──●──●          <-- STILL untouched
+   dev     ●──●──●            <-- STILL untouched (your build number: 3.1.4)
           /
-   master ●─────────●       <-- just the one fix
-                    v3.0.7  <-- released; transcriber installs this today
+   master ●─────────●         <-- just the one fix
+                    v3.1.0.1  <-- released; transcriber installs this today
 ```
 
 Your work on `dev` is never touched, never at risk, and never shipped early.
@@ -267,17 +305,18 @@ release from `dev` would ship without it — and the bug would come back from th
 So the fix gets folded into `dev`:
 
 ```
-   dev     ●──●──●──●       <-- your work, now WITH the fix in it
+   dev     ●──●──●──●         <-- your work, now WITH the fix in it
           /        ↑
-   master ●─────────●       (the fix, copied forward into your workbench)
-                    v3.0.7
+   master ●─────────●         (the fix, copied forward into your workbench)
+                    v3.1.0.1
 ```
 
-Now `dev` has both, and 3.0.8 will contain everything.
+Now `dev` has both, and whenever you call the next release — 3.2 — it contains everything.
+Your working build number on `dev` doesn't change; it never clashed with 3.1.0.1.
 
 ### What you actually say
 
-> *"We need a hotfix on 3.0.6 — [describe the bug]."*
+> *"We need a hotfix on 3.1 — [describe the bug]."*
 
 …and once it's shipped:
 
@@ -288,9 +327,9 @@ remind you** — it checks for a hotfix that hasn't been folded back in.
 
 ### Two things that come up
 
-**Version numbers.** If `dev` was already bumped to 3.0.7, the hotfix takes that number and
-your in-progress release becomes 3.0.8. Two things can't both be 3.0.7. Claude sorts the
-numbering out; just don't be surprised when the pending version shifts.
+**Version numbers.** Nothing to worry about here, which is the point of the fourth number.
+The hotfix is 3.1.0.1; your workbench keeps whatever build number it had (3.1.4). They can't
+land on the same number, so neither one has to move. The next real release is still 3.2.
 
 **"It says there's a conflict in `LPandBRL.dotm`."** That file is a *build output*, not
 something you wrote — it gets regenerated from the source every time. So a conflict there is
@@ -348,13 +387,14 @@ Often the right fix is deleting something rather than adding a condition around 
 > *"What branch am I on?"*
 > *"What's on `dev` that hasn't been released yet?"*
 > *"Show me the last few commits."*
-> *"What changed since 3.0.5?"*
+> *"What changed since 3.1?"*
 
 ### Controlling what happens
 
 > *"Commit that."*
 > *"Don't push yet."* / *"Push."*
-> *"Let's release 3.0.7."*
+> *"Bump the working number and build me an installer."*
+> *"Let's release 3.1."*
 > *"Explain what you're about to do before you do it."*
 
 ---
@@ -401,9 +441,10 @@ wrong.
 | Save the work | *"commit that"* |
 | Back it up to GitHub | *"push"* |
 | Build the installer | *"build the installer"* or `make installer` |
+| Start a release (nothing ships until you do) | *"let's release 3.1"* |
 | Ship it | *"looks good, release it and push"* |
-| Undo a bad release | *"go back to what we shipped in 3.0.6"* |
-| Emergency fix for people already running it | *"we need a hotfix on 3.0.6"* |
+| Undo a bad release | *"go back to what we shipped in 3.1"* |
+| Emergency fix for people already running it | *"we need a hotfix on 3.1"* |
 | …then, once that hotfix has shipped | *"bring the hotfix into dev"* |
 | Find out where you are | *"what branch am I on?"* |
 | A word here doesn't make sense | *"what does &lt;word&gt; mean again?"* |
