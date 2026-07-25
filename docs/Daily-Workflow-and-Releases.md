@@ -34,6 +34,56 @@ about a minute.
 
 ---
 
+## The words
+
+Skim this once. Come back to it whenever a word trips you up — that's all it's for.
+
+### Where your work lives
+
+- **Repository ("repo")** — the whole project: every file, plus its complete history. Yours
+  lives in two places, on your computer and as a copy on GitHub.
+- **GitHub** — the website holding that backup copy, and where released installers are
+  published for people to download.
+- **Working tree** — the files as they sit on your computer *right now*, including edits not
+  yet recorded. "Uncommitted changes" live here: real, but not yet part of the history.
+- **Branch** — a separate line of history, so two pieces of work don't disturb each other.
+  You have two.
+- **`dev`** — your workbench branch. Everything in progress. Can be half-finished; that's the
+  point of it.
+- **`master`** — the branch holding **the last version you actually released**. Never worked
+  on directly. (Some projects call this one "main" — same idea.)
+
+### The things you do
+
+- **Commit** — to record the current changes into the history, permanently, with a note about
+  what changed. Think "save a numbered draft." Committing is local; nothing leaves your
+  machine.
+- **Diff** — the list of exactly what changed. *"Show me what changed"* gets you one.
+- **Push** — to upload your commits to GitHub. This is a **backup, not a release**: pushing
+  does not give anybody the new version.
+- **Pull** — the reverse, downloading from GitHub. You'll rarely need it, since you're the
+  only one working here.
+- **Conflict** — when two lines of work changed the same lines and git can't tell which
+  should win, so it stops and asks. Rare here. Tell Claude and it gets sorted out.
+
+### Release words
+
+- **Build** — turning the source text into the actual working add-in file
+  (`LPandBRL.dotm`). Word has to do this part, over on the Windows box.
+- **Installer / `Setup.exe`** — the single file a transcriber double-clicks, e.g.
+  `VistaType-LP-Setup-3.0.6.exe`.
+- **Tag** — a permanent, unchanging bookmark on one exact point in history, like `v3.0.6`.
+  This is how you find and return to precisely what shipped.
+- **Release** — a published version on GitHub: a tag, plus the `Setup.exe` attached to it,
+  plus notes. **Without the `.exe` attached it isn't a release** — see the rule further down.
+- **Merge / fast-forward** — combining branches. A **fast-forward** is the easy case:
+  `master` simply slides forward to catch up with `dev`, with nothing to reconcile. That's the
+  only kind used at release time, deliberately — it can't go wrong.
+- **Hotfix** — an emergency repair to the version people already have installed, shipped
+  *without* waiting for the half-finished work on `dev`. It gets its own section below.
+
+---
+
 ## Day to day
 
 ### 1. Ask for the change
@@ -161,13 +211,91 @@ reinstall (Word closed). That's the fastest fix — nothing to rebuild.
 **You want the code back the way it was at a release.**
 Say **"go back to what we shipped in 3.0.6"**.
 
-**You need to fix a released version without shipping everything on `dev`.**
-Say **"we need a hotfix on 3.0.6"**. Claude branches from the tag, fixes just that, and
-releases it — your in-progress work on `dev` stays out of it.
-
 **You undid too much / something looks lost.**
 Say so. Git keeps almost everything for a long time, including things that look deleted.
 Don't try to fix it by hand — just describe what happened.
+
+**A transcriber needs a fix *now* and `dev` is half-finished.**
+That's a hotfix — next section.
+
+---
+
+## Hotfixes — an emergency fix for people already running it
+
+### The situation
+
+3.0.6 is out in the world. You're partway through 3.0.7 on `dev` — three of five changes
+done, nothing tested, definitely not shippable. A transcriber calls: something in 3.0.6 is
+broken and they're stuck.
+
+You need to get *one small fix* to that person **today**, without shipping your
+half-finished 3.0.7 work along with it.
+
+That's what a hotfix is: **a repair to the released version, shipped on its own.**
+
+### Why you can't just fix it on `dev`
+
+Whatever is on `dev` goes out as one package. Fixing the bug there means shipping your
+unfinished work with it. The trick is to go back to **exactly what the transcriber has
+installed** — which is what the tag `v3.0.6` marks — and fix *that*.
+
+### How it works
+
+**Step 1 — Fix the released version.** Claude starts a temporary branch from the `v3.0.6`
+tag: an exact copy of what shipped, with none of your in-progress work in it. The fix goes
+there, gets built and tested, and is released as **3.0.7**.
+
+```
+   dev     ●──●──●          <-- your half-finished work: untouched throughout
+          /
+   master ●
+          v3.0.6            <-- what the transcriber has
+```
+```
+   dev     ●──●──●          <-- STILL untouched
+          /
+   master ●─────────●       <-- just the one fix
+                    v3.0.7  <-- released; transcriber installs this today
+```
+
+Your work on `dev` is never touched, never at risk, and never shipped early.
+
+**Step 2 — Bring the fix back into `dev`.** This is the part that's easy to forget, and it
+matters: the fix currently exists *only* on the released line. If you did nothing, your next
+release from `dev` would ship without it — and the bug would come back from the dead.
+
+So the fix gets folded into `dev`:
+
+```
+   dev     ●──●──●──●       <-- your work, now WITH the fix in it
+          /        ↑
+   master ●─────────●       (the fix, copied forward into your workbench)
+                    v3.0.7
+```
+
+Now `dev` has both, and 3.0.8 will contain everything.
+
+### What you actually say
+
+> *"We need a hotfix on 3.0.6 — [describe the bug]."*
+
+…and once it's shipped:
+
+> *"Bring the hotfix into dev."*
+
+Claude does the branch/tag/merge mechanics. **If you forget the second one, Claude will
+remind you** — it checks for a hotfix that hasn't been folded back in.
+
+### Two things that come up
+
+**Version numbers.** If `dev` was already bumped to 3.0.7, the hotfix takes that number and
+your in-progress release becomes 3.0.8. Two things can't both be 3.0.7. Claude sorts the
+numbering out; just don't be surprised when the pending version shifts.
+
+**"It says there's a conflict in `LPandBRL.dotm`."** That file is a *build output*, not
+something you wrote — it gets regenerated from the source every time. So a conflict there is
+never a real dilemma: Claude rebuilds it and it's correct. Nothing is lost. (A conflict in a
+*form layout* is rarer and does need a look — Claude will say so.)
 
 ---
 
@@ -275,8 +403,10 @@ wrong.
 | Build the installer | *"build the installer"* or `make installer` |
 | Ship it | *"looks good, release it and push"* |
 | Undo a bad release | *"go back to what we shipped in 3.0.6"* |
-| Fix a shipped version | *"we need a hotfix on 3.0.6"* |
+| Emergency fix for people already running it | *"we need a hotfix on 3.0.6"* |
+| …then, once that hotfix has shipped | *"bring the hotfix into dev"* |
 | Find out where you are | *"what branch am I on?"* |
+| A word here doesn't make sense | *"what does &lt;word&gt; mean again?"* |
 
 ---
 
