@@ -229,15 +229,45 @@ Hard rules:
 - **For a transcriber, right now:** have them reinstall the previous `Setup.exe` from its
   GitHub release. Fastest fix; no rebuild involved.
 - **For the source:** `git checkout v3.0.6 && make build`.
-- **Hotfix on top of a release** (when `dev` has already moved on):
+### Hotfix — an emergency fix for the *released* version
 
-  ```bash
-  git checkout -b hotfix/3.0.7 v3.0.6    # branch from the TAG, not from dev
-  # fix, bump to 3.0.7, make installer, test
-  git checkout master && git merge --ff-only hotfix/3.0.7
-  git tag -a v3.0.7 -m "VistaType LP 3.0.7"
-  git checkout dev && git rebase master  # rebase, NOT merge — keeps ff-only working
-  ```
+Use when someone in the field needs a fix now and `dev` holds half-finished work that must
+not ship. Jerry's plain-language version is in `docs/Daily-Workflow-and-Releases.md`.
+
+**Part 1 — ship the fix from the released line.** Branch from the **tag**, never from `dev`:
+
+```bash
+git checkout -b hotfix/3.0.7 v3.0.6    # the TAG — an exact copy of what shipped
+# fix, bump the version, make installer, Jerry installs and tests
+git checkout master && git merge --ff-only hotfix/3.0.7
+git tag -a v3.0.7 -m "VistaType LP 3.0.7"
+git push origin master --follow-tags   # only when Jerry says "push"
+gh release create v3.0.7 dist/VistaType-LP-Setup-3.0.7.exe --title "VistaType LP 3.0.7"
+git branch -d hotfix/3.0.7             # merged; the tag is the permanent record
+```
+
+**Part 2 — fold the fix back into `dev`. Do not skip this.** The fix exists only on the
+released line; without this step the next release from `dev` silently reintroduces the bug.
+
+```bash
+git checkout dev && git merge master   # dev gains the fix; master stays an ancestor of dev
+```
+
+**Merge, not rebase, here.** Rebasing `dev` rewrites commits Jerry may already have pushed as
+his backup, which would demand a force-push — forbidden below. The merge commit on `dev` is
+cosmetic and costs nothing: `master` remains an ancestor of `dev`, so the next release still
+fast-forwards. (Rebase is fine *only* if `dev` has never been pushed.)
+
+Two things that bite:
+- **Version collision.** If `dev` already bumped to 3.0.7, the hotfix takes 3.0.7 and `dev`'s
+  pending release must move to 3.0.8. Re-bump all four places on `dev` after the merge.
+- **Binary conflicts.** `LPandBRL.dotm` is a build output — never hand-resolve it; take either
+  side and `make build` to regenerate. A conflicting `.frx` is *source* (form layout) and does
+  need real attention — surface it to Jerry rather than guessing.
+
+**Claude's standing duty:** after a hotfix is released, verify `dev` contains it
+(`git branch --contains <hotfix-commit>` or `git merge-base --is-ancestor master dev`). If it
+does not, tell Jerry before starting other work — an unfolded hotfix is a bug that comes back.
 
 ### Rules for Claude
 
