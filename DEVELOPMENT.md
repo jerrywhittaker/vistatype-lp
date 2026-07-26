@@ -147,6 +147,24 @@ automated.
 
 ## Gotchas baked into the tooling
 
+- **Stale Word lock files hang the build forever — the build now clears them.** Word writes a
+  hidden `~$<name>` "owner file" next to every open document and deletes it on a clean close.
+  A Word that was **killed** leaves one behind. The next build opens or saves that document,
+  Word reads the leftover owner file, decides someone else has it locked, and raises the modal
+  **"File In Use"** dialog. Headless over SSH nobody can answer it, so the build hangs
+  indefinitely — **no error, nothing in the Windows event log, Word alive and "responding" at
+  near-zero CPU.** The usual recovery (kill the hung Word) leaves a *fresh* owner file, so
+  every following build hangs identically. This cost a full day on 2026-07-26: a
+  `~$andBRL.dotm` from 2026-07-22 had been blocking every build in between.
+  `Import-Vba.ps1` now deletes `~$*` from the shell and output directories before starting
+  Word, and warns if a `WINWORD.EXE` is already running. **These files are hidden**, so plain
+  `del` skips them and reports "Could Not Find" — which reads like they were already gone.
+  To clear by hand: `ssh vistabuild 'del /a /q /s "C:\Users\jerry\vistatype-build\~$*"'`.
+  Diagnosing a hang: check whether the import log stops (`Documents.Open` produces no output
+  at all; a stall after the last `import module` line means `$doc.Save()`), then
+  `Get-Process WINWORD | Select Id,CPU` — flat CPU over minutes means it is waiting on a
+  dialog, not working. **Word's CPU is a poor progress signal; the import log is the reliable
+  one.**
 - **The VBA project must not be locked.** A password-locked project ("Lock project for
   viewing" in the VBE) enumerates as **0 components** through Word's object model, and
   there is no API to unlock it — so `make pull`/`make build` would silently produce an

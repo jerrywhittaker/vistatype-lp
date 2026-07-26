@@ -32,6 +32,8 @@ Private Sub Cmd_Ok_Click()
     
     Application.ScreenUpdating = False ' Turn screen updating off
 
+    Sh_Save_User_Position
+
     Application.Run MacroName:="Dx_Copy_To_Temp_Doc" 'move selected text to temp file
     Application.Run MacroName:="Sh_Is_End_Paragraph_Mark_Included"
     Selection.WholeStory 'select the whole document
@@ -100,12 +102,12 @@ Private Sub Cmd_Ok_Click()
         End With
         Selection.Find.Execute Replace:=wdReplaceAll
  
-        ' change double parens (something) to ~somthingŒ -Alt+0140
+        ' change double parens (something) to ~somthingï¿½ -Alt+0140
         Selection.Find.ClearFormatting
         Selection.Find.Replacement.ClearFormatting
         With Selection.Find
             .Text = "\(([A-z0-9]{1,})\)"
-            .Replacement.Text = "~\1Œ"
+            .Replacement.Text = "~\1ï¿½"
         End With
         Selection.Find.Execute Replace:=wdReplaceAll
         
@@ -113,7 +115,7 @@ Private Sub Cmd_Ok_Click()
         Selection.Find.ClearFormatting
         Selection.Find.Replacement.ClearFormatting
         With Selection.Find
-            .Text = "(~[A-z0-9]{1,}Œ^032)"
+            .Text = "(~[A-z0-9]{1,}ï¿½^032)"
             .Replacement.Text = "^p^&"
         End With
         Selection.Find.Execute Replace:=wdReplaceAll
@@ -122,7 +124,7 @@ Private Sub Cmd_Ok_Click()
         Selection.Find.ClearFormatting
         Selection.Find.Replacement.ClearFormatting
         With Selection.Find
-            .Text = "(~[A-z0-9]{1,}Œ^046)"
+            .Text = "(~[A-z0-9]{1,}ï¿½^046)"
             .Replacement.Text = "^p^&"
         End With
         Selection.Find.Execute Replace:=wdReplaceAll
@@ -269,7 +271,7 @@ Private Sub Cmd_Ok_Click()
     Selection.Find.ClearFormatting
     Selection.Find.Replacement.ClearFormatting
     With Selection.Find
-        .Text = "Œ"  'Alt+0140
+        .Text = "ï¿½"  'Alt+0140
         .Replacement.Text = ")"
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
@@ -323,8 +325,9 @@ Private Sub Cmd_Ok_Click()
     Application.Run MacroName:="Dx_Copy_From_Temp_Doc"
 
     Application.ScreenUpdating = True ' Turn screen updating on
-    Application.ScreenRefresh
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
+
+    Sh_Return_User_To_Start_Position
   
     Unload Me
     

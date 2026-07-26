@@ -14,6 +14,7 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 ' Lp_Bakgrnd_Picture_Menu_Form
+' Version: 1.5  Date: 7/26/2026 - Pictures-to-In-Line no longer jumps to a bookmark another form left behind; records and returns to its own position
 ' Version: 1.4  Date: 7/24/2026 - no longer runs "MS_Set_Word_Config_For_Large_Print" on form open
 ' Version 1.3 Date: 4/12/2025 - added Center_Or_Left_Align_Pictures_Form
 ' Version 1.2 Date: 4/9/2025
@@ -40,7 +41,9 @@ End Sub
 
 Private Sub PicturesToInlineButton_Click()
     Lp_Bakgrnd_Picture_Menu_Form.Hide
-    Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
+    ' This used to call Sh_Move_To_And_Delete_Placeholder_Bookmark, jumping to whatever
+    ' bookmark another form happened to have left behind. It now records its own position.
+    Sh_Save_User_Position
     Dim shp As Shape
     Dim ilShp As inlineShape
 
@@ -62,10 +65,8 @@ Private Sub PicturesToInlineButton_Click()
     Next ilShp
 
     MsgBox "All pictures converted to In-Line", , "VistaType LP (177)"
-    Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
-    Selection.Collapse
     Application.ScreenUpdating = True
-    Application.ScreenRefresh
+    Sh_Return_User_To_Start_Position
     Unload Me
 End Sub
 

@@ -14,6 +14,7 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
+' Version: 1.5  Date: 7/26/2026 - returns the user to where the cursor was when Okay was clicked
 ' Version: 1.4  Date: 7/24/2026 - no longer runs "MS_Set_Word_Config_For_Large_Print" on form open
 ' Version 1.3  Date: 1/6/2019
 ' Version 1.2  Date: 11/15/2018
@@ -29,9 +30,8 @@ Private Sub CmdOkay_Click()
     
     Application.ScreenUpdating = False ' Turn screen updating off
     
-    Application.Run MacroName:="Sh_Remove_Temp_Bookmark"
-    Application.Run MacroName:="Sh_Create_Temp_Bookmark"
-        
+    Sh_Save_User_Position
+
     If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
         Limited_Selection = False
     Else
@@ -64,9 +64,7 @@ Private Sub CmdOkay_Click()
     Selection.EndKey Unit:=wdStory
     Selection.Delete Unit:=wdCharacter, count:=1
     Application.ScreenUpdating = True ' Turn screen updating on
-    Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
-    Selection.Collapse 'clear selection
-    Application.ScreenRefresh
+    Sh_Return_User_To_Start_Position
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     ActiveDocument.UndoClear
     

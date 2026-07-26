@@ -14,6 +14,15 @@ Option Explicit
 
 Public Sub RibbonAction(ByVal control As IRibbonControl)
     ' control.Tag holds the name of the macro to run (set in customUI14.xml).
+    '
+    ' Sh_Pos_Depth is the nesting counter for Sh_Save_User_Position /
+    ' Sh_Return_User_To_Start_Position. A macro that stops on an error never runs its
+    ' closing Sh_Return_User_To_Start_Position, so the counter would stay above zero and
+    ' every later macro would think it was nested and stop returning the user to their
+    ' place. Clearing it here means the damage lasts one button press, not the session.
+    Sh_Pos_Depth = 0
+    Sh_Pos_Saved = False
+
     If Len(control.Tag) > 0 Then
         Application.Run control.Tag
     End If

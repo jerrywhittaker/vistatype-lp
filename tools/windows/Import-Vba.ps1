@@ -39,6 +39,38 @@ $Utf8 = New-Object System.Text.UTF8Encoding($false)     # UTF-8, no BOM
 
 # Work on a copy so the shell .dotm is never mutated in place.
 New-Item -ItemType Directory -Force -Path (Split-Path $OutDotm) | Out-Null
+
+# Clear stale Word "owner files" before going anywhere near Word.
+#
+# Word writes a hidden ~$<name> file beside any document it has open, holding the name of
+# whoever has it, and deletes it on a clean close. A Word that was KILLED leaves one behind.
+# The next build then opens or saves that same document, Word reads the leftover owner file,
+# decides somebody else has it locked, and raises the modal "File In Use" dialog. Headless
+# over SSH nobody can answer it, so the build hangs forever - no error, nothing in the event
+# log, Word alive and "responding" at near-zero CPU. Worse, the usual recovery (kill the hung
+# Word) leaves a FRESH owner file, so every following build hangs the same way.
+#
+# This cost a full day on 7/26/2026: a ~$andBRL.dotm left over from 7/22 blocked every build
+# in between. Note they are HIDDEN - plain "del" skips them and reports "Could Not Find",
+# which reads like they were already gone. Remove-Item -Force does remove them.
+#
+# The files hold nothing but a user name, and this box runs no interactive Word, so there is
+# never anything worth keeping.
+function Remove-WordOwnerFiles([string]$dir) {
+    if (-not $dir -or -not (Test-Path $dir)) { return }
+    Get-ChildItem -Path $dir -Force -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name.StartsWith('~$') } |
+        ForEach-Object {
+            Write-Host "clearing stale Word lock file $($_.Name)"
+            Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue
+        }
+}
+if (@(Get-Process WINWORD -ErrorAction SilentlyContinue).Count -gt 0) {
+    Write-Host "WARNING: WINWORD is already running on this box - almost certainly a leftover from a hung build. It may hold the .dotm open and stall this one."
+}
+Remove-WordOwnerFiles (Split-Path $OutDotm)
+Remove-WordOwnerFiles (Split-Path $Shell)
+
 Copy-Item -Path $Shell -Destination $OutDotm -Force
 
 function Strip-ClsHeader([string]$path) {

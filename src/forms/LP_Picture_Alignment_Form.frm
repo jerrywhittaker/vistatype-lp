@@ -15,6 +15,7 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 ' Lp_Picture_Alignment_Form
 '
+' Version: 1.1  Date: 7/26/2026 - fixed a slip that called Sh_Create_Temp_Bookmark where the move-and-delete was meant, so the user was never put back and a stale bookmark was left behind; now returns the user to where the cursor was when Okay was clicked
 ' Version 1.0  Date: 4/11/2025
 '
 
@@ -23,7 +24,7 @@ Private Sub CmdCancel_Click()
 End Sub
 
 Private Sub CmdOkay_Click()
-    Application.Run MacroName:="Sh_Create_Temp_Bookmark"
+    Sh_Save_User_Position
     Application.ScreenUpdating = False
     Unload Me
       
@@ -170,10 +171,11 @@ Skip3:
     
 eom: 'End of Macro
 
-    Application.Run MacroName:="Sh_Create_Temp_Bookmark"
-    Selection.Collapse
+    ' This used to call Sh_Create_Temp_Bookmark, which was a slip - it dropped a FRESH mark
+    ' here instead of returning to the one made on entry, so the user was never put back and
+    ' a stale TempPlaceholder was left in the document for the next macro to trip over.
     Application.ScreenUpdating = True
-    Application.ScreenRefresh
+    Sh_Return_User_To_Start_Position
     On Error GoTo 0
 
 End Sub
@@ -185,8 +187,9 @@ Private Sub UserForm_Initialize()
     Me.StartUpPosition = 0
     Me.Left = Application.Left + (0.5 * Application.Width) - (0.5 * Me.Width)
     Me.Top = Application.Top + (0.5 * Application.Height) - (0.5 * Me.Height)
-    
-    Application.Run MacroName:="Sh_Create_Temp_Bookmark"
+
+    ' No position is saved here on purpose. CmdOkay_Click saves it when work actually
+    ' starts, so cancelling the dialog leaves nothing behind.
 
 End Sub
 

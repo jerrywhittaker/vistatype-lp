@@ -15,6 +15,7 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 ' Change Image Color
 '
+' Version: 1.2  Date: 7/26/2026 - returns the user to where the cursor was when Okay was clicked
 ' Version: 1.1  Date: 7/24/2026 - no longer runs "MS_Set_Word_Config_For_Large_Print" on form open
 ' Version: 1.0 Date: 12/26/2023
 '
@@ -68,7 +69,7 @@ err1:
         End If
           
         Application.ScreenUpdating = False ' Turn screen updating off
-        Application.Run MacroName:="Sh_Create_Temp_Bookmark"
+        Sh_Save_User_Position
         Application.Run MacroName:="Lp_Copy_To_Temp_Doc"
         
         Application.Run MacroName:="Sh_Is_End_Paragraph_Mark_Included"
@@ -91,8 +92,7 @@ err1:
         ActiveDocument.Close SaveChanges:=False 'close the temp doc without saving
         Selection.Paste
         Application.ScreenUpdating = True
-        Application.ScreenRefresh
-        Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark" 'in the main file
+        Sh_Return_User_To_Start_Position
     End If
 End Sub
 

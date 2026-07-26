@@ -18,7 +18,8 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Sh - 7/24/2026 - deleted two unreferenced UserForms (45 -> 43): Lp_Columns_Wanted_Formx (a stale duplicate of Lp_Columns_Wanted_Form, differing only in ClientHeight) and Dx_Create_Brl_Bullets_Form (orphaned - no braille bullet-CREATION sub exists any more, and nothing reads the Dx_GP_Counter_1 / Dx_GP_String_2 "Keep_Bullets"/"Remove_Bullets" values it set; the surviving Dx_Remove_Bullets uses Dx_Bullet_Removal_Form). Neither was shown, loaded, or named anywhere in the VBA or the ribbon
+' Notes:    - Sh - 7/26/2026 - macros now return the user to where the cursor was when they started, instead of leaving them at the top of the document. New Sh_Save_User_Position / Sh_Return_User_To_Start_Position pair (Sh_Start_Pos / Sh_Start_Doc / Sh_Pos_Depth) records a CHARACTER OFFSET rather than a bookmark, and 38 macros and 4 UserForms were converted to it. The old TempPlaceholder bookmark could not do this job three ways: (1) the copy-to-temp-doc macros paste back over the range the bookmark spans, so Word discards it and Sh_Move_To_And_Delete_Placeholder_Bookmark silently found nothing (its On Error GoTo ExitSub hid the failure); (2) one shared bookmark name meant any macro calling another had its mark deleted and recreated by the inner one; (3) Sh_Create_Temp_Bookmark uses ActiveDocument, so it landed in the temp file whenever one was active. Sh_Pos_Depth makes only the OUTERMOST macro return the user, so the File_Fix_Sequence orchestrators scroll once instead of twenty times; RibbonAction zeroes it per button press so a macro that stops on an error cannot wedge it. Also fixed: the restore now happens AFTER ScreenUpdating goes back on - 13 macros (10 of them Dx_) moved the cursor while the screen was frozen, which left the insertion point correct but the window still showing the top of the document; Lp_Fix_Common_File_Errors had its "ScreenUpdating = su_Prev" line commented out entirely; LP_Picture_Alignment_Form called Sh_Create_Temp_Bookmark where it meant the move-and-delete, so it never returned the user and left a stale bookmark that Lp_Bakgrnd_Picture_Menu_Form was jumping to; Lp_Format_Exercise_Lv_1_and_Lv_2 called the restore twice; Lp_Fix_Common_File_Errors marked its spot only after Selection.Collapse had already moved it. Deliberately NOT converted (they are meant to leave you where they finish): Lp_Validate_Dollar_PG, the LP/Dx export and import selection macros, Sh_Move_Paragraph_To_Next_Page, Sh_Copy_Ref_Pg_Tags_To_Temp_File (it parks you in a temp document on purpose and says so), and Lp_Attach_The_Template / Lp_Attach_Lp_Template (they Save As, so the document is no longer the one the position was measured in). The three TempPlaceholder helpers are left in place but are now unreferenced
+'           - Sh - 7/24/2026 - deleted two unreferenced UserForms (45 -> 43): Lp_Columns_Wanted_Formx (a stale duplicate of Lp_Columns_Wanted_Form, differing only in ClientHeight) and Dx_Create_Brl_Bullets_Form (orphaned - no braille bullet-CREATION sub exists any more, and nothing reads the Dx_GP_Counter_1 / Dx_GP_String_2 "Keep_Bullets"/"Remove_Bullets" values it set; the surviving Dx_Remove_Bullets uses Dx_Bullet_Removal_Form). Neither was shown, loaded, or named anywhere in the VBA or the ribbon
 '           - LP - 7/24/2026 - Styles pane no longer gets reset every time an LP dialog opens: the 14 LP UserForms dropped the "MS_Set_Word_Config_For_Large_Print" call from UserForm_Initialize (opening the document already runs it). That call reached Lp_Turn_on_Styles_Pane, which forces StyleSortMethod = wdStyleSortRecommended / FormattingShowFilter = wdShowFilterFormattingRecommended -- so a user working with "Select styles to show: All Styles" had the pane sort knocked off alphabetical on every Fill-In Line, File Cleanup, Table Tools, etc. Also drops ~40 Options/AutoCorrect writes and 19 AutoCorrect.Entries deletes from each dialog open
 '           - Sh - 7/21/2026 - DAISY/NIMAS -> Word: <prodnote> content (body text and inside tables) is now emitted as <p class="Prodnote"> with an mso-style-name rule so Word's HTML import applies the "Prodnote" paragraph style. New helper Sh_Tag_Prodnotes_As_Prodnote_Style handles both real shapes (NIMAS bare-text prodnotes, DAISY prodnotes containing <p> children, which span lines and so are string-parsed rather than wildcard-matched). "Prodnote" added to the LpStyles keep-list in Lp_Remove_All_Styles_Except_Lp_Styles so attaching the LP template does not flatten it back to Normal. EXPERIMENTAL - Prodnote style must exist in LargePrintTemplate.dotx
 '           - Sh - 7/21/2026 - Sh_Convert_XML_File_To_Word_Document (DAISY/NIMAS -> Word) perf: ScreenUpdating now stays off through the whole import/repaginate region; live spell/grammar check and background pagination are silenced during it (captured + restored before the Save As UI); the HTML imports in Draft view; the fixed DoEvents pauses are trimmed (~18s -> ~2s); the redundant post-Unlink Fields.Update pass is dropped; and images embed via BreakLink without a per-image .Update disk re-fetch
@@ -87,6 +88,16 @@ Public Sh_GP_String_1 As String
 Public Sh_GP_String_2 As String
 Public Sh_GP_Boolean_1 As Boolean
 Public Sh_GP_Counter_1 As Integer
+
+' Where the user's cursor was when a macro started, so the macro can put them back.
+' A character offset, NOT a bookmark: the TempPlaceholder bookmark cannot survive the
+' copy-to-temp-doc / paste-back macros (the paste replaces the range the bookmark spans),
+' is a single shared name that nested macros overwrite, and lands in whichever document
+' happens to be active. A number has none of those failure modes.
+Public Sh_Start_Pos As Long        ' Selection.Start when the outermost macro began
+Public Sh_Start_Doc As String      ' the document it was measured in
+Public Sh_Pos_Depth As Long        ' nesting level; only the outermost macro returns the user
+Public Sh_Pos_Saved As Boolean     ' guards against a return with no matching save (would jump to a stale spot)
 
 ' Large Print Page and Font Settings
 Public Lp_Base_Font_Size As String
@@ -604,7 +615,7 @@ Sub Dx_Fix_Para_Space_Errors()
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
-    Application.Run MacroName:="Sh_Create_Temp_Bookmark"
+    Sh_Save_User_Position
     
     If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
         Limited_Selection = False
@@ -739,7 +750,7 @@ Sub Dx_Fix_Para_Space_Errors()
     End If
 
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
+    Sh_Return_User_To_Start_Position
     Selection.Collapse Direction:=wdCollapseStart
     Application.ScreenUpdating = su_Prev ' Turn screen updating on
 
@@ -758,7 +769,7 @@ Sub Dx_Remove_Multi_Spaces()
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
-    Application.Run MacroName:="Sh_Create_Temp_Bookmark"
+    Sh_Save_User_Position
     
     If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
         Limited_Selection = False
@@ -811,7 +822,7 @@ Sub Dx_Remove_Multi_Spaces()
 
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
 
-    Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
+    Sh_Return_User_To_Start_Position
 
     Selection.Collapse Direction:=wdCollapseStart
 
@@ -832,7 +843,7 @@ Sub Dx_Replace_NonBreaking_Spaces()
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
-    Application.Run MacroName:="Sh_Create_Temp_Bookmark"
+    Sh_Save_User_Position
     
     If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
         Limited_Selection = False
@@ -884,7 +895,7 @@ Sub Dx_Replace_NonBreaking_Spaces()
     End If
     
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
+    Sh_Return_User_To_Start_Position
     Selection.Collapse Direction:=wdCollapseStart
     Application.ScreenUpdating = su_Prev ' Turn screen updating on
     
@@ -1379,7 +1390,7 @@ Sub Dx_Convert_Auto_List_To_Text()
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
-    Application.Run MacroName:="Sh_Create_Temp_Bookmark"
+    Sh_Save_User_Position
     
     If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
         Limited_Selection = False
@@ -1504,7 +1515,7 @@ Sub Dx_Convert_Auto_List_To_Text()
     End If
     
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
+    Sh_Return_User_To_Start_Position
     Selection.Collapse Direction:=wdCollapseStart
     Application.ScreenUpdating = su_Prev ' Turn screen updating on
     
@@ -1529,7 +1540,7 @@ Sub Dx_Replace_Tabs_With_Single_Space()
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
-    Application.Run MacroName:="Sh_Create_Temp_Bookmark"
+    Sh_Save_User_Position
     
     If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
         Limited_Selection = False
@@ -1623,7 +1634,7 @@ Sub Dx_Replace_Tabs_With_Single_Space()
     End If
     
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
+    Sh_Return_User_To_Start_Position
     Selection.Collapse Direction:=wdCollapseStart
     Application.ScreenUpdating = su_Prev ' Turn screen updating on
     
@@ -1633,7 +1644,7 @@ Sub Dx_Fix_Common_File_Errors()
 
 ' Dx_Fix_Common_File_Errors Macro
 '
-' Version: 2.9 Date: 4/1/2026 - added call to Dx_Add_Qmark_To_Incomplete_Equations
+' Version: 2.10  Date: 7/26/2026 - returns the user to where the cursor was when the macro started
 ' Version: 2.8 Date: 3/5/2024 - added "If ActiveDocument.Variables("BrailleType") = "EBAN" Or ActiveDocument.Variables("BrailleType") = "UEBN" then"
 ' Version: 2.7 Date: 2/6/2024 - moved Application.Run MacroName:="Dx_Fix_Para_Space_Errors" to last routine run
 '                             - added Application.Run MacroName:="Dx_Fix_Equals_Before_Para_Mark"
@@ -1649,20 +1660,15 @@ Sub Dx_Fix_Common_File_Errors()
 ' Calls a series or routines for global file cleanup
 '
     '-------------------------------------------------------------
-    ' Create a bookmark at the cursor
-    ActiveDocument.Bookmarks.Add Name:="GlobalCleanupPlaceholder"
+    ' Remember where the user is, so they can be put back at the end
+    Sh_Save_User_Position
     '------------------------------------------------------
-   
+
     Dim su_Prev As Boolean
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
-    
+
     '------------- start cleanup ------------------
-    ' Create a bookmark at the cursor
-
-    Application.Run MacroName:="Sh_Remove_Temp_Bookmark"
-
-    ActiveDocument.Bookmarks.Add Name:="GlobalCleanupPlaceholder"
 
     MS_Set_Word_Config_For_Braille ' sets autoformat params
     Selection.Range.AutoFormat ' run autoformat
@@ -1742,12 +1748,8 @@ Sub Dx_Fix_Common_File_Errors()
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     Application.ScreenUpdating = su_Prev ' Turn screen updating on
 
-    If ActiveDocument.Bookmarks.Exists("GlobalCleanupPlaceholder") = True Then
-        ActiveDocument.Bookmarks("GlobalCleanupPlaceholder").Select 'moves to bookmark location
-        ActiveDocument.Bookmarks("GlobalCleanupPlaceholder").Delete
-    End If
+    Sh_Return_User_To_Start_Position
 
-Application.ScreenRefresh
     MsgBox "End of Fix Common File Errors", , "Braille Macros"
     
 End Sub '***** end of Dx_Fix_Common_File_Errors Macro *****
@@ -1945,7 +1947,7 @@ Sub Dx_Remove_Txt_Bxs_And_Frames()
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
-    Application.Run MacroName:="Sh_Create_Temp_Bookmark"
+    Sh_Save_User_Position
     
     If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
         Limited_Selection = False
@@ -2025,7 +2027,7 @@ Sub Dx_Remove_Txt_Bxs_And_Frames()
     End If
     
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
+    Sh_Return_User_To_Start_Position
     Selection.Collapse Direction:=wdCollapseStart
     Application.ScreenUpdating = su_Prev ' Turn screen updating on
 
@@ -2315,7 +2317,7 @@ Sub Dx_AutoTag_Page_Numbers()
     Dim su_Prev As Boolean
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
-    Application.Run MacroName:="Sh_Create_Temp_Bookmark"
+    Sh_Save_User_Position
     
     ' place para mark at top of file
     Selection.HomeKey Unit:=wdStory
@@ -2959,7 +2961,7 @@ LoopEnd:
     Selection.HomeKey Unit:=wdStory
     Selection.Delete Unit:=wdCharacter, count:=1
     
-    Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
+    Sh_Return_User_To_Start_Position
     
     'Count the tags
     Dim TagCounter As Integer
@@ -3057,7 +3059,7 @@ Sub Dx_Format_Exercise_Lv_1_and_Lv_2()
 '
 ' Author: Jerry Whittaker - jerry@thewhittakers.org
 '
-' Version: 1.7 Date: 3/8/2019 - modified to work with Question numbers with a variety of parenthenses
+' Version: 1.8  Date: 7/26/2026 - returns the user to where the cursor was when the macro started
 ' Version: 1.6 Date: 8/21/2018 - Modifed to work with Nemeth
 '
     Application.Run MacroName:="Dx_Is_BANA_Template_Attached"
@@ -3066,6 +3068,8 @@ Sub Dx_Format_Exercise_Lv_1_and_Lv_2()
         MsgBox "Select the exercise list first!", , "Braille Macros"
         End
     End If
+
+    Sh_Save_User_Position   ' record the spot HERE, in the user's document, before Dx_Copy_To_Temp_Doc makes the temp file active
 
     Dx_UEB_EBAE_Fill_In_YN_Form.Show  'ask user if fill-in indicators are wanted for answers
     Unload Dx_UEB_EBAE_Fill_In_YN_Form
@@ -3753,20 +3757,17 @@ Sub Dx_Format_Exercise_Lv_1_and_Lv_2()
     Selection.Delete Unit:=wdCharacter, count:=1
 
 
-    'put bookmark in the selection
     Selection.HomeKey Unit:=wdStory
-    Application.Run MacroName:="Sh_Create_Temp_Bookmark" 'in the temp file
-    
+
     Application.Run MacroName:="Dx_Remove_Multi_Spaces"
     Application.Run MacroName:="Dx_Copy_From_Temp_Doc"
-
-    'move to and delete bookmark
-    Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark" 'in the main file
 
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     'ActiveDocument.UndoClear ' No undo
     Application.ScreenUpdating = su_Prev ' Turn screen updating on
-       
+
+    Sh_Return_User_To_Start_Position
+
 End Sub  '***** end of Dx_Format_Exercise_Lv_1_and_Lv_2 Macro *****
 
 Sub Dx_Fix_Ellipsis_Errors()
@@ -4138,7 +4139,7 @@ Sub Dx_Kill_The_Hyperlinks()
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
-    Application.Run MacroName:="Sh_Create_Temp_Bookmark"
+    Sh_Save_User_Position
     
     If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
         Limited_Selection = False
@@ -4178,7 +4179,7 @@ Sub Dx_Kill_The_Hyperlinks()
     End If
     
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
+    Sh_Return_User_To_Start_Position
     Selection.Collapse Direction:=wdCollapseStart
     Application.ScreenUpdating = su_Prev ' Turn screen updating on
     
@@ -4190,12 +4191,14 @@ Sub Dx_Remove_Bullets()
 '
 ' Author: Jerry Whittaker -  jerry@thewhittakers.org
 '
-' Version 1.2
+' Version: 1.3  Date: 7/26/2026 - returns the user to where the cursor was when the macro started
 ' Date: 12/29/2016
 '
     Dim su_Prev As Boolean
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
+
+    Sh_Save_User_Position
     
     Dim Limited_Selection As Boolean
     Dim Sel As Selection
@@ -4343,7 +4346,9 @@ Sub Dx_Remove_Bullets()
     ActiveDocument.UndoClear
     Selection.Collapse Direction:=wdCollapseStart
     Application.ScreenUpdating = su_Prev ' Turn screen updating on
-    
+
+    Sh_Return_User_To_Start_Position
+
 End Sub '****** end of Dx_Remove_Bullets Macro *****
 
 Sub Dx_Remove_Optional_Hyphens()
@@ -4589,7 +4594,7 @@ Sub Dx_Convert_Hyper_To_Addresses()
     
     Dim Limited_Selection As Boolean
     
-    Application.Run MacroName:="Sh_Create_Temp_Bookmark"
+    Sh_Save_User_Position
     
     If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
         Limited_Selection = False
@@ -4662,7 +4667,7 @@ Sub Dx_Convert_Hyper_To_Addresses()
     End If
     
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
+    Sh_Return_User_To_Start_Position
     Selection.Collapse Direction:=wdCollapseStart
     Application.ScreenUpdating = su_Prev ' Turn screen updating ong
     
@@ -4686,7 +4691,7 @@ Sub Dx_Replace_Manual_Line_Break()
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
-    Application.Run MacroName:="Sh_Create_Temp_Bookmark"
+    Sh_Save_User_Position
     
     If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
         Limited_Selection = False
@@ -4786,7 +4791,7 @@ Sub Dx_Replace_Manual_Line_Break()
     End If
     
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
+    Sh_Return_User_To_Start_Position
     Selection.Collapse Direction:=wdCollapseStart
     Application.ScreenUpdating = su_Prev ' Turn screen updating on
     
@@ -6112,8 +6117,7 @@ Sub Dx_Replace_Multiple_Para_Marks_No_Warning()
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
-    Application.Run MacroName:="Sh_Remove_Temp_Bookmark"
-    Application.Run MacroName:="Sh_Create_Temp_Bookmark"
+    Sh_Save_User_Position
         
     If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
         Limited_Selection = False
@@ -6151,7 +6155,7 @@ Sub Dx_Replace_Multiple_Para_Marks_No_Warning()
     Selection.EndKey Unit:=wdStory
 
     Application.ScreenUpdating = su_Prev ' Turn screen updating on
-    Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
+    Sh_Return_User_To_Start_Position
     Selection.Collapse 'clear selection
     Application.ScreenRefresh
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
@@ -6339,8 +6343,7 @@ Sub Lp_Remove_Box_Bullets_Bullets_and_Numbers()
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
-    Application.Run MacroName:="Sh_Remove_Temp_Bookmark"
-    Application.Run MacroName:="Sh_Create_Temp_Bookmark"
+    Sh_Save_User_Position
 
     If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
         Limited_Selection = False
@@ -6457,7 +6460,7 @@ Sub Lp_Remove_Box_Bullets_Bullets_and_Numbers()
     'Selection.EndKey Unit:=wdStory
     'Selection.Delete Unit:=wdCharacter, Count:=1
     Application.ScreenUpdating = su_Prev ' Turn screen updating on
-    Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
+    Sh_Return_User_To_Start_Position
     Selection.Collapse 'clear selection
     Application.ScreenRefresh
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
@@ -6590,7 +6593,7 @@ Sub Lp_Fix_Common_File_Errors()
 '
 ' Lp_Fix_Common_File_Errors
 '
-' Version: 3.9  Date: 3/102026 - added Lp_Replace_Underline_Tab_With_Underlined_Underscore
+' Version: 3.10  Date: 7/26/2026 - returns the user to where the cursor was when the macro started
 ' Version: 3.8  Date: 3/2/2026 - added Sh_ReplaceNonBreakingSpacesWithNormalSpace
 ' Version: 3.7  Date: 11/25/2025 - added Lp_Fix_Para_Space_Errors
 ' Version: 3.6  Date: 10/16/2025 - commented out time-consuming routines
@@ -6636,11 +6639,13 @@ Sub Lp_Fix_Common_File_Errors()
     Dim su_Prev As Boolean
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
-    
+
+    ' Save the spot BEFORE anything runs. The old CleanupBookmark was added further down,
+    ' after Selection.Collapse and Sh_Color_Dollar_PG_Red had already moved the cursor.
+    Sh_Save_User_Position
+
     Selection.Collapse 'clear selection
     Application.Run MacroName:="Sh_Color_Dollar_PG_Red"
-DoEvents
-    ActiveDocument.Bookmarks.Add Name:="CleanupBookmark"
 DoEvents
     Application.Run MacroName:="Lp_Replace_Underline_Tab_With_Underlined_Underscore"
 DoEvents
@@ -6699,18 +6704,12 @@ DoEvents
 DoEvents
 
     ActiveDocument.UndoClear
-    
-    If ActiveDocument.Bookmarks.Exists("CleanupBookmark") = True Then
-        ActiveDocument.Bookmarks("CleanupBookmark").Select
-        ActiveDocument.Bookmarks("CleanupBookmark").Delete
-    End If
 
-    'Application.ScreenUpdating = su_Prev    ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev    ' Turn screen updating on - was commented out, so the
+                                            ' screen stayed frozen and never followed the cursor back
 
-    Application.ScreenRefresh
-    
-    Selection.Collapse 'clear selection
-    
+    Sh_Return_User_To_Start_Position
+
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
 
 End Sub '*** end of Lp_Fix_Common_File_Errors macro ***
@@ -7900,8 +7899,7 @@ Sub Lp_Convert_Auto_List_To_Text()
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
-    Application.Run MacroName:="Sh_Remove_Temp_Bookmark"    'prevents error when creating temp bkmrk when the bkmrk already exists
-    Application.Run MacroName:="Sh_Create_Temp_Bookmark"
+    Sh_Save_User_Position
         
     If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
         Limited_Selection = False
@@ -8025,7 +8023,7 @@ Sub Lp_Convert_Auto_List_To_Text()
     Selection.EndKey Unit:=wdStory
     Selection.Delete Unit:=wdCharacter, count:=1
     Application.ScreenUpdating = su_Prev ' Turn screen updating on
-    Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
+    Sh_Return_User_To_Start_Position
     Selection.Collapse 'clear selection
     Application.ScreenRefresh
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
@@ -8073,7 +8071,9 @@ Sub Lp_Format_Page_Numbers()
 ' Author: Jerry Whittaker - jerry@thewhittakers.org
 '
     Application.Run MacroName:="Lp_Is_Lp_Template_Attached"
-    
+
+    Sh_Save_User_Position
+
     'Count the tags
     Dim TagCounter As Integer
     TagCounter = 0
@@ -8252,13 +8252,15 @@ Sub Lp_Format_Page_Numbers()
     
     ActiveWindow.DocumentMap = False
 
+    Sh_Return_User_To_Start_Position
+
     MsgBox "Reference page formatting complete", , "VistaType LP (127)"
-    
+
 End Sub   '****end of Lp_Format_Page_Numbers Macro ***********
 
 Sub Lp_AutoTag_Page_Numbers()
 '
-' Version: 2.3  Date: 2/19/24 - added "MS_Set_Word_Config_For_Large_Print"
+' Version: 2.4  Date: 7/26/2026 - returns the user to where the cursor was when the macro started
 ' Version: 2.2  Date: 4/30/2023 - complete rewrite to eliminate false tagging
 '
 '  Author: Jerry Whittaker - jerry@thewhittakers.org
@@ -8271,6 +8273,9 @@ Sub Lp_AutoTag_Page_Numbers()
     Dim su_Prev As Boolean
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
+
+    Sh_Save_User_Position
+
     Application.Run MacroName:="Sh_Is_Doc_Open"
     Application.Run MacroName:="MS_Set_Word_Config_For_Large_Print"
     Application.Run MacroName:="Lp_Fix_Para_Space_Errors"
@@ -8702,6 +8707,10 @@ LoopEnd:
         End If
     Next
         
+    ' Put the user back BEFORE the validate prompt: if they say yes, Lp_Validate_Dollar_pg
+    ' is supposed to leave them sitting at the tag it is complaining about.
+    Sh_Return_User_To_Start_Position
+
     If TagCounter = 0 Then
         MsgBox "There are no tagged page numbers in this document.", , "VistaType LP (128)"
     Else
@@ -8760,8 +8769,7 @@ Sub Lp_Kill_The_Hyperlinks()
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
-    Application.Run MacroName:="Sh_Remove_Temp_Bookmark"
-    Application.Run MacroName:="Sh_Create_Temp_Bookmark"
+    Sh_Save_User_Position
         
     If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
         Limited_Selection = False
@@ -8781,7 +8789,7 @@ Sub Lp_Kill_The_Hyperlinks()
     Selection.EndKey Unit:=wdStory
     Selection.Delete Unit:=wdCharacter, count:=1
     Application.ScreenUpdating = su_Prev ' Turn screen updating on
-    Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
+    Sh_Return_User_To_Start_Position
     Selection.Collapse 'clear selection
     Application.ScreenRefresh
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
@@ -8806,8 +8814,7 @@ Sub Lp_Fix_Para_Space_Errors()
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
-    Application.Run MacroName:="Sh_Remove_Temp_Bookmark"
-    Application.Run MacroName:="Sh_Create_Temp_Bookmark"
+    Sh_Save_User_Position
         
     If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
         Limited_Selection = False
@@ -8911,7 +8918,7 @@ On Error GoTo 0
     Selection.EndKey Unit:=wdStory
     Selection.Delete Unit:=wdCharacter, count:=1
     Application.ScreenUpdating = su_Prev ' Turn screen updating on
-    Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
+    Sh_Return_User_To_Start_Position
     Selection.Collapse 'clear selection
     Application.ScreenRefresh
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
@@ -8993,8 +9000,7 @@ Sub Lp_Remove_Multi_Spaces()
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
-    Application.Run MacroName:="Sh_Remove_Temp_Bookmark"
-    Application.Run MacroName:="Sh_Create_Temp_Bookmark"
+    Sh_Save_User_Position
         
     If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
         Limited_Selection = False
@@ -9028,7 +9034,7 @@ Sub Lp_Remove_Multi_Spaces()
     Selection.EndKey Unit:=wdStory
     'Selection.Delete Unit:=wdCharacter, Count:=1
     Application.ScreenUpdating = su_Prev ' Turn screen updating on
-    Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
+    Sh_Return_User_To_Start_Position
     Selection.Collapse 'clear selection
     Application.ScreenRefresh
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
@@ -9200,8 +9206,7 @@ Sub Lp_Convert_Hyper_To_Addresses()
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
-    Application.Run MacroName:="Sh_Remove_Temp_Bookmark"
-    Application.Run MacroName:="Sh_Create_Temp_Bookmark"
+    Sh_Save_User_Position
         
     If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
         Limited_Selection = False
@@ -9260,7 +9265,7 @@ On Error Resume Next
     Selection.EndKey Unit:=wdStory
     Selection.Delete Unit:=wdCharacter, count:=1
     Application.ScreenUpdating = su_Prev ' Turn screen updating on
-    Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
+    Sh_Return_User_To_Start_Position
     Selection.Collapse 'clear selection
     Application.ScreenRefresh
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
@@ -9300,8 +9305,7 @@ Sub Lp_Remove_Txt_Bxs_And_Frames()
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
-    Application.Run MacroName:="Sh_Remove_Temp_Bookmark"
-    Application.Run MacroName:="Sh_Create_Temp_Bookmark"
+    Sh_Save_User_Position
         
     If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
         Limited_Selection = False
@@ -9358,7 +9362,7 @@ Sub Lp_Remove_Txt_Bxs_And_Frames()
     Selection.EndKey Unit:=wdStory
     Selection.Delete Unit:=wdCharacter, count:=1
     Application.ScreenUpdating = su_Prev ' Turn screen updating on
-    Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
+    Sh_Return_User_To_Start_Position
     Selection.Collapse 'clear selection
     Application.ScreenRefresh
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
@@ -9393,8 +9397,7 @@ Sub Lp_Replace_Manual_Line_Break()
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
-    Application.Run MacroName:="Sh_Remove_Temp_Bookmark"
-    Application.Run MacroName:="Sh_Create_Temp_Bookmark"
+    Sh_Save_User_Position
 
     If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
         Limited_Selection = False
@@ -9471,7 +9474,7 @@ Sub Lp_Replace_Manual_Line_Break()
     End If
     
     Application.ScreenUpdating = su_Prev ' Turn screen updating on
-    Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
+    Sh_Return_User_To_Start_Position
     Selection.Collapse 'clear selection
     Application.ScreenRefresh
     ActiveDocument.UndoClear
@@ -9499,8 +9502,7 @@ Sub Lp_Replace_Tabs_With_Single_Space()
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
-    Application.Run MacroName:="Sh_Remove_Temp_Bookmark"
-    Application.Run MacroName:="Sh_Create_Temp_Bookmark"
+    Sh_Save_User_Position
         
     If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
         Limited_Selection = False
@@ -9539,7 +9541,7 @@ Sub Lp_Replace_Tabs_With_Single_Space()
     Selection.EndKey Unit:=wdStory
     Selection.Delete Unit:=wdCharacter, count:=1
     Application.ScreenUpdating = su_Prev ' Turn screen updating on
-    Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
+    Sh_Return_User_To_Start_Position
     Selection.Collapse 'clear selection
     Application.ScreenRefresh
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
@@ -9563,8 +9565,7 @@ Sub Lp_Replace_Small_Caps_With_All_Caps()
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     
-    Application.Run MacroName:="Sh_Remove_Temp_Bookmark"
-    Application.Run MacroName:="Sh_Create_Temp_Bookmark"
+    Sh_Save_User_Position
         
     If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
         Limited_Selection = False
@@ -9610,7 +9611,7 @@ Sub Lp_Replace_Small_Caps_With_All_Caps()
     Selection.EndKey Unit:=wdStory
     Selection.Delete Unit:=wdCharacter, count:=1
     Application.ScreenUpdating = su_Prev ' Turn screen updating on
-    Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
+    Sh_Return_User_To_Start_Position
     Selection.Collapse 'clear selection
     Application.ScreenRefresh
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
@@ -9791,7 +9792,7 @@ Sub Lp_Format_Exercise_Lv_1_and_Lv_2()
 '
 ' Author: Jerry Whittaker - jerry@thewhittakers.org
 '
-' Version: 1.5  Date: 11/8/2023 - fixed extra para marks before and after
+' Version: 1.6  Date: 7/26/2026 - returns the user to where the cursor was when the macro started
 ' Version: 1.4  Date: 3/20/2021 - added remove multiple spaces
 ' Version: 1.4  Date: 1/24/2021 - ajusted formatting
 ' Version: 1.3  Date: 2/11/2020 - permit LoopCounter - Z to undo
@@ -9803,9 +9804,9 @@ Sub Lp_Format_Exercise_Lv_1_and_Lv_2()
         MsgBox "Select the exercise list first!", , "VistaType LP (133)"
         End
     End If
-       
-    Application.Run MacroName:="Sh_Create_Temp_Bookmark"
-       
+
+    Sh_Save_User_Position   ' record the spot HERE, before Lp_Copy_To_Temp_Doc makes the temp file active
+
     Dim su_Prev As Boolean
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
@@ -10196,16 +10197,13 @@ Sub Lp_Format_Exercise_Lv_1_and_Lv_2()
     Selection.Delete Unit:=wdCharacter, count:=1
     
     Application.Run MacroName:="Lp_Copy_From_Temp_Doc"
-    
-    'move to and delete bookmark
-    Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
 
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     'ActiveDocument.UndoClear ' No undo
-    Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
     Application.ScreenUpdating = su_Prev ' Turn screen updating on
-    Application.ScreenRefresh
-       
+
+    Sh_Return_User_To_Start_Position
+
 End Sub  '***** end of Lp_Format_Exercise_Lv_1_and_Lv_2 Macro *****
 Sub Lp_Remove_Tabs_Before_and_After_Para_Marks()
 '
@@ -10755,6 +10753,8 @@ Sub Lp_Compress_Linear_Math()
     Application.Run MacroName:="Sh_Is_Doc_Open"
     Application.Run MacroName:="Lp_Is_Lp_Template_Attached"
 
+    Sh_Save_User_Position
+
     If Selection.Type <> wdSelectionNormal Then ' no text was select prior to running the macro
         Selection.Paragraphs(1).Range.Select
     End If
@@ -10899,9 +10899,10 @@ CompressThis:
     End With
    Selection.Find.Execute Replace:=wdReplaceAll
    
-    Selection.Collapse
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    
+
+    Sh_Return_User_To_Start_Position
+
 End Sub   ' end of Lp_Compress_Linear_Math macro ***
 
 Sub Lp_Add_Para_After_Image()
@@ -11067,6 +11068,7 @@ Sub Lp_Table_Convert_R_Only_Table_To_List()
 '
 Dim su_Prev As Boolean
 su_Prev = Application.ScreenUpdating
+' Version: 1.4  Date: 7/26/2026 - returns the user to where the cursor was when the macro started
 ' Version: 1.3  Date: 8/14/2025 - removed 40% screen - added Application.ScreenUpdating = False
 ' Version: 1.2  Date: 7/22/2025 - Removed "Remove manual line breaks, tabs and extra spaces from table"
 '                                 routines and places into Lp_Table_Cleanup_For_Roation_And_List()
@@ -11076,6 +11078,8 @@ su_Prev = Application.ScreenUpdating
 
     Dim TempFileName As String
     Application.ScreenUpdating = False
+
+    Sh_Save_User_Position
 
     Lp_Table_Convert_Options_Form.Hide
 
@@ -11132,6 +11136,8 @@ su_Prev = Application.ScreenUpdating
      ActiveDocument.Close SaveChanges:=wdDoNotSaveChanges
      DoEvents
      Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
+
+     Sh_Return_User_To_Start_Position
 
 End Sub  '*** end Lp_Table_Convert_R_Only_Table_To_List macro ****
 
@@ -12656,6 +12662,8 @@ Sub Dx_Change_Prodnotes_To_Transcriber_Notes()
         Exit Sub
     End If
 
+    Sh_Save_User_Position   ' after the guards, so an early Exit Sub above leaves nothing pending
+
     ' 3. The document must contain a "Prodnote" style.
     On Error Resume Next
     Set stProd = ActiveDocument.Styles("Prodnote")
@@ -12725,7 +12733,8 @@ Sub Dx_Change_Prodnotes_To_Transcriber_Notes()
     Application.Run MacroName:="Sh_Set_Prodnote_Style_Visibility"
 
     Application.ScreenUpdating = su_Prev
-    Application.ScreenRefresh
+
+    Sh_Return_User_To_Start_Position
 
     MsgBox "All paragraphs styled Prodnote have been changed to Transcriber Notes.", _
            vbInformation, "Braille Macros"
@@ -13130,7 +13139,7 @@ Sub Lp_Resize_Images()
         Selection.Delete Unit:=wdCharacter, count:=1
         Selection.Paste 'paste the clipboard back into the original document
     ElseIf Lp_Pic_All_Selectd = "A" Then  ' all images in the document
-        Application.Run MacroName:="Sh_Create_Temp_Bookmark"
+        Sh_Save_User_Position
         With ActiveDocument
             For i = 1 To .InlineShapes.count
             With .InlineShapes(i)
@@ -13139,7 +13148,7 @@ Sub Lp_Resize_Images()
             End With
             Next i
         End With
-        Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
+        Sh_Return_User_To_Start_Position
     Else
         MsgBox "Select a specific image, a text range containing images (including tables with images) or select a table containing images.", , "VistaType LP (142)"
     End If
@@ -13568,7 +13577,7 @@ End Sub '*** end of Lp_Table_Row_Column_Header_Setup ***
 
 Sub Lp_Table_Convert_NoRC_Table_To_List()
 '
-' version: 1.3  Date: 8/16/2025 - added clear clipboard
+' Version: 1.4  Date: 7/26/2026 - returns the user to where the cursor was when the macro started
 ' Version: 1.2  Date: 8/15/2025 - remove para mark at top placed by Lp_Copy_To_Temp_Doc
 '                               - added Application.Run MacroName:="Lp_Table_Style_InCell_Para_And_Image"
 Dim su_Prev As Boolean
@@ -13577,11 +13586,13 @@ su_Prev = Application.ScreenUpdating
 ' Version: 1.0  Date: 8/8/2025
 '
     Application.ScreenUpdating = False
-    
+
+    Sh_Save_User_Position
+
     Dim tbl As Table
     Dim tblRange As Range
     Dim TempFileName As String
-    
+
     '**********  Start put a par above table '*********
 
     If Selection.Tables.count > 0 Then
@@ -13644,6 +13655,8 @@ su_Prev = Application.ScreenUpdating
      ActiveDocument.Close SaveChanges:=wdDoNotSaveChanges
      DoEvents
      Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
+
+     Sh_Return_User_To_Start_Position
 
 End Sub   '*** end of Lp_Table_Convert_NoRC_Table_To_List ***
 
@@ -14070,7 +14083,7 @@ End Sub   '*** end of Lp_Table_Is_R1C1_Empty ***
 
 Sub Lp_Table_Convert_RC_Table_To_List()
 '
-' Version: 1.5  Date: 1/29/2026 - changes to steps 1 and 2 to retain pictures
+' Version: 1.6  Date: 7/26/2026 - returns the user to where the cursor was when the macro started
 ' version: 1.4  Date: 8/16/2025 - added clear clipboard
 ' Version: 1.3  Date: 815/2025 - added Application.Run MacroName:="Lp_Table_Style_InCell_Para_And_Image"
 ' Version: 1.2  Date: 8/15/2025 - remove para mark at top placed by Lp_Copy_To_Temp_Doc
@@ -14094,6 +14107,8 @@ Sub Lp_Table_Convert_RC_Table_To_List()
     Dim fileName As String
     Dim TempFileName As String
     Dim d As Document
+
+    Sh_Save_User_Position
 
     ' Step 1: Modify Row 1 – add ":" to each cell
     For i = 2 To totalRows
@@ -14296,15 +14311,17 @@ NextCell:
     Kill TempDocName
     On Error GoTo 0
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
+    Sh_Return_User_To_Start_Position
     Exit Sub
 
 DoEvents
     Application.ScreenRefresh
     Exit Sub
-    
+
 CleanExit:
     If undoOn Then Application.UndoRecord.EndCustomRecord
     Application.ScreenUpdating = su_Prev
+    Sh_Return_User_To_Start_Position
     Exit Sub
 
 CleanFail:
@@ -14826,7 +14843,7 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     OriginalDocName = Lp_GP_String_1 '"Lp_GP_String_1" was filled by "Lp_TOC_Format_And_Color_Form"
     
     Selection.MoveStart Unit:=wdCharacter, count:=0 'move to top of selection
-    Application.Run MacroName:="Sh_Create_Temp_Bookmark"
+    Sh_Save_User_Position
     
     'copy to temp doc
     Application.Run MacroName:="Lp_Copy_To_Temp_Doc"
@@ -15181,7 +15198,7 @@ SkipPara:
     ' end kill the temp doc
     
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    Application.Run MacroName:="Sh_Move_To_And_Delete_Placeholder_Bookmark"
+    Sh_Return_User_To_Start_Position
 
     Application.ScreenUpdating = True
     Application.ScreenRefresh
@@ -16342,6 +16359,76 @@ Sub Sh_Remove_Spaces_Before_Punctuation()
     Selection.Find.Execute Replace:=wdReplaceAll
  
 End Sub  '*** end of Sh_Remove_Spaces_Before_Punctuation macro ***
+
+Sub Sh_Save_User_Position()
+'
+' Sh_Save_User_Position macro
+'
+' Records where the user's cursor is, so Sh_Return_User_To_Start_Position can put
+' them back when the macro finishes. Pair the two: every call here needs one there.
+'
+' Records a character offset rather than a bookmark on purpose - see the notes on
+' Sh_Start_Pos at the top of this module for why TempPlaceholder cannot do this job.
+'
+' Nested macros do nothing: the outermost caller owns the saved position, so a
+' File_Fix_Sequence running twenty cleanups returns the user once, not twenty times.
+'
+' Version: 1.0  Date: 7/26/2026
+'
+' Author: Jerry Whittaker jerry@thewhittakers.org
+'
+    On Error Resume Next
+
+    Sh_Pos_Depth = Sh_Pos_Depth + 1
+    If Sh_Pos_Depth > 1 Then Exit Sub      ' already inside a macro that saved the position
+
+    Sh_Start_Doc = ActiveDocument.Name
+    Sh_Start_Pos = Selection.Start
+    Sh_Pos_Saved = True
+
+End Sub   '*** end of Sh_Save_User_Position macro ***
+
+Sub Sh_Return_User_To_Start_Position()
+'
+' Sh_Return_User_To_Start_Position macro
+'
+' Puts the cursor back where Sh_Save_User_Position found it and scrolls it into view.
+'
+' Screen updating goes back on BEFORE the cursor moves. Moving the cursor while the
+' screen is frozen leaves the insertion point correct but the window still showing
+' wherever the macro was last working - usually the top of the document, which reads
+' to the user as "the macro threw me back to page 1".
+'
+' The position is clamped to the document length because cleanup macros delete text,
+' so the document may now be shorter than it was. Landing close is the goal.
+'
+' Version: 1.0  Date: 7/26/2026
+'
+' Author: Jerry Whittaker jerry@thewhittakers.org
+'
+    Dim Return_Pos As Long
+
+    On Error Resume Next
+
+    Sh_Pos_Depth = Sh_Pos_Depth - 1
+    If Sh_Pos_Depth > 0 Then Exit Sub      ' an outer macro is still running; it will return the user
+    Sh_Pos_Depth = 0
+
+    Application.ScreenUpdating = True      ' must be on before the cursor moves, or the view will not follow
+
+    If Not Sh_Pos_Saved Then Exit Sub      ' nothing was saved - never jump to a leftover position
+    Sh_Pos_Saved = False                   ' this position is spent; a second call must do nothing
+
+    If ActiveDocument.Name <> Sh_Start_Doc Then Exit Sub   ' user's document is no longer the active one
+
+    Return_Pos = Sh_Start_Pos
+    If Return_Pos > ActiveDocument.Content.End - 1 Then Return_Pos = ActiveDocument.Content.End - 1
+    If Return_Pos < 0 Then Return_Pos = 0
+
+    ActiveDocument.Range(Return_Pos, Return_Pos).Select
+    ActiveWindow.ScrollIntoView Selection.Range, True
+
+End Sub   '*** end of Sh_Return_User_To_Start_Position macro ***
 
 Sub Sh_Move_To_And_Delete_Placeholder_Bookmark()
 '
