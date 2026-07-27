@@ -11,6 +11,22 @@ Private Sh_PgVal_SourceDoc As Document      ' the document being validated
 Private Sh_PgVal_LastParaStart As Long      ' character start of the tag last worked from
 Private Sh_PgVal_TitleText As String        ' "VistaType LP" or "Braille Macros"
 
+' Handing focus back to the document needs the Windows API. Activating the document window
+' through the object model is NOT enough: a modeless UserForm keeps the keyboard focus, so
+' Word draws no caret and the arrow keys walk the form's buttons instead of the text
+' (Jerry, 7/27/2026). Window.Hwnd is available here - verified on Word 16.0 build 20131.
+#If VBA7 Then
+    Private Declare PtrSafe Function Sh_SetFocusApi Lib "user32" Alias "SetFocus" _
+        (ByVal hwnd As LongPtr) As LongPtr
+    Private Declare PtrSafe Function Sh_SetForegroundWindowApi Lib "user32" Alias "SetForegroundWindow" _
+        (ByVal hwnd As LongPtr) As Long
+#Else
+    Private Declare Function Sh_SetFocusApi Lib "user32" Alias "SetFocus" _
+        (ByVal hwnd As Long) As Long
+    Private Declare Function Sh_SetForegroundWindowApi Lib "user32" Alias "SetForegroundWindow" _
+        (ByVal hwnd As Long) As Long
+#End If
+
 ' Show/hide a command bar by name, tolerating bars that don't exist in this Word version
 ' (e.g. the legacy "Styles"/"Navigation" bars raise error 5 in Word 2016+). Non-critical UI.
 Public Sub Sh_SetBarVisible(ByVal barName As String, ByVal vis As Boolean)
@@ -73,6 +89,7 @@ Public Sub Sh_PgVal_Start(ByVal SourceDoc As Document, ByVal TempDoc As Document
     Sh_PgVal_TitleText = TitleText
     Sh_PgVal_LastParaStart = -1
     Sh_PgVal_SwapToTempForm
+    Sh_PgVal_CursorToTopOfList
 End Sub
 
 ' --- form 2 (temp document): "Locate the selected $pg code in the Document" ---------------
@@ -180,6 +197,7 @@ Private Sub Sh_PgVal_SwapToTempForm()
     Unload Sh_Valid_Ref_Pg_No_2_Form
     Sh_Valid_Ref_Pg_No_2_Form.Show vbModeless
     Sh_Valid_Ref_Pg_No_4_Form.Hide
+    Sh_PgVal_FocusDocument Sh_PgVal_TempDoc
 End Sub
 
 Private Sub Sh_PgVal_SwapToSourceForm()
@@ -187,6 +205,47 @@ Private Sub Sh_PgVal_SwapToSourceForm()
     Unload Sh_Valid_Ref_Pg_No_4_Form
     Sh_Valid_Ref_Pg_No_4_Form.Show vbModeless
     Sh_Valid_Ref_Pg_No_2_Form.Hide
+    Sh_PgVal_FocusDocument Sh_PgVal_SourceDoc
+End Sub
+
+' Showing a modeless UserForm takes the keyboard focus, so Word stops drawing a caret
+' in the document behind it - the cursor looks like it has vanished. The message box
+' this feature replaced used to hand focus back when it was dismissed; nothing does now,
+' so every swap has to do it deliberately (Jerry, 7/27/2026).
+Private Sub Sh_PgVal_FocusDocument(ByVal d As Document)
+    On Error Resume Next
+    If Not Sh_PgVal_DocIsOpen(d) Then Exit Sub
+
+    d.Activate
+    d.ActiveWindow.Activate
+
+    'The object-model activation above moves Word to the right document but leaves the
+    'keyboard focus on the modeless form. Only Windows can take it back.
+    Sh_SetForegroundWindowApi d.ActiveWindow.hwnd
+    Sh_SetFocusApi d.ActiveWindow.hwnd
+End Sub
+
+' Open the list with the cursor on its first real line, ready for Locate. Straight to
+' the top, then past any leading blank paragraph the paste may have left behind.
+Private Sub Sh_PgVal_CursorToTopOfList()
+    Dim p As Paragraph
+    On Error Resume Next
+    If Not Sh_PgVal_DocIsOpen(Sh_PgVal_TempDoc) Then Exit Sub
+
+    Sh_PgVal_FocusDocument Sh_PgVal_TempDoc
+    Selection.HomeKey Unit:=wdStory
+
+    If Len(Trim$(Replace(Selection.Paragraphs(1).Range.Text, Chr(13), ""))) = 0 Then
+        For Each p In Sh_PgVal_TempDoc.Paragraphs
+            If Len(Trim$(Replace(p.Range.Text, Chr(13), ""))) > 0 Then
+                p.Range.Select
+                Selection.Collapse Direction:=wdCollapseStart
+                Exit For
+            End If
+        Next p
+    End If
+
+    Sh_Keep_Cursor_In_View
 End Sub
 
 ' Text of the paragraph the cursor sits in, stripped of the paragraph mark. Deliberately the
