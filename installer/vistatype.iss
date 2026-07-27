@@ -33,7 +33,7 @@
 ; The literal here is the fallback for building this script by hand, and is kept in step
 ; with the Makefile by "make bump".
 #ifndef AppVer
-  #define AppVer      "3.0.20"
+  #define AppVer      "3.0.22"
 #endif
 #define DotmName    "LPandBRL.dotm"
 #define DotxName    "LargePrintTemplate.dotx"
@@ -107,15 +107,74 @@ const
   WORD_CLASS    = 'OpusApp';           { Word main window class }
   OUTLOOK_CLASS = 'rctrl_renwnd32';    { Outlook main window class }
 
-{ --- Abort if Word or Outlook is running (they lock the target files). --- }
+{ --- Is a process running? Checked by NAME, not by window: Word can be running with no
+      window at all - left behind by a crashed session, or started by Outlook as its mail
+      editor - and it still holds the STARTUP add-in locked. The old window-only test walked
+      straight past that case. Falls back to False if WMI is unavailable, so a locked-down
+      machine degrades to the window test below rather than blocking the install. --- }
+function IsProcessRunning(const ExeName: String): Boolean;
+var
+  Locator, WMI, Objs: Variant;
+begin
+  Result := False;
+  try
+    { Inno's Pascal Script cannot call a method on a function result - the object has to
+      land in a variable first, or the compiler reports "Unknown identifier". }
+    Locator := CreateOleObject('WbemScripting.SWbemLocator');
+    WMI     := Locator.ConnectServer('.', 'root\CIMV2');
+    Objs    := WMI.ExecQuery('SELECT Name FROM Win32_Process WHERE Name = "' + ExeName + '"');
+    Result  := (Objs.Count > 0);
+  except
+    Result := False;
+  end;
+end;
+
+{ --- Can we actually replace this file? Renaming it is the definitive test: if the rename
+      succeeds nothing has it open, and we put it straight back. This catches holders the
+      process test cannot name - a backup agent, antivirus, or the search indexer. --- }
+function FileIsInUse(const FileName: String): Boolean;
+var
+  TempName: String;
+begin
+  Result := False;
+  if not FileExists(FileName) then
+    Exit;
+  TempName := FileName + '.vtlocktest';
+  if RenameFile(FileName, TempName) then
+    RenameFile(TempName, FileName)
+  else
+    Result := True;
+end;
+
+{ --- Abort if anything is holding the files we need to replace. --- }
 function InitializeSetup(): Boolean;
+var
+  Dotm: String;
 begin
   Result := True;
-  if (FindWindowByClassName(WORD_CLASS) <> 0) or
+  Dotm := ExpandConstant('{userappdata}\Microsoft\Word\STARTUP\{#DotmName}');
+
+  if IsProcessRunning('WINWORD.EXE') or IsProcessRunning('OUTLOOK.EXE') or
+     (FindWindowByClassName(WORD_CLASS) <> 0) or
      (FindWindowByClassName(OUTLOOK_CLASS) <> 0) then
   begin
-    MsgBox('Please close Microsoft Word and Microsoft Outlook, then run this '
-      + 'installer again.', mbError, MB_OK);
+    MsgBox('Microsoft Word or Outlook is still running.' #13#10 #13#10
+      + 'Close every Word and Outlook window and try again. If you have already closed '
+      + 'them, Word may still be running in the background - sign out of Windows and back '
+      + 'in, then run this installer again.' #13#10 #13#10
+      + 'Installing while Word is running leaves the OLD version in place.',
+      mbError, MB_OK);
+    Result := False;
+    Exit;
+  end;
+
+  if FileIsInUse(Dotm) then
+  begin
+    MsgBox('The VistaType add-in file is being used by another program, so it cannot be '
+      + 'replaced:' #13#10 #13#10 + Dotm + #13#10 #13#10
+      + 'This is usually antivirus, a backup program, or Windows Search reading the file. '
+      + 'Wait a moment and try again, or restart the computer.',
+      mbError, MB_OK);
     Result := False;
   end;
 end;

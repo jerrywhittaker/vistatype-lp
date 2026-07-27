@@ -25,7 +25,7 @@ DOTM      := LPandBRL.dotm
 DOTX      := LargePrintTemplate.dotx
 RIBBON    := Word.officeUI
 PROJNAME  := LPandBRL
-APPVER    := 3.0.20
+APPVER    := 3.0.22
 SETUP_EXE := VistaType-LP-Setup-$(APPVER).exe
 VERDATE   := $(shell date +%-m/%-d/%Y)
 
