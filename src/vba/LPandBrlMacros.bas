@@ -11783,10 +11783,14 @@ Bye:
 End Sub   '*** end of Lp_Convert_Shapes_to_Inline macro ***
 
 Sub Lp_Keep_With_Next_Para()
+'
+' Version: 1.1  Date: 7/27/2026 - follow the paragraph if it reflows to the next page
+'
     Application.Run MacroName:="Sh_Is_Doc_Open"
     With Selection.ParagraphFormat
         .KeepWithNext = wdToggle
     End With
+    Sh_Keep_Cursor_In_View
 End Sub
 
 Sub Lp_Remove_Space_After_Para()
@@ -16694,14 +16698,69 @@ Function Sh_FileExists(filePath As String) As Boolean
         End If
 End Function
 
+Sub Sh_Keep_Cursor_In_View()
+'
+' Sh_Keep_Cursor_In_View macro
+'
+' Scrolls the window to wherever the cursor already is. Does NOT move the cursor.
+'
+' The paragraph toggles below set PageBreakBefore / KeepTogether / KeepWithNext, any of which
+' can push the paragraph onto the next page. The cursor travels with the paragraph, but the
+' WINDOW stays where it was - so the user is left looking at the page the paragraph just left,
+' with no cursor in sight (Jerry, 7/27/2026).
+'
+' Not the same job as Sh_Return_User_To_Start_Position, which MOVES the cursor back to a
+' remembered spot. This one leaves the cursor alone and simply follows it.
+'
+' Version: 1.0  Date: 7/27/2026
+'
+' Author: Jerry Whittaker jerry@thewhittakers.org
+'
+    On Error Resume Next
+
+    Application.ScreenUpdating = True
+    ActiveWindow.ScrollIntoView Selection.Range, True
+    Application.ScreenRefresh
+
+End Sub   '*** end of Sh_Keep_Cursor_In_View macro ***
+
 Sub Sh_Move_Paragraph_To_Next_Page()
+'
+' Version: 1.3  Date: 7/27/2026 - select via Selection.Paragraphs(1) instead of a character
+'                                 offset through ActiveDocument.Range. NOTE: this was first
+'                                 written up as a Word 2019 incompatibility - that was WRONG.
+'                                 The laptop it "failed" on had an older build installed (Word
+'                                 was open during the install, so it silently no-opped). No
+'                                 version difference was ever demonstrated. The change stands
+'                                 on its own: no offset arithmetic, and no On Error Resume Next
+'                                 quietly swallowing a failed move.
+' Version: 1.2  Date: 7/27/2026 - land at the START of the moved paragraph, not wherever in it
+'                                 the user happened to be clicking (Jerry)
+' Version: 1.1  Date: 7/27/2026 - follow the paragraph when it jumps to the next page
+'
     Application.Run MacroName:="Sh_Is_Doc_Open"
+
     Selection.ParagraphFormat.PageBreakBefore = wdToggle
+
+    'Put the user at the top of the paragraph they just moved. Work through the Selection's
+    'own paragraph rather than reading a character offset and re-selecting through
+    'ActiveDocument.Range(): fewer moving parts, and the old form hid failures behind
+    'On Error Resume Next. Paragraphs(1) is the first when several are selected.
+    'Note PageBreakBefore does not change character offsets at all - it is a formatting
+    'property - so there is nothing to re-read after the toggle.
+    Selection.Paragraphs(1).Range.Select
+    Selection.Collapse Direction:=wdCollapseStart
+
+    Sh_Keep_Cursor_In_View
 End Sub
 
 Sub Sh_Keep_Lines_Of_Para_Together()
+'
+' Version: 1.1  Date: 7/27/2026 - follow the paragraph if it reflows to the next page
+'
     Application.Run MacroName:="Sh_Is_Doc_Open"
     Selection.ParagraphFormat.KeepTogether = wdToggle
+    Sh_Keep_Cursor_In_View
 End Sub
 
 Sub Sh_Fix_Ref_Pages_Before_and_After_Tables()
