@@ -30,22 +30,10 @@ Private Sub OkayButton_Click()
     Lp_File_Cleanup_Sub_Menu_Form.Hide
 
     ' Hold screen updating off across the selected cleanup(s); restored below.
-    '
-    ' ScreenUpdating alone is NOT enough. With background repagination and live
-    ' spell/grammar checking left on, Word re-lays-out and repaints the document AFTER the
-    ' macro finishes, painting it in patches - which reads as coloured table rows splashing
-    ' across the screen (Jerry, 7/26/2026). Sh_Convert_XML_File_To_Word_Document already
-    ' silences the same three for the same reason; this matches it.
-    Dim su_Prev As Boolean, pag_Prev As Boolean, spell_Prev As Boolean, gram_Prev As Boolean
+    ' Do NOT also disable Options.Pagination here - see the note in Lp_Attach_The_Template.
+    Dim su_Prev As Boolean
     su_Prev = Application.ScreenUpdating
-    pag_Prev = Application.Options.Pagination
-    spell_Prev = Application.Options.CheckSpellingAsYouType
-    gram_Prev = Application.Options.CheckGrammarAsYouType
-
     Application.ScreenUpdating = False
-    Application.Options.Pagination = False
-    Application.Options.CheckSpellingAsYouType = False
-    Application.Options.CheckGrammarAsYouType = False
     
     If FixCommonErrors Then
         Application.Run MacroName:="Lp_Fix_Common_File_Errors"
@@ -55,12 +43,6 @@ Private Sub OkayButton_Click()
         Application.Run MacroName:="Lp_Replace_Multiple_Para_Marks_With_Warning"
     End If
     
-    ' Restore proofing/pagination BEFORE the screen comes back, so the one repaint that
-    ' follows is the finished document rather than a progressive re-layout.
-    Application.Options.CheckGrammarAsYouType = gram_Prev
-    Application.Options.CheckSpellingAsYouType = spell_Prev
-    Application.Options.Pagination = pag_Prev
-
     Application.ScreenUpdating = su_Prev
     Application.ScreenRefresh
 

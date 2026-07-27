@@ -11496,20 +11496,12 @@ DoEvents
 Sh_NonModalMessageForm.SetActivityMessage "Attaching the VistaType LP template"
 DoEvents
  
-    ' ScreenUpdating alone is NOT enough here. With background repagination and live
-    ' spell/grammar checking left on, Word re-lays-out and repaints the document AFTER the
-    ' attach finishes, painting it in patches - which reads as coloured table rows splashing
-    ' across the screen (Jerry, 7/26/2026). Sh_Convert_XML_File_To_Word_Document silences the
-    ' same three for the same reason. Restored together further down, before the screen
-    ' comes back on, so the single repaint that follows shows the finished document.
-    Dim pag_Prev As Boolean, spell_Prev As Boolean, gram_Prev As Boolean
-    pag_Prev = Application.Options.Pagination
-    spell_Prev = Application.Options.CheckSpellingAsYouType
-    gram_Prev = Application.Options.CheckGrammarAsYouType
-    Application.Options.Pagination = False
-    Application.Options.CheckSpellingAsYouType = False
-    Application.Options.CheckGrammarAsYouType = False
-
+    ' NOTE: do NOT disable Application.Options.Pagination here. It was tried on 7/26/2026 to
+    ' stop screen flashing, did not stop it (the cause was the progress form's spinner
+    ' repainting - see Sh_NonModalMessageForm.SpinTick), and it left every table black and
+    ' white: banded row shading from "Yellow on White Paper Table" is applied by Word's
+    ' LAYOUT engine, so switching background repagination off across the attach means the
+    ' banding never gets computed.
     Application.ScreenUpdating = False ' Turn screen updating off
     ' hide all non-Word styles before attaching the LP template.
     On Error GoTo AvoidCrash
@@ -11539,11 +11531,6 @@ AvoidCrash:
                 .Application.Run MacroName:="Lp_Remove_All_Styles_Except_Lp_Styles"
             Else
                 Unload Sh_NonModalMessageForm
-                'Restore Word's options before bailing out - "End" stops everything, so without
-                'this the user is left with background repagination and spell-check switched off.
-                Application.Options.CheckGrammarAsYouType = gram_Prev
-                Application.Options.CheckSpellingAsYouType = spell_Prev
-                Application.Options.Pagination = pag_Prev
                 Application.ScreenUpdating = True
                 MsgBox " Cannot continue!" + vbCr + vbCr + "The template file: " + TemplatePathandName + " does not exist." + vbCr + vbCr + "Install the file and try again.", , "VistaType LP (141)"
                 End
@@ -11667,10 +11654,6 @@ DoEvents
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     ActiveDocument.Background.Fill.Visible = msoFalse
 
-    Application.Options.CheckGrammarAsYouType = gram_Prev
-    Application.Options.CheckSpellingAsYouType = spell_Prev
-    Application.Options.Pagination = pag_Prev
-
     Application.ScreenUpdating = True ' Turn screen updating on
     Application.ScreenRefresh
     ActiveWindow.DocumentMap = False 'navigation pane
@@ -11729,10 +11712,6 @@ SaveTheFile:
 
         If userChoice = vbNo Then
             Unload Sh_NonModalMessageForm
-            'Same reason as above - do not leave the user's proofing options switched off.
-            Application.Options.CheckGrammarAsYouType = gram_Prev
-            Application.Options.CheckSpellingAsYouType = spell_Prev
-            Application.Options.Pagination = pag_Prev
             Application.ScreenUpdating = True
             Exit Sub
         Else
