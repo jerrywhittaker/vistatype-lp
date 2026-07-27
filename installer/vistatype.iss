@@ -27,7 +27,14 @@
 ;  and running-Office detection are correct in principle but unverified here.
 ; ============================================================================
 
-#define AppVer      "3.0.6"
+; The Makefile passes /DAppVer= on the ISCC command line. Without this guard the #define
+; below would override it, so bumping the Makefile alone would still build an installer
+; named with the OLD number - and the Makefile would then fail looking for the new one.
+; The literal here is the fallback for building this script by hand, and is kept in step
+; with the Makefile by "make bump".
+#ifndef AppVer
+  #define AppVer      "3.0.15"
+#endif
 #define DotmName    "LPandBRL.dotm"
 #define DotxName    "LargePrintTemplate.dotx"
 ; Directory holding the three shipping files (staged by `make installer`).

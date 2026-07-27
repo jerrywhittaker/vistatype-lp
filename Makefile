@@ -25,8 +25,9 @@ DOTM      := LPandBRL.dotm
 DOTX      := LargePrintTemplate.dotx
 RIBBON    := Word.officeUI
 PROJNAME  := LPandBRL
-APPVER    := 3.0.6
+APPVER    := 3.0.15
 SETUP_EXE := VistaType-LP-Setup-$(APPVER).exe
+VERDATE   := $(shell date +%-m/%-d/%Y)
 
 SSH := ssh $(WIN_HOST)
 WSCRIPTS := $(WIN_DIR)/tools/windows
@@ -54,8 +55,19 @@ pull: check-config push-src
 	@echo "Pulled canonical VBA source into src/ (review with 'git diff')."
 
 # --- build the shipping .dotm from src/ via Word, then embed the ribbon ---
-build: check-config push-src
-	$(SSH) '$(WIN_PWSH) -ExecutionPolicy Bypass -File $(WSCRIPTS)/Import-Vba.ps1 -Shell "$(WIN_DIR)/$(DOTM)" -SrcRoot "$(WIN_DIR)/src" -OutDotm "$(WIN_DIR)/dist/$(DOTM)" -ProjectName $(PROJNAME)'
+# A .frm rewritten with LF endings still builds, but Word mis-parses the designer header and
+# the form fails to compile on the USER's machine. Cheap to check, expensive to miss.
+check-frm-eol:
+	@python3 tools/lib/check_frm_eol.py
+
+build: check-config check-frm-eol push-src
+	$(SSH) '$(WIN_PWSH) -ExecutionPolicy Bypass -File $(WSCRIPTS)/Import-Vba.ps1 -Shell "$(WIN_DIR)/$(DOTM)" -SrcRoot "$(WIN_DIR)/src" -OutDotm "$(WIN_DIR)/dist/$(DOTM)" -ProjectName $(PROJNAME) -AppVer $(APPVER) -VerDate "$(VERDATE)"'
+	@# The two About forms carry the version in their binary .frx, so bring them home if the
+	@# stamp changed them. -u: only if newer, so an unchanged build copies nothing.
+	@for f in Lp_About_Title_And_Agreement Dx_About_Title_And_Agreement; do \
+	  scp -q "$(WIN_HOST):$(WIN_DIR)/src/forms/$$f.frm" src/forms/ 2>/dev/null || true; \
+	  scp -q "$(WIN_HOST):$(WIN_DIR)/src/forms/$$f.frx" src/forms/ 2>/dev/null || true; \
+	done
 	mkdir -p dist
 	scp -q "$(WIN_HOST):$(WIN_DIR)/dist/$(DOTM)" dist/$(DOTM)
 	python3 tools/lib/inject_customui.py dist/$(DOTM) src/ribbon/customUI14.xml
@@ -92,7 +104,22 @@ stage: build
 # The finished Setup.exe is copied both back to local dist/ and onto the build box's
 # Desktop, so it's one double-click away when you test the install on the VM. The Desktop
 # path is resolved on the box (GetFolderPath handles OneDrive-redirected Desktops).
-installer: check-config stage
+# Bump the third digit and write it to all four places the version must agree.
+# Runs before every installer build so each Setup.exe is distinguishable (Jerry, 7/26/2026).
+# The .frx captions are handled by Import-Vba.ps1 during the build itself.
+bump: check-config
+	@cur=$$(sed -n 's/^APPVER    := //p' Makefile); \
+	 maj=$${cur%.*}; pat=$${cur##*.}; new="$$maj.$$((pat+1))"; \
+	 sed -i "s/^APPVER    := .*/APPVER    := $$new/" Makefile; \
+	 sed -i "s/^\( *\)#define AppVer      \".*\"/\1#define AppVer      \"$$new\"/" installer/vistatype.iss; \
+	 echo "version $$cur -> $$new (Makefile + vistatype.iss; both About dialogs stamped during the build)"
+
+# make installer bumps, then re-enters make so the recipe below sees the NEW APPVER.
+installer:
+	@$(MAKE) --no-print-directory bump
+	@$(MAKE) --no-print-directory installer-build
+
+installer-build: check-config stage
 	$(SSH) "if not exist \"$(WIN_DIR)\" mkdir \"$(WIN_DIR)\""
 	scp -q -r installer dist "$(WIN_HOST):$(WIN_DIR)/"
 	$(SSH) '$(WIN_ISCC) "/DSrcDir=$(WIN_DIR)/dist" "/DAppVer=$(APPVER)" "$(WIN_DIR)/installer/vistatype.iss"'

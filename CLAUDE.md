@@ -83,6 +83,10 @@ Installed by the Inno Setup installer (`installer/vistatype.iss`):
 ```
 src/vba/        canonical VBA text: *.bas (std modules), *.cls (class/document modules)
 src/forms/      canonical UserForms: *.frm + *.frx (binary layout)
+                *.frm MUST stay CRLF: Word parses the designer header at the top of the file,
+                and LF endings make it dump that header into the form's CODE module - which
+                fails only on the user's machine, as "Compile error in hidden module".
+                `make build` now refuses to run if any .frm has bare LF. See DEVELOPMENT.md.
 src/ribbon/     customUI14.xml — embedded ribbon (source of truth); Word.officeUI (legacy)
 LPandBRL.dotm   the .dotm shell/base (tracked): project references + non-VBA parts; build base
 LargePrintTemplate.dotx   the attached large-print template (styles/page setup)
@@ -177,10 +181,19 @@ Each embedded-ribbon button's `tag` names one of these subs (e.g. `tag="Lp_File_
 ### Editing convention
 
 Every sub is versioned inline via a comment block (Version/Date/Author). The module header
-of `LPandBrlMacros` keeps a running dated changelog. The version number lives in **four**
-places that must always agree — `APPVER` (Makefile), `AppVer` (`installer/vistatype.iss`,
-which drives the `VistaType-LP-Setup-<ver>.exe` name), the LP **and** Braille About dialogs'
-`VersionLabel` caption (stored in the binary `.frx`), and this file. **What actually shipped
+of `LPandBrlMacros` keeps a running dated changelog.
+
+**The version bumps itself on every `make installer`** (Jerry's rule, 2026-07-25) so that no
+two test installers ever carry the same number — three builds shared `3.0.6` on 2026-07-26
+and there was no way to tell from the About box whether an install had taken. `make bump`
+increments the third digit in `APPVER` (Makefile) and `AppVer` (`installer/vistatype.iss`),
+then `Import-Vba.ps1` stamps the LP **and** Braille About dialogs during the build and exports
+those two forms back into `src/forms/` (their captions live in the binary `.frx`, so they can
+only be written from inside Word). The two dialogs use **different control names** for that
+caption — `VersionLabel` in LP, `Label5` in Braille — so the stamper matches on the caption
+text (`"This computer is running Version…"`), not the control name. Nothing else needs editing —
+this file describes the scheme but stores no live number. The bump is left **uncommitted**;
+commit it with the work it belongs to. **What actually shipped
 is the newest `v*` tag on `master`** — not whatever these files say. Those four normally read
 a working `3.0.X` number that has never been released; see *Version numbering* below. (The
 `VistaType LP (NNN)` numbers in MsgBox titles

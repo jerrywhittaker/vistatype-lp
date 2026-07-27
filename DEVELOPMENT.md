@@ -147,6 +147,19 @@ automated.
 
 ## Gotchas baked into the tooling
 
+- **`.frm` files MUST keep CRLF line endings.** A UserForm `.frm` starts with a designer
+  header block (`VERSION 5.00` / `Begin {GUID} FormName … End`) that Word's importer parses
+  *before* the code. That parser requires **CRLF**. Rewrite a `.frm` with LF endings — easy to
+  do from Linux, e.g. any Python `open(path,"w")` — and Word silently fails to recognise the
+  header, treats those lines as VBA source, and drops `VERSION 5#` / `Begin {…}` into the
+  form's **code module**. The build still succeeds; the failure only shows on the user's
+  machine as **"Compile error in hidden module: &lt;FormName&gt;"**. Cost a debugging round on
+  2026-07-26. Check with `python3 -c "d=open(p,'rb').read(); print(d.count(b'\n')-d.count(b'\r\n'))"`
+  — any bare LF is a bug. Fix by rewriting the file in binary: read bytes, `replace(b"\n", b"\r\n")`,
+  write bytes. **Editing a `.frm` from Linux at all is only safe for the code below the header;
+  never let a text-mode write touch one.** (`.bas` is *not* affected —
+  `src/vba/LPandBrlMacros.bas` has been LF for its whole life and imports fine — so the two
+  file types genuinely differ here.)
 - **Stale Word lock files hang the build forever — the build now clears them.** Word writes a
   hidden `~$<name>` "owner file" next to every open document and deletes it on a clean close.
   A Word that was **killed** leaves one behind. The next build opens or saves that document,

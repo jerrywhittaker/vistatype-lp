@@ -25,6 +25,8 @@ param(
     [Parameter(Mandatory=$true)][string]$Shell,     # existing .dotm used as the base
     [Parameter(Mandatory=$true)][string]$SrcRoot,
     [Parameter(Mandatory=$true)][string]$OutDotm,
+    [string]$AppVer  = "",                          # stamp this version into both About dialogs
+    [string]$VerDate = "",                          # date shown beside it, e.g. 7/26/2026
     [string]$ProjectName = "LPandBRL"               # VBA project name of the built add-in
 )
 $ErrorActionPreference = "Stop"
@@ -155,6 +157,43 @@ try {
     if ($ProjectName -and $proj.Name -ne $ProjectName) {
         Write-Host "rename VBA project '$($proj.Name)' -> '$ProjectName'"
         $proj.Name = $ProjectName
+    }
+
+    # Stamp the version into both About dialogs.
+    #
+    # The caption lives in the binary .frx, not in code, so it cannot be edited as text on
+    # Linux. We are already inside Word with the project open, so set it here through the
+    # form designer rather than starting a second Word session just for this.
+    #
+    # The two .frx files under src/forms are ALSO one of the four places the version has to
+    # agree, so when the caption actually changes we export those forms back over the source
+    # tree and the Makefile copies them home. Only when it changes: an unconditional export
+    # rewrites the binary every build and churns the repo for nothing.
+    if ($AppVer) {
+        $stamp = "This computer is running Version $AppVer"
+        if ($VerDate) { $stamp += "    $VerDate" }
+        foreach ($aboutName in @("Lp_About_Title_And_Agreement", "Dx_About_Title_And_Agreement")) {
+            $about = $proj.VBComponents | Where-Object { $_.Name -eq $aboutName }
+            if (-not $about) { Write-Host "WARNING: About form $aboutName not found - version not stamped"; continue }
+            # The two forms do NOT use the same control name: the LP one is "VersionLabel",
+            # the Braille one is "Label5". Match on the caption instead, so this keeps working
+            # if either is renamed and does not need a per-form lookup table.
+            $lbl = $null
+            try { $lbl = $about.Designer.Controls("VersionLabel") } catch { }
+            if (-not $lbl) {
+                foreach ($ctl in $about.Designer.Controls) {
+                    $cap = ""
+                    try { $cap = [string]$ctl.Caption } catch { }
+                    if ($cap -like "This computer is running Version*") { $lbl = $ctl; break }
+                }
+            }
+            if (-not $lbl) { Write-Host "WARNING: $aboutName has no version caption - version not stamped"; continue }
+            if ($lbl.Caption -eq $stamp) { Write-Host "version already $AppVer in $aboutName"; continue }
+            Write-Host "stamp version in $aboutName : '$($lbl.Caption)' -> '$stamp'"
+            $lbl.Caption = $stamp
+            $about.Export((Join-Path $SrcRoot "forms\$aboutName.frm"))
+            Write-Host "exported $aboutName back to src/forms (Makefile copies it home)"
+        }
     }
 
     $doc.Save()
