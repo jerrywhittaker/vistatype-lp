@@ -71,7 +71,7 @@ Skim this once. Come back to it whenever a word trips you up — that's all it's
 - **Build** — turning the source text into the actual working add-in file
   (`LPandBRL.dotm`). Word has to do this part, over on the Windows box.
 - **Installer / `Setup.exe`** — the single file a transcriber double-clicks, e.g.
-  `VistaType-LP-Setup-3.1.exe`.
+  `VistaType LP and Braille Macros Setup 3.1.exe`.
 - **Tag** — a permanent, unchanging bookmark on one exact point in history, like `v3.1`.
   This is how you find and return to precisely what shipped.
 - **Release** — a published version on GitHub: a tag, plus the `Setup.exe` attached to it,
@@ -122,7 +122,7 @@ ever. Pushing just backs up your work to GitHub; it does **not** release anythin
 Or just ask Claude: **"build the installer"**.
 
 `make installer` does everything — rebuilds the add-in from `src/` on the Windows box,
-compiles `VistaType-LP-Setup-<version>.exe`, and drops it in `dist/` and on the VM Desktop.
+compiles `VistaType LP and Braille Macros Setup <version>.exe`, and drops it in `dist/` and on the VM Desktop.
 
 ### Testing it
 

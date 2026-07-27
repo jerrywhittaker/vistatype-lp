@@ -303,7 +303,7 @@ onto `master` directly — stop and ask Jerry rather than forcing a merge.
    locks the STARTUP `.dotm` and the install silently no-ops otherwise (symptom: About still
    shows the old version).
 5. **Commit the bump and the rebuilt `.dotm` on `dev`.**
-6. **Confirm the installer exists before going near git** — `ls -l dist/VistaType-LP-Setup-<ver>.exe`.
+6. **Confirm the installer exists before going near git** — `ls -l dist/"VistaType LP and Braille Macros Setup <ver>.exe"`.
    No `.exe`, no release. Go back to step 3.
 7. **Only when Jerry says the build is good**, move `master` and tag:
 
@@ -320,17 +320,17 @@ onto `master` directly — stop and ask Jerry rather than forcing a merge.
 
    ```bash
    git push origin master dev --follow-tags
-   gh release create v3.1 dist/VistaType-LP-Setup-3.1.exe \
+   gh release create v3.1 "dist/VistaType LP and Braille Macros Setup 3.1.exe" \
        --title "VistaType LP 3.1" --notes "<what changed, in transcriber-facing terms>"
    gh release view v3.1 --json assets      # VERIFY: must list the .exe, not []
    ```
 
-9. Delete the superseded `VistaType-LP-Setup-*.exe` from `dist/` and the VM Desktop (keep old
+9. Delete the superseded `"VistaType LP and Braille Macros Setup *.exe"` from `dist/` and the VM Desktop (keep old
    real releases).
 
 ### The `.exe` IS the release — non-negotiable
 
-**A GitHub release without the `VistaType-LP-Setup-<ver>.exe` attached is not a release.**
+**A GitHub release without the `"VistaType LP and Braille Macros Setup <ver>.exe"` attached is not a release.**
 GitHub auto-attaches a "Source code (zip)" to every release; that is a tarball of VBA text
 files and **cannot be installed by a transcriber**. A release with no asset therefore looks
 official and delivers nothing.
@@ -371,7 +371,7 @@ git checkout -b hotfix/3.1.0.1 v3.1     # the TAG — an exact copy of what ship
 git checkout master && git merge --ff-only hotfix/3.1.0.1
 git tag -a v3.1.0.1 -m "VistaType LP 3.1.0.1"
 git push origin master --follow-tags    # only when Jerry says "push"
-gh release create v3.1.0.1 dist/VistaType-LP-Setup-3.1.0.1.exe --title "VistaType LP 3.1.0.1"
+gh release create v3.1.0.1 "dist/VistaType LP and Braille Macros Setup 3.1.0.1.exe" --title "VistaType LP 3.1.0.1"
 git branch -d hotfix/3.1.0.1            # merged; the tag is the permanent record
 ```
 

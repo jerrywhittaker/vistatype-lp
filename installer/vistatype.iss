@@ -33,7 +33,7 @@
 ; The literal here is the fallback for building this script by hand, and is kept in step
 ; with the Makefile by "make bump".
 #ifndef AppVer
-  #define AppVer      "3.0.24"
+  #define AppVer      "3.0.29"
 #endif
 #define DotmName    "LPandBRL.dotm"
 #define DotxName    "LargePrintTemplate.dotx"
@@ -59,7 +59,11 @@ DisableDirPage=yes
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 OutputDir=..\dist
-OutputBaseFilename=VistaType-LP-Setup-{#AppVer}
+; Jerry, 7/27/2026. NOTE: AppName above is deliberately NOT changed to match. Inno
+; derives the product identity from AppName when no AppId is set, so renaming it would
+; make an upgrade look like a different product and leave a second entry behind in
+; Programs & Features. Renaming only the output file has no such effect.
+OutputBaseFilename=VistaType LP and Braille Macros Setup {#AppVer}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern

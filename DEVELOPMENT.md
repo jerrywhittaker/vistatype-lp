@@ -118,11 +118,11 @@ git merge --ff-only dev
 git tag -a v3.0.7 -m "VistaType LP 3.0.7"
 git checkout dev
 git push origin master dev --follow-tags      # only when you're ready to publish
-gh release create v3.0.7 dist/VistaType-LP-Setup-3.0.7.exe --title "VistaType LP 3.0.7"
+gh release create v3.0.7 "dist/VistaType LP and Braille Macros Setup 3.0.7.exe" --title "VistaType LP 3.0.7"
 gh release view v3.0.7 --json assets          # verify: must list the .exe, not []
 ```
 
-**The `.exe` is the release.** A GitHub release without `VistaType-LP-Setup-<ver>.exe`
+**The `.exe` is the release.** A GitHub release without `"VistaType LP and Braille Macros Setup <ver>.exe"`
 attached ships nothing — the "Source code (zip)" GitHub adds automatically is VBA text files,
 which no transcriber can install. Push the tag and create the release-with-asset in the same
 sitting; a bare tag already shows up as a "release" in GitHub's UI.

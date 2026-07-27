@@ -25,8 +25,8 @@ DOTM      := LPandBRL.dotm
 DOTX      := LargePrintTemplate.dotx
 RIBBON    := Word.officeUI
 PROJNAME  := LPandBRL
-APPVER    := 3.0.24
-SETUP_EXE := VistaType-LP-Setup-$(APPVER).exe
+APPVER    := 3.0.29
+SETUP_EXE := VistaType LP and Braille Macros Setup $(APPVER).exe
 VERDATE   := $(shell date +%-m/%-d/%Y)
 
 SSH := ssh $(WIN_HOST)
@@ -123,9 +123,15 @@ installer-build: check-config stage
 	$(SSH) "if not exist \"$(WIN_DIR)\" mkdir \"$(WIN_DIR)\""
 	scp -q -r installer dist "$(WIN_HOST):$(WIN_DIR)/"
 	$(SSH) '$(WIN_ISCC) "/DSrcDir=$(WIN_DIR)/dist" "/DAppVer=$(APPVER)" "$(WIN_DIR)/installer/vistatype.iss"'
-	scp -q "$(WIN_HOST):$(WIN_DIR)/dist/$(SETUP_EXE)" dist/
+	@# The installer name contains spaces. Quoting a spaced remote path through scp means
+	@# satisfying BOTH the local shell and Windows cmd, which does not strip single quotes -
+	@# they end up as part of the filename and the copy fails. Stage it under a space-free
+	@# name instead and rename on arrival; PowerShell quoting we can rely on.
+	$(SSH) '$(WIN_PWSH) -NoProfile -Command "Copy-Item \"$(WIN_DIR)/dist/$(SETUP_EXE)\" \"$(WIN_DIR)/dist/setup-staged.exe\" -Force"'
+	scp -q "$(WIN_HOST):$(WIN_DIR)/dist/setup-staged.exe" "dist/$(SETUP_EXE)"
+	$(SSH) '$(WIN_PWSH) -NoProfile -Command "Remove-Item \"$(WIN_DIR)/dist/setup-staged.exe\" -Force -ErrorAction SilentlyContinue"'
 	$(SSH) '$(WIN_PWSH) -NoProfile -Command "Copy-Item \"$(WIN_DIR)/dist/$(SETUP_EXE)\" ([Environment]::GetFolderPath(\"Desktop\")) -Force"'
-	@echo "Built dist/$(SETUP_EXE) (also copied to the build box Desktop)."
+	@echo "Built dist/$(SETUP_EXE)  (also copied to the build box Desktop)."
 
 clean:
 	rm -rf dist build

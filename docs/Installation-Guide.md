@@ -23,7 +23,7 @@ installing it with the new **one-click installer**.
 
 ## Install in three steps
 
-1. **Download** `VistaType-LP-Setup-3.0.exe`.
+1. **Download** `VistaType LP and Braille Macros Setup <version>.exe`.
 2. **Close Word and Outlook**, then **double-click** the installer.
    - If Windows shows a blue *“Windows protected your PC”* message, click **More info →
      Run anyway**. (This appears because the installer isn’t code-signed; it is safe.)
@@ -81,7 +81,7 @@ If you accidentally remove one of the VistaType icons from your Quick Access Too
 ## Updating to a newer version
 
 1. Close **Word** and **Outlook**.
-2. Run the new `VistaType-LP-Setup-x.x.x.exe`.
+2. Run the new `VistaType LP and Braille Macros Setup <version>.exe`.
 
 It replaces the previous files and re-applies the settings. It is safe to run over an
 existing installation — nothing is duplicated.
