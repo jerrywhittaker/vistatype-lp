@@ -41,18 +41,31 @@ Public Sub StopSpinner()
 End Sub
 
 Public Sub SpinTick()
+    ' Repainting this modeless form lets Word paint the document underneath it. During
+    ' a long macro that shows as a flash of half-restyled content, once per tick - the
+    ' yellow splashes seen all through Lp_Normalize_Styles (Jerry, 7/26/2026). OnTime
+    ' re-fires this every second for the whole run, so it is a steady drip, not one hit.
+    ' Hold ScreenUpdating across the repaint: the spinner still animates, the document
+    ' stays put.
+    Dim su_Prev As Boolean
     If Not SpinnerRunning Then Exit Sub
 
+    su_Prev = Application.ScreenUpdating
     Me.SpinnerBox.Caption = SpinFrames(Frame)
     Frame = (Frame + 1) Mod (UBound(SpinFrames) + 1)
     Me.Repaint
+    If Application.ScreenUpdating <> su_Prev Then Application.ScreenUpdating = su_Prev
 
     Application.OnTime Now + TimeValue("0:00:01"), "Sh_SpinTick"
 End Sub
 
 Public Sub SetActivityMessage(ByVal sText As String)
+    ' Same reason as SpinTick above - the repaint must not let the document redraw.
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     Me.ActivityMsg.Caption = sText
     Me.Repaint
+    If Application.ScreenUpdating <> su_Prev Then Application.ScreenUpdating = su_Prev
 End Sub
 
 Private Sub CenterOnActiveScreen()

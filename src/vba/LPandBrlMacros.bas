@@ -11130,18 +11130,23 @@ su_Prev = Application.ScreenUpdating
      DoEvents
      ActiveDocument.Tables(Lp_GP_Counter_1).Delete
      DoEvents
+     'The table is gone, so the cursor now sits exactly where the converted block will land.
+     'The transcriber note was put at the TOP of the temp document, so it is the first
+     'paragraph of what we are about to paste - leave the user on it (Jerry, 7/26/2026).
+     Sh_Set_Return_Position Selection.Range.start
      Selection.Paste
      DoEvents
 
-     Application.ScreenUpdating = su_Prev
-     Application.ScreenRefresh
-
+     'Screen stays OFF through the temp-file cleanup below. Turning it on here and THEN
+     'activating the temp document painted that document on screen - a splash of the table's
+     'alternating row colour - before it was closed again (Jerry, 7/26/2026).
      'delete temp file
      Documents(TempFileName).Activate
      ActiveDocument.Close SaveChanges:=wdDoNotSaveChanges
      DoEvents
      Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
 
+     Application.ScreenUpdating = su_Prev
      Sh_Return_User_To_Start_Position
 
 End Sub  '*** end Lp_Table_Convert_R_Only_Table_To_List macro ****
@@ -11491,6 +11496,20 @@ DoEvents
 Sh_NonModalMessageForm.SetActivityMessage "Attaching the VistaType LP template"
 DoEvents
  
+    ' ScreenUpdating alone is NOT enough here. With background repagination and live
+    ' spell/grammar checking left on, Word re-lays-out and repaints the document AFTER the
+    ' attach finishes, painting it in patches - which reads as coloured table rows splashing
+    ' across the screen (Jerry, 7/26/2026). Sh_Convert_XML_File_To_Word_Document silences the
+    ' same three for the same reason. Restored together further down, before the screen
+    ' comes back on, so the single repaint that follows shows the finished document.
+    Dim pag_Prev As Boolean, spell_Prev As Boolean, gram_Prev As Boolean
+    pag_Prev = Application.Options.Pagination
+    spell_Prev = Application.Options.CheckSpellingAsYouType
+    gram_Prev = Application.Options.CheckGrammarAsYouType
+    Application.Options.Pagination = False
+    Application.Options.CheckSpellingAsYouType = False
+    Application.Options.CheckGrammarAsYouType = False
+
     Application.ScreenUpdating = False ' Turn screen updating off
     ' hide all non-Word styles before attaching the LP template.
     On Error GoTo AvoidCrash
@@ -11520,6 +11539,12 @@ AvoidCrash:
                 .Application.Run MacroName:="Lp_Remove_All_Styles_Except_Lp_Styles"
             Else
                 Unload Sh_NonModalMessageForm
+                'Restore Word's options before bailing out - "End" stops everything, so without
+                'this the user is left with background repagination and spell-check switched off.
+                Application.Options.CheckGrammarAsYouType = gram_Prev
+                Application.Options.CheckSpellingAsYouType = spell_Prev
+                Application.Options.Pagination = pag_Prev
+                Application.ScreenUpdating = True
                 MsgBox " Cannot continue!" + vbCr + vbCr + "The template file: " + TemplatePathandName + " does not exist." + vbCr + vbCr + "Install the file and try again.", , "VistaType LP (141)"
                 End
             End If
@@ -11641,6 +11666,11 @@ DoEvents
     '******************  cleanup  **************************
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     ActiveDocument.Background.Fill.Visible = msoFalse
+
+    Application.Options.CheckGrammarAsYouType = gram_Prev
+    Application.Options.CheckSpellingAsYouType = spell_Prev
+    Application.Options.Pagination = pag_Prev
+
     Application.ScreenUpdating = True ' Turn screen updating on
     Application.ScreenRefresh
     ActiveWindow.DocumentMap = False 'navigation pane
@@ -11699,6 +11729,11 @@ SaveTheFile:
 
         If userChoice = vbNo Then
             Unload Sh_NonModalMessageForm
+            'Same reason as above - do not leave the user's proofing options switched off.
+            Application.Options.CheckGrammarAsYouType = gram_Prev
+            Application.Options.CheckSpellingAsYouType = spell_Prev
+            Application.Options.Pagination = pag_Prev
+            Application.ScreenUpdating = True
             Exit Sub
         Else
             GoTo SaveTheFile
@@ -13649,18 +13684,23 @@ su_Prev = Application.ScreenUpdating
      DoEvents
      ActiveDocument.Tables(Lp_GP_Counter_1).Delete
      DoEvents
+     'The table is gone, so the cursor now sits exactly where the converted block will land.
+     'The transcriber note was put at the TOP of the temp document, so it is the first
+     'paragraph of what we are about to paste - leave the user on it (Jerry, 7/26/2026).
+     Sh_Set_Return_Position Selection.Range.start
      Selection.Paste
      DoEvents
 
-     Application.ScreenUpdating = su_Prev
-     Application.ScreenRefresh
-
+     'Screen stays OFF through the temp-file cleanup below. Turning it on here and THEN
+     'activating the temp document painted that document on screen - a splash of the table's
+     'alternating row colour - before it was closed again (Jerry, 7/26/2026).
      'delete temp file
      Documents(TempFileName).Activate
      ActiveDocument.Close SaveChanges:=wdDoNotSaveChanges
      DoEvents
      Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
 
+     Application.ScreenUpdating = su_Prev
      Sh_Return_User_To_Start_Position
 
 End Sub   '*** end of Lp_Table_Convert_NoRC_Table_To_List ***
@@ -14293,12 +14333,15 @@ NextCell:
      DoEvents
      ActiveDocument.Tables(Lp_GP_Counter_1).Delete
      DoEvents
+     'The table is gone, so the cursor now sits exactly where the converted block will land.
+     'The transcriber note was put at the TOP of the temp document, so it is the first
+     'paragraph of what we are about to paste - leave the user on it (Jerry, 7/26/2026).
+     Sh_Set_Return_Position Selection.Range.start
      Selection.Paste
      DoEvents
 
-     Application.ScreenUpdating = su_Prev
-     Application.ScreenRefresh
-
+     'Screen stays OFF through the temp-file cleanup below - see the note in the other two
+     'converts. Painting the temp document before closing it flashed the table's row colour.
      'delete temp file
      Documents(TempFileName).Activate
      ActiveDocument.Close SaveChanges:=wdDoNotSaveChanges
@@ -14316,6 +14359,7 @@ NextCell:
     Kill TempDocName
     On Error GoTo 0
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
+    Application.ScreenUpdating = su_Prev
     Sh_Return_User_To_Start_Position
     Exit Sub
 
@@ -14538,28 +14582,28 @@ End Function   '*** end of Function Sh_IsValidRomanNumeral ***
 
 Sub Lp_Normalize_Styles()
     '
+    ' Version: 3.3  Date: 7/26/2026 - stopped the screen flashing - see the note in the changelog header
     ' Version: 3.2  Date: 7/18/2026 - space-after now set once at story level (was a per-paragraph loop)
     ' Version: 3.1  Date: 7/6/2026 - optimized style updates, preserved all status messages and DoEvents
     ' Modifies the font sizes and character spacing of the document based on Lp_Base_Font_Size
     '
 
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
+    Application.ScreenUpdating = False   ' both callers already do this, but the sub must stand on its own
+
     Sh_NonModalMessageForm.SetActivityMessage "Underlining Italics"
-    DoEvents
     Application.Run MacroName:="Lp_Italics_To_Dashed_Underline"
 
     Dim LoopCounter As Integer
     Dim BxClr As String
 
     Sh_NonModalMessageForm.SetActivityMessage "Adjusting table border weights"
-    DoEvents
     Application.Run MacroName:="Lp_Set_Table_Border_Weights"
-    DoEvents
     Application.Run MacroName:="Sh_Color_Dollar_PG_Red"
-    DoEvents
 
     '***** Begin Setting Automatic List Indention Size ****
     Sh_NonModalMessageForm.SetActivityMessage "Setting list paragraph indention sizes"
-    DoEvents
 
     Dim oPara As Paragraph
     For Each oPara In ActiveDocument.Paragraphs
@@ -14589,7 +14633,6 @@ Sub Lp_Normalize_Styles()
 
     '***** Begin Setting space after para Size ****
     Sh_NonModalMessageForm.SetActivityMessage "Setting spacing between paragraphs"
-    DoEvents
 
     ' Same value on every paragraph => one story-level assignment instead of a per-paragraph
     ' loop. On Error Resume Next preserves the original no-op behavior when Lp_Base_Font_Size
@@ -14597,12 +14640,10 @@ Sub Lp_Normalize_Styles()
     On Error Resume Next
     ActiveDocument.Content.ParagraphFormat.SpaceAfter = Lp_Base_Font_Size
     On Error GoTo 0
-    DoEvents
     '***** End Setting space after para Size ****
 
     '**** Begin set border weights for box styles, table styles and Print Pg Num Style ****
     Sh_NonModalMessageForm.SetActivityMessage "Setting box border weights"
-    DoEvents
 
     Dim tbl As Table
     Dim targetWeight As WdLineWidth
@@ -14628,7 +14669,6 @@ Sub Lp_Normalize_Styles()
     End If
 
     Sh_NonModalMessageForm.SetActivityMessage "Setting box border spacing"
-    DoEvents
 
     arrBoxStyles = Array("Box Black", "Box Blue", "Box Orange", _
                          "Box Red", "Box Violet", "Box White")
@@ -14653,11 +14693,9 @@ Sub Lp_Normalize_Styles()
                 .DistanceFromRight = 4
             End With
         End If
-        DoEvents
     Next sName
 
     Sh_NonModalMessageForm.SetActivityMessage "Setting reference page border weight"
-    DoEvents
 
     If ActiveDocument.Styles("Print Pg Num").InUse Then
         With ActiveDocument.Styles("Print Pg Num").ParagraphFormat
@@ -14669,13 +14707,11 @@ Sub Lp_Normalize_Styles()
 
             .Borders(wdBorderBottom).LineStyle = wdLineStyleSingle
             .Borders(wdBorderBottom).LineWidth = targetWeight
-            DoEvents
         End With
     End If
     On Error GoTo 0
 
     Sh_NonModalMessageForm.SetActivityMessage "Setting table border weights"
-    DoEvents
 
     For Each tbl In ActiveDocument.Tables
         With tbl.Borders
@@ -14686,14 +14722,12 @@ Sub Lp_Normalize_Styles()
 
             .InsideLineWidth = targetWeight
             .OutsideLineWidth = targetWeight
-            DoEvents
         End With
     Next tbl
     '**** End border weights ****
 
     '********* Begin Expand Font Spacing Settings ******
     Sh_NonModalMessageForm.SetActivityMessage "Setting sizes of inter-character spacing for Normal and List Paragraph styles"
-    DoEvents
 
     Dim styleName As String
     Dim i As Long
@@ -14726,7 +14760,6 @@ Sub Lp_Normalize_Styles()
             targetSpacing = SpacingTable(i + 1)
             Exit For
         End If
-        DoEvents
     Next i
 
     For i = LBound(StyleList) To UBound(StyleList)
@@ -14736,13 +14769,11 @@ Sub Lp_Normalize_Styles()
         sty.AutomaticallyUpdate = True
         sty.Font.spacing = targetSpacing
         sty.AutomaticallyUpdate = False
-        DoEvents
     Next i
     '********* End Expand Font Spacing Settings ******
 
     '********** Unified font size updates for styles ***********
     Sh_NonModalMessageForm.SetActivityMessage "Setting font sizes for styles"
-    DoEvents
 
     Dim base As Long
     Dim UnifiedStyles As Variant
@@ -14763,13 +14794,11 @@ Sub Lp_Normalize_Styles()
     For i = LBound(UnifiedStyles) To UBound(UnifiedStyles)
         Set sty = ActiveDocument.Styles(UnifiedStyles(i))
         sty.Font.Size = base
-        DoEvents
     Next i
     '********** End unified font size updates ***********
 
     '*********** begin heading styles (size + bold + spacing) **************
     Sh_NonModalMessageForm.SetActivityMessage "Setting font sizes and spacing for heading styles"
-    DoEvents
     
     Dim StyleNames As Variant
     Dim SizeOffsets As Variant
@@ -14795,7 +14824,6 @@ Sub Lp_Normalize_Styles()
         Case 40: headingSpacing = 3.1
         Case Else: headingSpacing = 3.2
     End Select
-    DoEvents
 
     For i = LBound(StyleNames) To UBound(StyleNames)
         Set sty = ActiveDocument.Styles(StyleNames(i))
@@ -14803,13 +14831,11 @@ Sub Lp_Normalize_Styles()
         sty.Font.Bold = True
         sty.Font.Position = 0
         sty.Font.spacing = headingSpacing
-        DoEvents
     Next i
     '*********** end heading styles **************
 
     '********** Begin Set Base Font Size for Para Styles (Normal + colored paras) ***********
     Sh_NonModalMessageForm.SetActivityMessage "Ensuring base font size for Normal and color paragraph styles"
-    DoEvents
 
     StyleNames = Array( _
         "Normal", _
@@ -14819,13 +14845,13 @@ Sub Lp_Normalize_Styles()
     For i = LBound(StyleNames) To UBound(StyleNames)
         Set sty = ActiveDocument.Styles(StyleNames(i))
         sty.Font.Size = base
-        DoEvents
     Next i
     '********** End Set Base Font Size for Para Styles ***********
 
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     ActiveDocument.UndoClear
-    DoEvents
+
+     Application.ScreenUpdating = su_Prev
 
 End Sub
 
@@ -16393,6 +16419,31 @@ Sub Sh_Save_User_Position()
 
 End Sub   '*** end of Sh_Save_User_Position macro ***
 
+Sub Sh_Set_Return_Position(ByVal NewPos As Long)
+'
+' Sh_Set_Return_Position macro
+'
+' Overrides where Sh_Return_User_To_Start_Position will leave the user, for macros that
+' should finish somewhere more useful than where the user began. The table-to-list converts
+' use it to land on the blue "Note:" box that now heads the list, so the transcriber can read
+' or edit that note straight away instead of hunting for it.
+'
+' Only meaningful between a Sh_Save_User_Position and its matching return; ignored otherwise,
+' so a stray call cannot send the cursor anywhere on its own.
+'
+' Version: 1.0  Date: 7/26/2026
+'
+' Author: Jerry Whittaker jerry@thewhittakers.org
+'
+    On Error Resume Next
+
+    If Not Sh_Pos_Saved Then Exit Sub      ' nothing pending - do not invent a destination
+
+    Sh_Start_Doc = ActiveDocument.Name     ' the override belongs to whatever document is active now
+    Sh_Start_Pos = NewPos
+
+End Sub   '*** end of Sh_Set_Return_Position macro ***
+
 Sub Sh_Return_User_To_Start_Position()
 '
 ' Sh_Return_User_To_Start_Position macro
@@ -16407,6 +16458,7 @@ Sub Sh_Return_User_To_Start_Position()
 ' The position is clamped to the document length because cleanup macros delete text,
 ' so the document may now be shorter than it was. Landing close is the goal.
 '
+' Version: 1.1  Date: 7/26/2026 - added Application.ScreenRefresh; without it the insertion point moved but was never drawn, so the user saw no cursor
 ' Version: 1.0  Date: 7/26/2026
 '
 ' Author: Jerry Whittaker jerry@thewhittakers.org
@@ -16432,6 +16484,11 @@ Sub Sh_Return_User_To_Start_Position()
 
     ActiveDocument.Range(Return_Pos, Return_Pos).Select
     ActiveWindow.ScrollIntoView Selection.Range, True
+
+    ' Repaint, or the insertion point is set correctly but never drawn and the user sees no
+    ' cursor at all. The macros this replaced each ended with their own Application.ScreenRefresh
+    ' for exactly this reason; centralising it here means no macro can forget it again.
+    Application.ScreenRefresh
 
 End Sub   '*** end of Sh_Return_User_To_Start_Position macro ***
 
