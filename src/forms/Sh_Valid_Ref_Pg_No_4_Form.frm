@@ -31,11 +31,14 @@ Attribute VB_Exposed = False
 Private Const LOGPIXELSY As Long = 90
 
 Private Sub DoneButton_Click()
-' Claude codes this
+    'Closes the tag list without saving and leaves you in your document.
+    Sh_PgVal_Done
 End Sub
 
 Private Sub LocateInDocButton_Click()
-' Claude codes this
+    'Despite the control name, on THIS form the button returns to the validation list -
+    'and lands on the NEXT tag down, so your place in the list is never lost.
+    Sh_PgVal_ReturnToTempAndAdvance
 End Sub
 
 Private Sub ShowDirectionsButton_Click()

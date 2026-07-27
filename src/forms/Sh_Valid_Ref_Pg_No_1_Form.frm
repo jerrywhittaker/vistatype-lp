@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Sh_Valid_Ref_Pg_No_1_Form 
    Caption         =   "How to validate the $pg tags"
-   ClientHeight    =   3036
+   ClientHeight    =   3264
    ClientLeft      =   105
    ClientTop       =   450
    ClientWidth     =   10800
@@ -13,6 +13,7 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
+
 ' Sh_Valid_Ref_Pg_No_1_Form
 ' Provides directions for operation in the temp doc to validate the $pg tags in the main document
 '
@@ -32,6 +33,9 @@ Private Sub UserForm_Initialize()
     
     Directions.Caption = "This is a temporary document to facilitate validation of the '$pg' reference page tags." _
     & " This document can be closed without saving when the validation is complete by selecting the 'Done - Exit validation' button." _
-    & vbCrLf & vbCrLf & "Select the $pg item to be located in the document then click the 'Locate the selected $pg code in the Document' button." _
-    & vbCrLf & vbCrLf & "To add a missing $pg tag, select the $pg tag the preceeds the missing tag, locate it in the document and scroll to the point for the insertion."
+    & vbCrLf & vbCrLf & "Move the cursor to the $pg item to be located in the document then click the " _
+    & "'Locate the selected $pg code in the Document' button." _
+    & vbCrLf & vbCrLf & "To add a missing $pg tag, select the $pg tag preceding the missing tag, " _
+    & "locate it in the document and scroll the document to the point where the new tag should be located, create an empty paragraph, " _
+    & "type the page number and tag it using the 'Manual Tag Ref Page' macro on the VistaType Ribbon."
 End Sub

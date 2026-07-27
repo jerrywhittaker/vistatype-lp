@@ -2,6 +2,15 @@ Attribute VB_Name = "ShNonModalMessage"
 Option Explicit
 Public Sh_BridgeTargetMacro As String
 
+' --- $pg validation helper state ------------------------------------------------------
+' VBA requires every module-level declaration to sit ABOVE the first procedure. These
+' lived at the foot of the module with the rest of the helper and would not compile:
+' "Compile error in hidden module: ShNonModalMessage" (7/27/2026).
+Private Sh_PgVal_TempDoc As Document        ' the tag list
+Private Sh_PgVal_SourceDoc As Document      ' the document being validated
+Private Sh_PgVal_LastParaStart As Long      ' character start of the tag last worked from
+Private Sh_PgVal_TitleText As String        ' "VistaType LP" or "Braille Macros"
+
 ' Show/hide a command bar by name, tolerating bars that don't exist in this Word version
 ' (e.g. the legacy "Styles"/"Navigation" bars raise error 5 in Word 2016+). Non-critical UI.
 Public Sub Sh_SetBarVisible(ByVal barName As String, ByVal vis As Boolean)
@@ -36,4 +45,209 @@ Public Sub Sh_StartSpinnerBridge()
     End If
 End Sub
 
+'=========================================================================================
+' $pg reference-page validation helper
+'
+' Sh_Copy_Ref_Pg_Tags_To_Temp_File builds a temporary document listing every tagged
+' paragraph, so the transcriber can spot missing numbers, bad tags and gaps in the sequence.
+' Fixing one used to mean: Alt+Tab to the real document, paste the tag into the Navigation
+' pane to find it, correct it, Alt+Tab back, and then hunt for your place in the list again.
+'
+' Two modeless forms replace that clerical half. Sh_Valid_Ref_Pg_No_2_Form rides above the
+' temp document and Sh_Valid_Ref_Pg_No_4_Form above the document being validated; each
+' button swaps them, so the form on screen always matches the document you are looking at.
+'
+' The cycle: Locate -> fix it -> Return -> already sitting on the NEXT tag down. Not losing
+' your place in the list is the whole point (Jerry, 7/27/2026).
+'
+' Shared Sh_ code: Validate $pg Tags on BOTH the LP and Braille tabs comes through here.
+' The dialog title is captured when the list is built, because once the temp document is
+' active Dx_Is_The_Attached_Template_BANA_Braille would be answering about the wrong file.
+'=========================================================================================
 
+' Called by Sh_Copy_Ref_Pg_Tags_To_Temp_File once the list document exists.
+Public Sub Sh_PgVal_Start(ByVal SourceDoc As Document, ByVal TempDoc As Document, _
+                          ByVal TitleText As String)
+    Set Sh_PgVal_SourceDoc = SourceDoc
+    Set Sh_PgVal_TempDoc = TempDoc
+    Sh_PgVal_TitleText = TitleText
+    Sh_PgVal_LastParaStart = -1
+    Sh_PgVal_SwapToTempForm
+End Sub
+
+' --- form 2 (temp document): "Locate the selected $pg code in the Document" ---------------
+Public Sub Sh_PgVal_LocateInDocument()
+    Dim TagText As String
+    Dim Hit As Range
+
+    If Not Sh_PgVal_Ready() Then Exit Sub
+
+    Sh_PgVal_TempDoc.Activate
+    TagText = Sh_PgVal_TextOfCurrentTag()
+
+    If Len(TagText) = 0 Then
+        MsgBox "Click anywhere on the line holding the $pg tag you want to find, " _
+             & "then press this button again.", vbInformation, Sh_PgVal_TitleText
+        Exit Sub
+    End If
+
+    'Remember where we are in the list BEFORE leaving, so Return can move on from here.
+    Sh_PgVal_LastParaStart = Selection.Paragraphs(1).Range.start
+
+    Set Hit = Sh_PgVal_FindInSource(TagText)
+
+    If Hit Is Nothing Then
+        MsgBox "This tag is in the list but was not found in the document:" _
+             & vbCrLf & vbCrLf & "    " & TagText & vbCrLf & vbCrLf _
+             & "That is worth noting in itself - the tag may have been deleted or changed " _
+             & "since this list was made.", vbExclamation, Sh_PgVal_TitleText
+        Exit Sub
+    End If
+
+    Sh_PgVal_SourceDoc.Activate
+    Hit.Select
+    Selection.Collapse Direction:=wdCollapseStart
+    Sh_Keep_Cursor_In_View
+    Sh_PgVal_SwapToSourceForm
+End Sub
+
+' --- form 4 (source document): "Return to the validation document" ------------------------
+Public Sub Sh_PgVal_ReturnToTempAndAdvance()
+    Dim p As Paragraph
+    Dim NextPara As Paragraph
+
+    If Not Sh_PgVal_Ready() Then Exit Sub
+
+    Sh_PgVal_TempDoc.Activate
+
+    'The next NON-EMPTY line after the one we last worked from. The list is built by pasting
+    'a Find-All selection, so blank paragraphs can turn up between entries.
+    For Each p In Sh_PgVal_TempDoc.Paragraphs
+        If p.Range.start > Sh_PgVal_LastParaStart Then
+            If Len(Trim$(Replace(p.Range.Text, Chr(13), ""))) > 0 Then
+                Set NextPara = p
+                Exit For
+            End If
+        End If
+    Next p
+
+    If NextPara Is Nothing Then
+        MsgBox "That was the last tag in the list." & vbCrLf & vbCrLf _
+             & "Press 'Done - Exit validation' to close the list, or keep working through " _
+             & "it by hand.", vbInformation, Sh_PgVal_TitleText
+    Else
+        NextPara.Range.Select
+        Selection.Collapse Direction:=wdCollapseStart
+        Sh_PgVal_LastParaStart = NextPara.Range.start
+        Sh_Keep_Cursor_In_View
+    End If
+
+    Sh_PgVal_SwapToTempForm
+End Sub
+
+' --- either form: "Done - Exit validation" ------------------------------------------------
+Public Sub Sh_PgVal_Done()
+    On Error Resume Next
+
+    'Hide before unloading: these run from a button on one of the forms being closed.
+    Sh_Valid_Ref_Pg_No_2_Form.Hide
+    Sh_Valid_Ref_Pg_No_4_Form.Hide
+
+    If Sh_PgVal_DocIsOpen(Sh_PgVal_TempDoc) Then
+        Sh_PgVal_TempDoc.Close SaveChanges:=wdDoNotSaveChanges
+    End If
+    If Sh_PgVal_DocIsOpen(Sh_PgVal_SourceDoc) Then
+        Sh_PgVal_SourceDoc.Activate
+    End If
+
+    Unload Sh_Valid_Ref_Pg_No_1_Form
+    Unload Sh_Valid_Ref_Pg_No_2_Form
+    Unload Sh_Valid_Ref_Pg_No_3_Form
+    Unload Sh_Valid_Ref_Pg_No_4_Form
+
+    Set Sh_PgVal_TempDoc = Nothing
+    Set Sh_PgVal_SourceDoc = Nothing
+    Sh_PgVal_LastParaStart = -1
+End Sub
+
+' --- helpers ------------------------------------------------------------------------------
+
+' Unload before Show so UserForm_Initialize re-runs: it positions the form over the ACTIVE
+' document using ActiveWindow.GetPoint, which is only right if it runs after the swap.
+' The form being left is hidden, never unloaded, because its own click handler is on the stack.
+Private Sub Sh_PgVal_SwapToTempForm()
+    On Error Resume Next
+    Unload Sh_Valid_Ref_Pg_No_2_Form
+    Sh_Valid_Ref_Pg_No_2_Form.Show vbModeless
+    Sh_Valid_Ref_Pg_No_4_Form.Hide
+End Sub
+
+Private Sub Sh_PgVal_SwapToSourceForm()
+    On Error Resume Next
+    Unload Sh_Valid_Ref_Pg_No_4_Form
+    Sh_Valid_Ref_Pg_No_4_Form.Show vbModeless
+    Sh_Valid_Ref_Pg_No_2_Form.Hide
+End Sub
+
+' Text of the paragraph the cursor sits in, stripped of the paragraph mark. Deliberately the
+' whole paragraph rather than the selection, so clicking anywhere on the line is enough.
+Private Function Sh_PgVal_TextOfCurrentTag() As String
+    Dim s As String
+    On Error Resume Next
+    s = Selection.Paragraphs(1).Range.Text
+    s = Replace(s, Chr(13), "")
+    s = Replace(s, Chr(7), "")
+    Sh_PgVal_TextOfCurrentTag = Trim$(s)
+End Function
+
+Private Function Sh_PgVal_FindInSource(ByVal TagText As String) As Range
+    Dim r As Range
+    On Error Resume Next
+    Set r = Sh_PgVal_SourceDoc.Content
+    With r.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
+        .Text = Left$(TagText, 250)        'Word's Find gives up beyond 255 characters
+        .Forward = True
+        .Wrap = wdFindStop
+        .Format = False
+        .MatchCase = True
+        .MatchWholeWord = False
+        .MatchWildcards = False
+        .MatchSoundsLike = False
+        .MatchAllWordForms = False
+        If .Execute Then Set Sh_PgVal_FindInSource = r
+    End With
+End Function
+
+' Both documents still open? Touching a closed Document object raises an error rather than
+' returning Nothing, so the only reliable test is to read a property and see what happens.
+Private Function Sh_PgVal_DocIsOpen(ByVal d As Document) As Boolean
+    Dim s As String
+    If d Is Nothing Then Exit Function
+    On Error Resume Next
+    Err.Clear
+    s = d.Name
+    Sh_PgVal_DocIsOpen = (Err.Number = 0) And (Len(s) > 0)
+    Err.Clear
+    On Error GoTo 0
+End Function
+
+Private Function Sh_PgVal_Ready() As Boolean
+    If Not Sh_PgVal_DocIsOpen(Sh_PgVal_TempDoc) Then
+        MsgBox "The validation list has been closed, so there is nothing to work from." _
+             & vbCrLf & vbCrLf & "Run Validate $pg Tags again to start another pass.", _
+               vbInformation, Sh_PgVal_TitleText
+        Sh_PgVal_Done
+        Exit Function
+    End If
+    If Not Sh_PgVal_DocIsOpen(Sh_PgVal_SourceDoc) Then
+        MsgBox "The document being validated has been closed." & vbCrLf & vbCrLf _
+             & "Run Validate $pg Tags again to start another pass.", _
+               vbInformation, Sh_PgVal_TitleText
+        Sh_PgVal_Done
+        Exit Function
+    End If
+    Sh_PgVal_Ready = True
+End Function
+'*** end of $pg reference-page validation helper ***

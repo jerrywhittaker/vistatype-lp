@@ -13,6 +13,7 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
+
 ' Sh_Valid_Ref_Pg_No_3_Form
 ' Provides directions for operation in the temp doc to Fix the $pg tags in the main document
 '

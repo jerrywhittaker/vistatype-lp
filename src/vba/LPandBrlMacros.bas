@@ -16869,10 +16869,16 @@ Sub Sh_Copy_Ref_Pg_Tags_To_Temp_File()
 '
 ' Version: 1.2  Date: 11/10/2025 - added "DoEvents" before and after "Selection.Paste" to avoid crash when MathType MathPage.wll is corrupt
 ' Version: 1.1  Date: 2/18/2024 - code to set word configuration added
+' Version: 1.3  Date: 7/27/2026 - hands off to the modeless validation helper instead of
+'                                 telling the user to Alt+Tab (see ShNonModalMessage)
 ' Version: 1.0  Date: 2/16/2024
 
     Dim MsgBoxLabel As String
     Dim tmpDoc As Document
+    Dim srcDoc As Document
+
+    'The document being validated, captured before Documents.Add makes the list active.
+    Set srcDoc = ActiveDocument
 
     If Dx_Is_The_Attached_Template_BANA_Braille Then
         MsgBoxLabel = "Braille Macros"
@@ -16914,10 +16920,10 @@ Sub Sh_Copy_Ref_Pg_Tags_To_Temp_File()
     Selection.Font.Size = 12
     Selection.HomeKey Unit:=wdStory
 
-    MsgBox "This is a temporary document to facilitate validation of the reference page tags." _
-    & vbCrLf & "This document can be closed without saving when validation is complete." _
-    & vbCrLf & vbCrLf & "Corrections may be made in the original document by pressing Alt+Tab" _
-    & vbCrLf & "to move between documents.", , MsgBoxLabel
+    'The Alt+Tab instructions that used to live here are exactly what the helper replaces: it
+    'walks the user down the list, finds each tag in the document, and brings them back to
+    'the next one. Sh_Valid_Ref_Pg_No_1_Form still carries the directions, on demand.
+    Sh_PgVal_Start srcDoc, tmpDoc, MsgBoxLabel
 
 End Sub   '*** end of Sh_Copy_Ref_Pg_Tags_To_Temp_File macro ***
 
