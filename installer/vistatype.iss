@@ -33,7 +33,7 @@
 ; The literal here is the fallback for building this script by hand, and is kept in step
 ; with the Makefile by "make bump".
 #ifndef AppVer
-  #define AppVer      "3.0.29"
+  #define AppVer      "3.0.31"
 #endif
 #define DotmName    "LPandBRL.dotm"
 #define DotxName    "LargePrintTemplate.dotx"
@@ -150,23 +150,31 @@ begin
     Result := True;
 end;
 
-{ --- Abort if anything is holding the files we need to replace. --- }
-function InitializeSetup(): Boolean;
+{ --- Is Word or Outlook running, by process OR by window? --- }
+function OfficeIsRunning(): Boolean;
+begin
+  Result := IsProcessRunning('WINWORD.EXE') or IsProcessRunning('OUTLOOK.EXE')
+         or (FindWindowByClassName(WORD_CLASS) <> 0)
+         or (FindWindowByClassName(OUTLOOK_CLASS) <> 0);
+end;
+
+{ --- Shared by install AND uninstall, so the two can never drift apart. Both need to
+      touch the same STARTUP .dotm, and Word holds it locked whenever it is running.
+      Verb is "installed" or "removed" so each path can word its own message. --- }
+function OfficeIsClear(const Verb: String): Boolean;
 var
   Dotm: String;
 begin
   Result := True;
   Dotm := ExpandConstant('{userappdata}\Microsoft\Word\STARTUP\{#DotmName}');
 
-  if IsProcessRunning('WINWORD.EXE') or IsProcessRunning('OUTLOOK.EXE') or
-     (FindWindowByClassName(WORD_CLASS) <> 0) or
-     (FindWindowByClassName(OUTLOOK_CLASS) <> 0) then
+  if OfficeIsRunning() then
   begin
     MsgBox('Microsoft Word or Outlook is still running.' #13#10 #13#10
       + 'Close every Word and Outlook window and try again. If you have already closed '
       + 'them, Word may still be running in the background - sign out of Windows and back '
-      + 'in, then run this installer again.' #13#10 #13#10
-      + 'Installing while Word is running leaves the OLD version in place.',
+      + 'in, then run this again.' #13#10 #13#10
+      + 'While Word is running the add-in cannot be ' + Verb + '.',
       mbError, MB_OK);
     Result := False;
     Exit;
@@ -175,12 +183,28 @@ begin
   if FileIsInUse(Dotm) then
   begin
     MsgBox('The VistaType add-in file is being used by another program, so it cannot be '
-      + 'replaced:' #13#10 #13#10 + Dotm + #13#10 #13#10
+      + Verb + ':' #13#10 #13#10 + Dotm + #13#10 #13#10
       + 'This is usually antivirus, a backup program, or Windows Search reading the file. '
       + 'Wait a moment and try again, or restart the computer.',
       mbError, MB_OK);
     Result := False;
   end;
+end;
+
+{ --- Abort the install if anything is holding the files we need to replace. --- }
+function InitializeSetup(): Boolean;
+begin
+  Result := OfficeIsClear('replaced');
+end;
+
+{ --- Same guard on the way out. Uninstalling with Word open leaves the .dotm behind,
+      because Word has it locked - so the add-in appears to have been removed while the
+      old code carries on loading at every Word start. Remove-Qat.ps1 also rewrites the
+      user's Word.officeUI here, which is not safe while Word has it loaded.
+      (Jerry, 7/27/2026.) --- }
+function InitializeUninstall(): Boolean;
+begin
+  Result := OfficeIsClear('removed');
 end;
 
 { --- Find the installed Word version key (16.0, 15.0, ...) under HKCU. --- }
