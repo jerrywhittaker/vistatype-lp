@@ -88,6 +88,11 @@ src/forms/      canonical UserForms: *.frm + *.frx (binary layout)
                 fails only on the user's machine, as "Compile error in hidden module".
                 `make build` now refuses to run if any .frm has bare LF. See DEVELOPMENT.md.
 src/ribbon/     customUI14.xml — embedded ribbon (source of truth); Word.officeUI (legacy)
+src/keymap/     lp-template-keymap.xml — keyboard shortcuts, injected into LargePrintTemplate.dotx
+                at build time. Source of truth for the ~60 key assignments (53 style shortcuts,
+                8 VistaType macros, 1 MathType). Macro targets MUST read
+                LPANDBRL.LPANDBRLMACROS.<SUB>: they said NORMAL.NEWMACROS.<SUB> until 7/28/2026
+                and had been silently dead ever since the code left Normal.dotm.
 LPandBRL.dotm   the .dotm shell/base (tracked): project references + non-VBA parts; build base
 LargePrintTemplate.dotx   the attached large-print template (styles/page setup)
 Word.officeUI   legacy global ribbon (no longer shipped; kept for reference)
@@ -95,7 +100,8 @@ tools/windows/  Export-Vba.ps1 / Import-Vba.ps1 — run in Word on the build box
                 (Import-Vba.ps1 clears stale hidden `~$*` Word lock files first — a leftover
                  one makes Word raise an invisible "File In Use" dialog and the build hangs
                  forever with no error; see DEVELOPMENT.md "Gotchas baked into the tooling")
-tools/lib/      decompress_vba.py (reader); officeui_to_customui.py + inject_customui.py (ribbon); extract_qat.py (obsolete/reference — QAT is now qat-template.officeUI)
+tools/lib/      decompress_vba.py (reader); officeui_to_customui.py + inject_customui.py (ribbon);
+                inject_keymap.py (keyboard shortcuts -> .dotx/.dotm); extract_qat.py (obsolete/reference — QAT is now qat-template.officeUI)
 installer/      Inno Setup installer (vistatype.iss) + scripts/ (QAT merge/remove) + qat-template.officeUI (the standard QAT) — replaces manual file-copy install
 docs/           Daily-Workflow-and-Releases.md (Jerry's plain-language guide to dev/master, building, releasing, and what to ask Claude); Installation-Guide.md (end-user install); Build-VM-Setup.md (Hyper-V build/test box); Software-Agreement.md (GPLv3 About-dialog text)
 reference/      generated read aids (gitignored mirror + interim form-code dump)
@@ -128,7 +134,9 @@ restores it (or deletes the file if we created it). Three subtleties that make i
 Full detail in **`DEVELOPMENT.md`**. In brief: **on the `dev` branch** (never `master` — see
 *Git workflow and releases* below) edit text under `src/`, then `make build` ships it to the
 remote Windows+Word box over SSH, which imports the source into `dist/LPandBRL.dotm` (Word
-regenerates p-code) and copies it back; smoke-test in Word, then `make deploy`. Never edit
+regenerates p-code) and copies it back; the ribbon (`inject_customui.py`) and the keyboard
+shortcuts (`inject_keymap.py`) are then injected on this side by plain zip surgery, no Word
+needed; smoke-test in Word, then `make deploy`. Never edit
 `LPandBRL.dotm` by hand. `make pull` refreshes `src/` from the `.dotm` (canonical export,
 needed to (re)seed valid `.frx`); `make read` dumps readable source with the Linux
 decompressor without needing Windows. Releases go out from `master` via `make installer`.

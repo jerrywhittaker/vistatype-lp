@@ -71,8 +71,11 @@ build: check-config check-frm-eol push-src
 	mkdir -p dist
 	scp -q "$(WIN_HOST):$(WIN_DIR)/dist/$(DOTM)" dist/$(DOTM)
 	python3 tools/lib/inject_customui.py dist/$(DOTM) src/ribbon/customUI14.xml
+	@# The .dotx at the repo root is the shell; the keyboard shortcuts are text under
+	@# src/keymap/ and get injected here, the same way the ribbon goes into the .dotm.
 	cp $(DOTX) dist/$(DOTX)
-	@echo "Built dist/$(DOTM) (embedded ribbon) + dist/$(DOTX). Smoke-test in Word before deploying."
+	python3 tools/lib/inject_keymap.py dist/$(DOTX) src/keymap/lp-template-keymap.xml
+	@echo "Built dist/$(DOTM) (embedded ribbon) + dist/$(DOTX) (keymap). Smoke-test in Word before deploying."
 
 # --- regenerate customUI14.xml from the legacy Word.officeUI (one-off / reference) ---
 ribbon:
