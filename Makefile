@@ -7,9 +7,12 @@
 #   make pull    Export VBA from LPandBRL.dotm INTO src/  (canonical; run once to seed,
 #                or after anyone edits in the Word VBE). Overwrites src/vba + src/forms.
 #   make build   Import src/ into dist/LPandBRL.dotm via Word, then embed the ribbon
-#                (customUI14.xml) and stage the .dotx. Smoke-test before deploying.
+#                (customUI14.xml) and stage the .dotx with its keyboard shortcuts
+#                (src/keymap/). Smoke-test before deploying.
 #   make ribbon  Regenerate src/ribbon/customUI14.xml from the legacy Word.officeUI.
-#   make qat     Regenerate installer/qat-controls.xml from the legacy Word.officeUI.
+#   make qat     Check the curated toolbar (installer/qat-template.officeUI) against the
+#                ribbon's hidden QAT tab, and regenerate installer/qat-icons-only.officeUI.
+#                Runs as part of `make build`; a mismatch stops the build.
 #   make read    Refresh reference/ from LPandBRL.dotm using the Linux-only decompressor
 #                (read/diff aid; does NOT need Windows and is NOT import-ready).
 #   make deploy  Promote dist/LPandBRL.dotm (embedded ribbon) to the repo root.
@@ -60,7 +63,13 @@ pull: check-config push-src
 check-frm-eol:
 	@python3 tools/lib/check_frm_eol.py
 
-build: check-config check-frm-eol push-src
+# The toolbar's idQ="x1:btn_*" entries resolve against the hidden tab in customUI14.xml.
+# If they drift apart the buttons render blank on the user's machine and nothing warns you,
+# so the build refuses to proceed. Also regenerates the append-safe icons-only toolbar.
+check-qat:
+	@python3 tools/lib/build_qat.py
+
+build: check-config check-frm-eol check-qat push-src
 	$(SSH) '$(WIN_PWSH) -ExecutionPolicy Bypass -File $(WSCRIPTS)/Import-Vba.ps1 -Shell "$(WIN_DIR)/$(DOTM)" -SrcRoot "$(WIN_DIR)/src" -OutDotm "$(WIN_DIR)/dist/$(DOTM)" -ProjectName $(PROJNAME) -AppVer $(APPVER) -VerDate "$(VERDATE)"'
 	@# The two About forms carry the version in their binary .frx, so bring them home if the
 	@# stamp changed them. -u: only if newer, so an unchanged build copies nothing.
@@ -81,11 +90,13 @@ build: check-config check-frm-eol push-src
 ribbon:
 	python3 tools/lib/officeui_to_customui.py $(RIBBON) src/ribbon/customUI14.xml
 
-# --- OBSOLETE: the QAT is now a hand-maintained full toolbar in installer/qat-template.officeUI
-# --- (imposed by installer/scripts/Merge-Qat.ps1). extract_qat.py / this target are no longer
-# --- part of the pipeline; kept only for reference. Edit qat-template.officeUI by hand.
-qat:
-	python3 tools/lib/extract_qat.py $(RIBBON) installer/qat-controls.xml
+# --- QAT: check the curated toolbar against the ribbon, and regenerate the icons-only one ---
+# installer/qat-template.officeUI stays HAND-MAINTAINED: its ordering, separators and the
+# visible="false" entries that suppress Word's own default buttons are all deliberate and
+# cannot be derived from the ribbon. Only its x1:btn_* entries are validated.
+# installer/qat-icons-only.officeUI IS generated - VistaType's icons and nothing else, safe
+# to append to a user's own toolbar. (tools/lib/extract_qat.py remains obsolete/unused.)
+qat: check-qat
 
 # --- Linux-only read helper (no Windows) ---
 read:
@@ -139,4 +150,4 @@ installer-build: check-config stage
 clean:
 	rm -rf dist build
 
-.PHONY: help check-config push-src pull build ribbon qat read deploy stage installer clean
+.PHONY: help check-config push-src pull build ribbon qat check-qat check-frm-eol read deploy stage installer clean
