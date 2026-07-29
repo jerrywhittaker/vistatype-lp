@@ -138,40 +138,54 @@ function Clean-One([string]$Target) {
     # They may also have added icons on top of ours since; those must survive too, so start
     # from the saved original and re-append anything of theirs it does not already contain.
     if ($haveBackup -and ($mode -eq "Vista" -or $left.Count -eq 0)) {
+        # ALWAYS work in the live document, never in the backup.
+        #
+        # The obvious shortcut - load the backup, add the leftovers, save the backup over the
+        # target - loses everything in the live file that is not a toolbar entry. The backup
+        # predates every ribbon change the user has made since installing: their own tabs and
+        # groups, and from 3.0.34 VistaType's tabs too. Saving it over the top throws all of
+        # that away silently, which is the opposite of what this script promises. (It did
+        # exactly that in 3.0.33.)
         [xml]$bakDoc = Get-Content -LiteralPath $bak -Raw
         $bakShared = Shared-Of $bakDoc
         if ($bakShared) {
-            $bakKeys = @{}
+            $keptKeys = @{}
+            foreach ($c in $left) { $k = Key $doc $c; if ($k) { $keptKeys[$k] = $true } }
+
+            # The saved entries go back at the FRONT, in their original order, ahead of
+            # anything the user added on top of ours.
+            $restored = 0
+            $after = $null
             foreach ($c in (Get-Elements $bakShared)) {
                 $k = Key $bakDoc $c
-                if ($k) { $bakKeys[$k] = $true }
-            }
-            $readded = 0
-            foreach ($c in $left) {
-                $k = Key $doc $c
-                if ($k -and $bakKeys.ContainsKey($k)) { continue }
-                # Carry across the namespace declaration the entry's prefix depends on,
-                # or its idQ would dangle in the restored document.
+                if ($k -and $keptKeys.ContainsKey($k)) { continue }   # already there
+                # Carry across the namespace declaration this entry's prefix depends on,
+                # or its idQ would dangle in the live document.
                 $idQ = $c.GetAttribute("idQ")
                 if ($idQ) {
                     $p, $l = Split-IdQ $idQ
                     if ($p -and $p -ne "mso") {
-                        $uri = Resolve-Uri $doc $p
-                        if ($uri -and -not $bakDoc.DocumentElement.GetAttributeNode($p, $XMLNS)) {
-                            $decl = $bakDoc.CreateAttribute("xmlns", $p, $XMLNS)
+                        $uri = Resolve-Uri $bakDoc $p
+                        if ($uri -and -not $doc.DocumentElement.GetAttributeNode($p, $XMLNS)) {
+                            $decl = $doc.CreateAttribute("xmlns", $p, $XMLNS)
                             $decl.Value = $uri
-                            [void]$bakDoc.DocumentElement.Attributes.Append($decl)
+                            [void]$doc.DocumentElement.Attributes.Append($decl)
                         }
                     }
                 }
-                [void]$bakShared.AppendChild($bakDoc.ImportNode($c, $true))
-                $readded++
+                $imported = $doc.ImportNode($c, $true)
+                if ($after) { [void]$shared.InsertAfter($imported, $after) }
+                else        { [void]$shared.PrependChild($imported) }
+                $after = $imported
+                $restored++
             }
-            Save-Xml $bakDoc $Target
-            Write-Log "  $Target : put back the toolbar saved before install, keeping $readded icon(s) added since"
+            Save-Xml $doc $Target
+            Write-Log ("  {0} : put back {1} saved toolbar entry(ies), keeping {2} added since, and every ribbon change" -f $Target, $restored, $left.Count)
         } else {
-            Copy-Item -LiteralPath $bak -Destination $Target -Force
-            Write-Log "  $Target : put back the toolbar saved before install"
+            # The backup has no toolbar section, so there is nothing to put back. Keep the
+            # live document (ours already stripped) rather than copying the backup over it.
+            Save-Xml $doc $Target
+            Write-Log "  $Target : nothing saved to put back; removed our entries only"
         }
     }
     elseif ($left.Count -eq 0 -and (Test-Path -LiteralPath $bak) -and (Get-Item -LiteralPath $bak).Length -eq 0) {

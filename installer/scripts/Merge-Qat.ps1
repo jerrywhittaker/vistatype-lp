@@ -102,6 +102,20 @@ function Get-Elements($node) {
     # ErrorActionPreference=Stop that aborts the whole run.
     @($node.ChildNodes | Where-Object { $_.NodeType -eq 'Element' })
 }
+# Copy across the xmlns declaration an element's idQ prefix depends on, or the reference
+# dangles once the element is imported into a different document.
+function Import-NamespaceFor($destDoc, $srcDoc, $el) {
+    $idQ = $el.GetAttribute("idQ")
+    if (-not $idQ) { return }
+    $p, $l = Split-IdQ $idQ
+    if (-not $p -or $p -eq "mso") { return }
+    $uri = Resolve-Uri $srcDoc $p
+    if ($uri -and -not $destDoc.DocumentElement.GetAttributeNode($p, $XMLNS)) {
+        $decl = $destDoc.CreateAttribute("xmlns", $p, $XMLNS)
+        $decl.Value = $uri
+        [void]$destDoc.DocumentElement.Attributes.Append($decl)
+    }
+}
 
 # --- load a template and pin its x1 namespace to this machine's add-in path ---
 function Load-Template([string]$path) {
@@ -225,14 +239,16 @@ function Apply-One([string]$Target) {
     # A snapshot of whatever was there a moment ago, so any single install is undoable by hand.
     if ($exists) { Copy-Item -LiteralPath $Target -Destination $prev -Force }
 
-    if ($Mode -eq "Restore") {
-        if ((Test-Path -LiteralPath $bak) -and (Get-Item -LiteralPath $bak).Length -gt 0) {
-            Copy-Item -LiteralPath $bak -Destination $Target -Force     # keep the backup itself
-            Write-Log "  put back the pre-VistaType toolbar for $Target"
-            $exists = $true
-        } else {
-            Write-Log "  no pre-VistaType toolbar was saved for $Target; starting from what is there"
-        }
+    # Restore is deliberately NOT done by copying the backup over the file. The backup
+    # predates every ribbon change the user has made since installing - their own tabs and
+    # groups, and from 3.0.34 VistaType's tabs too - so overwriting would silently discard
+    # all of it. Instead the backup's toolbar entries are grafted into the LIVE document
+    # further down, once it has been parsed. (3.0.33 overwrote; that was wrong.)
+    $restoreFromBackup = ($Mode -eq "Restore") -and
+                         (Test-Path -LiteralPath $bak) -and
+                         ((Get-Item -LiteralPath $bak).Length -gt 0)
+    if ($Mode -eq "Restore" -and -not $restoreFromBackup) {
+        Write-Log "  no pre-VistaType toolbar was saved for $Target; starting from what is there"
     }
 
     if ($exists) {
@@ -251,6 +267,25 @@ function Apply-One([string]$Target) {
 
     $vtPrefix  = Ensure-Prefix $root $doc $DotmPath "x1"
     $sepPrefix = Ensure-Prefix $root $doc $MSOX     "msox"
+
+    # Restore: swap the live toolbar entries for the saved ones, in place. Everything else in
+    # the document -- the user's ribbon tabs and groups, and VistaType's -- is left alone.
+    if ($restoreFromBackup) {
+        [xml]$bakDoc = Get-Content -LiteralPath $bak -Raw
+        $bakShared = $bakDoc.SelectSingleNode("//*[local-name()='sharedControls']")
+        if ($bakShared) {
+            foreach ($c in (Get-Elements $shared)) { [void]$shared.RemoveChild($c) }
+            $n = 0
+            foreach ($c in (Get-Elements $bakShared)) {
+                Import-NamespaceFor $doc $bakDoc $c
+                [void]$shared.AppendChild($doc.ImportNode($c, $true))
+                $n++
+            }
+            Write-Log "  put back $n saved toolbar entry(ies) for $Target, leaving every ribbon change alone"
+        } else {
+            Write-Log "  the saved copy for $Target has no toolbar section; nothing to put back"
+        }
+    }
 
     $written = @()
 
