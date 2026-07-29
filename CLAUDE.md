@@ -76,7 +76,7 @@ Installed by the Inno Setup installer (`installer/vistatype.iss`):
 
 - `LPandBRL.dotm` → `%AppData%\Microsoft\Word\STARTUP\` (Word auto-loads it as a global add-in)
 - `LargePrintTemplate.dotx` → `%AppData%\Microsoft\Templates\`; attached to each LP document
-- VistaType's **standard QAT toolbar** (`installer/qat-template.officeUI`) is installed into the user's own `Word.officeUI` (both Roaming and Local), preserving their ribbon and appending their own QAT icons; the embedded ribbon supplies the tabs
+- The **Quick Access Toolbar** is set up per the user's choice on the install wizard (append VistaType's icons / install VistaType's toolbar whole / restore their pre-VistaType one / leave it alone), written to `Word.officeUI` in **both** Roaming and Local; their ribbon is never touched and the embedded ribbon supplies the tabs
 
 ## Repo layout
 
@@ -119,13 +119,39 @@ The ribbon is **embedded** in `LPandBRL.dotm` (`src/ribbon/customUI14.xml`), so 
 with each user's ribbon instead of overwriting it — the old `Word.officeUI` file is no
 longer shipped. Every ribbon button routes through one VBA dispatcher, `RibbonAction`
 (`src/vba/RibbonCallbacks.bas`), which runs the macro named in the control's `tag`. The
-QAT can't be set from a template's customUI, so the **installer** imposes VistaType's standard
-QAT — the full hand-maintained toolbar in `installer/qat-template.officeUI` — via
-`installer/scripts/Merge-Qat.ps1` (uninstall reverses it with `Remove-Qat.ps1`). It is
-non-destructive: only the QAT `sharedControls` are replaced (the user's ribbon customizations are
-kept), any QAT icons the user added themselves are re-appended to the **right** of the VistaType
-block (deduped), and the user's original `Word.officeUI` is backed up (`.vtqatbak`) so uninstall
-restores it (or deletes the file if we created it). Three subtleties that make it actually work:
+QAT can't be set from a template's customUI, so the **installer** sets it up —
+`installer/scripts/Merge-Qat.ps1`, undone by `Remove-Qat.ps1`.
+
+**The user chooses, and the merge is gone (3.0.33).** Up to 3.0.32 the installer merged
+VistaType's curated toolbar into whatever the user had. That is what "caused no end of
+problems": it pushed their icons right, discarded their separators, and hid ten of Word's own
+buttons — **Undo, Redo and AutoSave among them**. Those `visible="false"` entries are not a
+bug; suppressing Word's defaults is the only way to make a curated toolbar look clean. The
+bug was doing it *by merge*, on top of someone else's toolbar. Jerry's call, 7/28/2026:
+**replace, don't merge — save theirs, install ours whole, give them a way back.**
+
+`Merge-Qat.ps1 -Mode` now takes:
+
+| Mode | Behavior | Installer task |
+|---|---|---|
+| `Mine` | Keep their toolbar untouched; append VistaType's icons. Nothing hidden, moved or reordered. | `qat\mine` (default) |
+| `Vista` | Write the curated toolbar whole. No merging at all. | `qat\vista` |
+| `Restore` | Put back `.vtqatbak` (their pre-VistaType toolbar), then append our icons. | `qat\restore`, shown only when `HasQatBackup` |
+| `None` | Touch nothing. | parent task unchecked |
+
+`.vtqatbak` is written **once** and never overwritten, so it is still the user's true
+original years later — that is what makes `Restore` a real rescue. **Never delete it**, not
+even at uninstall. Merge also writes a `.vtqatmanifest` (exactly what it laid down, so
+uninstall removes precisely that and nothing else) and a `.vtqatprev` per-run snapshot;
+both are logged to `%AppData%\VistaType LP\qat.log`.
+
+`Remove-Qat.ps1` no longer restores the whole file over the top — that silently destroyed
+every toolbar *and ribbon* change made since installing. It removes the manifest's entries,
+falls back to identifying ours by namespace when there is no manifest, and only reaches for
+`.vtqatbak` when our removal would leave the toolbar empty (i.e. `Vista` mode) — re-appending
+anything the user added on top of ours.
+
+Three subtleties that make it actually work:
 - **Location:** Word reads `Word.officeUI` from `%APPDATA%` (Roaming) on most machines but from
   `%LOCALAPPDATA%` (Local) when the profile roams/redirects or Office can't roam, so the merge
   writes **both** (Word honors whichever it uses; the other is ignored).
@@ -135,6 +161,13 @@ restores it (or deletes the file if we created it). Three subtleties that make i
   ribbon buttons to the QAT by hand. (Standalone `onAction` macro buttons did **not** display.)
 - **Template:** `qat-template.officeUI` is hand-edited (`__VT_DOTM_PATH__` is substituted with the
   install path at merge time); its `btn_<macro>` ids must match `src/ribbon/customUI14.xml`.
+  `make build` now *enforces* that via `tools/lib/build_qat.py` — they had already drifted
+  (the toolbar carries `ParagraphMarks`, which is not on the tab). It also generates
+  `qat-icons-only.officeUI`. **Never rename the six `btn_*` ids on the hidden tab**: every
+  toolbar already installed in the field references them by `idQ`.
+- **XML comments may not contain `--`.** Word and PowerShell both refuse to parse the file,
+  and the symptom is an install that silently leaves the toolbar alone. `build_qat.py`
+  parse-checks both toolbar files for exactly this reason.
 
 ## Build & edit workflow (short version)
 

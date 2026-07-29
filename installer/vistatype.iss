@@ -4,16 +4,22 @@
 ;  Replaces the manual "copy three files to three locations" procedure.
 ;  Per-user install (no admin needed); everything lands in the user's profile.
 ;
-;  The ribbon is now EMBEDDED in LPandBRL.dotm (customUI14.xml), so there is no
-;  Word.officeUI file to install and the user's own ribbon/QAT is never touched.
+;  The ribbon is EMBEDDED in LPandBRL.dotm (customUI14.xml), so it merges with the
+;  user's ribbon rather than replacing it, and no Word.officeUI ships.
+;
+;  The Quick Access Toolbar is the user's CHOICE, made on the wizard (see [Tasks]).
+;  Until 3.0.32 the VistaType toolbar was merged in unconditionally, which pushed the
+;  user's own icons to the right, discarded their separators, and hid buttons they had
+;  deliberately kept -- Undo among them, because suppressing Word's defaults is the only
+;  way to make a curated toolbar look clean. That merge is gone. Now: keep theirs and
+;  append ours, or install ours whole (theirs saved and restorable), or leave it alone.
 ;
 ;  What it does automatically (each item is a support call it removes):
 ;    * Copies LPandBRL.dotm            -> %AppData%\Microsoft\Word\STARTUP
 ;                                         (creates STARTUP if it doesn't exist)
 ;    * Copies LargePrintTemplate.dotx  -> %AppData%\Microsoft\Templates
-;    * Merges VistaType's QAT icons INTO the user's own Word.officeUI
-;      (Merge-Qat.ps1) -- pre-stocks the quick-access toolbar without touching
-;      the user's ribbon or their own QAT items; uninstall removes only ours
+;    * Sets up the Quick Access Toolbar the way the user asked (Merge-Qat.ps1), always
+;      saving their original first; uninstall removes only what we put there
 ;    * Registers the STARTUP folder as a Word Trusted Location (and allows
 ;      network trusted locations, for roaming/redirected %AppData% profiles)
 ;    * Deletes the obsolete "Large Print Templates" folder
@@ -33,7 +39,7 @@
 ; The literal here is the fallback for building this script by hand, and is kept in step
 ; with the Makefile by "make bump".
 #ifndef AppVer
-  #define AppVer      "3.0.32"
+  #define AppVer      "3.0.33"
 #endif
 #define DotmName    "LPandBRL.dotm"
 #define DotxName    "LargePrintTemplate.dotx"
@@ -75,17 +81,50 @@ Source: "{#SrcDir}\{#DotmName}";   DestDir: "{app}";                            
 ; Large-print styles template -> user Templates folder.
 Source: "{#SrcDir}\{#DotxName}";   DestDir: "{userappdata}\Microsoft\Templates"; Flags: ignoreversion
 ; QAT merge helpers -> a persistent per-user folder (needed again at uninstall).
-Source: "scripts\Merge-Qat.ps1";   DestDir: "{userappdata}\VistaType LP"; Flags: ignoreversion
-Source: "scripts\Remove-Qat.ps1";  DestDir: "{userappdata}\VistaType LP"; Flags: ignoreversion
-Source: "qat-template.officeUI";   DestDir: "{userappdata}\VistaType LP"; Flags: ignoreversion
+Source: "scripts\Merge-Qat.ps1";     DestDir: "{userappdata}\VistaType LP"; Flags: ignoreversion
+Source: "scripts\Remove-Qat.ps1";    DestDir: "{userappdata}\VistaType LP"; Flags: ignoreversion
+; Both toolbars ship whatever the user chose: the curated one, and the append-safe icons.
+; They are tiny, and shipping both means the Switch Toolbar button in Word can move between
+; them later without needing the installer again.
+Source: "qat-template.officeUI";     DestDir: "{userappdata}\VistaType LP"; Flags: ignoreversion
+Source: "qat-icons-only.officeUI";   DestDir: "{userappdata}\VistaType LP"; Flags: ignoreversion
 ; Install a copy of the GPL so the user "receives a copy of the license" per the GPL.
 Source: "{#SrcDir}\LICENSE.txt";   DestDir: "{userappdata}\VistaType LP"; Flags: ignoreversion
 
+[Tasks]
+; Deliberately [Tasks] and not [Components]: components choose which FILES get installed,
+; and all three choices ship identical files -- only a script argument differs. It would
+; also force a "Select Components" page showing "0.0 MB" beside each option, which reads as
+; broken. Tasks additionally get remembered: Inno stores the chosen tasks in the per-user
+; uninstall key and preselects them next time, so an upgrade keeps the user's decision
+; without asking again. (That memory is keyed off AppName -- see the note in [Setup].)
+;
+; Leaving the parent UNCHECKED means "do not touch my toolbar at all", which is only safe
+; because the six VistaType macros are also reachable by keyboard shortcut and from the
+; VistaType LP ribbon tab.
+Name: "qat";          GroupDescription: "Quick Access Toolbar (the small row of icons at the top of the Word window):"; \
+                      Description: "Set up my Quick Access Toolbar for VistaType"
+Name: "qat\mine";     Description: "Keep my toolbar exactly as it is, and add VistaType's icons on the end"; \
+                      Flags: exclusive
+Name: "qat\vista";    Description: "Replace my toolbar with VistaType's standard one (mine is saved, and I can get it back)"; \
+                      Flags: exclusive unchecked
+; Only offered when we actually hold a saved copy, i.e. an earlier VistaType install
+; rewrote their toolbar. checkedonce so a later upgrade stops pestering them about it.
+Name: "qat\restore";  Description: "Put back the toolbar I had before VistaType was installed, then add VistaType's icons"; \
+                      Flags: exclusive unchecked checkedonce; Check: HasQatBackup
+
 [Run]
-; Install VistaType's standard QAT (preserving the user's own icons + ribbon customizations).
+; Exactly one of these runs -- the three tasks above are mutually exclusive, and none runs
+; if the user left the parent unchecked.
 Filename: "powershell.exe"; \
-  Parameters: "-ExecutionPolicy Bypass -NoProfile -File ""{userappdata}\VistaType LP\Merge-Qat.ps1"" -Template ""{userappdata}\VistaType LP\qat-template.officeUI"""; \
-  Flags: runhidden; StatusMsg: "Adding VistaType quick-access icons..."
+  Parameters: "-ExecutionPolicy Bypass -NoProfile -File ""{userappdata}\VistaType LP\Merge-Qat.ps1"" -Mode Mine -FullTemplate ""{userappdata}\VistaType LP\qat-template.officeUI"" -IconsTemplate ""{userappdata}\VistaType LP\qat-icons-only.officeUI"""; \
+  Tasks: qat\mine; Flags: runhidden; StatusMsg: "Adding VistaType icons to your Quick Access Toolbar..."
+Filename: "powershell.exe"; \
+  Parameters: "-ExecutionPolicy Bypass -NoProfile -File ""{userappdata}\VistaType LP\Merge-Qat.ps1"" -Mode Vista -FullTemplate ""{userappdata}\VistaType LP\qat-template.officeUI"" -IconsTemplate ""{userappdata}\VistaType LP\qat-icons-only.officeUI"""; \
+  Tasks: qat\vista; Flags: runhidden; StatusMsg: "Installing VistaType's standard Quick Access Toolbar..."
+Filename: "powershell.exe"; \
+  Parameters: "-ExecutionPolicy Bypass -NoProfile -File ""{userappdata}\VistaType LP\Merge-Qat.ps1"" -Mode Restore -FullTemplate ""{userappdata}\VistaType LP\qat-template.officeUI"" -IconsTemplate ""{userappdata}\VistaType LP\qat-icons-only.officeUI"""; \
+  Tasks: qat\restore; Flags: runhidden; StatusMsg: "Putting back your original Quick Access Toolbar..."
 
 [UninstallRun]
 ; Remove only VistaType's QAT icons, leaving the user's own ribbon/QAT intact.
@@ -110,6 +149,32 @@ Type: filesandordirs; Name: "{userappdata}\VistaType LP"
 const
   WORD_CLASS    = 'OpusApp';           { Word main window class }
   OUTLOOK_CLASS = 'rctrl_renwnd32';    { Outlook main window class }
+
+{ --- Do we hold a saved copy of the toolbar this user had before VistaType touched it?
+      Merge-Qat.ps1 writes <file>.vtqatbak once and never overwrites it, so on a machine
+      that has had VistaType for years this is still their true original. A ZERO-length
+      file is the sentinel meaning "there was no toolbar file before us" - there is nothing
+      to put back in that case, so it must not count.
+
+      Gates the "put back the toolbar I had" task: offering it on a machine with nothing
+      saved would promise a rescue we cannot perform. --- }
+function NonEmptyFile(const Path: String): Boolean;
+var
+  Size: Integer;
+begin
+  Result := False;
+  if FileExists(Path) then
+    if FileSize(Path, Size) then
+      Result := Size > 0;
+end;
+
+function HasQatBackup(): Boolean;
+begin
+  { Both locations: Word reads Roaming on most machines, Local when the profile roams. }
+  Result := NonEmptyFile(ExpandConstant('{userappdata}\Microsoft\Office\Word.officeUI.vtqatbak'));
+  if not Result then
+    Result := NonEmptyFile(ExpandConstant('{localappdata}\Microsoft\Office\Word.officeUI.vtqatbak'));
+end;
 
 { --- Is a process running? Checked by NAME, not by window: Word can be running with no
       window at all - left behind by a crashed session, or started by Outlook as its mail

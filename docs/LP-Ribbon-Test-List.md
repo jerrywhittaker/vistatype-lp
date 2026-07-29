@@ -163,6 +163,10 @@ quotes where I could read it out of the form's `.frx`.
 
 ## LP and BRL QAT Icons
 
+> This tab is **hidden** (`visible="false"`) and will not appear on the ribbon — that is
+> correct. It exists only so the Quick Access Toolbar entries have ribbon controls to point
+> at. Test these six **from the Quick Access Toolbar**, not from a tab. They also have
+> keyboard shortcuts (Document Settings is Ctrl+Alt+Shift+I).
 
 ### QAT icons
 

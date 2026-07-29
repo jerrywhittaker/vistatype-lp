@@ -7,8 +7,9 @@ VistaType LP adds tools to Microsoft Word for producing **large-print** document
 installing it with the new **one-click installer**.
 
 > If you used an older version, you no longer copy files by hand or export your Quick
-> Access Toolbar first. The installer does everything, and it **does not disturb your
-> existing ribbon or Quick Access Toolbar**.
+> Access Toolbar first. The installer does everything, it **never disturbs your existing
+> ribbon**, and it **asks what to do about your Quick Access Toolbar** rather than
+> deciding for you.
 
 ---
 
@@ -42,7 +43,7 @@ So you know exactly what changed on your computer:
 | The macros (`LPandBRL.dotm`) | Word **STARTUP** folder | Loads automatically every time Word opens |
 | The large-print template (`LargePrintTemplate.dotx`) | Your **Templates** folder | Holds the large-print styles |
 | Two ribbon tabs: **VistaType LP** and **Braille Macros** | Word ribbon | **Added next to your existing tabs** — your ribbon is not replaced |
-| Quick Access Toolbar icons | Your QAT | **Added to** your toolbar — your own icons are kept |
+| Quick Access Toolbar icons | Your QAT | **You choose** during install — see below. The default adds VistaType’s icons to the end of your toolbar and changes nothing else |
 | Trust settings so macros run | Word Trust Center | Marks the STARTUP folder as trusted (including network/roaming profiles) |
 | Removed leftover files from old versions | Templates folder | Cleans up the obsolete “Large Print Templates” folder |
 
@@ -59,22 +60,34 @@ If the tabs are there and buttons respond, you’re ready to go.
 
 ---
 
-## Your ribbon and Quick Access Toolbar are safe
+## Your Quick Access Toolbar — you decide
 
-Unlike older versions, this installer **merges** its buttons in rather than overwriting
-your customizations:
+The Quick Access Toolbar is the small row of icons at the very top of the Word window.
+Many people spend years building theirs, so from version 3.0.33 the installer **asks**
+rather than assuming. There is a page in the wizard with three choices:
 
-- Your own ribbon tabs and groups are untouched.
-- Your own Quick Access Toolbar icons stay exactly where they were.
-- You do **not** need to export or back up your QAT before installing.
+| Choice | What happens |
+|---|---|
+| **Keep my toolbar exactly as it is, and add VistaType’s icons on the end** *(default)* | Nothing of yours is moved, hidden, or reordered. VistaType’s six icons are added after your own, with a divider before them. |
+| **Replace my toolbar with VistaType’s standard one** | You get VistaType’s full toolbar, laid out for transcription work. Your own toolbar is saved first, and you can have it back at any time. |
+| **Put back the toolbar I had before VistaType was installed** | Offered only if we are holding a saved copy — that is, an earlier VistaType version had rewritten your toolbar. One click undoes that. |
 
-### Restoring a Quick Access Toolbar icon you removed
+Untick the box at the top of that page and VistaType will not touch your toolbar at all.
 
-If you accidentally remove one of the VistaType icons from your Quick Access Toolbar:
+**Your ribbon is never touched, whichever you choose.** Your own ribbon tabs and groups
+are left exactly as they are; the **VistaType LP** and **Braille Macros** tabs are added
+alongside them.
 
-1. Go to the **LP and BRL QAT Icons** tab.
-2. **Right-click** the icon you want back.
-3. Choose **Add to Quick Access Toolbar**.
+> **Earlier versions did not ask.** Up to 3.0.32 the installer merged its toolbar into
+> yours, which pushed your icons to the right, removed dividers you had placed, and hid
+> some of Word’s own buttons — Undo among them. If that happened to you, the third choice
+> above puts it right. Your original was saved at the time and is still there.
+
+### Restoring a VistaType icon you removed
+
+Run the installer again and choose **Keep my toolbar exactly as it is, and add
+VistaType’s icons on the end**. It puts back any of the six that are missing and leaves
+everything else alone. Running it twice changes nothing the second time.
 
 ---
 
@@ -94,7 +107,11 @@ existing installation — nothing is duplicated.
 2. Find **VistaType LP + Braille Macros** and choose **Uninstall**.
 
 Uninstalling removes the macros, the template, and **only the VistaType Quick Access
-Toolbar icons** — your own ribbon and toolbar customizations are left in place.
+Toolbar icons** — your own ribbon and toolbar customizations are left in place, including
+anything you added *after* installing VistaType.
+
+If you had chosen VistaType’s standard toolbar, uninstalling puts back the toolbar you
+had before — and keeps any icons you added on top of ours in the meantime.
 
 ---
 
@@ -116,8 +133,9 @@ This usually means the icons are there but hidden — not that the install faile
   chevron at its end to see the overflow.
 - **Give the toolbar more room.** Right-click the toolbar → **Show Quick Access Toolbar
   Below the Ribbon.** Below the ribbon it spans the full width and hides fewer icons.
-- **Still missing one?** Add it back from the **LP and BRL QAT Icons** tab: right-click
-  the icon → **Add to Quick Access Toolbar**.
+- **Still missing one?** Run the installer again and choose **Keep my toolbar exactly as
+  it is, and add VistaType’s icons on the end.** It restores any of the six that are
+  missing and leaves the rest of your toolbar alone.
 
 ### “The VistaType LP / Braille Macros tabs don’t appear”
 
@@ -164,6 +182,8 @@ that folder directly. Close Word first, then reopen it after copying.
 
 > With a manual install, the ribbon tabs still appear (they’re built into
 > `LPandBRL.dotm`), but the Quick Access Toolbar icons are **not** added automatically.
-> Add the ones you want from the **LP and BRL QAT Icons** tab (right-click → *Add to
-> Quick Access Toolbar*). You may also need to confirm the STARTUP folder is a trusted
-> location in the Trust Center.
+> Everything is still reachable: the tools are on the **VistaType LP** and **Braille
+> Macros** tabs, and the keyboard shortcuts work (Ctrl+Alt+Shift+I for Document Settings,
+> for instance). To put an icon on your toolbar yourself, right-click any VistaType ribbon
+> button → *Add to Quick Access Toolbar*. You may also need to confirm the STARTUP folder
+> is a trusted location in the Trust Center.

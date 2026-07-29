@@ -179,6 +179,9 @@ somewhere else on purpose:
 
 ## Tab: LP and BRL QAT Icons
 
+> Hidden by design (`visible="false"`) — it will not appear on the ribbon. It exists only
+> so the Quick Access Toolbar's entries have ribbon controls to resolve against. Test these
+> six from the **Quick Access Toolbar** (or by keyboard shortcut), not from a tab.
 
 ### (no label - QAT icons)
 

@@ -1,26 +1,47 @@
 <#
 Merge-Qat.ps1  --  run by the installer, per-user, on the target machine.
 
-Installs VistaType's standard Quick Access Toolbar (from qat-template.officeUI) while being
-non-destructive to the user:
-  * Only the QAT sharedControls are replaced; the user's ribbon customizations (tabs, etc.)
-    in Word.officeUI are left untouched.
-  * Any QAT icons the user added themselves are preserved and re-appended to the RIGHT of the
-    VistaType block (deduped against it).
-  * The user's original Word.officeUI is backed up (once) so uninstall can restore it.
+Sets up the user's Quick Access Toolbar according to what they chose in the installer.
 
-Two things that make it actually work (learned the hard way):
+  -Mode Vista    Install VistaType's standard toolbar WHOLE. Their own toolbar is saved
+                 first and can be had back at any time (Restore, or the Switch Toolbar
+                 button in Word).
+  -Mode Mine     Leave their toolbar as it is and append VistaType's own icons on the end.
+                 Nothing of theirs is hidden, moved or reordered.
+  -Mode Restore  Put back the toolbar they had before VistaType was ever installed, then
+                 append VistaType's icons. This is the rescue for anyone whose toolbar an
+                 older VistaType install rewrote.
+  -Mode None     Do not touch the toolbar at all.
+
+Replaces the old merge behavior deliberately. Merging VistaType's curated toolbar INTO the
+user's was the source of the trouble: it pushed their icons right, discarded their
+separators, and hid buttons they had chosen to keep (Undo among them) because suppressing
+Word's defaults is the only way to make a curated toolbar look clean. Whole-replace plus a
+way back is honest; merging was not.
+
+Two things that make this work at all (learned the hard way):
   1. LOCATION. Word reads Word.officeUI from %APPDATA% (Roaming) on most machines but from
      %LOCALAPPDATA% (Local) when the profile roams/redirects or Office can't roam. We don't
      know which a machine uses, so we write BOTH.
-  2. FORMAT. VistaType QAT buttons are REFERENCES to the add-in's own ribbon controls
+  2. FORMAT. VistaType toolbar buttons are REFERENCES to the add-in's own ribbon controls
      (<mso:control idQ="x1:btn_<macro>"> with x1 = the installed .dotm's path) -- the exact
-     shape Word writes when a user adds one of our ribbon buttons to the QAT by hand.
+     shape Word writes when a user adds one of our ribbon buttons to the toolbar by hand.
 
-Usage:  powershell -ExecutionPolicy Bypass -File Merge-Qat.ps1 -Template qat-template.officeUI
+Word must not be running: it reads this file at startup and would not see the change.
+(Verified 7/28/2026: Word does NOT rewrite the file on exit, and does not lock it.)
+
+Usage:
+  powershell -ExecutionPolicy Bypass -File Merge-Qat.ps1 -Mode Mine `
+      -FullTemplate qat-template.officeUI -IconsTemplate qat-icons-only.officeUI
 #>
 param(
-    [Parameter(Mandatory=$true)][string]$Template
+    [Parameter(Mandatory=$true)][ValidateSet("Vista","Mine","Restore","None")][string]$Mode,
+    [string]$FullTemplate,
+    [string]$IconsTemplate,
+    # Testing only. The installer never passes this; leaving it unset uses the two real
+    # locations below. It exists so the modes can be exercised against sample toolbar files
+    # without touching the machine's own Word setup.
+    [string[]]$TargetPaths
 )
 $ErrorActionPreference = "Stop"
 
@@ -28,11 +49,23 @@ $MSO      = "http://schemas.microsoft.com/office/2009/07/customui"
 $MSOX     = "http://schemas.microsoft.com/office/2006/01/customui/special"
 $XMLNS    = "http://www.w3.org/2000/xmlns/"
 $DotmPath = Join-Path $env:APPDATA "Microsoft\Word\STARTUP\LPandBRL.dotm"
+$LogDir   = Join-Path $env:APPDATA "VistaType LP"
+$LogFile  = Join-Path $LogDir "qat.log"
 
-$Targets = @(
+$Targets = if ($TargetPaths) { $TargetPaths } else { @(
     (Join-Path $env:APPDATA      "Microsoft\Office\Word.officeUI"),
     (Join-Path $env:LOCALAPPDATA "Microsoft\Office\Word.officeUI")
-)
+) }
+
+function Write-Log($msg) {
+    try {
+        if (-not (Test-Path -LiteralPath $LogDir)) {
+            New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
+        }
+        Add-Content -LiteralPath $LogFile -Value ("{0}  {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $msg)
+    } catch { }
+    Write-Host $msg
+}
 
 function Split-IdQ($idQ) {
     $i = $idQ.IndexOf(":")
@@ -64,32 +97,144 @@ function Get-OrCreate($doc, $ns, $parent, $name) {
     if (-not $n) { $n = $doc.CreateElement("mso", $name, $MSO); [void]$parent.AppendChild($n) }
     return $n
 }
-
-# --- Load the template and pin its x1 namespace to this machine's add-in path. ---
-$tplText = (Get-Content -LiteralPath $Template -Raw).Replace("__VT_DOTM_PATH__", $DotmPath)
-[xml]$tpl = $tplText
-$tplShared = $tpl.SelectSingleNode("//*[local-name()='sharedControls']")
-$tplItems  = @($tplShared.ChildNodes | Where-Object { $_.NodeType -eq 'Element' })
-
-# (uri|local) set the template provides, so user items already covered aren't re-added.
-$tplKeys = @{}
-foreach ($it in $tplItems) {
-    $idQ = $it.GetAttribute("idQ"); if (-not $idQ) { continue }
-    $p, $l = Split-IdQ $idQ
-    $tplKeys["$(Resolve-Uri $tpl $p)|$l"] = $true
+function Get-Elements($node) {
+    # Always filter to elements: a comment or whitespace node has no GetAttribute, and under
+    # ErrorActionPreference=Stop that aborts the whole run.
+    @($node.ChildNodes | Where-Object { $_.NodeType -eq 'Element' })
 }
 
-function Merge-One([string]$Target) {
-    # Back up the pristine original ONCE, for uninstall. If there is no original (we're
-    # creating the file), leave an EMPTY sentinel so a re-run never captures our own output
-    # and uninstall knows to delete the file rather than "restore" a VistaType QAT.
-    $bak = "$Target.vtqatbak"
+# --- load a template and pin its x1 namespace to this machine's add-in path ---
+function Load-Template([string]$path) {
+    if (-not $path)                        { throw "no template path supplied for -Mode $Mode" }
+    if (-not (Test-Path -LiteralPath $path)) { throw "template not found: $path" }
+    $text = (Get-Content -LiteralPath $path -Raw).Replace("__VT_DOTM_PATH__", $DotmPath)
+    [xml]$doc = $text
+    $shared = $doc.SelectSingleNode("//*[local-name()='sharedControls']")
+    if (-not $shared) { throw "no sharedControls in $path" }
+    return @{ Doc = $doc; Items = (Get-Elements $shared) }
+}
+
+# --- copy a template element into the target document, remapping its namespace prefixes ---
+function Copy-Item-Element($doc, $item, $vtPrefix, $sepPrefix) {
+    $el = $doc.CreateElement("mso", $item.LocalName, $MSO)
+    foreach ($a in $item.Attributes) {
+        $val = $a.Value
+        if ($a.Name -eq "idQ") {
+            $p, $l = Split-IdQ $val
+            if     ($p -eq "x1")   { $val = "${vtPrefix}:$l" }
+            elseif ($p -eq "msox") { $val = "${sepPrefix}:$l" }
+        }
+        $el.SetAttribute($a.Name, $val)
+    }
+    return $el
+}
+
+function Save-Xml($doc, $path) {
+    $settings = New-Object System.Xml.XmlWriterSettings
+    $settings.Encoding = New-Object System.Text.UTF8Encoding($false)   # UTF-8, no BOM: Word requires it
+    $writer = [System.Xml.XmlWriter]::Create($path, $settings)
+    try { $doc.Save($writer) } finally { $writer.Close() }
+}
+
+# --- record exactly what we wrote, so uninstall can remove precisely that and nothing else ---
+function Write-Manifest([string]$target, $elements, $doc) {
+    $man = "$target.vtqatmanifest"
+    $lines = @("# VistaType QAT manifest -- what this install wrote. Do not edit.",
+               "mode=$Mode",
+               "written=$(Get-Date -Format o)")
+    foreach ($el in $elements) {
+        $idQ = $el.GetAttribute("idQ")
+        if ($idQ) {
+            $p, $l = Split-IdQ $idQ
+            $uri = Resolve-Uri $doc $p
+            $lines += "item=$($el.LocalName)|$uri|$l"
+        }
+    }
+    Set-Content -LiteralPath $man -Value $lines -Encoding UTF8
+}
+
+# --- the entries a previous VistaType install laid down, for Mine/Restore to take back out ---
+function Remove-OurEntries($doc, $shared, $fullItems) {
+    $removed = 0
+    $existing = Get-Elements $shared
+
+    # 1) Anything whose namespace is the add-in itself is unambiguously ours.
+    foreach ($c in $existing) {
+        $idQ = $c.GetAttribute("idQ"); if (-not $idQ) { continue }
+        $p, $l = Split-IdQ $idQ
+        $uri = Resolve-Uri $doc $p
+        if ($uri -and $uri -like "*LPandBRL.dotm") { [void]$shared.RemoveChild($c); $removed++ }
+    }
+
+    # 2) The built-in Word entries the curated toolbar imposes are indistinguishable from a
+    #    user's own by inspection, so only strip them when the curated block is present in
+    #    full, in template order -- a fingerprint strong enough to be sure we wrote it.
+    if ($fullItems) {
+        $want = @()
+        foreach ($it in $fullItems) {
+            $idQ = $it.GetAttribute("idQ")
+            if ($idQ) { $p, $l = Split-IdQ $idQ; if ($p -eq "mso") { $want += $l } }
+        }
+        $have = @()
+        foreach ($c in (Get-Elements $shared)) {
+            $idQ = $c.GetAttribute("idQ")
+            if ($idQ) { $p, $l = Split-IdQ $idQ; if ($p -eq "mso") { $have += $l } }
+        }
+        if ($want.Count -gt 0 -and $have.Count -ge $want.Count) {
+            $prefixMatches = $true
+            for ($i = 0; $i -lt $want.Count; $i++) {
+                if ($have[$i] -ne $want[$i]) { $prefixMatches = $false; break }
+            }
+            if ($prefixMatches) {
+                $n = 0
+                foreach ($c in (Get-Elements $shared)) {
+                    if ($n -ge $want.Count) { break }
+                    $idQ = $c.GetAttribute("idQ")
+                    if ($idQ) {
+                        $p, $l = Split-IdQ $idQ
+                        if ($p -eq "mso") { [void]$shared.RemoveChild($c); $removed++; $n++ }
+                    }
+                }
+                Write-Log "  recognised VistaType's standard toolbar and took it back out"
+            }
+        }
+    }
+
+    # 3) Our separators (the special namespace) only ever come from us.
+    foreach ($c in (Get-Elements $shared)) {
+        if ($c.LocalName -ne "separator") { continue }
+        $idQ = $c.GetAttribute("idQ"); if (-not $idQ) { continue }
+        if ($idQ -match "^[^:]+:(vtsep|sep)\d+$") { [void]$shared.RemoveChild($c); $removed++ }
+    }
+    return $removed
+}
+
+function Apply-One([string]$Target) {
+    $bak  = "$Target.vtqatbak"
+    $prev = "$Target.vtqatprev"
     $exists = Test-Path -LiteralPath $Target
     if (-not $exists) { New-Item -ItemType Directory -Force -Path (Split-Path $Target) | Out-Null }
+
+    # The pristine pre-VistaType toolbar, captured ONCE and never overwritten. On a machine
+    # that has had VistaType for years this is still their true original -- it is what makes
+    # "put back the toolbar I had" possible at all. Never delete it.
     if (-not (Test-Path -LiteralPath $bak)) {
         if ($exists) { Copy-Item -LiteralPath $Target -Destination $bak -Force }
-        else         { New-Item -ItemType File -Path $bak -Force | Out-Null }
+        else         { New-Item -ItemType File -Path $bak -Force | Out-Null }   # empty = we created the file
     }
+    # A snapshot of whatever was there a moment ago, so any single install is undoable by hand.
+    if ($exists) { Copy-Item -LiteralPath $Target -Destination $prev -Force }
+
+    if ($Mode -eq "Restore") {
+        if ((Test-Path -LiteralPath $bak) -and (Get-Item -LiteralPath $bak).Length -gt 0) {
+            Copy-Item -LiteralPath $bak -Destination $Target -Force     # keep the backup itself
+            Write-Log "  put back the pre-VistaType toolbar for $Target"
+            $exists = $true
+        } else {
+            Write-Log "  no pre-VistaType toolbar was saved for $Target; starting from what is there"
+        }
+    }
+
     if ($exists) {
         [xml]$doc = Get-Content -LiteralPath $Target -Raw
     } else {
@@ -104,44 +249,73 @@ function Merge-One([string]$Target) {
     $qat    = Get-OrCreate $doc $ns $ribbon "qat"
     $shared = Get-OrCreate $doc $ns $qat    "sharedControls"
 
-    # Prefixes for the template's custom namespaces (add-in path + separators ns).
     $vtPrefix  = Ensure-Prefix $root $doc $DotmPath "x1"
     $sepPrefix = Ensure-Prefix $root $doc $MSOX     "msox"
 
-    # Snapshot the user's existing QAT items, then clear the block.
-    $userItems = @($shared.ChildNodes | Where-Object { $_.NodeType -eq 'Element' })
-    foreach ($c in $userItems) { [void]$shared.RemoveChild($c) }
+    $written = @()
 
-    # 1) Lay down the VistaType standard toolbar (template), rewriting its custom-ns prefixes.
-    foreach ($it in $tplItems) {
-        $el = $doc.CreateElement("mso", $it.LocalName, $MSO)
-        foreach ($a in $it.Attributes) {
-            $val = $a.Value
-            if ($a.Name -eq "idQ") {
-                $p, $l = Split-IdQ $val
-                if     ($p -eq "x1")   { $val = "${vtPrefix}:$l" }
-                elseif ($p -eq "msox") { $val = "${sepPrefix}:$l" }
-            }
-            $el.SetAttribute($a.Name, $val)
+    if ($Mode -eq "Vista") {
+        # Whole replacement. No merging: their toolbar is saved, not blended.
+        $full = Load-Template $FullTemplate
+        foreach ($c in (Get-Elements $shared)) { [void]$shared.RemoveChild($c) }
+        foreach ($it in $full.Items) {
+            $el = Copy-Item-Element $doc $it $vtPrefix $sepPrefix
+            [void]$shared.AppendChild($el)
+            $written += $el
         }
-        [void]$shared.AppendChild($el)
+        Write-Log "  installed VistaType's standard toolbar ($($full.Items.Count) entries) into $Target"
+
+    } else {
+        # Mine / Restore: keep what is there, take out anything a previous VistaType install
+        # put in, then append our icons on the end.
+        $fullItems = $null
+        if ($FullTemplate -and (Test-Path -LiteralPath $FullTemplate)) {
+            $fullItems = (Load-Template $FullTemplate).Items
+        }
+        $stripped = Remove-OurEntries $doc $shared $fullItems
+        if ($stripped -gt 0) { Write-Log "  removed $stripped entry(ies) left by a previous VistaType install" }
+
+        $icons = Load-Template $IconsTemplate
+        $have = @{}
+        foreach ($c in (Get-Elements $shared)) {
+            $idQ = $c.GetAttribute("idQ"); if (-not $idQ) { continue }
+            $p, $l = Split-IdQ $idQ
+            $have["$(Resolve-Uri $doc $p)|$l"] = $true
+        }
+        $added = 0
+        foreach ($it in $icons.Items) {
+            $idQ = $it.GetAttribute("idQ")
+            if ($idQ) {
+                $p, $l = Split-IdQ $idQ
+                $uri = if ($p -eq "x1") { $DotmPath } elseif ($p -eq "msox") { $MSOX } else { Resolve-Uri $icons.Doc $p }
+                if ($have.ContainsKey("$uri|$l")) { continue }
+            }
+            $el = Copy-Item-Element $doc $it $vtPrefix $sepPrefix
+            [void]$shared.AppendChild($el)
+            $written += $el
+            $added++
+        }
+        Write-Log "  kept the existing toolbar and added $added VistaType icon(s) to $Target"
     }
 
-    # 2) Re-append the user's own QAT icons to the RIGHT: skip separators and anything the
-    #    template already provides (deduped by resolved namespace + local name).
-    foreach ($u in $userItems) {
-        if ($u.LocalName -eq "separator") { continue }
-        $idQ = $u.GetAttribute("idQ"); if (-not $idQ) { continue }
-        $p, $l = Split-IdQ $idQ
-        if ($tplKeys.ContainsKey("$(Resolve-Uri $doc $p)|$l")) { continue }
-        [void]$shared.AppendChild($u)     # keeps its own prefix, whose decl is still on root
-    }
-
-    $settings = New-Object System.Xml.XmlWriterSettings
-    $settings.Encoding = New-Object System.Text.UTF8Encoding($false)  # UTF-8, no BOM
-    $writer = [System.Xml.XmlWriter]::Create($Target, $settings)
-    try { $doc.Save($writer) } finally { $writer.Close() }
-    Write-Host "Installed VistaType QAT into $Target"
+    Save-Xml $doc $Target
+    Write-Manifest $Target $written $doc
 }
 
-foreach ($t in $Targets) { Merge-One $t }
+# ---------------------------------------------------------------------------------------
+Write-Log "Merge-Qat -Mode $Mode"
+
+if ($Mode -eq "None") {
+    Write-Log "  leaving the Quick Access Toolbar untouched, as chosen"
+    return
+}
+
+foreach ($t in $Targets) {
+    try {
+        Apply-One $t
+    } catch {
+        # One bad or unreadable file must not abort the install, and must not stop the other
+        # location being written -- Word only reads one of the two.
+        Write-Log "  !! $t : $($_.Exception.Message)"
+    }
+}
