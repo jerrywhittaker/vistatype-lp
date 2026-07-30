@@ -129,10 +129,13 @@ thing trusting that folder was our key. Keep it.
 network share. That is the case `AllowNetworkLocations` exists for, and an institutional
 profile is the only way to see it.
 
-### Windows elevates the uninstaller, and we cannot stop it
+### A one-off UAC prompt on uninstall (not reproducible)
 
-Uninstalling raises a UAC prompt ("...from an unknown publisher..."), reported 7/30/2026.
-It is **not** ours to fix, and the file is not at fault — verified by parsing the PE:
+Uninstalling raised a UAC prompt ("...from an unknown publisher...") once on 7/30/2026, and
+the uninstall worked. **Uninstalling 3.0.37 immediately afterwards produced no prompt at
+all**, so whatever caused it was transient.
+
+The file is not at fault — verified by parsing the PE:
 
 ```
 unins000.exe  32-bit, RT_MANIFEST resource present
@@ -140,21 +143,28 @@ unins000.exe  32-bit, RT_MANIFEST resource present
 ```
 
 No `AppCompatFlags\Layers` entry forces it either, and there is only one uninstaller
-registered. What triggers it is Windows' **installer-detection heuristic**, which elevates
-executables whose *filename* looks like an installer; Inno Setup names every uninstaller
-`unins000.exe` and offers no way to rename it. `Setup.exe` escapes the same fate only
-because `VistaType LP and Braille Macros Setup <ver>.exe` does not match the pattern.
+registered.
 
-For an administrator it is one extra click and the uninstall works. **The open risk is a
-transcriber who is not a local administrator** on a school or agency machine: they would be
-asked for credentials they do not have and could not uninstall at all. Untested — it needs a
-standard (non-admin) local account, which is a 20-minute test on the build box and does not
-need Word, since nothing has to be opened.
+The first explanation reached for was Windows' installer-detection heuristic, which elevates
+executables whose *filename* looks like an installer — and `unins000.exe` does. **That
+explanation is wrong**, and worth recording as wrong: the filename is identical in every
+version, so it would prompt every time, and it does not.
 
-The real fix is **code-signing** the installer and uninstaller. A signed binary carries a
-named publisher, is not treated as a legacy unsigned installer, and also removes the
-SmartScreen warning transcribers currently get downloading the `.exe` from GitHub. That is a
-purchase and a yearly renewal, so it is Jerry's decision rather than a task.
+The likelier cause is what that machine had just been through. Several installers were
+deliberately aborted that day while testing the Word-is-running guard, and one was
+force-killed mid-run. Windows' Program Compatibility Assistant reacts to installers that
+terminate abnormally and can elevate subsequent runs; a normal install-and-uninstall cycle
+appears to have cleared it. That makes it an artefact of testing rather than something a
+transcriber would meet.
+
+Not chased further, because it is not reproducible. If it ever recurs on a machine that has
+*not* had installers killed under it, that changes things and it is worth reopening — check
+`AppCompatFlags\Layers` and the Compatibility Assistant `Store` first.
+
+Separately, and regardless of this: **code-signing** would remove the SmartScreen warning
+transcribers get downloading the `.exe` from GitHub, and put a real publisher name on any
+prompt they do see. That is a purchase with a yearly renewal, so it is Jerry's decision
+rather than a task.
 
 **Known gap:** `Vt_Put_Tabs_Back_On_Ribbon` (in `RibbonCallbacks.bas`) restores the add-in's
 own tabs for someone who deleted the installed ones, but has no button yet — it can only be
