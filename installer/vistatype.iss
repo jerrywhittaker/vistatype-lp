@@ -47,7 +47,7 @@
 ; The literal here is the fallback for building this script by hand, and is kept in step
 ; with the Makefile by "make bump".
 #ifndef AppVer
-  #define AppVer      "3.0.37"
+  #define AppVer      "3.0.40"
 #endif
 #define DotmName    "LPandBRL.dotm"
 #define DotxName    "LargePrintTemplate.dotx"
@@ -113,15 +113,18 @@ Source: "{#SrcDir}\LICENSE.txt";   DestDir: "{userappdata}\VistaType LP"; Flags:
 ; Leaving the parent UNCHECKED means "do not touch my toolbar at all", which is only safe
 ; because the six VistaType macros are also reachable by keyboard shortcut and from the
 ; VistaType LP ribbon tab.
+; The wording deliberately names BOTH halves of the product. The six icons on this toolbar
+; are Lp_, Dx_ and Sh_ macros - it serves large print and braille alike - so calling it
+; "VistaType" alone reads as if braille users need not bother. (Jerry, 7/30/2026.)
 Name: "qat";          GroupDescription: "Quick Access Toolbar (the small row of icons at the top of the Word window):"; \
-                      Description: "Set up my Quick Access Toolbar for VistaType"
-Name: "qat\mine";     Description: "Keep my toolbar exactly as it is, and add VistaType's icons on the end"; \
+                      Description: "Set up my Quick Access Toolbar for VistaType LP and Braille Macros"
+Name: "qat\mine";     Description: "Keep my toolbar exactly as it is, and add the VistaType LP and Braille Macros icons on the end"; \
                       Flags: exclusive
-Name: "qat\vista";    Description: "Replace my toolbar with VistaType's standard one (mine is saved, and I can get it back)"; \
+Name: "qat\vista";    Description: "Replace my toolbar with the standard VistaType LP and Braille Macros toolbar (mine is saved, and I can get it back)"; \
                       Flags: exclusive unchecked
 ; Only offered when we actually hold a saved copy, i.e. an earlier VistaType install
 ; rewrote their toolbar. checkedonce so a later upgrade stops pestering them about it.
-Name: "qat\restore";  Description: "Put back the toolbar I had before VistaType was installed, then add VistaType's icons"; \
+Name: "qat\restore";  Description: "Put back the toolbar I had before VistaType LP and Braille Macros was installed, then add its icons"; \
                       Flags: exclusive unchecked checkedonce; Check: HasQatBackup
 
 ; Separate top-level task, NOT a child of qat: those three are Flags: exclusive, and a
@@ -131,7 +134,7 @@ Name: "qat\restore";  Description: "Put back the toolbar I had before VistaType 
 ; Unchecked leaves the tabs exactly as they were before 3.0.34 -- supplied by the add-in,
 ; and not listed in Customize the Ribbon. So nobody can end up with no tabs at all.
 Name: "ribbontabs"; GroupDescription: "Ribbon tabs:"; \
-                    Description: "Put the VistaType tabs on my ribbon, so I can hide, rename and reorder them"
+                    Description: "Put the VistaType LP and Braille Macros tabs on my ribbon, so I can hide, rename and reorder them"
 
 [Run]
 ; At most one of the first three runs -- the qat tasks are mutually exclusive, and none runs

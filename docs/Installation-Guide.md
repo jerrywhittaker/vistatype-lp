@@ -68,9 +68,9 @@ rather than assuming. There is a page in the wizard with three choices:
 
 | Choice | What happens |
 |---|---|
-| **Keep my toolbar exactly as it is, and add VistaType’s icons on the end** *(default)* | Nothing of yours is moved, hidden, or reordered. VistaType’s six icons are added after your own, with a divider before them. |
-| **Replace my toolbar with VistaType’s standard one** | You get VistaType’s full toolbar, laid out for transcription work. Your own toolbar is saved first, and you can have it back at any time. |
-| **Put back the toolbar I had before VistaType was installed** | Offered only if we are holding a saved copy — that is, an earlier VistaType version had rewritten your toolbar. One click undoes that. |
+| **Keep my toolbar exactly as it is, and add the VistaType LP and Braille Macros icons on the end** *(default)* | Nothing of yours is moved, hidden, or reordered. VistaType’s six icons are added after your own, with a divider before them. |
+| **Replace my toolbar with the standard VistaType LP and Braille Macros toolbar** | You get VistaType’s full toolbar, laid out for transcription work. Your own toolbar is saved first, and you can have it back at any time. |
+| **Put back the toolbar I had before VistaType LP and Braille Macros was installed** | Offered only if we are holding a saved copy — that is, an earlier VistaType version had rewritten your toolbar. One click undoes that. |
 
 Untick the box at the top of that page and VistaType will not touch your toolbar at all.
 
@@ -83,7 +83,7 @@ Untick the box at the top of that page and VistaType will not touch your toolbar
 
 From version 3.0.34 the installer has a second choice, just below the toolbar one:
 
-> ☑ **Put the VistaType tabs on my ribbon, so I can hide, rename and reorder them**
+> ☑ **Put the VistaType LP and Braille Macros tabs on my ribbon, so I can hide, rename and reorder them**
 
 Leave it ticked and the two VistaType tabs behave like any other tab in Word. Go to
 **File → Options → Customize the Ribbon** and you can:
@@ -109,9 +109,9 @@ Either way you always have the tabs.
 
 ### Restoring a VistaType icon you removed
 
-Run the installer again and choose **Keep my toolbar exactly as it is, and add
-VistaType’s icons on the end**. It puts back any of the six that are missing and leaves
-everything else alone. Running it twice changes nothing the second time.
+Run the installer again and choose **Keep my toolbar exactly as it is, and add the
+VistaType LP and Braille Macros icons on the end**. It puts back any of the six that are
+missing and leaves everything else alone. Running it twice changes nothing the second time.
 
 ---
 
