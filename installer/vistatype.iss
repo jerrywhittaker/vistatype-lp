@@ -21,7 +21,12 @@
 ;    * Sets up the Quick Access Toolbar the way the user asked (Merge-Qat.ps1), always
 ;      saving their original first; uninstall removes only what we put there
 ;    * Registers the STARTUP folder as a Word Trusted Location (and allows
-;      network trusted locations, for roaming/redirected %AppData% profiles)
+;      network trusted locations, for roaming/redirected %AppData% profiles).
+;      NOT redundant with Word's own STARTUP trusted location: verified 7/30/2026 that
+;      with Word's entry deleted and macro security at the default, ours alone is what
+;      lets the add-in run. Removed again at uninstall.
+;    * Checks Word is actually INSTALLED, not merely not running -- a Word add-in on a
+;      machine with no Word installs perfectly and does nothing
 ;    * Deletes the obsolete "Large Print Templates" folder
 ;    * Refuses to run while Word or Outlook is open (with a clear message)
 ;    * Provides a clean uninstaller
@@ -29,11 +34,11 @@
 ;  Build:  compiled by ISCC.exe on the Windows box (see installer/README.md and
 ;          `make installer`). Source files are staged into ..\dist first.
 ;
-;  Verified on the build box 7/29/2026: the Trusted Location keys land correctly, and
-;  setup refuses (exit code 1, nothing installed) both while Word is running and while
-;  something else holds the .dotm -- with a control run proving it still installs when
-;  neither is true. Untested: a machine whose %AppData% is redirected to a network share,
-;  which is the case AllowNetworkLocations exists for.
+;  Verified on the build box 7/29-30/2026: the Trusted Location keys land correctly and are
+;  removed again at uninstall; setup refuses (exit code 1, nothing installed) both while
+;  Word is running and while something else holds the .dotm, with a control run proving it
+;  still installs when neither is true. Untested: a machine whose %AppData% is redirected to
+;  a network share, which is the case AllowNetworkLocations exists for. See installer/README.md.
 ; ============================================================================
 
 ; The Makefile passes /DAppVer= on the ISCC command line. Without this guard the #define
@@ -42,7 +47,7 @@
 ; The literal here is the fallback for building this script by hand, and is kept in step
 ; with the Makefile by "make bump".
 #ifndef AppVer
-  #define AppVer      "3.0.36"
+  #define AppVer      "3.0.37"
 #endif
 #define DotmName    "LPandBRL.dotm"
 #define DotxName    "LargePrintTemplate.dotx"
@@ -306,9 +311,104 @@ begin
 end;
 
 { --- Abort the install if anything is holding the files we need to replace. --- }
+{ --- Registry helpers that see BOTH views.
+      A 32-bit installer on 64-bit Windows has its plain HKLM reads redirected into
+      WOW6432Node, and 64-bit Office writes InstallRoot only to the 64-bit view - so a
+      plain HKLM check misses it entirely. --- }
+function RegKeyExistsEitherView(const SubKey: String): Boolean;
+begin
+  Result := RegKeyExists(HKLM, SubKey);
+  if (not Result) and IsWin64 then
+    Result := RegKeyExists(HKLM64, SubKey);
+end;
+
+function RegStringEitherView(const SubKey, ValueName: String; var Value: String): Boolean;
+begin
+  Result := RegQueryStringValue(HKLM, SubKey, ValueName, Value);
+  if (not Result) and IsWin64 then
+    Result := RegQueryStringValue(HKLM64, SubKey, ValueName, Value);
+end;
+
+{ --- Is Word INSTALLED? (Not "has Word been run", and not "is Word running".)
+      Uses signals written by Office SETUP, so it is true even on a profile where Word has
+      never been opened. --- }
+function IsWordInstalled(): Boolean;
+var
+  Path: String;
+begin
+  Result := False;
+  if RegStringEitherView('SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\winword.exe',
+                         '', Path) then
+    if (Path <> '') and FileExists(RemoveQuotes(Path)) then
+    begin
+      Result := True;
+      Exit;
+    end;
+  { Fallbacks: the COM registration, then any Office InstallRoot. }
+  if RegKeyExistsEitherView('SOFTWARE\Classes\Word.Application\CurVer') then Result := True;
+  if (not Result) and RegKeyExistsEitherView('SOFTWARE\Microsoft\Office\16.0\Word\InstallRoot') then Result := True;
+  if (not Result) and RegKeyExistsEitherView('SOFTWARE\Microsoft\Office\15.0\Word\InstallRoot') then Result := True;
+  if (not Result) and RegKeyExistsEitherView('SOFTWARE\Microsoft\Office\14.0\Word\InstallRoot') then Result := True;
+end;
+
+{ --- Which Office version's settings do we write to?
+      HKLM FIRST, because Office setup writes InstallRoot there. The old version read only
+      HKCU, which Word does not create until a user opens it for the first time - so someone
+      who installed Office, then VistaType, then opened Word got NO trusted location at all,
+      silently, and could not run the macros they had just installed. --- }
+function OfficeVersion(): String;
+var
+  Versions: TArrayOfString;
+  I: Integer;
+  CurVer: String;
+begin
+  Result := '';
+  Versions := ['16.0', '15.0', '14.0'];
+
+  for I := 0 to GetArrayLength(Versions) - 1 do
+    if RegKeyExistsEitherView('SOFTWARE\Microsoft\Office\' + Versions[I] + '\Word\InstallRoot') then
+    begin
+      Result := Versions[I];
+      Exit;
+    end;
+
+  for I := 0 to GetArrayLength(Versions) - 1 do
+    if RegKeyExists(HKCU, 'Software\Microsoft\Office\' + Versions[I] + '\Word') then
+    begin
+      Result := Versions[I];
+      Exit;
+    end;
+
+  { e.g. "Word.Application.16" -> "16.0" }
+  if RegStringEitherView('SOFTWARE\Classes\Word.Application\CurVer', '', CurVer) then
+    if Pos('.16', CurVer) > 0 then Result := '16.0'
+    else if Pos('.15', CurVer) > 0 then Result := '15.0'
+    else if Pos('.14', CurVer) > 0 then Result := '14.0';
+
+  { Word is here but unusually registered. Writing 16.0's key is better than writing
+    nothing: a key Word may read beats a trusted location that certainly does not exist. }
+  if (Result = '') and IsWordInstalled() then
+    Result := '16.0';
+end;
+
 function InitializeSetup(): Boolean;
 begin
   Result := OfficeIsClear('replaced');
+  if not Result then Exit;
+
+  { A Word add-in on a machine with no Word installs perfectly and does nothing at all -
+    the folders get created, every file lands, and the user is told it succeeded. Say so
+    instead. Not a hard block: Office can be registered in ways this does not recognise
+    (containerised or MSIX installs), and refusing a legitimate install is worse than a
+    no-op. Default is No, so an unattended deployment onto a machine without Word stops
+    rather than silently doing nothing. }
+  if not IsWordInstalled() then
+    Result := SuppressibleMsgBox(
+        'Microsoft Word does not appear to be installed on this computer.' #13#10 #13#10
+      + 'VistaType is an add-in for Word: on its own it does nothing. If Word is not '
+      + 'installed, install it first and then run this again.' #13#10 #13#10
+      + 'Continue anyway?',
+      mbConfirmation, MB_YESNO, IDNO) = IDYES;
 end;
 
 { --- Same guard on the way out. Uninstalling with Word open leaves the .dotm behind,
@@ -321,25 +421,11 @@ begin
   Result := OfficeIsClear('removed');
 end;
 
-{ --- Find the installed Word version key (16.0, 15.0, ...) under HKCU. --- }
-function OfficeVersion(): String;
-var
-  Versions: TArrayOfString;
-  I: Integer;
-begin
-  Result := '';
-  Versions := ['16.0', '15.0', '14.0'];
-  for I := 0 to GetArrayLength(Versions) - 1 do
-    if RegKeyExists(HKCU, 'Software\Microsoft\Office\' + Versions[I] + '\Word') then
-    begin
-      Result := Versions[I];
-      Exit;
-    end;
-end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 var
-  Ver, Key: String;
+  Ver, Key, TL: String;
+  Existing: Cardinal;
 begin
   if CurStep = ssPostInstall then
   begin
@@ -350,17 +436,57 @@ begin
     Ver := OfficeVersion();
     if Ver <> '' then
     begin
+      TL := 'Software\Microsoft\Office\' + Ver + '\Word\Security\Trusted Locations';
+
       { Allow trusted locations that resolve to a network path. Many institutional
         users have roaming/redirected %AppData%, so the STARTUP folder is a network
-        location; without this, Word ignores the trusted location below. }
-      RegWriteDWordValue(HKCU, 'Software\Microsoft\Office\' + Ver
-        + '\Word\Security\Trusted Locations', 'AllowNetworkLocations', 1);
+        location; without this, Word ignores the trusted location below.
 
-      Key := 'Software\Microsoft\Office\' + Ver
-           + '\Word\Security\Trusted Locations\VistaTypeStartup';
+        This one is a machine-wide security setting rather than something of ours, so
+        record whether WE are the ones turning it on. Uninstall then undoes it only if we
+        did - never if the user or another add-in had already set it. }
+      if not RegQueryDWordValue(HKCU, TL, 'AllowNetworkLocations', Existing) then
+        Existing := 0;
+      if Existing <> 1 then
+        RegWriteStringValue(HKCU, 'Software\VistaType LP', 'WeSetAllowNetworkLocations', '1');
+      RegWriteDWordValue(HKCU, TL, 'AllowNetworkLocations', 1);
+
+      { Ours, named after us, and removed at uninstall. Word ships its own trusted location
+        for this same folder, so on a default machine this is belt-and-braces - but it is
+        NOT redundant: verified 7/30/2026 that with Word's own entry deleted and macro
+        security at the default, this key alone is what lets the add-in run. }
+      Key := TL + '\VistaTypeStartup';
       RegWriteStringValue(HKCU, Key, 'Path', ExpandConstant('{app}\'));
       RegWriteStringValue(HKCU, Key, 'Description', 'VistaType LP STARTUP add-ins');
       RegWriteDWordValue(HKCU, Key, 'AllowSubFolders', 1);
+
+      { Remember where we wrote, so uninstall does not have to guess the version again. }
+      RegWriteStringValue(HKCU, 'Software\VistaType LP', 'OfficeVersion', Ver);
     end;
+  end;
+end;
+
+{ --- Take the Trust Center entries back out. The old uninstaller left both behind
+      permanently: a trusted location named after us, and a security setting we had
+      switched on. Neither is ours to keep once VistaType is gone. --- }
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  Ver, TL, Flag: String;
+begin
+  if CurUninstallStep = usUninstall then
+  begin
+    if not RegQueryStringValue(HKCU, 'Software\VistaType LP', 'OfficeVersion', Ver) then
+      Ver := OfficeVersion();
+    if Ver <> '' then
+    begin
+      TL := 'Software\Microsoft\Office\' + Ver + '\Word\Security\Trusted Locations';
+      RegDeleteKeyIncludingSubkeys(HKCU, TL + '\VistaTypeStartup');
+
+      { Only if we were the ones who turned it on. }
+      if RegQueryStringValue(HKCU, 'Software\VistaType LP', 'WeSetAllowNetworkLocations', Flag) then
+        if Flag = '1' then
+          RegDeleteValue(HKCU, TL, 'AllowNetworkLocations');
+    end;
+    RegDeleteKeyIncludingSubkeys(HKCU, 'Software\VistaType LP');
   end;
 end;

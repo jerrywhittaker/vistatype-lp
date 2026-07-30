@@ -92,14 +92,42 @@ That test found a real defect: the guards used Inno's plain `MsgBox`, which
 unattended install therefore *hung* waiting for a click instead of failing cleanly. Fixed;
 if you add another guard, use `SuppressibleMsgBox` with an explicit default.
 
-**Still unverified, and not testable here:**
+**The Trusted Location is not redundant — proven 7/30/2026.** Word ships its own trusted
+location for the STARTUP folder, so the suspicion was that ours merely duplicated it. Jerry
+tested it the hard way: macro security back at Word's default (`VBAWarnings=2`) *and* Word's
+own STARTUP entry deleted. VistaType still loaded and ran with no security warning. The only
+thing trusting that folder was our key. Keep it.
 
-- A machine with `%AppData%` redirected to a network share. That is the case
-  `AllowNetworkLocations` exists for, and an institutional profile is the only way to see it.
-- Whether the Trusted Location is *needed*. Word already ships a built-in trusted location
-  for the STARTUP folder, so ours is belt-and-braces on a default setup; and the build box
-  runs `VBAWarnings=1` ("enable all macros"), under which macros run regardless. Proving it
-  requires a clean profile at Word's default `VBAWarnings=2`.
+**Three defects that test found, all fixed in 3.0.37:**
+
+1. **The installer never checked whether Word was installed at all** — only whether it was
+   *running*. On a machine with no Word every file lands, every folder is created, and the
+   user is told it succeeded. `IsWordInstalled()` now asks, and setup offers to stop. It is a
+   Yes/No rather than a hard block, because Office can be registered in ways this will not
+   recognise (containerised or MSIX), and refusing a legitimate install is worse than a
+   no-op. The default is No, so an unattended deployment onto a machine without Word stops.
+
+2. **`OfficeVersion()` read `HKCU`, which Word does not create until a user first opens it.**
+   So: install Office, install VistaType, *then* open Word for the first time — and the whole
+   Trusted Location block was silently skipped. No trusted location, no
+   `AllowNetworkLocations`, macros possibly blocked, and nothing to explain why. It now reads
+   `HKLM\...\Office\<ver>\Word\InstallRoot` first, which **Office setup** writes, and falls
+   back through HKCU, the `Word.Application` COM registration, and finally `16.0` if Word is
+   demonstrably present but oddly registered. Both HKLM views are checked: a 32-bit installer
+   on 64-bit Windows has plain `HKLM` reads redirected to `WOW6432Node`, and 64-bit Office
+   writes `InstallRoot` only to the 64-bit view.
+
+3. **Uninstall left the Trust Center entries behind permanently.** It now removes
+   `VistaTypeStartup` and the `HKCU\Software\VistaType LP` bookkeeping key.
+   `AllowNetworkLocations` is a machine-wide security setting rather than something of ours,
+   so it is undone **only if we were the ones who turned it on** — recorded at install time
+   as `WeSetAllowNetworkLocations`. If the user or another add-in had already set it, it
+   stays. (Machines upgraded from 3.0.36 or earlier have no such record, so theirs is left
+   alone — the conservative direction.)
+
+**Still unverified, and not testable here:** a machine with `%AppData%` redirected to a
+network share. That is the case `AllowNetworkLocations` exists for, and an institutional
+profile is the only way to see it.
 
 **Known gap:** `Vt_Put_Tabs_Back_On_Ribbon` (in `RibbonCallbacks.bas`) restores the add-in's
 own tabs for someone who deleted the installed ones, but has no button yet — it can only be
