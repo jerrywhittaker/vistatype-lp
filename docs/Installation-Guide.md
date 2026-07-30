@@ -43,7 +43,7 @@ So you know exactly what changed on your computer:
 | The macros (`LPandBRL.dotm`) | Word **STARTUP** folder | Loads automatically every time Word opens |
 | The large-print template (`LargePrintTemplate.dotx`) | Your **Templates** folder | Holds the large-print styles |
 | Two ribbon tabs: **VistaType LP** and **Braille Macros** | Word ribbon | **Added next to your existing tabs** — your ribbon is not replaced |
-| Quick Access Toolbar icons | Your QAT | **You choose** during install — see below. The default adds VistaType’s icons to the end of your toolbar and changes nothing else |
+| Quick Access Toolbar icons | Your QAT | **You choose** during install — see below. The default installs VistaType’s standard toolbar; your own is saved first and you can have it back at any time |
 | Trust settings so macros run | Word Trust Center | Marks the STARTUP folder as trusted (including network/roaming profiles) |
 | Removed leftover files from old versions | Templates folder | Cleans up the obsolete “Large Print Templates” folder |
 
@@ -63,13 +63,16 @@ If the tabs are there and buttons respond, you’re ready to go.
 ## Your Quick Access Toolbar — you decide
 
 The Quick Access Toolbar is the small row of icons at the very top of the Word window.
-Many people spend years building theirs, so from version 3.0.33 the installer **asks**
-rather than assuming. There is a page in the wizard with three choices:
+
+Most people never customize it, so the installer’s default sets it up for transcription
+work — click straight through and you get the icons you need for large print and braille.
+But some people spend years building their own, so from version 3.0.33 the installer
+**asks** rather than assuming. There is a page in the wizard with three choices:
 
 | Choice | What happens |
 |---|---|
-| **Keep my toolbar exactly as it is, and add the VistaType LP and Braille Macros icons on the end** *(default)* | Nothing of yours is moved, hidden, or reordered. VistaType’s six icons are added after your own, with a divider before them. |
-| **Replace my toolbar with the standard VistaType LP and Braille Macros toolbar** | You get VistaType’s full toolbar, laid out for transcription work. Your own toolbar is saved first, and you can have it back at any time. |
+| **Replace my toolbar with the standard VistaType LP and Braille Macros toolbar** *(default)* | You get VistaType’s full toolbar, laid out for transcription work. Your own toolbar is saved first, and you can have it back at any time. |
+| **Keep my toolbar exactly as it is, and add the VistaType LP and Braille Macros icons on the end** | Nothing of yours is moved, hidden, or reordered. VistaType’s six icons are added after your own, with a divider before them. |
 | **Put back the toolbar I had before VistaType LP and Braille Macros was installed** | Offered only if we are holding a saved copy — that is, an earlier VistaType version had rewritten your toolbar. One click undoes that. |
 
 Untick the box at the top of that page and VistaType will not touch your toolbar at all.

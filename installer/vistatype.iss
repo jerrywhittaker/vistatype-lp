@@ -47,7 +47,7 @@
 ; The literal here is the fallback for building this script by hand, and is kept in step
 ; with the Makefile by "make bump".
 #ifndef AppVer
-  #define AppVer      "3.0.40"
+  #define AppVer      "3.0.41"
 #endif
 #define DotmName    "LPandBRL.dotm"
 #define DotxName    "LargePrintTemplate.dotx"
@@ -118,9 +118,19 @@ Source: "{#SrcDir}\LICENSE.txt";   DestDir: "{userappdata}\VistaType LP"; Flags:
 ; "VistaType" alone reads as if braille users need not bother. (Jerry, 7/30/2026.)
 Name: "qat";          GroupDescription: "Quick Access Toolbar (the small row of icons at the top of the Word window):"; \
                       Description: "Set up my Quick Access Toolbar for VistaType LP and Braille Macros"
-Name: "qat\mine";     Description: "Keep my toolbar exactly as it is, and add the VistaType LP and Braille Macros icons on the end"; \
-                      Flags: exclusive
+; Order and default set by Jerry, 7/30/2026, and his reasoning is the point:
+;   "most people do not use a custom QAT and with a click-through they get what they need
+;    to produce large print and braille."
+; So the common case has nothing of the user's to protect, and clicking straight through
+; Next should leave a transcriber with a working setup rather than a bare toolbar. The
+; people who HAVE built their own toolbar are the ones who read the options - and for them
+; the second choice keeps it untouched. This is not a return to the pre-3.0.33 behaviour
+; that caused the complaints: that one merged silently, hid buttons they had chosen to keep,
+; and offered no way back. This asks, saves what they had, and can restore it.
+; With `exclusive`, the entry WITHOUT `unchecked` is the one selected.
 Name: "qat\vista";    Description: "Replace my toolbar with the standard VistaType LP and Braille Macros toolbar (mine is saved, and I can get it back)"; \
+                      Flags: exclusive
+Name: "qat\mine";     Description: "Keep my toolbar exactly as it is, and add the VistaType LP and Braille Macros icons on the end"; \
                       Flags: exclusive unchecked
 ; Only offered when we actually hold a saved copy, i.e. an earlier VistaType install
 ; rewrote their toolbar. checkedonce so a later upgrade stops pestering them about it.
