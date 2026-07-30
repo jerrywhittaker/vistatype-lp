@@ -39,7 +39,7 @@
 ; The literal here is the fallback for building this script by hand, and is kept in step
 ; with the Makefile by "make bump".
 #ifndef AppVer
-  #define AppVer      "3.0.33"
+  #define AppVer      "3.0.35"
 #endif
 #define DotmName    "LPandBRL.dotm"
 #define DotxName    "LargePrintTemplate.dotx"
@@ -88,6 +88,9 @@ Source: "scripts\Remove-Qat.ps1";    DestDir: "{userappdata}\VistaType LP"; Flag
 ; them later without needing the installer again.
 Source: "qat-template.officeUI";     DestDir: "{userappdata}\VistaType LP"; Flags: ignoreversion
 Source: "qat-icons-only.officeUI";   DestDir: "{userappdata}\VistaType LP"; Flags: ignoreversion
+; The two VistaType ribbon tabs, in the form Word treats as the user's own custom tabs so
+; that Customize the Ribbon lists them. Generated from the ribbon by tools/lib/build_ribbon_tabs.py.
+Source: "ribbon-tabs.officeUI";      DestDir: "{userappdata}\VistaType LP"; Flags: ignoreversion
 ; Install a copy of the GPL so the user "receives a copy of the license" per the GPL.
 Source: "{#SrcDir}\LICENSE.txt";   DestDir: "{userappdata}\VistaType LP"; Flags: ignoreversion
 
@@ -113,18 +116,33 @@ Name: "qat\vista";    Description: "Replace my toolbar with VistaType's standard
 Name: "qat\restore";  Description: "Put back the toolbar I had before VistaType was installed, then add VistaType's icons"; \
                       Flags: exclusive unchecked checkedonce; Check: HasQatBackup
 
+; Separate top-level task, NOT a child of qat: those three are Flags: exclusive, and a
+; non-exclusive fourth sibling would confuse both Inno and the reader. Someone can perfectly
+; well want the tabs and not the toolbar, or the other way round.
+;
+; Unchecked leaves the tabs exactly as they were before 3.0.34 -- supplied by the add-in,
+; and not listed in Customize the Ribbon. So nobody can end up with no tabs at all.
+Name: "ribbontabs"; GroupDescription: "Ribbon tabs:"; \
+                    Description: "Put the VistaType tabs on my ribbon, so I can hide, rename and reorder them"
+
 [Run]
-; Exactly one of these runs -- the three tasks above are mutually exclusive, and none runs
-; if the user left the parent unchecked.
+; At most one of the first three runs -- the qat tasks are mutually exclusive, and none runs
+; if the user left that parent unchecked. Each also carries the ribbon-tab decision, computed
+; by TabsArg below, so the toolbar and the tabs are set up in a single pass.
 Filename: "powershell.exe"; \
-  Parameters: "-ExecutionPolicy Bypass -NoProfile -File ""{userappdata}\VistaType LP\Merge-Qat.ps1"" -Mode Mine -FullTemplate ""{userappdata}\VistaType LP\qat-template.officeUI"" -IconsTemplate ""{userappdata}\VistaType LP\qat-icons-only.officeUI"""; \
-  Tasks: qat\mine; Flags: runhidden; StatusMsg: "Adding VistaType icons to your Quick Access Toolbar..."
+  Parameters: "-ExecutionPolicy Bypass -NoProfile -File ""{userappdata}\VistaType LP\Merge-Qat.ps1"" -Mode Mine -Tabs {code:TabsArg} -FullTemplate ""{userappdata}\VistaType LP\qat-template.officeUI"" -IconsTemplate ""{userappdata}\VistaType LP\qat-icons-only.officeUI"" -TabsTemplate ""{userappdata}\VistaType LP\ribbon-tabs.officeUI"""; \
+  Tasks: qat\mine; Flags: runhidden; StatusMsg: "Setting up your Quick Access Toolbar and ribbon..."
 Filename: "powershell.exe"; \
-  Parameters: "-ExecutionPolicy Bypass -NoProfile -File ""{userappdata}\VistaType LP\Merge-Qat.ps1"" -Mode Vista -FullTemplate ""{userappdata}\VistaType LP\qat-template.officeUI"" -IconsTemplate ""{userappdata}\VistaType LP\qat-icons-only.officeUI"""; \
-  Tasks: qat\vista; Flags: runhidden; StatusMsg: "Installing VistaType's standard Quick Access Toolbar..."
+  Parameters: "-ExecutionPolicy Bypass -NoProfile -File ""{userappdata}\VistaType LP\Merge-Qat.ps1"" -Mode Vista -Tabs {code:TabsArg} -FullTemplate ""{userappdata}\VistaType LP\qat-template.officeUI"" -IconsTemplate ""{userappdata}\VistaType LP\qat-icons-only.officeUI"" -TabsTemplate ""{userappdata}\VistaType LP\ribbon-tabs.officeUI"""; \
+  Tasks: qat\vista; Flags: runhidden; StatusMsg: "Setting up your Quick Access Toolbar and ribbon..."
 Filename: "powershell.exe"; \
-  Parameters: "-ExecutionPolicy Bypass -NoProfile -File ""{userappdata}\VistaType LP\Merge-Qat.ps1"" -Mode Restore -FullTemplate ""{userappdata}\VistaType LP\qat-template.officeUI"" -IconsTemplate ""{userappdata}\VistaType LP\qat-icons-only.officeUI"""; \
+  Parameters: "-ExecutionPolicy Bypass -NoProfile -File ""{userappdata}\VistaType LP\Merge-Qat.ps1"" -Mode Restore -Tabs {code:TabsArg} -FullTemplate ""{userappdata}\VistaType LP\qat-template.officeUI"" -IconsTemplate ""{userappdata}\VistaType LP\qat-icons-only.officeUI"" -TabsTemplate ""{userappdata}\VistaType LP\ribbon-tabs.officeUI"""; \
   Tasks: qat\restore; Flags: runhidden; StatusMsg: "Putting back your original Quick Access Toolbar..."
+; ...and this one covers "leave my toolbar alone, but I do want the tabs", where none of the
+; three above fires.
+Filename: "powershell.exe"; \
+  Parameters: "-ExecutionPolicy Bypass -NoProfile -File ""{userappdata}\VistaType LP\Merge-Qat.ps1"" -Mode None -Tabs Install -TabsTemplate ""{userappdata}\VistaType LP\ribbon-tabs.officeUI"""; \
+  Tasks: ribbontabs; Check: ToolbarUntouched; Flags: runhidden; StatusMsg: "Putting the VistaType tabs on your ribbon..."
 
 [UninstallRun]
 ; Remove only VistaType's QAT icons, leaving the user's own ribbon/QAT intact.
@@ -174,6 +192,29 @@ begin
   Result := NonEmptyFile(ExpandConstant('{userappdata}\Microsoft\Office\Word.officeUI.vtqatbak'));
   if not Result then
     Result := NonEmptyFile(ExpandConstant('{localappdata}\Microsoft\Office\Word.officeUI.vtqatbak'));
+end;
+
+{ --- What to pass Merge-Qat for -Tabs. Called inline from the Parameters of the [Run]
+      entries, so the toolbar and the ribbon are set up by one run of the script rather than
+      two. "Skip" leaves the ribbon exactly as it was: tabs supplied by the add-in, and not
+      listed in Customize the Ribbon.
+
+      NOTE: braces are Pascal's comment delimiters, so an inline code reference must never be
+      written out inside one -- the closing brace ends the comment early and the rest of the
+      sentence is compiled. That is what broke the 3.0.34 build first time round. --- }
+function TabsArg(Param: String): String;
+begin
+  if WizardIsTaskSelected('ribbontabs') then
+    Result := 'Install'
+  else
+    Result := 'Skip';
+end;
+
+{ --- True when the user left the toolbar alone, so none of the three qat entries above will
+      fire. That is the one case where the tabs still need installing on their own. --- }
+function ToolbarUntouched(): Boolean;
+begin
+  Result := not WizardIsTaskSelected('qat');
 end;
 
 { --- Is a process running? Checked by NAME, not by window: Word can be running with no

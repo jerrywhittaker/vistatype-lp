@@ -38,6 +38,10 @@ param(
     [Parameter(Mandatory=$true)][ValidateSet("Vista","Mine","Restore","None")][string]$Mode,
     [string]$FullTemplate,
     [string]$IconsTemplate,
+    # Ribbon tabs, chosen separately from the toolbar. "-Mode None -Tabs Install" is a
+    # perfectly ordinary combination: leave my toolbar alone, but give me the tabs.
+    [ValidateSet("Install","Skip","Remove")][string]$Tabs = "Skip",
+    [string]$TabsTemplate,
     # Testing only. The installer never passes this; leaving it unset uses the two real
     # locations below. It exists so the modes can be exercised against sample toolbar files
     # without touching the machine's own Word setup.
@@ -118,27 +122,48 @@ function Import-NamespaceFor($destDoc, $srcDoc, $el) {
 }
 
 # --- load a template and pin its x1 namespace to this machine's add-in path ---
-function Load-Template([string]$path) {
-    if (-not $path)                        { throw "no template path supplied for -Mode $Mode" }
+# $node says which element holds the items: "sharedControls" for a toolbar, "tabs" for the
+# ribbon tabs.
+function Load-Template([string]$path, [string]$node = "sharedControls") {
+    if (-not $path)                        { throw "no template path supplied" }
     if (-not (Test-Path -LiteralPath $path)) { throw "template not found: $path" }
     $text = (Get-Content -LiteralPath $path -Raw).Replace("__VT_DOTM_PATH__", $DotmPath)
     [xml]$doc = $text
-    $shared = $doc.SelectSingleNode("//*[local-name()='sharedControls']")
-    if (-not $shared) { throw "no sharedControls in $path" }
-    return @{ Doc = $doc; Items = (Get-Elements $shared) }
+    $holder = $doc.SelectSingleNode("//*[local-name()='$node']")
+    if (-not $holder) { throw "no $node in $path" }
+    return @{ Doc = $doc; Items = (Get-Elements $holder) }
 }
 
-# --- copy a template element into the target document, remapping its namespace prefixes ---
-function Copy-Item-Element($doc, $item, $vtPrefix, $sepPrefix) {
+# --- map every namespace a template declares onto a prefix that is free in the target ---
+# Resolving by URI rather than by prefix NAME matters: the preferred prefix may already mean
+# something else on this machine. Jerry's own build box has x1 bound to SWIFT, so VistaType's
+# entries have to be written under a different prefix there or they would point at SWIFT.
+function Build-PrefixMap($srcDoc, $destRoot, $destDoc) {
+    $map = @{}
+    foreach ($a in $srcDoc.DocumentElement.Attributes) {
+        if ($a.Prefix -ne "xmlns") { continue }
+        if ($a.Value -eq $MSO)     { continue }     # mso is always mso
+        $map[$a.Value] = Ensure-Prefix $destRoot $destDoc $a.Value $a.LocalName
+    }
+    return $map
+}
+
+# --- copy a template element (and everything under it) into the target document ---
+# Recursive, because a tab is three levels deep: tab > group > control. The toolbar's entries
+# are flat, so this is a no-op for them beyond the attribute copy.
+function Copy-Tree($doc, $srcDoc, $item, $prefixMap) {
     $el = $doc.CreateElement("mso", $item.LocalName, $MSO)
     foreach ($a in $item.Attributes) {
         $val = $a.Value
         if ($a.Name -eq "idQ") {
             $p, $l = Split-IdQ $val
-            if     ($p -eq "x1")   { $val = "${vtPrefix}:$l" }
-            elseif ($p -eq "msox") { $val = "${sepPrefix}:$l" }
+            $uri = Resolve-Uri $srcDoc $p
+            if ($uri -and $prefixMap.ContainsKey($uri)) { $val = "$($prefixMap[$uri]):$l" }
         }
         $el.SetAttribute($a.Name, $val)
+    }
+    foreach ($child in (Get-Elements $item)) {
+        [void]$el.AppendChild((Copy-Tree $doc $srcDoc $child $prefixMap))
     }
     return $el
 }
@@ -151,10 +176,11 @@ function Save-Xml($doc, $path) {
 }
 
 # --- record exactly what we wrote, so uninstall can remove precisely that and nothing else ---
-function Write-Manifest([string]$target, $elements, $doc) {
+function Write-Manifest([string]$target, $elements, $doc, $tabIds) {
     $man = "$target.vtqatmanifest"
-    $lines = @("# VistaType QAT manifest -- what this install wrote. Do not edit.",
+    $lines = @("# VistaType manifest -- what this install wrote. Do not edit.",
                "mode=$Mode",
+               "tabs=$Tabs",
                "written=$(Get-Date -Format o)")
     foreach ($el in $elements) {
         $idQ = $el.GetAttribute("idQ")
@@ -164,7 +190,44 @@ function Write-Manifest([string]$target, $elements, $doc) {
             $lines += "item=$($el.LocalName)|$uri|$l"
         }
     }
+    # Tabs carry `id`, not `idQ`, so they get their own line type rather than being squeezed
+    # into `item=` (which records a namespace URI and is read back as a qualified key).
+    foreach ($t in $tabIds) { $lines += "tab=$t" }
     Set-Content -LiteralPath $man -Value $lines -Encoding UTF8
+}
+
+# --- take VistaType's tabs back out of the user's ribbon ---
+# A tab is ours if it still carries any control pointing into the add-in. That fingerprint
+# survives the user reordering, renaming or unticking the tab -- all of which Word may
+# rewrite the id for -- because Word cannot change those references without the user editing
+# the group's contents.
+function Remove-OurTabs($doc, $tabsNode) {
+    $removed = 0
+    foreach ($tab in (Get-Elements $tabsNode)) {
+        if ($tab.LocalName -ne "tab") { continue }
+
+        $ours = ($tab.GetAttribute("id") -like "vt_tab_*")
+        if (-not $ours) {
+            foreach ($n in $tab.SelectNodes(".//*[@idQ]")) {
+                $p, $l = Split-IdQ $n.GetAttribute("idQ")
+                $uri = Resolve-Uri $doc $p
+                if ($uri -and $uri -like "*LPandBRL.dotm") { $ours = $true; break }
+            }
+        }
+        if (-not $ours) { continue }
+
+        foreach ($g in (Get-Elements $tab)) {
+            if ($g.GetAttribute("id") -like "vt_grp_*") { [void]$tab.RemoveChild($g) }
+        }
+        if ((Get-Elements $tab).Count -eq 0) {
+            [void]$tabsNode.RemoveChild($tab)
+            $removed++
+        } else {
+            # They added a group of their own to our tab; keep the tab so their work survives.
+            Write-Log "  kept $($tab.GetAttribute('id')): it still holds a group the user added"
+        }
+    }
+    return $removed
 }
 
 # --- the entries a previous VistaType install laid down, for Mine/Restore to take back out ---
@@ -265,8 +328,10 @@ function Apply-One([string]$Target) {
     $qat    = Get-OrCreate $doc $ns $ribbon "qat"
     $shared = Get-OrCreate $doc $ns $qat    "sharedControls"
 
+    # Reserve prefixes for the namespaces VistaType writes, whatever the user already has.
     $vtPrefix  = Ensure-Prefix $root $doc $DotmPath "x1"
     $sepPrefix = Ensure-Prefix $root $doc $MSOX     "msox"
+    $prefixMap = @{ $DotmPath = $vtPrefix; $MSOX = $sepPrefix }
 
     # Restore: swap the live toolbar entries for the saved ones, in place. Everything else in
     # the document -- the user's ribbon tabs and groups, and VistaType's -- is left alone.
@@ -288,13 +353,17 @@ function Apply-One([string]$Target) {
     }
 
     $written = @()
+    $writtenTabs = @()
 
-    if ($Mode -eq "Vista") {
+    if ($Mode -eq "None") {
+        Write-Log "  leaving the Quick Access Toolbar untouched, as chosen"
+    }
+    elseif ($Mode -eq "Vista") {
         # Whole replacement. No merging: their toolbar is saved, not blended.
         $full = Load-Template $FullTemplate
         foreach ($c in (Get-Elements $shared)) { [void]$shared.RemoveChild($c) }
         foreach ($it in $full.Items) {
-            $el = Copy-Item-Element $doc $it $vtPrefix $sepPrefix
+            $el = Copy-Tree $doc $it.OwnerDocument $it $prefixMap
             [void]$shared.AppendChild($el)
             $written += $el
         }
@@ -325,7 +394,7 @@ function Apply-One([string]$Target) {
                 $uri = if ($p -eq "x1") { $DotmPath } elseif ($p -eq "msox") { $MSOX } else { Resolve-Uri $icons.Doc $p }
                 if ($have.ContainsKey("$uri|$l")) { continue }
             }
-            $el = Copy-Item-Element $doc $it $vtPrefix $sepPrefix
+            $el = Copy-Tree $doc $it.OwnerDocument $it $prefixMap
             [void]$shared.AppendChild($el)
             $written += $el
             $added++
@@ -333,15 +402,61 @@ function Apply-One([string]$Target) {
         Write-Log "  kept the existing toolbar and added $added VistaType icon(s) to $Target"
     }
 
+    # ---- ribbon tabs -------------------------------------------------------------------
+    # Word does not list add-in tabs in Customize the Ribbon, so tabs defined inside the
+    # add-in cannot be hidden, reordered or renamed. Written here instead, they are ordinary
+    # custom tabs and all three become possible.
+    #
+    # The policy, and it is worth stating plainly: THE CONTENTS OF OUR TABS ARE OURS; THE
+    # TAB'S PLACE, NAME AND VISIBILITY ARE THE USER'S. So an upgrade refreshes the buttons
+    # inside an existing VistaType tab and touches nothing else about it -- a tab the user
+    # moved, renamed or unticked stays moved, renamed and unticked.
+    if ($Tabs -ne "Skip") {
+        $tabsNode = Get-OrCreate $doc $ns $ribbon "tabs"
+
+        if ($Tabs -eq "Install") {
+            $tpl = Load-Template $TabsTemplate "tabs"
+            $installed = 0; $refreshed = 0
+            foreach ($t in $tpl.Items) {
+                $wantId = $t.GetAttribute("id")
+                $existing = $null
+                foreach ($e in (Get-Elements $tabsNode)) {
+                    if ($e.LocalName -eq "tab" -and $e.GetAttribute("id") -eq $wantId) { $existing = $e; break }
+                }
+                if ($existing) {
+                    # Refresh only the groups we own; leave the tab element itself, and any
+                    # group the user added to it, exactly as they are.
+                    foreach ($g in (Get-Elements $existing)) {
+                        if ($g.GetAttribute("id") -like "vt_grp_*") { [void]$existing.RemoveChild($g) }
+                    }
+                    foreach ($g in (Get-Elements $t)) {
+                        [void]$existing.AppendChild((Copy-Tree $doc $t.OwnerDocument $g $prefixMap))
+                    }
+                    $writtenTabs += $wantId
+                    $refreshed++
+                } else {
+                    [void]$tabsNode.AppendChild((Copy-Tree $doc $t.OwnerDocument $t $prefixMap))
+                    $writtenTabs += $wantId
+                    $installed++
+                }
+            }
+            Write-Log "  ribbon tabs: $installed added, $refreshed refreshed in $Target"
+        }
+        elseif ($Tabs -eq "Remove") {
+            $gone = Remove-OurTabs $doc $tabsNode
+            Write-Log "  ribbon tabs: removed $gone from $Target"
+        }
+    }
+
     Save-Xml $doc $Target
-    Write-Manifest $Target $written $doc
+    Write-Manifest $Target $written $doc $writtenTabs
 }
 
 # ---------------------------------------------------------------------------------------
-Write-Log "Merge-Qat -Mode $Mode"
+Write-Log "Merge-Qat -Mode $Mode -Tabs $Tabs"
 
-if ($Mode -eq "None") {
-    Write-Log "  leaving the Quick Access Toolbar untouched, as chosen"
+if ($Mode -eq "None" -and $Tabs -eq "Skip") {
+    Write-Log "  nothing to do: toolbar and ribbon both left alone, as chosen"
     return
 }
 
@@ -352,5 +467,21 @@ foreach ($t in $Targets) {
         # One bad or unreadable file must not abort the install, and must not stop the other
         # location being written -- Word only reads one of the two.
         Write-Log "  !! $t : $($_.Exception.Message)"
+    }
+}
+
+# Tell the add-in whether the user now has their own copies of the tabs. VtTabVisible in
+# RibbonCallbacks.bas reads this: when it is 1 the tabs built into the add-in go dark, so the
+# two never appear at once. Absent (a hand-copied install, or the option declined) means the
+# built-in tabs show exactly as they always have -- nobody ends up with no tabs at all.
+if ($Tabs -ne "Skip" -and -not $TargetPaths) {
+    try {
+        $key = "HKCU:\Software\VistaType LP"
+        if (-not (Test-Path $key)) { New-Item -Path $key -Force | Out-Null }
+        $val = if ($Tabs -eq "Install") { "1" } else { "0" }
+        Set-ItemProperty -Path $key -Name "UserRibbonTabs" -Value $val -Type String
+        Write-Log "  UserRibbonTabs = $val"
+    } catch {
+        Write-Log "  !! could not record UserRibbonTabs: $($_.Exception.Message)"
     }
 }

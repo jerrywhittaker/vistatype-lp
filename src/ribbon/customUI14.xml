@@ -1,7 +1,7 @@
-<customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui">
+<customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui" onLoad="RibbonOnLoad">
   <ribbon>
     <tabs>
-    <tab id="tab_Braille_Macros" label="Braille Macros" insertBeforeMso="TabInsert">
+    <tab id="tab_Braille_Macros" label="Braille Macros" insertBeforeMso="TabInsert" getVisible="VtTabVisible">
       <group id="grp_mso_c1_18B5F8FF" label="Attach" autoScale="true">
         <button id="btn_Dx_Attach_BANA_Template" label="Attach BANA Template" imageMso="HappyFace" onAction="RibbonAction" tag="Dx_Attach_BANA_Template"/>
       </group>
@@ -40,7 +40,7 @@
         <button id="btn_Dx_About" label="Version &amp;&amp; Updates" imageMso="TagMarkComplete" onAction="RibbonAction" tag="Dx_About"/>
       </group>
     </tab>
-    <tab id="tab_VistaType_LP" label="VistaType LP" insertBeforeMso="TabInsert">
+    <tab id="tab_VistaType_LP" label="VistaType LP" insertBeforeMso="TabInsert" getVisible="VtTabVisible">
       <group id="grp_mso_c2_56E551D" label="Attach" imageMso="FileNew" autoScale="true">
         <button id="btn_Lp_Attach_Lp_Template" label="Attach LP Template" imageMso="FileNew" onAction="RibbonAction" tag="Lp_Attach_Lp_Template"/>
       </group>

@@ -81,6 +81,54 @@ function Shared-Of($doc) {
     return $doc.SelectSingleNode("//mso:qat/mso:sharedControls", $ns)
 }
 
+# --- take VistaType's tabs off the user's ribbon ---
+# A tab is ours if it still carries a control pointing into the add-in. That fingerprint
+# survives the user reordering, renaming or unticking the tab, any of which may make Word
+# rewrite the tab's id -- it cannot rewrite those references without editing the contents.
+# A tab id of our own shape counts too, for a tab whose groups they emptied.
+function Remove-OurTabs($doc) {
+    $ns = New-Object System.Xml.XmlNamespaceManager($doc.NameTable)
+    $ns.AddNamespace("mso", $MSO)
+    $tabsNode = $doc.SelectSingleNode("//mso:ribbon/mso:tabs", $ns)
+    if (-not $tabsNode) { return 0 }
+
+    $removed = 0
+    foreach ($tab in (Get-Elements $tabsNode)) {
+        if ($tab.LocalName -ne "tab") { continue }
+
+        $ours = ($tab.GetAttribute("id") -like "vt_tab_*")
+        if (-not $ours) {
+            foreach ($n in $tab.SelectNodes(".//*[@idQ]")) {
+                $p, $l = Split-IdQ $n.GetAttribute("idQ")
+                $uri = Resolve-Uri $doc $p
+                if ($uri -and $uri -like "*LPandBRL.dotm") { $ours = $true; break }
+            }
+        }
+        if (-not $ours) { continue }
+
+        foreach ($g in (Get-Elements $tab)) {
+            if ($g.GetAttribute("id") -like "vt_grp_*") { [void]$tab.RemoveChild($g) }
+        }
+        if ((Get-Elements $tab).Count -eq 0) {
+            [void]$tabsNode.RemoveChild($tab)
+            $removed++
+        } else {
+            Write-Log "  kept $($tab.GetAttribute('id')): it still holds a group the user added"
+        }
+    }
+    return $removed
+}
+
+# --- our own bookkeeping goes; their saved original stays ---
+function Cleanup-Bookkeeping($man, $prev, $bak, $Target) {
+    foreach ($f in @($man, $prev)) {
+        if (Test-Path -LiteralPath $f) { Remove-Item -LiteralPath $f -Force }
+    }
+    if (Test-Path -LiteralPath $bak) {
+        Write-Log "  $Target : leaving $([System.IO.Path]::GetFileName($bak)) in place (their pre-VistaType toolbar)"
+    }
+}
+
 function Clean-One([string]$Target) {
     $bak  = "$Target.vtqatbak"
     $man  = "$Target.vtqatmanifest"
@@ -105,8 +153,23 @@ function Clean-One([string]$Target) {
     }
 
     [xml]$doc = Get-Content -LiteralPath $Target -Raw
+
+    # Ribbon tabs first, and INDEPENDENTLY of the toolbar. Someone who chose "leave my
+    # toolbar alone" still has our tabs, and returning early because there is no toolbar
+    # section would strand them on the ribbon forever.
+    $tabsGone = Remove-OurTabs $doc
+
     $shared = Shared-Of $doc
-    if (-not $shared) { Write-Log "  $Target : no toolbar section"; return }
+    if (-not $shared) {
+        if ($tabsGone -gt 0) {
+            Save-Xml $doc $Target
+            Write-Log "  $Target : removed $tabsGone VistaType ribbon tab(s); no toolbar section to clean"
+        } else {
+            Write-Log "  $Target : nothing of ours here"
+        }
+        Cleanup-Bookkeeping $man $prev $bak $Target
+        return
+    }
 
     $removed = 0
     foreach ($c in (Get-Elements $shared)) {
@@ -200,16 +263,27 @@ function Clean-One([string]$Target) {
         Write-Log "  $Target : removed $removed VistaType entry(ies); kept $($left.Count) of the user's"
     }
 
-    # Our own bookkeeping goes; their saved original stays.
-    foreach ($f in @($man, $prev)) {
-        if (Test-Path -LiteralPath $f) { Remove-Item -LiteralPath $f -Force }
-    }
-    if (Test-Path -LiteralPath $bak) {
-        Write-Log "  $Target : leaving $([System.IO.Path]::GetFileName($bak)) in place (their pre-VistaType toolbar)"
-    }
+    if ($tabsGone -gt 0) { Write-Log "  $Target : removed $tabsGone VistaType ribbon tab(s)" }
+    Cleanup-Bookkeeping $man $prev $bak $Target
 }
 
 Write-Log "Remove-Qat"
+
+# The add-in may well still be installed (Word can disable it, or the user may reinstall), so
+# tell it the user no longer has their own copies of the tabs. VtTabVisible then shows the
+# built-in ones again, rather than leaving the ribbon with no VistaType tabs at all.
+if (-not $TargetPaths) {
+    try {
+        $key = "HKCU:\Software\VistaType LP"
+        if (Test-Path $key) {
+            Set-ItemProperty -Path $key -Name "UserRibbonTabs" -Value "0" -Type String
+            Write-Log "  UserRibbonTabs = 0 (the add-in's own tabs show again)"
+        }
+    } catch {
+        Write-Log "  !! could not clear UserRibbonTabs: $($_.Exception.Message)"
+    }
+}
+
 foreach ($t in $Targets) {
     try {
         Clean-One $t

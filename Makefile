@@ -28,7 +28,7 @@ DOTM      := LPandBRL.dotm
 DOTX      := LargePrintTemplate.dotx
 RIBBON    := Word.officeUI
 PROJNAME  := LPandBRL
-APPVER    := 3.0.33
+APPVER    := 3.0.35
 SETUP_EXE := VistaType LP and Braille Macros Setup $(APPVER).exe
 VERDATE   := $(shell date +%-m/%-d/%Y)
 
@@ -69,7 +69,14 @@ check-frm-eol:
 check-qat:
 	@python3 tools/lib/build_qat.py
 
-build: check-config check-frm-eol check-qat push-src
+# Regenerates the ribbon tabs in the form the installer writes into the user's own
+# Word.officeUI (so Word lets them hide/reorder/rename them), and refuses to build if a
+# button id that has already shipped has gone: every installed tab and toolbar references
+# those by id and would render blank with no error.
+check-tabs:
+	@python3 tools/lib/build_ribbon_tabs.py
+
+build: check-config check-frm-eol check-qat check-tabs push-src
 	$(SSH) '$(WIN_PWSH) -ExecutionPolicy Bypass -File $(WSCRIPTS)/Import-Vba.ps1 -Shell "$(WIN_DIR)/$(DOTM)" -SrcRoot "$(WIN_DIR)/src" -OutDotm "$(WIN_DIR)/dist/$(DOTM)" -ProjectName $(PROJNAME) -AppVer $(APPVER) -VerDate "$(VERDATE)"'
 	@# The two About forms carry the version in their binary .frx, so bring them home if the
 	@# stamp changed them. -u: only if newer, so an unchanged build copies nothing.
