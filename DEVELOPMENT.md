@@ -21,13 +21,52 @@ reference/      read-only aids (gitignored mirror + interim form-code dump)
 
 ## Embedded ribbon
 
-The ribbon lives **inside `LPandBRL.dotm`** as an embedded `customUI14.xml` part, not
-as the old global `Word.officeUI` file. Why this matters: the `.officeUI` file
-*replaced* each user's entire ribbon and QAT (hence the old install doc's "export your
-QAT first" ritual). An embedded customUI **merges** — it adds the three VistaType tabs
-and leaves the user's own ribbon/QAT alone, and it loads/unloads with the add-in.
+The ribbon is defined **inside `LPandBRL.dotm`** as an embedded `customUI14.xml` part.
+It is *deployed* in one of two ways, and the difference is the whole reason for the
+machinery below.
+
+**Two homes for the tabs (3.0.34 onwards).** The embedded definition is always the source
+of truth for what the buttons *are*. Where the visible tabs *live* depends on the user:
+
+| | Embedded (the fallback) | In the user's `Word.officeUI` (the default) |
+|---|---|---|
+| Set up by | nothing — it ships in the `.dotm` | the installer, `Merge-Qat.ps1 -Tabs Install` |
+| In *Customize the Ribbon*? | **no** | **yes** |
+| Hide / reorder / rename? | **no** | **yes** |
+| Travels with the add-in? | yes | **no** — see *orphan tabs* below |
+| When it applies | hand-copied install, or the option declined | ticked at install (the default) |
+
+Why the second exists: Word does not list add-in customUI tabs in *File → Options →
+Customize the Ribbon*, so tabs defined in the `.dotm` cannot be hidden, reordered or
+renamed. Jerry, 7/29/2026: *"Even I want to hide the braille macro tab when I'm producing
+large print, and it is not unusual that I will rearrange the tabs. Not being able to do
+these things is not acceptable."* Tabs written into the user's own file are ordinary custom
+tabs, so Word lists them and all three become possible.
+
+`getVisible="VtTabVisible"` on the two visible embedded tabs makes them go dark when
+`HKCU\Software\VistaType LP\UserRibbonTabs` is `1`, so the two never appear at once. Absent
+(hand-copied install, or declined) means the embedded tabs show exactly as they always did —
+**nobody can end up with no tabs at all.** `tab_LP_and_BRL_QAT_Icons` keeps a hard
+`visible="false"` and deliberately gets **no** callback: a bug in the callback must not be
+able to expose a tab of duplicated stock Word buttons.
+
+**Orphan tabs — the price, accepted knowingly.** Tabs in the user's file do not travel with
+the add-in. A proper uninstall removes them, but if Word disables the add-in after a crash,
+or someone deletes the `.dotm` by hand, the tabs stay and their buttons stop working.
+`docs/Installation-Guide.md` carries the troubleshooting entry. This is not fixable while
+the tabs live where Word will let the user edit them; it is the trade.
 
 - Source of truth: `src/ribbon/customUI14.xml`. Edit it directly (plain XML).
+- **Never rename or remove a `btn_*` id.** Every ribbon tab and toolbar already installed in
+  the field references buttons by id; a renamed one renders blank on the user's machine with
+  no error, and their file is not ours to migrate. `installer/ribbon-button-ids.txt` is an
+  append-only record of every id that has shipped, and `make build` stops if one disappears.
+- `tools/lib/build_ribbon_tabs.py` generates `installer/ribbon-tabs.officeUI` (run by
+  `make build`). Each button is emitted as a **reference** —
+  `<mso:control idQ="x1:btn_...">` — not as a legacy `<mso:button onAction="...">`. Both
+  render and fire (tested 7/29/2026), but the reference form keeps clicks going through
+  `RibbonAction`, and Word takes the label and icon from the add-in so neither is duplicated.
+  Emitting `onAction` directly would skip the `Sh_Pos_Depth` reset for 43 of the 49 buttons.
 - `make build` injects it into the built `.dotm` with `tools/lib/inject_customui.py`
   (pure Linux zip/XML; runs after Word has compiled the code).
 - Every button calls one dispatcher, `RibbonAction` (in `src/vba/RibbonCallbacks.bas`),
@@ -153,9 +192,13 @@ open `dist/LPandBRL.dotm` in Word once and confirm:
 - the two visible tabs appear (**VistaType LP**, **Braille Macros**) and merge with —
   don't replace — your normal ribbon. The third tab, **LP and BRL QAT Icons**, is
   `visible="false"` by design and must *not* show: it exists only so the Quick Access
-  Toolbar's `idQ` references have ribbon controls to resolve against. Note that add-in
-  tabs never appear in Word's *Customize the Ribbon* list either — that is normal;
-- a couple of buttons actually run their macro (the `RibbonAction` dispatcher).
+  Toolbar's `idQ` references have ribbon controls to resolve against;
+- a couple of buttons actually run their macro (the `RibbonAction` dispatcher);
+- **which set of tabs you are looking at.** Opening the built `.dotm` by hand shows the
+  *embedded* tabs, which will not be listed in *Customize the Ribbon* — correct for that
+  path. To test the user-installed tabs you have to run the Setup.exe with the **Ribbon
+  tabs** task ticked, then look for them in that dialog. Testing the wrong one and
+  concluding the feature is broken is an easy half-hour to lose.
 
 Enable VBE → *Tools → Options → General → Show ToolTips* and turn on ribbon load
 errors (`File → Options → Advanced → General → Show add-in user interface errors`)

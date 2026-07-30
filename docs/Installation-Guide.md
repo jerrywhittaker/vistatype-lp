@@ -74,9 +74,33 @@ rather than assuming. There is a page in the wizard with three choices:
 
 Untick the box at the top of that page and VistaType will not touch your toolbar at all.
 
-**Your ribbon is never touched, whichever you choose.** Your own ribbon tabs and groups
-are left exactly as they are; the **VistaType LP** and **Braille Macros** tabs are added
-alongside them.
+**Your own ribbon tabs and groups are never touched, whichever you choose.** The
+**VistaType LP** and **Braille Macros** tabs are added alongside them.
+
+---
+
+## Your ribbon tabs — yours to arrange
+
+From version 3.0.34 the installer has a second choice, just below the toolbar one:
+
+> ☑ **Put the VistaType tabs on my ribbon, so I can hide, rename and reorder them**
+
+Leave it ticked and the two VistaType tabs behave like any other tab in Word. Go to
+**File → Options → Customize the Ribbon** and you can:
+
+- **Untick a tab to hide it.** Hiding **Braille Macros** while you work on large print is
+  the obvious one — untick it, and it is gone until you want it back.
+- **Move them.** Use the arrows to put them wherever suits you in the tab order.
+- **Rename them.**
+
+**Re-installing will not undo any of that.** The rule is simple: *the buttons inside a
+VistaType tab are ours to keep up to date; where the tab sits, what it is called and
+whether it is showing are yours.* An upgrade refreshes the buttons and leaves the rest
+exactly as you set it.
+
+Untick that box and the tabs work exactly as they did before — they appear on the ribbon,
+but Word will not list them in Customize the Ribbon and they cannot be hidden or moved.
+Either way you always have the tabs.
 
 > **Earlier versions did not ask.** Up to 3.0.32 the installer merged its toolbar into
 > yours, which pushed your icons to the right, removed dividers you had placed, and hid
@@ -147,6 +171,23 @@ This usually means the icons are there but hidden — not that the install faile
   `LPandBRL.dotm` is listed, select it and click **Enable**. Then restart Word.
 - **Confirm the add-in is loaded:** *File → Options → Add-ins*, set **Manage: Word
   Add-ins → Go**, and make sure `LPandBRL.dotm` is checked under Global Templates.
+
+### “The VistaType tabs are there, but the buttons do nothing”
+
+The tabs are on your ribbon but the macros behind them aren’t loaded — almost always
+because **Word has disabled the add-in**, which it does after a crash.
+
+*File → Options → Add-ins*. At the bottom set **Manage: Disabled Items → Go**. If
+`LPandBRL.dotm` is listed, select it, click **Enable**, and restart Word.
+
+If it isn’t listed, check the add-in is still installed: same dialog, **Manage: Word
+Add-ins → Go**, and make sure `LPandBRL.dotm` is ticked under Global Templates. If it has
+gone altogether, run the installer again.
+
+### “I removed the VistaType tabs and want them back”
+
+Run the installer again with **Put the VistaType tabs on my ribbon** ticked. It restores
+them without disturbing anything else on your ribbon.
 
 ### “I see two VistaType tabs” (after upgrading)
 

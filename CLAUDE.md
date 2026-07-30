@@ -88,6 +88,12 @@ src/forms/      canonical UserForms: *.frm + *.frx (binary layout)
                 fails only on the user's machine, as "Compile error in hidden module".
                 `make build` now refuses to run if any .frm has bare LF. See DEVELOPMENT.md.
 src/ribbon/     customUI14.xml — embedded ribbon (source of truth); Word.officeUI (legacy)
+                From 3.0.34 the two VISIBLE tabs are also written into the user's own
+                Word.officeUI by the installer (generated: installer/ribbon-tabs.officeUI),
+                because Word does not list add-in tabs in Customize the Ribbon and they could
+                therefore not be hidden, reordered or renamed. The embedded copies stay as the
+                fallback, hidden by getVisible when the user has their own. See DEVELOPMENT.md
+                "Embedded ribbon" for the two-homes table and the orphan-tab trade-off.
 src/keymap/     lp-template-keymap.xml — keyboard shortcuts, injected into LargePrintTemplate.dotx
                 at build time. Source of truth for the ~60 key assignments (53 style shortcuts,
                 8 VistaType macros, 1 MathType). Macro targets MUST read
@@ -101,7 +107,9 @@ tools/windows/  Export-Vba.ps1 / Import-Vba.ps1 — run in Word on the build box
                  one makes Word raise an invisible "File In Use" dialog and the build hangs
                  forever with no error; see DEVELOPMENT.md "Gotchas baked into the tooling")
 tools/lib/      decompress_vba.py (reader); officeui_to_customui.py + inject_customui.py (ribbon);
-                inject_keymap.py (keyboard shortcuts -> .dotx/.dotm); extract_qat.py (obsolete/reference — QAT is now qat-template.officeUI)
+                inject_keymap.py (keyboard shortcuts -> .dotx/.dotm); build_ribbon_tabs.py
+                (ribbon tabs -> installer/ribbon-tabs.officeUI, plus the shipped-button-id
+                guard); extract_qat.py (obsolete/reference — QAT is now qat-template.officeUI)
 installer/      Inno Setup installer (vistatype.iss) + scripts/ (QAT merge/remove) + qat-template.officeUI
                 (the standard QAT — HAND-maintained: its order, separators and visible="false"
                 entries suppressing Word's default buttons are deliberate and cannot be derived)
@@ -167,7 +175,16 @@ Three subtleties that make it actually work:
   toolbar already installed in the field references them by `idQ`.
 - **XML comments may not contain `--`.** Word and PowerShell both refuse to parse the file,
   and the symptom is an install that silently leaves the toolbar alone. `build_qat.py`
-  parse-checks both toolbar files for exactly this reason.
+  parse-checks both toolbar files for exactly this reason. **Inno's Pascal has the same trap
+  in a different costume:** `{ }` are its comment delimiters, so an inline `{code:...}`
+  reference written inside a comment ends it early and the rest of the sentence is compiled.
+  Both cost a build on 7/28–29/2026.
+- **Never rename or remove a `btn_*` id** in `customUI14.xml`. Every ribbon tab and toolbar
+  already installed in the field references buttons by id; a renamed one renders blank on the
+  user's machine with no error, and their `Word.officeUI` is not ours to migrate.
+  `installer/ribbon-button-ids.txt` is an append-only record of every id that has shipped and
+  `make build` stops if one disappears. This supersedes the narrower warning about the six
+  toolbar ids: it now covers all 49.
 
 ## Build & edit workflow (short version)
 
