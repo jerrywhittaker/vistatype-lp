@@ -28,7 +28,7 @@ DOTM      := LPandBRL.dotm
 DOTX      := LargePrintTemplate.dotx
 RIBBON    := Word.officeUI
 PROJNAME  := LPandBRL
-APPVER    := 3.0.35
+APPVER    := 3.0.36
 SETUP_EXE := VistaType LP and Braille Macros Setup $(APPVER).exe
 VERDATE   := $(shell date +%-m/%-d/%Y)
 
@@ -142,7 +142,14 @@ installer:
 
 installer-build: check-config stage
 	$(SSH) "if not exist \"$(WIN_DIR)\" mkdir \"$(WIN_DIR)\""
-	scp -q -r installer dist "$(WIN_HOST):$(WIN_DIR)/"
+	$(SSH) "if not exist \"$(WIN_DIR)\\dist\" mkdir \"$(WIN_DIR)\\dist\""
+	scp -q -r installer "$(WIN_HOST):$(WIN_DIR)/"
+	@# Send only what ISCC actually reads. Copying the whole dist/ meant re-uploading every
+	@# previously built Setup.exe on every build - slow, and it FAILS outright if Windows is
+	@# still holding one of them (a killed installer leaves the .exe locked at the OS level
+	@# until reboot). The .exe is produced ON the box and copied back, so it never needs to
+	@# travel in this direction.
+	scp -q dist/$(DOTM) dist/$(DOTX) dist/LICENSE.txt "$(WIN_HOST):$(WIN_DIR)/dist/"
 	$(SSH) '$(WIN_ISCC) "/DSrcDir=$(WIN_DIR)/dist" "/DAppVer=$(APPVER)" "$(WIN_DIR)/installer/vistatype.iss"'
 	@# The installer name contains spaces. Quoting a spaced remote path through scp means
 	@# satisfying BOTH the local shell and Windows cmd, which does not strip single quotes -

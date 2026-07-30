@@ -29,8 +29,11 @@
 ;  Build:  compiled by ISCC.exe on the Windows box (see installer/README.md and
 ;          `make installer`). Source files are staged into ..\dist first.
 ;
-;  STILL NEEDS A TEST PASS on a real machine -- the Trusted Location registry
-;  and running-Office detection are correct in principle but unverified here.
+;  Verified on the build box 7/29/2026: the Trusted Location keys land correctly, and
+;  setup refuses (exit code 1, nothing installed) both while Word is running and while
+;  something else holds the .dotm -- with a control run proving it still installs when
+;  neither is true. Untested: a machine whose %AppData% is redirected to a network share,
+;  which is the case AllowNetworkLocations exists for.
 ; ============================================================================
 
 ; The Makefile passes /DAppVer= on the ISCC command line. Without this guard the #define
@@ -39,7 +42,7 @@
 ; The literal here is the fallback for building this script by hand, and is kept in step
 ; with the Makefile by "make bump".
 #ifndef AppVer
-  #define AppVer      "3.0.35"
+  #define AppVer      "3.0.36"
 #endif
 #define DotmName    "LPandBRL.dotm"
 #define DotxName    "LargePrintTemplate.dotx"
@@ -274,25 +277,30 @@ begin
   Result := True;
   Dotm := ExpandConstant('{userappdata}\Microsoft\Word\STARTUP\{#DotmName}');
 
+  { SuppressibleMsgBox, not MsgBox. /SUPPRESSMSGBOXES has no effect on a plain MsgBox, so a
+    silent or unattended install (an IT department deploying this) would sit forever waiting
+    for a click nobody can give, instead of failing cleanly. Found 7/29/2026 by running the
+    guard for real: the installer hung rather than aborting. Suppressed, it returns Default
+    and we go on to return False, which is exactly the behavior wanted. }
   if OfficeIsRunning() then
   begin
-    MsgBox('Microsoft Word or Outlook is still running.' #13#10 #13#10
+    SuppressibleMsgBox('Microsoft Word or Outlook is still running.' #13#10 #13#10
       + 'Close every Word and Outlook window and try again. If you have already closed '
       + 'them, Word may still be running in the background - sign out of Windows and back '
       + 'in, then run this again.' #13#10 #13#10
       + 'While Word is running the add-in cannot be ' + Verb + '.',
-      mbError, MB_OK);
+      mbError, MB_OK, IDOK);
     Result := False;
     Exit;
   end;
 
   if FileIsInUse(Dotm) then
   begin
-    MsgBox('The VistaType add-in file is being used by another program, so it cannot be '
-      + Verb + ':' #13#10 #13#10 + Dotm + #13#10 #13#10
+    SuppressibleMsgBox('The VistaType add-in file is being used by another program, so it '
+      + 'cannot be ' + Verb + ':' #13#10 #13#10 + Dotm + #13#10 #13#10
       + 'This is usually antivirus, a backup program, or Windows Search reading the file. '
       + 'Wait a moment and try again, or restart the computer.',
-      mbError, MB_OK);
+      mbError, MB_OK, IDOK);
     Result := False;
   end;
 end;

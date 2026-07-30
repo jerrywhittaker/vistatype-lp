@@ -81,9 +81,25 @@ touching the toolbar); a re-install after the user moved, renamed and unticked o
 tabs; uninstall; uninstall when there is no toolbar section at all; and a VistaType tab the
 user has added their own group to, which must survive.
 
-**Still unverified:** the Trusted-Location registry write and the Word/Outlook
-running-check are correct in principle but have not been tested on a clean Windows
-profile. Do that before shipping a release.
+**The install guards were exercised for real on 7/29/2026** and both work: setup exits with
+code 1 and installs nothing while Word is running, and likewise while another process holds
+`LPandBRL.dotm` — with a control run confirming it still installs when neither is true. The
+Trusted Location keys land with the right path, description and `AllowSubFolders`, and
+`AllowNetworkLocations=1` is set on the parent.
+
+That test found a real defect: the guards used Inno's plain `MsgBox`, which
+**`/SUPPRESSMSGBOXES` does not suppress** — only `SuppressibleMsgBox` does. A silent or
+unattended install therefore *hung* waiting for a click instead of failing cleanly. Fixed;
+if you add another guard, use `SuppressibleMsgBox` with an explicit default.
+
+**Still unverified, and not testable here:**
+
+- A machine with `%AppData%` redirected to a network share. That is the case
+  `AllowNetworkLocations` exists for, and an institutional profile is the only way to see it.
+- Whether the Trusted Location is *needed*. Word already ships a built-in trusted location
+  for the STARTUP folder, so ours is belt-and-braces on a default setup; and the build box
+  runs `VBAWarnings=1` ("enable all macros"), under which macros run regardless. Proving it
+  requires a clean profile at Word's default `VBAWarnings=2`.
 
 **Known gap:** `Vt_Put_Tabs_Back_On_Ribbon` (in `RibbonCallbacks.bas`) restores the add-in's
 own tabs for someone who deleted the installed ones, but has no button yet — it can only be
