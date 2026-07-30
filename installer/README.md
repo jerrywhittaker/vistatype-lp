@@ -129,6 +129,33 @@ thing trusting that folder was our key. Keep it.
 network share. That is the case `AllowNetworkLocations` exists for, and an institutional
 profile is the only way to see it.
 
+### Windows elevates the uninstaller, and we cannot stop it
+
+Uninstalling raises a UAC prompt ("...from an unknown publisher..."), reported 7/30/2026.
+It is **not** ours to fix, and the file is not at fault — verified by parsing the PE:
+
+```
+unins000.exe  32-bit, RT_MANIFEST resource present
+  <requestedExecutionLevel level="asInvoker" uiAccess="false"/>
+```
+
+No `AppCompatFlags\Layers` entry forces it either, and there is only one uninstaller
+registered. What triggers it is Windows' **installer-detection heuristic**, which elevates
+executables whose *filename* looks like an installer; Inno Setup names every uninstaller
+`unins000.exe` and offers no way to rename it. `Setup.exe` escapes the same fate only
+because `VistaType LP and Braille Macros Setup <ver>.exe` does not match the pattern.
+
+For an administrator it is one extra click and the uninstall works. **The open risk is a
+transcriber who is not a local administrator** on a school or agency machine: they would be
+asked for credentials they do not have and could not uninstall at all. Untested — it needs a
+standard (non-admin) local account, which is a 20-minute test on the build box and does not
+need Word, since nothing has to be opened.
+
+The real fix is **code-signing** the installer and uninstaller. A signed binary carries a
+named publisher, is not treated as a legacy unsigned installer, and also removes the
+SmartScreen warning transcribers currently get downloading the `.exe` from GitHub. That is a
+purchase and a yearly renewal, so it is Jerry's decision rather than a task.
+
 **Known gap:** `Vt_Put_Tabs_Back_On_Ribbon` (in `RibbonCallbacks.bas`) restores the add-in's
 own tabs for someone who deleted the installed ones, but has no button yet — it can only be
 run from Alt+F8. Re-running the installer is the documented route in the meantime.

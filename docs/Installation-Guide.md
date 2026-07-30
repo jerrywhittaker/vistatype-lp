@@ -172,6 +172,20 @@ This usually means the icons are there but hidden — not that the install faile
 - **Confirm the add-in is loaded:** *File → Options → Add-ins*, set **Manage: Word
   Add-ins → Go**, and make sure `LPandBRL.dotm` is checked under Global Templates.
 
+### “Uninstalling asks for an administrator”
+
+Windows may show **“Do you want to allow this app from an unknown publisher to make changes
+to your device?”** when you uninstall. Click **Yes** and it proceeds normally.
+
+VistaType does **not** need administrator — it installs entirely inside your own user
+folders, and its uninstaller explicitly asks Windows *not* to elevate it. Windows raises the
+prompt anyway because Inno Setup names every uninstaller `unins000.exe`, and Windows treats
+any file with a name like that as something that must need administrator rights. The name
+cannot be changed.
+
+If you are **not** an administrator on your computer and Windows asks for a password you
+don’t have, contact us — there is a way to remove VistaType by hand.
+
 ### “The VistaType tabs are there, but the buttons do nothing”
 
 The tabs are on your ribbon but the macros behind them aren’t loaded — almost always
