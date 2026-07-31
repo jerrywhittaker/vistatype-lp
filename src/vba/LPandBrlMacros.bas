@@ -18,7 +18,16 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Sh - 7/26/2026 - macros now return the user to where the cursor was when they started, instead of dumping them at the top of the document. New Sh_Save_User_Position / Sh_Return_User_To_Start_Position pair records a CHARACTER OFFSET (Sh_Start_Pos / Sh_Start_Doc), not a bookmark; 43 macros and 6 UserForms converted. Sh_Pos_Depth makes only the OUTERMOST macro return the user, so the File_Fix_Sequence orchestrators scroll once instead of twenty times; Sh_Pos_Saved refuses a return that had no matching save; RibbonAction clears both per button press so a macro that stops on an error cannot wedge them
+' Notes:    - Lp - 7/30/2026 - border weights now come from ONE place, Lp_Border_Weight_For_Base_Font. There were four rules and they disagreed.
+'                             Lp_Set_Table_Border_Weights and Lp_SetSelectedTableBorderWeight matched the base size as TEXT against fifteen literals
+'                             ("14","16",..."42"), so any ODD size and anything ABOVE 42 fell through every branch and the border was left untouched -
+'                             a Table Tools colour button appeared to do nothing. ApplyTableBorders had its own Select Case that disagreed on 14 sizes:
+'                             18-21 came out at 3 pt where the box and reference-page borders were 2 1/4, and anything above 42 hit Case Else and got
+'                             the THINNEST border of all, exactly where it should have been heaviest. Jerry: the weights should match everywhere, and
+'                             Print Pg Num is the one that is right - so its thresholds are now the shared rule. Sizes 14-42 EVEN are unchanged.
+'                             249 lines went, four near-identical 48-line blocks collapsing into one loop each. Dx_Red_Border_Images keeps its fixed
+'                             6 pt, which is a red border on images and nothing to do with font size
+'           - Sh - 7/26/2026 - macros now return the user to where the cursor was when they started, instead of dumping them at the top of the document. New Sh_Save_User_Position / Sh_Return_User_To_Start_Position pair records a CHARACTER OFFSET (Sh_Start_Pos / Sh_Start_Doc), not a bookmark; 43 macros and 6 UserForms converted. Sh_Pos_Depth makes only the OUTERMOST macro return the user, so the File_Fix_Sequence orchestrators scroll once instead of twenty times; Sh_Pos_Saved refuses a return that had no matching save; RibbonAction clears both per button press so a macro that stops on an error cannot wedge them
 '           - Sh - 7/26/2026 - why the old TempPlaceholder bookmark could not do that job, three ways: (1) the copy-to-temp-doc macros paste back over the range the bookmark spans, so Word discards it and Sh_Move_To_And_Delete_Placeholder_Bookmark silently found nothing - its On Error GoTo ExitSub hid the failure; (2) one shared bookmark name, so any macro calling another had its mark deleted and recreated by the inner one; (3) Sh_Create_Temp_Bookmark uses ActiveDocument, so it landed in the temp file whenever one was active. The three TempPlaceholder helpers remain but are now unreferenced
 '           - Sh - 7/26/2026 - also fixed: the restore now happens AFTER ScreenUpdating goes back on - 13 macros (10 of them Dx_) moved the cursor while the screen was frozen, leaving the insertion point correct but the window still showing the top of the document. Lp_Fix_Common_File_Errors had its ScreenUpdating restore commented out entirely, and marked its spot only after Selection.Collapse had already moved it; Lp_Format_Exercise_Lv_1_and_Lv_2 called the restore twice
 '           - Sh - 7/26/2026 - LP_Picture_Alignment_Form called Sh_Create_Temp_Bookmark where it meant the move-and-delete, so it never returned the user AND left a stale bookmark behind - which Lp_Bakgrnd_Picture_Menu_Form had been jumping to, since that form called the return without ever creating a mark. The two forms were accidentally coupled through the one shared bookmark name
@@ -11289,12 +11298,11 @@ Sub ApplyTableBorders(tbl As Table, params As String, FontSize As String)
     If InStr(params, "4") > 0 Then: cRed = 74: cGreen = 93: cBlue = 255
     If InStr(params, "5") > 0 Then: cRed = 192: cGreen = 0: cBlue = 249
     If InStr(params, "6") > 0 Then: cRed = 0: cGreen = 128: cBlue = 0
-    Select Case Val(FontSize)
-        Case 18 To 28: bWidth = wdLineWidth300pt
-        Case 30 To 36: bWidth = wdLineWidth450pt
-        Case 38 To 42: bWidth = wdLineWidth600pt
-        Case Else: bWidth = wdLineWidth225pt
-    End Select
+    ' 7/30/2026: was its own Select Case, and it disagreed with every other border in the
+    ' document on 14 different base sizes - 18 to 21 came out at 3 pt where the box and
+    ' reference-page borders were 2 1/4, and anything above 42 fell to Case Else and got the
+    ' THINNEST border of all, 2 1/4, exactly where it should have been heaviest.
+    bWidth = Lp_Border_Weight_For_Base_Font(FontSize)
     With tbl.Borders
         .InsideLineStyle = wdLineStyleNone
         Dim side As Variant
@@ -11856,211 +11864,99 @@ Sub Lp_Set_TOC_and_Print_Page_Num_Tab_Stops()
     
 End Sub   '*** end of Lp_Set_TOC_and_Print_Page_Num_Tab_Stops macro ***
 
+Function Lp_Border_Weight_For_Base_Font(Optional ByVal SizeOverride As String = "") As WdLineWidth
+'
+' The one place that decides how heavy a border should be for the current base font size.
+'
+' Version: 1.0  Date: 7/30/2026 - split out of Lp_Normalize_Styles so that macro and
+'                                 Lp_Set_Table_Border_Weights cannot drift apart. They had:
+'                                 Normalize Styles compared numerically, while
+'                                 Lp_Set_Table_Border_Weights matched the size as TEXT
+'                                 against fifteen literals ("14","16",..."42"), so any odd
+'                                 size, and anything above 42, silently got no border at all.
+'
+
+    Dim fSize As Single
+
+    If SizeOverride <> "" Then
+        ' A caller that already holds the size (ApplyTableBorders is handed it).
+        fSize = Val(SizeOverride)
+    Else
+        ' Same fallback (and same side effect of filling in Lp_Base_Font_Size) as before.
+        If Lp_Base_Font_Size = "" Then
+            Lp_Base_Font_Size = ActiveDocument.Styles(wdStyleNormal).Font.Size
+        End If
+        fSize = Val(Lp_Base_Font_Size)
+    End If
+
+    If fSize >= 38 Then
+        Lp_Border_Weight_For_Base_Font = wdLineWidth600pt      ' border weight menu: 6
+    ElseIf fSize >= 30 Then
+        Lp_Border_Weight_For_Base_Font = wdLineWidth450pt      ' 4 1/2
+    ElseIf fSize >= 22 Then
+        Lp_Border_Weight_For_Base_Font = wdLineWidth300pt      ' 3
+    ElseIf fSize >= 14 Then
+        Lp_Border_Weight_For_Base_Font = wdLineWidth225pt      ' 2 1/4
+    Else
+        Lp_Border_Weight_For_Base_Font = wdLineWidth050pt      ' 1/2
+    End If
+
+End Function   '*** End of Lp_Border_Weight_For_Base_Font ***
+
 Sub Lp_Set_Table_Border_Weights()
 
-    ' sets the border weight of ALL tables relative to the Base Font Size (Normal style)
+    ' sets the border weight of ALL tables relative to the Base Font Size (Normal style),
+    ' clears any diagonal borders and table shadows, and sets Word's own default border
+    ' width so a border the user draws afterwards matches.
     '
+    ' Called by Lp_Normalize_Styles and by all four "colour every table" buttons on
+    ' Lp_Table_Tools_Menu_Form - applying a Word table style resets the borders, so those
+    ' buttons call this to put the weights back.
+    '
+    ' Version: 2.0  Date: 7/30/2026 - weight now chosen by Lp_Border_Weight_For_Base_Font
+    '                                 instead of matching the size as text against fifteen
+    '                                 literals. Sizes 14-42 EVEN behave exactly as before;
+    '                                 odd sizes and anything above 42 previously fell through
+    '                                 every branch and left the borders untouched, so a
+    '                                 Table Tools colour button appeared to do nothing to
+    '                                 them. Four near-identical 48-line blocks became one.
     ' Version: 1.2  Date: 1/9/2024 - added On Erro Resume if table has missing borders
     ' version: 1.1  Date: 10/16/2023 - set width 225pt range to include Lp_Base_Font_Size = "20"
     ' Version: 1.0  Date: 9/29/2022
-    
+
     Dim CurrentTable As Table
+    Dim targetWeight As WdLineWidth
+    Dim edge As Variant
 
-    If Lp_Base_Font_Size = "14" Or Lp_Base_Font_Size = "16" Or Lp_Base_Font_Size = "18" Or Lp_Base_Font_Size = "20" Then
-        Options.DefaultBorderLineWidth = wdLineWidth225pt  'on border weight menu use 2 1/4
-        For Each CurrentTable In ActiveDocument.Tables
-            With CurrentTable
-            
-                On Error Resume Next
-                
-                With .Borders(wdBorderLeft)
-                    .LineStyle = wdLineStyleSingle
-                    .LineWidth = wdLineWidth225pt
-                    .Color = wdColorAutomatic
-                End With
-                With .Borders(wdBorderRight)
-                    .LineStyle = wdLineStyleSingle
-                    .LineWidth = wdLineWidth225pt
-                    .Color = wdColorAutomatic
-                End With
-                With .Borders(wdBorderTop)
-                    .LineStyle = wdLineStyleSingle
-                    .LineWidth = wdLineWidth225pt
-                    .Color = wdColorAutomatic
-                End With
-                With .Borders(wdBorderBottom)
-                    .LineStyle = wdLineStyleSingle
-                    .LineWidth = wdLineWidth225pt
-                    .Color = wdColorAutomatic
-                End With
-                With .Borders(wdBorderHorizontal)
-                    .LineStyle = wdLineStyleSingle
-                    .LineWidth = wdLineWidth225pt
-                    .Color = wdColorAutomatic
-                End With
-                With .Borders(wdBorderVertical)
-                    .LineStyle = wdLineStyleSingle
-                    .LineWidth = wdLineWidth225pt
-                    .Color = wdColorAutomatic
-                End With
-                    .Borders(wdBorderDiagonalDown).LineStyle = wdLineStyleNone
-                    .Borders(wdBorderDiagonalUp).LineStyle = wdLineStyleNone
-                    .Borders.Shadow = False
-                End With
-                
-                On Error GoTo 0
-                
-            Next CurrentTable
-        End If
-        
-        On Error Resume Next
-     
-        If Lp_Base_Font_Size = "22" Or Lp_Base_Font_Size = "24" Or Lp_Base_Font_Size = "26" Or Lp_Base_Font_Size = "28" Then
-            Options.DefaultBorderLineWidth = wdLineWidth300pt 'on border weight menu use 3
-            For Each CurrentTable In ActiveDocument.Tables
-                With CurrentTable
-                
-                    On Error Resume Next
-                    
-                    With .Borders(wdBorderLeft)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth300pt
-                        .Color = wdColorAutomatic
-                    End With
-                    With .Borders(wdBorderRight)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth300pt
-                        .Color = wdColorAutomatic
-                    End With
-                    With .Borders(wdBorderTop)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth300pt
-                        .Color = wdColorAutomatic
-                    End With
-                    With .Borders(wdBorderBottom)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth300pt
-                        .Color = wdColorAutomatic
-                    End With
-                    With .Borders(wdBorderHorizontal)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth300pt
-                        .Color = wdColorAutomatic
-                    End With
-                    With .Borders(wdBorderVertical)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth300pt
-                        .Color = wdColorAutomatic
-                    End With
-                        .Borders(wdBorderDiagonalDown).LineStyle = wdLineStyleNone
-                        .Borders(wdBorderDiagonalUp).LineStyle = wdLineStyleNone
-                        .Borders.Shadow = False
-                    End With
-                    
-                    On Error GoTo 0
-                    
-                Next CurrentTable
-            End If
+    targetWeight = Lp_Border_Weight_For_Base_Font
+    Options.DefaultBorderLineWidth = targetWeight
 
-        If Lp_Base_Font_Size = "30" Or Lp_Base_Font_Size = "32" Or Lp_Base_Font_Size = "34" Or Lp_Base_Font_Size = "36" Then
-            Options.DefaultBorderLineWidth = wdLineWidth450pt 'on border weight menu use 4 1/2
-            For Each CurrentTable In ActiveDocument.Tables
-                With CurrentTable
-                
-                    On Error Resume Next
-                
-                    With .Borders(wdBorderLeft)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth450pt
-                        .Color = wdColorAutomatic
-                    End With
-                    With .Borders(wdBorderRight)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth450pt
-                        .Color = wdColorAutomatic
-                    End With
-                    With .Borders(wdBorderTop)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth450pt
-                        .Color = wdColorAutomatic
-                    End With
-                    With .Borders(wdBorderBottom)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth450pt
-                        .Color = wdColorAutomatic
-                    End With
-                    With .Borders(wdBorderHorizontal)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth450pt
-                        .Color = wdColorAutomatic
-                    End With
-                    With .Borders(wdBorderVertical)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth450pt
-                        .Color = wdColorAutomatic
-                    End With
-                        .Borders(wdBorderDiagonalDown).LineStyle = wdLineStyleNone
-                        .Borders(wdBorderDiagonalUp).LineStyle = wdLineStyleNone
-                        .Borders.Shadow = False
-                    End With
-                    
-                    On Error GoTo 0
-                    
-                Next CurrentTable
-            End If
+    For Each CurrentTable In ActiveDocument.Tables
+        With CurrentTable
 
-        If Lp_Base_Font_Size = "38" Or Lp_Base_Font_Size = "40" Or Lp_Base_Font_Size = "42" Then
-            Options.DefaultBorderLineWidth = wdLineWidth600pt  'on border weight menu use 6
-            For Each CurrentTable In ActiveDocument.Tables
-                With CurrentTable
-                
-                    On Error Resume Next
-                
-                    With .Borders(wdBorderLeft)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth600pt
-                        .Color = wdColorAutomatic
-                    End With
-                    With .Borders(wdBorderRight)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth600pt
-                        .Color = wdColorAutomatic
-                    End With
-                    With .Borders(wdBorderTop)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth600pt
-                        .Color = wdColorAutomatic
-                    End With
-                    With .Borders(wdBorderBottom)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth600pt
-                        .Color = wdColorAutomatic
-                    End With
-                    With .Borders(wdBorderHorizontal)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth600pt
-                        .Color = wdColorAutomatic
-                    End With
-                    With .Borders(wdBorderVertical)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth600pt
-                        .Color = wdColorAutomatic
-                    End With
-                        .Borders(wdBorderDiagonalDown).LineStyle = wdLineStyleNone
-                        .Borders(wdBorderDiagonalUp).LineStyle = wdLineStyleNone
-                        .Borders.Shadow = False
-                    End With
-                    
-                    On Error GoTo 0
-                    
-                Next CurrentTable
-            End If
-        
-EndOfTableBorderWeights:
+            ' A table can be missing an edge (a single cell has no inside borders), and
+            ' asking for one that is not there raises. Skip it and carry on, as before.
+            On Error Resume Next
 
-    On Error GoTo 0
-    
-End Sub   '********* End of Set Table Border Weights Macros***
+            For Each edge In Array(wdBorderLeft, wdBorderRight, wdBorderTop, _
+                                   wdBorderBottom, wdBorderHorizontal, wdBorderVertical)
+                With .Borders(edge)
+                    .LineStyle = wdLineStyleSingle
+                    .LineWidth = targetWeight
+                    .Color = wdColorAutomatic
+                End With
+            Next edge
+
+            .Borders(wdBorderDiagonalDown).LineStyle = wdLineStyleNone
+            .Borders(wdBorderDiagonalUp).LineStyle = wdLineStyleNone
+            .Borders.Shadow = False
+
+            On Error GoTo 0
+
+        End With
+    Next CurrentTable
+
+End Sub
 
 Sub Lp_Replace_Compact_Fractions_With_Fraction_Text()
 '
@@ -12785,174 +12681,52 @@ End Sub   '*** end of Lp_RemoveHeadAndFoot macro ***
 
 Sub Lp_SetSelectedTableBorderWeight()
 '
-' called from Table Tools Menu
+' called from Table Tools Menu - the same job as Lp_Set_Table_Border_Weights, but only for
+' the table the cursor is in.
 '
+' Version: 2.0  Date: 7/30/2026 - weight now comes from Lp_Border_Weight_For_Base_Font, the
+'                                 one place that decides it, so this matches the box styles,
+'                                 the reference page number border and every other table.
+'                                 It used to match the base size as TEXT against fifteen
+'                                 literals ("14","16",..."42"), so an odd size, or anything
+'                                 above 42, fell through every branch and the button quietly
+'                                 did nothing. Four near-identical blocks became one loop.
 ' Version: 1.0  Date: 10/16/23 - extended 225pt range to inclue Lp_Base_Font_Size = "20"
 ' Version: 1.0  Date: 3/6/2023
 
-    Selection.Tables(1).Select
     Dim CurrentTable As Table
-        If Lp_Base_Font_Size = "14" Or Lp_Base_Font_Size = "16" Or Lp_Base_Font_Size = "18" Or Lp_Base_Font_Size = "20" Then
-            For Each CurrentTable In Selection.Tables
-                    With CurrentTable
-                        With .Borders(wdBorderLeft)
-                            .LineStyle = wdLineStyleSingle
-                            .LineWidth = wdLineWidth225pt
-                            .Color = wdColorAutomatic
-                        End With
-                        With .Borders(wdBorderRight)
-                            .LineStyle = wdLineStyleSingle
-                            .LineWidth = wdLineWidth225pt
-                            .Color = wdColorAutomatic
-                        End With
-                        With .Borders(wdBorderTop)
-                            .LineStyle = wdLineStyleSingle
-                            .LineWidth = wdLineWidth225pt
-                            .Color = wdColorAutomatic
-                        End With
-                        With .Borders(wdBorderBottom)
-                            .LineStyle = wdLineStyleSingle
-                            .LineWidth = wdLineWidth225pt
-                            .Color = wdColorAutomatic
-                        End With
-                        With .Borders(wdBorderHorizontal)
-                            .LineStyle = wdLineStyleSingle
-                            .LineWidth = wdLineWidth225pt
-                            .Color = wdColorAutomatic
-                        End With
-                        With .Borders(wdBorderVertical)
-                            .LineStyle = wdLineStyleSingle
-                            .LineWidth = wdLineWidth225pt
-                            .Color = wdColorAutomatic
-                        End With
-                            .Borders(wdBorderDiagonalDown).LineStyle = wdLineStyleNone
-                            .Borders(wdBorderDiagonalUp).LineStyle = wdLineStyleNone
-                            .Borders.Shadow = False
-                        End With
-            Next CurrentTable
-        End If
+    Dim targetWeight As WdLineWidth
+    Dim edge As Variant
 
-        If Lp_Base_Font_Size = "22" Or Lp_Base_Font_Size = "24" Or Lp_Base_Font_Size = "26" Or Lp_Base_Font_Size = "28" Then
-            For Each CurrentTable In Selection.Tables
-                With CurrentTable
-                    With .Borders(wdBorderLeft)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth300pt
-                        .Color = wdColorAutomatic
-                    End With
-                    With .Borders(wdBorderRight)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth300pt
-                        .Color = wdColorAutomatic
-                    End With
-                    With .Borders(wdBorderTop)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth300pt
-                        .Color = wdColorAutomatic
-                    End With
-                    With .Borders(wdBorderBottom)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth300pt
-                        .Color = wdColorAutomatic
-                    End With
-                    With .Borders(wdBorderHorizontal)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth300pt
-                        .Color = wdColorAutomatic
-                    End With
-                    With .Borders(wdBorderVertical)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth300pt
-                        .Color = wdColorAutomatic
-                    End With
-                        .Borders(wdBorderDiagonalDown).LineStyle = wdLineStyleNone
-                        .Borders(wdBorderDiagonalUp).LineStyle = wdLineStyleNone
-                        .Borders.Shadow = False
-                    End With
-            Next CurrentTable
-        End If
-        
-        If Lp_Base_Font_Size = "30" Or Lp_Base_Font_Size = "32" Or Lp_Base_Font_Size = "34" Or Lp_Base_Font_Size = "36" Then
-            For Each CurrentTable In Selection.Tables
-                With CurrentTable
-                    With .Borders(wdBorderLeft)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth450pt
-                        .Color = wdColorAutomatic
-                    End With
-                    With .Borders(wdBorderRight)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth450pt
-                        .Color = wdColorAutomatic
-                    End With
-                    With .Borders(wdBorderTop)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth450pt
-                        .Color = wdColorAutomatic
-                    End With
-                    With .Borders(wdBorderBottom)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth450pt
-                        .Color = wdColorAutomatic
-                    End With
-                    With .Borders(wdBorderHorizontal)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth450pt
-                        .Color = wdColorAutomatic
-                    End With
-                    With .Borders(wdBorderVertical)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth450pt
-                        .Color = wdColorAutomatic
-                    End With
-                        .Borders(wdBorderDiagonalDown).LineStyle = wdLineStyleNone
-                        .Borders(wdBorderDiagonalUp).LineStyle = wdLineStyleNone
-                        .Borders.Shadow = False
-                    End With
-            Next CurrentTable
-        End If
-        
-        If Lp_Base_Font_Size = "38" Or Lp_Base_Font_Size = "40" Or Lp_Base_Font_Size = "42" Then
-            For Each CurrentTable In Selection.Tables
-                With CurrentTable
-                    With .Borders(wdBorderLeft)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth600pt
-                        .Color = wdColorAutomatic
-                    End With
-                    With .Borders(wdBorderRight)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth600pt
-                        .Color = wdColorAutomatic
-                    End With
-                    With .Borders(wdBorderTop)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth600pt
-                        .Color = wdColorAutomatic
-                    End With
-                    With .Borders(wdBorderBottom)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth600pt
-                        .Color = wdColorAutomatic
-                    End With
-                    With .Borders(wdBorderHorizontal)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth600pt
-                        .Color = wdColorAutomatic
-                    End With
-                    With .Borders(wdBorderVertical)
-                        .LineStyle = wdLineStyleSingle
-                        .LineWidth = wdLineWidth600pt
-                        .Color = wdColorAutomatic
-                    End With
-                        .Borders(wdBorderDiagonalDown).LineStyle = wdLineStyleNone
-                        .Borders(wdBorderDiagonalUp).LineStyle = wdLineStyleNone
-                        .Borders.Shadow = False
-                    End With
-            Next CurrentTable
-        End If
+    If Selection.Tables.count = 0 Then Exit Sub
+    Selection.Tables(1).Select
 
-    Application.Selection.Collapse
+    targetWeight = Lp_Border_Weight_For_Base_Font
+
+    For Each CurrentTable In Selection.Tables
+        With CurrentTable
+
+            ' A table can be missing an edge (a single cell has no inside borders), and
+            ' asking for one that is not there raises. Skip it and carry on, as before.
+            On Error Resume Next
+
+            For Each edge In Array(wdBorderLeft, wdBorderRight, wdBorderTop, _
+                                   wdBorderBottom, wdBorderHorizontal, wdBorderVertical)
+                With .Borders(edge)
+                    .LineStyle = wdLineStyleSingle
+                    .LineWidth = targetWeight
+                    .Color = wdColorAutomatic
+                End With
+            Next edge
+
+            .Borders(wdBorderDiagonalDown).LineStyle = wdLineStyleNone
+            .Borders(wdBorderDiagonalUp).LineStyle = wdLineStyleNone
+            .Borders.Shadow = False
+
+            On Error GoTo 0
+
+        End With
+    Next CurrentTable
 
 End Sub
 Sub Lp_Convert_Ordinal_Numbers()
@@ -14630,26 +14404,12 @@ Sub Lp_Normalize_Styles()
 
     Dim tbl As Table
     Dim targetWeight As WdLineWidth
-    Dim fSize As Single
     Dim sName As Variant
     Dim arrBoxStyles As Variant
 
-    If Lp_Base_Font_Size = "" Then
-        Lp_Base_Font_Size = ActiveDocument.Styles(wdStyleNormal).Font.Size
-    End If
-    fSize = Val(Lp_Base_Font_Size)
-
-    If fSize >= 38 Then
-        targetWeight = wdLineWidth600pt
-    ElseIf fSize >= 30 Then
-        targetWeight = wdLineWidth450pt
-    ElseIf fSize >= 22 Then
-        targetWeight = wdLineWidth300pt
-    ElseIf fSize >= 14 Then
-        targetWeight = wdLineWidth225pt
-    Else
-        targetWeight = wdLineWidth050pt
-    End If
+    ' Same decision Lp_Set_Table_Border_Weights uses, so the two can never disagree about
+    ' how heavy a border should be. They did until 7/30/2026.
+    targetWeight = Lp_Border_Weight_For_Base_Font
 
     Sh_NonModalMessageForm.SetActivityMessage "Setting box border spacing"
 

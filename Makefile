@@ -28,7 +28,7 @@ DOTM      := LPandBRL.dotm
 DOTX      := LargePrintTemplate.dotx
 RIBBON    := Word.officeUI
 PROJNAME  := LPandBRL
-APPVER    := 3.0.41
+APPVER    := 3.0.42
 SETUP_EXE := VistaType LP and Braille Macros Setup $(APPVER).exe
 VERDATE   := $(shell date +%-m/%-d/%Y)
 
@@ -63,6 +63,13 @@ pull: check-config push-src
 check-frm-eol:
 	@python3 tools/lib/check_frm_eol.py
 
+# A VBA line over 1023 characters does not fail the build - it HANGS it. Word chokes on the
+# line silently, with no error and no visible dialog, and the ~$ lock file it leaves behind
+# while stuck looks like the cause. Cost three hung builds on 7/30/2026 before the real
+# reason turned up. Two seconds to check.
+check-vba-lines:
+	@python3 tools/lib/check_vba_line_length.py
+
 # The toolbar's idQ="x1:btn_*" entries resolve against the hidden tab in customUI14.xml.
 # If they drift apart the buttons render blank on the user's machine and nothing warns you,
 # so the build refuses to proceed. Also regenerates the append-safe icons-only toolbar.
@@ -76,7 +83,7 @@ check-qat:
 check-tabs:
 	@python3 tools/lib/build_ribbon_tabs.py
 
-build: check-config check-frm-eol check-qat check-tabs push-src
+build: check-config check-frm-eol check-vba-lines check-qat check-tabs push-src
 	$(SSH) '$(WIN_PWSH) -ExecutionPolicy Bypass -File $(WSCRIPTS)/Import-Vba.ps1 -Shell "$(WIN_DIR)/$(DOTM)" -SrcRoot "$(WIN_DIR)/src" -OutDotm "$(WIN_DIR)/dist/$(DOTM)" -ProjectName $(PROJNAME) -AppVer $(APPVER) -VerDate "$(VERDATE)"'
 	@# The two About forms carry the version in their binary .frx, so bring them home if the
 	@# stamp changed them. -u: only if newer, so an unchanged build copies nothing.
@@ -164,4 +171,4 @@ installer-build: check-config stage
 clean:
 	rm -rf dist build
 
-.PHONY: help check-config push-src pull build ribbon qat check-qat check-frm-eol read deploy stage installer clean
+.PHONY: help check-config push-src pull build ribbon qat check-qat check-tabs check-frm-eol check-vba-lines read deploy stage installer clean
