@@ -14339,6 +14339,12 @@ End Function   '*** end of Function Sh_IsValidRomanNumeral ***
 
 Sub Lp_Normalize_Styles()
     '
+    ' Version: 3.5  Date: 7/30/2026 - two progress messages both said they were setting table
+    '                                 border weights; each step now has its own. Sh_Color_Dollar_PG_Red
+    '                                 moved from near the top to the LAST action, and shows no
+    '                                 message - the style updates in between reset the font
+    '                                 colour of the styles they touch, so the red could be
+    '                                 undone before the macro finished
     ' Version: 3.3  Date: 7/26/2026 - stopped the screen flashing - see the note in the changelog header
     ' Version: 3.2  Date: 7/18/2026 - space-after now set once at story level (was a per-paragraph loop)
     ' Version: 3.1  Date: 7/6/2026 - optimized style updates, preserved all status messages and DoEvents
@@ -14355,9 +14361,19 @@ Sub Lp_Normalize_Styles()
     Dim LoopCounter As Integer
     Dim BxClr As String
 
-    Sh_NonModalMessageForm.SetActivityMessage "Adjusting table border weights"
+    ' This message said "Adjusting table border weights" and covered TWO calls, so it
+    ' described the second one not at all - and it read as a duplicate of the genuine
+    ' "Setting table border weights" further down, leaving no way to tell which was really
+    ' doing the job. (Jerry, 7/30/2026.)
+    '
+    ' Lp_Set_Table_Border_Weights does set the weights, but the loop further down sets them
+    ' again and is what the user finally sees - so this message names the part of its work
+    ' that only happens here, rather than announcing border weights twice.
+    '
+    ' Sh_Color_Dollar_PG_Red used to run here too. It is now the last thing the macro does
+    ' to the document, and shows no message of its own - see the end of this sub.
+    Sh_NonModalMessageForm.SetActivityMessage "Removing table shadows and diagonal borders"
     Application.Run MacroName:="Lp_Set_Table_Border_Weights"
-    Application.Run MacroName:="Sh_Color_Dollar_PG_Red"
 
     '***** Begin Setting Automatic List Indention Size ****
     Sh_NonModalMessageForm.SetActivityMessage "Setting list paragraph indention sizes"
@@ -14590,6 +14606,13 @@ Sub Lp_Normalize_Styles()
         sty.Font.Size = base
     Next i
     '********** End Set Base Font Size for Para Styles ***********
+
+    ' LAST thing done to the document, and deliberately silent (Jerry, 7/30/2026).
+    ' It used to run near the top, before every style update above - and those updates reset
+    ' the font colour of the styles they touch, so the red could be undone again before the
+    ' macro had finished. Doing it last means it survives. No progress message: it is quick,
+    ' and it is not a step the user needs narrating.
+    Application.Run MacroName:="Sh_Color_Dollar_PG_Red"
 
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     ActiveDocument.UndoClear
