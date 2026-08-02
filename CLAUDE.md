@@ -102,7 +102,13 @@ src/keymap/     lp-template-keymap.xml — keyboard shortcuts, injected into Lar
 LPandBRL.dotm   the .dotm shell/base (tracked): project references + non-VBA parts; build base
 LargePrintTemplate.dotx   the attached large-print template (styles/page setup)
 Word.officeUI   legacy global ribbon (no longer shipped; kept for reference)
-tools/windows/  Export-Vba.ps1 / Import-Vba.ps1 — run in Word on the build box
+tools/windows/  Export-Vba.ps1 / Import-Vba.ps1 / New-UserForm.ps1 — run in Word on the build box
+                (New-UserForm.ps1 creates a BRAND-NEW UserForm and exports a valid .frm/.frx
+                 pair: the binary .frx cannot be written by hand from Linux and `make pull`
+                 must never be used to seed one. Builds it in a throwaway blank document, so
+                 nothing tracked is touched. Layout only — append the form's code to the .frm
+                 as text afterwards, then run tools/lib/check_frm_eol.py. `-InfoDialog` lays in
+                 the read-only note shape used by Sh_Prodnote_Info_Form)
                 (Import-Vba.ps1 clears stale hidden `~$*` Word lock files first — a leftover
                  one makes Word raise an invisible "File In Use" dialog and the build hangs
                  forever with no error; see DEVELOPMENT.md "Gotchas baked into the tooling")
