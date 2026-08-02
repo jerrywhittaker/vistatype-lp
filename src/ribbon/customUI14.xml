@@ -98,6 +98,7 @@
         <button id="btn_Sh_Move_Paragraph_To_Next_Page" label="Move Paragraph to Next Page" imageMso="_3DPerspectiveDecrease" onAction="RibbonAction" tag="Sh_Move_Paragraph_To_Next_Page"/>
         <button id="btn_Sh_Keep_Lines_Of_Para_Together" label="Do Not Split Paragraph Across Pages" imageMso="Lock" onAction="RibbonAction" tag="Sh_Keep_Lines_Of_Para_Together"/>
         <button id="btn_Sh_Apply_Title_Case_Capitalization" label="Convert Paragraph to Title Case" imageMso="CharacterBorder" onAction="RibbonAction" tag="Sh_Apply_Title_Case_Capitalization"/>
+        <button id="btn_Sh_Show_Recommended_Styles_Pane" label="Styles Pane: Recommended" imageMso="QuickStylesGallery" onAction="RibbonAction" tag="Sh_Show_Recommended_Styles_Pane"/>
       </group>
     </tab>
     </tabs>

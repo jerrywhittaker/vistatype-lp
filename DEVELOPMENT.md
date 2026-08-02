@@ -66,7 +66,7 @@ the tabs live where Word will let the user edit them; it is the trade.
   `<mso:control idQ="x1:btn_...">` — not as a legacy `<mso:button onAction="...">`. Both
   render and fire (tested 7/29/2026), but the reference form keeps clicks going through
   `RibbonAction`, and Word takes the label and icon from the add-in so neither is duplicated.
-  Emitting `onAction` directly would skip the `Sh_Pos_Depth` reset for 43 of the 49 buttons.
+  Emitting `onAction` directly would skip the `Sh_Pos_Depth` reset for 43 of the 50 buttons.
 - `make build` injects it into the built `.dotm` with `tools/lib/inject_customui.py`
   (pure Linux zip/XML; runs after Word has compiled the code).
 - Every button calls one dispatcher, `RibbonAction` (in `src/vba/RibbonCallbacks.bas`),

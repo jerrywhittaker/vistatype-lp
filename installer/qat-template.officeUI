@@ -45,6 +45,7 @@
         <mso:control idQ="x1:btn_Sh_Move_Paragraph_To_Next_Page" visible="true" imageMso="_3DPerspectiveDecrease"/>
         <mso:control idQ="x1:btn_Sh_Keep_Lines_Of_Para_Together" visible="true" imageMso="Lock"/>
         <mso:control idQ="x1:btn_Sh_Apply_Title_Case_Capitalization" visible="true" imageMso="CharacterBorder"/>
+        <mso:control idQ="x1:btn_Sh_Show_Recommended_Styles_Pane" visible="true" imageMso="QuickStylesGallery"/>
       </mso:sharedControls>
     </mso:qat>
   </mso:ribbon>

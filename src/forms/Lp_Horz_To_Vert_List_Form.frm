@@ -16,6 +16,7 @@ Attribute VB_Exposed = False
 
 ' Lp_Horz_To_Vert_List_Form
 
+' Version 1.6 8/2/2026 - no longer runs "MS_Set_Word_Config_For_Large_Print" on form open
 ' Version 1.5 3/10/2026 - trapped crash on sort of non-sortable selection
 ' Version 1.4 10/3/2018 - added ordinary bullet
 ' Version 1.3 8/23/2018 - added check for ending para mark
@@ -371,8 +372,10 @@ End Sub
 Sub UserForm_Initialize()
     Me.AscendingOrderCheckbox.Value = True
     
-    Application.Run MacroName:="MS_Set_Word_Config_For_Large_Print"
-    
+    ' 8/2/2026 - removed "MS_Set_Word_Config_For_Large_Print": opening the document already
+    '            configures Word for large print, and re-running it here cost ~40 Options and
+    '            AutoCorrect writes plus 19 AutoCorrect entry deletions on every form open.
+    '            The other 14 LP forms dropped this call on 7/24/2026; this one was missed.
     ' From: https://www.thespreadsheetguru.com/the-code-vault/launch-vba-userforms-in-correct-window-with-dual-monitors
     ' Start Userform Centered inside Word Screen (for dual monitors)
     Me.StartUpPosition = 0

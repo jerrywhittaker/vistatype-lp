@@ -51,3 +51,4 @@ btn_Sh_Delete_Prodnote_Paragraphs_x
 btn_Sh_Doc_Info
 btn_Sh_Keep_Lines_Of_Para_Together
 btn_Sh_Move_Paragraph_To_Next_Page
+btn_Sh_Show_Recommended_Styles_Pane

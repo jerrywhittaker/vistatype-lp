@@ -29,7 +29,7 @@ Two toolbar files ship, both to `%AppData%\VistaType LP`:
 | File | Maintained how |
 |---|---|
 | `qat-template.officeUI` | **By hand.** VistaType's curated toolbar. Its ordering, separators, and the `visible="false"` entries that suppress Word's own default buttons are all deliberate and cannot be derived from anything. |
-| `qat-icons-only.officeUI` | **Generated** by `tools/lib/build_qat.py` from the hidden `tab_LP_and_BRL_QAT_Icons` ribbon tab. VistaType's six icons and nothing else — no `mso:` entries, no `visible="false"` — so appending it to someone's own toolbar cannot hide or move what they have. |
+| `qat-icons-only.officeUI` | **Generated** by `tools/lib/build_qat.py` from the hidden `tab_LP_and_BRL_QAT_Icons` ribbon tab. VistaType's seven icons and nothing else — no `mso:` entries, no `visible="false"` — so appending it to someone's own toolbar cannot hide or move what they have. |
 | `ribbon-tabs.officeUI` | **Generated** by `tools/lib/build_ribbon_tabs.py` from the two visible ribbon tabs. Written into the user's own `Word.officeUI` by `-Tabs Install`, so Word lists the tabs in *Customize the Ribbon* and they can be hidden, reordered and renamed — which is impossible for tabs defined inside the add-in. Buttons are emitted as references (`idQ="x1:btn_..."`), so clicks still go through `RibbonAction` and the labels and icons are not duplicated. |
 | `ribbon-button-ids.txt` | **Append-only record**, maintained by the same script. Every id that has shipped. Renaming or deleting a button breaks every tab and toolbar already installed in the field, which reference buttons by id — the entry renders blank with no error. `make build` stops if a shipped id disappears. |
 

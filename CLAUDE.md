@@ -180,7 +180,7 @@ Three subtleties that make it actually work:
   install path at merge time); its `btn_<macro>` ids must match `src/ribbon/customUI14.xml`.
   `make build` now *enforces* that via `tools/lib/build_qat.py` — they had already drifted
   (the toolbar carries `ParagraphMarks`, which is not on the tab). It also generates
-  `qat-icons-only.officeUI`. **Never rename the six `btn_*` ids on the hidden tab**: every
+  `qat-icons-only.officeUI`. **Never rename the seven `btn_*` ids on the hidden tab**: every
   toolbar already installed in the field references them by `idQ`.
 - **XML comments may not contain `--`.** Word and PowerShell both refuse to parse the file,
   and the symptom is an install that silently leaves the toolbar alone. `build_qat.py`
@@ -193,7 +193,7 @@ Three subtleties that make it actually work:
   user's machine with no error, and their `Word.officeUI` is not ours to migrate.
   `installer/ribbon-button-ids.txt` is an append-only record of every id that has shipped and
   `make build` stops if one disappears. This supersedes the narrower warning about the six
-  toolbar ids: it now covers all 49.
+  toolbar ids: it now covers all 50.
 
 ## Build & edit workflow (short version)
 

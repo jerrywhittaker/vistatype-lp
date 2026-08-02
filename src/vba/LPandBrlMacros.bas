@@ -18,7 +18,31 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Sh - 8/1/2026 - DAISY/NIMAS -> Word: a converted book that carries prodnotes now ends with a note explaining what they are,
+' Notes:    - LP - 8/2/2026 - the Styles pane belongs to the user again. Jerry: sophisticated users should keep their preferred pane
+'                             settings from session to session. The large print macros forced wdStyleSortRecommended and
+'                             wdShowFilterFormattingRecommended, and forced the pane open, in a dozen places - every LP document OPEN did
+'                             it, four times over. Now exactly TWO things force it: attaching the LP template (new or re-attached, both of
+'                             which arrive at Lp_Attach_The_Template), and the new QAT button. The braille side is untouched
+'           - LP - 8/2/2026 - what changed: Lp_Set_Display_For_Large_Print and MS_Set_Word_Config_For_Large_Print no longer call
+'                             Lp_Turn_on_Styles_Pane, which now has exactly one caller, the attach. CAREFUL - FormattingShowNextLevel was
+'                             riding inside that call and exists nowhere else in either sub, so both now write it explicitly rather than
+'                             lose it. Also dropped: the pane hide when an LP document closes, and the one in Lp_Copy_To_Temp_Doc. The
+'                             latter was the worst of them - eighteen callers, and it never put the pane back, so the pane died on the
+'                             first Table Tools or Fill-In Line and stayed dead all session. Pane visibility is WORD-WIDE, so it could
+'                             never have tidied the temp window without closing the pane in the user's book too
+'           - LP - 8/2/2026 - the close-time hide was also a plain bug: DocumentBeforeClose fires on close ATTEMPTS and nothing read its
+'                             Cancel flag, so X then "Cancel" at the save prompt left you in the document with the pane gone
+'           - Sh - 8/2/2026 - new Sh_Show_Recommended_Styles_Pane on the Quick Access Toolbar (btn_Sh_Show_Recommended_Styles_Pane, 7 QAT
+'                             icons now) puts the pane back on demand. Its icon is QuickStylesGallery, NOT StylesPane: Word's own Styles
+'                             Pane button is already on that toolbar, and two identical icons nine slots apart is a misclick waiting to
+'                             happen. Word's is kept because it TOGGLES - it can close the pane, which ours deliberately cannot.
+'                             Shared, not Lp_: one toolbar serves both tabs. Sets only the three
+'                             things it advertises - it does NOT call Lp_Turn_on_Styles_Pane, which also writes the Word-wide
+'                             RestrictLinkedStyles. Worth knowing: sort and filter are DOCUMENT properties saved into the file, so they
+'                             follow the book; only pane visibility is a Word-wide setting that persists across documents
+'           - LP - 8/2/2026 - Lp_Horz_To_Vert_List_Form finally drops its MS_Set_Word_Config_For_Large_Print call, the one the 7/24/2026
+'                             round missed. Saves ~40 Options/AutoCorrect writes and 19 AutoCorrect deletes on every open of that dialog
+'           - Sh - 8/1/2026 - DAISY/NIMAS -> Word: a converted book that carries prodnotes now ends with a note explaining what they are,
 '                             why they are red, and what to do with them for braille and for large print. Shown after the file is saved and
 '                             ONLY when the document actually has prodnotes, since it opens by saying it contains them. New UserForm
 '                             Sh_Prodnote_Info_Form (47 forms -> 48) rather than a MsgBox: the text runs to about 1270 characters and VBA
@@ -289,8 +313,10 @@ Sub Sh_HandleDocumentClosing()
     '
     ' Runs when a document is closing - via VtEvents.App_DocumentBeforeClose (STARTUP), or
     ' AutoClose when loaded as Normal.dotm.
-    ' If the document is a large print document then the styles pane, rulers, and crop marks are turned off
+    ' If the document is a large print document then print view is set. (The styles pane and
+    ' crop marks used to be turned off here too; see 1.2.)
     '
+    ' Version 1.2  Date: 8/2/2026 - no longer hides the Styles pane. It is the user's now, and this fired on close ATTEMPTS - cancelling the "save your changes?" prompt left you in the document with the pane gone
     ' Version 1.1  Date:  12/16/2021 - set on error - crashes if image is selected when document is closed    Application.TaskPanes(wdTaskPaneFormatting).Visible = True
     ' Version 1.0  Date: 10/17/2020
     ' Author: Jerry Whittaker - jerry@thewhittakers.org
@@ -298,8 +324,12 @@ Sub Sh_HandleDocumentClosing()
     If Lp_Is_The_Attached_Template_LP = True Then ' is the document being closed an lp doc
         ActiveWindow.ActivePane.View.Type = wdPrintView
         'Application.Options.ShowCropMarks = False
-        On Error GoTo eom
-        Application.TaskPanes(wdTaskPaneFormatting).Visible = False
+        ' 8/2/2026 - no longer hides the Styles pane, and the On Error that guarded that one
+        ' line went with it. Two reasons. The pane is the user's now (only attaching the LP
+        ' template forces it), and this fired on close ATTEMPTS: DocumentBeforeClose passes a
+        ' Cancel flag that nothing here reads, so clicking the X, then Cancel at "save your
+        ' changes?", left you still in the document with the pane gone. Pane visibility is
+        ' Word-wide, so it also stripped the pane from every other document open at the time.
     End If
 eom: 'End of Macro
 
@@ -9083,6 +9113,7 @@ End Sub  '***** End of Lp_Remove_Multi_Spaces ********
 
 Sub Lp_Copy_To_Temp_Doc()
     '
+    ' Version: 2.4 Date: 8/2/2026 - no longer hides the Styles pane: that setting is Word-wide, so it closed the pane in the user's own book, and nothing ever put it back
     ' Version: 2.3 Date: 3/5/2026 - full rewrite of previous versions
     '
     Dim origDoc As Document
@@ -9129,8 +9160,15 @@ Sub Lp_Copy_To_Temp_Doc()
     destRng.FormattedText = sourceRng.FormattedText
     
     ' 5. UI Cleanup
-    Application.TaskPanes(wdTaskPaneFormatting).Visible = False
-    
+    ' 8/2/2026 - removed "Application.TaskPanes(wdTaskPaneFormatting).Visible = False". The
+    ' intent was to keep the scratch window uncluttered, but pane visibility is a WORD-WIDE
+    ' setting, not a per-document one, so there is no way to tidy the temp document without
+    ' closing the pane in the user's book as well - and nothing ever put it back. With
+    ' eighteen callers (Table Tools, Fill-In Line, Horiz-to-Vert list, image colour) the pane
+    ' died on the first one used and stayed dead for the rest of the session. Save-and-restore
+    ' is not the answer either: several callers never reach Lp_Copy_From_Temp_Doc, so the
+    ' saved state would strand.
+
     ' 6. THE REVEAL - Fix for Error 5941
     ' If no window exists for this hidden doc, we create one now
     If tempDoc.Windows.count = 0 Then
@@ -10705,16 +10743,19 @@ Sub Lp_Set_Display_For_Large_Print()
     ActiveDocument.FormattingShowFont = False
     ActiveDocument.FormattingShowParagraph = False
     ActiveDocument.FormattingShowNumbering = False
-    Application.Run MacroName:="Lp_Turn_on_Styles_Pane"
     ActiveWindow.ActivePane.View.Type = wdPrintView
     'Application.Options.ShowCropMarks = True
     ActiveWindow.View.ShowAll = True
     ActiveWindow.DisplayRulers = True
     ActiveWindow.DisplayVerticalRuler = True
-    Application.TaskPanes(wdTaskPaneFormatting).Visible = True
+    ' 8/2/2026 - the Styles pane is no longer opened or re-sorted here. This sub runs on every
+    ' LP document open, and it was applying the Recommended sort and filter three times over
+    ' (once itself, once through Lp_Turn_on_Styles_Pane, once more through the
+    ' MS_Set_Word_Config_For_Large_Print call below), wiping out whatever the user had chosen.
+    ' Attaching the LP template is the only thing that forces the pane now.
+    ' RestrictLinkedStyles went with the removed Lp_Turn_on_Styles_Pane call but is still set,
+    ' one line later, by MS_Set_Word_Config_For_Large_Print.
     ActiveDocument.FormattingShowNextLevel = False
-    ActiveDocument.StyleSortMethod = wdStyleSortRecommended
-    ActiveDocument.FormattingShowFilter = wdShowFilterFormattingRecommended
     Application.Run MacroName:="MS_Set_Word_Config_For_Large_Print"
     
 End Sub
@@ -11482,6 +11523,7 @@ Sub Lp_Attach_The_Template()
 
     ' Attaches the LP template with style changes
     '
+    ' Version: 3.2  Date: 8/2/2026 - now the ONE place that forces the Styles pane open at Recommended sort and Recommended filter, for both a new attach and a re-attach; placed before the Save As so it survives a cancelled save
     ' Version: 3.1  Date: 7/23/2026 - calls Lp_Set_Prodnote_Style_Visibility after the attach so "Prodnote" shows in the Styles pane when the document uses it (the pre-attach hide-all loop hid it, and unhideWhenUsed does not fire for a style that was already in use, e.g. a converted DAISY/NIMAS document)
     ' Version: 3.0  Date: 7/23/2026 - reverted the 2.9 "Prodnote" exception: Style.Visibility = True sets <w:semiHidden/> (it HIDES), so the pre-attach loop hides every style as its comment says, and excluding Prodnote only stopped it being hidden
     ' Version: 2.9  Date: 7/22/2026 - (superseded) skipped "Prodnote" in the pre-attach visibility loop
@@ -11679,7 +11721,7 @@ DoEvents
     ' document whose prodnotes are already styled.
     Application.Run MacroName:="Sh_Set_Prodnote_Style_Visibility"
 
-    ' Turn on print view and styles pane
+    ' Turn on print view
     Application.Run MacroName:="Lp_Set_Display_For_Large_Print"
     Application.Run MacroName:="MS_Set_Word_Config_For_Large_Print"
 
@@ -11697,6 +11739,18 @@ DoEvents
     currentdoc.Activate
 
     Sh_SetBarVisible "Styles", True
+
+    ' The ONE place the Styles pane is forced open at Recommended sort and Recommended filter:
+    ' attaching the LP template, whether it is new to this document or being re-attached (both
+    ' arrive here - the re-attach path only adds the warning form first). Everywhere else the
+    ' user's own pane settings are left alone, so they survive from session to session.
+    ' Jerry, 8/2/2026.
+    '
+    ' Placed here, not after the Save As below: ScreenUpdating is back on and currentdoc is
+    ' active, so the pane paints and the settings land in the transcriber's book rather than a
+    ' leftover temp window - and this still runs when the user cancels the save, which is
+    ' exactly when they are left working in a freshly attached document.
+    Application.Run MacroName:="Lp_Turn_on_Styles_Pane"
 
     Dim doc As Document
     Dim userChoice As VbMsgBoxResult
@@ -15279,6 +15333,7 @@ Sub MS_Set_Word_Config_For_Large_Print()
     '
     ' Author: Jerry Whittaker -  jerry@thewhittakers.org
     '
+    ' Version: 2.0  Date: 8/2/2026 - no longer calls Lp_Turn_on_Styles_Pane, so configuring Word for large print no longer seizes the user's Styles pane; FormattingShowNextLevel, which rode inside that call, is now written here
     ' Version: 1.9  Date: 5/13/2025 - added Application.ShowStylePreviews = True
     ' Version: 1.8  Date: 5/7/2025  -  added Application.RestrictLinkedStyles = True
     ' Version: 1.7  Date: 2/20/2024 - added Application.Run MacroName:="Sh_Is_Doc_Open"
@@ -15341,7 +15396,13 @@ Sub MS_Set_Word_Config_For_Large_Print()
     ActiveWindow.View.ShowAll = True
     ActiveWindow.DisplayRulers = True
     ActiveWindow.DisplayVerticalRuler = True
-    Application.Run MacroName:="Lp_Turn_on_Styles_Pane"
+    ' 8/2/2026 - no longer calls Lp_Turn_on_Styles_Pane. Configuring Word for large print must
+    ' not seize the Styles pane: this sub runs on every LP document OPEN, so it was resetting
+    ' the sort order and the "Select styles to show" filter of anyone who had chosen their own.
+    ' Only attaching the LP template forces the pane now - see Lp_Attach_The_Template.
+    ' FormattingShowNextLevel was riding INSIDE that call and is nowhere else in this sub, so
+    ' it is written here explicitly rather than lost with it.
+    ActiveDocument.FormattingShowNextLevel = False
     Application.ShowStylePreviews = True
     Application.RestrictLinkedStyles = True
     ActiveDocument.FormattingShowUserStyleName = False
@@ -15608,6 +15669,34 @@ Sub Sh_Is_Doc_Open()
     End If
     
 End Sub  '*** end of Sh_Is_Doc_Open macro ***
+
+Sub Sh_Show_Recommended_Styles_Pane()
+'
+' Opens the Styles pane and puts it back to VistaType's working setup: sorted "As Recommended",
+' with "Select styles to show" set to "Recommended".
+'
+' Lives on the Quick Access Toolbar. As of 8/2/2026 the macros no longer force these settings
+' on the user -- only attaching the large print template does -- so this is the button that
+' puts them back on demand. Shared rather than Lp_: one toolbar serves both the large print
+' and the braille side, and braille uses the same pair.
+'
+' Sets ONLY the three things it advertises. It deliberately does not call
+' Lp_Turn_on_Styles_Pane, which also writes Application.RestrictLinkedStyles -- a Word-wide
+' setting that a toolbar button has no business changing behind the user's back.
+'
+' Note the split: sort order and the show-filter are DOCUMENT properties, saved into the file
+' and carried with it. Whether the pane is open is a Word-wide setting.
+'
+' Version: 1.0  Date: 8/2/2026
+'
+    ' The toolbar is clickable with no document open, and ActiveDocument would raise 4248.
+    Application.Run MacroName:="Sh_Is_Doc_Open"
+
+    Application.TaskPanes(wdTaskPaneFormatting).Visible = True
+    ActiveDocument.StyleSortMethod = wdStyleSortRecommended
+    ActiveDocument.FormattingShowFilter = wdShowFilterFormattingRecommended
+
+End Sub   '*** end of Sh_Show_Recommended_Styles_Pane macro ***
 
 Sub Sh_RemoveHeadAndFoot()
 '
