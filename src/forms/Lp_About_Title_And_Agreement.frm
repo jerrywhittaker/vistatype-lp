@@ -59,6 +59,10 @@ Attribute VB_Exposed = False
 
 
 
+
+
+
+
 'Author: Jerry Whittaker -  jerry@thewhittakers.org
  
 ' Version: 1.4  Date: 7/24/2026 - VersionLabel caption bumped 3.0.5 -> 3.0.6 (caption lives in the .frx)

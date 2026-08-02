@@ -18,7 +18,32 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Lp - 7/30/2026 - border weights now come from ONE place, Lp_Border_Weight_For_Base_Font. There were four rules and they disagreed.
+' Notes:    - Sh - 8/1/2026 - DAISY/NIMAS -> Word: a converted book that carries prodnotes now ends with a note explaining what they are,
+'                             why they are red, and what to do with them for braille and for large print. Shown after the file is saved and
+'                             ONLY when the document actually has prodnotes, since it opens by saying it contains them. New UserForm
+'                             Sh_Prodnote_Info_Form (47 forms -> 48) rather than a MsgBox: the text runs to about 1270 characters and VBA
+'                             truncates a MsgBox at roughly 1024, which would have silently dropped the paragraph telling the user how to
+'                             delete prodnotes. The arrow in "Prodnote -> TN" is ChrW(8594) - the ribbon button's own character, but not in
+'                             the Windows-1252 set the module exports as, so a literal one would not survive a build. The Styles pane opens
+'                             behind the note - every style listed, sorted As Recommended - so the red Prodnote entry is visible in the pane
+'                             while the note explains it. Jerry, 8/1/2026. Guarded by On Error: the pane is a courtesy and must not cost the
+'                             user the note. Note this is deliberate, and narrower than the 7/24/2026 change that stopped 14 LP dialogs
+'                             resetting the pane on every open - it happens once, at the end of a conversion, not on every dialog
+'           - Sh - 8/1/2026 - "does this document USE the Prodnote style" is now one function, Sh_Document_Has_Prodnotes. The style merely
+'                             EXISTING proves nothing - every LP document defines Prodnote - so the test has to be a style-aware Find, and
+'                             there is no reason to have two of those. Sh_Set_Prodnote_Style_Visibility now calls it instead of carrying its
+'                             own copy, and it is also the cheap early exit for Sh_Strip_Prodnote_Enclosing_Quotes, which would otherwise
+'                             walk every paragraph in the book to discover there were no prodnotes
+'           - Sh - 8/1/2026 - DAISY/NIMAS -> Word: quotation marks that ENCLOSE a prodnote are now removed at the close of the conversion.
+'                             Some books wrap the note in them - "Illustration of a barn." - where the marks belong to the source markup and
+'                             not to the note. New Sh_Strip_Prodnote_Enclosing_Quotes, called from Sh_Convert_XML_File_To_Word_Document after
+'                             the prodnotes are styled and before the document is stabilized and saved. Straight " " and ' ' and both curly
+'                             pairs count; BOTH ends must match, so a stray mark at one end only is left alone, as is a curly open with a
+'                             straight close. Each Prodnote paragraph is tested on its own first, then any RUN of consecutive Prodnote
+'                             paragraphs in which that found nothing is tested as one note - a DAISY prodnote can arrive as several
+'                             paragraphs with the opening mark on the first and the closing mark on the last. Paragraph-first is what keeps
+'                             two separately-quoted notes sitting back to back from being read as a single quoted block
+'           - Lp - 7/30/2026 - border weights now come from ONE place, Lp_Border_Weight_For_Base_Font. There were four rules and they disagreed.
 '                             Lp_Set_Table_Border_Weights and Lp_SetSelectedTableBorderWeight matched the base size as TEXT against fifteen literals
 '                             ("14","16",..."42"), so any ODD size and anything ABOVE 42 fell through every branch and the border was left untouched -
 '                             a Table Tools colour button appeared to do nothing. ApplyTableBorders had its own Select Case that disagreed on 14 sizes:
@@ -12366,6 +12391,42 @@ Sub Lp_Remove_All_Styles_Except_Lp_Styles()
     
 End Sub   '*** end of Lp_Remove_All_Styles_Except_Lp_Styles macro ***
 
+Function Sh_Document_Has_Prodnotes(ByVal targetDoc As Document) As Boolean
+'
+' True when the document actually USES the Prodnote style -- in the body text or inside a
+' table. The style merely EXISTING is not enough to go on: every LP document defines Prodnote
+' whether anything is styled with it or not, so existence would nearly always be True.
+'
+' This is the one place the test lives. Sh_Set_Prodnote_Style_Visibility decides whether to
+' keep or delete the style by it, Sh_Strip_Prodnote_Enclosing_Quotes decides whether there is
+' anything to unwrap by it, and Sh_Convert_XML_File_To_Word_Document decides whether to show
+' the prodnote note at the end of a conversion by it.
+'
+' Version: 1.0  Date: 8/1/2026
+'
+    Dim st As Style
+    Dim rng As Range
+
+    On Error Resume Next
+    Set st = targetDoc.Styles("Prodnote")
+    On Error GoTo 0
+    If st Is Nothing Then Exit Function     ' no Prodnote style at all, so nothing can use it
+
+    Set rng = targetDoc.Content
+    With rng.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
+        .Text = ""
+        .Style = st
+        .Format = True
+        .Forward = True
+        .Wrap = wdFindStop
+        .MatchWildcards = False
+        .Execute
+        Sh_Document_Has_Prodnotes = .found
+    End With
+End Function   '*** end of Sh_Document_Has_Prodnotes function ***
+
 Sub Sh_Set_Prodnote_Style_Visibility()
 '
 ' Keeps "Prodnote" in the Styles pane ONLY when the document actually contains at least one
@@ -12395,26 +12456,13 @@ Sub Sh_Set_Prodnote_Style_Visibility()
 '
     Dim st As Style
     Dim used As Boolean
-    Dim rng As Range
 
     On Error Resume Next
     Set st = ActiveDocument.Styles("Prodnote")
     On Error GoTo 0
     If st Is Nothing Then Exit Sub          ' no Prodnote style in this document -- nothing to do
 
-    Set rng = ActiveDocument.Content
-    With rng.Find
-        .ClearFormatting
-        .Replacement.ClearFormatting
-        .Text = ""
-        .Style = st
-        .Format = True
-        .Forward = True
-        .Wrap = wdFindStop
-        .MatchWildcards = False
-        .Execute
-        used = .found
-    End With
+    used = Sh_Document_Has_Prodnotes(ActiveDocument)
 
     On Error Resume Next
     If used Then
@@ -16991,6 +17039,12 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     Err.Clear
     On Error GoTo 0
 
+    ' Some DAISY and NIMAS books wrap each prodnote in quotation marks. Those belong to the
+    ' source markup rather than to the note, so take them off here -- after the prodnotes
+    ' carry the Prodnote style, and before the document is stabilized and saved. Silent, and
+    ' does nothing at all when the book contained no prodnotes.
+    Sh_Strip_Prodnote_Enclosing_Quotes finalDoc
+
     Sh_Color_Dollar_PG_Red
 
     ' Repaint BEFORE the "conversion complete" message box: turn ScreenUpdating back on,
@@ -17108,7 +17162,29 @@ SaveTheFile:
     DoEvents
     
     MsgBox "Conversion is complete and the file has been stabilized and saved", vbInformation, "Operation Complete"
-    
+
+    ' A converted book that carries prodnotes needs a word of explanation -- what they are,
+    ' why they are red, and what to do with them for braille and for large print. Shown after
+    ' the file is saved, and only when the document actually has some: the note opens by
+    ' saying it "contains one or more prodnotes", which must not appear over a book with none.
+    ' The text is too long for a MsgBox (VBA truncates at about 1024 characters), so it lives
+    ' on Sh_Prodnote_Info_Form. Closing the form ends the macro.
+    If Sh_Document_Has_Prodnotes(doc) Then
+        ' Open the Styles pane behind the note, listing EVERY style and sorted As Recommended,
+        ' so the reader can see the red Prodnote entry in the list while the note explains it.
+        ' Same pair MS_Set_Word_Config_For_New_Install sets. Guarded: the pane is a courtesy
+        ' and a failure here must not cost the user the note itself.
+        On Error Resume Next
+        Application.TaskPanes(wdTaskPaneFormatting).Visible = True
+        doc.FormattingShowNextLevel = False
+        doc.StyleSortMethod = wdStyleSortRecommended
+        doc.FormattingShowFilter = wdShowFilterStylesAll
+        Err.Clear
+        On Error GoTo 0
+
+        Sh_Prodnote_Info_Form.Show
+    End If
+
 End Sub   '*** end of Sh_Convert_XML_File_To_Word_Document macro ***
 
 Function Sh_Tag_Prodnotes_As_Prodnote_Style(ByVal src As String) As String
@@ -17169,6 +17245,214 @@ Function Sh_Tag_Prodnotes_As_Prodnote_Style(ByVal src As String) As String
     outStr = outStr & Mid$(src, pos)
     Sh_Tag_Prodnotes_As_Prodnote_Style = outStr
 End Function   '*** end of Sh_Tag_Prodnotes_As_Prodnote_Style function ***
+
+Function Sh_Strip_Prodnote_Enclosing_Quotes(ByVal targetDoc As Document) As Long
+'
+' Removes the quotation marks that ENCLOSE a prodnote -- in the body text and inside tables.
+' Some DAISY and NIMAS books wrap the whole note in them, "Illustration of a barn.", where
+' the marks are punctuation of the source markup and not part of the note itself.
+'
+' Called at the end of Sh_Convert_XML_File_To_Word_Document, once the prodnotes carry the
+' "Prodnote" style (Sh_Tag_Prodnotes_As_Prodnote_Style put it there) and before the document
+' is stabilized and saved. Silent -- the converter reports its own progress.
+'
+' A note is only unwrapped when it BEGINS and ENDS with a matching pair. Four pairs count:
+' straight " ", straight ' ', and the two curly pairs. A stray mark at one end only is left
+' exactly as it is, and so is a mismatched pair such as a curly open with a straight close.
+'
+' Two shapes, and the order they are tried in matters:
+'   1. Every Prodnote paragraph is tested on its own first.
+'   2. A DAISY prodnote can arrive as SEVERAL Prodnote paragraphs in a row, with the opening
+'      mark on the first and the closing mark on the last. So any run of consecutive Prodnote
+'      paragraphs in which step 1 removed nothing is then tested as one single note.
+' Testing paragraphs first is what stops two individually-quoted notes that happen to sit
+' back to back from being read as one quoted block.
+'
+' Leading and trailing spaces are ignored when deciding, so a note that begins with a space
+' before its opening mark still unwraps. Returns the number of pairs removed.
+'
+' Version: 1.0  Date: 8/1/2026
+'
+    Dim runs As Collection          ' each item is itself a Collection of paragraph Ranges
+    Dim thisRun As Collection
+    Dim para As Paragraph
+    Dim r As Long, p As Long
+    Dim runRemoved As Long
+    Dim removed As Long
+
+    ' --- 0. Leave immediately if this book has no prodnotes ---
+    ' A style-aware Find settles that far more cheaply than the walk below, which visits every
+    ' paragraph in the book -- many thousands of them in a converted title.
+    If Not Sh_Document_Has_Prodnotes(targetDoc) Then Exit Function
+
+    ' --- 1. Group the Prodnote paragraphs into runs of consecutive ones ---
+    ' Document.Paragraphs walks the body text and the table cells in document order, so
+    ' paragraphs adjacent in this collection are adjacent on the page. Comparing style names
+    ' is safe even in a document with no Prodnote style at all -- nothing matches.
+    Set runs = New Collection
+
+    For Each para In targetDoc.Paragraphs
+        If StrComp(para.Style.NameLocal, "Prodnote", vbTextCompare) = 0 Then
+            If thisRun Is Nothing Then
+                Set thisRun = New Collection
+                runs.Add thisRun
+            End If
+            thisRun.Add para.Range
+        Else
+            Set thisRun = Nothing       ' a non-prodnote paragraph ends the run
+        End If
+    Next para
+
+    If runs.count = 0 Then Exit Function      ' this book had no prodnotes
+
+    ' --- 2. Unwrap, working backwards through the document ---
+    ' Back to front so that removing a mark can never shift the position of one still to be
+    ' examined -- the same reason Sh_Delete_Prodnote_Paragraphs deletes in reverse.
+    For r = runs.count To 1 Step -1
+        Set thisRun = runs(r)
+        runRemoved = 0
+
+        ' 2a. Each paragraph of the run on its own, last one first
+        For p = thisRun.count To 1 Step -1
+            If Sh_Strip_One_Quote_Pair(thisRun(p), thisRun(p)) Then
+                runRemoved = runRemoved + 1
+            End If
+        Next p
+
+        ' 2b. Nothing matched inside the run, so try the run as ONE note: opening mark on
+        '     the first paragraph, closing mark on the last.
+        If runRemoved = 0 And thisRun.count >= 2 Then
+            If Sh_Strip_One_Quote_Pair(thisRun(1), thisRun(thisRun.count)) Then
+                runRemoved = 1
+            End If
+        End If
+
+        removed = removed + runRemoved
+    Next r
+
+    Sh_Strip_Prodnote_Enclosing_Quotes = removed
+End Function   '*** end of Sh_Strip_Prodnote_Enclosing_Quotes function ***
+
+Private Function Sh_Strip_One_Quote_Pair(ByVal openRange As Range, ByVal closeRange As Range) As Boolean
+'
+' Removes one enclosing pair of quotation marks: the first visible character of openRange and
+' the last visible character of closeRange, but only when the two are a matching pair.
+' Pass the SAME range twice to test a single paragraph; pass the first and last paragraphs of
+' a run to test that run as one note. Returns True when a pair was removed.
+'
+' Version: 1.0  Date: 8/1/2026
+'
+    Dim openText As String, closeText As String
+    Dim openPos As Long, closePos As Long
+
+    openText = Sh_Para_Visible_Text(openRange)
+    closeText = Sh_Para_Visible_Text(closeRange)
+
+    openPos = Sh_First_Visible_Char(openText)
+    closePos = Sh_Last_Visible_Char(closeText)
+    If openPos = 0 Or closePos = 0 Then Exit Function       ' empty, or nothing but spaces
+
+    ' Within ONE paragraph the two marks must have something between them, so a paragraph
+    ' holding nothing but "" is left alone instead of being emptied.
+    If openRange.Start = closeRange.Start Then
+        If closePos - openPos < 2 Then Exit Function
+    End If
+
+    If Not Sh_Is_Quote_Pair(Mid$(openText, openPos, 1), Mid$(closeText, closePos, 1)) Then Exit Function
+
+    ' The closing mark goes first: it sits later in the document, so removing it cannot move
+    ' the opening one. Doing it the other way round would leave closePos pointing one
+    ' character too far along.
+    closeRange.Characters(closePos).Delete
+    openRange.Characters(openPos).Delete
+
+    Sh_Strip_One_Quote_Pair = True
+End Function   '*** end of Sh_Strip_One_Quote_Pair function ***
+
+Private Function Sh_Para_Visible_Text(ByVal r As Range) As String
+'
+' The text of a paragraph range as the reader sees it. A paragraph range always ends with its
+' paragraph mark, and the last paragraph of a table cell ends with the end-of-cell marker as
+' well; neither is text. What is left is a prefix of the range, so a character position in it
+' is also a valid index into Range.Characters.
+'
+' Version: 1.0  Date: 8/1/2026
+'
+    Dim t As String
+    t = r.Text
+
+    Do While Len(t) > 0
+        Select Case Right$(t, 1)
+            Case vbCr, vbLf, Chr$(7)
+                t = Left$(t, Len(t) - 1)
+            Case Else
+                Exit Do
+        End Select
+    Loop
+
+    Sh_Para_Visible_Text = t
+End Function   '*** end of Sh_Para_Visible_Text function ***
+
+Private Function Sh_First_Visible_Char(ByVal t As String) As Long
+'
+' Position of the first character that is not a space, or 0 when there is none.
+'
+' Version: 1.0  Date: 8/1/2026
+'
+    Dim i As Long
+    For i = 1 To Len(t)
+        If Not Sh_Is_Space_Char(Mid$(t, i, 1)) Then
+            Sh_First_Visible_Char = i
+            Exit Function
+        End If
+    Next i
+End Function   '*** end of Sh_First_Visible_Char function ***
+
+Private Function Sh_Last_Visible_Char(ByVal t As String) As Long
+'
+' Position of the last character that is not a space, or 0 when there is none.
+'
+' Version: 1.0  Date: 8/1/2026
+'
+    Dim i As Long
+    For i = Len(t) To 1 Step -1
+        If Not Sh_Is_Space_Char(Mid$(t, i, 1)) Then
+            Sh_Last_Visible_Char = i
+            Exit Function
+        End If
+    Next i
+End Function   '*** end of Sh_Last_Visible_Char function ***
+
+Private Function Sh_Is_Space_Char(ByVal c As String) As Boolean
+'
+' A space, a tab, or a non-breaking space -- the three that can sit outside a quotation mark
+' after an HTML import and hide it from a plain first-character test.
+'
+' Version: 1.0  Date: 8/1/2026
+'
+    Sh_Is_Space_Char = (c = " " Or c = vbTab Or c = ChrW(160))
+End Function   '*** end of Sh_Is_Space_Char function ***
+
+Private Function Sh_Is_Quote_Pair(ByVal openCh As String, ByVal closeCh As String) As Boolean
+'
+' True when the two characters are a matching pair of quotation marks. The straight marks are
+' their own partner; the curly ones have a distinct opening and closing character and must be
+' matched properly, so a curly open followed by a straight close is NOT a pair. The curly
+' marks are written as ChrW codes so they survive every export and re-import of this module.
+'
+' Version: 1.0  Date: 8/1/2026
+'
+    Select Case openCh
+        Case """"                                       ' straight double  "
+            Sh_Is_Quote_Pair = (closeCh = """")
+        Case "'"                                        ' straight single  '
+            Sh_Is_Quote_Pair = (closeCh = "'")
+        Case ChrW(8220)                                 ' curly double     open
+            Sh_Is_Quote_Pair = (closeCh = ChrW(8221))   '                  close
+        Case ChrW(8216)                                 ' curly single     open
+            Sh_Is_Quote_Pair = (closeCh = ChrW(8217))   '                  close
+    End Select
+End Function   '*** end of Sh_Is_Quote_Pair function ***
 
 Sub Sh_PauseSeconds(ByVal Seconds As Single)
     Dim startTime As Single
