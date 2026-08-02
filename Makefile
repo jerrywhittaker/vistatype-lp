@@ -91,6 +91,11 @@ build: check-config check-frm-eol check-vba-lines check-qat check-tabs push-src
 	  scp -q "$(WIN_HOST):$(WIN_DIR)/src/forms/$$f.frm" src/forms/ 2>/dev/null || true; \
 	  scp -q "$(WIN_HOST):$(WIN_DIR)/src/forms/$$f.frx" src/forms/ 2>/dev/null || true; \
 	done
+	@# Word inserts one more blank line at the top of a form's code section, and one more at
+	@# the end, every single time it exports one. These two are re-exported on EVERY build, so
+	@# the runs grow without limit - they had reached 50 and 43 lines by 8/1/2026 - and make a
+	@# one-word caption change look like a real edit. Collapse them back to one each.
+	@python3 tools/lib/trim_frm_blanks.py src/forms/Lp_About_Title_And_Agreement.frm src/forms/Dx_About_Title_And_Agreement.frm
 	mkdir -p dist
 	scp -q "$(WIN_HOST):$(WIN_DIR)/dist/$(DOTM)" dist/$(DOTM)
 	python3 tools/lib/inject_customui.py dist/$(DOTM) src/ribbon/customUI14.xml

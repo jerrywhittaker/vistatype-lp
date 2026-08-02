@@ -14,48 +14,6 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ' Author: Jerry Whittaker -  jerry@thewhittakers.org
 
 ' Version: 1.4  Date: 7/24/2026 - Label5 version caption bumped 3.0.5 -> 3.0.6 (caption lives in the .frx)
@@ -93,5 +51,3 @@ Private Sub UserForm_Initialize()
     Me.Top = Application.Top + (0.5 * Application.Height) - (0.5 * Me.Height)
 
 End Sub
-
-

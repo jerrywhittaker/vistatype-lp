@@ -109,7 +109,10 @@ tools/windows/  Export-Vba.ps1 / Import-Vba.ps1 — run in Word on the build box
 tools/lib/      decompress_vba.py (reader); officeui_to_customui.py + inject_customui.py (ribbon);
                 inject_keymap.py (keyboard shortcuts -> .dotx/.dotm); build_ribbon_tabs.py
                 (ribbon tabs -> installer/ribbon-tabs.officeUI, plus the shipped-button-id
-                guard); extract_qat.py (obsolete/reference — QAT is now qat-template.officeUI)
+                guard); trim_frm_blanks.py (collapses the blank lines Word adds to a form's code
+                section on every export — the two About forms are re-exported by the version
+                stamper on EVERY build, so the runs grow without limit; runs as part of `make build`);
+                extract_qat.py (obsolete/reference — QAT is now qat-template.officeUI)
 installer/      Inno Setup installer (vistatype.iss) + scripts/ (QAT merge/remove) + qat-template.officeUI
                 (the standard QAT — HAND-maintained: its order, separators and visible="false"
                 entries suppressing Word's default buttons are deliberate and cannot be derived)
