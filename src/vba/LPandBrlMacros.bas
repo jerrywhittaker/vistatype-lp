@@ -18,7 +18,34 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - LP - 8/2/2026 - the Styles pane belongs to the user again. Jerry: sophisticated users should keep their preferred pane
+' Notes:    - Sh - 8/2/2026 - AutoTag Ref Pages was silently missing page numbers, and had been for years. The patterns are shaped
+'                             "^013(a page number)^013" and a Word replace consumes BOTH paragraph marks, so where two numbers sit in
+'                             consecutive paragraphs the mark AFTER the first is the very mark the second needs in FRONT of it - already
+'                             eaten. One Execute therefore tagged ALTERNATE numbers: Jerry's sample of 8/2/2026 tagged 15 and 17 and
+'                             walked past 16, and missed 14, G3 and G5 the same way. Roman numerals came out right only because they are
+'                             tagged by a separate paragraph loop that never uses Find
+'           - Sh - 8/2/2026 - the fix is new Sh_Replace_All_Until_Done: run the replace the caller has already set up until it stops
+'                             changing anything, since on a fresh Execute every paragraph mark is available again. Two or three rounds
+'                             converge. Safe to repeat - a tagged paragraph reads "$pg16", which cannot match a pattern wanting only
+'                             digits or only letters between the marks, so nothing is tagged twice. Applied to all 22 affected passes,
+'                             12 in Lp_AutoTag_Page_Numbers and 10 in Dx_AutoTag_Page_Numbers - the braille twin had the identical bug
+'           - LP - 8/2/2026 - two reference page numbers back to back now make ONE pink bar instead of two stacked ones. Real print books
+'                             contain blank pages and every page must still carry a number, so DAISY and NIMAS coders emit "$pg12" then
+'                             "$pg13" - almost always at a chapter change. The $pg validation never showed this: it is an entirely visual
+'                             review with no adjacency checking in it, so the doubled tag survived to Format $pg Tags and the two bars
+'                             stacked into a mess. New Lp_Merge_Adjacent_Pg_Tags, called from Lp_Format_Page_Numbers after the passes that
+'                             delete an empty "$pg" and before the wildcard that builds the bar, joins a run first to last: $pg12 + $pg13
+'                             -> $pg12-13, three in a row -> $pg12-14. An already-hyphenated tag does not grow a second hyphen
+'                             ($pg12-13 + $pg14 -> $pg12-14)
+'           - LP - 8/2/2026 - ANY two adjacent tags merge whether or not the numbers run in sequence, so $pg12 beside $pg99 gives
+'                             $pg12-99. Jerry's call: the "number" is often not a number - roman numerals, "12a", "A12b" all occur and
+'                             "the next one" means nothing for them. A run never crosses a section break, a page break or a tab, and
+'                             Jerry, 8/2/2026: any $pg in a TABLE is ignored outright. That last rule is worth more than it looks - it
+'                             removes merging across a cell boundary, and the end-of-cell marker Chr(7) that Word refuses to delete,
+'                             which would raise error 4605 and abort the macro with the screen still frozen and half the bars built.
+'                             Tags in tables are still FORMATTED into bars as before; only merging skips them. Silent, and LARGE PRINT
+'                             ONLY - the braille twin Dx_Format_Tagged_Page_Numbers is deliberately untouched
+'           - LP - 8/2/2026 - the Styles pane belongs to the user again. Jerry: sophisticated users should keep their preferred pane
 '                             settings from session to session. The large print macros forced wdStyleSortRecommended and
 '                             wdShowFilterFormattingRecommended, and forced the pane open, in a dozen places - every LP document OPEN did
 '                             it, four times over. Now exactly TWO things force it: attaching the LP template (new or re-attached, both of
@@ -2366,6 +2393,7 @@ End Sub   '***** End of Dx_Spelling_List Macro *****
 
 Sub Dx_AutoTag_Page_Numbers()
 '
+' Version: 2.6 Date: 8/2/2026 - the ten "^013(...)^013" passes now repeat until nothing is left to replace (Sh_Replace_All_Until_Done); a single Execute tagged only alternate numbers when two page numbers sat in consecutive paragraphs
 ' Version: 2.5 Date: 8/30/2025 - added new validation of roman numerals
 ' Version: 2.4 Date: 2/16/2024 - added code to automate validation
 ' Version: 2.3 Date: 1/18/2023 - fixed leaf continue from [[*lea*]] to [[*lec*]][[*i*]]
@@ -2717,7 +2745,7 @@ Sub Dx_AutoTag_Page_Numbers()
         .MatchSoundsLike = False
         .MatchWildcards = True
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+    Sh_Replace_All_Until_Done
     
     ' numb any length hyphen numb any length
     Selection.Find.ClearFormatting
@@ -2734,7 +2762,7 @@ Sub Dx_AutoTag_Page_Numbers()
         .MatchSoundsLike = False
         .MatchWildcards = True
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+    Sh_Replace_All_Until_Done
 
     'letter , Number, Hyphen, letter, Number
     Selection.Find.ClearFormatting
@@ -2751,7 +2779,7 @@ Sub Dx_AutoTag_Page_Numbers()
         .MatchSoundsLike = False
         .MatchWildcards = True
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+    Sh_Replace_All_Until_Done
 
     'letter ,Hyphen, letter
     Selection.Find.ClearFormatting
@@ -2768,7 +2796,7 @@ Sub Dx_AutoTag_Page_Numbers()
         .MatchSoundsLike = False
         .MatchWildcards = True
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+    Sh_Replace_All_Until_Done
 
     'letter ,Number, letter
     Selection.Find.ClearFormatting
@@ -2785,7 +2813,7 @@ Sub Dx_AutoTag_Page_Numbers()
         .MatchSoundsLike = False
         .MatchWildcards = True
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+    Sh_Replace_All_Until_Done
 
     'Number only
     Selection.Find.ClearFormatting
@@ -2802,7 +2830,7 @@ Sub Dx_AutoTag_Page_Numbers()
         .MatchSoundsLike = False
         .MatchWildcards = True
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+    Sh_Replace_All_Until_Done
     
     'Number, Letter
     Selection.Find.ClearFormatting
@@ -2819,7 +2847,7 @@ Sub Dx_AutoTag_Page_Numbers()
         .MatchSoundsLike = False
         .MatchWildcards = True
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+    Sh_Replace_All_Until_Done
     
     'Letter,Number
     Selection.Find.ClearFormatting
@@ -2836,7 +2864,7 @@ Sub Dx_AutoTag_Page_Numbers()
         .MatchSoundsLike = False
         .MatchWildcards = True
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+    Sh_Replace_All_Until_Done
 
     'Number, letter, Hyphen, Number, letter,
     Selection.Find.ClearFormatting
@@ -2853,7 +2881,7 @@ Sub Dx_AutoTag_Page_Numbers()
         .MatchSoundsLike = False
         .MatchWildcards = True
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+    Sh_Replace_All_Until_Done
 
     'letter, Number, letter, Hyphen, letter, Number, letter,
     Selection.Find.ClearFormatting
@@ -2870,7 +2898,7 @@ Sub Dx_AutoTag_Page_Numbers()
         .MatchSoundsLike = False
         .MatchWildcards = True
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+    Sh_Replace_All_Until_Done
      
     ' remove para mark before graphics (placed at top of macro)
     Selection.Find.ClearFormatting
@@ -8132,6 +8160,7 @@ Sub Lp_Format_Page_Numbers()
 '
 ' Formats tagged page numbers
 '
+' Version: 2.3  Date: 8/2/2026 - merges back-to-back $pg tags into one hyphenated tag before the bar is built (Lp_Merge_Adjacent_Pg_Tags)
 ' Version: 2.2  Date: 3/5/2026 - forced all to base font size
 ' Version: 2.1  Date: 3/27/2024 - added home key before starting to make sure cursor is a the begining of a line for a newly type $pg
 ' version: 2.0  Date: 11/7/2023 - added tag count
@@ -8208,7 +8237,14 @@ Sub Lp_Format_Page_Numbers()
         .MatchWildcards = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
-    
+
+    ' Two reference page numbers back to back become ONE hyphenated tag, so a blank print page
+    ' does not stack two pink bars on top of each other. Position matters in both directions:
+    ' AFTER the two passes above, because deleting an empty "$pg" takes its paragraph mark with
+    ' it and is often what brings two real tags together, and BEFORE the wildcard below,
+    ' because once the bar is built there is no tag left to merge.
+    Lp_Merge_Adjacent_Pg_Tags ActiveDocument
+
     Selection.Find.ClearFormatting
     Selection.Find.Replacement.ClearFormatting
     Selection.Find.Replacement.Style = ActiveDocument.Styles("Normal")
@@ -8327,8 +8363,302 @@ Sub Lp_Format_Page_Numbers()
 
 End Sub   '****end of Lp_Format_Page_Numbers Macro ***********
 
+Function Lp_Merge_Adjacent_Pg_Tags(ByVal targetDoc As Document) As Long
+'
+' Combines a RUN of back-to-back "$pg" tag paragraphs into ONE tag, hyphenated first to last.
+'
+'   $pg12 / $pg13            ->  $pg12-13
+'   $pg12 / $pg13 / $pg14    ->  $pg12-14
+'
+' Real print books contain blank pages, and every page still has to carry a page number, so
+' DAISY and NIMAS coders emit two numbers back to back -- almost always at a chapter change.
+' Left alone, Lp_Format_Page_Numbers builds a separate pink bar for each and the two stack up
+' into a visual mess. The $pg validation never showed this to the user: it is an entirely
+' visual review with no adjacency or sequence checking anywhere in it.
+'
+' LARGE PRINT ONLY. The braille twin Dx_Format_Tagged_Page_Numbers builds its bar from the
+' RefPageNumber / RefPageNemeth styles and is deliberately untouched.
+'
+' ANY two adjacent tags merge, whether or not the numbers run in sequence, so $pg12 next to
+' $pg99 gives $pg12-99. Jerry's call, 8/2/2026, and the right one: the "number" is often not a
+' number. Roman numerals, "12a" and already-hyphenated "12-13" all occur, and "the next one"
+' means nothing for any of them.
+'
+' Called from Lp_Format_Page_Numbers only, between the passes that delete an empty "$pg" and
+' the wildcard that builds the bar. Silent -- the caller reports its own completion. Screen
+' updating belongs to the caller, which has already turned it off. Returns the number of runs
+' merged; nothing reads it, it is there so the work can be checked from the Immediate window.
+'
+' Version: 1.0  Date: 8/2/2026
+' Author: Jerry Whittaker - jerry@thewhittakers.org
+'
+    Dim runs As Collection          ' each item is itself a Collection of paragraph Ranges
+    Dim thisRun As Collection
+    Dim para As Paragraph
+    Dim prevRange As Range
+    Dim r As Long
+
+    ' --- 1. Group the tag paragraphs into runs of genuinely adjacent ones ---
+    ' A run is only stored once it reaches two: a lone tag is the normal case and there is
+    ' nothing to do with it.
+    Set runs = New Collection
+    Set thisRun = Nothing
+
+    For Each para In targetDoc.Paragraphs
+        If Lp_Is_Pg_Tag_Paragraph(para.Range) Then
+            If thisRun Is Nothing Then
+                Set thisRun = New Collection
+            ElseIf Not Lp_Tags_Can_Merge(prevRange, para.Range) Then
+                Set thisRun = New Collection        ' a section boundary starts a new run
+            End If
+            thisRun.Add para.Range
+            If thisRun.count = 2 Then runs.Add thisRun   ' stored once, then it grows in place
+            Set prevRange = para.Range
+        Else
+            Set thisRun = Nothing                   ' any other paragraph ends the run
+        End If
+    Next para
+
+    If runs.count = 0 Then Exit Function            ' the ordinary case -- no doubled-up tags
+
+    ' --- 2. Merge, working BACK TO FRONT ---
+    ' Later runs first, so shortening the document can never move a run that is still waiting
+    ' to be looked at. Same reason Sh_Strip_Prodnote_Enclosing_Quotes works backwards.
+    For r = runs.count To 1 Step -1
+        Set thisRun = runs(r)
+        If Lp_Merge_One_Pg_Tag_Run(targetDoc, thisRun) Then
+            Lp_Merge_Adjacent_Pg_Tags = Lp_Merge_Adjacent_Pg_Tags + 1
+        End If
+    Next r
+
+End Function   '*** end of Lp_Merge_Adjacent_Pg_Tags function ***
+
+Private Function Lp_Is_Pg_Tag_Paragraph(ByVal r As Range) As Boolean
+'
+' True only when this paragraph IS a reference page tag: "$pg" at the START of it, with a page
+' number after it. A paragraph that merely CONTAINS "$pg" somewhere in the middle, such as
+' "see $pg12 above", is not one and must never be pulled into a merge.
+'
+' Leading spaces, tabs and non-breaking spaces before the "$" are ignored. The paragraph mark
+' is not text -- Sh_Para_Visible_Text strips it.
+'
+' The test is CASE-INSENSITIVE on purpose. The macros always write lower-case "$pg", but every
+' Find in Lp_Format_Page_Numbers runs MatchCase = False, so "$PG12" becomes a pink bar whether
+' this notices it or not; being stricter here than the code that follows would only miss it.
+' (This module has Option Explicit but no Option Compare, so StrComp is binary unless told.)
+'
+' Version: 1.0  Date: 8/2/2026
+'
+    Dim t As String
+    Dim p As Long
+    Dim inTable As Boolean
+
+    ' Jerry, 8/2/2026: ignore any $pg in a table. Adjacent in Document.Paragraphs is NOT
+    ' adjacent on the page -- that collection walks every cell in document order, so the
+    ' paragraph after a cell's last one is the first one in the NEXT cell. A cell must also
+    ' always keep at least one paragraph, so deleting into its end-of-cell marker raises error
+    ' 4605 and would abort the whole macro half way through, screen still frozen. Tags in
+    ' tables are still FORMATTED into bars exactly as before; only merging skips them.
+    ' If Word cannot tell us, assume it IS in a table -- the safe answer is "do not merge".
+    inTable = True
+    On Error Resume Next
+    inTable = r.Information(wdWithInTable)
+    On Error GoTo 0
+    If inTable Then Exit Function
+
+    t = Sh_Para_Visible_Text(r)
+    p = Sh_First_Visible_Char(t)
+    If p = 0 Then Exit Function                     ' empty, or nothing but spaces
+
+    If StrComp(Mid$(t, p, 3), "$pg", vbTextCompare) <> 0 Then Exit Function
+
+    ' An EMPTY tag is not one. The two passes above have already deleted those, but a tag with
+    ' nothing to hyphenate would give "$pg-13", so let it end the run instead.
+    If Len(Lp_Pg_Tag_Number(t)) = 0 Then Exit Function
+
+    ' The braille lower-roman prefix, "$pg[[*ii*]]". It cannot reach a large print document.
+    If InStr(1, t, "$pg[[", vbTextCompare) > 0 Then Exit Function
+
+    ' A break or a tab means this is not a plain tag sitting on its own. The page break matters
+    ' most: it is the one case where two numbers back to back must NOT be joined.
+    If InStr(t, vbTab) > 0 Then Exit Function       ' Chr(9)
+    If InStr(t, Chr$(11)) > 0 Then Exit Function    ' line break
+    If InStr(t, Chr$(12)) > 0 Then Exit Function    ' page or section break
+    If InStr(t, Chr$(14)) > 0 Then Exit Function    ' column break
+
+    Lp_Is_Pg_Tag_Paragraph = True
+
+End Function   '*** end of Lp_Is_Pg_Tag_Paragraph function ***
+
+Private Function Lp_Tags_Can_Merge(ByVal a As Range, ByVal b As Range) As Boolean
+'
+' True when two tag paragraphs really are stacked one above the other in the same text flow.
+' Tables are already out -- Lp_Is_Pg_Tag_Paragraph rejects them -- so only two tests remain:
+'
+'   1. They are touching: a ends exactly where b starts.
+'   2. They are in the same SECTION. A section break lives on a paragraph mark, so a run that
+'      spanned one would lose the break and that section's page setup with it. Two page
+'      numbers back to back at a chapter change is exactly where a break turns up.
+'
+' Version: 1.0  Date: 8/2/2026
+'
+    On Error GoTo NoMerge
+
+    If a.End <> b.Start Then Exit Function
+    If a.Sections(1).Index <> b.Sections(1).Index Then Exit Function
+
+    Lp_Tags_Can_Merge = True
+    Exit Function
+
+NoMerge:                                            ' could not tell, so do not merge
+    Lp_Tags_Can_Merge = False
+
+End Function   '*** end of Lp_Tags_Can_Merge function ***
+
+Private Function Lp_Merge_One_Pg_Tag_Run(ByVal targetDoc As Document, _
+                                         ByVal tagRun As Collection) As Boolean
+'
+' Turns one run of tag paragraphs into a single tag: writes the merged number into the LAST
+' paragraph of the run, then deletes the earlier ones WHOLE, back to front. True when it
+' changed something.
+'
+' Two deliberate choices, both of them learned the hard way on 8/2/2026:
+'
+' WHOLE-PARAGRAPH deletes, not one span across the run. Version 1.0 deleted a single range
+' running from the first paragraph's mark to the end of the last paragraph's text. Measured on
+' a real document the offsets were provably right -- first paragraph 12..21, last 27..33,
+' delete 20..32, exactly its mark plus the middle paragraph plus the last one's text -- but
+' Word did not honour them: one paragraph mark survived every time the run was three or more,
+' leaving a blank paragraph after the merged bar. Deleting whole paragraphs is the pattern
+' Sh_Delete_Prodnote_Paragraphs already uses, and it behaves.
+'
+' The LAST paragraph is the survivor, not the first. Word refuses to delete a document's final
+' paragraph mark, so a run that ends at the end of a document would strand an empty paragraph
+' if the survivor were the first. Nothing is lost by keeping the last one: the paragraphs are
+' adjacent, so the bar lands in the same place on the page either way, and the "Print Pg Num"
+' pass restyles the whole paragraph a few lines later regardless.
+'
+' Version: 1.1  Date: 8/2/2026 - whole-paragraph deletes, and the LAST paragraph of the run is
+'                               the one kept. Was a single span delete, which left a blank
+'                               paragraph behind whenever the run was three or more
+' Version: 1.0  Date: 8/2/2026
+'
+    Dim firstRng As Range, lastRng As Range
+    Dim numRng As Range
+    Dim firstText As String, lastText As String
+    Dim oldNum As String, mergedNum As String
+    Dim tagPos As Long
+    Dim i As Long
+
+    If tagRun.count < 2 Then Exit Function
+
+    Set firstRng = tagRun(1)
+    Set lastRng = tagRun(tagRun.count)
+
+    firstText = Sh_Para_Visible_Text(firstRng)
+    lastText = Sh_Para_Visible_Text(lastRng)
+
+    mergedNum = Lp_Merged_Pg_Number(Lp_Pg_Tag_Number(firstText), Lp_Pg_Tag_Number(lastText))
+    If Len(mergedNum) = 0 Then Exit Function
+
+    ' --- 1. Write the merged number into the LAST tag, and nothing else ---
+    ' The range covers the characters after "$pg" up to the end of the visible text: not the
+    ' red "$pg" itself, and not the paragraph mark. Word gives the inserted text the formatting
+    ' of what it replaced, which is the old number.
+    tagPos = InStr(1, lastText, "$pg", vbTextCompare)
+    If tagPos = 0 Then Exit Function
+    oldNum = Mid$(lastText, tagPos + 3)
+    Set numRng = targetDoc.Range(lastRng.start + tagPos + 2, lastRng.start + Len(lastText))
+
+    ' Character positions and Range offsets only line up while the paragraph is plain text. If
+    ' a field or an inline shape has crept in they will not, so check before writing.
+    If StrComp(numRng.Text, oldNum, vbBinaryCompare) <> 0 Then Exit Function
+    If StrComp(oldNum, mergedNum, vbBinaryCompare) <> 0 Then numRng.Text = mergedNum
+
+    ' --- 2. Delete the earlier paragraphs of the run, whole, back to front ---
+    ' Back to front so that removing one cannot move another that is still waiting to go.
+    For i = tagRun.count - 1 To 1 Step -1
+        tagRun(i).Delete
+    Next i
+
+    Lp_Merge_One_Pg_Tag_Run = True
+
+End Function   '*** end of Lp_Merge_One_Pg_Tag_Run function ***
+
+Private Function Lp_Pg_Tag_Number(ByVal visibleText As String) As String
+'
+' The page number out of a tag paragraph's visible text: everything after the "$pg", trimmed.
+' "  $pg 12 " gives "12". Empty when the tag carries no number at all.
+'
+' Version: 1.0  Date: 8/2/2026
+'
+    Dim p As Long
+
+    p = InStr(1, visibleText, "$pg", vbTextCompare)
+    If p = 0 Then Exit Function
+
+    Lp_Pg_Tag_Number = Trim$(Replace(Mid$(visibleText, p + 3), ChrW(160), " "))
+
+End Function   '*** end of Lp_Pg_Tag_Number function ***
+
+Private Function Lp_Merged_Pg_Number(ByVal firstNum As String, ByVal lastNum As String) As String
+'
+' The number for a merged tag: the FIRST part of the first tag's number and the LAST part of
+' the last tag's number, joined with one hyphen. That is what stops an already-hyphenated tag
+' from growing a second hyphen -- "12-13" next to "14" gives "12-14", not "12-13-14".
+'
+' A hyphen at either extreme is a stray, not a range boundary, so "-13" keeps its whole text
+' rather than contributing an empty first part. Two identical tags give a single number rather
+' than "12-12".
+'
+' Version: 1.0  Date: 8/2/2026
+'
+    Dim head As String, tail As String
+    Dim i As Long
+
+    ' head: everything before the FIRST hyphen of the first number
+    For i = 1 To Len(firstNum)
+        If Lp_Is_Hyphen_Char(Mid$(firstNum, i, 1)) Then Exit For
+    Next i
+    If i > 1 And i <= Len(firstNum) Then head = Trim$(Left$(firstNum, i - 1))
+    If Len(head) = 0 Then head = Trim$(firstNum)
+
+    ' tail: everything after the LAST hyphen of the last number
+    For i = Len(lastNum) To 1 Step -1
+        If Lp_Is_Hyphen_Char(Mid$(lastNum, i, 1)) Then Exit For
+    Next i
+    If i >= 1 And i < Len(lastNum) Then tail = Trim$(Mid$(lastNum, i + 1))
+    If Len(tail) = 0 Then tail = Trim$(lastNum)
+
+    If Len(head) = 0 Or Len(tail) = 0 Then Exit Function
+
+    If StrComp(head, tail, vbTextCompare) = 0 Then
+        Lp_Merged_Pg_Number = head
+    Else
+        Lp_Merged_Pg_Number = head & "-" & tail
+    End If
+
+End Function   '*** end of Lp_Merged_Pg_Number function ***
+
+Private Function Lp_Is_Hyphen_Char(ByVal c As String) As Boolean
+'
+' A plain hyphen, Word's non-breaking hyphen, an en dash or an em dash. A converted book can
+' arrive carrying any of them. The dashes are written as ChrW codes so they survive every
+' export and re-import of this module; what gets written back is always a plain hyphen, which
+' is what the auto-tagger's own patterns match (^045).
+'
+' Version: 1.0  Date: 8/2/2026
+'
+    Select Case c
+        Case "-", Chr$(30), ChrW(8211), ChrW(8212)
+            Lp_Is_Hyphen_Char = True
+    End Select
+
+End Function   '*** end of Lp_Is_Hyphen_Char function ***
+
 Sub Lp_AutoTag_Page_Numbers()
 '
+' Version: 2.5  Date: 8/2/2026 - the twelve "^013(...)^013" passes now repeat until nothing is left to replace (Sh_Replace_All_Until_Done); a single Execute tagged only alternate numbers when two page numbers sat in consecutive paragraphs
 ' Version: 2.4  Date: 7/26/2026 - returns the user to where the cursor was when the macro started
 ' Version: 2.2  Date: 4/30/2023 - complete rewrite to eliminate false tagging
 '
@@ -8513,7 +8843,7 @@ LoopEnd:
         .MatchSoundsLike = False
         .MatchWildcards = True
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+    Sh_Replace_All_Until_Done
     
     ' any length number, hyphen, number
     Selection.Find.ClearFormatting
@@ -8530,7 +8860,7 @@ LoopEnd:
         .MatchSoundsLike = False
         .MatchWildcards = True
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+    Sh_Replace_All_Until_Done
 
     'letter , any lengthNumber, Hyphen, letter, Number
     Selection.Find.ClearFormatting
@@ -8547,7 +8877,7 @@ LoopEnd:
         .MatchSoundsLike = False
         .MatchWildcards = True
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+    Sh_Replace_All_Until_Done
 
     'letter ,Hyphen, letter
     Selection.Find.ClearFormatting
@@ -8564,7 +8894,7 @@ LoopEnd:
         .MatchSoundsLike = False
         .MatchWildcards = True
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+    Sh_Replace_All_Until_Done
 
     'letter , any length Number, letter
     Selection.Find.ClearFormatting
@@ -8581,7 +8911,7 @@ LoopEnd:
         .MatchSoundsLike = False
         .MatchWildcards = True
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+    Sh_Replace_All_Until_Done
 
     ' any length Number
     Selection.Find.ClearFormatting
@@ -8598,7 +8928,7 @@ LoopEnd:
         .MatchSoundsLike = False
         .MatchWildcards = True
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+    Sh_Replace_All_Until_Done
 
     ' any length Number, Letter
     Selection.Find.ClearFormatting
@@ -8615,7 +8945,7 @@ LoopEnd:
         .MatchSoundsLike = False
         .MatchWildcards = True
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+    Sh_Replace_All_Until_Done
     
     ' Letter,  any length Number
     Selection.Find.ClearFormatting
@@ -8632,7 +8962,7 @@ LoopEnd:
         .MatchSoundsLike = False
         .MatchWildcards = True
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+    Sh_Replace_All_Until_Done
     
     'Letter, any length Number, hypen, letter, number
     Selection.Find.ClearFormatting
@@ -8649,7 +8979,7 @@ LoopEnd:
         .MatchSoundsLike = False
         .MatchWildcards = True
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+    Sh_Replace_All_Until_Done
     
     ' any length Number, letter, Hyphen, Number, letter,
     Selection.Find.ClearFormatting
@@ -8666,7 +8996,7 @@ LoopEnd:
         .MatchSoundsLike = False
         .MatchWildcards = True
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+    Sh_Replace_All_Until_Done
 
     ' any length Number, letter, Hyphen, Number, letter,
     Selection.Find.ClearFormatting
@@ -8683,7 +9013,7 @@ LoopEnd:
         .MatchSoundsLike = False
         .MatchWildcards = True
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+    Sh_Replace_All_Until_Done
     
     'letter, any length number, letter, Hyphen, letter, number, letter
     Selection.Find.ClearFormatting
@@ -8700,7 +9030,7 @@ LoopEnd:
         .MatchSoundsLike = False
         .MatchWildcards = True
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+    Sh_Replace_All_Until_Done
     
     ' remove para mark before graphics (placed at top of macro)
     Selection.Find.ClearFormatting
@@ -15669,6 +15999,39 @@ Sub Sh_Is_Doc_Open()
     End If
     
 End Sub  '*** end of Sh_Is_Doc_Open macro ***
+
+Sub Sh_Replace_All_Until_Done()
+'
+' Runs the Find/Replace already set up on Selection.Find over and over until it has nothing
+' left to change. The caller builds Selection.Find exactly as before; this only replaces the
+' single Execute at the end of it.
+'
+' For the auto-tag patterns this is not a tidy-up, it is the fix. Those patterns are shaped
+' "^013(a page number)^013" and a Word replace consumes BOTH paragraph marks. When two page
+' numbers sit in consecutive paragraphs -- which is exactly what a blank print page produces --
+' the mark AFTER the first number is the very mark the second number needs in FRONT of it, and
+' it has already been eaten. One Execute therefore tags alternate numbers: given 15, 16 and 17
+' on three lines it tags 15 and 17 and walks straight past 16. Jerry's sample, 8/2/2026, missed
+' 14, 16, G3 and G5 for precisely this reason. Running the same replace again picks up what was
+' skipped, because on a fresh Execute every mark is available again. Two or three rounds
+' converge; the guard is only a backstop.
+'
+' Safe to repeat. Once a number is tagged its paragraph reads "$pg16", which cannot match a
+' pattern requiring only digits, or only letters, between the two marks -- so nothing is ever
+' tagged twice. Roman numerals never came here: they are tagged by a paragraph loop further up
+' (Sh_IsValidRomanNumeral), which is why they were the ones that came out right.
+'
+' Shared: both Lp_AutoTag_Page_Numbers and Dx_AutoTag_Page_Numbers use it, 22 passes in all.
+'
+' Version: 1.0  Date: 8/2/2026
+'
+    Dim guard As Long
+
+    Do
+        guard = guard + 1
+    Loop While Selection.Find.Execute(Replace:=wdReplaceAll) And guard < 20
+
+End Sub   '*** end of Sh_Replace_All_Until_Done macro ***
 
 Sub Sh_Show_Recommended_Styles_Pane()
 '
