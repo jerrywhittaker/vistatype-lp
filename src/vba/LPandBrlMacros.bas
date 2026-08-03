@@ -6702,6 +6702,7 @@ Sub Lp_Fix_Common_File_Errors()
 '
 ' Lp_Fix_Common_File_Errors
 '
+' Version: 3.11  Date: 8/2/2026 - runs Sh_Color_Dollar_PG_Red as the LAST step, so the $pg tags are still red when File Cleanup is run on its own rather than as part of the attach sequence; the cleanups above lose the colour and no Lp_Normalize_Styles follows to restore it
 ' Version: 3.10  Date: 7/26/2026 - returns the user to where the cursor was when the macro started
 ' Version: 3.8  Date: 3/2/2026 - added Sh_ReplaceNonBreakingSpacesWithNormalSpace
 ' Version: 3.7  Date: 11/25/2025 - added Lp_Fix_Para_Space_Errors
@@ -6810,6 +6811,12 @@ DoEvents
     Application.Run MacroName:="Lp_Convert_Ordinal_Numbers"
 DoEvents
     Application.Run MacroName:="Lp_Delete_Zero_Width_Spaces"
+DoEvents
+    ' Colour the $pg tags red LAST, so they are still red when this macro is run ON ITS OWN.
+    ' File Cleanup is not only a step inside the attach sequence -- a transcriber can run it by
+    ' itself, with no Lp_Normalize_Styles afterwards to restore the colour. The cleanups above
+    ' lose the original red, and nothing else would put it back. Jerry, 8/2/2026.
+    Application.Run MacroName:="Sh_Color_Dollar_PG_Red"
 DoEvents
 
     ActiveDocument.UndoClear
