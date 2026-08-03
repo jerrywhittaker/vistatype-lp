@@ -6702,6 +6702,7 @@ Sub Lp_Fix_Common_File_Errors()
 '
 ' Lp_Fix_Common_File_Errors
 '
+' Version: 3.12  Date: 8/3/2026 - its 28 DoEvents are now Sh_Spin_DoEvents, so the please-wait spinner turns with each one; OnTime alone fires only once a second and the spinner looked stuck
 ' Version: 3.11  Date: 8/2/2026 - runs Sh_Color_Dollar_PG_Red as the LAST step, so the $pg tags are still red when File Cleanup is run on its own rather than as part of the attach sequence; the cleanups above lose the colour and no Lp_Normalize_Styles follows to restore it
 ' Version: 3.10  Date: 7/26/2026 - returns the user to where the cursor was when the macro started
 ' Version: 3.8  Date: 3/2/2026 - added Sh_ReplaceNonBreakingSpacesWithNormalSpace
@@ -6756,68 +6757,68 @@ Sub Lp_Fix_Common_File_Errors()
 
     Selection.Collapse 'clear selection
     Application.Run MacroName:="Sh_Color_Dollar_PG_Red"
-DoEvents
+Sh_Spin_DoEvents
     Application.Run MacroName:="Lp_Replace_Underline_Tab_With_Underlined_Underscore"
-DoEvents
+Sh_Spin_DoEvents
     Application.Run MacroName:="Lp_Delete_Square_Bullet"  ' run before Lp_Fix_Para_Space_Errors
-DoEvents
+Sh_Spin_DoEvents
     Application.Run MacroName:="Sh_ReplaceNonBreakingSpacesWithNormalSpace"
-DoEvents
+Sh_Spin_DoEvents
     Application.Run MacroName:="Lp_Add_Para_After_Image"
-DoEvents
+Sh_Spin_DoEvents
     Application.Run MacroName:="Lp_Fix_Abbyy_Text_and_Headers"
-DoEvents
+Sh_Spin_DoEvents
     Application.Run MacroName:="Sh_Remove_Spaces_Before_Punctuation"
-DoEvents
+Sh_Spin_DoEvents
     Application.Run MacroName:="Lp_Remove_Txt_Bxs_And_Frames"
-DoEvents
+Sh_Spin_DoEvents
     Application.Run MacroName:="Lp_Remove_Tab_Plus_Space_Combos"
-DoEvents
+Sh_Spin_DoEvents
     Application.Run MacroName:="Lp_Fix_Para_Space_Errors"
-DoEvents
+Sh_Spin_DoEvents
     Application.Run MacroName:="Lp_Italics_To_Dashed_Underline"
-DoEvents
+Sh_Spin_DoEvents
     Application.Run MacroName:="Sh_Replace_White_Text_With_Automatic"
-DoEvents
+Sh_Spin_DoEvents
     Application.Run MacroName:="Lp_Fix_EnDash_Errors"
-DoEvents
+Sh_Spin_DoEvents
     Application.Run MacroName:="Lp_Fix_Em_Dash_Space_Errors"
-DoEvents
+Sh_Spin_DoEvents
     Application.Run MacroName:="Lp_Fix_Normal_Styles"  'no longer ruins picture placement (left, right, center)
     'Application.Run MacroName:="Lp_ReplaceNBSP_ExcludePrintPgNumbAndTables" 'run before Lp_Remove_Multi_Spaces
            'takes too long on large docs
-DoEvents
+Sh_Spin_DoEvents
     Application.Run MacroName:="Lp_Remove_Multi_Spaces"
-DoEvents
+Sh_Spin_DoEvents
     Application.Run MacroName:="Lp_Fix_Hyphen_Errors"
-DoEvents
+Sh_Spin_DoEvents
     Application.Run MacroName:="Sh_Para_Before_Dollar" 'Fixes DAISY Page Problems
-DoEvents
+Sh_Spin_DoEvents
     Application.Run MacroName:="Lp_Replace_Small_Caps_With_All_Caps"
-DoEvents
+Sh_Spin_DoEvents
     Application.Run MacroName:="Lp_Remove_Tabs_Before_and_After_Para_Marks"
-DoEvents
+Sh_Spin_DoEvents
     'Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     Application.Run MacroName:="Lp_Convert_Hyperliks_To_Text"  'convert all (including hidden links) links to text (except internal links)
-DoEvents
+Sh_Spin_DoEvents
     Application.Run MacroName:="Lp_Convert_Hyper_To_Addresses" 'convert all text links to active links
-DoEvents
+Sh_Spin_DoEvents
     Application.Run MacroName:="Lp_Replace_Compact_Fractions_With_Fraction_Text"
-DoEvents
+Sh_Spin_DoEvents
     Application.Run MacroName:="Lp_Replace_Strong_With_Bold"
-DoEvents
+Sh_Spin_DoEvents
     Application.Run MacroName:="Lp_RemoveHeadAndFoot"
-DoEvents
+Sh_Spin_DoEvents
     Application.Run MacroName:="Lp_Convert_Ordinal_Numbers"
-DoEvents
+Sh_Spin_DoEvents
     Application.Run MacroName:="Lp_Delete_Zero_Width_Spaces"
-DoEvents
+Sh_Spin_DoEvents
     ' Colour the $pg tags red LAST, so they are still red when this macro is run ON ITS OWN.
     ' File Cleanup is not only a step inside the attach sequence -- a transcriber can run it by
     ' itself, with no Lp_Normalize_Styles afterwards to restore the colour. The cleanups above
     ' lose the original red, and nothing else would put it back. Jerry, 8/2/2026.
     Application.Run MacroName:="Sh_Color_Dollar_PG_Red"
-DoEvents
+Sh_Spin_DoEvents
 
     ActiveDocument.UndoClear
 
@@ -10066,6 +10067,7 @@ Sub Lp_Replace_Section_Break_With_Page_Break()
 End Sub  '*** end of Lp_Replace_Section_Break_With_Page_Break Macro ***
 Sub Lp_Replace_Multiple_Para_Marks_With_Warning()
 '
+' Version: 2.0  Date: 8/3/2026 - shows the please-wait box while the replacement runs; placed AFTER the caution prompt, not around it
 ' Version: 1.9  Date: 5/7/2025 - altered message content
 ' Version: 1.8  Date:  1/8/2019
 ' Version: 1.7  Date: 12/27/2018
@@ -10095,12 +10097,18 @@ Sub Lp_Replace_Multiple_Para_Marks_With_Warning()
         
     End If
     
+    ' The box goes HERE, not in the cleanup menu around this whole macro: the caution
+    ' above asks "Do you wish to continue?", and a "Working - Please Wait" window sitting
+    ' over a question the user has not answered yet would be nonsense. Jerry, 8/3/2026.
+    Sh_Show_Please_Wait "Removing consecutive empty paragraph marks"
     Application.Run MacroName:="Lp_Replace_Multiple_Para_Marks_No_Warning"
+    Sh_Hide_Please_Wait
     
 End Sub    '***   end of  Lp_Replace_Multiple_Para_Marks_With_Warning macro ***
      
 Sub Lp_Replace_Multiple_Para_Marks_No_Warning()
 '
+'  Version: 1.8  Date: 8/3/2026 - the throttled DoEvents is now Sh_Spin_DoEvents, so it turns whichever progress box is showing
 '  Version: 1.7  Date: 7/18/2026 - throttle DoEvents to every 200 paragraphs (was every one)
 '  Version: 1.6  Date: 7/18/2026 - walk paragraphs via .Previous (linked) instead of
 '                                  indexed paras(i); ~O(n) vs ~O(n^2) on large files.
@@ -10130,7 +10138,7 @@ Sub Lp_Replace_Multiple_Para_Marks_No_Warning()
         End If
         Set p = prevP
         deCount = deCount + 1
-        If deCount Mod 200 = 0 Then DoEvents
+        If deCount Mod 200 = 0 Then Sh_Spin_DoEvents
     Loop
 
 End Sub   '***** Lp_Replace_Multiple_Para_Marks_No_Warning ********
@@ -11907,10 +11915,15 @@ Sub Lp_Attach_The_Template()
     Dim currentdoc As Document
     Set currentdoc = ActiveDocument 'will work with blank, unsaved documents too
     
-Sh_NonModalMessageForm.SetActivityMessage "Fixing common file errors"
-DoEvents
-
     If Lp_GP_String_1 <> "Doc_Is_Already_LP" Then  ' this only needs to be done on docs which are not lp
+        ' The message belongs INSIDE the If. It used to be set just above it as well, so a
+        ' re-attach announced "Fixing common file errors" and then skipped the macro - which is
+        ' correct behaviour for a document that is already large print, but the message said
+        ' otherwise. Jerry, 8/3/2026.
+        '
+        ' The spinner turns during the macro because its 28 DoEvents are now Sh_Spin_DoEvents,
+        ' which advances whichever progress box is showing - this one here, or the please-wait
+        ' box when File Cleanup is run from the ribbon instead.
 Sh_NonModalMessageForm.SetActivityMessage "Fixing common file errors"
 DoEvents
 

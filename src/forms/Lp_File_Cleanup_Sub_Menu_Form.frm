@@ -15,6 +15,7 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 'Lp_File_Cleanup_Sub_Menu_Form
 '
+' Version: 1.3  Date: 8/3/2026 - shows Sh_Please_Wait_Form, "Fixing common file errors", while Lp_Fix_Common_File_Errors runs
 ' Version: 1.2  Date: 7/24/2026 - no longer runs "MS_Set_Word_Config_For_Large_Print" on form open
 ' Version: 1.1  Date: 1/22/2026 - refresh screen before messages
 ' Version: 1.0  Date: 5/7/2025 - full rewright
@@ -36,7 +37,12 @@ Private Sub OkayButton_Click()
     Application.ScreenUpdating = False
     
     If FixCommonErrors Then
+        ' Common file errors is the slow one, so say so and turn a spinner while it runs.
+        ' Modeless, so the macro carries straight on; its own DoEvents calls are what let the
+        ' OnTime tick fire and move the spinner. Jerry, 8/3/2026.
+        Sh_Show_Please_Wait "Fixing common file errors"
         Application.Run MacroName:="Lp_Fix_Common_File_Errors"
+        Sh_Hide_Please_Wait
     End If
     
     If RemoveParaMarks Then

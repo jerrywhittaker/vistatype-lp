@@ -33,7 +33,7 @@ Private Sub UserForm_Initialize()
     
     Directions.Caption = "This is a temporary document to facilitate validation of the '$pg' reference page tags." _
     & " This document can be closed without saving when the validation is complete by selecting the 'Done - Exit validation' button." _
-    & vbCrLf & vbCrLf & "Move the cursor to the $pg item to be located in the document then click the " _
+    & vbCrLf & vbCrLf & "Use Up/Down arrow keys to move the cursor to the $pg item to be located in the document then click the " _
     & "'Locate the selected $pg code in the Document' button." _
     & vbCrLf & vbCrLf & "To add a missing $pg tag, select the $pg tag preceding the missing tag, " _
     & "locate it in the document and scroll the document to the point where the new tag should be located, create an empty paragraph, " _

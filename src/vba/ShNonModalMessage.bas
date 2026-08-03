@@ -41,6 +41,80 @@ Public Sub Sh_SpinTick()
     End If
 End Sub
 
+' --- Sh_Please_Wait_Form: the same three moving parts, for the smaller "please wait" box ---
+'
+' Its own tick. Application.OnTime can only name a MODULE-level macro, never a method on a
+' form, so each spinner form needs one of these. Sh_Please_Wait_Form was written from
+' Sh_NonModalMessageForm and arrived pointing its OnTime at Sh_SpinTick above -- which ticks
+' the OTHER form. Left that way its spinner advanced exactly one frame and stopped.
+'
+' Version: 1.0  Date: 8/3/2026
+
+Public Sub Sh_PleaseWaitTick()
+    On Error Resume Next
+    If Sh_Please_Wait_Form.Visible Then
+        Sh_Please_Wait_Form.SpinTick
+    End If
+End Sub
+
+Public Sub Sh_Spin_DoEvents()
+' A DoEvents that also moves the spinner on one frame. Use it in place of a bare DoEvents
+' inside a long macro.
+'
+' Why it is needed: DoEvents does NOT advance the spinner. The frame only moves when
+' Application.OnTime fires, and OnTime cannot be scheduled closer than one SECOND apart, so
+' during a short macro the spinner twitches two or three times and looks stuck no matter how
+' many DoEvents the macro contains (Jerry, 8/3/2026). Driving it from the macro's own yields
+' is what makes it turn.
+'
+' Calls Advance, not SpinTick: SpinTick queues another OnTime every time it runs, so using it
+' here would leave one pending timer per DoEvents.
+'
+' Turns WHICHEVER progress box is showing. Lp_Fix_Common_File_Errors runs from two places and
+' each brings its own: File Cleanup on the ribbon shows Sh_Please_Wait_Form, while the attach
+' sequence already has Sh_NonModalMessageForm up and merely changes its message line. One
+' helper covers both, so the macro does not need to know which way it was called.
+'
+' Does nothing but yield when neither is showing, so a macro carrying these calls still runs
+' normally on its own.
+'
+' Version: 1.1  Date: 8/3/2026 - also advances Sh_NonModalMessageForm, for the attach sequence
+' Version: 1.0  Date: 8/3/2026
+    On Error Resume Next
+    If Sh_Please_Wait_Form.Visible Then Sh_Please_Wait_Form.Advance
+    If Sh_NonModalMessageForm.Visible Then Sh_NonModalMessageForm.Advance
+    On Error GoTo 0
+    DoEvents
+End Sub
+
+Public Sub Sh_Show_Please_Wait(ByVal sMessage As String)
+' Opens the please-wait box modeless and starts the spinner turning. The caller carries on
+' immediately; the long macro's own DoEvents calls are what let the OnTime tick fire.
+'
+' Safe to call with ScreenUpdating already off, which is the normal case -- the form holds and
+' restores it around its own Repaint so the document underneath does not flash.
+'
+' Version: 1.0  Date: 8/3/2026
+    With Sh_Please_Wait_Form
+        .ActivityMsg.Caption = sMessage
+        .SpinnerBox.Caption = ""
+        .Show vbModeless
+        .StartSpinner
+    End With
+    DoEvents
+End Sub
+
+Public Sub Sh_Hide_Please_Wait()
+' Stops the spinner and closes the box. Stopping first matters: it clears the flag SpinTick
+' tests, so a tick already queued by OnTime does nothing instead of reopening the form.
+'
+' Version: 1.0  Date: 8/3/2026
+    On Error Resume Next
+    Sh_Please_Wait_Form.StopSpinner
+    Unload Sh_Please_Wait_Form
+    DoEvents
+End Sub
+
 Public Sub Sh_ShowNonModalMessage(sCaption As String, sMessage As String)
     With Sh_NonModalMessageForm
         .StartUpPosition = 0
