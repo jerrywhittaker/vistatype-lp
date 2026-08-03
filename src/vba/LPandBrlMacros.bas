@@ -18,7 +18,19 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Sh - 8/2/2026 - AutoTag Ref Pages was silently missing page numbers, and had been for years. The patterns are shaped
+' Notes:    - Sh - 8/2/2026 - both About dialogs now carry the GPLv3, not the old permissive agreement. The wording they had granted use
+'                             "at no cost to others" and read like an MIT licence - it never matched what this software actually ships
+'                             under, which the installer has shown correctly all along. The thirteen old agreement labels are gone from
+'                             each form, replaced by ONE scrollable read-only text box filled at run time from new
+'                             Sh_Software_Agreement_Text. One copy of the wording, shared by both dialogs, so they cannot drift, and it
+'                             lives in git-tracked text instead of inside a binary .frx. Canonical source is docs/Software-Agreement.md
+'           - Sh - 8/2/2026 - the dialogs show a plain-English summary, not the licence itself: a new "View Full License" button opens
+'                             the complete GPL that the installer writes to %AppData%\VistaType LP\LICENSE.txt (Sh_Show_Full_License),
+'                             falling back to a pointer at gnu.org if the add-in was copied into STARTUP by hand rather than installed.
+'                             The version label was deliberately left untouched on both forms - Import-Vba.ps1 finds it by matching the
+'                             caption TEXT, not the control name, so disturbing it would silently stop every future build stamping the
+'                             version and the only symptom would be a stale About box
+'           - Sh - 8/2/2026 - AutoTag Ref Pages was silently missing page numbers, and had been for years. The patterns are shaped
 '                             "^013(a page number)^013" and a Word replace consumes BOTH paragraph marks, so where two numbers sit in
 '                             consecutive paragraphs the mark AFTER the first is the very mark the second needs in FRONT of it - already
 '                             eaten. One Execute therefore tagged ALTERNATE numbers: Jerry's sample of 8/2/2026 tagged 15 and 17 and
@@ -15999,6 +16011,87 @@ Sub Sh_Is_Doc_Open()
     End If
     
 End Sub  '*** end of Sh_Is_Doc_Open macro ***
+
+Function Sh_Software_Agreement_Text() As String
+'
+' The Software Agreement shown in BOTH About dialogs, Lp_About_Title_And_Agreement and
+' Dx_About_Title_And_Agreement. One copy, here, so the two can never drift apart and so the
+' wording lives in git-tracked text rather than inside a form's binary .frx.
+'
+' Replaces the old permissive agreement, which granted use "at no cost to others" and read
+' like an MIT licence. It never matched what this software actually ships under. The canonical
+' wording is docs/Software-Agreement.md; keep the two in step.
+'
+' This is a plain-English summary, not the licence itself. The full GNU General Public License
+' is what the installer displays and what it writes to %AppData%\VistaType LP\LICENSE.txt --
+' the "View Full License" button on each dialog opens that copy. See Sh_Show_Full_License.
+'
+' Version: 1.0  Date: 8/2/2026
+'
+    Dim s As String
+
+    s = "Software License" & vbCrLf & vbCrLf
+
+    s = s & "VistaType LP and Braille Macros is free software: you may run, copy, study, " _
+          & "share, and modify it under the terms of the GNU General Public License, " _
+          & "version 3 (GPLv3), as published by the Free Software Foundation." _
+          & vbCrLf & vbCrLf
+
+    s = s & "Your freedoms. You may use the Software for any purpose, examine how it works, " _
+          & "and redistribute copies. You may modify it and distribute your modified " _
+          & "versions - but those versions must also be licensed under the GPLv3, and you " _
+          & "must make their source code available. This notice and the license must be " _
+          & "included with all copies." & vbCrLf & vbCrLf
+
+    s = s & "No warranty. This program is distributed in the hope that it will be useful, " _
+          & "but WITHOUT ANY WARRANTY - without even the implied warranty of MERCHANTABILITY " _
+          & "or FITNESS FOR A PARTICULAR PURPOSE. The author makes no guarantees regarding " _
+          & "its performance, reliability, or suitability for any task, and is not liable " _
+          & "for any loss or damage arising from its use." & vbCrLf & vbCrLf
+
+    s = s & "Full terms. A complete copy of the GNU General Public License is installed with " _
+          & "the Software. Click View Full License below to read it, or see " _
+          & "https://www.gnu.org/licenses/." & vbCrLf & vbCrLf
+
+    s = s & "By installing, running, or otherwise using this Software you acknowledge these " _
+          & "terms." & vbCrLf & vbCrLf
+
+    s = s & ChrW(169) & " 2015-2026 Jerry Whittaker  -  jerry@thewhittakers.org"
+
+    Sh_Software_Agreement_Text = s
+
+End Function   '*** end of Sh_Software_Agreement_Text function ***
+
+Sub Sh_Show_Full_License()
+'
+' Opens the full GNU General Public License -- the same text the installer displays. The
+' installer writes it to %AppData%\VistaType LP\LICENSE.txt precisely so the user "receives a
+' copy of the license" as the GPL requires, so that is what this opens.
+'
+' Shared by the "View Full License" button on both About dialogs.
+'
+' If the file is not there -- the add-in copied into STARTUP by hand rather than installed --
+' the user is pointed at gnu.org instead rather than left with a button that does nothing.
+'
+' Version: 1.0  Date: 8/2/2026
+'
+    Dim licensePath As String
+
+    licensePath = Environ$("APPDATA") & "\VistaType LP\LICENSE.txt"
+
+    On Error GoTo NoLicense
+    If Dir$(licensePath) <> "" Then
+        Shell "notepad.exe """ & licensePath & """", vbNormalFocus
+        Exit Sub
+    End If
+
+NoLicense:
+    MsgBox "The full license file could not be opened." & vbCr & vbCr _
+         & "It is normally installed at:" & vbCr & licensePath & vbCr & vbCr _
+         & "You can also read the GNU General Public License version 3 at " _
+         & "https://www.gnu.org/licenses/.", vbInformation, "VistaType LP (231)"
+
+End Sub   '*** end of Sh_Show_Full_License macro ***
 
 Sub Sh_Replace_All_Until_Done()
 '

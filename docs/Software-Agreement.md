@@ -38,7 +38,27 @@ form's binary layout — see **Implementation** below.
 
 ---
 
-## Implementation (do this in the Word VBE on the next build)
+## Implementation — **DONE 8/2/2026**
+
+Both forms now carry this wording. The steps below are kept as the record of what was done.
+
+What actually shipped differs from the plan in two ways, both improvements:
+
+- The wording is **not** duplicated into each form's `UserForm_Initialize`. It lives once in
+  `Sh_Software_Agreement_Text` in `LPandBrlMacros`, and both dialogs call it — so the LP and
+  Braille versions cannot drift apart. Edit the function, and this file, together.
+- Each dialog gained a **View Full License** button (`Sh_Show_Full_License`) that opens the
+  complete GPL the installer writes to `%AppData%\VistaType LP\LICENSE.txt`, falling back to
+  a pointer at gnu.org. So the summary is what you read, and the licence itself is one click
+  away.
+
+The forms were reworked headlessly on the build box via the VBA object model and exported —
+**not** with `make pull`, which would have wiped `src/vba` and `src/forms` and churned all 48
+`.frx` files. The version label was left strictly alone: `Import-Vba.ps1` finds it by matching
+the caption *text*, so disturbing it would silently stop every future build stamping the
+version.
+
+### The original plan (for reference)
 
 The text above is longer than the old labels, so **make it scroll** rather than growing
 the dialog. A `Label` cannot scroll; use a read-only multiline text box.

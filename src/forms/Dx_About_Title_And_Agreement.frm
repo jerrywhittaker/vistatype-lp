@@ -16,6 +16,7 @@ Attribute VB_Exposed = False
 
 ' Author: Jerry Whittaker -  jerry@thewhittakers.org
 
+' Version: 1.1  Date: 8/2/2026 - old permissive agreement replaced by the GPLv3 summary (Sh_Software_Agreement_Text) in a scrollable box, plus a View Full License button
 ' Version: 1.4  Date: 7/24/2026 - Label5 version caption bumped 3.0.5 -> 3.0.6 (caption lives in the .frx)
 ' Version: 1.3  Date: 12/10/2019 - added alternative short url
 ' Version: 1.2  Date: 3/17/2017
@@ -42,6 +43,12 @@ EndOfSub:
 
 End Sub
 
+Private Sub ViewLicense_Click()
+    ' The full GNU GPL, the same text the installer shows. Shared helper so both About
+    ' dialogs behave identically.
+    Sh_Show_Full_License
+End Sub
+
 Private Sub UserForm_Initialize()
 
     ' From: https://www.thespreadsheetguru.com/the-code-vault/launch-vba-userforms-in-correct-window-with-dual-monitors
@@ -49,5 +56,15 @@ Private Sub UserForm_Initialize()
     Me.StartUpPosition = 0
     Me.Left = Application.Left + (0.5 * Application.Width) - (0.5 * Me.Width)
     Me.Top = Application.Top + (0.5 * Application.Height) - (0.5 * Me.Height)
+
+    ' The Software Agreement. One shared copy in LPandBrlMacros so the LP and Braille
+    ' dialogs can never drift apart, and so the wording stays in git-tracked text instead
+    ' of inside this form's binary .frx.
+    AgreementTextBox.Text = Sh_Software_Agreement_Text()
+    ' SelStart, NOT CurLine. CurLine needs the control to already have the focus and
+    ' raises run-time error 2185 from UserForm_Initialize, which runs before the form
+    ' is shown. SelStart does the same job -- open at the top, not the end -- with no
+    ' focus required. Same approach as Sh_Prodnote_Info_Form.
+    AgreementTextBox.selStart = 0
 
 End Sub
