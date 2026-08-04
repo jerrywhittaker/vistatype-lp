@@ -18,7 +18,50 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Sh - 8/3/2026 - dead code cleared, 311 lines and eight macros. Nothing referenced any of them - not the ribbon, not the
+' Notes:    - Sh - 8/3/2026 - the conversion shows a PROGRESS BAR now, not the old non-modal box. Jerry: without a visible activity
+'                             indicator "many will think the computer is frozen and well... reboot time". New
+'                             Sh_Convert_Progress_Form (51 forms) - MSForms has no progress bar control, so it is two labels, a sunken
+'                             track and a coloured fill whose Width the code drives; no ActiveX to fail to register on a transcriber's
+'                             machine. Stage weights come from the timings below, so the bar is honest about where the work is
+'           - Sh - 8/3/2026 - the old box carried a spinner that had NEVER turned: Sh_ShowNonModalMessage only shows the form and
+'                             nothing in the converter ever called StartSpinner, so the flag stayed False and every tick exited at once.
+'                             Its message told the user not to touch the keyboard and to "Wait for the BEEP!", written when a conversion
+'                             took minutes rather than seconds. Both gone
+'           - Sh - 8/3/2026 - one thing no indicator can fix, so the bar SAYS it: InsertFile is a single blocking call and VBA is
+'                             single-threaded, so nothing moves during the HTML import. The bar stops at 20% and the message explains
+'                             that it will, because an unexplained freeze is what causes the reboot
+'           - Sh - 8/3/2026 - CAUTION on the timings below: they are the stages that were MEASURED, and they do not account for the
+'                             whole conversion. Jerry reports 5 min 30 s end to end for a 900KB file on the VM, against about 2.7 s of
+'                             measured stages. Roughly five minutes is therefore somewhere not yet timed - the InlineShapes BreakLink
+'                             loop that embeds every image is the first place to look, then Repaginate and the save. The stage weights
+'                             the progress bar uses are derived from the measured stages only, so they will be wrong in the same way
+'           - Sh - 8/3/2026 - Sh_Document_Has_Prodnotes now WALKS THE PARAGRAPHS instead of using a style-aware Find. The note
+'                             explaining prodnotes stopped appearing after a real conversion even though the document plainly had red
+'                             prodnotes in it. Word's Find settings are STICKY - the ones a caller does not set explicitly carry over
+'                             from whatever used Find last, and by that point Sh_Color_Dollar_PG_Red and others have been setting them
+'                             all the way through. In isolation the Find answered True at every stage; in the real macro it did not
+'           - Sh - 8/3/2026 - and an honest note: the Step 6 rewrite below removed the opening Show along with the temp-document code
+'                             it was sitting inside, so for one build the box did not appear until the repaginate stage
+'           - Sh - 8/3/2026 - DAISY/NIMAS conversion is faster, and the two slow parts were not where anyone would guess.
+'                             Timed stage by stage on a real 900KB NIMAS book (403 page numbers, 782 prodnotes) on the build box:
+'                               read+clean 0.00   $pg tagging 0.48   prodnote tagging 3.77   write html 0.00
+'                               InsertFile 2.39   Fields.Unlink 0.04   font 0.27
+'                             So more than half the time went on prodnote tagging - more than Word's own HTML import
+'           - Sh - 8/3/2026 - prodnote tagging 3.79 s -> 0.00 s. The cost was InStr with vbTextCompare walking the whole file
+'                             looking for <prodnote and </prodnote>, 1564 times: locale-aware matching a character at a time.
+'                             It now lowercases a copy once and searches that with vbBinaryCompare, slicing from the original -
+'                             same case-insensitive behaviour, and LCase$ does not change the string's length so positions still
+'                             line up. Output verified IDENTICAL to the old routine, character for character, on that book.
+'                             Accumulation also changed from outStr = outStr & ... to Join, but measurement says that was worth
+'                             0.09 s of the 3.79 - it is kept as the better shape, not as the fix
+'           - Sh - 8/3/2026 - $pg tagging 0.48 s -> 0.01 s. It opened a hidden Word document, pushed the entire XML into it, ran a
+'                             wildcard Find/Replace and read it all back, to perform ONE substitution. Now a VBScript.RegExp over
+'                             the string. Output identical apart from the trailing paragraph mark Word appends to any document.
+'                             Word wildcards escape < and > as \< and \> because they mean word boundaries; a regex does not
+'           - Sh - 8/3/2026 - untouched, deliberately: the red. Prodnote colour is set after the import (Styles("Prodnote").Font
+'                             .Color) and Sh_Color_Dollar_PG_Red runs after that, so neither depends on any of this. Jerry's two
+'                             conditions for trying a faster converter
+'           - Sh - 8/3/2026 - dead code cleared, 311 lines and eight macros. Nothing referenced any of them - not the ribbon, not the
 '                             keymap, not a form, not each other. MS_HandleTemplateChange (its comment claimed a class module,
 '                             clsAppEvnets, that has never existed - the real event sink is VtEvents, which wires three events);
 '                             Lp_Add_Hidden_PN_to_Page_Number_Bar, 121 lines superseded by Lp_Format_Page_Numbers;
@@ -12710,29 +12753,35 @@ Function Sh_Document_Has_Prodnotes(ByVal targetDoc As Document) As Boolean
 ' anything to unwrap by it, and Sh_Convert_XML_File_To_Word_Document decides whether to show
 ' the prodnote note at the end of a conversion by it.
 '
+' WALKS THE PARAGRAPHS. Version 1.0 used a style-aware Find, which worked in isolation and
+' failed at the end of a real conversion: Jerry saw the note not appear on a document that
+' plainly had red prodnotes in it (8/3/2026). Word's Find settings are STICKY - the ones a
+' caller does not set explicitly carry over from whatever used Find last, and by that point in
+' a conversion Sh_Color_Dollar_PG_Red and others have been setting them all the way through.
+' A walk depends on nothing but the document, and it is the same test
+' Sh_Delete_Prodnote_Paragraphs has always used. It stops at the first hit, so on a document
+' that has prodnotes it costs almost nothing.
+'
+' Version: 2.0  Date: 8/3/2026 - walks the paragraphs instead of using Find, which could
+'                               silently answer False after other macros had left their own
+'                               settings on the Find object
 ' Version: 1.0  Date: 8/1/2026
 '
     Dim st As Style
-    Dim rng As Range
+    Dim para As Paragraph
 
     On Error Resume Next
     Set st = targetDoc.Styles("Prodnote")
     On Error GoTo 0
     If st Is Nothing Then Exit Function     ' no Prodnote style at all, so nothing can use it
 
-    Set rng = targetDoc.Content
-    With rng.Find
-        .ClearFormatting
-        .Replacement.ClearFormatting
-        .Text = ""
-        .Style = st
-        .Format = True
-        .Forward = True
-        .Wrap = wdFindStop
-        .MatchWildcards = False
-        .Execute
-        Sh_Document_Has_Prodnotes = .found
-    End With
+    For Each para In targetDoc.Paragraphs
+        If StrComp(para.Style.NameLocal, "Prodnote", vbTextCompare) = 0 Then
+            Sh_Document_Has_Prodnotes = True
+            Exit Function
+        End If
+    Next para
+
 End Function   '*** end of Sh_Document_Has_Prodnotes function ***
 
 Sub Sh_Set_Prodnote_Style_Visibility()
@@ -17140,8 +17189,8 @@ Sub Sh_Convert_XML_File_To_Word_Document()
 ' Version: 1.0  Date: 3/3/2026
 '
     Sh_Is_Doc_Open
-    Sh_NonModalMessageForm.Hide
-    DoEvents
+    Sh_Convert_Progress_Form.Hide
+    Sh_Spin_DoEvents
 
     If MsgBox( _
             "A file selection dialogue window will appear after this message is closed." & vbCrLf & vbCrLf & _
@@ -17157,8 +17206,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     Dim fldr As FileDialog
     Dim folderPath As String, fileName As String, baseFolder As String
     Dim xmlFile As String, txtCopy As String, htmlPath As String
-    Dim finalDoc As Document, tempDoc As Document
-    Dim findText As String, replaceText As String
+    Dim finalDoc As Document
     Dim start As Single
     Dim fileContent As String
     
@@ -17191,6 +17239,14 @@ Sub Sh_Convert_XML_File_To_Word_Document()
         Exit Sub
     End If
 
+    ' --- Show the progress box before any real work starts ---
+    ' It has to be up from the first stage. An earlier rewrite of Step 6 removed the opening
+    ' Show along with the temp-document code it was sitting in, so the box did not appear until
+    ' the repaginate stage and the user watched a still screen until then (8/3/2026).
+    Sh_Convert_Progress_Form.Show vbModeless
+    Sh_Convert_Progress_Form.SetProgress 2, "Reading the " & Sh_GP_String_1 & " file."
+    DoEvents
+
     ' --- Step 5: Read XML using UTF-8 Stream
     xmlFile = folderPath & fileName
     txtCopy = folderPath & Left(fileName, InStrRev(fileName, ".") - 1) & ".txt"
@@ -17209,60 +17265,48 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     fileContent = Replace(fileContent, ChrW(&HA0), " ")
 
     ' --- Step 6: Tagging Logic ---
-    Set tempDoc = Documents.Add(Visible:=False)
-    tempDoc.Range.Text = fileContent
+    '
+    ' Done on the STRING. This used to open a hidden Word document, push the whole XML into it,
+    ' run a wildcard Find/Replace across it and read it all back out - a full document round
+    ' trip to perform one substitution. Measured on the build box 8/3/2026 against a real 900KB
+    ' NIMAS book: 0.48 seconds that way, below the timer's resolution this way, and the output
+    ' is identical character for character apart from the trailing paragraph mark Word appends
+    ' to every document.
+    '
+    ' The patterns are the same ones, translated from Word wildcards to RegExp. In Word
+    ' wildcards "<" and ">" are word boundaries and have to be escaped as \< and \>; in a
+    ' regular expression they are ordinary characters. Everything else carries over unchanged,
+    ' including [0-9A-z], which is an ASCII RANGE from "0" to "z" - it admits the punctuation
+    ' between them, and always has.
 
-    '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-    Sh_SetBarVisible "Styles", False
-    Sh_SetBarVisible "Navigation", False
+    Sh_Convert_Progress_Form.SetProgress 8, "Tagging reference pages with '$pg'"
+    Sh_Spin_DoEvents
 
-    Sh_NonModalMessageForm.Show vbModeless
-    Dim msgBody As String
-    msgBody = "Converting a " & Sh_GP_String_1 & " file into a Word file." & _
-              vbCrLf & vbCrLf & "Do not use mouse or keyboard in this Word window or any other Word document! " & _
-              "Running applications other than Word is acceptable." & _
-              vbCrLf & vbCrLf & "                         Wait for the BEEP!"
+    ' everything before <dtbook is the XML prolog and is dropped, as before
+    Dim dtPos As Long
+    dtPos = InStr(1, fileContent, "<dtbook", vbTextCompare)
+    If dtPos > 1 Then fileContent = Mid$(fileContent, dtPos)
 
-    Call Sh_ShowNonModalMessage("Converting .xml file to Word", msgBody)
-
-    DoEvents
-    
-    '++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-    
-    Sh_NonModalMessageForm.SetActivityMessage "Opening .xml file and tagging reference pages with '$pg'"
-    DoEvents
-    
-    Sh_NonModalMessageForm.Show vbModeless
-    Sh_PauseSeconds 0.3   'brief tick so the status form paints
-    DoEvents
-
-    Dim rng As Range
-    Set rng = tempDoc.Content
-    With rng.Find
-        .Text = "<dtbook"
-        If .Execute Then tempDoc.Range(0, rng.start).Delete
-    End With
+    Dim reTag As Object
+    Set reTag = CreateObject("VBScript.RegExp")
+    reTag.Global = True
 
     If UCase(Sh_GP_String_1) = "DAISY" Then
-        findText = "\>([0-9A-z]{1,})\</pagenum\>"
-        replaceText = "<p>$pg\1<p></p></pagenum><p></p>"
+        reTag.Pattern = ">([0-9A-z]{1,})</pagenum>"
+        fileContent = reTag.Replace(fileContent, "<p>$pg$1<p></p></pagenum><p></p>")
     Else
-        findText = "\>([0-9A-z-]{1,}\</pagenum\>)"
-        replaceText = "<p>$pg\1<p></p>"
+        reTag.Pattern = ">([0-9A-z-]{1,}</pagenum>)"
+        fileContent = reTag.Replace(fileContent, "<p>$pg$1<p></p>")
     End If
+    
+    Sh_Convert_Progress_Form.Show vbModeless
 
-    With tempDoc.Content.Find
-        .ClearFormatting: .Replacement.ClearFormatting
-        .Text = findText: .Replacement.Text = replaceText: .MatchWildcards = True
-        .Execute Replace:=wdReplaceAll
-    End With
-    
-    fileContent = tempDoc.Range.Text
-    tempDoc.Close SaveChanges:=wdDoNotSaveChanges
-    
-    Sh_NonModalMessageForm.Show vbModeless
-    Sh_NonModalMessageForm.SetActivityMessage "Creating .txt file with .xml code and creating .html file"
-    DoEvents
+    ' Start it turning. Showing the form does not: without this the spinner flag stays False
+    ' and every Advance and SpinTick exits at once, so it has never moved during a conversion
+    ' (Jerry, 8/3/2026). The DoEvents through the rest of this macro are Sh_Spin_DoEvents for
+    ' the same reason - the OnTime tick alone fires once a second at best.
+    Sh_Convert_Progress_Form.SetProgress 15, "Creating .txt file with .xml code and creating .html file"
+    Sh_Spin_DoEvents
     Sh_PauseSeconds 0.3   'brief tick so the status form paints
 
     ' --- Step 7: Fix Images (Base Href) ---
@@ -17309,9 +17353,9 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     Dim currentdoc As Document
     Set currentdoc = ActiveDocument 'will work with blank, unsaved documents too
 
-    Sh_NonModalMessageForm.Show vbModeless
-    Sh_NonModalMessageForm.SetActivityMessage "Creating Word file. Activity Spinner is idle. Large files may take several minutes to convert."
-    DoEvents
+    Sh_Convert_Progress_Form.Show vbModeless
+    Sh_Convert_Progress_Form.SetProgress 20, "Importing the book into Word. This is the longest step and it cannot be interrupted, so the bar will sit here for a while. Nothing is wrong."
+    Sh_Spin_DoEvents
     Sh_PauseSeconds 0.3   'brief tick so the status form paints
 
     ' --- Speed: silence background work for the whole heavy region (InsertFile, image
@@ -17396,10 +17440,10 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     Sh_PauseSeconds 0.3
     
     ' Make the document visible and active on screen
-    Sh_NonModalMessageForm.Hide ' Hide the progress form so it doesn't block the document
+    Sh_Convert_Progress_Form.Hide ' Hide the progress box so it doesn't block the document
     Application.Activate        ' Force the Word Application itself to the front of Windows
     currentdoc.Activate         ' Ensure the specific document is active
-    DoEvents
+    Sh_Spin_DoEvents
     
     MsgBox "Here is the " & Sh_GP_String_1 & " file in Word format." & _
     vbCrLf & vbCrLf & "All reference page numbers have been tagged with $pg tags ready for validation." & _
@@ -17412,9 +17456,9 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     ' Stabilize the document FIRST, then save it exactly once (stabilize -> save).
     Set currentdoc = doc
 
-    Sh_NonModalMessageForm.Show vbModeless
-    Sh_NonModalMessageForm.SetActivityMessage "Repaginating the document"
-    DoEvents
+    Sh_Convert_Progress_Form.Show vbModeless
+    Sh_Convert_Progress_Form.SetProgress 88, "Repaginating the document"
+    Sh_Spin_DoEvents
     Sh_PauseSeconds 0.3   'brief tick so the status form paints
 
     doc.Repaginate
@@ -17429,12 +17473,12 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     Application.Options.Pagination = pag_Prev
 
     ' Hide the progress form momentarily so Windows can cleanly shift focus to the Save As dialog
-    Sh_NonModalMessageForm.Hide
+    Sh_Convert_Progress_Form.Hide
 
     ' Force the Word Application and your specific document to the front
     Application.Activate
     currentdoc.Activate
-    DoEvents
+    Sh_Spin_DoEvents
     Sh_PauseSeconds 0.5   'brief settle so the Save As dialog receives focus cleanly
 
     Dim dlgSaveAs As Dialog
@@ -17457,7 +17501,7 @@ SaveTheFile:
                 "Save As Canceled")
 
             If userChoice = vbNo Then
-                Unload Sh_NonModalMessageForm
+                Unload Sh_Convert_Progress_Form
                 Exit Sub
             Else
                 GoTo SaveTheFile
@@ -17465,9 +17509,9 @@ SaveTheFile:
         Else
             ' --- SUCCESSFUL FILE CHOICE ---
             ' 1. Show the non-modal form BEFORE saving
-            Sh_NonModalMessageForm.Show vbModeless
-            Sh_NonModalMessageForm.SetActivityMessage "Saving the stabilized document. Activity spinner is idle."
-            DoEvents
+            Sh_Convert_Progress_Form.Show vbModeless
+            Sh_Convert_Progress_Form.SetProgress 95, "Saving the stabilized document."
+            Sh_Spin_DoEvents
 
             ' 2. Execute the save on the SAME dialog object so the typed name is used
             dlgSaveAs.Execute
@@ -17477,23 +17521,27 @@ SaveTheFile:
         End If
     Else
         ' Named document: save it in place, exactly once.
-        Sh_NonModalMessageForm.Show vbModeless
-        Sh_NonModalMessageForm.SetActivityMessage "Saving the stabilized document"
-        DoEvents
+        Sh_Convert_Progress_Form.Show vbModeless
+        Sh_Convert_Progress_Form.SetProgress 95, "Saving the stabilized document"
+        Sh_Spin_DoEvents
         Sh_PauseSeconds 0.5   'brief tick so the status form paints
 
         doc.Save
     End If
 
-    'Unload the progress form completely
-    Unload Sh_NonModalMessageForm
+    Sh_Convert_Progress_Form.SetProgress 100, "Finished."
     DoEvents
+    Sh_PauseSeconds 0.4   ' let the full bar be seen before the box goes
+
+    'Unload the progress form completely
+    Unload Sh_Convert_Progress_Form
+    Sh_Spin_DoEvents
     
     'Re-assert dominance for your saved document AFTER the form is entirely gone
     Application.Activate
     doc.Activate
     ActiveWindow.View.Type = wdPrintView
-    DoEvents
+    Sh_Spin_DoEvents
     
     MsgBox "Conversion is complete and the file has been stabilized and saved", vbInformation, "Operation Complete"
 
@@ -17542,24 +17590,48 @@ Function Sh_Tag_Prodnotes_As_Prodnote_Style(ByVal src As String) As String
 ' Lp_Remove_All_Styles_Except_Lp_Styles, or attaching the LP template will convert these
 ' paragraphs back to Normal and delete the style.
 '
+' Version: 1.1  Date: 8/3/2026 - 3.79 s -> 0.00 s on a real 900KB NIMAS book, output identical. The tag search was
+'                               case-insensitive InStr over the whole file, 1564 times; it now searches a lowercased
+'                               copy with a binary compare. Accumulation changed to Join, which was NOT the problem.
 ' Version: 1.0  Date: 7/21/2026
 '
-    Dim outStr As String
+    Dim parts() As String
+    Dim n As Long
     Dim pos As Long, openStart As Long, openEnd As Long, closeStart As Long
     Dim inner As String
-    Const CLOSETAG As String = "</prodnote>"
+    Const CLOSETAG As String = "</prodnote>"   ' lowercase: matched against srcLower
+
+    ' Collected into an array and Joined at the end rather than built up with
+    ' outStr = outStr & ... - VBA copies the whole accumulated string on every concatenation.
+    ' Honest note: measured, this was NOT what made the routine slow. Replacing it changed
+    ' 3.77 s to 3.68 s. It is kept because it is the better shape as files grow, but the real
+    ' cost was the case-insensitive search below.
+    ReDim parts(0 To 255)
+
+    ' Search a LOWERCASED COPY with a binary compare, and slice from the original. The tags are
+    ' matched case-insensitively, as before, but vbTextCompare does locale-aware matching a
+    ' character at a time and this walks a whole book looking for 782 of them, twice over.
+    ' Measured on the build box 8/3/2026 against a real 900KB NIMAS file: 1.85 s for the opening
+    ' tag and 1.83 s for the closing one - 3.68 s, which was this entire routine. The same walk
+    ' with vbBinaryCompare is below the timer's resolution, and LCase$ of the whole string costs
+    ' nothing and does not change its length, so every position still lines up with src.
+    Dim srcLower As String
+    srcLower = LCase$(src)
 
     pos = 1
     Do
-        openStart = InStr(pos, src, "<prodnote", vbTextCompare)
+        openStart = InStr(pos, srcLower, "<prodnote", vbBinaryCompare)
         If openStart = 0 Then Exit Do
         openEnd = InStr(openStart, src, ">")                      ' end of the opening tag
         If openEnd = 0 Then Exit Do
-        closeStart = InStr(openEnd, src, CLOSETAG, vbTextCompare)
+        closeStart = InStr(openEnd, srcLower, CLOSETAG, vbBinaryCompare)
         If closeStart = 0 Then Exit Do
 
+        If n + 2 > UBound(parts) Then ReDim Preserve parts(0 To UBound(parts) * 2)
+
         ' everything ahead of this prodnote passes through untouched
-        outStr = outStr & Mid$(src, pos, openStart - pos)
+        parts(n) = Mid$(src, pos, openStart - pos)
+        n = n + 1
 
         inner = Mid$(src, openEnd + 1, closeStart - openEnd - 1)
 
@@ -17567,17 +17639,21 @@ Function Sh_Tag_Prodnotes_As_Prodnote_Style(ByVal src As String) As String
             ' DAISY shape -- style each paragraph the prodnote already contains
             inner = Replace(inner, "<p ", "<p class=""Prodnote"" ", , , vbTextCompare)
             inner = Replace(inner, "<p>", "<p class=""Prodnote"">", , , vbTextCompare)
-            outStr = outStr & inner
+            parts(n) = inner
         Else
             ' NIMAS shape -- bare text becomes one Prodnote paragraph
-            outStr = outStr & "<p class=""Prodnote"">" & inner & "</p>"
+            parts(n) = "<p class=""Prodnote"">" & inner & "</p>"
         End If
+        n = n + 1
 
         pos = closeStart + Len(CLOSETAG)
     Loop
 
-    outStr = outStr & Mid$(src, pos)
-    Sh_Tag_Prodnotes_As_Prodnote_Style = outStr
+    If n > UBound(parts) Then ReDim Preserve parts(0 To n)
+    parts(n) = Mid$(src, pos)
+
+    ReDim Preserve parts(0 To n)
+    Sh_Tag_Prodnotes_As_Prodnote_Style = Join(parts, "")
 End Function   '*** end of Sh_Tag_Prodnotes_As_Prodnote_Style function ***
 
 Function Sh_Strip_Prodnote_Enclosing_Quotes(ByVal targetDoc As Document) As Long
