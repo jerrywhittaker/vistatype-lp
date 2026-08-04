@@ -18,6 +18,15 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Sh - 8/3/2026 - dead code cleared, 311 lines and eight macros. Nothing referenced any of them - not the ribbon, not the
+'                             keymap, not a form, not each other. MS_HandleTemplateChange (its comment claimed a class module,
+'                             clsAppEvnets, that has never existed - the real event sink is VtEvents, which wires three events);
+'                             Lp_Add_Hidden_PN_to_Page_Number_Bar, 121 lines superseded by Lp_Format_Page_Numbers;
+'                             Lp_ReplaceNBSP_ExcludePrintPgNumbAndTables, whose only call site was commented out and which carried a typo
+'                             ("Print Pg Numb") that meant its exclusion never fired anyway; the three TempPlaceholder bookmark helpers,
+'                             left unreferenced by the 7/26/2026 cursor-position work; Dx_Set_Display_For_Braille; and Non_modal_Test.
+'                             Module NewMacros.bas deleted with them - it held only ForceSaveAsDialog, a relic of the Normal.dotm days.
+'                             The two commented-out calls that named removed macros went too. History in this changelog stays.
 ' Notes:    - Sh - 8/3/2026 - "View Full License" opens the GPL as a READ-ONLY WORD DOCUMENT. It went Notepad -> a box on a form ->
 '                             this, and the middle step is the instructive one: an MSForms text box does not respond to the mouse wheel.
 '                             The control has no wheel handling and no property to switch it on; the only way to add it is a Windows
@@ -128,7 +137,7 @@ Attribute VB_Name = "LPandBrlMacros"
 '                             249 lines went, four near-identical 48-line blocks collapsing into one loop each. Dx_Red_Border_Images keeps its fixed
 '                             6 pt, which is a red border on images and nothing to do with font size
 '           - Sh - 7/26/2026 - macros now return the user to where the cursor was when they started, instead of dumping them at the top of the document. New Sh_Save_User_Position / Sh_Return_User_To_Start_Position pair records a CHARACTER OFFSET (Sh_Start_Pos / Sh_Start_Doc), not a bookmark; 43 macros and 6 UserForms converted. Sh_Pos_Depth makes only the OUTERMOST macro return the user, so the File_Fix_Sequence orchestrators scroll once instead of twenty times; Sh_Pos_Saved refuses a return that had no matching save; RibbonAction clears both per button press so a macro that stops on an error cannot wedge them
-'           - Sh - 7/26/2026 - why the old TempPlaceholder bookmark could not do that job, three ways: (1) the copy-to-temp-doc macros paste back over the range the bookmark spans, so Word discards it and Sh_Move_To_And_Delete_Placeholder_Bookmark silently found nothing - its On Error GoTo ExitSub hid the failure; (2) one shared bookmark name, so any macro calling another had its mark deleted and recreated by the inner one; (3) Sh_Create_Temp_Bookmark uses ActiveDocument, so it landed in the temp file whenever one was active. The three TempPlaceholder helpers remain but are now unreferenced
+'           - Sh - 7/26/2026 - why the old TempPlaceholder bookmark could not do that job, three ways: (1) the copy-to-temp-doc macros paste back over the range the bookmark spans, so Word discards it and Sh_Move_To_And_Delete_Placeholder_Bookmark silently found nothing - its On Error GoTo ExitSub hid the failure; (2) one shared bookmark name, so any macro calling another had its mark deleted and recreated by the inner one; (3) Sh_Create_Temp_Bookmark uses ActiveDocument, so it landed in the temp file whenever one was active. The three TempPlaceholder helpers were left unreferenced, and deleted on 8/3/2026
 '           - Sh - 7/26/2026 - also fixed: the restore now happens AFTER ScreenUpdating goes back on - 13 macros (10 of them Dx_) moved the cursor while the screen was frozen, leaving the insertion point correct but the window still showing the top of the document. Lp_Fix_Common_File_Errors had its ScreenUpdating restore commented out entirely, and marked its spot only after Selection.Collapse had already moved it; Lp_Format_Exercise_Lv_1_and_Lv_2 called the restore twice
 '           - Sh - 7/26/2026 - LP_Picture_Alignment_Form called Sh_Create_Temp_Bookmark where it meant the move-and-delete, so it never returned the user AND left a stale bookmark behind - which Lp_Bakgrnd_Picture_Menu_Form had been jumping to, since that form called the return without ever creating a mark. The two forms were accidentally coupled through the one shared bookmark name
 '           - Sh - 7/26/2026 - deliberately NOT converted, they are meant to leave you where they finish: Lp_Validate_Dollar_PG, the LP/Dx export and import selection macros, Sh_Move_Paragraph_To_Next_Page, Sh_Copy_Ref_Pg_Tags_To_Temp_File (parks you in a temp document on purpose and says so), and Lp_Attach_The_Template / Lp_Attach_Lp_Template (they Save As, so the document is no longer the one the position was measured in)
@@ -5416,23 +5425,6 @@ Sub Dx_Red_Border_Images()
     Next
 End Sub   '*** end of Dx_Red_Border_Images macro ***
 
-Sub Dx_Set_Display_For_Braille()
-'
-' Author: Jerry Whittaker - jerry@thewhittakers.org
-'
-' Version: 1.0  Date: 12/5/2018
-'
-' sets the screen display for editing braile
-'
-        If ActiveWindow.View.SplitSpecial = wdPaneNone Then
-            ActiveWindow.ActivePane.View.Type = wdNormalView
-        Else
-            ActiveWindow.View.Type = wdNormalView
-        End If
-        ActiveWindow.ActivePane.View.ShowAll = True 'show all characters
-
-End Sub   '*** end of Dx_Set_Display_For_Braille macro ***
-
 Sub Dx_Is_Style_Here()
 '
 ' Checks to see both styles are attached
@@ -6599,127 +6591,6 @@ Sub Lp_Remove_Box_Bullets_Bullets_and_Numbers()
 
 End Sub '****** End of Lp_Remove_Box_Bullets_Bullets_and_Numbers Macro *****
 
-Sub Lp_Add_Hidden_PN_to_Page_Number_Bar()
-'
-' Lp_Add_Hidden_PN_to_Page_Number_Bar Macro
-'
-' Author: Jerry Whittaker - jerry@thewhittakers.org
-'
-' Date: 9/29/2015
-' Version: 1.1
-'
-' Description: Adds lower case pn to left of right side page number.
-'              The pn is the same color as the bar color and is thus
-'              hidden from view. Takes the form of "pn23" where the
-'              23 is the page number.
-'
-'              It can be used by the reader to locate a specific page
-'              in PDF reader and iBooks or on the tablet but is hidden on-screen
-'              and in print documents.
-'
-'----------------------------------------------------------------------------------------------
-' Is LP template attached?
-'----------------------------------------------------------------------------------------------
-
-    Application.Run MacroName:="Lp_Is_Lp_Template_Attached"
-
-    Selection.Find.ClearFormatting
-    Selection.Find.Style = ActiveDocument.Styles("Print Pg Num")
-    Selection.Find.Replacement.ClearFormatting
-    'Selection.Find.Replacement.Font.Color = 13935604
-    With Selection.Find
-        .Text = "^009(^0160{1,})"
-        .Replacement.Text = "^009"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = True
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = True
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-
-    Selection.Find.ClearFormatting
-    Selection.Find.Style = ActiveDocument.Styles("Print Pg Num")
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "pn"
-        .Replacement.Text = ""
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = True
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = True
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Style = ActiveDocument.Styles("Print Pg Num")
-    Selection.Find.Replacement.ClearFormatting
-        With Selection.Find
-        .Text = "^009^0160{1}"
-        .Replacement.Text = "^009"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = True
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = True
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-
-    Selection.Find.ClearFormatting
-    Selection.Find.Style = ActiveDocument.Styles("Print Pg Num")
-    Selection.Find.Replacement.ClearFormatting
-    Selection.Find.Replacement.Font.Color = 13935604
-    With Selection.Find
-        .Text = "^009"
-        .Replacement.Text = "^009pn"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = True
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = True
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-      
-'--------------------------------------------------------------------------------
-' replace bold in the Print Pg Num style
-'--------------------------------------------------------------------------------
-    Selection.Find.ClearFormatting
-    Selection.Find.Style = ActiveDocument.Styles("Print Pg Num")
-    Selection.Find.Replacement.ClearFormatting
-    Selection.Find.Replacement.Font.Bold = False
-    With Selection.Find
-        .Text = ""
-        .Replacement.Text = ""
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = True
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    ActiveDocument.UndoClear
-    Application.ScreenUpdating = True
-    
-End Sub  '*********** end of Lp_Add_Hidden_PN_to_Page_Number_Bar Macro **********
-
 Sub Lp_Fix_Common_File_Errors()
 '
 ' Lp_Fix_Common_File_Errors
@@ -6807,7 +6678,6 @@ Sh_Spin_DoEvents
     Application.Run MacroName:="Lp_Fix_Em_Dash_Space_Errors"
 Sh_Spin_DoEvents
     Application.Run MacroName:="Lp_Fix_Normal_Styles"  'no longer ruins picture placement (left, right, center)
-    'Application.Run MacroName:="Lp_ReplaceNBSP_ExcludePrintPgNumbAndTables" 'run before Lp_Remove_Multi_Spaces
            'takes too long on large docs
 Sh_Spin_DoEvents
     Application.Run MacroName:="Lp_Remove_Multi_Spaces"
@@ -13390,7 +13260,6 @@ Sub Lp_Resize_Images()
         End With
         Selection.Collapse 'clear selection
     ElseIf Lp_Pic_All_Selectd = "S" And Selection.Type = wdSelectionNormal Then  ' either a selected image or range (range may include a table)
-            'Application.Run MacroName:="Sh_Create_Temp_Bookmark"
             Application.Run MacroName:="Lp_Copy_To_Temp_Doc"
             With ActiveDocument
                 For i = 1 To .InlineShapes.count
@@ -15520,57 +15389,6 @@ Sub Lp_Replace_Underline_Tab_With_Underlined_Underscore()
 End Sub  '*** end of Lp_Replace_Underline_Tab_With_Underline macro ***
 
 
-Sub Lp_ReplaceNBSP_ExcludePrintPgNumbAndTables()
-    '
-    ' NBSP = Non-Breaking Space
-    '
-    ' Version 1.1  Date: 7/18/2026 - fast path: when the document has no tables, strip NBSP in a
-    '                                single document-wide Find/ReplaceAll instead of one Find per
-    '                                paragraph. (NOTE: the per-paragraph style test below compares
-    '                                against Print Pg Numb but the real style is Print Pg Num, so it
-    '                                never actually excludes; with no tables every paragraph is
-    '                                stripped anyway, making the one-pass result identical. The
-    '                                style-name typo is a separate correctness fix, left as-is.)
-    ' Version 1.0  Date: 10/16/2025
-    '
-    Dim para As Paragraph
-    Dim rng As Range
-    
-    ' Fast path -- no tables means no paragraph is excluded below; strip NBSP in one pass.
-    If ActiveDocument.Tables.count = 0 Then
-        With ActiveDocument.Content.Find
-            .ClearFormatting
-            .Replacement.ClearFormatting
-            .Text = Chr(160)
-            .Replacement.Text = " "
-            .Forward = True
-            .Wrap = wdFindContinue
-            .Format = False
-            .Execute Replace:=wdReplaceAll
-        End With
-        Exit Sub
-    End If
-    
-    For Each para In ActiveDocument.Paragraphs
-        ' Skip if style is "Print Pg Numb" OR if inside a table
-        If para.Style <> "Print Pg Numb" _
-           And para.Range.Information(wdWithInTable) = False Then
-           
-            Set rng = para.Range
-            With rng.Find
-                .ClearFormatting
-                .Replacement.ClearFormatting
-                .Text = Chr(160)          ' non-breaking space
-                .Replacement.Text = " "   ' normal space
-                .Forward = True
-                .Wrap = wdFindContinue
-                .Format = False
-                .Execute Replace:=wdReplaceAll
-            End With
-        End If
-    Next para
-End Sub   '*** end of macro Lp_ReplaceNBSP_ExcludePrintPgNumbAndTables ***
-
 Sub Lp_Delete_Square_Bullet()
 '
 ' Version 1.0:  Date: 11/25/2025
@@ -15985,48 +15803,6 @@ Sub MS_SafeClearClipboard()
     On Error GoTo 0
     
 End Sub   '*** end of MS_SafeClearClipboard ***
-
-Public Sub MS_HandleTemplateChange(ByVal doc As Document)
-
-    ' changes the configuration settings of Word to match the needs of the
-        'attached template when chanding from one document to another
-    ' Requires reference to Microsoft Scripting Runtime (Tools > References > check "Microsoft Scripting Runtime")
-    ' Called by Class Module "clsAppEvnets"
-    '
-    ' Version 1.0:  Date 12/7/2025
-    
-    If doc Is Nothing Then Exit Sub
-
-    Dim tmplName As String
-    tmplName = LCase$(Dir(doc.AttachedTemplate.fullName))
-
-    ' Build dictionary of patterns ? routine names
-    Dim dict As New Scripting.Dictionary
-    dict.Add "bana braille *.dot*", "Braille"
-    dict.Add "largeprint*.dot*", "LargePrint"
-    dict.Add "normal.dotm", "NewInstall"
-    dict.Add "", "NewInstall"
-
-    Dim key As Variant
-    Dim matched As Boolean
-    matched = False
-
-    For Each key In dict.Keys
-        If tmplName Like key Then
-            matched = True
-            Select Case dict(key)
-                Case "Braille"
-                    MS_Set_Word_Config_For_Braille
-                Case "LargePrint"
-                    MS_Set_Word_Config_For_Large_Print
-                Case "NewInstall"
-                    MS_Set_Word_Config_For_New_Install
-            End Select
-            Exit For
-        End If
-    Next key
-
-End Sub   '*** end of MS_HandleTemplateChange macro ***
 
 '------------------------------------------------------------------------------------
 ' / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / /
@@ -16920,52 +16696,6 @@ Sub Sh_Return_User_To_Start_Position()
 
 End Sub   '*** end of Sh_Return_User_To_Start_Position macro ***
 
-Sub Sh_Move_To_And_Delete_Placeholder_Bookmark()
-'
-' Sh_Move_To_And_Delete_Placeholder_Bookmark macro
-'
-' moves cursor to and deletes temporary placeholder bookmark
-' book mark is created by Sh_Create_Temp_Bookmark macro
-
-' Version 1.1
-'
-' Author: Jerry Whittaker jerry@thewhittakers.org
-'
-' Date 11/16/2016
-'
-    On Error GoTo ExitSub
-    If ActiveDocument.Bookmarks.Exists("TempPlaceholder") = True Then
-        ActiveDocument.Bookmarks("TempPlaceholder").Select
-        ActiveDocument.Bookmarks("TempPlaceholder").Delete
-    End If
-ExitSub:
-    Exit Sub
-End Sub   '*** end of Sh_Move_To_And_Delete_Placeholder_Bookmark macro ***
-
-Sub Sh_Create_Temp_Bookmark()
-'
-' Sh_Create_Temp_Bookmark macro
-'
-' creates temporary placeholder bookmark
-' book mark is deleted by Sh_Move_To_And_Delete_Placeholder_Bookmark macro
-
-' Version 1.2
-'
-' Author: Jerry Whittaker jerry@thewhittakers.org
-'
-' Date 11/16/2016
-'
-    'get rid of any unremoved bookmarks
-
-    If ActiveDocument.Bookmarks.Exists("TempPlaceholder") = True Then
-        ActiveDocument.Bookmarks("TempPlaceholder").Delete
-    End If
-        
-    ' create bookmark at cursor
-    ActiveDocument.Bookmarks.Add Name:="TempPlaceholder"
-    
-End Sub   '*** end of Sh_Create_Temp_Bookmark macro ***
-
 Sub Sh_Is_End_Paragraph_Mark_Included()
 '
 ' Sh_Is_End_Paragraph_Mark_Included Macro
@@ -17014,16 +16744,6 @@ On Error GoTo 0
     Application.ScreenUpdating = True  'turn on screen
         
 End Sub '*** end of Sh_Is_End_Paragraph_Mark_Included ***
-
-Sub Sh_Remove_Temp_Bookmark()
-'
-' Version: 1.1  Date: 1/10/2019
-'
-    If ActiveDocument.Bookmarks.Exists("TempPlaceholder") = True Then
-        ActiveDocument.Bookmarks("TempPlaceholder").Delete
-    End If
-    
-End Sub  '*** end of Sh_Remove_Temp_Bookmark macro ***
 
 Sub Sh_Remove_DollarPG_For_Retag()
 
@@ -18087,27 +17807,3 @@ End Sub   '*** end of Sh_PauseSeconds(ByVal Seconds As Single)macro ***
 '/ / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / /
 '\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \
 '------------------------------------------------------------------------------------
-
-Sub Non_modal_Test()
-    '*************** BEGIN FILL-IN AND SHOW NON-MODAL MESSAGE BOX *************
-   Dim msgBody As String
-    msgBody = "Fixing common file errors for non-LP files, attaching the large print template, setting paper or screen size, " & _
-              "attaching the large print template, and adjusting font sizes and border weights." & _
-              vbCrLf & vbCrLf & "Do not use mouse or keyboard in this Word window or any other Word document! " & _
-              "Running applications other than Word is acceptable." & _
-              vbCrLf & vbCrLf & "                      Wait for the BEEP!"
-
-    Call Sh_ShowNonModalMessage("VistaType LP is Working", msgBody)
-    
-    DoEvents
-    DoEvents
-    
-    Application.Activate
-    DoEvents
-    
-Sh_NonModalMessageForm.SetActivityMessage "Attaching the LP template and adding new pages. For large files this will take more time."
-    '  dummy measurment line                   ____________________________________________
-    
-    '*************** END FILL-IN AND SHOW NON-MODAL MESSAGE BOX *************
-End Sub
-
