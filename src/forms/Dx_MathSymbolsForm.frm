@@ -14,67 +14,60 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
+' Version: 1.1  Date: 8/3/2026 - removed 26 calls to "Dx_ShowMathSymbolsAgain", a forgotten
+'                                development relic (Jerry, 8/3/2026). The macro existed nowhere,
+'                                so every symbol button raised "the macro cannot be found" after
+'                                typing its character. Found by tools/lib/check_form_calls.py.
+
 
 '+++++++ Begin Comparisons ++++++++++++++++++++
 
 Private Sub ComparisionsAlmostEqualTo_Click()
     Selection.TypeText ChrW(&H2248)
-    Application.Run MacroName:="Dx_ShowMathSymbolsAgain"
 End Sub
 
 Private Sub ComparisonsApproxEqual_Click()
     Selection.TypeText ChrW(&H2245)
-    Application.Run MacroName:="Dx_ShowMathSymbolsAgain"
 End Sub
 
 Private Sub ComparisonsEqual_Click()
     Selection.TypeText ChrW(&H3D)
-    Application.Run MacroName:="Dx_ShowMathSymbolsAgain"
 End Sub
 
 Private Sub ComparisonsGreaterThan_Click()
     Selection.TypeText ChrW(&H3E)
-    Application.Run MacroName:="Dx_ShowMathSymbolsAgain"
 End Sub
 
 Private Sub ComparisonsGreaterThanOrEqualTo_Click()
     Selection.TypeText ChrW(&H2265)
-    Application.Run MacroName:="Dx_ShowMathSymbolsAgain"
 End Sub
 
 Private Sub ComparisonsIdenticalTo_Click()
     Selection.TypeText ChrW(&H2261)
-    Application.Run MacroName:="Dx_ShowMathSymbolsAgain"
 End Sub
 
 Private Sub ComparisonsLessThan_Click()
     Selection.TypeText ChrW(&H3C)
-    Application.Run MacroName:="Dx_ShowMathSymbolsAgain"
 End Sub
 
 Private Sub ComparisonsLessThanOrEqualTo_Click()
     Selection.TypeText ChrW(&H2264)
-    Application.Run MacroName:="Dx_ShowMathSymbolsAgain"
 End Sub
 
 Private Sub ComparisonsNotEqualTo_Click()
     Selection.TypeText ChrW(&H2260)
-    Application.Run MacroName:="Dx_ShowMathSymbolsAgain"
 End Sub
 
 Private Sub ComparisonsProportion_Click()
     Selection.TypeText ChrW(&H2237)
-    Application.Run MacroName:="Dx_ShowMathSymbolsAgain"
 End Sub
 
 Private Sub ComparisonsRatio_Click()
     Selection.TypeText ChrW(&H2236)
-    Application.Run MacroName:="Dx_ShowMathSymbolsAgain"
 End Sub
 
 Private Sub ComparisonsTilde_Click()
     Selection.TypeText ChrW(&H7E)
-    Application.Run MacroName:="Dx_ShowMathSymbolsAgain"
 End Sub
 
 '+++++++ Begin Indicators ++++++++++++++++++++
@@ -83,83 +76,69 @@ Private Sub IndicatorsDecimalPoint_Click()
     Selection.Style = ActiveDocument.Styles("ExactTranslation")
     Selection.TypeText ChrW(&H2E)
     Selection.Font.Reset
-    Application.Run MacroName:="Dx_ShowMathSymbolsAgain"
 End Sub
 
 Private Sub IndicatorsMathComma_Click()
     Selection.Style = ActiveDocument.Styles("ExactTranslation")
     Selection.TypeText ChrW(&H2C)
     Selection.Font.Reset
-    Application.Run MacroName:="Dx_ShowMathSymbolsAgain"
 End Sub
 
 Private Sub IndicatorsNumeric_Click()
     Selection.Style = ActiveDocument.Styles("ExactTranslation")
     Selection.TypeText ChrW(&H23)
     Selection.Font.Reset
-    Application.Run MacroName:="Dx_ShowMathSymbolsAgain"
 End Sub
 
 Private Sub IndicatorsPunctuation_Click()
     Selection.Style = ActiveDocument.Styles("ExactTranslation")
     Selection.TypeText ChrW(&H5F)
     Selection.Font.Reset
-    Application.Run MacroName:="Dx_ShowMathSymbolsAgain"
 End Sub
 
 '+++++++ Begin Operations ++++++++++++++++++++
 
 Private Sub OperationsBullet_Click()
     Selection.TypeText ChrW(&H2022)
-    Application.Run MacroName:="Dx_ShowMathSymbolsAgain"
 End Sub
 
 Private Sub OperationsDivisionSlash_Click()
     Selection.TypeText ChrW(&H2F)
-    Application.Run MacroName:="Dx_ShowMathSymbolsAgain"
 End Sub
 
 Private Sub OperationsDivison_Click()
     Selection.TypeText ChrW(&HF7)
-    Application.Run MacroName:="Dx_ShowMathSymbolsAgain"
 End Sub
 
 Private Sub OperationsMinus_Click()
     Selection.TypeText ChrW(&H2212)
-    Application.Run MacroName:="Dx_ShowMathSymbolsAgain"
 End Sub
 
 Private Sub OperationsMinusOrPlus_Click()
     Selection.TypeText ChrW(&H2213)
-    Application.Run MacroName:="Dx_ShowMathSymbolsAgain"
 End Sub
 
 Private Sub OperationsMinusPlus_Click()
     Selection.TypeText ChrW(&H2D)
     Selection.TypeText ChrW(&H2B)
-    Application.Run MacroName:="Dx_ShowMathSymbolsAgain"
 End Sub
 
 Private Sub OperationsMultiplication_Click()
     Selection.TypeText ChrW(&HD7)
-    Application.Run MacroName:="Dx_ShowMathSymbolsAgain"
 End Sub
 
 Private Sub OperationsPlus_Click()
     Selection.TypeText ChrW(&H2B)
-    Application.Run MacroName:="Dx_ShowMathSymbolsAgain"
 End Sub
 
 
 Private Sub OperationsPlusMinus_Click()
     Selection.TypeText ChrW(&H2B)
     Selection.TypeText ChrW(&H2D)
-    Application.Run MacroName:="Dx_ShowMathSymbolsAgain"
 End Sub
 
 Private Sub OperationsPlusOrMinus_Click()
     Selection.TypeText ChrW(&HB1)
-    Application.Run MacroName:="Dx_ShowMathSymbolsAgain"
 End Sub
 
 Private Sub ExitButton_Click()

@@ -28,7 +28,7 @@ DOTM      := LPandBRL.dotm
 DOTX      := LargePrintTemplate.dotx
 RIBBON    := Word.officeUI
 PROJNAME  := LPandBRL
-APPVER    := 3.0.60
+APPVER    := 3.0.68
 SETUP_EXE := VistaType LP and Braille Macros Setup $(APPVER).exe
 VERDATE   := $(shell date +%-m/%-d/%Y)
 
@@ -73,6 +73,12 @@ check-vba-lines:
 # The toolbar's idQ="x1:btn_*" entries resolve against the hidden tab in customUI14.xml.
 # If they drift apart the buttons render blank on the user's machine and nothing warns you,
 # so the build refuses to proceed. Also regenerates the append-safe icons-only toolbar.
+# Nothing in the build compiles VBA, so a form calling a macro that has been renamed or removed
+# builds perfectly and fails on the transcriber's machine as "Compile error in hidden module:
+# <form name>" - which names the form and not the missing macro. Cost an install on 8/3/2026.
+check-form-calls:
+	@python3 tools/lib/check_form_calls.py
+
 check-qat:
 	@python3 tools/lib/build_qat.py
 
@@ -83,7 +89,7 @@ check-qat:
 check-tabs:
 	@python3 tools/lib/build_ribbon_tabs.py
 
-build: check-config check-frm-eol check-vba-lines check-qat check-tabs push-src
+build: check-config check-frm-eol check-vba-lines check-form-calls check-qat check-tabs push-src
 	$(SSH) '$(WIN_PWSH) -ExecutionPolicy Bypass -File $(WSCRIPTS)/Import-Vba.ps1 -Shell "$(WIN_DIR)/$(DOTM)" -SrcRoot "$(WIN_DIR)/src" -OutDotm "$(WIN_DIR)/dist/$(DOTM)" -ProjectName $(PROJNAME) -AppVer $(APPVER) -VerDate "$(VERDATE)"'
 	@# The two About forms carry the version in their binary .frx, so bring them home if the
 	@# stamp changed them. -u: only if newer, so an unchanged build copies nothing.

@@ -11,6 +11,9 @@ Private Sh_PgVal_SourceDoc As Document      ' the document being validated
 Private Sh_PgVal_LastParaStart As Long      ' character start of the tag last worked from
 Private Sh_PgVal_TitleText As String        ' "VistaType LP" or "Braille Macros"
 
+' The document the please-wait box was opened over, so focus can be handed back to it.
+Private Sh_PleaseWait_Doc As Document
+
 ' Handing focus back to the document needs the Windows API. Activating the document window
 ' through the object model is NOT enough: a modeless UserForm keeps the keyboard focus, so
 ' Word draws no caret and the arrow keys walk the form's buttons instead of the text
@@ -94,13 +97,25 @@ Public Sub Sh_Show_Please_Wait(ByVal sMessage As String)
 ' Safe to call with ScreenUpdating already off, which is the normal case -- the form holds and
 ' restores it around its own Repaint so the document underneath does not flash.
 '
+' Remembers the document it was opened over and hands the focus straight back to it. Showing
+' a modeless form takes the focus, and Word could be left with a DIFFERENT document active --
+' Jerry saw Full File Cleanup jump to the blank startup document part way through the run and
+' again at the end (8/3/2026). The macro then works on the wrong file.
+'
+' Version: 1.1  Date: 8/3/2026 - remembers the document and gives the focus back to it
 ' Version: 1.0  Date: 8/3/2026
+    On Error Resume Next
+    Set Sh_PleaseWait_Doc = ActiveDocument
+    On Error GoTo 0
+
     With Sh_Please_Wait_Form
         .ActivityMsg.Caption = sMessage
         .SpinnerBox.Caption = ""
         .Show vbModeless
         .StartSpinner
     End With
+
+    Sh_Focus_Document Sh_PleaseWait_Doc
     DoEvents
 End Sub
 
@@ -108,10 +123,21 @@ Public Sub Sh_Hide_Please_Wait()
 ' Stops the spinner and closes the box. Stopping first matters: it clears the flag SpinTick
 ' tests, so a tick already queued by OnTime does nothing instead of reopening the form.
 '
+' Then hands the focus back to the document the box was opened over, the same way
+' Lp_Attach_The_Template re-asserts its document after unloading its own progress form.
+' Without it Word is left on whatever window it fancies -- in Jerry's case the blank startup
+' document (8/3/2026).
+'
+' Version: 1.1  Date: 8/3/2026 - gives the focus back to the document afterwards
 ' Version: 1.0  Date: 8/3/2026
     On Error Resume Next
     Sh_Please_Wait_Form.StopSpinner
     Unload Sh_Please_Wait_Form
+    On Error GoTo 0
+    DoEvents
+
+    Sh_Focus_Document Sh_PleaseWait_Doc
+    Set Sh_PleaseWait_Doc = Nothing
     DoEvents
 End Sub
 
@@ -289,12 +315,24 @@ End Sub
 Private Sub Sh_PgVal_FocusDocument(ByVal d As Document)
     On Error Resume Next
     If Not Sh_PgVal_DocIsOpen(d) Then Exit Sub
+    Sh_Focus_Document d
+End Sub
+
+' The same job, for any caller. A modeless form takes the keyboard focus, and Word can end up
+' showing a DIFFERENT document than the one being worked on - Jerry saw Full File Cleanup jump
+' to the blank startup document part way through and again at the end (8/3/2026).
+'
+' Both halves are needed. Activating through the object model moves Word to the right document
+' but leaves the keyboard focus on the form; only Windows can take that back.
+'
+' Version: 1.0  Date: 8/3/2026
+Public Sub Sh_Focus_Document(ByVal d As Document)
+    On Error Resume Next
+    If d Is Nothing Then Exit Sub
 
     d.Activate
     d.ActiveWindow.Activate
 
-    'The object-model activation above moves Word to the right document but leaves the
-    'keyboard focus on the modeless form. Only Windows can take it back.
     Sh_SetForegroundWindowApi d.ActiveWindow.hwnd
     Sh_SetFocusApi d.ActiveWindow.hwnd
 End Sub

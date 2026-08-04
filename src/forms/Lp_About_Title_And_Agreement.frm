@@ -50,6 +50,12 @@ End Sub
 Private Sub ViewLicense_Click()
     ' The full GNU GPL, the same text the installer shows. Shared helper so both About
     ' dialogs behave identically.
+    '
+    ' Unload Me FIRST. This dialog is modal, so it blocks Word's own window -- the licence
+    ' document opened behind it and the user saw nothing happen (Jerry, 8/3/2026). The
+    ' View Version button beside this one has always closed itself before following its
+    ' link, for the same reason.
+    Unload Me
     Sh_Show_Full_License
 End Sub
 
@@ -59,9 +65,11 @@ Private Sub UserForm_Initialize()
     Me.StartUpPosition = 0
     Me.Left = Application.Left + (0.5 * Application.Width) - (0.5 * Me.Width)
     Me.Top = Application.Top + (0.5 * Application.Height) - (0.5 * Me.Height)
-    ' The Software Agreement. One shared copy in LPandBrlMacros so the LP and Braille
-    ' dialogs can never drift apart, and so the wording stays in git-tracked text instead
-    ' of inside this form's binary .frx.
+    ' The Software Agreement summary. One shared copy in LPandBrlMacros so the LP and
+    ' Braille dialogs can never drift apart, and so the wording stays in git-tracked
+    ' text instead of inside this form's binary .frx. The full licence is not here --
+    ' the View Full License button opens it read-only in Word, where it can be
+    ' scrolled with the wheel and zoomed. See Sh_Show_Full_License.
     AgreementTextBox.Text = Sh_Software_Agreement_Text()
     ' SelStart, NOT CurLine. CurLine needs the control to already have the focus and
     ' raises run-time error 2185 from UserForm_Initialize, which runs before the form

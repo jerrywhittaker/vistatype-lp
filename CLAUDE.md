@@ -112,7 +112,12 @@ tools/windows/  Export-Vba.ps1 / Import-Vba.ps1 / New-UserForm.ps1 — run in Wo
                 (Import-Vba.ps1 clears stale hidden `~$*` Word lock files first — a leftover
                  one makes Word raise an invisible "File In Use" dialog and the build hangs
                  forever with no error; see DEVELOPMENT.md "Gotchas baked into the tooling")
-tools/lib/      decompress_vba.py (reader); officeui_to_customui.py + inject_customui.py (ribbon);
+tools/lib/      check_form_calls.py (refuses to build when a FORM calls a macro that exists nowhere
+                under src/vba — nothing in the build compiles VBA, so that ships and fails on the
+                user's machine as "Compile error in hidden module: <form name>", naming the form
+                and not the missing macro; it also WARNS, without failing, about Application.Run
+                "name" string calls, which compile and fail only when the button is pressed);
+                decompress_vba.py (reader); officeui_to_customui.py + inject_customui.py (ribbon);
                 inject_keymap.py (keyboard shortcuts -> .dotx/.dotm); build_ribbon_tabs.py
                 (ribbon tabs -> installer/ribbon-tabs.officeUI, plus the shipped-button-id
                 guard); trim_frm_blanks.py (collapses the blank lines Word adds to a form's code

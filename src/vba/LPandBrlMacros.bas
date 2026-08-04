@@ -18,7 +18,19 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Sh - 8/2/2026 - both About dialogs now carry the GPLv3, not the old permissive agreement. The wording they had granted use
+' Notes:    - Sh - 8/3/2026 - "View Full License" opens the GPL as a READ-ONLY WORD DOCUMENT. It went Notepad -> a box on a form ->
+'                             this, and the middle step is the instructive one: an MSForms text box does not respond to the mouse wheel.
+'                             The control has no wheel handling and no property to switch it on; the only way to add it is a Windows
+'                             mouse hook, and a VBA callback from a system hook is a well known way to crash Word. Reading 674 lines by
+'                             PageDown is not reasonable in a LARGE PRINT product. Word gives the wheel, Ctrl+scroll zoom, Find and
+'                             screen reader support, in the application the transcriber is already in. Sh_License_Form is gone (49 forms)
+'           - Sh - 8/3/2026 - two things opening a document would otherwise have done to the user. ConfirmConversions is held off across
+'                             the open, or Word stops on its "Convert File" question for a .txt. And new Sh_Skip_Open_Handler makes
+'                             Sh_HandleDocumentOpened leave the licence completely alone - without it the licence counts as an ordinary
+'                             document, MS_Set_Word_Config_For_New_Install runs over it, and clicking a button to READ THE LICENCE would
+'                             reset the transcriber's Styles pane. Measured on the build box 8/3/2026: an MSForms text box holds at least
+'                             65,000 characters, so the 32,000 ceiling that shaped the earlier attempt is folklore here
+'           - Sh - 8/2/2026 - both About dialogs now carry the GPLv3, not the old permissive agreement. The wording they had granted use
 '                             "at no cost to others" and read like an MIT licence - it never matched what this software actually ships
 '                             under, which the installer has shown correctly all along. The thirteen old agreement labels are gone from
 '                             each form, replaced by ONE scrollable read-only text box filled at run time from new
@@ -203,6 +215,12 @@ Public Sh_Pos_Saved As Boolean     ' guards against a return with no matching sa
 
 ' Large Print Page and Font Settings
 Public Lp_Base_Font_Size As String
+
+' Set while the add-in itself opens a document that is none of the user's business -- currently
+' only the licence, from Sh_Show_Full_License. Sh_HandleDocumentOpened checks it and leaves
+' such a document completely alone, so reading the licence cannot reconfigure Word or reset the
+' transcriber's Styles pane. 8/3/2026.
+Public Sh_Skip_Open_Handler As Boolean
 Public TOCTabSetting As String
 Public PPH As String  ' Print Page Height
 Public PPW As String  ' Print Page Width
@@ -258,6 +276,10 @@ Sub AutoOpen()
 End Sub
 
 Sub Sh_HandleDocumentOpened()
+    ' A document the add-in opened for its own reasons - the licence - is not the user's
+    ' working document and must not be configured as one. See Sh_Show_Full_License. 8/3/2026.
+    If Sh_Skip_Open_Handler Then Exit Sub
+
     Sh_LastDocEvent = "DocumentOpen"
     '
     ' Runs for every opened document - via VtEvents.App_DocumentOpen (STARTUP), or AutoOpen
@@ -16084,28 +16106,55 @@ End Function   '*** end of Sh_Software_Agreement_Text function ***
 
 Sub Sh_Show_Full_License()
 '
-' Opens the full GNU General Public License -- the same text the installer displays. The
-' installer writes it to %AppData%\VistaType LP\LICENSE.txt precisely so the user "receives a
-' copy of the license" as the GPL requires, so that is what this opens.
+' Opens the full GNU General Public License -- the copy the installer writes to
+' %AppData%\VistaType LP\LICENSE.txt so the user "receives a copy of the license" as the GPL
+' requires -- as a READ-ONLY Word document.
 '
 ' Shared by the "View Full License" button on both About dialogs.
 '
-' If the file is not there -- the add-in copied into STARTUP by hand rather than installed --
-' the user is pointed at gnu.org instead rather than left with a button that does nothing.
+' Why a Word document and not a box on a form. Jerry, 8/3/2026: an MSForms text box does not
+' respond to the mouse wheel. The control has no wheel handling and there is no property to
+' switch on; the only way to add it is a Windows mouse hook, and a VBA callback from a system
+' hook is a well known way to crash Word. Reading 674 lines by PageDown is not reasonable in a
+' LARGE PRINT product. Opening it in Word gives the wheel, Ctrl+scroll zoom, Find, and screen
+' reader support, in the application the transcriber is already in. Notepad, the first attempt,
+' gave small fixed type and none of that.
 '
+' Version: 3.0  Date: 8/3/2026 - opens read-only in Word (was: a scrollable box on a form,
+'                               which could not be scrolled with the mouse wheel)
+' Version: 2.0  Date: 8/3/2026 - (superseded) shown in Sh_License_Form
 ' Version: 1.0  Date: 8/2/2026
 '
     Dim licensePath As String
+    Dim cc_Prev As Boolean
 
     licensePath = Environ$("APPDATA") & "\VistaType LP\LICENSE.txt"
 
     On Error GoTo NoLicense
-    If Dir$(licensePath) <> "" Then
-        Shell "notepad.exe """ & licensePath & """", vbNormalFocus
-        Exit Sub
-    End If
+    If Dir$(licensePath) = "" Then GoTo NoLicense
+
+    ' ConfirmConversions off across the open: Word otherwise stops on its "Convert File"
+    ' dialog for a .txt, which is a needless question to put in front of the user.
+    cc_Prev = Application.Options.ConfirmConversions
+    Application.Options.ConfirmConversions = False
+
+    ' Tell the add-in's own document-open handler to leave this one alone. Without it,
+    ' Sh_HandleDocumentOpened treats the licence as an ordinary document and runs
+    ' MS_Set_Word_Config_For_New_Install over it -- which would reset the transcriber's Styles
+    ' pane just because they clicked a button to read the licence.
+    Sh_Skip_Open_Handler = True
+
+    Documents.Open FileName:=licensePath, ReadOnly:=True, AddToRecentFiles:=False, Visible:=True
+
+    Sh_Skip_Open_Handler = False
+    Application.Options.ConfirmConversions = cc_Prev
+    Exit Sub
 
 NoLicense:
+    Sh_Skip_Open_Handler = False
+    On Error Resume Next
+    Application.Options.ConfirmConversions = cc_Prev
+    On Error GoTo 0
     MsgBox "The full license file could not be opened." & vbCr & vbCr _
          & "It is normally installed at:" & vbCr & licensePath & vbCr & vbCr _
          & "You can also read the GNU General Public License version 3 at " _
