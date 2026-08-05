@@ -18,7 +18,14 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Sh - 8/3/2026 - the progress bar is weighted to where the time ACTUALLY goes, measured end to end on a real NIMAS book
+' Notes:    - LP - 8/5/2026 - Lp_Add_Para_After_Image now EXITS at once if the LP template is attached. It repairs raw DAISY and
+'           - LP - 8/5/2026 - NIMAS files, which is a before-the-template job; run afterwards from File Cleanup it added stray
+'           - LP - 8/5/2026 - paragraph marks to a document that was already formatted.
+' Notes:    - Sh - 8/5/2026 - Sh_ReplaceNonBreakingSpacesWithNormalSpace now SKIPS any non-breaking space in a paragraph styled
+'           - Sh - 8/5/2026 - "Print Pg Num". The bar built by Lp_Format_Page_Numbers begins and ends with one, and the colour pass
+'           - Sh - 8/5/2026 - in that macro finds those ends by searching for ^s, so flattening them took the bar apart. A document
+'           - Sh - 8/5/2026 - with no such paragraph still gets the single whole-document replace, which is the usual case.
+'           - Sh - 8/3/2026 - the progress bar is weighted to where the time ACTUALLY goes, measured end to end on a real NIMAS book
 '                             with 1,236 images (301 s total): read/tag/write 0.03 s, InsertFile 13.95 s, the image loop 213.27 s at
 '                             ~173 ms each, everything else under 3 s, SaveAs 70.74 s for 43.7 MB. So the loop is 71 per cent of the
 '                             job and the save 23. The first weights had the bar resting at 20% through a 14-second import and jumping
@@ -8228,6 +8235,16 @@ Sub Lp_Format_Page_Numbers()
     End With
     With Selection.Find
         .Text = "($pg)(*)(^013)"
+        ' ^s, a NON-BREAKING SPACE, at each end. Briefly an en space, ChrW(8194), on 8/4/2026,
+        ' to keep Sh_ReplaceNonBreakingSpacesWithNormalSpace from flattening the bar's ends.
+        ' Reverted the next day: the en space worked - a test document confirmed 8194 at both
+        ' ends - but it did not fix what prompted it. That macro now skips any paragraph
+        ' styled Print Pg Num instead, which protects the bar without changing what it is
+        ' made of. If the character here ever changes, change the ^s the colour pass below
+        ' searches for to match, or the ends silently stay red.
+        ' Separately: the trailing space falls outside the pink shading, and always did. That
+        ' is the single right-aligned tab stop driving pn<number> to the margin, so anything
+        ' after it overruns the stop. It has nothing to do with which space character is used.
         .Replacement.Text = "\1^s\2^009pn\2^s\3"
         .Forward = True
         .Wrap = wdFindContinue
@@ -8275,7 +8292,9 @@ Sub Lp_Format_Page_Numbers()
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
     
-    ' change non-breaking space to automatic color
+    ' Change the non-breaking spaces at each end of the bar to automatic colour - they inherit
+    ' the red from the $pg tag they replaced. This pass MUST always look for the same character
+    ' the bar is built from above, or it silently finds nothing and the ends stay red.
     Selection.Find.ClearFormatting
     Selection.Find.Font.Color = wdColorRed
     Selection.Find.Replacement.ClearFormatting
@@ -11102,6 +11121,10 @@ Function Lp_Is_The_Attached_Template_LP()
         Lp_Is_The_Attached_Template_LP = True
     End If
 
+    ' Styles(...) raises 5941 when the style is absent, which is this function's normal "no"
+    ' answer, not a fault. Clear it so the caller does not inherit an error it never caused.
+    Err.Clear
+
 End Function '*** end of Lp_Is_The_Attached_Template_LP Function ***
 
 Sub Lp_Para_To_Next_Page()
@@ -11299,9 +11322,20 @@ Sub Lp_Add_Para_After_Image()
     '     fixes common problem with DAISY and NIMAS Files
     '
     '  Author: Jerry Whittaker   jerry@thewhittakers.org
+    '  Version: 1.3  Date: 8/5/2026 - does nothing once the LP template is attached (Jerry)
     '  Version: 1.2  Date: 1/22/2026 - full rewrite
     '  Version: 1.1  Date: 4/9/2024 - complete rewrite - Much faster
     '  Version: 1.0  Date: 5/14/2019
+
+    ' This repairs raw DAISY and NIMAS files, where text that belongs after an image is stuck in
+    ' the image's own paragraph. That is a BEFORE-the-template job. Once the LP template is on,
+    ' the images have been placed and sized and the paragraphs around them are styled, so adding
+    ' more paragraph marks only damages a document that is already right.
+    '
+    ' The guard has to live HERE rather than at the caller. Lp_Fix_Common_File_Errors skips this
+    ' whole macro during the attach sequence, but File Cleanup on the LP ribbon runs the same
+    ' sequence on demand, and by then the template usually IS attached.
+    If Lp_Is_The_Attached_Template_LP = True Then Exit Sub
 
     Dim ils As inlineShape
     Dim rng As Range
@@ -17159,24 +17193,101 @@ End Sub   '*** end of Sh_Copy_Ref_Pg_Tags_To_Temp_File macro ***
 
 Sub Sh_ReplaceNonBreakingSpacesWithNormalSpace()
     '
+    ' Version: 2.0  Date: 8/5/2026 - a non-breaking space in a paragraph styled "Print Pg Num" is left alone
     ' Version: 1.0  Date: 3/2/2026
     '
-    With ActiveDocument.Range.Find
+    ' The pink bar built by Lp_Format_Page_Numbers begins and ends with a NON-BREAKING space, and
+    ' the colour pass in that macro finds those ends by searching for ^s. Flattening them here
+    ' took the bar apart. Find can select BY a style but has no way to exclude one, so every hit
+    ' has to be looked at one at a time - see the fast path below for why that is affordable.
+
+    Const PgNumStyle As String = "Print Pg Num"
+
+    ' Fast path. With no Print Pg Num paragraph in the document there is nothing to protect, so
+    ' keep the single whole-document replace this macro has always done. That is the usual case:
+    ' File Cleanup normally runs BEFORE Format $pg Tags has built any bars.
+    If Not Sh_Style_Is_In_Use(ActiveDocument, PgNumStyle) Then
+        With ActiveDocument.Range.Find
+            .ClearFormatting
+            .Replacement.ClearFormatting
+
+            .Text = "^s"          'Word wildcard for non-breaking space
+            .Replacement.Text = " "
+
+            .Forward = True
+            .Wrap = wdFindContinue
+            .Format = False
+            .MatchWildcards = False
+
+            .Execute Replace:=wdReplaceAll
+        End With
+        Exit Sub
+    End If
+
+    ' Slow path. Walk the non-breaking spaces one by one and skip the ones in a bar. Only the
+    ' hits are visited, not every paragraph, so this costs no more than the number of
+    ' non-breaking spaces in the file.
+    Dim hit As Range
+    Set hit = ActiveDocument.Content
+
+    With hit.Find
         .ClearFormatting
         .Replacement.ClearFormatting
-        
-        .Text = "^s"          'Word wildcard for non-breaking space
-        .Replacement.Text = " "
-        
+
+        .Text = "^s"
+        .Replacement.Text = ""
+
         .Forward = True
-        .Wrap = wdFindContinue
+        .Wrap = wdFindStop    ' MUST be wdFindStop - wdFindContinue would wrap past the end and never finish
         .Format = False
         .MatchWildcards = False
-        
-        .Execute Replace:=wdReplaceAll
     End With
-    
+
+    Do While hit.Find.Execute
+        If Not Sh_Para_Style_Is(hit, PgNumStyle) Then
+            hit.Text = " "    ' one character for one, so nothing after this point shifts
+        End If
+
+        ' Step past the space just looked at, whether or not it was replaced, and search on to
+        ' the end of the document from there.
+        hit.Collapse Direction:=wdCollapseEnd
+        If hit.Start >= ActiveDocument.Content.End Then Exit Do
+        hit.End = ActiveDocument.Content.End
+    Loop
+
 End Sub   '*** end of Sh_ReplaceNonBreakingSpacesWithNormalSpace macro ***
+
+Private Function Sh_Style_Is_In_Use(ByVal targetDoc As Document, ByVal styleName As String) As Boolean
+    '
+    ' Version: 1.0  Date: 8/5/2026
+    '
+    ' True if the document has that style AND has used it. A document with no such style at all -
+    ' a braille file, or one with no LP template attached - raises 5941 and answers False.
+
+    On Error GoTo NotInUse
+    Sh_Style_Is_In_Use = targetDoc.Styles(styleName).InUse
+    Exit Function
+
+NotInUse:
+    Sh_Style_Is_In_Use = False
+
+End Function   '*** end of Sh_Style_Is_In_Use function ***
+
+Private Function Sh_Para_Style_Is(ByVal r As Range, ByVal styleName As String) As Boolean
+    '
+    ' Version: 1.0  Date: 8/5/2026
+    '
+    ' Is the first paragraph of the range in that style? The safe answer to "could not tell" is
+    ' False, which leaves the caller doing what it did before this check existed.
+
+    On Error GoTo NoMatch
+    Sh_Para_Style_Is = (StrComp(r.Paragraphs(1).Style.NameLocal, styleName, vbTextCompare) = 0)
+    Exit Function
+
+NoMatch:
+    Sh_Para_Style_Is = False
+
+End Function   '*** end of Sh_Para_Style_Is function ***
 
 Sub Sh_SleepForSeconds(ByVal Seconds As Double)
 
