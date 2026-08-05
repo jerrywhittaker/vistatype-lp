@@ -18,6 +18,16 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Sh - 8/5/2026 - the DAISY/NIMAS conversion now puts the whole document into Tahoma 12 pt, just before the repaginate
+'           - Sh - 8/5/2026 - and save at the end - a font change moves every line and page break, so it has to precede both. The new
+'           - Sh - 8/5/2026 - Sh_Set_Whole_Document_Font does the work for it and for the braille attach's Courier New 12. Face and
+'           - Sh - 8/5/2026 - size only: colour is left alone, so the red $pg tags and red prodnotes come through unchanged.
+' Notes:    - BRL - 8/5/2026 - Dx_Fix_Common_File_Errors now ends by colouring the $pg tags red, via the new Dx_Color_Dollar_PG_Red.
+'           - BRL - 8/5/2026 - Deliberately NOT the LP side's Sh_Color_Dollar_PG_Red: that also sets the replacement style to Normal,
+'           - BRL - 8/5/2026 - which Word applies to the whole paragraph and would strip the BANA style off every paragraph with a tag.
+' Notes:    - BRL - 8/5/2026 - Dx_Attach_BANA_Template now ends by putting the whole document into Courier New 12 pt, via the new
+'           - BRL - 8/5/2026 - Dx_Set_Whole_Document_To_Courier_New_12. It runs LAST, after the optional fix-errors and para-mark
+'           - BRL - 8/5/2026 - cleanups, because both of those rewrite text and would otherwise be the last word on the font.
 ' Notes:    - LP - 8/5/2026 - Lp_Add_Para_After_Image now EXITS at once if the LP template is attached. It repairs raw DAISY and
 '           - LP - 8/5/2026 - NIMAS files, which is a before-the-template job; run afterwards from File Cleanup it added stray
 '           - LP - 8/5/2026 - paragraph marks to a document that was already formatted.
@@ -478,6 +488,7 @@ Sub Dx_Attach_BANA_Template()
 '    Converts word foreign language tags to BANA template styles
 '    Turns show-all status on
 '
+'  Version: 3.3  Date: 8/5/2026 - puts the whole document into Courier New 12 pt as the last thing it does (Jerry)
 '  Version: 3.2  Date: 7/24/2026 - repaint (ScreenUpdating on + ScreenRefresh) before the template-choice and translation-choice forms; they were shown while ScreenUpdating was off, so the Word workspace behind them rendered black instead of the normal gray
 '  Version: 3.1  Date: 6/29/2025 - added Copy BANA Braille Template From Word Startup Folder to Templates Folder - Duxbury began
 '                                  to place the BANA Braille 2025.dotx in the Word startup folder - need to copy to templates folder
@@ -617,7 +628,58 @@ Sub Dx_Attach_BANA_Template()
         End If
     End If
 
+    ' LAST, after the optional cleanups above rather than beside the attach itself. Both of them
+    ' rewrite text - Dx_Fix_Common_File_Errors runs Word's AutoFormat - so a font set any earlier
+    ' is not the font the transcriber ends up looking at.
+    Application.Run MacroName:="Dx_Set_Whole_Document_To_Courier_New_12"
+
 End Sub   '***** end of Dx_Attach_BANA_Template macro *****
+
+Sub Dx_Set_Whole_Document_To_Courier_New_12()
+'
+' Version: 1.0  Date: 8/5/2026
+'
+' Author: Jerry Whittaker - jerry@thewhittakers.org
+'
+' Puts every character of the document into Courier New at 12 points, so the transcriber reads
+' the whole file in one fixed-width face however mixed the source was.
+
+    Sh_Set_Whole_Document_Font ActiveDocument, "Courier New", 12
+
+End Sub   '***** end of Dx_Set_Whole_Document_To_Courier_New_12 macro *****
+
+Sub Sh_Set_Whole_Document_Font(ByVal targetDoc As Document, ByVal fontName As String, ByVal fontSize As Single)
+'
+' Version: 1.0  Date: 8/5/2026
+'
+' Author: Jerry Whittaker - jerry@thewhittakers.org
+'
+' Puts every character of a document into one face and size.
+'
+' This is DIRECT formatting laid over the text, not a style change, so it overrides whatever the
+' attached template's styles ask for and it survives them. It covers the main text story, tables
+' included, and leaves headers and footers alone.
+'
+' It sets the face and the size ONLY. Colour is untouched, so the red $pg tags and the red
+' prodnotes a conversion produces come through it unchanged - which is the whole reason it is
+' safe to run at the end of one.
+'
+' Called directly rather than through Application.Run: that marshals every argument as a Variant
+' and cannot bind one to a typed "As Document" parameter.
+
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
+    Application.ScreenUpdating = False
+
+    With targetDoc.Content.Font
+        .Name = fontName
+        .Size = fontSize
+    End With
+
+    Application.ScreenUpdating = su_Prev
+    Application.ScreenRefresh
+
+End Sub   '***** end of Sh_Set_Whole_Document_Font macro *****
 
 Sub Dx_Fix_Foreign_Languages()
     '
@@ -1849,6 +1911,7 @@ Sub Dx_Fix_Common_File_Errors()
 
 ' Dx_Fix_Common_File_Errors Macro
 '
+' Version: 2.11  Date: 8/5/2026 - colours the $pg tags red as its last content step, so they stay red when this macro is run on its own (Jerry)
 ' Version: 2.10  Date: 7/26/2026 - returns the user to where the cursor was when the macro started
 ' Version: 2.8 Date: 3/5/2024 - added "If ActiveDocument.Variables("BrailleType") = "EBAN" Or ActiveDocument.Variables("BrailleType") = "UEBN" then"
 ' Version: 2.7 Date: 2/6/2024 - moved Application.Run MacroName:="Dx_Fix_Para_Space_Errors" to last routine run
@@ -1948,7 +2011,13 @@ Sub Dx_Fix_Common_File_Errors()
     Application.Run MacroName:="Dx_Fix_Para_Space_Errors"
        
     Application.Run MacroName:="Dx_Add_Qmark_To_Incomplete_Equations"
-       
+
+    ' LAST of the content steps, and before the cursor goes home below - this one uses
+    ' Selection.Find, which moves it. The cleanups above lose the red on the $pg tags, and this
+    ' macro can be run on its own from the braille ribbon with no Dx_AutoTag_Page_Numbers
+    ' afterwards to put it back.
+    Application.Run MacroName:="Dx_Color_Dollar_PG_Red"
+
     ActiveDocument.UndoClear
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     Application.ScreenUpdating = su_Prev ' Turn screen updating on
@@ -1958,6 +2027,72 @@ Sub Dx_Fix_Common_File_Errors()
     MsgBox "End of Fix Common File Errors", , "Braille Macros"
     
 End Sub '***** end of Dx_Fix_Common_File_Errors Macro *****
+
+Sub Dx_Color_Dollar_PG_Red()
+'
+' Version: 1.0  Date: 8/5/2026
+'
+' Author: Jerry Whittaker - jerry@thewhittakers.org
+'
+' Colours every $pg tag red, and nothing else.
+'
+' NOT Sh_Color_Dollar_PG_Red, which the large print side uses for this. That one also sets the
+' replacement STYLE to Normal, and Word applies a paragraph style to the whole paragraph rather
+' than to the three characters matched - in a braille file it would strip the BANA style off
+' every paragraph holding a tag. This is the closing pass of Dx_AutoTag_Page_Numbers instead:
+' colour only, then put the DBT code colours back, since a tag can be followed by a code such
+' as [[*ii*]] on the same paragraph.
+
+    Application.Run MacroName:="Sh_Is_Doc_Open"
+
+    Selection.Find.ClearFormatting
+    Selection.Find.Replacement.ClearFormatting
+    With Selection.Find.Replacement.Font
+        .Color = wdColorRed
+    End With
+    With Selection.Find
+        .Text = "$pg"
+        .Replacement.Text = ""    ' empty + Format:=True means "keep the text, take the formatting"
+        .Forward = True
+        .Wrap = wdFindContinue
+        .Format = True
+        .MatchCase = False
+        .MatchWholeWord = False
+        .MatchWildcards = False
+        .MatchSoundsLike = False
+        .MatchAllWordForms = False
+    End With
+    Selection.Find.Execute Replace:=wdReplaceAll
+
+    ' Put the DBT code colours back. Guarded: Dx_Set_DBT_Codes_Color_and_Style asks for the
+    ' "DBT Code" style BY NAME, and only the BANA template carries it. On a document without it
+    ' that call raises 5941 with no handler, which in Word means a modal dialog and a wedged
+    ' session. No such style means no DBT codes to restore, so skipping is the right answer.
+    If Sh_Style_Exists(ActiveDocument, "DBT Code") Then
+        Application.Run MacroName:="Dx_Set_DBT_Codes_Color_and_Style"
+    End If
+
+    Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
+
+End Sub  '*** end of Dx_Color_Dollar_PG_Red Macro ***
+
+Private Function Sh_Style_Exists(ByVal targetDoc As Document, ByVal styleName As String) As Boolean
+    '
+    ' Version: 1.0  Date: 8/5/2026
+    '
+    ' Does the document carry that style at all? Styles(...) raises 5941 when it does not, which
+    ' is the answer rather than a fault.
+
+    Dim probe As Style
+    On Error GoTo NoStyle
+    Set probe = targetDoc.Styles(styleName)
+    Sh_Style_Exists = True
+    Exit Function
+
+NoStyle:
+    Sh_Style_Exists = False
+
+End Function   '*** end of Sh_Style_Exists function ***
 
 
 
@@ -17610,6 +17745,16 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     
     ' Stabilize the document FIRST, then save it exactly once (stabilize -> save).
     Set currentdoc = doc
+
+    ' The whole book goes to Tahoma 12 HERE, ahead of the repaginate below. Changing the font
+    ' changes where every line and every page breaks, so it has to happen while a repaginate and
+    ' a save still follow it - done after the save, the file on disk would not match the file on
+    ' screen, and the document would be left dirty. Colour is not touched, so the red $pg tags
+    ' and the red prodnotes survive it. (Jerry, 8/5/2026)
+    Sh_Convert_Progress_Form.Show vbModeless
+    Sh_Convert_Progress_Form.SetProgress 76, "Setting the document font to Tahoma 12"
+    Sh_Spin_DoEvents
+    Sh_Set_Whole_Document_Font doc, "Tahoma", 12
 
     Sh_Convert_Progress_Form.Show vbModeless
     Sh_Convert_Progress_Form.SetProgress 78, "Repaginating the document"
