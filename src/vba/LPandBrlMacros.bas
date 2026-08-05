@@ -18,7 +18,23 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Sh - 8/3/2026 - the conversion shows a PROGRESS BAR now, not the old non-modal box. Jerry: without a visible activity
+' Notes:    - Sh - 8/3/2026 - the progress bar is weighted to where the time ACTUALLY goes, measured end to end on a real NIMAS book
+'                             with 1,236 images (301 s total): read/tag/write 0.03 s, InsertFile 13.95 s, the image loop 213.27 s at
+'                             ~173 ms each, everything else under 3 s, SaveAs 70.74 s for 43.7 MB. So the loop is 71 per cent of the
+'                             job and the save 23. The first weights had the bar resting at 20% through a 14-second import and jumping
+'                             to 88% before a three-and-a-half-minute stage - close to backwards
+'           - Sh - 8/3/2026 - and the bar now STEPS INSIDE the image loop, every 10 images. That loop is the only long stage that is a
+'                             loop, so it is the only one that can show progress at all: InsertFile and SaveAs are single blocking
+'                             calls and nothing can move during them. It turns 71 per cent of the run from a frozen screen into a bar
+'                             that visibly advances, which is the whole point - Jerry: "many will think the computer is frozen and
+'                             well... reboot time". Every 10 rather than every 1 because a repaint per image would add its own cost to
+'                             the loop being measured
+'           - Sh - 8/3/2026 - two ways to make that loop faster were tried and BOTH FAILED, recorded so they are not tried again.
+'                             Fields.Unlink does nothing for these pictures: they arrive as linked InlineShapes, not INCLUDEPICTURE
+'                             fields - 143 fields against 1,236 shapes - and the saved file came to 0.3 MB against 43.7, so nothing was
+'                             embedded. Setting SavePictureWithDocument without BreakLink was no faster. The 213 seconds is the price
+'                             of putting 86 MB of JPEGs inside the document, and that is what makes the file standalone
+'           - Sh - 8/3/2026 - the conversion shows a PROGRESS BAR now, not the old non-modal box. Jerry: without a visible activity
 '                             indicator "many will think the computer is frozen and well... reboot time". New
 '                             Sh_Convert_Progress_Form (51 forms) - MSForms has no progress bar control, so it is two labels, a sunken
 '                             track and a coloured fill whose Width the code drives; no ActiveX to fail to register on a transcriber's
@@ -17244,7 +17260,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     ' Show along with the temp-document code it was sitting in, so the box did not appear until
     ' the repaginate stage and the user watched a still screen until then (8/3/2026).
     Sh_Convert_Progress_Form.Show vbModeless
-    Sh_Convert_Progress_Form.SetProgress 2, "Reading the " & Sh_GP_String_1 & " file."
+    Sh_Convert_Progress_Form.SetProgress 1, "Reading the " & Sh_GP_String_1 & " file."
     DoEvents
 
     ' --- Step 5: Read XML using UTF-8 Stream
@@ -17279,7 +17295,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     ' including [0-9A-z], which is an ASCII RANGE from "0" to "z" - it admits the punctuation
     ' between them, and always has.
 
-    Sh_Convert_Progress_Form.SetProgress 8, "Tagging reference pages with '$pg'"
+    Sh_Convert_Progress_Form.SetProgress 2, "Tagging reference pages with '$pg'"
     Sh_Spin_DoEvents
 
     ' everything before <dtbook is the XML prolog and is dropped, as before
@@ -17305,7 +17321,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     ' and every Advance and SpinTick exits at once, so it has never moved during a conversion
     ' (Jerry, 8/3/2026). The DoEvents through the rest of this macro are Sh_Spin_DoEvents for
     ' the same reason - the OnTime tick alone fires once a second at best.
-    Sh_Convert_Progress_Form.SetProgress 15, "Creating .txt file with .xml code and creating .html file"
+    Sh_Convert_Progress_Form.SetProgress 3, "Creating .txt file with .xml code and creating .html file"
     Sh_Spin_DoEvents
     Sh_PauseSeconds 0.3   'brief tick so the status form paints
 
@@ -17354,7 +17370,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     Set currentdoc = ActiveDocument 'will work with blank, unsaved documents too
 
     Sh_Convert_Progress_Form.Show vbModeless
-    Sh_Convert_Progress_Form.SetProgress 20, "Importing the book into Word. This is the longest step and it cannot be interrupted, so the bar will sit here for a while. Nothing is wrong."
+    Sh_Convert_Progress_Form.SetProgress 4, "Importing the book into Word. The bar cannot move during this step."
     Sh_Spin_DoEvents
     Sh_PauseSeconds 0.3   'brief tick so the status form paints
 
@@ -17387,11 +17403,39 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     ' Permanently embed all images and break links so the security warning goes away forever.
     ' BreakLink embeds the image InsertFile already loaded, so no per-image .Update re-fetch
     ' from disk is needed -- that re-fetch was the biggest cost on image-heavy books.
+    '
+    ' THIS LOOP IS THE CONVERSION. Timed on the build box 8/3/2026 against a real NIMAS book
+    ' with 1,236 images: 213 seconds here out of 301 for the whole job - 71 per cent of it, at
+    ' about 173 ms an image. The HTML import before it takes 14 seconds and the save after it
+    ' 71. Everything else together is under 3.
+    '
+    ' Two ways round it were tried and neither worked. Fields.Unlink does nothing for these
+    ' pictures - they arrive as linked InlineShapes, not INCLUDEPICTURE fields, and the saved
+    ' file came to 0.3 MB against 43.7 MB, so nothing was embedded. Setting
+    ' SavePictureWithDocument without BreakLink was no faster either. The time is the price of
+    ' putting 86 MB of JPEGs inside the document, and it is what makes the file standalone.
+    '
+    ' So it is REPORTED instead. This is the only long stage that is a loop, which makes it the
+    ' only one that can show progress at all - the import and the save are single blocking calls
+    ' and nothing can move during them. The bar steps every 10 images rather than every one: a
+    ' repaint per image would add its own cost to the very loop being measured.
     Dim shp As inlineShape
+    Dim nShapes As Long, iShape As Long
+
+    nShapes = finalDoc.InlineShapes.Count
+    Sh_Convert_Progress_Form.SetProgress 6, "Embedding " & Format(nShapes, "#,##0") & _
+        " images. This is the longest part of the conversion."
+
     For Each shp In finalDoc.InlineShapes
         If Not shp.LinkFormat Is Nothing Then
             shp.LinkFormat.SavePictureWithDocument = True
             shp.LinkFormat.BreakLink
+        End If
+        iShape = iShape + 1
+        If iShape Mod 10 = 0 And nShapes > 0 Then
+            Sh_Convert_Progress_Form.SetProgress 6 + (71 * iShape / nShapes), _
+                "Embedding image " & Format(iShape, "#,##0") & " of " & Format(nShapes, "#,##0") & "."
+            DoEvents
         End If
     Next shp
 
@@ -17457,7 +17501,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     Set currentdoc = doc
 
     Sh_Convert_Progress_Form.Show vbModeless
-    Sh_Convert_Progress_Form.SetProgress 88, "Repaginating the document"
+    Sh_Convert_Progress_Form.SetProgress 78, "Repaginating the document"
     Sh_Spin_DoEvents
     Sh_PauseSeconds 0.3   'brief tick so the status form paints
 
@@ -17510,7 +17554,7 @@ SaveTheFile:
             ' --- SUCCESSFUL FILE CHOICE ---
             ' 1. Show the non-modal form BEFORE saving
             Sh_Convert_Progress_Form.Show vbModeless
-            Sh_Convert_Progress_Form.SetProgress 95, "Saving the stabilized document."
+            Sh_Convert_Progress_Form.SetProgress 80, "Saving the document. On a book with many images this is the second longest step, and the bar cannot move during it."
             Sh_Spin_DoEvents
 
             ' 2. Execute the save on the SAME dialog object so the typed name is used
@@ -17522,7 +17566,7 @@ SaveTheFile:
     Else
         ' Named document: save it in place, exactly once.
         Sh_Convert_Progress_Form.Show vbModeless
-        Sh_Convert_Progress_Form.SetProgress 95, "Saving the stabilized document"
+        Sh_Convert_Progress_Form.SetProgress 80, "Saving the document. On a book with many images this is the second longest step, and the bar cannot move during it."
         Sh_Spin_DoEvents
         Sh_PauseSeconds 0.5   'brief tick so the status form paints
 
