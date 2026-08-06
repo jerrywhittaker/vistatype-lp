@@ -102,12 +102,18 @@ Private Sub Cmd_Ok_Click()
         End With
         Selection.Find.Execute Replace:=wdReplaceAll
  
-        ' change double parens (something) to ~somthing� -Alt+0140
+        ' change double parens (something) to ~something plus the end marker.
+        ' The marker is ChrW(338) - the OE ligature, what Alt+0140 types. It is written as
+        ' ChrW rather than as a literal because a literal did NOT survive: it was the byte
+        ' 8C here until 7/26/2026, when a lossy read turned all five of them into U+FFFD,
+        ' the replacement character, and the add-in shipped three garbage characters in its
+        ' place. The macro inserts this marker below and strips it again at the end, so it
+        ' never reaches the finished list.
         Selection.Find.ClearFormatting
         Selection.Find.Replacement.ClearFormatting
         With Selection.Find
             .Text = "\(([A-z0-9]{1,})\)"
-            .Replacement.Text = "~\1�"
+            .Replacement.Text = "~\1" & ChrW(338)
         End With
         Selection.Find.Execute Replace:=wdReplaceAll
         
@@ -115,7 +121,7 @@ Private Sub Cmd_Ok_Click()
         Selection.Find.ClearFormatting
         Selection.Find.Replacement.ClearFormatting
         With Selection.Find
-            .Text = "(~[A-z0-9]{1,}�^032)"
+            .Text = "(~[A-z0-9]{1,}" & ChrW(338) & "^032)"
             .Replacement.Text = "^p^&"
         End With
         Selection.Find.Execute Replace:=wdReplaceAll
@@ -124,7 +130,7 @@ Private Sub Cmd_Ok_Click()
         Selection.Find.ClearFormatting
         Selection.Find.Replacement.ClearFormatting
         With Selection.Find
-            .Text = "(~[A-z0-9]{1,}�^046)"
+            .Text = "(~[A-z0-9]{1,}" & ChrW(338) & "^046)"
             .Replacement.Text = "^p^&"
         End With
         Selection.Find.Execute Replace:=wdReplaceAll
@@ -271,7 +277,7 @@ Private Sub Cmd_Ok_Click()
     Selection.Find.ClearFormatting
     Selection.Find.Replacement.ClearFormatting
     With Selection.Find
-        .Text = "�"  'Alt+0140
+        .Text = ChrW(338)  'Alt+0140 - remove the end marker inserted above
         .Replacement.Text = ")"
     End With
     Selection.Find.Execute Replace:=wdReplaceAll

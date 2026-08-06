@@ -18,6 +18,39 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Sh - 8/5/2026 - EVERY ActiveDocument.Styles("name") lookup in this module is now guarded (Jerry asked, 8/5/2026).
+'           - Sh - 8/5/2026 - There were 158 of them and they all raise run-time error 5941 on a document that does not carry the
+'           - Sh - 8/5/2026 - style - which is normal: RefPageNemeth comes from the Nemeth templates, Print Pg Num from the LP one.
+'           - Sh - 8/5/2026 - 76 whole Find passes are wrapped in Sh_Style_Exists, since a pass can do nothing without its style;
+'           - Sh - 8/5/2026 - the rest were done by hand. Two shapes needed care. In Dx_Remove_Bullets five Styles() calls sit in
+'           - Sh - 8/5/2026 - mutually exclusive branches, so each branch got its own test - one guard round the pass would have
+'           - Sh - 8/5/2026 - skipped it whenever ANY of the five was missing. In Lp_TOC_CleanAndFormat_TOC the lookup sat on the
+'           - Sh - 8/5/2026 - right of an Or; VBA does not short-circuit, so it ran even when the left side already matched - that
+'           - Sh - 8/5/2026 - one compares by NAME now, via Sh_Para_Style_Is. New Sh_Style_In_Use covers the .InUse tests.
+'           - Sh - 8/5/2026 - tools/lib/check_style_guards.py runs in `make build` and refuses to build if a new one appears.
+' Notes:    - Sh - 8/5/2026 - the temp-file validation no longer leaves a Find All MULTIPLE SELECTION behind (Jerry, 8/5/2026).
+'           - Sh - 8/5/2026 - It lists the tags by driving Find and Replace with SendKeys and picking Find In > Main Document, which
+'           - Sh - 8/5/2026 - selects every $pg paragraph at once. That selection outlived the validation and the next macro to touch
+'           - Sh - 8/5/2026 - Selection died with run-time error 4605 - AutoTag, in Jerry's case. The user cannot dodge it: the
+'           - Sh - 8/5/2026 - Navigation pane refuses the job once there are more tags than it can hold. New Sh_Clear_Multi_Selection
+'           - Sh - 8/5/2026 - now runs when validation finishes AND at the top of both AutoTag macros.
+' Notes:    - BRL - 8/5/2026 - Dx_AutoTag_Page_Numbers no longer fails with run-time error 5941 on a document whose $pg tags were
+'           - BRL - 8/5/2026 - already tagged (Jerry, 8/5/2026). Its first act is to STRIP the earlier tagging, and three of those
+'           - BRL - 8/5/2026 - passes ask for RefPageNumber or RefPageNemeth by name. Styles(name) raises 5941 when the document does
+'           - BRL - 8/5/2026 - not carry the style, and it need not - RefPageNemeth belongs to the Nemeth math templates. The whole
+'           - BRL - 8/5/2026 - macro died before a single tag was placed. No style means nothing is formatted with it, so those passes
+'           - BRL - 8/5/2026 - are now skipped. Same guard on the DBT code restore. NOTE: about 80 other Styles("name") lookups in this
+'           - BRL - 8/5/2026 - module are still unguarded and can fail the same way; only the reported one was changed.
+' Notes:    - Sh - 8/5/2026 - repaired the end marker in BOTH Horz_To_Vert_List forms. It is the OE ligature, what Alt+0140 types,
+'           - Sh - 8/5/2026 - and it was the byte 8C until 7/26/2026, when a lossy read turned all five of them into U+FFFD - which
+'           - Sh - 8/5/2026 - then shipped as three garbage characters. Now ChrW(338), which no re-encoding can damage. The macro
+'           - Sh - 8/5/2026 - inserts the marker and strips it again, so all five spots were mangled alike and it may well have kept
+'           - Sh - 8/5/2026 - working by luck; it needs a run on a real list all the same.
+' Notes:    - BRL - 8/5/2026 - deleted Dx_MathSymbolsForm and Dx_MathSymbolsAgain. Jerry: an unfinished project, never wired up.
+'           - BRL - 8/5/2026 - They referenced only each other - Again shows Form, Form unloads Again - so there was no way in from
+'           - BRL - 8/5/2026 - the ribbon, the keymap, the QAT or any macro. Nothing else called anything in them either. The one
+'           - BRL - 8/5/2026 - outside name they still mentioned was Dx_ShowMathSymbolsAgain, and only in the comment recording its
+'           - BRL - 8/5/2026 - own deletion on 8/3/2026.
 ' Notes:    - Sh - 8/5/2026 - the DAISY/NIMAS conversion now puts the whole document into Tahoma 12 pt, just before the repaginate
 '           - Sh - 8/5/2026 - and save at the end - a font change moves every line and page break, so it has to precede both. The new
 '           - Sh - 8/5/2026 - Sh_Set_Whole_Document_Font does the work for it and for the braille attach's Courier New 12. Face and
@@ -1196,6 +1229,9 @@ Sub Dx_Format_Tagged_Page_Numbers()
     ActiveDocument.Bookmarks.Add Name:="TempPgNoFormat"
     
     If ActiveDocument.Variables("BrailleType") = "EBAT" Or ActiveDocument.Variables("BrailleType") = "UEBT" Then
+        ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+        ' this pass can do nothing without it - no style means nothing is formatted with it.
+        If Sh_Style_Exists(ActiveDocument, "RefPageNumber") Then
         Selection.Find.ClearFormatting
         Selection.Find.Replacement.ClearFormatting
         Selection.Find.Replacement.Style = ActiveDocument.Styles("RefPageNumber")
@@ -1212,7 +1248,11 @@ Sub Dx_Format_Tagged_Page_Numbers()
             .MatchAllWordForms = False
         End With
         Selection.Find.Execute Replace:=wdReplaceAll
+        End If
         
+        ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+        ' this pass can do nothing without it - no style means nothing is formatted with it.
+        If Sh_Style_Exists(ActiveDocument, "RefPageNumber") Then
         Selection.Find.ClearFormatting
         Selection.Find.Style = ActiveDocument.Styles("RefPageNumber")
         Selection.Find.Replacement.ClearFormatting
@@ -1229,7 +1269,11 @@ Sub Dx_Format_Tagged_Page_Numbers()
             .MatchWildcards = True
         End With
         Selection.Find.Execute Replace:=wdReplaceAll
+        End If
         
+        ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+        ' this pass can do nothing without it - no style means nothing is formatted with it.
+        If Sh_Style_Exists(ActiveDocument, "RefPageNumber") Then
         Selection.Find.ClearFormatting
         Selection.Find.Style = ActiveDocument.Styles("RefPageNumber")
         Selection.Find.Replacement.ClearFormatting
@@ -1246,7 +1290,11 @@ Sub Dx_Format_Tagged_Page_Numbers()
             .MatchAllWordForms = False
         End With
         Selection.Find.Execute Replace:=wdReplaceAll
+        End If
         
+        ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+        ' this pass can do nothing without it - no style means nothing is formatted with it.
+        If Sh_Style_Exists(ActiveDocument, "RefPageNumber") Then
         Selection.Find.ClearFormatting
         Selection.Find.Style = ActiveDocument.Styles("RefPageNumber")
         Selection.Find.Replacement.ClearFormatting
@@ -1268,9 +1316,13 @@ Sub Dx_Format_Tagged_Page_Numbers()
             .MatchAllWordForms = False
         End With
         Selection.Find.Execute Replace:=wdReplaceAll
+        End If
     End If
 
     If ActiveDocument.Variables("BrailleType") = "EBAN" Or ActiveDocument.Variables("BrailleType") = "UEBN" Then 'using nemeth code
+        ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+        ' this pass can do nothing without it - no style means nothing is formatted with it.
+        If Sh_Style_Exists(ActiveDocument, "RefPageNemeth") Then
         Selection.Find.ClearFormatting
         Selection.Find.Replacement.ClearFormatting
         Selection.Find.Replacement.Style = ActiveDocument.Styles("RefPageNemeth")
@@ -1287,7 +1339,11 @@ Sub Dx_Format_Tagged_Page_Numbers()
             .MatchAllWordForms = False
         End With
         Selection.Find.Execute Replace:=wdReplaceAll
+        End If
         
+        ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+        ' this pass can do nothing without it - no style means nothing is formatted with it.
+        If Sh_Style_Exists(ActiveDocument, "RefPageNemeth") Then
         Selection.Find.ClearFormatting
         Selection.Find.Style = ActiveDocument.Styles("RefPageNemeth")
         Selection.Find.Replacement.ClearFormatting
@@ -1304,7 +1360,11 @@ Sub Dx_Format_Tagged_Page_Numbers()
             .MatchWildcards = True
         End With
         Selection.Find.Execute Replace:=wdReplaceAll
+        End If
         
+        ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+        ' this pass can do nothing without it - no style means nothing is formatted with it.
+        If Sh_Style_Exists(ActiveDocument, "RefPageNemeth") Then
         Selection.Find.ClearFormatting
         Selection.Find.Style = ActiveDocument.Styles("RefPageNemeth")
         Selection.Find.Replacement.ClearFormatting
@@ -1321,7 +1381,11 @@ Sub Dx_Format_Tagged_Page_Numbers()
             .MatchAllWordForms = False
         End With
         Selection.Find.Execute Replace:=wdReplaceAll
+        End If
         
+        ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+        ' this pass can do nothing without it - no style means nothing is formatted with it.
+        If Sh_Style_Exists(ActiveDocument, "RefPageNemeth") Then
         Selection.Find.ClearFormatting
         Selection.Find.Style = ActiveDocument.Styles("RefPageNemeth")
         Selection.Find.Replacement.ClearFormatting
@@ -1343,6 +1407,7 @@ Sub Dx_Format_Tagged_Page_Numbers()
             .MatchAllWordForms = False
         End With
         Selection.Find.Execute Replace:=wdReplaceAll
+        End If
     End If
 
     ' Change all Textbook ref pg no styles to Nemeth ref pg no styles
@@ -1352,6 +1417,9 @@ Sub Dx_Format_Tagged_Page_Numbers()
             Dx_GP_String_2 = "RefPageNemeth"
             Application.Run MacroName:="Dx_Is_Style_Here"
             If Dx_GP_String_1 = "Here" Then
+                ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+                ' this pass can do nothing without it - no style means nothing is formatted with it.
+                If Sh_Style_Exists(ActiveDocument, "RefPageNumber") And Sh_Style_Exists(ActiveDocument, "RefPageNemeth") Then
                 Selection.Find.ClearFormatting
                 Selection.Find.Style = ActiveDocument.Styles("RefPageNumber")
                 Selection.Find.Replacement.ClearFormatting
@@ -1369,6 +1437,7 @@ Sub Dx_Format_Tagged_Page_Numbers()
                     .MatchAllWordForms = False
                 End With
                 Selection.Find.Execute Replace:=wdReplaceAll
+                End If
             End If
     
             ' Test for existance of styles
@@ -1376,6 +1445,9 @@ Sub Dx_Format_Tagged_Page_Numbers()
             Dx_GP_String_2 = "RefPageNemethEmbed"
             Application.Run MacroName:="Dx_Is_Style_Here"
             If Dx_GP_String_1 = "Here" Then
+            ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+            ' this pass can do nothing without it - no style means nothing is formatted with it.
+            If Sh_Style_Exists(ActiveDocument, "RefPageNumberEmbed") Then
             Selection.Find.ClearFormatting
             Selection.Find.Style = ActiveDocument.Styles("RefPageNumberEmbed")
             Selection.Find.Replacement.ClearFormatting
@@ -1395,6 +1467,7 @@ Sub Dx_Format_Tagged_Page_Numbers()
             End With
             Selection.Find.Execute Replace:=wdReplaceAll
             End If
+            End If
         End If
 
     ' Change all Nemeth ref pg no styles to textbook ref pg no styles
@@ -1406,6 +1479,9 @@ Sub Dx_Format_Tagged_Page_Numbers()
         Application.Run MacroName:="Dx_Is_Style_Here"
         
             If Dx_GP_String_1 = "Here" Then
+                ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+                ' this pass can do nothing without it - no style means nothing is formatted with it.
+                If Sh_Style_Exists(ActiveDocument, "RefPageNemeth") And Sh_Style_Exists(ActiveDocument, "RefPageNumber") Then
                 Selection.Find.ClearFormatting
                 Selection.Find.Style = ActiveDocument.Styles("RefPageNemeth")  ' error here
                 Selection.Find.Replacement.ClearFormatting
@@ -1423,6 +1499,7 @@ Sub Dx_Format_Tagged_Page_Numbers()
                     .MatchAllWordForms = False
                 End With
                 Selection.Find.Execute Replace:=wdReplaceAll
+                End If
             End If
         
             ' Test for existance of styles
@@ -1431,6 +1508,9 @@ Sub Dx_Format_Tagged_Page_Numbers()
             Application.Run MacroName:="Dx_Is_Style_Here"
             If Dx_GP_String_1 = "Here" Then
         
+            ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+            ' this pass can do nothing without it - no style means nothing is formatted with it.
+            If Sh_Style_Exists(ActiveDocument, "RefPageNemethEmbed") And Sh_Style_Exists(ActiveDocument, "RefPageNumberEmbed") Then
             Selection.Find.ClearFormatting
             Selection.Find.Style = ActiveDocument.Styles("RefPageNemethEmbed")
             Selection.Find.Replacement.ClearFormatting
@@ -1448,6 +1528,7 @@ Sub Dx_Format_Tagged_Page_Numbers()
                 .MatchAllWordForms = False
             End With
             Selection.Find.Execute Replace:=wdReplaceAll
+            End If
         End If
     End If
     
@@ -1500,11 +1581,11 @@ Sub Dx_Embed_Ref_Pg_No()
     Selection.TypeText Text:=" "
     Selection.EndKey Unit:=wdLine, Extend:=wdExtend
     
-    If ActiveDocument.Variables("BrailleType") = "EBAT" Or ActiveDocument.Variables("BrailleType") = "UEBT" Then ' is textbook
+    If (ActiveDocument.Variables("BrailleType") = "EBAT" Or ActiveDocument.Variables("BrailleType") = "UEBT") And Sh_Style_Exists(ActiveDocument, "RefPageNumberEmbed") Then ' is textbook
             Selection.Style = ActiveDocument.Styles("RefPageNumberEmbed")
     End If
     
-    If ActiveDocument.Variables("BrailleType") = "UEBN" Or ActiveDocument.Variables("BrailleType") = "EBAN" Then  'is Nemeth
+    If (ActiveDocument.Variables("BrailleType") = "UEBN" Or ActiveDocument.Variables("BrailleType") = "EBAN") And Sh_Style_Exists(ActiveDocument, "RefPageNemethEmbed") Then  'is Nemeth
             Selection.Style = ActiveDocument.Styles("RefPageNemethEmbed")
     End If
 
@@ -1575,11 +1656,11 @@ Sub Dx_UnEmbed_Ref_Pg_No()
     Selection.HomeKey Unit:=wdLine, Extend:=wdExtend
     Selection.ClearFormatting
 
-    If ActiveDocument.Variables("BrailleType") = "EBAT" Or ActiveDocument.Variables("BrailleType") = "UEBT" Then ' is textbook
+    If (ActiveDocument.Variables("BrailleType") = "EBAT" Or ActiveDocument.Variables("BrailleType") = "UEBT") And Sh_Style_Exists(ActiveDocument, "RefPageNumber") Then ' is textbook
             Selection.Style = ActiveDocument.Styles("RefPageNumber")
     End If
 
-    If ActiveDocument.Variables("BrailleType") = "UEBN" Or ActiveDocument.Variables("BrailleType") = "EBAN" Then  'is Nemeth
+    If (ActiveDocument.Variables("BrailleType") = "UEBN" Or ActiveDocument.Variables("BrailleType") = "EBAN") And Sh_Style_Exists(ActiveDocument, "RefPageNemeth") Then  'is Nemeth
             Selection.Style = ActiveDocument.Styles("RefPageNemeth")
     End If
     
@@ -2076,6 +2157,21 @@ Sub Dx_Color_Dollar_PG_Red()
 
 End Sub  '*** end of Dx_Color_Dollar_PG_Red Macro ***
 
+Private Function Sh_Style_In_Use(ByVal targetDoc As Document, ByVal styleName As String) As Boolean
+    '
+    ' Version: 1.0  Date: 8/5/2026
+    '
+    ' .InUse, but False instead of run-time error 5941 when the document has no such style.
+
+    If Not Sh_Style_Exists(targetDoc, styleName) Then Exit Function
+
+    On Error Resume Next
+    Sh_Style_In_Use = targetDoc.Styles(styleName).InUse
+    Err.Clear
+    On Error GoTo 0
+
+End Function   '*** end of Sh_Style_In_Use function ***
+
 Private Function Sh_Style_Exists(ByVal targetDoc As Document, ByVal styleName As String) As Boolean
     '
     ' Version: 1.0  Date: 8/5/2026
@@ -2118,6 +2214,9 @@ Sub Dx_Fix_Body_Text_Styles()
 '
 ' Replace styles "Normal (Web)", "Normal Indent" and "Normal", with style "Body Text"
     
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Body Text") Then
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("Normal")
     Selection.Find.Replacement.ClearFormatting
@@ -2135,7 +2234,11 @@ Sub Dx_Fix_Body_Text_Styles()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Normal (Web)") And Sh_Style_Exists(ActiveDocument, "Body Text") Then
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("Normal (Web)")
     Selection.Find.Replacement.ClearFormatting
@@ -2153,7 +2256,11 @@ Sub Dx_Fix_Body_Text_Styles()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Normal Indent") And Sh_Style_Exists(ActiveDocument, "Body Text") Then
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("Normal Indent")
     Selection.Find.Replacement.ClearFormatting
@@ -2171,6 +2278,7 @@ Sub Dx_Fix_Body_Text_Styles()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
 End Sub '***** end of Dx_Fix_Body_Text_Styles Macros *****
 
@@ -2393,6 +2501,9 @@ Sub Dx_Add_Color_To_Foreign_Language_Words()
     
     '************ German *************
         
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "German") Then
     Selection.Find.ClearFormatting
     Selection.Find.LanguageID = wdGerman
     Selection.Find.Replacement.ClearFormatting
@@ -2410,9 +2521,13 @@ Sub Dx_Add_Color_To_Foreign_Language_Words()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
     '*********** French **************
         
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "French") Then
     Selection.Find.ClearFormatting
     Selection.Find.LanguageID = wdFrench
     Selection.Find.Replacement.ClearFormatting
@@ -2430,9 +2545,13 @@ Sub Dx_Add_Color_To_Foreign_Language_Words()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
     '*********** Italian ***************
     
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Italian") Then
     Selection.Find.ClearFormatting
     Selection.Find.LanguageID = wdItalian
     Selection.Find.Replacement.ClearFormatting
@@ -2450,9 +2569,13 @@ Sub Dx_Add_Color_To_Foreign_Language_Words()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
     '********* Latin *******************
     
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Latin") Then
     Selection.Find.ClearFormatting
     Selection.Find.LanguageID = wdLatin
     Selection.Find.Replacement.ClearFormatting
@@ -2470,9 +2593,13 @@ Sub Dx_Add_Color_To_Foreign_Language_Words()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
     ' ********** Spanish ************
     
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Spanish") Then
     Selection.Find.ClearFormatting
     Selection.Find.LanguageID = wdSpanish
     Selection.Find.Replacement.ClearFormatting
@@ -2490,7 +2617,11 @@ Sub Dx_Add_Color_To_Foreign_Language_Words()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Spanish") Then
     Selection.Find.ClearFormatting
     Selection.Find.LanguageID = wdSpanishModernSort
     Selection.Find.Replacement.ClearFormatting
@@ -2508,6 +2639,7 @@ Sub Dx_Add_Color_To_Foreign_Language_Words()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     ActiveDocument.UndoClear
@@ -2637,6 +2769,7 @@ End Sub   '***** End of Dx_Spelling_List Macro *****
 
 Sub Dx_AutoTag_Page_Numbers()
 '
+' Version: 2.7 Date: 8/5/2026 - the three passes that strip an EARLIER tagging no longer die with run-time error 5941 when the document has no RefPageNumber or RefPageNemeth style; same guard on the DBT code restore at the end
 ' Version: 2.6 Date: 8/2/2026 - the ten "^013(...)^013" passes now repeat until nothing is left to replace (Sh_Replace_All_Until_Done); a single Execute tagged only alternate numbers when two page numbers sat in consecutive paragraphs
 ' Version: 2.5 Date: 8/30/2025 - added new validation of roman numerals
 ' Version: 2.4 Date: 2/16/2024 - added code to automate validation
@@ -2650,6 +2783,10 @@ Sub Dx_AutoTag_Page_Numbers()
 ' Locates potential page numbers and tags with $pg
 ' Also locates continuation pages ##-## and enters the [[*lec*]][[*i*]] code
 '
+
+    ' FIRST, before anything reads or moves the cursor. Validation can leave every $pg
+    ' paragraph selected at once, and Word then refuses most Selection work with error 4605.
+    Sh_Clear_Multi_Selection
 
     Dim strLength As Integer
 
@@ -2720,62 +2857,98 @@ Sub Dx_AutoTag_Page_Numbers()
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
     
-    ' remove RefPageNumber style from roman numerls
-    Selection.Find.ClearFormatting
-    Selection.Find.Style = ActiveDocument.Styles("RefPageNumber")
-    Selection.Find.Replacement.ClearFormatting
-    Selection.Find.Replacement.Style = ActiveDocument.Styles("Normal")
-    With Selection.Find
-        .Text = ""
-        .Replacement.Text = ""
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = True
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+    ' Guarded. This pass exists to STRIP an earlier tagging, so it only runs on a document
+    ' that has been tagged before - which is exactly when Jerry hit run-time error 5941,
+    ' 8/5/2026. Styles(name) raises 5941 when the document does not carry that style, and a
+    ' braille file need not: RefPageNemeth belongs to the Nemeth math templates. No style
+    ' means nothing is formatted with it, so there is nothing here to strip and skipping is
+    ' correct. Unguarded it killed the whole macro before a single tag was placed.
+    If Sh_Style_Exists(ActiveDocument, "RefPageNumber") Then
+        ' remove RefPageNumber style from roman numerls
+        ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+        ' this pass can do nothing without it - no style means nothing is formatted with it.
+        If Sh_Style_Exists(ActiveDocument, "RefPageNumber") Then
+        Selection.Find.ClearFormatting
+        Selection.Find.Style = ActiveDocument.Styles("RefPageNumber")
+        Selection.Find.Replacement.ClearFormatting
+        Selection.Find.Replacement.Style = ActiveDocument.Styles("Normal")
+        With Selection.Find
+            .Text = ""
+            .Replacement.Text = ""
+            .Forward = True
+            .Wrap = wdFindContinue
+            .Format = True
+            .MatchCase = False
+            .MatchWholeWord = False
+            .MatchWildcards = False
+            .MatchSoundsLike = False
+            .MatchAllWordForms = False
+        End With
+        Selection.Find.Execute Replace:=wdReplaceAll
+        End If
+    End If
     
-    ' remove RefPageNumber style from roman numerls
-    Selection.Find.ClearFormatting
-    Selection.Find.Style = ActiveDocument.Styles("RefPageNemeth")
-    Selection.Find.Replacement.ClearFormatting
-    Selection.Find.Replacement.Style = ActiveDocument.Styles("Normal")
-    With Selection.Find
-        .Text = ""
-        .Replacement.Text = ""
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = True
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+    ' Guarded. This pass exists to STRIP an earlier tagging, so it only runs on a document
+    ' that has been tagged before - which is exactly when Jerry hit run-time error 5941,
+    ' 8/5/2026. Styles(name) raises 5941 when the document does not carry that style, and a
+    ' braille file need not: RefPageNemeth belongs to the Nemeth math templates. No style
+    ' means nothing is formatted with it, so there is nothing here to strip and skipping is
+    ' correct. Unguarded it killed the whole macro before a single tag was placed.
+    If Sh_Style_Exists(ActiveDocument, "RefPageNemeth") Then
+        ' remove RefPageNumber style from roman numerls
+        ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+        ' this pass can do nothing without it - no style means nothing is formatted with it.
+        If Sh_Style_Exists(ActiveDocument, "RefPageNemeth") Then
+        Selection.Find.ClearFormatting
+        Selection.Find.Style = ActiveDocument.Styles("RefPageNemeth")
+        Selection.Find.Replacement.ClearFormatting
+        Selection.Find.Replacement.Style = ActiveDocument.Styles("Normal")
+        With Selection.Find
+            .Text = ""
+            .Replacement.Text = ""
+            .Forward = True
+            .Wrap = wdFindContinue
+            .Format = True
+            .MatchCase = False
+            .MatchWholeWord = False
+            .MatchWildcards = False
+            .MatchSoundsLike = False
+            .MatchAllWordForms = False
+        End With
+        Selection.Find.Execute Replace:=wdReplaceAll
+        End If
+    End If
     
-    ' replace nemeth RefPageNemeth with normal style
-    Selection.Find.ClearFormatting
-    Selection.Find.Style = ActiveDocument.Styles("RefPageNemeth")
-    Selection.Find.Replacement.ClearFormatting
-    Selection.Find.Replacement.Style = ActiveDocument.Styles("Normal")
-    With Selection.Find
-        .Text = ""
-        .Replacement.Text = ""
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = True
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+    ' Guarded. This pass exists to STRIP an earlier tagging, so it only runs on a document
+    ' that has been tagged before - which is exactly when Jerry hit run-time error 5941,
+    ' 8/5/2026. Styles(name) raises 5941 when the document does not carry that style, and a
+    ' braille file need not: RefPageNemeth belongs to the Nemeth math templates. No style
+    ' means nothing is formatted with it, so there is nothing here to strip and skipping is
+    ' correct. Unguarded it killed the whole macro before a single tag was placed.
+    If Sh_Style_Exists(ActiveDocument, "RefPageNemeth") Then
+        ' replace nemeth RefPageNemeth with normal style
+        ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+        ' this pass can do nothing without it - no style means nothing is formatted with it.
+        If Sh_Style_Exists(ActiveDocument, "RefPageNemeth") Then
+        Selection.Find.ClearFormatting
+        Selection.Find.Style = ActiveDocument.Styles("RefPageNemeth")
+        Selection.Find.Replacement.ClearFormatting
+        Selection.Find.Replacement.Style = ActiveDocument.Styles("Normal")
+        With Selection.Find
+            .Text = ""
+            .Replacement.Text = ""
+            .Forward = True
+            .Wrap = wdFindContinue
+            .Format = True
+            .MatchCase = False
+            .MatchWholeWord = False
+            .MatchWildcards = False
+            .MatchSoundsLike = False
+            .MatchAllWordForms = False
+        End With
+        Selection.Find.Execute Replace:=wdReplaceAll
+        End If
+    End If
     
     ' lec + letter + number
     Selection.Find.ClearFormatting
@@ -3287,8 +3460,11 @@ LoopEnd:
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
     
-    ' Replace color and style of DBT Codes
-    Application.Run MacroName:="Dx_Set_DBT_Codes_Color_and_Style"
+    ' Replace color and style of DBT Codes. Guarded for the same reason as the passes above:
+    ' that macro asks for the "DBT Code" style by name and only the BANA template carries it.
+    If Sh_Style_Exists(ActiveDocument, "DBT Code") Then
+        Application.Run MacroName:="Dx_Set_DBT_Codes_Color_and_Style"
+    End If
     
     Application.ScreenUpdating = su_Prev ' Turn screen updating on
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
@@ -3426,7 +3602,9 @@ Sub Dx_Format_Exercise_Lv_1_and_Lv_2()
     Application.Run MacroName:="Dx_Remove_Multi_Spaces"
     Application.ScreenUpdating = False ' Turn screen updating off
     Selection.WholeStory
+    If Sh_Style_Exists(ActiveDocument, "Body Text") Then
     Selection.Style = ActiveDocument.Styles("Body Text")
+    End If
     Selection.HomeKey Unit:=wdStory
 
 
@@ -3729,6 +3907,9 @@ Sub Dx_Format_Exercise_Lv_1_and_Lv_2()
     ' Set all para to Exercise 2
     ' **************************************************************
     If Dx_GP_String_1 = "UEBN" Or Dx_GP_String_1 = "EBAN" Then ' this is Nemeth
+        ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+        ' this pass can do nothing without it - no style means nothing is formatted with it.
+        If Sh_Style_Exists(ActiveDocument, "Ex2Nemeth2") Then
         Selection.Find.ClearFormatting
         Selection.Find.Replacement.ClearFormatting
         Selection.Find.Replacement.Style = ActiveDocument.Styles("Ex2Nemeth2")
@@ -3745,7 +3926,11 @@ Sub Dx_Format_Exercise_Lv_1_and_Lv_2()
             .MatchAllWordForms = False
         End With
         Selection.Find.Execute Replace:=wdReplaceAll
+        End If
     Else ' this is text
+        ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+        ' this pass can do nothing without it - no style means nothing is formatted with it.
+        If Sh_Style_Exists(ActiveDocument, "Exercise2") Then
         Selection.Find.ClearFormatting
         Selection.Find.Replacement.ClearFormatting
         Selection.Find.Replacement.Style = ActiveDocument.Styles("Exercise2")
@@ -3762,11 +3947,15 @@ Sub Dx_Format_Exercise_Lv_1_and_Lv_2()
             .MatchAllWordForms = False
         End With
         Selection.Find.Execute Replace:=wdReplaceAll
+        End If
     End If
 
     ' **************************************************************
     ' find para marks followed numbers followd by period and space
     ' **************************************************************
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Exercise1") Then
     Selection.Find.ClearFormatting
     Selection.Find.Replacement.ClearFormatting
     Selection.Find.Replacement.Style = ActiveDocument.Styles("Exercise1")
@@ -3783,10 +3972,14 @@ Sub Dx_Format_Exercise_Lv_1_and_Lv_2()
         .MatchWildcards = True
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
     ' **************************************************************
     ' find para marks followed numbers followd by a space only
     ' **************************************************************
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Exercise1") Then
     Selection.Find.ClearFormatting
     Selection.Find.Replacement.ClearFormatting
     Selection.Find.Replacement.Style = ActiveDocument.Styles("Exercise1")
@@ -3803,10 +3996,14 @@ Sub Dx_Format_Exercise_Lv_1_and_Lv_2()
         .MatchWildcards = True
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
 
     ' **************************************************************
     ' find para marks followed numbers followd by period
     ' **************************************************************
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Exercise1") Then
     Selection.Find.ClearFormatting
     Selection.Find.Replacement.ClearFormatting
     Selection.Find.Replacement.Style = ActiveDocument.Styles("Exercise1")
@@ -3823,10 +4020,14 @@ Sub Dx_Format_Exercise_Lv_1_and_Lv_2()
         .MatchWildcards = True
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
     ' ****************************************************************************
     ' find para marks followed numbers followed a closed paren followed by a period
     ' ****************************************************************************
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Exercise1") Then
     Selection.Find.ClearFormatting
     Selection.Find.Replacement.ClearFormatting
     Selection.Find.Replacement.Style = ActiveDocument.Styles("Exercise1")
@@ -3843,10 +4044,14 @@ Sub Dx_Format_Exercise_Lv_1_and_Lv_2()
         .MatchWildcards = True
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
     ' ****************************************************************************
     ' find para marks followed numbers followed a closed paren not followed by a period
     ' ****************************************************************************
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Exercise1") Then
     Selection.Find.ClearFormatting
     Selection.Find.Replacement.ClearFormatting
     Selection.Find.Replacement.Style = ActiveDocument.Styles("Exercise1")
@@ -3863,10 +4068,14 @@ Sub Dx_Format_Exercise_Lv_1_and_Lv_2()
         .MatchWildcards = True
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
     ' ****************************************************************************
     ' find para marks followed numbers enclosed in parens followed by a period
     ' ****************************************************************************
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Exercise1") Then
     Selection.Find.ClearFormatting
     Selection.Find.Replacement.ClearFormatting
     Selection.Find.Replacement.Style = ActiveDocument.Styles("Exercise1")
@@ -3883,10 +4092,14 @@ Sub Dx_Format_Exercise_Lv_1_and_Lv_2()
         .MatchWildcards = True
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
     ' ****************************************************************************
     ' find para marks followed numbers enclosed in parens not followed by a period
     ' ****************************************************************************
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Exercise1") Then
     Selection.Find.ClearFormatting
     Selection.Find.Replacement.ClearFormatting
     Selection.Find.Replacement.Style = ActiveDocument.Styles("Exercise1")
@@ -3903,11 +4116,15 @@ Sub Dx_Format_Exercise_Lv_1_and_Lv_2()
         .MatchWildcards = True
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
 
     ' **************************************************************
     ' change color of kpe
     ' **************************************************************
         If Dx_GP_String_1 = "UEBN" Or Dx_GP_String_1 = "EBAN" Then ' this is Nemeth
+        ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+        ' this pass can do nothing without it - no style means nothing is formatted with it.
+        If Sh_Style_Exists(ActiveDocument, "Ex2Nemeth2") Then
         Selection.Find.ClearFormatting
         Selection.Find.Replacement.ClearFormatting
         With Selection.Find.Replacement.Font
@@ -3928,7 +4145,11 @@ Sub Dx_Format_Exercise_Lv_1_and_Lv_2()
             .MatchWildcards = True
         End With
         Selection.Find.Execute Replace:=wdReplaceAll
+        End If
     Else ' this is text
+        ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+        ' this pass can do nothing without it - no style means nothing is formatted with it.
+        If Sh_Style_Exists(ActiveDocument, "Exercise2") Then
         Selection.Find.ClearFormatting
         Selection.Find.Replacement.ClearFormatting
         With Selection.Find.Replacement.Font
@@ -3949,11 +4170,15 @@ Sub Dx_Format_Exercise_Lv_1_and_Lv_2()
             .MatchWildcards = True
         End With
         Selection.Find.Execute Replace:=wdReplaceAll
+        End If
     End If
 
     ' **************************************************************
     ' change color of kps
     ' **************************************************************
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Exercise1") Then
     Selection.Find.ClearFormatting
     Selection.Find.Replacement.ClearFormatting
     With Selection.Find.Replacement.Font
@@ -3974,6 +4199,7 @@ Sub Dx_Format_Exercise_Lv_1_and_Lv_2()
         .MatchWildcards = True
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
 
     ' **************************************************************
     ' make plum color style DBT Code
@@ -3999,6 +4225,9 @@ Sub Dx_Format_Exercise_Lv_1_and_Lv_2()
     '*****************************************************
     ' Make sure that all [[*kps*]] are level 1
     '*****************************************************
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Exercise1") Then
     Selection.Find.ClearFormatting
     Selection.Find.Replacement.ClearFormatting
     Selection.Find.Replacement.Style = ActiveDocument.Styles("Exercise1")
@@ -4019,11 +4248,15 @@ Sub Dx_Format_Exercise_Lv_1_and_Lv_2()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
 
     '*****************************************************
     ' add exercise level 2 fill-in indicators
     '*****************************************************
     If Dx_UEB_EBAE_Boolean = True Then 'Fill-in indicators are wanted
+        ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+        ' this pass can do nothing without it - no style means nothing is formatted with it.
+        If Sh_Style_Exists(ActiveDocument, "Exercise2") Then
         Selection.Find.ClearFormatting
         Selection.Find.Style = ActiveDocument.Styles("Exercise2")
         Selection.Find.Replacement.ClearFormatting
@@ -4048,6 +4281,7 @@ Sub Dx_Format_Exercise_Lv_1_and_Lv_2()
             .MatchWildcards = True
         End With
         Selection.Find.Execute Replace:=wdReplaceAll
+        End If
     End If
     
     ' Convert Tabs to fill Ins
@@ -4056,6 +4290,9 @@ Sub Dx_Format_Exercise_Lv_1_and_Lv_2()
     '*****************************************************
     ' remove spaces preceeding square left brace
     '*****************************************************
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "DBT Code") Then
     Selection.Find.ClearFormatting
     Selection.Find.Replacement.ClearFormatting
     Selection.Find.Replacement.Style = ActiveDocument.Styles("DBT Code")
@@ -4076,6 +4313,7 @@ Sub Dx_Format_Exercise_Lv_1_and_Lv_2()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
     '*****************************************************
     ' remove the bogus items from top
@@ -4633,22 +4871,24 @@ Sub Dx_Remove_Bullets()
 
     If Dx_GP_String_2 <> "U" Then
         'change all para styles
+        ' Guarded on each branch rather than around the whole pass: only ONE of these five runs,
+        ' so requiring all five styles would skip the pass whenever any one was absent.
         Selection.Find.ClearFormatting
         Selection.Find.Replacement.ClearFormatting
 
-        If Dx_GP_String_2 = "T1" Then
+        If Dx_GP_String_2 = "T1" And Sh_Style_Exists(ActiveDocument, "TOC 1") Then
             Selection.Find.Replacement.Style = ActiveDocument.Styles("TOC 1")
         End If
-        If Dx_GP_String_2 = "T2" Then
+        If Dx_GP_String_2 = "T2" And Sh_Style_Exists(ActiveDocument, "TOC 2") Then
             Selection.Find.Replacement.Style = ActiveDocument.Styles("TOC 2")
         End If
-        If Dx_GP_String_2 = "L1" Then
+        If Dx_GP_String_2 = "L1" And Sh_Style_Exists(ActiveDocument, "List1") Then
             Selection.Find.Replacement.Style = ActiveDocument.Styles("List1")
         End If
-        If Dx_GP_String_2 = "L2" Then
+        If Dx_GP_String_2 = "L2" And Sh_Style_Exists(ActiveDocument, "List2") Then
             Selection.Find.Replacement.Style = ActiveDocument.Styles("List2")
         End If
-        If Dx_GP_String_2 = "B" Then
+        If Dx_GP_String_2 = "B" And Sh_Style_Exists(ActiveDocument, "Body Text") Then
             Selection.Find.Replacement.Style = ActiveDocument.Styles("Body Text")
         End If
         
@@ -5273,6 +5513,9 @@ Sub Dx_Set_DBT_Codes_Color_and_Style()
 ' Version: 1.1 Date: 3/14/2017
 ' Author: Jerry Whittaker - jerry@thewhittakers.org
 
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "DBT Code") Then
     Selection.Find.ClearFormatting
     Selection.Find.Replacement.ClearFormatting
     Selection.Find.Replacement.Style = ActiveDocument.Styles("DBT Code")
@@ -5293,6 +5536,7 @@ Sub Dx_Set_DBT_Codes_Color_and_Style()
         .MatchWildcards = True
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
 
@@ -5495,7 +5739,7 @@ Sub Dx_Fix_Abbyy_FineReader_Text_and_Headers()
         'For Each Para In Doc.Paragraphs
         For StyleCntr = 1 To 9  'up to nine types of body text styles
             styleName = "Body text (" + LTrim(Str(StyleCntr)) + ")"
-            If para.Style = styleName Then
+            If para.Style = styleName And Sh_Style_Exists(ActiveDocument, "Body Text") Then
                 para.Range.Style = ActiveDocument.Styles("Body Text")
                 ReloadTemplateSwitch = True
                 StyleCntr = 10
@@ -5503,7 +5747,7 @@ Sub Dx_Fix_Abbyy_FineReader_Text_and_Headers()
         Next StyleCntr
    
         ' chang Abbyy's "normal" and "Other" style to Body Text
-        If para.Style = "Other" Then
+        If para.Style = "Other" And Sh_Style_Exists(ActiveDocument, "Body Text") Then
             para.Range.Style = ActiveDocument.Styles("Body Text")
             ReloadTemplateSwitch = True
         End If
@@ -7456,6 +7700,9 @@ Sub Lp_Fix_Normal_Styles()
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
     
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Body Text") Then
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("Body Text")
     Selection.Find.Replacement.ClearFormatting
@@ -7473,7 +7720,11 @@ Sub Lp_Fix_Normal_Styles()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
 
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Body Text 2") Then
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("Body Text 2")
     Selection.Find.Replacement.ClearFormatting
@@ -7491,7 +7742,11 @@ Sub Lp_Fix_Normal_Styles()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Body Text 3") Then
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("Body Text 3")
     Selection.Find.Replacement.ClearFormatting
@@ -7509,7 +7764,11 @@ Sub Lp_Fix_Normal_Styles()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Body Text First Indent") Then
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("Body Text First Indent")
     Selection.Find.Replacement.ClearFormatting
@@ -7527,7 +7786,11 @@ Sub Lp_Fix_Normal_Styles()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Body Text First Indent 2") Then
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("Body Text First Indent 2")
     Selection.Find.Replacement.ClearFormatting
@@ -7545,7 +7808,11 @@ Sub Lp_Fix_Normal_Styles()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Body Text Indent") Then
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("Body Text Indent")
     Selection.Find.Replacement.ClearFormatting
@@ -7563,7 +7830,11 @@ Sub Lp_Fix_Normal_Styles()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Body Text Indent 2") Then
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("Body Text Indent 2")
     Selection.Find.Replacement.ClearFormatting
@@ -7581,7 +7852,11 @@ Sub Lp_Fix_Normal_Styles()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Body Text Indent 3") Then
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("Body Text Indent 3")
     Selection.Find.Replacement.ClearFormatting
@@ -7599,7 +7874,11 @@ Sub Lp_Fix_Normal_Styles()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Closing") Then
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("Closing")
     Selection.Find.Replacement.ClearFormatting
@@ -7617,7 +7896,11 @@ Sub Lp_Fix_Normal_Styles()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Comment Reference") Then
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("Comment Reference")
     Selection.Find.Replacement.ClearFormatting
@@ -7635,7 +7918,11 @@ Sub Lp_Fix_Normal_Styles()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Comment Subject") Then
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("Comment Subject")
     Selection.Find.Replacement.ClearFormatting
@@ -7653,7 +7940,11 @@ Sub Lp_Fix_Normal_Styles()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Comment Text") Then
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("Comment Text")
     Selection.Find.Replacement.ClearFormatting
@@ -7671,7 +7962,11 @@ Sub Lp_Fix_Normal_Styles()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Date") Then
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("Date")
     Selection.Find.Replacement.ClearFormatting
@@ -7689,7 +7984,11 @@ Sub Lp_Fix_Normal_Styles()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Document Map") Then
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("Document Map")
     Selection.Find.Replacement.ClearFormatting
@@ -7707,7 +8006,11 @@ Sub Lp_Fix_Normal_Styles()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "E-mail Signature") Then
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("E-mail Signature")
     Selection.Find.Replacement.ClearFormatting
@@ -7725,7 +8028,11 @@ Sub Lp_Fix_Normal_Styles()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Endnote Reference") Then
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("Endnote Reference")
     Selection.Find.Replacement.ClearFormatting
@@ -7746,7 +8053,11 @@ Sub Lp_Fix_Normal_Styles()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Endnote Text") Then
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("Endnote Text")
     Selection.Find.Replacement.ClearFormatting
@@ -7764,7 +8075,11 @@ Sub Lp_Fix_Normal_Styles()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Normal (Web)") Then
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("Normal (Web)")
     Selection.Find.Replacement.ClearFormatting
@@ -7782,7 +8097,11 @@ Sub Lp_Fix_Normal_Styles()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Normal Indent") Then
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("Normal Indent")
     Selection.Find.Replacement.ClearFormatting
@@ -7800,7 +8119,11 @@ Sub Lp_Fix_Normal_Styles()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Note Heading") Then
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("Note Heading")
     Selection.Find.Replacement.ClearFormatting
@@ -7818,6 +8141,7 @@ Sub Lp_Fix_Normal_Styles()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
     ' get size of base font
     On Error GoTo Next2
@@ -7892,6 +8216,9 @@ Sub Lp_Set_Page_To_Black()
  ' change any black boxes to white
  '-----------------------------------------------------------------------------------
     
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Box Black") And Sh_Style_Exists(ActiveDocument, "Box White") Then
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("Box Black")
     Selection.Find.Replacement.ClearFormatting
@@ -7909,6 +8236,7 @@ Sub Lp_Set_Page_To_Black()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
  '-----------------------------------------------------------------------------------
  ' change any tables to yellow on black paper
@@ -7923,6 +8251,9 @@ Sub Lp_Set_Page_To_Black()
  ' change Black Para to white para on black paper
  '-----------------------------------------------------------------------------------
  
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Para Black") Then
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("Para Black")
     Selection.Find.Replacement.ClearFormatting
@@ -7941,11 +8272,15 @@ Sub Lp_Set_Page_To_Black()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
  '-----------------------------------------------------------------------------------
  ' change Black words to white words on black paper
  '-----------------------------------------------------------------------------------
 
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Words Black") Then
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("Words Black")
     Selection.Find.Replacement.ClearFormatting
@@ -7964,6 +8299,7 @@ Sub Lp_Set_Page_To_Black()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
 
  '-----------------------------------------------------------------------------------
  ' cleanup
@@ -7998,6 +8334,9 @@ Sub Lp_Set_Page_To_White()
 ' change white boxes to black boxes
 '-----------------------------------------------------------------------------------
    
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Box White") And Sh_Style_Exists(ActiveDocument, "Box Black") Then
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("Box White")
     Selection.Find.Replacement.ClearFormatting
@@ -8015,6 +8354,7 @@ Sub Lp_Set_Page_To_White()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
 '-----------------------------------------------------------------------------------
 ' change white tables to yellow for white pages
@@ -8029,6 +8369,9 @@ Sub Lp_Set_Page_To_White()
 ' change previously black bkgrnd para to white
 '-----------------------------------------------------------------------------------
     
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Para Black Inverted") And Sh_Style_Exists(ActiveDocument, "Para Black") Then
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("Para Black Inverted")
     Selection.Find.Replacement.ClearFormatting
@@ -8046,11 +8389,15 @@ Sub Lp_Set_Page_To_White()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
 
 '-----------------------------------------------------------------------------------
 ' change previously black words to white
 '-----------------------------------------------------------------------------------
 
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Words Black Inverted") And Sh_Style_Exists(ActiveDocument, "Words Black") Then
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("Words Black Inverted")
     Selection.Find.Replacement.ClearFormatting
@@ -8068,6 +8415,7 @@ Sub Lp_Set_Page_To_White()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
 
 '-----------------------------------------------------------------------------------
 ' cleanup
@@ -8393,6 +8741,9 @@ Sub Lp_Format_Page_Numbers()
     Selection.Find.Execute Replace:=wdReplaceAll
 
     'put page numbers in styled bar
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Print Pg Num") Then
     Selection.Find.ClearFormatting
     Selection.Find.Replacement.ClearFormatting
     Selection.Find.Replacement.Style = ActiveDocument.Styles("Print Pg Num")
@@ -8409,6 +8760,7 @@ Sub Lp_Format_Page_Numbers()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
     'Remove $pg
     Selection.Find.ClearFormatting
@@ -8449,6 +8801,9 @@ Sub Lp_Format_Page_Numbers()
     Selection.Find.Execute Replace:=wdReplaceAll
     
     'make pn pink
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Print Pg Num") Then
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("Print Pg Num")
     Selection.Find.Replacement.ClearFormatting
@@ -8466,6 +8821,7 @@ Sub Lp_Format_Page_Numbers()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
     Application.Run MacroName:="Sh_Remove_Empty_Para_Before_Tables"
     
@@ -8791,6 +9147,10 @@ Sub Lp_AutoTag_Page_Numbers()
 '
 ' Locates potential reference page numbers and tags with $pg
 '
+
+    ' FIRST, before anything reads or moves the cursor. Validation can leave every $pg
+    ' paragraph selected at once, and Word then refuses most Selection work with error 4605.
+    Sh_Clear_Multi_Selection
 
     Dim strLength As Integer
 
@@ -9375,6 +9735,9 @@ Sub Lp_Fix_Para_Space_Errors()
     ' the paragraph mark with a single non-breaking space
     '*******************************************************
     On Error GoTo Next1
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "1 point") Then
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("1 point")
     Selection.Find.Replacement.ClearFormatting
@@ -9391,6 +9754,7 @@ Sub Lp_Fix_Para_Space_Errors()
         .MatchWildcards = True
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
 Next1:
 On Error GoTo 0
 
@@ -10523,6 +10887,9 @@ Sub Lp_Format_Exercise_Lv_1_and_Lv_2()
     ' **************************************************************
     ' Set all para to List 2
     ' **************************************************************
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "List 2") Then
     Selection.Find.ClearFormatting
     Selection.Find.Replacement.ClearFormatting
     Selection.Find.Replacement.Style = ActiveDocument.Styles("List 2")
@@ -10539,10 +10906,14 @@ Sub Lp_Format_Exercise_Lv_1_and_Lv_2()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
 
     ' **************************************************************
     ' find para marks followed numbers followd by period and space
     ' **************************************************************
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "List") Then
     Selection.Find.ClearFormatting
     Selection.Find.Replacement.ClearFormatting
     Selection.Find.Replacement.Style = ActiveDocument.Styles("List")
@@ -10559,10 +10930,14 @@ Sub Lp_Format_Exercise_Lv_1_and_Lv_2()
         .MatchWildcards = True
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
     ' **************************************************************
     ' find para marks followed numbers followed by a space only
     ' **************************************************************
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "List") Then
     Selection.Find.ClearFormatting
     Selection.Find.Replacement.ClearFormatting
     Selection.Find.Replacement.Style = ActiveDocument.Styles("List")
@@ -10579,10 +10954,14 @@ Sub Lp_Format_Exercise_Lv_1_and_Lv_2()
         .MatchWildcards = True
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
 
     ' **************************************************************
     ' find para marks followed numbers followed by period
     ' **************************************************************
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "List") Then
     Selection.Find.ClearFormatting
     Selection.Find.Replacement.ClearFormatting
     Selection.Find.Replacement.Style = ActiveDocument.Styles("List")
@@ -10599,10 +10978,14 @@ Sub Lp_Format_Exercise_Lv_1_and_Lv_2()
         .MatchWildcards = True
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
 
     ' **************************************************************
     ' find para marks followed numbers followed by period
     ' **************************************************************
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "List") Then
     Selection.Find.ClearFormatting
     Selection.Find.Replacement.ClearFormatting
     Selection.Find.Replacement.Style = ActiveDocument.Styles("List")
@@ -10619,6 +11002,7 @@ Sub Lp_Format_Exercise_Lv_1_and_Lv_2()
         .MatchWildcards = True
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
     
     '*****************************************************
     ' remove mulitiple para marks
@@ -10702,6 +11086,9 @@ Sub Lp_Format_Exercise_Lv_1_and_Lv_2()
     '*****************************************************
     ' place para mark before each "List" Style
     '*****************************************************
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "List") Then
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("List")
     Selection.Find.Replacement.ClearFormatting
@@ -10718,6 +11105,7 @@ Sub Lp_Format_Exercise_Lv_1_and_Lv_2()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
 
     Application.Run MacroName:="Lp_Fix_Para_Space_Errors"
     Application.Run MacroName:="Lp_Remove_Multi_Spaces"
@@ -10728,7 +11116,9 @@ Sub Lp_Format_Exercise_Lv_1_and_Lv_2()
     '*****************************************************
     Selection.HomeKey Unit:=wdStory
     Selection.MoveDown Unit:=wdLine, count:=2, Extend:=wdExtend
+    If Sh_Style_Exists(ActiveDocument, "List") Then
     Selection.Style = ActiveDocument.Styles("List")
+    End If
     
     Selection.HomeKey Unit:=wdStory
     Selection.Delete Unit:=wdCharacter, count:=1
@@ -12397,29 +12787,41 @@ Sub Lp_Set_TOC_and_Print_Page_Num_Tab_Stops()
 
     With ActiveDocument.PageSetup
         
+        If Sh_Style_Exists(ActiveDocument, "TOC 1") Then
         ActiveDocument.Styles("TOC 1").ParagraphFormat.TabStops.ClearAll
         ActiveDocument.Styles("TOC 1").ParagraphFormat.TabStops.Add Position:= _
             InchesToPoints(TOCTabSetting), Alignment:=wdAlignTabRight, Leader:=wdTabLeaderDots
+        End If
         
+        If Sh_Style_Exists(ActiveDocument, "TOC 2") Then
         ActiveDocument.Styles("TOC 2").ParagraphFormat.TabStops.ClearAll
         ActiveDocument.Styles("TOC 2").ParagraphFormat.TabStops.Add Position:= _
             InchesToPoints(TOCTabSetting), Alignment:=wdAlignTabRight, Leader:=wdTabLeaderDots
+        End If
         
+        If Sh_Style_Exists(ActiveDocument, "TOC 3") Then
         ActiveDocument.Styles("TOC 3").ParagraphFormat.TabStops.ClearAll
         ActiveDocument.Styles("TOC 3").ParagraphFormat.TabStops.Add Position:= _
             InchesToPoints(TOCTabSetting), Alignment:=wdAlignTabRight, Leader:=wdTabLeaderDots
+        End If
         
+        If Sh_Style_Exists(ActiveDocument, "TOC 4") Then
         ActiveDocument.Styles("TOC 4").ParagraphFormat.TabStops.ClearAll
         ActiveDocument.Styles("TOC 4").ParagraphFormat.TabStops.Add Position:= _
             InchesToPoints(TOCTabSetting), Alignment:=wdAlignTabRight, Leader:=wdTabLeaderDots
+        End If
         
+        If Sh_Style_Exists(ActiveDocument, "TOC 5") Then
         ActiveDocument.Styles("TOC 5").ParagraphFormat.TabStops.ClearAll
         ActiveDocument.Styles("TOC 5").ParagraphFormat.TabStops.Add Position:= _
             InchesToPoints(TOCTabSetting), Alignment:=wdAlignTabRight, Leader:=wdTabLeaderDots
+        End If
         
+        If Sh_Style_Exists(ActiveDocument, "Print Pg Num") Then
         ActiveDocument.Styles("Print Pg Num").ParagraphFormat.TabStops.ClearAll
         ActiveDocument.Styles("Print Pg Num").ParagraphFormat.TabStops.Add Position:= _
             InchesToPoints(TOCTabSetting), Alignment:=wdAlignTabRight, Leader:=wdTabLeaderSpaces
+        End If
                       
     End With
     
@@ -12819,6 +13221,9 @@ Sub Lp_Replace_Strong_With_Bold()
     '
     ' Version 1.0  Date: 10/28/2021
     '
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
+    ' this pass can do nothing without it - no style means nothing is formatted with it.
+    If Sh_Style_Exists(ActiveDocument, "Strong") Then
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("Strong")
     Selection.Find.Replacement.ClearFormatting
@@ -12836,6 +13241,7 @@ Sub Lp_Replace_Strong_With_Bold()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+    End If
  
     Application.Run MacroName:="Lp_Remove_All_Styles_Except_Lp_Styles"
 
@@ -14438,7 +14844,9 @@ Sub Lp_Table_Insert_Transcriber_Note()
         Selection.TypeText Text:=" Empty table cells are shown as " + ChrW(34) + "N/A" + ChrW(34) + "."
     End If
     
+    If Sh_Style_Exists(ActiveDocument, "Box Blue") Then
     Selection.Style = ActiveDocument.Styles("Box Blue")
+    End If
     Selection.ParagraphFormat.KeepWithNext = wdToggle
     
 End Sub   '*** end of Lp_Table_Insert_Transcriber_Note ***
@@ -15045,7 +15453,7 @@ Sub Lp_Normalize_Styles()
 
     Sh_NonModalMessageForm.SetActivityMessage "Setting reference page border weight"
 
-    If ActiveDocument.Styles("Print Pg Num").InUse Then
+    If Sh_Style_In_Use(ActiveDocument, "Print Pg Num") Then
         With ActiveDocument.Styles("Print Pg Num").ParagraphFormat
             .Borders(wdBorderLeft).LineStyle = wdLineStyleNone
             .Borders(wdBorderRight).LineStyle = wdLineStyleNone
@@ -15459,7 +15867,9 @@ Next para
         Set paraRange = para.Range
         
         ' Skip paragraphs that begin with "$pg" or have style "Print Pg Num"
-        If Left(paraRange.Text, 3) = "$pg" Or para.Style = ActiveDocument.Styles("Print Pg Num") Then
+        ' Sh_Para_Style_Is, not "= ActiveDocument.Styles(...)": VBA evaluates BOTH sides of Or,
+        ' so a document without the style raised 5941 here even when the text test already passed.
+        If Left(paraRange.Text, 3) = "$pg" Or Sh_Para_Style_Is(paraRange, "Print Pg Num") Then
             GoTo SkipPara
         End If
         
@@ -17261,6 +17671,42 @@ NextTable:
     Next i
 
 End Sub   '*** end of Sh_Remove_Empty_Para_Before_Tables macro ***
+
+Sub Sh_Clear_Multi_Selection()
+'
+' Version: 1.0  Date: 8/5/2026
+'
+' Author: Jerry Whittaker - jerry@thewhittakers.org
+'
+' Collapses the selection to ONE insertion point at its start.
+'
+' The temp-file validation builds its list by driving Word's Find and Replace dialog with
+' SendKeys and choosing Find In > Main Document - see TempFileButton_Click on
+' Sh_Validation_Choices_Form. That is Word's Find All, and it leaves a DISCONTIGUOUS selection:
+' every $pg paragraph in the document selected at once. The user cannot avoid it, because the
+' Navigation pane refuses the job once there are more tags than it can hold.
+'
+' That selection SURVIVES the validation, and most Selection methods refuse to work across a
+' multiple selection - the next macro to touch one dies with run-time error 4605. Jerry hit it
+' running AutoTag Ref Pages straight after validating, 8/5/2026.
+'
+' Re-selecting a single collapsed range is the reliable cure. Selection.Collapse is not: it can
+' raise 4605 on the very selection it is meant to fix.
+
+    Dim keepAt As Long
+
+    On Error Resume Next
+    keepAt = Selection.Start
+    If Err.Number <> 0 Then keepAt = 0
+    Err.Clear
+    On Error GoTo 0
+
+    If keepAt < 0 Then keepAt = 0
+    If keepAt > ActiveDocument.Content.End Then keepAt = 0
+
+    ActiveDocument.Range(keepAt, keepAt).Select
+
+End Sub   '*** end of Sh_Clear_Multi_Selection macro ***
 
 Sub Sh_Copy_Ref_Pg_Tags_To_Temp_File()
 

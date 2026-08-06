@@ -275,6 +275,12 @@ Public Sub Sh_PgVal_Done()
     End If
     If Sh_PgVal_DocIsOpen(Sh_PgVal_SourceDoc) Then
         Sh_PgVal_SourceDoc.Activate
+
+        'Clear the Find All multiple selection before handing the document back. The temp-file
+        'route selects EVERY $pg paragraph at once to copy them (Find In > Main Document), and
+        'that selection outlives the validation. Word refuses most Selection work across a
+        'multiple selection, so the next macro the user runs died with run-time error 4605.
+        Sh_Clear_Multi_Selection
     End If
 
     Unload Sh_Valid_Ref_Pg_No_1_Form

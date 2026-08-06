@@ -60,7 +60,7 @@ sources) that ship or that Word loads.
 
 | Piece | What it is | Role |
 |------|-----------|------|
-| `LPandBRL.dotm` | Word add-in template (macro-enabled), built from `src/` | **The code.** The entire compiled VBA project — 236 subs/functions in `LPandBrlMacros`, plus 50 UserForms — and the embedded ribbon (below). Loaded from Word's `STARTUP` folder, so its macros are available to every document. Behavior is *authored* under `src/vba`/`src/forms`; this is where it *runs*. |
+| `LPandBRL.dotm` | Word add-in template (macro-enabled), built from `src/` | **The code.** The entire compiled VBA project — 236 subs/functions in `LPandBrlMacros`, plus 48 UserForms — and the embedded ribbon (below). Loaded from Word's `STARTUP` folder, so its macros are available to every document. Behavior is *authored* under `src/vba`/`src/forms`; this is where it *runs*. |
 | Embedded ribbon (`src/ribbon/customUI14.xml`) | Ribbon customization XML, embedded into `LPandBRL.dotm` at build time | **The UI.** Defines the custom ribbon tabs **"VistaType LP"** (large print) and **"Braille Macros"** (DBT/BANA). Every button's `tag` names a VBA sub, dispatched through one `RibbonAction` handler. Because it is *embedded* (not the old global `Word.officeUI`), it **merges** with the user's ribbon instead of replacing it. |
 | `LargePrintTemplate.dotx` | Word document template | **The style set.** The template *attached to a user's large-print document* (vs. `LPandBRL.dotm`, the global add-in loaded for every document). Supplies paragraph/character styles and page setup. The VBA references it by name in 7+ places, and treats a document as "large print" when this template is attached. |
 
@@ -87,6 +87,12 @@ src/forms/      canonical UserForms: *.frm + *.frx (binary layout)
                 and LF endings make it dump that header into the form's CODE module - which
                 fails only on the user's machine, as "Compile error in hidden module".
                 `make build` now refuses to run if any .frm has bare LF. See DEVELOPMENT.md.
+                A file DELETED from src/ is now really gone from the build: `push-src` wipes the
+                build box's src/ and tools/ before copying, because scp only adds and overwrites.
+                Without that, Import-Vba.ps1 kept re-importing removed forms from the box's stale
+                copy and they shipped in every later .dotm - three of them were, one since
+                8/3/2026 - and nothing said so, since the build log lists what it REMOVES from the
+                .dotm, not what it puts back.
 src/ribbon/     customUI14.xml — embedded ribbon (source of truth); Word.officeUI (legacy)
                 From 3.0.34 the two VISIBLE tabs are also written into the user's own
                 Word.officeUI by the installer (generated: installer/ribbon-tabs.officeUI),
@@ -112,7 +118,13 @@ tools/windows/  Export-Vba.ps1 / Import-Vba.ps1 / New-UserForm.ps1 — run in Wo
                 (Import-Vba.ps1 clears stale hidden `~$*` Word lock files first — a leftover
                  one makes Word raise an invisible "File In Use" dialog and the build hangs
                  forever with no error; see DEVELOPMENT.md "Gotchas baked into the tooling")
-tools/lib/      check_form_calls.py (refuses to build when a FORM calls a macro that exists nowhere
+tools/lib/      check_style_guards.py (refuses to build when an ActiveDocument.Styles("name") lookup is
+                not behind Sh_Style_Exists / Sh_Style_In_Use. Styles(name) raises run-time error 5941 on a
+                document that does not carry the style, and documents legitimately do not: RefPageNemeth
+                comes from the Nemeth braille templates, Print Pg Num from the LP one. The macro dies
+                where it stands, usually before doing anything the user can see. All 158 were guarded on
+                8/5/2026 after one cost Jerry an AutoTag run);
+                check_form_calls.py (refuses to build when a FORM calls a macro that exists nowhere
                 under src/vba — nothing in the build compiles VBA, so that ships and fails on the
                 user's machine as "Compile error in hidden module: <form name>", naming the form
                 and not the missing macro; it also WARNS, without failing, about Application.Run
@@ -237,7 +249,7 @@ runs in Word (this drove the remote-build design; see DEVELOPMENT.md).
 - **`LpExportImportSelectedText` / `DxExportImportSelectedText`** — round-tripping selected
   text to/from separate files.
 - **`ShNonModalMessage`** — shared non-modal status messaging.
-- **50 UserForms** — dialogs, prefixed by domain (see below).
+- **48 UserForms** — dialogs, prefixed by domain (see below).
 
 The built add-in's **VBA project is named `LPandBRL`** (not `Normal`): it ships in Word's
 STARTUP folder loaded alongside the user's own `Normal.dotm`, and two loaded projects can't

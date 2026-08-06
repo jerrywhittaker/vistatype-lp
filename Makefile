@@ -28,7 +28,7 @@ DOTM      := LPandBRL.dotm
 DOTX      := LargePrintTemplate.dotx
 RIBBON    := Word.officeUI
 PROJNAME  := LPandBRL
-APPVER    := 3.0.83
+APPVER    := 3.0.88
 SETUP_EXE := VistaType LP and Braille Macros Setup $(APPVER).exe
 VERDATE   := $(shell date +%-m/%-d/%Y)
 
@@ -45,8 +45,15 @@ check-config:
 	@test -n "$(WIN_HOST)" || { echo "ERROR: WIN_HOST not set in build.config."; exit 1; }
 
 # --- push the working tree (source + scripts + shell .dotm) to the Windows box ---
+# scp only ADDS and OVERWRITES - it never deletes. So a file removed from src/ stayed on the
+# build box for ever, and Import-Vba.ps1, which imports whatever it finds there, put it back
+# into every later .dotm. Three deleted UserForms had been shipping that way, one of them
+# (Sh_License_Form) since 8/3/2026, and nothing said so: the build log lists what it REMOVES
+# from the .dotm, not what it re-imports. Wipe the two pushed trees first so the box is always
+# an exact copy of src/. Only src and tools go - dist/ holds the .dotm being built.
 push-src: check-config
 	$(SSH) "if not exist \"$(WIN_DIR)\" mkdir \"$(WIN_DIR)\""
+	$(SSH) '$(WIN_PWSH) -NoProfile -Command "Remove-Item -Recurse -Force \"$(WIN_DIR)/src\", \"$(WIN_DIR)/tools\" -ErrorAction SilentlyContinue; exit 0"'
 	scp -q -r src tools $(DOTM) "$(WIN_HOST):$(WIN_DIR)/"
 
 # --- canonical export: Word writes .bas/.cls/.frm/.frx from the .dotm back to src/ ---
@@ -79,6 +86,13 @@ check-vba-lines:
 check-form-calls:
 	@python3 tools/lib/check_form_calls.py
 
+# ActiveDocument.Styles("X") raises run-time error 5941 when the document has no such style,
+# and a document need not: RefPageNemeth comes from the Nemeth braille templates, Print Pg Num
+# from the LP template. The macro then dies where it stands, often before doing anything the
+# user can see. Cost Jerry an AutoTag run on 8/5/2026. Every lookup must be guarded.
+check-style-guards:
+	@python3 tools/lib/check_style_guards.py
+
 check-qat:
 	@python3 tools/lib/build_qat.py
 
@@ -89,7 +103,7 @@ check-qat:
 check-tabs:
 	@python3 tools/lib/build_ribbon_tabs.py
 
-build: check-config check-frm-eol check-vba-lines check-form-calls check-qat check-tabs push-src
+build: check-config check-frm-eol check-vba-lines check-form-calls check-style-guards check-qat check-tabs push-src
 	$(SSH) '$(WIN_PWSH) -ExecutionPolicy Bypass -File $(WSCRIPTS)/Import-Vba.ps1 -Shell "$(WIN_DIR)/$(DOTM)" -SrcRoot "$(WIN_DIR)/src" -OutDotm "$(WIN_DIR)/dist/$(DOTM)" -ProjectName $(PROJNAME) -AppVer $(APPVER) -VerDate "$(VERDATE)"'
 	@# The two About forms carry the version in their binary .frx, so bring them home if the
 	@# stamp changed them. -u: only if newer, so an unchanged build copies nothing.
