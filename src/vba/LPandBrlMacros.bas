@@ -18,6 +18,13 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Sh - 8/5/2026 - the DAISY/NIMAS conversion now ASKS whether to keep the images, straight after the DAISY/NIMAS
+'           - Sh - 8/5/2026 - choice (Jerry, 8/5/2026). New DN_Keep_Or_Omit_Images_Form: "Keep images (Large Print)" is the default,
+'           - Sh - 8/5/2026 - "Omit images (braille)" the alternative, answered through Sh_GP_String_2 as "KEEP" or "OMIT". Braille
+'           - Sh - 8/5/2026 - almost never wants the pictures and large print always does. It is also the biggest lever on how long
+'           - Sh - 8/5/2026 - the job takes: embedding was 213 of the 330 seconds measured on a real NIMAS book, so omitting them
+'           - Sh - 8/5/2026 - turns the longest stage into a short one. The delete loop runs BACKWARDS - deleting a shape renumbers
+'           - Sh - 8/5/2026 - the rest, so forwards would skip every second picture.
 ' Notes:    - Sh - 8/5/2026 - EVERY ActiveDocument.Styles("name") lookup in this module is now guarded (Jerry asked, 8/5/2026).
 '           - Sh - 8/5/2026 - There were 158 of them and they all raise run-time error 5941 on a document that does not carry the
 '           - Sh - 8/5/2026 - style - which is normal: RefPageNemeth comes from the Nemeth templates, Print Pg Num from the LP one.
@@ -317,7 +324,7 @@ Public Lp_Pic_Percent As String
 Public Lp_Pic_All_Selectd As String
 
 Public Sh_GP_String_1 As String
-Public Sh_GP_String_2 As String
+Public Sh_GP_String_2 As String   ' the conversion's image choice, "KEEP" or "OMIT"
 Public Sh_GP_Boolean_1 As Boolean
 Public Sh_GP_Counter_1 As Integer
 
@@ -17947,6 +17954,18 @@ Sub Sh_Convert_XML_File_To_Word_Document()
         Exit Sub
     End If
 
+    ' --- Step 4b: keep the images, or leave them out? ---
+    ' Braille almost never wants the pictures and large print always does, so this is asked
+    ' rather than guessed (Jerry, 8/5/2026). It is also the single biggest lever on how long
+    ' the conversion takes: embedding the images was 213 seconds of the 330 measured on a real
+    ' NIMAS book, so a braille conversion that drops them finishes in a fraction of the time.
+    Sh_GP_String_2 = ""
+    DN_Keep_Or_Omit_Images_Form.Show
+    If Sh_GP_String_2 <> "KEEP" And Sh_GP_String_2 <> "OMIT" Then
+        MsgBox "No image choice was made. The process will now end.", vbExclamation, "Process Aborted"
+        Exit Sub
+    End If
+
     ' --- Show the progress box before any real work starts ---
     ' It has to be up from the first stage. An earlier rewrite of Step 6 removed the opening
     ' Show along with the temp-document code it was sitting in, so the box did not appear until
@@ -18115,21 +18134,42 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     Dim nShapes As Long, iShape As Long
 
     nShapes = finalDoc.InlineShapes.Count
-    Sh_Convert_Progress_Form.SetProgress 6, "Embedding " & Format(nShapes, "#,##0") & _
-        " images. This is the longest part of the conversion."
+    If Sh_GP_String_2 = "OMIT" Then
+        Sh_Convert_Progress_Form.SetProgress 6, "Removing " & Format(nShapes, "#,##0") & " images."
+    Else
+        Sh_Convert_Progress_Form.SetProgress 6, "Embedding " & Format(nShapes, "#,##0") & _
+            " images. This is the longest part of the conversion."
+    End If
 
-    For Each shp In finalDoc.InlineShapes
-        If Not shp.LinkFormat Is Nothing Then
-            shp.LinkFormat.SavePictureWithDocument = True
-            shp.LinkFormat.BreakLink
-        End If
-        iShape = iShape + 1
-        If iShape Mod 10 = 0 And nShapes > 0 Then
-            Sh_Convert_Progress_Form.SetProgress 6 + (71 * iShape / nShapes), _
-                "Embedding image " & Format(iShape, "#,##0") & " of " & Format(nShapes, "#,##0") & "."
-            DoEvents
-        End If
-    Next shp
+    If Sh_GP_String_2 = "OMIT" Then
+
+        ' Backwards: deleting a shape renumbers every one after it, so a forward loop would
+        ' step over every second picture.
+        For iShape = nShapes To 1 Step -1
+            finalDoc.InlineShapes(iShape).Delete
+            If iShape Mod 10 = 0 And nShapes > 0 Then
+                Sh_Convert_Progress_Form.SetProgress 6 + (71 * (nShapes - iShape) / nShapes), _
+                    "Removing image " & Format(nShapes - iShape, "#,##0") & " of " & Format(nShapes, "#,##0") & "."
+                DoEvents
+            End If
+        Next iShape
+
+    Else
+
+        For Each shp In finalDoc.InlineShapes
+            If Not shp.LinkFormat Is Nothing Then
+                shp.LinkFormat.SavePictureWithDocument = True
+                shp.LinkFormat.BreakLink
+            End If
+            iShape = iShape + 1
+            If iShape Mod 10 = 0 And nShapes > 0 Then
+                Sh_Convert_Progress_Form.SetProgress 6 + (71 * iShape / nShapes), _
+                    "Embedding image " & Format(iShape, "#,##0") & " of " & Format(nShapes, "#,##0") & "."
+                DoEvents
+            End If
+        Next shp
+
+    End If
 
     ' Unlink any remaining field codes Word might complain about
     finalDoc.Fields.Unlink
