@@ -28,7 +28,7 @@ DOTM      := LPandBRL.dotm
 DOTX      := LargePrintTemplate.dotx
 RIBBON    := Word.officeUI
 PROJNAME  := LPandBRL
-APPVER    := 3.0.98
+APPVER    := 3.0.99
 SETUP_EXE := VistaType LP and Braille Macros Setup $(APPVER).exe
 VERDATE   := $(shell date +%-m/%-d/%Y)
 
@@ -175,6 +175,11 @@ installer:
 installer-build: check-config stage
 	$(SSH) "if not exist \"$(WIN_DIR)\" mkdir \"$(WIN_DIR)\""
 	$(SSH) "if not exist \"$(WIN_DIR)\\dist\" mkdir \"$(WIN_DIR)\\dist\""
+	@# Wipe installer/ on the box first, for the same reason push-src does it: scp only ADDS
+	@# and OVERWRITES, so a file deleted here would linger there and keep being compiled into
+	@# the Setup.exe. Nothing has been bitten by this yet, but the identical trap in push-src
+	@# shipped three deleted UserForms for days without a word (see the note there).
+	$(SSH) '$(WIN_PWSH) -NoProfile -Command "Remove-Item -Recurse -Force \"$(WIN_DIR)/installer\" -ErrorAction SilentlyContinue; exit 0"'
 	scp -q -r installer "$(WIN_HOST):$(WIN_DIR)/"
 	@# Send only what ISCC actually reads. Copying the whole dist/ meant re-uploading every
 	@# previously built Setup.exe on every build - slow, and it FAILS outright if Windows is
