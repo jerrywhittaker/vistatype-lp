@@ -25,6 +25,10 @@ Usage:
     powershell -ExecutionPolicy Bypass -File New-UserForm.ps1 `
         -Name Sh_My_Form -Caption "My Dialog" -OutDir "C:\build\vistatype\formout"
 
+    Forms are created in Tahoma 10, and every CommandButton gets a ControlTipText of its
+    caption plus " Button" - both Jerry's rules from 8/7/2026. Keep them on anything added to
+    the .frm by hand afterwards.
+
     ... -InfoDialog        also lays in the read-only note shape: a locked, border-less
                            text box named Info_Text filling the form, and an OK button named
                            Close_Me. That is the shape Sh_Prodnote_Info_Form uses -- the text
@@ -118,6 +122,43 @@ try {
         $btn.Default = $true              # Enter closes it
         $btn.Cancel  = $true              # Esc closes it too
     }
+
+    # --- Jerry's form conventions, 8/7/2026: Tahoma 10, and a ControlTipText on every button.
+    #
+    # Done LAST, so it catches every control however it was added, and done in VBA rather than
+    # from PowerShell. Setting the font from PowerShell silently does nothing: "$d.Font.Size =
+    # 10" reports success and reads back empty, and $comp.Properties.Item('Font') throws
+    # "Invalid object use". From VBA the same properties behave.
+    #
+    # Each CONTROL is set as well as the form. Setting only the form is not enough: MSForms
+    # snaps the form's own size to 9.75, while a control takes 10 exactly, and the controls are
+    # what anyone actually sees.
+    #
+    # The tip is what a screen reader announces. Several of the transcribers using this are
+    # visually impaired themselves, which is the whole point of it.
+    $tidy = $proj.VBComponents.Add(1)
+    $tidy.CodeModule.AddFromString(@"
+Sub Zz_Apply_Form_Conventions()
+    Dim c As Object, ctl As Object
+    Set c = ThisDocument.VBProject.VBComponents("$Name")
+    On Error Resume Next
+
+    c.Designer.Font.Name = "Tahoma"
+    c.Designer.Font.Size = 10
+
+    For Each ctl In c.Designer.Controls
+        ctl.Font.Name = "Tahoma"
+        ctl.Font.Size = 10
+        If TypeName(ctl) = "CommandButton" Then
+            ctl.ControlTipText = ctl.Caption & " Button"
+        End If
+    Next ctl
+End Sub
+"@)
+    $doc.Activate()
+    $word.Run('Zz_Apply_Form_Conventions') | Out-Null
+    $proj.VBComponents.Remove($tidy)
+    Write-Host "applied Tahoma 10 and button tips"
 
     $comp.Export($target)
     Write-Host "created $Name -> $target (+ .frx)"

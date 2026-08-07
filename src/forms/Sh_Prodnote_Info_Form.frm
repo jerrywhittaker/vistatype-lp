@@ -14,7 +14,6 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
-
 Private Sub Close_Me_Click()
     Unload Me 'close this form
 End Sub
@@ -41,17 +40,17 @@ Private Sub UserForm_Initialize()
       & "style and are displayed in red text within the document. Prodnotes are not part " _
       & "of the publisher's printed version of the book but are added during the " _
       & "production of the DAISY or NIMAS file. Prodnotes can be used to insert printable " _
-      & "information to improve accessibility and are often descriptions of visual " _
+      & "text to improve accessibility and are often descriptions of visual " _
       & "elements such as complex pictures and mathematical charts and graphs."
 
     m = m & vbCrLf & vbCrLf _
       & "When the desired output is braille, descriptions of visual elements can provide " _
       & "readers with additional information not in print. Edit the prodnotes as needed. " _
       & "The prodnotes in the file may be converted to the ""Transcriber Note"" style " _
-      & "using the ""Prodnote " & ChrW(8594) & " TN"" macro after editing is completed."
+      & "using the ""Prodnote " & ChrW(8594) & " TN"" macro after review and editing are completed."
 
     m = m & vbCrLf & vbCrLf _
-      & "For large print, prodnotes may only have value if the aim is to produce an " _
+      & "For large print, prodnotes may only have value if the goal is to produce an " _
       & "accessible PDF or web page."
 
     m = m & vbCrLf _
