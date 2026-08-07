@@ -178,19 +178,27 @@ try {
             # The two forms do NOT use the same control name: the LP one is "VersionLabel",
             # the Braille one is "Label5". Match on the caption instead, so this keeps working
             # if either is renamed and does not need a per-form lookup table.
-            $lbl = $null
-            try { $lbl = $about.Designer.Controls("VersionLabel") } catch { }
-            if (-not $lbl) {
-                foreach ($ctl in $about.Designer.Controls) {
-                    $cap = ""
-                    try { $cap = [string]$ctl.Caption } catch { }
-                    if ($cap -like "This computer is running Version*") { $lbl = $ctl; break }
-                }
+            #
+            # EVERY matching control, not just the first. This stopped at the first one until
+            # 8/7/2026, and the Braille form carries TWO version captions - so one was stamped
+            # and the other kept "This computer is running Version Version 2.1.1  2/23/2026",
+            # from February. That stale label is what Jerry kept reading as "the About shows an
+            # old version", on a clean install as well as an upgrade, through eight build
+            # numbers while the fault was hunted in the installer instead.
+            $stampedAny = $false
+            $sawCaption = $false
+            foreach ($ctl in $about.Designer.Controls) {
+                $cap = ""
+                try { $cap = [string]$ctl.Caption } catch { }
+                if ($cap -notlike "This computer is running Version*") { continue }
+                $sawCaption = $true
+                if ($cap -eq $stamp) { continue }
+                Write-Host "stamp version in $aboutName : '$cap' -> '$stamp'"
+                $ctl.Caption = $stamp
+                $stampedAny = $true
             }
-            if (-not $lbl) { Write-Host "WARNING: $aboutName has no version caption - version not stamped"; continue }
-            if ($lbl.Caption -eq $stamp) { Write-Host "version already $AppVer in $aboutName"; continue }
-            Write-Host "stamp version in $aboutName : '$($lbl.Caption)' -> '$stamp'"
-            $lbl.Caption = $stamp
+            if (-not $sawCaption) { Write-Host "WARNING: $aboutName has no version caption - version not stamped"; continue }
+            if (-not $stampedAny) { Write-Host "version already $AppVer in $aboutName"; continue }
             $about.Export((Join-Path $SrcRoot "forms\$aboutName.frm"))
             Write-Host "exported $aboutName back to src/forms (Makefile copies it home)"
         }

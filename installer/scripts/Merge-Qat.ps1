@@ -196,6 +196,63 @@ function Write-Manifest([string]$target, $elements, $doc, $tabIds) {
     Set-Content -LiteralPath $man -Value $lines -Encoding UTF8
 }
 
+# The add-in control names a tab or group carries. This is the fingerprint that survives Word
+# rewriting ids: Word can renumber a tab or a group, but it cannot change which of the add-in's
+# controls they point at.
+function Get-OurControlNames($doc, $el) {
+    $names = @()
+    foreach ($n in $el.SelectNodes(".//*[@idQ]")) {
+        $p, $l = Split-IdQ $n.GetAttribute("idQ")
+        $uri = Resolve-Uri $doc $p
+        if ($uri -and $uri -like "*LPandBRL.dotm") { $names += $l }
+    }
+    return $names
+}
+
+# A group id with VistaType's decoration taken off, so an old one and a current one compare
+# equal. Our generator built "vt_grp_mso_c1_18B5F8FF" from the id Word itself had written,
+# "mso_c1.18B5F8FF" -- same hash, prefixed, dots turned into underscores.
+function Get-NormalisedGroupId($id) {
+    if (-not $id) { return "" }
+    $n = $id
+    if ($n.StartsWith("vt_grp_")) { $n = $n.Substring(7) }
+    return $n.Replace(".", "_")
+}
+
+# Is this group one of ours? Three ways, and ALL THREE are needed:
+#   * the id we write,
+#   * the add-in controls it holds (Word may have renumbered the id),
+#   * the same id as one of the template's groups with the decoration off -- which is how a
+#     PRE-3.0 group is recognised. Those hold no resolvable controls at all.
+# A group the user added satisfies none of them and is never touched.
+function Test-OurGroup($doc, $g, $templateGroupIds) {
+    if ($g.GetAttribute("id") -like "vt_grp_*") { return $true }
+    if ((Get-OurControlNames $doc $g).Count -gt 0) { return $true }
+    if ($templateGroupIds -and
+        ($templateGroupIds -contains (Get-NormalisedGroupId $g.GetAttribute("id")))) { return $true }
+    return $false
+}
+
+# Is this tab a VistaType tab from BEFORE 3.0, when the ribbon was a whole Word.officeUI we
+# shipped and replaced the user's with? Those tabs are mso_c1.F9211 "Braille Macros",
+# mso_c1.56E551D "VistaType LP" and mso_c1.4EA2EBA "LP and BRL QAT Icons" -- Word-generated
+# ids, and controls that no longer resolve to the add-in. Every machine that ran VistaType
+# before 3.0 still carries them, so on upgrade the transcriber gets two tabs of each name and
+# the older one is missing every button added since. That is the fault Jerry reported on
+# 8/6/2026 and chased through eight builds.
+#
+# The group ids are the proof: strip the decoration and the old tab's groups are OUR groups.
+# Only say yes when EVERY group matches and there are at least two, so a tab of the user's own
+# that happens to share one group is never touched.
+function Test-LegacyOurTab($tab, $templateGroupIds) {
+    $groups = @(Get-Elements $tab | Where-Object { $_.LocalName -eq "group" })
+    if ($groups.Count -lt 2) { return $false }
+    foreach ($g in $groups) {
+        if ($templateGroupIds -notcontains (Get-NormalisedGroupId $g.GetAttribute("id"))) { return $false }
+    }
+    return $true
+}
+
 # --- take VistaType's tabs back out of the user's ribbon ---
 # A tab is ours if it still carries any control pointing into the add-in. That fingerprint
 # survives the user reordering, renaming or unticking the tab -- all of which Word may
@@ -217,7 +274,7 @@ function Remove-OurTabs($doc, $tabsNode) {
         if (-not $ours) { continue }
 
         foreach ($g in (Get-Elements $tab)) {
-            if ($g.GetAttribute("id") -like "vt_grp_*") { [void]$tab.RemoveChild($g) }
+            if (Test-OurGroup $doc $g $null) { [void]$tab.RemoveChild($g) }
         }
         if ((Get-Elements $tab).Count -eq 0) {
             [void]$tabsNode.RemoveChild($tab)
@@ -416,31 +473,80 @@ function Apply-One([string]$Target) {
 
         if ($Tabs -eq "Install") {
             $tpl = Load-Template $TabsTemplate "tabs"
-            $installed = 0; $refreshed = 0
+            $installed = 0; $refreshed = 0; $duplicates = 0; $bestScore = -1
             foreach ($t in $tpl.Items) {
                 $wantId = $t.GetAttribute("id")
-                $existing = $null
-                foreach ($e in (Get-Elements $tabsNode)) {
-                    if ($e.LocalName -eq "tab" -and $e.GetAttribute("id") -eq $wantId) { $existing = $e; break }
+                $wantNames = Get-OurControlNames $tpl.Doc $t
+
+                # This tab's group ids with the decoration off, which is what identifies both a
+                # Word-renumbered copy and a pre-3.0 one.
+                $wantGroups = @()
+                foreach ($g in (Get-Elements $t)) {
+                    if ($g.LocalName -eq "group") { $wantGroups += (Get-NormalisedGroupId $g.GetAttribute("id")) }
                 }
+
+                # EVERY tab of ours that answers to this template tab, not just the first.
+                $found = @()
+                foreach ($e in (Get-Elements $tabsNode)) {
+                    if ($e.LocalName -ne "tab") { continue }
+                    if ($e.GetAttribute("id") -eq $wantId) { $found += ,@(1000, $e); continue }
+                    $have = Get-OurControlNames $doc $e
+                    if ($have.Count -gt 0) {
+                        $shared = @($have | Where-Object { $wantNames -contains $_ }).Count
+                        if ($shared -gt 0) { $found += ,@($shared, $e) }
+                        continue
+                    }
+                    if (Test-LegacyOurTab $e $wantGroups) {
+                        Write-Log ("  found a pre-3.0 VistaType tab: " + $e.GetAttribute("id") + " '" + $e.GetAttribute("label") + "'")
+                        $found += ,@(1, $e)
+                    }
+                }
+
+                $existing = $null
+                foreach ($f in $found) {
+                    if (-not $existing -or $f[0] -gt $bestScore) { $bestScore = $f[0]; $existing = $f[1] }
+                }
+
                 if ($existing) {
-                    # Refresh only the groups we own; leave the tab element itself, and any
-                    # group the user added to it, exactly as they are.
+                    # Refresh the groups we own and leave everything else -- the tab element
+                    # itself, its place, its name, and any group the user added.
+                    #
+                    # $wantGroups is passed so a PRE-3.0 group is recognised too. Leaving it out
+                    # was the 3.0.96 disaster: the legacy groups were not removed, our seven were
+                    # appended beside them, and the tab came out with fourteen groups, half of
+                    # them rendering as empty placeholders because their controls point nowhere.
                     foreach ($g in (Get-Elements $existing)) {
-                        if ($g.GetAttribute("id") -like "vt_grp_*") { [void]$existing.RemoveChild($g) }
+                        if (Test-OurGroup $doc $g $wantGroups) { [void]$existing.RemoveChild($g) }
                     }
                     foreach ($g in (Get-Elements $t)) {
                         [void]$existing.AppendChild((Copy-Tree $doc $t.OwnerDocument $g $prefixMap))
                     }
                     $writtenTabs += $wantId
                     $refreshed++
+
+                    # Anything else that matched is a spare copy: strip our groups from it, and
+                    # if that leaves it empty, take the tab out. A group the user added keeps it.
+                    foreach ($f in $found) {
+                        $dup = $f[1]
+                        if ($dup -eq $existing) { continue }
+                        foreach ($g in (Get-Elements $dup)) {
+                            if (Test-OurGroup $doc $g $wantGroups) { [void]$dup.RemoveChild($g) }
+                        }
+                        if ((Get-Elements $dup).Count -eq 0) {
+                            [void]$tabsNode.RemoveChild($dup)
+                            $duplicates++
+                            Write-Log ("  removed a duplicate " + $wantId + " tab")
+                        } else {
+                            Write-Log ("  emptied a duplicate " + $wantId + " tab but kept it: it holds a group the user added")
+                        }
+                    }
                 } else {
                     [void]$tabsNode.AppendChild((Copy-Tree $doc $t.OwnerDocument $t $prefixMap))
                     $writtenTabs += $wantId
                     $installed++
                 }
             }
-            Write-Log "  ribbon tabs: $installed added, $refreshed refreshed in $Target"
+            Write-Log "  ribbon tabs: $installed added, $refreshed refreshed, $duplicates duplicate(s) removed in $Target"
         }
         elseif ($Tabs -eq "Remove") {
             $gone = Remove-OurTabs $doc $tabsNode

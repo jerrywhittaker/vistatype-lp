@@ -18,6 +18,12 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Sh - 8/6/2026 - INSTALLER FIX: upgrading over an older version left the ribbon tabs stale (Jerry, 8/6/2026).
+'           - Sh - 8/6/2026 - Both tabs lost the delete-prodnote icons and the braille tab lost change-prodnote-to-TN. The tabs the
+'           - Sh - 8/6/2026 - installer writes into the user's own Word.officeUI were only touched when the ribbon-tabs task was
+'           - Sh - 8/6/2026 - ticked - and it is unchecked by default - so an upgrade kept the OLD tabs while UserRibbonTabs stayed
+'           - Sh - 8/6/2026 - 1, which keeps the add-in's own correct copies hidden. Merge-Qat.ps1 has a new Tabs mode, Refresh:
+'           - Sh - 8/6/2026 - update tabs the user already has, never add one they declined. Nothing in this module changed.
 ' Notes:    - BRL - 8/5/2026 - Dx_AutoTag_Page_Numbers now CONSOLIDATES back-to-back reference page numbers into one range
 '           - BRL - 8/5/2026 - (Jerry, 8/5/2026), the braille answer to the large print merge of 8/2/2026. It runs at the seam
 '           - BRL - 8/5/2026 - between the two halves of that macro: after everything that strips an earlier tagging, before the

@@ -189,6 +189,26 @@ Three subtleties that make it actually work:
 - **Location:** Word reads `Word.officeUI` from `%APPDATA%` (Roaming) on most machines but from
   `%LOCALAPPDATA%` (Local) when the profile roams/redirects or Office can't roam, so the merge
   writes **both** (Word honors whichever it uses; the other is ignored).
+- **Every machine that ran VistaType before 3.0 still carries our OLD ribbon tabs**, and they
+  must be recognised and replaced on upgrade. Before 3.0 the install was a manual file copy
+  that included the global `Word.officeUI` still tracked at the repo root, and it REPLACED the
+  user's ribbon. Those tabs are `mso_c1.F9211` "Braille Macros", `mso_c1.56E551D` "VistaType
+  LP" and `mso_c1.4EA2EBA` "LP and BRL QAT Icons" — Word-generated ids, and controls that no
+  longer resolve to the add-in. Nothing identified them, so the installer added the current
+  pair beside them: two tabs of each name, the older missing every button added since, and the
+  transcriber clicking whichever came first. Jerry hit it on 8/6/2026 and it took eight builds
+  and four wrong theories to find, because it only appears on an upgrade and a clean install
+  was always perfect.
+
+  A tab or group of ours is now recognised three ways, and `Merge-Qat.ps1` needs **all three**:
+  the `vt_*` id we write; the add-in controls it carries; or **the same id as one of the
+  template's groups with the decoration stripped** — `vt_grp_mso_c1_18B5F8FF` and
+  `mso_c1.18B5F8FF` are the same group, ours prefixed with dots turned into underscores. That
+  last test is the only thing that sees a pre-3.0 group.
+
+  Apply it in the REFRESH path as well as the duplicate path. Putting it in only one (3.0.96)
+  left the legacy groups in place and appended ours beside them — a tab with fourteen groups,
+  half of them drawing as empty placeholders because their controls point nowhere.
 - **Format:** each VistaType QAT entry is a **reference to the add-in's own ribbon control** —
   `<mso:control idQ="x1:btn_<macro>">`, where the `x1` namespace is the installed
   `LPandBRL.dotm`'s full path — the exact shape Word itself writes when a user adds one of our
