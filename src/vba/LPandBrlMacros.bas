@@ -3610,12 +3610,20 @@ Private Function Dx_Is_Bare_Pg_Number_Paragraph(ByVal r As Range) As Boolean
 ' The test is deliberately close to what the tagging passes below will actually recognise:
 ' short, and made only of letters, digits and hyphens. It must also carry at least one DIGIT.
 '
-' That last rule is what keeps a PURE ROMAN pair - v / vi - out of this. Roman numerals are not
-' tagged by the Find passes at all; they are tagged by the loop near the end of the macro, which
-' checks each paragraph with Sh_IsValidRomanNumeral and, for EBAE, puts the lower-case marker
-' [[*ii*]] in front. "v-vi" is not a valid roman numeral, so a merged pair would slip past that
-' loop and lose its marker. Leaving roman pairs alone costs nothing - they are still tagged one
-' by one exactly as before.
+' That last rule is what keeps a PURE ROMAN pair - v / vi - out of this. A LONE roman numeral is
+' not matched by any of the Find passes; it is tagged by the loop near the end of the macro,
+' which tests each paragraph with Sh_IsValidRomanNumeral and, for EBAE, puts the lower-case
+' marker [[*ii*]] in front.
+'
+' Merged, the pair would still be tagged - the "letter hyphen letter" pass catches it - but by
+' the wrong route. MEASURED, 8/5/2026: v / vi in EBAE gives $pg[[*ii*]]v and $pg[[*ii*]]vi
+' today, while a merged v-vi gives $pgv-vi[[*lec*]][[*i*]]vi. The range is right; the lower-case
+' marker is gone, because only the roman loop applies it and "v-vi" is not a valid roman
+' numeral. In UEB there is no marker either way, so nothing would be lost there.
+'
+' Leaving roman pairs alone costs nothing - they are still tagged one by one, exactly as before.
+' Merging them would mean deciding what a marked-up roman RANGE should look like to Duxbury,
+' which is Jerry's call, not something to slip in as a detail.
 '
 ' Requiring a digit also keeps ordinary short paragraphs out: two lines reading "Yes" and "No"
 ' are not a page range.
