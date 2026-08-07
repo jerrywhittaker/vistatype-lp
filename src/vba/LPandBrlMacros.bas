@@ -18,12 +18,22 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - BRL - 8/5/2026 - Dx_AutoTag_Page_Numbers now CONSOLIDATES back-to-back reference page numbers into one range
+'           - BRL - 8/5/2026 - (Jerry, 8/5/2026), the braille answer to the large print merge of 8/2/2026. It runs at the seam
+'           - BRL - 8/5/2026 - between the two halves of that macro: after everything that strips an earlier tagging, before the
+'           - BRL - 8/5/2026 - tagging passes. That is the one place where the numbers are BARE - no $pg, no DBT codes, styles back
+'           - BRL - 8/5/2026 - to Normal - so consolidating there means 12/13/14 becomes 12-14 and the existing hyphen pass turns
+'           - BRL - 8/5/2026 - it into $pg12-14[[*lec*]][[*i*]]14, DBT code and all. Merging AFTER tagging, which is how it was
+'           - BRL - 8/5/2026 - first written, would have had to build that code by hand. Only numbers carrying a DIGIT merge:
+'           - BRL - 8/5/2026 - a pure roman pair is left alone because the [[*ii*]] lower-case marker is applied by the roman
+'           - BRL - 8/5/2026 - numeral loop further down, which cannot recognise a range. Tables are skipped and a section break
+'           - BRL - 8/5/2026 - ends a run, both as on the LP side.
 ' Notes:    - Sh - 8/5/2026 - the DAISY/NIMAS conversion now ASKS whether to keep the images, straight after the DAISY/NIMAS
 '           - Sh - 8/5/2026 - choice (Jerry, 8/5/2026). New DN_Keep_Or_Omit_Images_Form: "Keep images (Large Print)" is the default,
 '           - Sh - 8/5/2026 - "Omit images (braille)" the alternative, answered through Sh_GP_String_2 as "KEEP" or "OMIT". Braille
 '           - Sh - 8/5/2026 - almost never wants the pictures and large print always does. It is also the biggest lever on how long
-'           - Sh - 8/5/2026 - the job takes: embedding was 213 of the 330 seconds measured on a real NIMAS book, so omitting them
-'           - Sh - 8/5/2026 - turns the longest stage into a short one. The delete loop runs BACKWARDS - deleting a shape renumbers
+'           - Sh - 8/5/2026 - the job takes. Jerry timed the same book on the same VM both ways: 5 min 30 sec keeping the images,
+'           - Sh - 8/5/2026 - 2 min 30 sec omitting them. The delete loop runs BACKWARDS - deleting a shape renumbers
 '           - Sh - 8/5/2026 - the rest, so forwards would skip every second picture.
 ' Notes:    - Sh - 8/5/2026 - EVERY ActiveDocument.Styles("name") lookup in this module is now guarded (Jerry asked, 8/5/2026).
 '           - Sh - 8/5/2026 - There were 158 of them and they all raise run-time error 5941 on a document that does not carry the
@@ -1553,6 +1563,8 @@ Sub Dx_Format_Tagged_Page_Numbers()
 
 End Sub   '****** end of Dx_Format_Tagged_Page_Numbers macro *****
 
+
+
 Sub Dx_Embed_Ref_Pg_No()
 '
 ' Convert_Reference_Page_Number_to_Embedded_Reference_Page_Number
@@ -2776,6 +2788,7 @@ End Sub   '***** End of Dx_Spelling_List Macro *****
 
 Sub Dx_AutoTag_Page_Numbers()
 '
+' Version: 2.8 Date: 8/5/2026 - consolidates back-to-back reference page numbers into one range, between the strip and the tagging
 ' Version: 2.7 Date: 8/5/2026 - the three passes that strip an EARLIER tagging no longer die with run-time error 5941 when the document has no RefPageNumber or RefPageNemeth style; same guard on the DBT code restore at the end
 ' Version: 2.6 Date: 8/2/2026 - the ten "^013(...)^013" passes now repeat until nothing is left to replace (Sh_Replace_All_Until_Done); a single Execute tagged only alternate numbers when two page numbers sat in consecutive paragraphs
 ' Version: 2.5 Date: 8/30/2025 - added new validation of roman numerals
@@ -3069,6 +3082,13 @@ Sub Dx_AutoTag_Page_Numbers()
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
     
+    ' Back-to-back reference page numbers become ONE range, HERE at the seam between the two
+    ' halves of this macro. Everything above has stripped the old tags, DBT codes and styles, so
+    ' the numbers are bare - 12, 13, 14 - and joining them into 12-14 lets the "number hyphen
+    ' number" pass below produce $pg12-14[[*lec*]][[*i*]]14, continuation code and all. Do it
+    ' after the tagging instead and that code would have to be built by hand. (Jerry, 8/5/2026)
+    Dx_Merge_Adjacent_Pg_Numbers ActiveDocument
+
 '******************* begin tagging *********************************
   
     Application.Run MacroName:="Sh_Fix_Ref_Pages_Before_and_After_Tables"
@@ -3509,6 +3529,259 @@ LoopEnd:
     End If
     
 End Sub   '***** end of Dx_AutoTag_Page_Numbers Macro *************
+
+Function Dx_Merge_Adjacent_Pg_Numbers(ByVal targetDoc As Document) As Long
+'
+' Combines a RUN of back-to-back reference page numbers into ONE range.
+'
+'   12 / 13         ->  12-14 is what three give; two give 12-13
+'   12 / 13 / 14    ->  12-14
+'   12-13 / 14      ->  12-14      (not 12-13-14)
+'   B13 / B14       ->  B13-B14
+'
+' Real print books contain blank pages, and every page still has to carry a number, so DAISY and
+' NIMAS coders emit two back to back - almost always at a chapter change. Left alone each gets
+' its own reference-page line and they stack up. The large print side has done this since
+' 8/2/2026; this is the braille answer, and Jerry asked for it on 8/5/2026.
+'
+' WHERE THIS RUNS MATTERS, and it is why this works on bare numbers rather than on $pg tags.
+' Dx_AutoTag_Page_Numbers has two halves: the first strips every earlier tag, DBT code and
+' reference-page style, and the second tags what is left. Called at the seam between them, the
+' page numbers are PLAIN - no $pg, no codes, Normal style - so joining 12/13/14 into 12-14 lets
+' the existing "number hyphen number" pass produce $pg12-14[[*lec*]][[*i*]]14, DBT continuation
+' code and all. Merging after tagging, which is how this was first written, would have meant
+' building that code by hand.
+'
+' ANY two adjacent numbers merge, in sequence or not, so 12 next to 99 gives 12-99. Jerry's call
+' on the large print side, 8/2/2026, and it holds here: the "number" is often not a number.
+'
+' Silent. Screen updating belongs to the caller, which has already turned it off. Returns the
+' number of runs merged; nothing reads it, it is there so the work can be checked from the
+' Immediate window.
+'
+' Version: 1.0  Date: 8/5/2026
+' Author: Jerry Whittaker - jerry@thewhittakers.org
+'
+    Dim runs As Collection          ' each item is itself a Collection of paragraph Ranges
+    Dim thisRun As Collection
+    Dim para As Paragraph
+    Dim prevRange As Range
+    Dim r As Long
+
+    ' --- 1. Group the page-number paragraphs into runs of genuinely adjacent ones ---
+    ' A run is only stored once it reaches two: a lone number is the normal case.
+    Set runs = New Collection
+    Set thisRun = Nothing
+
+    For Each para In targetDoc.Paragraphs
+        If Dx_Is_Bare_Pg_Number_Paragraph(para.Range) Then
+            If thisRun Is Nothing Then
+                Set thisRun = New Collection
+            ElseIf Not Dx_Numbers_Can_Merge(prevRange, para.Range) Then
+                Set thisRun = New Collection        ' a section boundary starts a new run
+            End If
+            thisRun.Add para.Range
+            If thisRun.count = 2 Then runs.Add thisRun   ' stored once, then it grows in place
+            Set prevRange = para.Range
+        Else
+            Set thisRun = Nothing                   ' any other paragraph ends the run
+        End If
+    Next para
+
+    If runs.count = 0 Then Exit Function            ' the ordinary case -- nothing doubled up
+
+    ' --- 2. Merge, working BACK TO FRONT ---
+    ' Later runs first, so shortening the document can never move a run still waiting to be
+    ' looked at.
+    For r = runs.count To 1 Step -1
+        Set thisRun = runs(r)
+        If Dx_Merge_One_Pg_Number_Run(targetDoc, thisRun) Then
+            Dx_Merge_Adjacent_Pg_Numbers = Dx_Merge_Adjacent_Pg_Numbers + 1
+        End If
+    Next r
+
+End Function   '*** end of Dx_Merge_Adjacent_Pg_Numbers function ***
+
+Private Function Dx_Is_Bare_Pg_Number_Paragraph(ByVal r As Range) As Boolean
+'
+' True when this paragraph holds nothing but a reference page number, at the point in
+' Dx_AutoTag_Page_Numbers where the tags have been stripped and none have been put back.
+'
+' The test is deliberately close to what the tagging passes below will actually recognise:
+' short, and made only of letters, digits and hyphens. It must also carry at least one DIGIT.
+'
+' That last rule is what keeps a PURE ROMAN pair - v / vi - out of this. Roman numerals are not
+' tagged by the Find passes at all; they are tagged by the loop near the end of the macro, which
+' checks each paragraph with Sh_IsValidRomanNumeral and, for EBAE, puts the lower-case marker
+' [[*ii*]] in front. "v-vi" is not a valid roman numeral, so a merged pair would slip past that
+' loop and lose its marker. Leaving roman pairs alone costs nothing - they are still tagged one
+' by one exactly as before.
+'
+' Requiring a digit also keeps ordinary short paragraphs out: two lines reading "Yes" and "No"
+' are not a page range.
+'
+' Version: 1.0  Date: 8/5/2026
+'
+    Dim t As String
+    Dim s As String
+    Dim ch As String
+    Dim i As Long
+    Dim hasDigit As Boolean
+    Dim inTable As Boolean
+
+    ' Ignore anything in a table, exactly as the large print side does. Adjacent in
+    ' Document.Paragraphs is NOT adjacent on the page - that collection walks every cell in
+    ' document order, so the paragraph after a cell's last one is the first one in the NEXT
+    ' cell. A cell must also always keep one paragraph, so deleting into its end-of-cell marker
+    ' raises error 4605 and would abort the macro half way through.
+    ' If Word cannot tell us, assume it IS in a table - the safe answer is "do not merge".
+    inTable = True
+    On Error Resume Next
+    inTable = r.Information(wdWithInTable)
+    On Error GoTo 0
+    If inTable Then Exit Function
+
+    t = Sh_Para_Visible_Text(r)
+    s = Trim$(Replace(t, ChrW(160), " "))
+
+    ' 12 characters: the roman-numeral loop below uses 11 plus the paragraph mark, and no real
+    ' reference page number is longer.
+    If Len(s) = 0 Or Len(s) > 12 Then Exit Function
+
+    For i = 1 To Len(s)
+        ch = Mid$(s, i, 1)
+        If ch >= "0" And ch <= "9" Then
+            hasDigit = True
+        ElseIf UCase$(ch) >= "A" And UCase$(ch) <= "Z" Then
+            ' a letter is allowed: B13, 14B, A15B
+        ElseIf Lp_Is_Hyphen_Char(ch) Then
+            ' a hyphen is allowed: 16-18 is already a range and can still grow
+        Else
+            ' anything else - a space, a tab, a break, the *~ graphic marker this macro
+            ' plants earlier - means this is not a bare page number.
+            Exit Function
+        End If
+    Next i
+
+    If Not hasDigit Then Exit Function
+
+    Dx_Is_Bare_Pg_Number_Paragraph = True
+
+End Function   '*** end of Dx_Is_Bare_Pg_Number_Paragraph function ***
+
+Private Function Dx_Numbers_Can_Merge(ByVal a As Range, ByVal b As Range) As Boolean
+'
+' True when two page-number paragraphs really are stacked one above the other in the same text
+' flow. Tables are already out - Dx_Is_Bare_Pg_Number_Paragraph rejects them - so two tests:
+'
+'   1. They are touching: a ends exactly where b starts.
+'   2. They are in the same SECTION. A section break lives on a paragraph mark, so a run that
+'      spanned one would lose the break and that section's page setup with it. Two page numbers
+'      back to back at a chapter change is exactly where a break turns up.
+'
+' Version: 1.0  Date: 8/5/2026
+'
+    On Error GoTo NoMerge
+
+    If a.End <> b.start Then Exit Function
+    If a.Sections(1).Index <> b.Sections(1).Index Then Exit Function
+
+    Dx_Numbers_Can_Merge = True
+    Exit Function
+
+NoMerge:                                            ' could not tell, so do not merge
+    Dx_Numbers_Can_Merge = False
+
+End Function   '*** end of Dx_Numbers_Can_Merge function ***
+
+Private Function Dx_Merge_One_Pg_Number_Run(ByVal targetDoc As Document, _
+                                            ByVal numRun As Collection) As Boolean
+'
+' Turns one run of page-number paragraphs into a single range: writes the merged number into the
+' LAST paragraph of the run, then deletes the earlier ones WHOLE, back to front.
+'
+' Both choices come from the large print side and both were learned the hard way on 8/2/2026:
+' whole-paragraph deletes, because a single span across the run left a stray paragraph mark
+' behind whenever the run was three or more; and the LAST paragraph survives, because Word
+' refuses to delete a document's final paragraph mark.
+'
+' Version: 1.0  Date: 8/5/2026
+'
+    Dim firstRng As Range, lastRng As Range
+    Dim writeRng As Range
+    Dim firstText As String, lastText As String
+    Dim mergedNum As String
+    Dim i As Long
+
+    If numRun.count < 2 Then Exit Function
+
+    Set firstRng = numRun(1)
+    Set lastRng = numRun(numRun.count)
+
+    firstText = Sh_Para_Visible_Text(firstRng)
+    lastText = Sh_Para_Visible_Text(lastRng)
+
+    mergedNum = Dx_Merged_Pg_Number(Trim$(firstText), Trim$(lastText))
+    If Len(mergedNum) = 0 Then Exit Function
+
+    ' --- 1. Write the range into the LAST paragraph, text only, not the paragraph mark ---
+    Set writeRng = targetDoc.Range(lastRng.start, lastRng.start + Len(lastText))
+
+    ' Character positions and Range offsets only line up while the paragraph is plain text. If a
+    ' field or an inline shape has crept in they will not, so check before writing.
+    If StrComp(writeRng.Text, lastText, vbBinaryCompare) <> 0 Then Exit Function
+    If StrComp(lastText, mergedNum, vbBinaryCompare) <> 0 Then writeRng.Text = mergedNum
+
+    ' --- 2. Delete the earlier paragraphs of the run, whole, back to front ---
+    For i = numRun.count - 1 To 1 Step -1
+        numRun(i).Delete
+    Next i
+
+    Dx_Merge_One_Pg_Number_Run = True
+
+End Function   '*** end of Dx_Merge_One_Pg_Number_Run function ***
+
+Private Function Dx_Merged_Pg_Number(ByVal firstNum As String, ByVal lastNum As String) As String
+'
+' The merged range: the FIRST part of the first number and the LAST part of the last number,
+' joined with one hyphen. That is what stops an already-hyphenated number from growing a second
+' hyphen -- "12-13" next to "14" gives "12-14", not "12-13-14".
+'
+' A hyphen at either extreme is a stray, not a range boundary, so "-13" keeps its whole text.
+' Two identical numbers give a single one rather than "12-12".
+'
+' Lp_Is_Hyphen_Char is reused rather than copied: it is a pure character test with nothing large
+' print about it, and two copies would be two things to keep in step.
+'
+' Version: 1.0  Date: 8/5/2026
+'
+    Dim head As String, tail As String
+    Dim i As Long
+
+    ' head: everything before the FIRST hyphen of the first number
+    For i = 1 To Len(firstNum)
+        If Lp_Is_Hyphen_Char(Mid$(firstNum, i, 1)) Then Exit For
+    Next i
+    If i > 1 And i <= Len(firstNum) Then head = Trim$(Left$(firstNum, i - 1))
+    If Len(head) = 0 Then head = Trim$(firstNum)
+
+    ' tail: everything after the LAST hyphen of the last number
+    For i = Len(lastNum) To 1 Step -1
+        If Lp_Is_Hyphen_Char(Mid$(lastNum, i, 1)) Then Exit For
+    Next i
+    If i >= 1 And i < Len(lastNum) Then tail = Trim$(Mid$(lastNum, i + 1))
+    If Len(tail) = 0 Then tail = Trim$(lastNum)
+
+    If Len(head) = 0 Or Len(tail) = 0 Then Exit Function
+
+    If StrComp(head, tail, vbTextCompare) = 0 Then
+        Dx_Merged_Pg_Number = head
+    Else
+        Dx_Merged_Pg_Number = head & "-" & tail
+    End If
+
+End Function   '*** end of Dx_Merged_Pg_Number function ***
+
 
 
 Sub Dx_Replace_Straight_Quotes_With_Smart_Quotes()
@@ -17957,8 +18230,10 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     ' --- Step 4b: keep the images, or leave them out? ---
     ' Braille almost never wants the pictures and large print always does, so this is asked
     ' rather than guessed (Jerry, 8/5/2026). It is also the single biggest lever on how long
-    ' the conversion takes: embedding the images was 213 seconds of the 330 measured on a real
-    ' NIMAS book, so a braille conversion that drops them finishes in a fraction of the time.
+    ' the conversion takes. MEASURED end to end by Jerry on the same book and the same VM:
+    ' 5 min 30 sec keeping the images, 2 min 30 sec omitting them. Embedding was 213 seconds
+    ' of that, and dropping the pictures shortens the save as well - the file no longer has
+    ' 86 MB of JPEGs to write.
     Sh_GP_String_2 = ""
     DN_Keep_Or_Omit_Images_Form.Show
     If Sh_GP_String_2 <> "KEEP" And Sh_GP_String_2 <> "OMIT" Then

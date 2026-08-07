@@ -23,8 +23,8 @@ Attribute VB_Exposed = False
 '
 ' Asked straight after the DAISY/NIMAS choice, by Sh_Convert_XML_File_To_Word_Document.
 ' Braille almost never wants the pictures; large print always does. Omitting them also skips
-' the longest stage of the whole conversion by a wide margin - embedding the images took 213
-' of the 330 seconds measured on a real NIMAS book.
+' the longest stage of the conversion by a wide margin. Jerry timed the same book on the same
+' VM both ways, 8/5/2026: 5 min 30 sec keeping the images, 2 min 30 sec omitting them.
 '
 ' Answers through Sh_GP_String_2, "KEEP" or "OMIT", the way the type form answers through
 ' Sh_GP_String_1. An empty string means cancelled, and the caller stops.
