@@ -76,6 +76,14 @@ Installed by the Inno Setup installer (`installer/vistatype.iss`):
 
 - `LPandBRL.dotm` → `%AppData%\Microsoft\Word\STARTUP\` (Word auto-loads it as a global add-in)
 - `LargePrintTemplate.dotx` → `%AppData%\Microsoft\Templates\`; attached to each LP document
+- The four `VistaTypeLPLegible-*.ttf` faces → `{autofonts}` (the per-user Fonts folder), with
+  `OFL.txt` → `%AppData%\VistaType LP\`. Flagged `uninsneveruninstall` and NOT listed in
+  `[UninstallDelete]`: removing the font would silently reflow every book already produced.
+  `MinVersion: 10.0.17134` on those four lines only — per-user font install needs Windows
+  10/1803, and on anything older the add-in installs fine and the dialog greys the choice out.
+  Never add `onlyifdoesntexist`: it would stop a corrected font ever reaching a machine that
+  already has the old one. **The font is OFL, not GPL** — never sweep it under the project
+  licence; condition 5 forbids it and breaching any condition voids the grant.
 - The **Quick Access Toolbar** is set up per the user's choice on the install wizard (append VistaType's icons / install VistaType's toolbar whole / restore their pre-VistaType one / leave it alone), written to `Word.officeUI` in **both** Roaming and Local; their ribbon is never touched and the embedded ribbon supplies the tabs
 
 ## Repo layout
@@ -135,7 +143,22 @@ tools/lib/      check_style_guards.py (refuses to build when an ActiveDocument.S
                 guard); trim_frm_blanks.py (collapses the blank lines Word adds to a form's code
                 section on every export — the two About forms are re-exported by the version
                 stamper on EVERY build, so the runs grow without limit; runs as part of `make build`);
-                extract_qat.py (obsolete/reference — QAT is now qat-template.officeUI)
+                extract_qat.py (obsolete/reference — QAT is now qat-template.officeUI);
+                rescale_font.py (makes Word's point size and the PRINTED letter size agree.
+                A point size sets the em, not any letter, and Atkinson Hyperlegible fills less
+                of that em than Tahoma — 8.1% less cap height, 9.1% less x-height, 8.6% on a
+                real sentence — so 18 pt large print measured ~16.5 pt on Jerry's font ruler,
+                8/8/2026. Scales outlines and every metric by a factor while leaving
+                unitsPerEm at 1000, so the transcriber sets 18, Word REPORTS 18 and the ruler
+                READS 18 — confirmed on the ruler 8/8/2026. It also REFUSES any --family
+                containing "Atkinson" or "Hyperlegible", and rewrites the font's copyright,
+                licence and vendor records to the OFL. Both are licence conditions, not
+                fussiness — see assets/fonts/ below. It renames in the CFF table as well as the
+                name table, and RE-OPENS each file it writes to prove the reserved words are
+                gone: a font keeps its names in two places, and the CFF PostScript name is the
+                one Word puts in a PDF. Missing it the first time left every large-print PDF
+                reporting "AtkinsonHyperlegible-Regular" — which a print shop's RIP can resolve
+                to the REAL Atkinson, restoring the 9% error on the printed page)
 installer/      Like src/ and tools/, this folder is WIPED on the build box before each copy, so a
                 file deleted here is really gone from the next Setup.exe. scp only adds and
                 overwrites; see the note on push-src above for what that cost when it bit.
@@ -149,6 +172,41 @@ installer/      Like src/ and tools/, this folder is WIPED on the build box befo
                 user's machine with no warning.
 docs/           Daily-Workflow-and-Releases.md (Jerry's plain-language guide to dev/master, building, releasing, and what to ask Claude); Installation-Guide.md (end-user install); Build-VM-Setup.md (Hyper-V build/test box); Software-Agreement.md (GPLv3 About-dialog text)
 reference/      generated read aids (gitignored mirror + interim form-code dump)
+assets/fonts/   the typeface the installer SHIPS from 3.0.101, as VistaTypeLP Legible.
+                atkinson-hyperlegible/upstream/ is the pristine 2020-0514 download and is never
+                edited; scaled/ is DERIVED from upstream/ttf/ by tools/lib/rescale_font.py and
+                is a build output — regenerate it, never hand-edit it. `make stage` copies the
+                four .ttf files and OFL.txt into dist/, which is the ONLY road they may travel
+                to the build box (assets/ is never wiped there, so a hand-copy would ship stale
+                for ever — the deleted-UserForms trap again). README.md there records the
+                source, checksum, the measurements behind the 1.094 scale, and how the choice
+                reaches a document.
+                It must be TTF, not OTF: Word embeds TrueType outlines and skips PostScript
+                ones SILENTLY, so an .otf saves into a document without a word and sets at the
+                wrong size on any machine that lacks the font. rescale_font.py also bumps the
+                TTF's OS/2 table to v4 and pins hhea to the typo metrics, because upstream's
+                TTF and OTF disagree about which metrics apply and the TTF alone would set
+                lines ~17% further apart. The face runs 8.5% taller-lined than Tahoma, which is
+                its own design and is LEFT ALONE — a book's typeface is chosen once at attach,
+                and re-attaching at a different size repaginates anyway (Jerry, 8/8/2026).
+                LICENCE — settled 8/8/2026, and it constrains us. The 2020 files' own name
+                table says "without derivatives or alteration", which is SUPERSEDED: Jerry has
+                the Braille Institute's own document (their counsel, Dec 2024) placing the
+                typeface under the SIL Open Font License 1.1. OFL.txt there is that document,
+                transcribed from Jerry's PDF and verified against it character for character —
+                its wording differs slightly from the generic SIL boilerplate, so use THAT
+                file, do not fetch a copy from elsewhere. The PDF itself lives OUTSIDE the
+                project, in ~/reference/vistatype-lp/, and must never be committed — .gitignore
+                refuses it by name should another copy ever land here.
+                Three conditions bind future work: the Reserved Font Names "ATKINSON" and
+                "HYPERLEGIBLE" may not appear in the name users see (hence the family
+                "VistaTypeLP Legible" — "VistaType" alone would clash with an unrelated font
+                producer, Jerry, 8/8/2026); every copy must carry the licence, so OFL.txt has
+                to be INSTALLED beside the fonts; and the font stays OFL and is NOT covered by
+                VistaType's GPLv3 — never sweep it under the project licence, condition 5
+                forbids it and breaching any condition voids the grant. Good news that removes
+                a worry: the OFL expressly exempts documents CREATED with the font, so a
+                transcriber's finished large-print file carries no obligation at all.
 .claude/agents/ four review helpers Claude hands work to, each with its own reading space so
                 the ~16,500-line engine does not crowd out the job in hand. vba-review (the
                 failure modes that ship silently — run before `make build`); braille-lp-review
@@ -546,6 +604,18 @@ does not, tell Jerry before starting other work — an unfolded hotfix is a bug 
 
 ## Domain concepts
 
+- **Typeface choice (3.0.101)**: the transcriber picks Tahoma or the bundled **VistaTypeLP
+  Legible** on the attach dialog, beside the point size. Nothing new stores it — like
+  `Lp_Base_Font_Size`, it is read back off `Styles(wdStyleNormal).Font.Name`
+  (`Lp_Base_Font_Name`), so it survives close/reopen and pre-3.0.101 books answer Tahoma
+  correctly. `LargePrintTemplate.dotx` is deliberately UNTOUCHED — its docDefaults still names
+  Tahoma and the macros override per document, which is exactly what makes that true.
+  `Lp_Apply_Base_Font_To_Styles` sets Normal plus the **13** styles that name a face of their
+  own and so ignore Normal: the 12 coloured character styles and `No Spacing`, which has no
+  basedOn at all. A book set in Legible EMBEDS it (`EmbedTrueTypeFonts`, never subsetted, never
+  for Tahoma). A missing font is the one failure here that says nothing — Word substitutes
+  silently at the wrong size — so the dialog greys out a face `Sh_Is_Font_Installed` cannot
+  find, and `Sh_Doc_Info` reports both the typeface and whether it is present.
 - **Large print**: reformatting for low-vision readers — big base fonts, custom page
   size/margins/gutter/orientation (public vars `PPH/PPW/PTM/PBM/PLM/PRM/PPG/PPO/DM`),
   colored "Box" styles, colored/format TOC, image resize & recolor, fill-in lines.

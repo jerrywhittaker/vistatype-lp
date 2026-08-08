@@ -18,6 +18,20 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - LP - 8/8/2026 - the transcriber now CHOOSES the typeface on the attach dialog, beside the point size: Tahoma as
+'           - LP - 8/8/2026 - before, or the bundled VistaTypeLP Legible, which is Atkinson Hyperlegible rescaled so that a point
+'           - LP - 8/8/2026 - size set in Word matches the PRINTED letter size (18 pt Atkinson measured about 16.5 on Jerry's
+'           - LP - 8/8/2026 - font ruler, 8/8/2026). Nothing new stores the choice: like the point size, it is read back off the
+'           - LP - 8/8/2026 - document's Normal style, so it survives closing and reopening and a book made before this feature
+'           - LP - 8/8/2026 - existed correctly answers Tahoma. LargePrintTemplate.dotx is deliberately NOT touched - it stays
+'           - LP - 8/8/2026 - the Tahoma baseline and the macros override per document, which is what makes that true.
+'           - LP - 8/8/2026 - New: Lp_Apply_Base_Font_To_Styles (Normal, plus the 13 styles that name a face of their own and so
+'           - LP - 8/8/2026 - ignore Normal - the 12 coloured character styles and "No Spacing", which has no basedOn at all),
+'           - LP - 8/8/2026 - Sh_Is_Font_Installed, Sh_Font_Status_Text, Lp_Indent_Factor_For_Font. Lp_Attach_The_Template also
+'           - LP - 8/8/2026 - EMBEDS the font when it is ours, so a book still sets correctly on a machine without it; Tahoma is
+'           - LP - 8/8/2026 - never embedded. The Tahoma-missing warning left Lp_Attach_Lp_Template and is now the dialog greying
+'           - LP - 8/8/2026 - out a face that is not installed - a better answer, and it takes an "End" statement out of the path
+'           - LP - 8/8/2026 - that used to wipe every Public on the way past.
 ' Notes:    - Sh - 8/6/2026 - INSTALLER FIX: upgrading over an older version left the ribbon tabs stale (Jerry, 8/6/2026).
 '           - Sh - 8/6/2026 - Both tabs lost the delete-prodnote icons and the braille tab lost change-prodnote-to-TN. The tabs the
 '           - Sh - 8/6/2026 - installer writes into the user's own Word.officeUI were only touched when the ribbon-tabs task was
@@ -356,6 +370,19 @@ Public Sh_Pos_Saved As Boolean     ' guards against a return with no matching sa
 
 ' Large Print Page and Font Settings
 Public Lp_Base_Font_Size As String
+
+' The typeface the transcriber picked on the attach dialog, alongside the point size above.
+' Like the size, it is NOT stored anywhere of its own: it is read back off the document's
+' Normal style by Lp_Get_Doc_Setup_Params, so it survives closing and reopening for free.
+' 8/8/2026.
+Public Lp_Base_Font_Name As String
+
+' Deliberately UPPERCASE, and it is not a style choice. tools/lib/check_form_calls.py finds
+' declarations with ^\s*(Public|Private|Dim|Global)\s+(\w+) -- on "Public Const Lp_Font_Legible"
+' that captures the word "Const", not the name, so a form mentioning an Lp_-prefixed constant
+' would fail the build as an undefined macro. LP_ is not one of the prefixes it checks.
+Public Const LP_FONT_TAHOMA As String = "Tahoma"
+Public Const LP_FONT_LEGIBLE As String = "VistaTypeLP Legible"
 
 ' Set while the add-in itself opens a document that is none of the user's business -- currently
 ' only the licence, from Sh_Show_Full_License. Sh_HandleDocumentOpened checks it and leaves
@@ -736,6 +763,146 @@ Sub Sh_Set_Whole_Document_Font(ByVal targetDoc As Document, ByVal fontName As St
     Application.ScreenRefresh
 
 End Sub   '***** end of Sh_Set_Whole_Document_Font macro *****
+
+Function Sh_Is_Font_Installed(ByVal fontName As String) As Boolean
+'
+' Version: 1.0  Date: 8/8/2026
+'
+' Author: Jerry Whittaker - jerry@thewhittakers.org
+'
+' True when Word can see the named font on this machine.
+'
+' Lifted out of Lp_Attach_Lp_Template, where it was written inline for Tahoma alone. It matters
+' more now than it did: a missing font is the ONE failure here that says nothing at all. Word
+' substitutes silently, the substitute has different metrics, and a book that reads 18 point on
+' screen prints at some other size - which is the exact defect VistaTypeLP Legible was rescaled
+' to cure, coming back invisibly.
+'
+' Adapted from: https://code.adonline.id.au/test-font-installed-microsoft-word/
+'
+' NOTE: Application.FontNames is a snapshot taken when Word started. A font installed while
+' Word is open will not appear here until Word is restarted. The installer refuses to run with
+' Word open, so a normal install is fine; a hand-installed font is the case to watch.
+
+    Dim InstalledFontName As Variant
+
+    Sh_Is_Font_Installed = False
+    For Each InstalledFontName In Application.FontNames
+        If UCase(InstalledFontName) = UCase(fontName) Then
+            Sh_Is_Font_Installed = True
+            Exit Function
+        End If
+    Next InstalledFontName
+
+End Function   '***** end of Sh_Is_Font_Installed macro *****
+
+Function Sh_Font_Status_Text(ByVal fontName As String) As String
+'
+' Version: 1.0  Date: 8/8/2026
+'
+' Author: Jerry Whittaker - jerry@thewhittakers.org
+'
+' One line for Sh_Doc_Info saying whether this document's typeface is actually on this machine.
+'
+' It is here rather than inline in the message because a missing font is invisible everywhere
+' else: Word substitutes without a word, and the substitute sets at a different size. "My
+' document went small" is the support call, and this is the line that answers it.
+
+    If Sh_Is_Font_Installed(fontName) Then
+        Sh_Font_Status_Text = "Yes"
+    Else
+        Sh_Font_Status_Text = "NO - Word is substituting, sizes will be wrong"
+    End If
+
+End Function   '***** end of Sh_Font_Status_Text macro *****
+
+Sub Lp_Apply_Base_Font_To_Styles(ByVal targetDoc As Document, ByVal fontName As String)
+'
+' Version: 1.0  Date: 8/8/2026
+'
+' Author: Jerry Whittaker - jerry@thewhittakers.org
+'
+' Puts the chosen typeface onto the document's STYLES. Sh_Set_Whole_Document_Font above lays the
+' same face over the text as direct formatting; this is the other half, and both are needed.
+' Direct formatting covers the main story only, so headers, footers and anything typed later
+' follow the styles - and reading the face back later (Lp_Get_Doc_Setup_Params) only works
+' because it is recorded on Normal.
+'
+' Why Normal plus a hand-written list, rather than a loop over every style:
+'
+'   Word resolves a run's font as docDefaults -> the paragraph style's basedOn chain -> the
+'   character style -> direct formatting. LargePrintTemplate.dotx leaves docDefaults naming
+'   Tahoma, and that is deliberate - it keeps the template the Tahoma baseline, so a book made
+'   before this feature existed still reads back as Tahoma, correctly, without touching a thing.
+'
+'   Setting Normal therefore covers everything that reaches Normal, and everything that names no
+'   font of its own reaches the same answer by simply not overriding it. What is left is the
+'   short list below: styles that name a face outright and so ignore Normal completely.
+'
+' "No Spacing" is in that list and is the easy one to miss - it has no basedOn AT ALL, so it
+' never touches Normal. A paragraph in it would sit in Tahoma in the middle of a Legible book.
+'
+' The other twelve are the coloured character styles the transcriber applies by keyboard
+' shortcut. Leave them out and colouring a phrase snaps it back to Tahoma - visible, baffling,
+' and it looks like the font choice never worked.
+'
+' Complex-script (w:cs) fonts are left alone on purpose. Font.Name does not touch Font.NameBi,
+' and pointing Arabic or Hebrew at a 352-glyph Latin face would be worse than leaving it.
+
+    Dim sty As Style
+    Dim i As Long
+    Dim named As Variant
+
+    If Len(Trim(fontName)) = 0 Then Exit Sub
+
+    On Error Resume Next
+
+    targetDoc.Styles(wdStyleNormal).Font.Name = fontName
+
+    named = Array( _
+        "Words Aqua", "Words Tan", "Words Blue", "Words Pink", "Words Yellow", _
+        "Words Green", "Words Black", _
+        "Text Blue", "Text Red", "Text Green", "Text Orange", "Text Violet", _
+        "No Spacing")
+
+    For i = LBound(named) To UBound(named)
+        Set sty = Nothing
+        Set sty = targetDoc.Styles(named(i))
+        If Not sty Is Nothing Then sty.Font.Name = fontName
+    Next i
+
+    On Error GoTo 0
+
+End Sub   '***** end of Lp_Apply_Base_Font_To_Styles macro *****
+
+Function Lp_Indent_Factor_For_Font(ByVal fontName As String) As Double
+'
+' Version: 1.0  Date: 8/8/2026
+'
+' Author: Jerry Whittaker - jerry@thewhittakers.org
+'
+' How much wider this face is than Tahoma, for the hanging indents on bulleted lists.
+'
+' The indent table in Lp_Normalize_Styles was tuned by hand against Tahoma and is the authority
+' for it - it is not derivable from font metrics, because most of the measurement is Word's tab
+' behaviour rather than the bullet. So the table stays, and a face that is not Tahoma scales off
+' it instead of getting a second table of guesses.
+'
+' 1.054 is the bullet glyph's advance width in VistaTypeLP Legible divided by Tahoma's, measured
+' from the two font files on 8/8/2026 (479 against 455 units per 1000-unit em). It moves an
+' 18 point hang from -0.34" to -0.358".
+'
+' A face this function does not know returns 1, i.e. Tahoma's numbers unchanged - the safe
+' answer, since those are the ones that have been in the field for years.
+
+    Select Case UCase(Trim(fontName))
+        Case UCase(LP_FONT_LEGIBLE)
+            Lp_Indent_Factor_For_Font = 1.054
+        Case Else
+            Lp_Indent_Factor_For_Font = 1#
+    End Select
+
+End Function   '***** end of Lp_Indent_Factor_For_Font macro *****
 
 Sub Dx_Fix_Foreign_Languages()
     '
@@ -7115,6 +7282,11 @@ Sub Lp_Attach_Lp_Template()
     '
     ' Description: Attaches large print template to document
     '
+    ' Version: 2.3  Date: 8/8/2026 - removed the inline Tahoma-installed check. The transcriber
+    '                               now chooses the typeface on the attach dialog, which greys out
+    '                               one that is not installed - a better answer than a warning, and
+    '                               it takes an End statement out of this path that wiped every
+    '                               Public on the way past
     ' Version: 2.2  Date: 8/30/2021 - added check for Tahoma Font
     ' Version: 2.1  Date: 3/3/2020 - added check and fix foreign file
     ' Version: 2.0  Date: 1/31/2020 - added warning message when LP template is already attached
@@ -7130,32 +7302,16 @@ Sub Lp_Attach_Lp_Template()
     
     Application.Run MacroName:="Lp_Check_Compatibility"  'check to see if doc is .docx or .doc
     
-    '*************** check for Tahoma Font ************************
-    'Adaped from:https://code.adonline.id.au/test-font-installed-microsoft-word/
-    
-    Dim IsFontInstalled As Boolean
-    Dim Font As Variant
-    Dim InstalledFontName As Variant
-    
-    Font = "Tahoma"   'Name of the font to be checked
-    Let IsFontInstalled = False
-    
-    For Each InstalledFontName In Application.FontNames
-        If UCase(InstalledFontName) = UCase(Font) Then
-            IsFontInstalled = True
-            GoTo Conclusion
-        End If
-    Next InstalledFontName
-    
-Conclusion:
-    If IsFontInstalled = False Then
-        If MsgBox("Tahoma font is not installed. When Tahoma is missing, the computer will substitute an unsatisfactory font " _
-        + "resulting in significant size and readability differences. Do you wish to continue?", vbYesNo + vbDefaultButton2, "VistaType LP (182)") = vbNo Then
-            End
-        End If
-    End If
-    '************ end of check for Tahoma Font *****************
-    
+    ' The check for a missing Tahoma used to sit here. It has moved onto the attach dialog
+    ' (Sh_Is_Font_Installed, called from LP_Attach_An_Lp_Template_Form.UserForm_Initialize),
+    ' because from 8/8/2026 the transcriber CHOOSES the typeface and there is no point warning
+    ' about Tahoma before they have said whether they want it. The dialog greys out a face that
+    ' is not installed, which is a better answer than a warning after the fact.
+    '
+    ' Its "End" statement went with it, and good riddance: End wipes every Public, so a
+    ' transcriber who answered No there would have cleared Lp_Base_Font_Size and every page
+    ' setting on the way out.
+
     '------------------------------------------------------------------------------------
     ' Housekeeping
     '------------------------------------------------------------------------------------
@@ -12188,6 +12344,8 @@ Sub Lp_Get_Doc_Setup_Params()
 
     ' get font and page settings for current document and place in public variables
     '
+    ' Version: 1.6  Date: 8/8/2026 - also reads the typeface back off the Normal style, into
+    '                               Lp_Base_Font_Name, the same way the size has always been read
     ' Version: 1.5  Date: 12/11/2020 - minor fixt to PPG
     ' Version: 1.4  Date: 12/3/2020 - fixed null DM - Set to "Unknown"
     ' Version: 1.3  Date: 12/1/2020 - added method to get gutter size from doc xml
@@ -12203,6 +12361,11 @@ Sub Lp_Get_Doc_Setup_Params()
     PPW = Round(PointsToInches(ActiveDocument.PageSetup.PageWidth), 2)
     PMM = ActiveDocument.PageSetup.MirrorMargins  ' Zero = not mirrored
     Lp_Base_Font_Size = ActiveDocument.Styles(wdStyleNormal).Font.Size
+    ' Same idea as the size on the line above: the document IS the setting, so there is nothing
+    ' to store and nothing to go stale. A book made before the typeface could be chosen answers
+    ' Tahoma here, correctly, because that is what its Normal style inherited from the template.
+    Lp_Base_Font_Name = ActiveDocument.Styles(wdStyleNormal).Font.Name
+    If Len(Trim(Lp_Base_Font_Name)) = 0 Then Lp_Base_Font_Name = LP_FONT_TAHOMA
     TOCTabSetting = Str(Val(PPW) - (Val(PLM) + Val(PRM)))
  
     If ActiveDocument.PageSetup.Orientation = 1 Then 'Landscape
@@ -12684,6 +12847,10 @@ Sub Lp_Attach_The_Template()
 
     ' Attaches the LP template with style changes
     '
+    ' Version: 3.3  Date: 8/8/2026 - applies the typeface the transcriber chose (Lp_Base_Font_Name)
+    '                               to the styles AND the text, instead of hard-coding Tahoma, and
+    '                               embeds the font in the document when it is ours. Also records
+    '                               the choice in the BaseFontName document variable
     ' Version: 3.2  Date: 8/2/2026 - now the ONE place that forces the Styles pane open at Recommended sort and Recommended filter, for both a new attach and a re-attach; placed before the Save As so it survives a cancelled save
     ' Version: 3.1  Date: 7/23/2026 - calls Lp_Set_Prodnote_Style_Visibility after the attach so "Prodnote" shows in the Styles pane when the document uses it (the pre-attach hide-all loop hid it, and unhideWhenUsed does not fire for a style that was already in use, e.g. a converted DAISY/NIMAS document)
     ' Version: 3.0  Date: 7/23/2026 - reverted the 2.9 "Prodnote" exception: Style.Visibility = True sets <w:semiHidden/> (it HIDES), so the pre-attach loop hides every style as its comment says, and excluding Prodnote only stopped it being hidden
@@ -12714,6 +12881,12 @@ Sub Lp_Attach_The_Template()
    'Lp_Attach_An_Lp_Template_Form.Hide ' hide the user form for fontsize and media type'+++++ new non-modal form code
 
     Unload Lp_Attach_An_Lp_Template_Form
+
+    ' The form is gone by now - this macro is reached asynchronously through Sh_BridgeTargetMacro
+    ' and Application.OnTime - so the Public set in AttachOkay_Click is the only carrier of the
+    ' typeface choice. Default it if it is empty, because an "End" statement anywhere on the way
+    ' in wipes every Public, and there is one at the "template does not exist" bail-out below.
+    If Len(Trim(Lp_Base_Font_Name)) = 0 Then Lp_Base_Font_Name = LP_FONT_TAHOMA
 
     'save the name of the current document
     Dim currentdoc As Document
@@ -12778,14 +12951,53 @@ AvoidCrash:
             End If
     End With
 
-Sh_NonModalMessageForm.SetActivityMessage "Converting document font to Tahoma"
+Sh_NonModalMessageForm.SetActivityMessage "Converting document font to " & Lp_Base_Font_Name
 DoEvents
 
-    ' Set the entire document to Tahoma Font and the font size
-    Selection.WholeStory
-    Selection.Font.Name = "Tahoma"
-    Selection.Font.Size = Lp_Base_Font_Size
+    ' Set the whole document to the chosen face and size - styles first, then the text.
+    '
+    ' This must stay AFTER Lp_Remove_All_Styles_Except_Lp_Styles above. The attach a few lines
+    ' up runs with UpdateStylesOnOpen = True, which copies the template's styles in and puts
+    ' Normal back to Tahoma; anything set before that point is thrown away.
+    '
+    ' Both calls are needed. The styles carry the choice - which is what makes it readable again
+    ' after the document is closed and reopened - and the direct formatting is what makes a messy
+    ' imported document actually conform.
+    Lp_Apply_Base_Font_To_Styles ActiveDocument, Lp_Base_Font_Name
+    Sh_Set_Whole_Document_Font ActiveDocument, Lp_Base_Font_Name, CSng(Val(Lp_Base_Font_Size))
+
+    ' Keep this. The old code got here through Selection.WholeStory, which left the selection
+    ' spanning the document; Sh_Set_Whole_Document_Font does not touch the selection at all, and
+    ' the page-setup block below works on the section holding it.
     Selection.HomeKey Unit:=wdStory
+
+    ' ----------------------------------------------------------------------------------------------------------------------------
+    ' Embed the typeface, so a book still sets correctly on a machine that has not got it
+    ' ----------------------------------------------------------------------------------------------------------------------------
+    ' Set here, well before the Save As at the end of this macro - after it would produce a saved
+    ' file with no font in it and nothing to notice. These are document properties, so they stick:
+    ' every later Ctrl+S re-embeds.
+    '
+    ' Turned on only when the transcriber chose our face. There is nothing worth embedding in a
+    ' Tahoma book - every Windows machine has Tahoma - and leaving it off keeps those files the
+    ' size they have always been.
+    '
+    ' Be clear about what this switch is, though: it is per DOCUMENT, not per font. Word embeds
+    ' every embeddable non-system face the document uses, so a running head left in some other
+    ' font, or a style like Title that names Calibri Light outright, gets embedded too and the
+    ' file grows accordingly. There is no "embed just this one" in Word. Worth measuring a real
+    ' book on the build box; if it is fat, the cure is to stop the stray faces getting in.
+    '
+    ' DoNotEmbedSystemFonts is set for good order, not as the Tahoma guard - Word's "system
+    ' fonts" list is the old Arial/Courier New/Times New Roman/Symbol/Wingdings set and does not
+    ' include Tahoma. The line above is what keeps Tahoma books clean.
+    '
+    ' NOT subsetted. A subset holds only the characters the document already uses, so a teacher
+    ' or a reader who edits the book and types a character it did not contain gets a substitute
+    ' for that character. These files are handed on to be edited; take the extra size.
+    ActiveDocument.DoNotEmbedSystemFonts = True
+    ActiveDocument.EmbedTrueTypeFonts = (Lp_Base_Font_Name <> LP_FONT_TAHOMA)
+    ActiveDocument.SaveSubsetFonts = False
 
     ' ----------------------------------------------------------------------------------------------------------------------------
     ' Setup Page Parameters
@@ -12817,7 +13029,14 @@ DoEvents
 
          ' writes a variable name (Media) and variable value (DM) into the document xml file
          Sh_Write_Document_Variables "Media", DM
-        
+
+         ' The typeface the transcriber ASKED for. The Normal style is the working answer and is
+         ' what everything reads, but a style can be changed afterwards - "update style to match
+         ' selection" on a Normal paragraph, or pasting a block of Tahoma - and then nothing
+         ' records what this book was meant to be. Sh_Doc_Info shows both, so a disagreement
+         ' between them is visible instead of being guessed at over the telephone.
+         Sh_Write_Document_Variables "BaseFontName", Lp_Base_Font_Name
+
          ' *** set for all documents *****
          .HeaderDistance = InchesToPoints(0)
          .FooterDistance = InchesToPoints(0)
@@ -15630,6 +15849,11 @@ End Function   '*** end of Function Sh_IsValidRomanNumeral ***
 
 Sub Lp_Normalize_Styles()
     '
+    ' Version: 3.6  Date: 8/8/2026 - sets the typeface on the styles as well as their sizes, and
+    '                               scales the List Paragraph hanging indents for a face wider than
+    '                               Tahoma. Takes the typeface from the DOCUMENT every time, never
+    '                               from the public - this macro also runs on an imported selection
+    '                               file, where a stale public gave it the wrong indents
     ' Version: 3.5  Date: 7/30/2026 - two progress messages both said they were setting table
     '                                 border weights; each step now has its own. Sh_Color_Dollar_PG_Red
     '                                 moved from near the top to the LAST action, and shows no
@@ -15645,6 +15869,19 @@ Sub Lp_Normalize_Styles()
     Dim su_Prev As Boolean
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False   ' both callers already do this, but the sub must stand on its own
+
+    ' Always take the typeface from the document in front of us, never from the Public.
+    '
+    ' Testing only for an EMPTY Public would not be enough, and the difference is a real bug:
+    ' Lp_Import_Exported_Selection_File opens the exported file, activates it and calls this
+    ' macro on THAT document. Attach a book as Legible, then import a selection into a Tahoma
+    ' book later in the same Word session, and the Public still says Legible - so the imported
+    ' paragraphs would get list indents 5.4% deeper than the rest of the book. Those are direct
+    ' paragraph formatting, so they travel into the transcriber's book and stay there.
+    '
+    ' In the attach path this reads back exactly what was just written, so nothing is lost.
+    Lp_Base_Font_Name = ActiveDocument.Styles(wdStyleNormal).Font.Name
+    If Len(Trim(Lp_Base_Font_Name)) = 0 Then Lp_Base_Font_Name = LP_FONT_TAHOMA
 
     Sh_NonModalMessageForm.SetActivityMessage "Underlining Italics"
     Application.Run MacroName:="Lp_Italics_To_Dashed_Underline"
@@ -15669,28 +15906,40 @@ Sub Lp_Normalize_Styles()
     '***** Begin Setting Automatic List Indention Size ****
     Sh_NonModalMessageForm.SetActivityMessage "Setting list paragraph indention sizes"
 
+    ' The numbers below are Tahoma's, tuned by hand, and stay the authority for it. A wider face
+    ' needs a proportionally wider hang, so it scales off them rather than getting a second table
+    ' of guesses - see Lp_Indent_Factor_For_Font. Tahoma's factor is 1, so its documents come out
+    ' exactly as they always have.
+    Dim IndentFactor As Double
+    Dim BaseIndent As Double
+    IndentFactor = Lp_Indent_Factor_For_Font(Lp_Base_Font_Name)
+
     Dim oPara As Paragraph
     For Each oPara In ActiveDocument.Paragraphs
         If oPara.Style = "List Paragraph" Then
-            With oPara
-                Select Case Lp_Base_Font_Size
-                    Case "14": .FirstLineIndent = InchesToPoints(-0.26)
-                    Case "16": .FirstLineIndent = InchesToPoints(-0.3)
-                    Case "18": .FirstLineIndent = InchesToPoints(-0.34)
-                    Case "20": .FirstLineIndent = InchesToPoints(-0.38)
-                    Case "22": .FirstLineIndent = InchesToPoints(-0.41)
-                    Case "24": .FirstLineIndent = InchesToPoints(-0.44)
-                    Case "26": .FirstLineIndent = InchesToPoints(-0.47)
-                    Case "28": .FirstLineIndent = InchesToPoints(-0.5)
-                    Case "30": .FirstLineIndent = InchesToPoints(-0.53)
-                    Case "32": .FirstLineIndent = InchesToPoints(-0.57)
-                    Case "34": .FirstLineIndent = InchesToPoints(-0.61)
-                    Case "36": .FirstLineIndent = InchesToPoints(-0.64)
-                    Case "38": .FirstLineIndent = InchesToPoints(-0.68)
-                    Case "40": .FirstLineIndent = InchesToPoints(-0.72)
-                    Case "42": .FirstLineIndent = InchesToPoints(-0.77)
-                End Select
-            End With
+            BaseIndent = 0
+            Select Case Lp_Base_Font_Size
+                Case "14": BaseIndent = -0.26
+                Case "16": BaseIndent = -0.3
+                Case "18": BaseIndent = -0.34
+                Case "20": BaseIndent = -0.38
+                Case "22": BaseIndent = -0.41
+                Case "24": BaseIndent = -0.44
+                Case "26": BaseIndent = -0.47
+                Case "28": BaseIndent = -0.5
+                Case "30": BaseIndent = -0.53
+                Case "32": BaseIndent = -0.57
+                Case "34": BaseIndent = -0.61
+                Case "36": BaseIndent = -0.64
+                Case "38": BaseIndent = -0.68
+                Case "40": BaseIndent = -0.72
+                Case "42": BaseIndent = -0.77
+            End Select
+            ' Zero means the size is not one of ours. Leave the paragraph's own indent alone,
+            ' which is what the old Select Case did too - it had no Case Else.
+            If BaseIndent <> 0 Then
+                oPara.FirstLineIndent = InchesToPoints(BaseIndent * IndentFactor)
+            End If
         End If
     Next oPara
     '***** End Setting Automatic List Indention Size ****
@@ -15846,6 +16095,14 @@ Sub Lp_Normalize_Styles()
         sty.Font.Size = base
     Next i
     '********** End unified font size updates ***********
+
+    '*********** begin typeface for styles **************
+    ' Deliberately a separate pass rather than a .Font.Name added to the loop above: that loop's
+    ' Styles(...) lookup is unguarded, and widening what depends on it would widen the blast
+    ' radius if a style is ever missing. Lp_Apply_Base_Font_To_Styles carries its own guard.
+    Sh_NonModalMessageForm.SetActivityMessage "Setting the typeface for styles"
+    Lp_Apply_Base_Font_To_Styles ActiveDocument, Lp_Base_Font_Name
+    '*********** end typeface for styles **************
 
     '*********** begin heading styles (size + bold + spacing) **************
     Sh_NonModalMessageForm.SetActivityMessage "Setting font sizes and spacing for heading styles"
@@ -17041,6 +17298,10 @@ Sub Sh_Doc_Info()
 '
 ' Shows the settings and path info of the current Document
 '
+' Version: 1.8  Date: 8/8/2026 - reports the typeface three ways: what the Normal style says, what
+'                               was chosen when the template was attached, and whether that font is
+'                               actually installed on this machine. The last one answers "my
+'                               document went small" in one look
 ' Version: 1.7  Date: 11/3/2025 - added Get Gutter Rounded As String
 ' Version: 1.6  Date: 3/5/2024 - Fixed EBAN display
 ' Version: 1.5  Date: 1/19/2024 - bug fixes
@@ -17064,6 +17325,8 @@ Sub Sh_Doc_Info()
     PPW = Str(Round(PointsToInches(ActiveDocument.PageSetup.PageWidth), 2))
     PMM = ActiveDocument.PageSetup.MirrorMargins  ' Zero = not mirrored
     Lp_Base_Font_Size = ActiveDocument.Styles(wdStyleNormal).Font.Size
+    Lp_Base_Font_Name = ActiveDocument.Styles(wdStyleNormal).Font.Name
+    If Len(Trim(Lp_Base_Font_Name)) = 0 Then Lp_Base_Font_Name = LP_FONT_TAHOMA
     TOCTabSetting = Str(Val(PPW) - (Val(PLM) + Val(PRM)))
  
     If ActiveDocument.PageSetup.Orientation = 1 Then 'Landscape
@@ -17092,7 +17355,27 @@ Sub Sh_Doc_Info()
         DM = Sh_GP_String_1
     End If
     Sh_GP_String_1 = ""
-    
+
+    ' The typeface the transcriber ASKED for when the template was attached. Lp_Base_Font_Name
+    ' above is what the Normal style says TODAY, and the two can drift apart - "update style to
+    ' match selection" on a Normal paragraph is enough to do it. Showing both makes that visible
+    ' instead of leaving it to be guessed at.
+    Dim IntendedFontName As String
+    ' Blank it FIRST, in this block rather than relying on the one above. When the document has
+    ' no such variable, Sh_Read_Document_Variables jumps its error label and leaves
+    ' Sh_GP_String_1 exactly as it found it - so an unblanked call reports the PREVIOUS
+    ' variable's value, which here would mean a Tahoma book claiming the media type as its
+    ' typeface.
+    Sh_GP_String_1 = ""
+    Sh_Read_Document_Variables "BaseFontName", "VarValue"
+    IntendedFontName = Sh_GP_String_1
+    Sh_GP_String_1 = ""
+    If IntendedFontName = "" Then
+        ' Deliberately no version number: the third digit is a private build counter that never
+        ' ships, so quoting one at a transcriber names something they cannot check.
+        IntendedFontName = "not recorded (attached by an earlier version)"
+    End If
+
     If PPO = "L" Then
         Sh_GP_String_1 = "Landscape"
     Else
@@ -17130,6 +17413,9 @@ Sub Sh_Doc_Info()
         MsgBox "Attached Template = " & ActiveDocument.AttachedTemplate & vbCr & vbCr _
                     & MS_Word_Config & vbCr & vbCr _
                     & " Normal Style Font Size      = " + Trim(Lp_Base_Font_Size) & vbCr _
+                    & " Typeface (Normal style)     = " + Trim(Lp_Base_Font_Name) & vbCr _
+                    & " Typeface chosen at attach = " + IntendedFontName & vbCr _
+                    & " Typeface installed here     = " + Sh_Font_Status_Text(Lp_Base_Font_Name) & vbCr _
                     & " Paper/Screen Height         = " + PPH & vbCr _
                     & " Paper/ScreenWidth           = " + PPW & vbCr _
                     & " Top Margin                       = " + PTM & vbCr _

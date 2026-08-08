@@ -10,3 +10,7 @@ Word.officeUI text
 *.dotm  binary
 *.dotx  binary
 *.bin   binary
+# Fonts. Git's own heuristic already spots these as binary, but this repo has lost days to a
+# line-ending conversion once (the .frm header) and a CRLF-mangled font installs as garbage.
+*.otf   binary
+*.ttf   binary

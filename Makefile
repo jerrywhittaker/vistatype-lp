@@ -16,9 +16,14 @@
 #   make read    Refresh reference/ from LPandBRL.dotm using the Linux-only decompressor
 #                (read/diff aid; does NOT need Windows and is NOT import-ready).
 #   make deploy  Promote dist/LPandBRL.dotm (embedded ribbon) to the repo root.
-#   make stage   Copy the license into dist/ alongside the built shipping files.
+#   make fonts   Regenerate the bundled typeface from the pristine upstream files. Only
+#                needed after changing the scale factor or rescale_font.py — then check it
+#                against a font ruler.
+#   make stage   Copy the licences and the bundled fonts into dist/ alongside the built
+#                shipping files.
 #   make installer  Compile the Inno Setup installer on the Windows box; copies the
-#                Setup.exe back to dist/. Ships two files (.dotm + .dotx).
+#                Setup.exe back to dist/. Ships the .dotm, the .dotx, the GPL, and the
+#                four VistaTypeLP Legible font files with their own licence (OFL.txt).
 #   make clean   Remove dist/ and build/ scratch.
 
 -include build.config
@@ -28,9 +33,25 @@ DOTM      := LPandBRL.dotm
 DOTX      := LargePrintTemplate.dotx
 RIBBON    := Word.officeUI
 PROJNAME  := LPandBRL
-APPVER    := 3.0.100
+APPVER    := 3.0.101
 SETUP_EXE := VistaType LP and Braille Macros Setup $(APPVER).exe
 VERDATE   := $(shell date +%-m/%-d/%Y)
+
+# The bundled typeface. TrueType, NOT the .otf faces alongside them: Word embeds TrueType
+# outlines and skips PostScript ones silently, so an .otf would save into a document without
+# a word and set at the wrong size on any machine that has not got the font installed.
+# See tools/lib/rescale_font.py and assets/fonts/atkinson-hyperlegible/README.md.
+FONTSRC   := assets/fonts/atkinson-hyperlegible/scaled
+# Must match LP_FONT_LEGIBLE in src/vba/LPandBrlMacros.bas and FontFamily in
+# installer/vistatype.iss. The add-in looks the font up by this name to decide whether to
+# offer it, so a mismatch greys the choice out on a machine that HAS it installed.
+FONT_FAMILY := VistaTypeLP Legible
+FONTS     := VistaTypeLPLegible-Regular.ttf VistaTypeLPLegible-Bold.ttf \
+             VistaTypeLPLegible-Italic.ttf VistaTypeLPLegible-BoldItalic.ttf
+# Everything ISCC reads out of dist/. The fonts and OFL.txt travel this road, and NOT by a
+# hand-copy of assets/ to the build box: that folder is never wiped there, so a corrected
+# font would keep shipping stale for ever. Same trap that shipped three deleted UserForms.
+SHIPFILES := $(DOTM) $(DOTX) LICENSE.txt OFL.txt $(FONTS)
 
 SSH := ssh $(WIN_HOST)
 WSCRIPTS := $(WIN_DIR)/tools/windows
@@ -151,7 +172,11 @@ deploy:
 # embedded in the .dotm now, so only those two files ship (no Word.officeUI). Add the license.
 stage: build
 	cp LICENSE dist/LICENSE.txt
-	@echo "Staged dist/$(DOTM) + dist/$(DOTX) + dist/LICENSE.txt for packaging."
+	@# The font is under the SIL Open Font License, not the GPL, and that licence requires the
+	@# text to travel with every copy of the font. Both go to the same place LICENSE.txt does.
+	cp assets/fonts/atkinson-hyperlegible/OFL.txt dist/OFL.txt
+	cp $(addprefix $(FONTSRC)/,$(FONTS)) dist/
+	@echo "Staged dist/$(DOTM) + dist/$(DOTX) + LICENSE.txt + OFL.txt + $(words $(FONTS)) font files for packaging."
 
 # --- compile the Inno Setup installer on the Windows box ---
 # The finished Setup.exe is copied both back to local dist/ and onto the build box's
@@ -186,7 +211,10 @@ installer-build: check-config stage
 	@# still holding one of them (a killed installer leaves the .exe locked at the OS level
 	@# until reboot). The .exe is produced ON the box and copied back, so it never needs to
 	@# travel in this direction.
-	scp -q dist/$(DOTM) dist/$(DOTX) dist/LICENSE.txt "$(WIN_HOST):$(WIN_DIR)/dist/"
+	@# dist/ on the box is deliberately NOT wiped (see the note above), which is safe because
+	@# vistatype.iss names every Source: file explicitly - a leftover we no longer ship is never
+	@# compiled in, and one we DO ship is overwritten by this copy. Do not "fix" it by wiping.
+	scp -q $(addprefix dist/,$(SHIPFILES)) "$(WIN_HOST):$(WIN_DIR)/dist/"
 	$(SSH) '$(WIN_ISCC) "/DSrcDir=$(WIN_DIR)/dist" "/DAppVer=$(APPVER)" "$(WIN_DIR)/installer/vistatype.iss"'
 	@# The installer name contains spaces. Quoting a spaced remote path through scp means
 	@# satisfying BOTH the local shell and Windows cmd, which does not strip single quotes -
@@ -198,7 +226,23 @@ installer-build: check-config stage
 	$(SSH) '$(WIN_PWSH) -NoProfile -Command "Copy-Item \"$(WIN_DIR)/dist/$(SETUP_EXE)\" ([Environment]::GetFolderPath(\"Desktop\")) -Force"'
 	@echo "Built dist/$(SETUP_EXE)  (also copied to the build box Desktop)."
 
+# --- regenerate the bundled typeface from the pristine upstream files ---
+# Nothing else regenerates $(FONTSRC), so it is the one build output that can silently go
+# stale: change FONT_SCALE and forget this, and `make stage` ships the OLD font under the NEW
+# version number with nothing said. Run it after any change to the scale or to
+# tools/lib/rescale_font.py, and put the result in front of the font ruler afterwards - the
+# whole point of the scale is that 18 pt MEASURES 18 pt, and only a ruler can confirm that.
+#
+# Feeds on upstream/ttf, not upstream/otf: Word embeds TrueType outlines and skips PostScript
+# ones silently. See the note by FONTS above.
+FONT_SCALE := 1.094
+fonts:
+	rm -f $(FONTSRC)/*.ttf $(FONTSRC)/*.otf
+	python3 tools/lib/rescale_font.py --factor $(FONT_SCALE) --family "$(FONT_FAMILY)" \
+	    --out $(FONTSRC) assets/fonts/atkinson-hyperlegible/upstream/ttf/*.ttf
+	@echo "Regenerated $(FONTSRC) at x$(FONT_SCALE). CHECK IT ON THE FONT RULER."
+
 clean:
 	rm -rf dist build
 
-.PHONY: help check-config push-src pull build ribbon qat check-qat check-tabs check-frm-eol check-vba-lines read deploy stage installer clean
+.PHONY: help check-config push-src pull build ribbon qat check-qat check-tabs check-frm-eol check-vba-lines read deploy stage fonts bump installer installer-build clean

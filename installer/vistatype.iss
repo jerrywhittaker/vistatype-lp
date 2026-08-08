@@ -47,10 +47,18 @@
 ; The literal here is the fallback for building this script by hand, and is kept in step
 ; with the Makefile by "make bump".
 #ifndef AppVer
-  #define AppVer      "3.0.100"
+  #define AppVer      "3.0.101"
 #endif
 #define DotmName    "LPandBRL.dotm"
 #define DotxName    "LargePrintTemplate.dotx"
+; Where a transcriber gets the newest Setup.exe, the guides, and the source. Defined once
+; because it appears on the welcome page AND in Programs & Features; releases are published
+; here, so this is the address to give anyone asking for an update.
+#define RepoUrl     "https://github.com/jerrywhittaker/vistatype-lp"
+; The bundled typeface's family name. It must match src/vba/LPandBrlMacros.bas's
+; LP_FONT_LEGIBLE exactly -- the add-in looks the font up by this name to decide whether to
+; offer it, and a mismatch greys the choice out on a machine that HAS it installed.
+#define FontFamily  "VistaTypeLP Legible"
 ; Directory holding the three shipping files (staged by `make installer`).
 #ifndef SrcDir
   #define SrcDir "..\dist"
@@ -61,6 +69,10 @@ AppName=VistaType LP + Braille Macros
 AppVersion={#AppVer}
 AppPublisher=Jerry Whittaker
 AppPublisherURL=mailto:jerry@thewhittakers.org
+; These two become the "Support" and "Update" links on the entry in Programs & Features, so a
+; transcriber who has lost the download can find it from their own machine.
+AppSupportURL={#RepoUrl}
+AppUpdatesURL={#RepoUrl}/releases/latest
 AppCopyright=Copyright (C) 2015-2026 Jerry Whittaker (GNU GPL v3.0)
 ; Show the GPLv3 during install. (GPL governs copying/modifying, not mere use, so this
 ; page is informational; switch to InfoBeforeFile if you'd rather not require "I accept".)
@@ -82,6 +94,35 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayName=VistaType LP + Braille Macros
+; Inno 6 hides the welcome page by default. With the folder page and the program-group page
+; also off, that left the GPL as the FIRST thing a transcriber saw -- a wall of legal text
+; with an "I accept" button, and nothing anywhere saying what they were installing. Turned
+; back on 8/8/2026 so the licence is the second page and has some context in front of it.
+DisableWelcomePage=no
+
+; ----------------------------------------------------------------------------
+;  Wizard wording. Overrides Inno's stock text; see the Messages section of its
+;  help for the full list of names.
+;
+;  Rules for editing these: they are ONE LINE each -- use %n for a line break and
+;  %n%n for a blank line, and write a literal percent sign as two of them. Keep the
+;  welcome text short: WizardStyle=modern gives this label a fixed height beside the
+;  side image, and anything that overflows is simply not shown, with no warning at
+;  compile time. Roughly what is here is the ceiling. Check it on the VM after editing.
+; ----------------------------------------------------------------------------
+[Messages]
+WelcomeLabel1=VistaType LP and Braille Macros
+
+WelcomeLabel2=Version {#AppVer}%n%nJerry Whittaker's tools for transcribers, added to Microsoft Word: large print for readers with low vision, and braille source files for the Duxbury Braille Translator.%n%nAlso installs the {#FontFamily} typeface, which carries its own separate licence.%n%nPlease close Word before continuing.%n%nLatest version and guides:%n{#RepoUrl}
+; Roughly 12 rendered lines against a label that shows about 13-15. It is at the ceiling, so
+; anything added here must have something else taken out, and it must be LOOKED AT on the VM.
+; Overflow is silently clipped from the bottom - no compile warning - and the bottom is where
+; "close Word" and the address are.
+
+; The licence page's own heading, which by default asks the user to read an "important"
+; agreement before continuing. The GPL governs copying and modifying, not using, so the
+; stock wording overstates what a transcriber has to decide here.
+LicenseLabel3=VistaType LP is free software under the GNU General Public License v3, shown below in full. Use it for anything, copy it, pass it on. There is no warranty.
 
 [Files]
 ; Macro add-in (with embedded ribbon) -> STARTUP. {app} == the STARTUP folder here.
@@ -101,6 +142,62 @@ Source: "qat-icons-only.officeUI";   DestDir: "{userappdata}\VistaType LP"; Flag
 Source: "ribbon-tabs.officeUI";      DestDir: "{userappdata}\VistaType LP"; Flags: ignoreversion
 ; Install a copy of the GPL so the user "receives a copy of the license" per the GPL.
 Source: "{#SrcDir}\LICENSE.txt";   DestDir: "{userappdata}\VistaType LP"; Flags: ignoreversion
+
+; ---------------------------------------------------------------------------------------
+;  The bundled typeface -- SIL Open Font License 1.1, NOT the GPL
+; ---------------------------------------------------------------------------------------
+;  VistaTypeLP Legible is Atkinson Hyperlegible (Braille Institute of America) rescaled so
+;  that a point size set in Word matches the PRINTED letter size. See
+;  assets/fonts/atkinson-hyperlegible/README.md for the licence working, and OFL.txt below,
+;  which the licence REQUIRES to travel with the font.
+;
+;  {autofonts} is the PER-USER font folder, because PrivilegesRequired=lowest means Setup
+;  never elevates. Windows only supports per-user fonts from 10/1803 (build 17134), hence
+;  MinVersion on these four lines ONLY. An older machine still gets a fully working add-in;
+;  the attach dialog greys the typeface out because Sh_Is_Font_Installed says it is missing,
+;  and the transcriber carries on with Tahoma exactly as before. The MinVersion and that
+;  dialog check are ONE mitigation -- do not remove either without the other, or the font
+;  step fails part-way through an install with LPandBRL.dotm already in STARTUP, which reads
+;  as a broken installer.
+;
+;  NO onlyifdoesntexist, though Inno's own sample uses it. That flag exists to avoid
+;  clobbering someone else's copy of a shared font, which cannot happen here -- the family
+;  name is ours alone. What it would actually do is guarantee that a corrected scale factor
+;  NEVER reaches a machine that already has the old font: clean install perfect, upgrade a
+;  silent no-op, nothing in the log.
+;
+;  UNTESTED, AND THE ONE THING TO TEST FIRST -- 8/8/2026. Windows loads a per-user font at
+;  logon and holds the file open for the whole session, and closing Word does not release it.
+;  So on an UPGRADE where the font is already installed, this copy may fail and put up
+;  Abort/Retry/Ignore ("code 32"). Abort rolls the install back. restartreplace is not a way
+;  out; it needs administrator rights and this installer never elevates.
+;
+;  To settle it: install, SIGN OUT and back in (so the font is loaded the way it is on a real
+;  machine), then install a later build over the top and watch these four entries.
+;
+;  If it does fail, add onlyifdoesntexist after all -- and treat a changed scale factor as a
+;  NEW FAMILY NAME rather than a new file under the old one. That is not a workaround, it is
+;  what this project already believes: two different fonts sharing one name means the same
+;  document sets differently on different machines, which is the reason the face was renamed
+;  away from Atkinson Hyperlegible in the first place. See
+;  assets/fonts/atkinson-hyperlegible/README.md.
+;
+;  uninsneveruninstall stays, and is not an oversight. Removing the font at uninstall would
+;  silently reflow every large-print book the transcriber has already produced, into a
+;  substitute face at the wrong size, with nothing said. Same principle as .vtqatbak: never
+;  take away the thing the user's own files depend on.
+Source: "{#SrcDir}\VistaTypeLPLegible-Regular.ttf";    DestDir: "{autofonts}"; FontInstall: "{#FontFamily}";             Flags: uninsneveruninstall; MinVersion: 10.0.17134
+Source: "{#SrcDir}\VistaTypeLPLegible-Bold.ttf";       DestDir: "{autofonts}"; FontInstall: "{#FontFamily} Bold";        Flags: uninsneveruninstall; MinVersion: 10.0.17134
+Source: "{#SrcDir}\VistaTypeLPLegible-Italic.ttf";     DestDir: "{autofonts}"; FontInstall: "{#FontFamily} Italic";      Flags: uninsneveruninstall; MinVersion: 10.0.17134
+Source: "{#SrcDir}\VistaTypeLPLegible-BoldItalic.ttf"; DestDir: "{autofonts}"; FontInstall: "{#FontFamily} Bold Italic"; Flags: uninsneveruninstall; MinVersion: 10.0.17134
+; OFL condition 2: every copy of the font carries the copyright notice and the licence. The
+; licence therefore has to live exactly as long as the font does, and the font never leaves
+; (uninsneveruninstall above).
+;
+; Hence its OWN folder, and uninsneveruninstall on it too. It cannot go in
+; {userappdata}\VistaType LP with the GPL: [UninstallDelete] wipes that folder wholesale, so
+; uninstalling would strip the licence off a font that stays behind for ever.
+Source: "{#SrcDir}\OFL.txt";       DestDir: "{userappdata}\VistaType LP Fonts"; Flags: uninsneveruninstall
 
 [Tasks]
 ; Deliberately [Tasks] and not [Components]: components choose which FILES get installed,
@@ -182,6 +279,10 @@ Type: files; Name: "{app}\unins000.dat"
 [UninstallDelete]
 Type: files;          Name: "{app}\{#DotmName}"
 Type: files;          Name: "{userappdata}\Microsoft\Templates\{#DotxName}"
+; The bundled fonts are deliberately NOT listed here, and neither is
+; {userappdata}\VistaType LP Fonts, which holds their licence. The fonts must survive an
+; uninstall because the transcriber's finished books depend on them, and the OFL requires the
+; licence to stay with the font -- so both outlive us. Never add either. 8/8/2026.
 Type: filesandordirs; Name: "{userappdata}\VistaType LP"
 
 [Code]

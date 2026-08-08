@@ -44,10 +44,42 @@ ribbon tab and fails the build if they disagree. A stale `idQ` reference renders
 button on the user's machine with nothing to warn you. (`tools/lib/extract_qat.py` and the
 old `qat-controls.xml` are obsolete and no longer part of the pipeline.)
 
+## Licences the installer has to carry
+
+The installer carries **two** licences, and they are not interchangeable.
+
+**The GPLv3**, for the add-in itself. Shown on the wizard's licence page (`LicenseFile`) and
+installed to `%AppData%\VistaType LP\LICENSE.txt`, so the user "receives a copy of the license"
+as the GPL requires.
+
+**The SIL Open Font License 1.1**, for the bundled `VistaTypeLP Legible` typeface — which is
+derived from Atkinson Hyperlegible and is **not** covered by the GPL. The OFL allows bundling
+it with software under any licence, but requires that every copy carry the licence text, so:
+
+- the four `.ttf` files install to `{autofonts}`, and
+  `assets/fonts/atkinson-hyperlegible/OFL.txt` installs to `%AppData%\VistaType LP` — the same
+  place and the same pattern `LICENSE.txt` uses (a text file does not belong in the Fonts
+  folder, so the two do not literally sit side by side);
+- the wizard's welcome page names the typeface, its origin, and the fact that its licence is
+  separate; `docs/Installation-Guide.md` says the same at more length.
+
+Do **not** merge the font into the GPL text, and do not drop `OFL.txt` on the grounds that the
+licence is embedded in the font file — condition 2 asks for both, and breaching any OFL
+condition voids the grant outright. The full condition-by-condition working is in
+`assets/fonts/atkinson-hyperlegible/README.md`.
+
+Three things about the font entries in `[Files]` that look like oversights and are not:
+`uninsneveruninstall` (removing the font would silently reflow every book already produced);
+no `onlyifdoesntexist` (it would stop a corrected font ever reaching a machine that has the old
+one); and `MinVersion: 10.0.17134` on those four lines only (per-user font install needs
+Windows 10/1803 — an older machine gets a working add-in without the font, and the attach
+dialog greys the choice out). Each is commented at the entries themselves.
+
 ## Build
 
 From Linux: `make installer` — stages the shipping files into `dist/`
-(`LPandBRL.dotm`, `LargePrintTemplate.dotx`, `LICENSE.txt`), pushes to the Windows box,
+(`LPandBRL.dotm`, `LargePrintTemplate.dotx`, `LICENSE.txt`, `OFL.txt` and the four
+`VistaTypeLPLegible-*.ttf` faces), pushes to the Windows box,
 runs `ISCC.exe`, and copies `"VistaType LP and Braille Macros Setup <ver>.exe"` back to local `dist/` **and**
 onto the build box's Desktop (ready to double-click for a test install on the VM).
 
@@ -55,7 +87,7 @@ Prereq on the Windows box: [Inno Setup 6](https://jrsoftware.org/isdl.php) insta
 (free). Adjust `WIN_ISCC` in `build.config` if it's not at the default path.
 
 To compile by hand on Windows instead: open `installer\vistatype.iss` in the Inno
-Setup IDE with the three files present in `..\dist`, and click Compile.
+Setup IDE with every file listed above present in `..\dist`, and click Compile.
 
 ## Validation status
 

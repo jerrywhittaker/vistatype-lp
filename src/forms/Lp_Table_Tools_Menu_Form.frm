@@ -15,6 +15,11 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 'Lp_Table_And_TOC_Tools_Menu_Form
 '
+' Version: 2.3  Date: 8/8/2026 - table recolouring took its typeface and size from hard-coded
+'                                "Tahoma" and the Lp_Base_Font_Size public. Both now come off the
+'                                document's own Normal style, so a table follows the typeface the
+'                                book was attached with, and a book keeps its own size when
+'                                another was attached later in the same Word session
 ' Version: 2.2  Date: 7/24/2026 - no longer runs "MS_Set_Word_Config_For_Large_Print" on form open
 ' Version: 2.1  Date: 5/28/2025 - moved check for a selected table to Lp_Color_Bars_For_TOCs_Form
 ' Version: 2.0  Date: 4/19/2024 - error tapping added
@@ -46,14 +51,23 @@ Private Sub Default_Color_Selected_Click()
     On Error GoTo eom
     Selection.Tables(1).Select
  
+    ' Read the typeface AND the size off this document, not off the Public. The Public
+    ' holds whatever was chosen the last time a template was attached in this Word
+    ' session, so recolouring a table in an 18 point book after attaching a 24 point
+    ' one used to give the first book 24 point type. 8/8/2026.
+    Dim BaseFont As String
+    Dim BaseSize As Single
+    BaseFont = ActiveDocument.Styles(wdStyleNormal).Font.Name
+    BaseSize = ActiveDocument.Styles(wdStyleNormal).Font.Size
+
     Dim CurrentTable As Table
         For Each CurrentTable In Selection.Tables
             With Selection.Font
-                .Name = "Tahoma"
-                .Size = Lp_Base_Font_Size
+                .Name = BaseFont
+                .Size = BaseSize
             End With
             With CurrentTable
-                .Range.Font.Name = "Tahoma"
+                .Range.Font.Name = BaseFont
                 .Style = "Yellow on White Paper Table"
              End With
              Application.Run MacroName:="Lp_SetSelectedTableBorderWeight"
@@ -73,14 +87,23 @@ Private Sub Yellow_Color_Selected_Click()
     On Error GoTo eom
     Selection.Tables(1).Select
  
+    ' Read the typeface AND the size off this document, not off the Public. The Public
+    ' holds whatever was chosen the last time a template was attached in this Word
+    ' session, so recolouring a table in an 18 point book after attaching a 24 point
+    ' one used to give the first book 24 point type. 8/8/2026.
+    Dim BaseFont As String
+    Dim BaseSize As Single
+    BaseFont = ActiveDocument.Styles(wdStyleNormal).Font.Name
+    BaseSize = ActiveDocument.Styles(wdStyleNormal).Font.Size
+
     Dim CurrentTable As Table
         For Each CurrentTable In Selection.Tables
             With Selection.Font
-                .Name = "Tahoma"
-                .Size = Lp_Base_Font_Size
+                .Name = BaseFont
+                .Size = BaseSize
             End With
             With CurrentTable
-                .Range.Font.Name = "Tahoma"
+                .Range.Font.Name = BaseFont
                 .Style = "Yellow on Black Screen Table"
                 Application.Run MacroName:="Lp_SetSelectedTableBorderWeight"
              End With
@@ -100,14 +123,23 @@ Private Sub Gray_Color_Selected_Click()
     On Error GoTo eom
     Selection.Tables(1).Select
  
+    ' Read the typeface AND the size off this document, not off the Public. The Public
+    ' holds whatever was chosen the last time a template was attached in this Word
+    ' session, so recolouring a table in an 18 point book after attaching a 24 point
+    ' one used to give the first book 24 point type. 8/8/2026.
+    Dim BaseFont As String
+    Dim BaseSize As Single
+    BaseFont = ActiveDocument.Styles(wdStyleNormal).Font.Name
+    BaseSize = ActiveDocument.Styles(wdStyleNormal).Font.Size
+
     Dim CurrentTable As Table
         For Each CurrentTable In Selection.Tables
             With Selection.Font
-                .Name = "Tahoma"
-                .Size = Lp_Base_Font_Size
+                .Name = BaseFont
+                .Size = BaseSize
             End With
             With CurrentTable
-                .Range.Font.Name = "Tahoma"
+                .Range.Font.Name = BaseFont
                 .Style = "Gray Scale Table"
                 Application.Run MacroName:="Lp_SetSelectedTableBorderWeight"
              End With
@@ -127,14 +159,23 @@ Private Sub Black_And_White_Selected_Click()
     On Error GoTo eom
     Selection.Tables(1).Select
  
+    ' Read the typeface AND the size off this document, not off the Public. The Public
+    ' holds whatever was chosen the last time a template was attached in this Word
+    ' session, so recolouring a table in an 18 point book after attaching a 24 point
+    ' one used to give the first book 24 point type. 8/8/2026.
+    Dim BaseFont As String
+    Dim BaseSize As Single
+    BaseFont = ActiveDocument.Styles(wdStyleNormal).Font.Name
+    BaseSize = ActiveDocument.Styles(wdStyleNormal).Font.Size
+
     Dim CurrentTable As Table
         For Each CurrentTable In Selection.Tables
            With Selection.Font
-                .Name = "Tahoma"
-                .Size = Lp_Base_Font_Size
+                .Name = BaseFont
+                .Size = BaseSize
             End With
             With CurrentTable
-                .Range.Font.Name = "Tahoma"
+                .Range.Font.Name = BaseFont
                 .Style = "Table Grid"
                 Application.Run MacroName:="Lp_SetSelectedTableBorderWeight"
              End With

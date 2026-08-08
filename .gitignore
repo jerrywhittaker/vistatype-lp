@@ -8,6 +8,18 @@ build/
 # Linux read-only mirror produced by `make read` (redundant with src/).
 reference/vba-src/
 
+# The Atkinson Hyperlegible licence PDF lives OUTSIDE the project, in
+# ~/reference/vistatype-lp/. This rule is the safety net for a stray second copy: never track
+# it. The repo carries the wording it actually needs in
+# assets/fonts/atkinson-hyperlegible/OFL.txt, transcribed from that PDF and verified against it.
+Atkinson-Hyperlegible-SIL-OPEN-FONT-LICENSE-*.pdf
+
+# Windows "downloaded from the internet" markers, which WSL surfaces as real files.
+*:Zone.Identifier
+
+# Python bytecode cache, left behind whenever one tools/lib script imports another.
+__pycache__/
+
 # Editor / OS noise.
 *~
 ~$*
