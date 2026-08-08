@@ -149,6 +149,16 @@ installer/      Like src/ and tools/, this folder is WIPED on the build box befo
                 user's machine with no warning.
 docs/           Daily-Workflow-and-Releases.md (Jerry's plain-language guide to dev/master, building, releasing, and what to ask Claude); Installation-Guide.md (end-user install); Build-VM-Setup.md (Hyper-V build/test box); Software-Agreement.md (GPLv3 About-dialog text)
 reference/      generated read aids (gitignored mirror + interim form-code dump)
+.claude/agents/ four review helpers Claude hands work to, each with its own reading space so
+                the ~16,500-line engine does not crowd out the job in hand. vba-review (the
+                failure modes that ship silently — run before `make build`); braille-lp-review
+                (what the READER gets: LP formatting, UEB/Nemeth/BANA output, $pg tags);
+                ship-safety (what a change does to a transcriber's own toolbar, ribbon and
+                %AppData% — run before any release); release-check (verifies version numbers,
+                that the Setup.exe exists, that a published release carries its .exe, and that
+                a hotfix reached dev). All four are READ-ONLY and report; none edits or pushes.
+                They complement tools/lib's guards rather than repeat them — each file says
+                what the guards already cover.
 Makefile        pull / build / ribbon / qat / read / deploy / stage / installer  (see DEVELOPMENT.md)
 ```
 
