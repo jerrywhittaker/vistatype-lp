@@ -60,6 +60,10 @@ American spellings** — dialog text, installer wording, documentation, and code
 license (not licence), color, behavior, recognize, normalize, gray, dialog. The whole repo was
 swept on 8/8/2026; keep new writing in step.
 
+**This covers what you SAY to Jerry, not only what you write into the product** — and usage as
+well as spelling. He corrected "double full stop" to "double periods" on 8/8/2026. Period, not
+full stop; parentheses, not brackets; quotation marks, not inverted commas.
+
 Three files are **excluded and must stay untouched**: `LICENSE` (the GPL's own text),
 `docs/Software-Agreement.md`, and `assets/fonts/atkinson-hyperlegible/OFL.txt` — that last one
 is a character-for-character transcription of the Braille Institute's own document and altering

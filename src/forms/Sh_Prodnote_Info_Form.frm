@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Sh_Prodnote_Info_Form 
    Caption         =   "Prodnotes in This Document"
-   ClientHeight    =   5892
+   ClientHeight    =   6048
    ClientLeft      =   120
    ClientTop       =   465
    ClientWidth     =   9600.001
@@ -29,6 +29,11 @@ Private Sub UserForm_Initialize()
 ' The text lives here rather than in the form's binary layout file so that it can be read and
 ' edited as text, in the VBE or in src/forms.
 '
+' Version: 1.2  Date: 8/8/2026 - the note now points braille transcribers at Delete Prodnotes on
+'                                their OWN tab (it is on both), and names the group the way the
+'                                ribbon does - "File Cleanup", not "File Cleanup Group". The
+'                                quotation marks say "this is the exact name", so they have to
+'                                match what the transcriber is looking at (Jerry)
 ' Version: 1.1  Date: 8/8/2026 - message rewritten; form made taller to suit. The arrow that
 '                                was written as ChrW(8594) is gone - the ribbon button now
 '                                reads "Prodnote to TN" - so this file is plain Windows-1252
@@ -52,13 +57,14 @@ Private Sub UserForm_Initialize()
     m = m & vbCrLf & vbCrLf _
       & "When the desired output is large print, prodnotes may only have value if the goal is to produce an " _
       & "accessible PDF or web page. If not needed, the prodnotes should be deleted from the document by running the ""Delete Prodnotes"" " _
-      & "macro from the ""File Cleanup Group"" on the ""VistaType LP"" tab ribbon."
+      & "macro from the ""File Cleanup"" group on the ""VistaType LP"" tab ribbon."
     
     m = m & vbCrLf & vbCrLf _
       & "When the desired output is braille, descriptions of visual elements can provide " _
       & "readers with information not found in the text of the book. Edit or delete selected prodnotes as needed. " _
       & "The remaining prodnotes in the file may be converted to the ""Transcriber Note"" style " _
-      & "by using the ""Prodnote to TN"" macro on the ""File Cleanup Group"" on the ""Braille Macros"" tab ribbon.."
+      & "by using the ""Prodnote to TN"" macro in the ""File Cleanup"" group on the ""Braille Macros"" tab ribbon. " _
+      & "Prodnotes that are not wanted can be deleted with the ""Delete Prodnotes"" macro in the same group."
       
     Info_Text.Text = m
 

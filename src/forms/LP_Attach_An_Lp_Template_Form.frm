@@ -1,10 +1,10 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} LP_Attach_An_Lp_Template_Form 
    Caption         =   "Attach LP Template & Select Output Media"
-   ClientHeight    =   9108.001
+   ClientHeight    =   9132.001
    ClientLeft      =   120
    ClientTop       =   465
-   ClientWidth     =   12120
+   ClientWidth     =   12150
    OleObjectBlob   =   "LP_Attach_An_Lp_Template_Form.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
@@ -16,6 +16,17 @@ Attribute VB_Exposed = False
 
 ' LP_Attach_An_Lp_Template_Form
 '
+' Version: 6.0  Date: 8/8/2026 - Jerry took CustomOrientationFrame off the form and moved the two
+'                                orientation buttons up into CustomizeFrame, where they are still
+'                                the only option buttons and so still switch each other. The three
+'                                CustomOrientationFrame.Enabled lines went with it. They were
+'                                redundant even before: every one of them sat beside lines that
+'                                already enable or disable CustomOrientPortrait and
+'                                CustomOrientLandscape one at a time. Left in, each raised run-time
+'                                error 424 - this form has no Option Explicit, so a name that is no
+'                                longer a control is simply an empty Variant, and .Enabled on it
+'                                fails. UserForm_Initialize holds one, so it fired the moment the
+'                                ribbon's Attach LP Template button was clicked
 ' Version: 5.9  Date: 8/8/2026 - added the Typeface choice beside the point size: Tahoma, or the
 '                                bundled VistaTypeLP Legible (the default). Legible is grayed out,
 '                                and says so on the button, when it is not installed - Word
@@ -369,7 +380,6 @@ Private Sub CustomizeCheckBox_Click()
         LMarginSizeValue = PLM
         RMarginSizeValue = PRM
         '*** Custom Orientation ***
-        CustomOrientationFrame.Enabled = True
         CustomOrientLandscape.Enabled = True
         CustomOrientPortrait.Enabled = True
 
@@ -439,7 +449,6 @@ Private Sub CustomizeCheckBox_Click()
         CustomHeightValue.Enabled = False
         CustomWidthValue.Enabled = False
      
-        CustomOrientationFrame.Enabled = False
         CustomOrientLandscape.Enabled = False
         
         MirroredCheckBox.Enabled = False
@@ -832,7 +841,6 @@ Private Sub UserForm_Initialize()
     Point18.Enabled = True
     Point18.Value = True
     
-    CustomOrientationFrame.Enabled = False
     CustomOrientLandscape.Enabled = False
     CustomOrientLandscape.Value = False
     'CustomOrientPortrait.Value = True
