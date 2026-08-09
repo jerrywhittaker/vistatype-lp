@@ -1,10 +1,10 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_Type_Fill_In_Line_Form 
    Caption         =   "Type Fill-In Lines"
-   ClientHeight    =   8064
+   ClientHeight    =   7932
    ClientLeft      =   120
    ClientTop       =   465
-   ClientWidth     =   4605
+   ClientWidth     =   4485
    OleObjectBlob   =   "Lp_Type_Fill_In_Line_Form.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
@@ -191,4 +191,3 @@ Private Sub UserForm_Initialize()
     Me.Top = Application.Top + (0.5 * Application.Height) - (0.5 * Me.Height)
 
 End Sub
-

@@ -18,7 +18,38 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Sh - 8/8/2026 - American spellings throughout, in comments and in anything the transcriber reads. Jerry's call: the
+' Notes:    - Sh - 8/9/2026 - the Word configuration now FOLLOWS the document. Word keeps one set of Options and AutoCorrect entries
+'           - Sh - 8/9/2026 - for the whole application, so an LP book and a braille file open together could not both have their
+'           - Sh - 8/9/2026 - configuration in force: whichever was opened last won and went on winning, and Sh_Doc_Info reported the
+'           - Sh - 8/9/2026 - configuration of a document the transcriber had clicked away from. VtEvents now takes Word's
+'           - Sh - 8/9/2026 - WindowActivate as well, and Sh_HandleDocumentActivated puts the right one of the three back. That event
+'           - Sh - 8/9/2026 - fires constantly, so only a change of TYPE costs anything: same type as the config already in force, do
+'           - Sh - 8/9/2026 - nothing (the Options are already right, and the per-document and per-window settings travel with the
+'           - Sh - 8/9/2026 - document). Four guards come first. It skips while a MACRO is running - Application.ScreenUpdating being
+'           - Sh - 8/9/2026 - off is the marker - because Lp_/Dx_Copy_To_Temp_Doc activate a document and are called from about 35
+'           - Sh - 8/9/2026 - places, and reconfiguring mid-macro would put back the ~74 Options writes taken out of fourteen dialogs
+'           - Sh - 8/9/2026 - on 7/24/2026 and refresh the screen where the code says it must not. It skips the GPL window the add-in
+'           - Sh - 8/9/2026 - opens itself, whose Sh_Skip_Open_Handler guard only spans the open. It has a re-entrancy flag, because
+'           - Sh - 8/9/2026 - closing Reading view raises WindowActivate again. And a failed config puts ScreenUpdating back - the
+'           - Sh - 8/9/2026 - braille one turns it off with no handler of its own, which on a click path would have frozen the screen
+'           - Sh - 8/9/2026 - and done it again on the next click. There is deliberately NO "same document" shortcut: a document's type
+'           - Sh - 8/9/2026 - changes while it stays active when a template is attached, and a name-based skip would never look again.
+'           - Sh - 8/9/2026 - It never runs the rest of the open handler - that one can raise the obsolete-template message box and open
+'           - Sh - 8/9/2026 - the attach dialog, which is right once per open and intolerable on every click.
+'           - Sh - 8/9/2026 - Switching sets the TYPING side only - Options, AutoCorrect, spelling, fractions - and leaves the screen
+'           - Sh - 8/9/2026 - alone: Styles pane, formatting marks, both rulers, style area, view type. Jerry's call. The typing side is
+'           - Sh - 8/9/2026 - the part that is actually WRONG when it belongs to the other document; the screen is the part a transcriber
+'           - Sh - 8/9/2026 - arranges for a session and would resent losing, and taking it back on every glance would be the 7/24 and
+'           - Sh - 8/9/2026 - 8/2/2026 Styles-pane complaints returning. New Public Sh_Config_Skip_Display, set only by
+'           - Sh - 8/9/2026 - Sh_Apply_Word_Config (new Optional DisplayToo) and always cleared, guards the display blocks inside the
+'           - Sh - 8/9/2026 - three MS_ subs. OPENING a document, and attaching a template, still set the display exactly as before.
+'           - Sh - 8/9/2026 - New: Sh_HandleDocumentActivated, Sh_Doc_Config_Type ("LP"/"BRL"/"DEF"), Sh_Apply_Word_Config,
+'           - Sh - 8/9/2026 - Sh_Is_Addins_Own_Document, and the Public Sh_ConfiguredAs - written by the three MS_Set_Word_Config_*
+'           - Sh - 8/9/2026 - subs themselves, beside MS_Word_Config, because about a dozen other places run those subs directly and
+'           - Sh - 8/9/2026 - recording it in the callers would leave it describing a configuration Word was not actually carrying.
+'           - Sh - 8/9/2026 - The three-way config in Sh_HandleDocumentOpened and Sh_HandleDocumentNew now goes through
+'           - Sh - 8/9/2026 - Sh_Apply_Word_Config, so opening and switching can never drift apart.
+'           - Sh - 8/8/2026 - American spellings throughout, in comments and in anything the transcriber reads. Jerry's call: the
 '           - Sh - 8/8/2026 - product is for American transcribers. licence->license, colour->color, behaviour->behavior,
 '           - Sh - 8/8/2026 - recognise->recognize, normalise->normalize, grey->gray, "dialogue window"->"dialog window". The three
 '           - Sh - 8/8/2026 - legal texts are NOT touched (LICENSE, docs/Software-Agreement.md, and the font's OFL.txt, which is a
@@ -426,6 +457,47 @@ Public MirrorString As String ' yes or no
 Dim gEvents As VtEvents
 Public Sh_LastDocEvent As String   ' diagnostic breadcrumb: last document event handled
 
+' Which of the three configurations is in force. Word's Options and AutoCorrect entries are
+' per-APPLICATION, not per-document, so with an LP book and a braille file both open only one
+' of them can be active at a time. This remembers which, so that switching documents can put
+' the right one back and Sh_Doc_Info's "Word is configured for..." line (MS_Word_Config)
+' describes the document actually in front of the transcriber. See Sh_HandleDocumentActivated.
+'
+' Written by the three MS_Set_Word_Config_* subs THEMSELVES, beside MS_Word_Config, and not by
+' the callers - about a dozen places run those subs directly (the braille and LP cleanup
+' sequences among them). Recording it anywhere else would leave this saying "DEF" while Word
+' actually carried the braille AutoCorrect entries, and the "same type, nothing to do" test
+' below would then believe a lie.
+Public Sh_ConfiguredAs As String       ' "LP", "BRL" or "DEF" - empty until the first config
+
+' True while a configuration is being applied because the transcriber SWITCHED documents, as
+' opposed to opening one or attaching a template. The three MS_Set_Word_Config_* subs then set
+' Word's typing behavior - Options, AutoCorrect, spelling, fractions, the things that are wrong
+' when they belong to the other document - and leave the screen alone: the Styles pane, the
+' formatting marks, both rulers, the style area and the view type.
+'
+' Jerry's call, 8/9/2026. Once a transcriber has arranged their screen for a session it is
+' theirs, and having the pane close and the pilcrows come back on every time they glanced at the
+' other document would be the 7/24 and 8/2/2026 complaints all over again. Opening a document,
+' or attaching a template, still sets the display as it always did.
+'
+' Only Sh_Apply_Word_Config sets this, and it always clears it again, including when the
+' configuration raises.
+Public Sh_Config_Skip_Display As Boolean
+
+' How many times Word has raised WindowActivate since this session began - counted before
+' any of Sh_HandleDocumentActivated's guards, purely so the event's arrival can be told
+' apart from a guard turning it away. Read it with Sh_GetActivateCount.
+Public Sh_ActivateCount As Long
+
+' The last document Sh_HandleDocumentActivated looked at, and what was in force when it did.
+' WindowSelectionChange fires on every cursor movement, so the handler needs a first test that
+' costs one string comparison. Pairing the name WITH Sh_ConfiguredAs is what makes it safe to
+' skip: attaching a template changes a document's type while it stays active, and that also
+' changes Sh_ConfiguredAs, so the pair stops matching and the document is examined afresh.
+Public Sh_LastSeenDoc As String
+Public Sh_LastSeenAs As String
+
 Sub AutoExec()
     ' Runs once when Word starts (fires even from a STARTUP global template, unlike AutoOpen).
     On Error Resume Next
@@ -442,6 +514,10 @@ Public Function Sh_GetLastDocEvent() As String
     Sh_GetLastDocEvent = Sh_LastDocEvent
 End Function
 
+Public Function Sh_GetActivateCount() As Long
+    Sh_GetActivateCount = Sh_ActivateCount
+End Function
+
 Sub AutoNew()
     ' Back-compat stub: only acts if app events aren't hooked (i.e. loaded as Normal.dotm).
     If gEvents Is Nothing Then Sh_HandleDocumentNew
@@ -449,7 +525,187 @@ End Sub
 
 Sub Sh_HandleDocumentNew()
     Sh_LastDocEvent = "NewDocument"
-    Application.Run MacroName:="MS_Set_Word_Config_For_New_Install"
+    Sh_Apply_Word_Config "DEF"
+End Sub
+
+' --- Switching between open documents -------------------------------------------------------
+' Word carries ONE set of Options and AutoCorrect entries for the whole application, so a large
+' print book and a braille file open side by side cannot both have their configuration in force.
+' Until 8/9/2026 whichever document was opened LAST won, and went on winning: clicking back to
+' the other one left Word set up for its neighbor, and Sh_Doc_Info kept reporting - truthfully,
+' but uselessly - the configuration of a document the transcriber was no longer looking at.
+'
+' VtEvents.App_WindowActivate calls this whenever a document window is activated. That is often:
+' clicking another window, Ctrl+F6, View > Switch Windows, and returning to Word from another
+' program all raise it, as does opening or creating a document - and so does every macro that
+' works in a temporary document. So the whole job is four cheap tests and, only when the answer
+' has actually changed, one configuration:
+'
+'   a macro is running          -> nothing to do. See the ScreenUpdating test below; this is the
+'                                  one that keeps the change off the macros' backs
+'   the add-in's own window     -> nothing to do (the GPL text opened by Sh_Show_Full_License)
+'   same TYPE as the config     -> nothing to do. The Options are already right, and the
+'   already in force               per-document settings (style sort, formatting filter) and the
+'                                  per-window ones (rulers, show/hide, view) travel with the
+'                                  document and its own window. This covers two windows on one
+'                                  book, Word merely regaining focus, and clicking between two
+'                                  documents of the same kind
+'   a different type            -> put that document's configuration in force
+'
+' There is deliberately NO "same document as last time" shortcut. It would be faster, but a
+' document's type can CHANGE while it stays active - attaching the LP template, or a BANA one -
+' and a name-based shortcut would then never look at it again. Asking the document what it is
+' costs one style lookup, which is nothing beside what Word itself does on a click.
+'
+' What this must NEVER do is the rest of Sh_HandleDocumentOpened's work. That one can raise the
+' obsolete-template message box and open the attach dialog - right once, when a document is
+' opened, and intolerable on every click between two documents.
+'
+' Nothing here may raise: an error inside a Word application event can stop Word calling back
+' for the rest of the session, which would silently kill document-type detection outright.
+'
+' Version: 1.0  Date: 8/9/2026 (Jerry asked for it: the configuration should follow the document)
+Sub Sh_HandleDocumentActivated()
+    Static busy As Boolean
+    Dim newType As String
+    Dim docName As String
+
+    On Error GoTo eom
+
+    ' Diagnostic breadcrumb, incremented before every guard below, so that "did the event even
+    ' arrive?" and "did a guard turn it away?" can be told apart from outside. Sh_LastDocEvent
+    ' cannot answer that: it is only written when work actually happens.
+    Sh_ActivateCount = Sh_ActivateCount + 1
+
+    ' Applying a configuration touches the window itself - closing Reading view is the first
+    ' thing all three do - which can raise WindowActivate again before this one has finished.
+    ' Without this the second pass would start the whole job over.
+    If busy Then Exit Sub
+
+    ' A document the add-in opened for its own reasons is not the user's working document.
+    If Sh_Skip_Open_Handler Then Exit Sub
+    If Documents.count = 0 Then Exit Sub
+
+    ' A MACRO is running, not a transcriber. Word's own macros activate documents constantly -
+    ' every Lp_Copy_To_Temp_Doc and Dx_Copy_To_Temp_Doc creates a document and activates it, and
+    ' those two are called from about 35 places. Reconfiguring Word in the middle of one would
+    ' put back the ~74 Options and AutoCorrect writes that were taken OUT of fourteen dialogs on
+    ' 7/24/2026, and would refresh the screen at the exact points the code turns refreshing off.
+    ' Screen updating being off is the marker: those macros all turn it off, and a transcriber
+    ' clicking a window has it on.
+    If Not Application.ScreenUpdating Then Exit Sub
+
+    ' The GPL text stays on screen after Sh_Show_Full_License opens it, so its Sh_Skip_Open_Handler
+    ' guard - which only spans the Documents.Open call - does not cover clicking back to it later.
+    If Sh_Is_Addins_Own_Document() Then Exit Sub
+
+    ' One string comparison in the overwhelmingly common case - the cursor moved, or the same
+    ' document was clicked again. See Sh_LastSeenDoc.
+    docName = ActiveDocument.FullName
+    If docName = Sh_LastSeenDoc And Sh_ConfiguredAs = Sh_LastSeenAs Then Exit Sub
+
+    newType = Sh_Doc_Config_Type()
+    If newType <> Sh_ConfiguredAs Then
+        busy = True
+        Sh_LastDocEvent = "WindowActivate"
+        ' The typing side only. The screen the transcriber has arranged stays as they left it -
+        ' see Sh_Config_Skip_Display.
+        Sh_Apply_Word_Config newType, False
+        busy = False
+    End If
+
+    Sh_LastSeenDoc = docName
+    Sh_LastSeenAs = Sh_ConfiguredAs
+    Exit Sub
+
+eom:
+    busy = False
+End Sub
+
+' True for a document the add-in opened for its own purposes rather than the transcriber's -
+' today that means the GPL text under %AppData%\VistaType LP. Sh_Skip_Open_Handler covers only
+' the instant such a document is OPENED; the window then stays on screen and can be clicked back
+' to at any time, which is why the folder is tested here as well.
+'
+' Version: 1.0  Date: 8/9/2026
+Public Function Sh_Is_Addins_Own_Document() As Boolean
+    On Error GoTo eom
+    Sh_Is_Addins_Own_Document = _
+        (InStr(1, ActiveDocument.Path, Environ$("APPDATA") & "\VistaType LP", vbTextCompare) = 1)
+eom:
+End Function
+
+' Which of the three configurations the ACTIVE document wants: "LP" large print, "BRL" braille,
+' "DEF" everything else. Reads the attached template only - no document body - so it is cheap
+' enough to run on every window activation.
+'
+' Version: 1.0  Date: 8/9/2026
+Public Function Sh_Doc_Config_Type() As String
+    Dim attached As String
+
+    Sh_Doc_Config_Type = "DEF"
+    On Error GoTo eom
+
+    If Lp_Is_The_Attached_Template_LP = True Then
+        Sh_Doc_Config_Type = "LP"
+    Else
+        attached = ActiveDocument.AttachedTemplate
+        If InStr(attached, "BANA Braille") > 0 Then Sh_Doc_Config_Type = "BRL"
+    End If
+
+eom:
+End Function
+
+' Puts one of the three configurations in force. The three MS_ subs record WHICH, into
+' Sh_ConfiguredAs and MS_Word_Config, so this sub does not - see the note on Sh_ConfiguredAs.
+'
+' Configuration ONLY. No message boxes and no dialogs: this runs when someone merely clicks
+' another window, and must never interrupt them.
+'
+' DisplayToo says whether the on-screen settings go with it. True when a document is OPENED or
+' created - that is the moment to set the screen up for the kind of document it is. False when
+' the transcriber merely SWITCHED to an already-open document, where the screen they have
+' arranged is theirs to keep. See Sh_Config_Skip_Display.
+'
+' Version: 1.1  Date: 8/9/2026 - DisplayToo (Jerry: switching sets the typing, not the screen)
+' Version: 1.0  Date: 8/9/2026
+Sub Sh_Apply_Word_Config(ByVal cfgType As String, Optional ByVal DisplayToo As Boolean = True)
+    Dim su_Prev As Boolean
+
+    su_Prev = Application.ScreenUpdating
+    On Error GoTo failed
+
+    Sh_Config_Skip_Display = Not DisplayToo
+
+    Select Case cfgType
+        Case "LP"
+            Application.Run MacroName:="MS_Set_Word_Config_For_Large_Print"
+            ' Lp_Set_Display_For_Large_Print is display from top to bottom - show/hide, both
+            ' rulers, print view, the formatting flags - so on a switch it is skipped whole.
+            If DisplayToo Then Application.Run MacroName:="Lp_Set_Display_For_Large_Print"
+        Case "BRL"
+            Application.Run MacroName:="MS_Set_Word_Config_For_Braille"
+            If DisplayToo Then Application.TaskPanes(wdTaskPaneFormatting).Visible = False
+            Dx_GP_String_1 = "Doc_Is_Already_Brl"
+        Case Else
+            Application.Run MacroName:="MS_Set_Word_Config_For_New_Install"
+    End Select
+
+    Sh_Config_Skip_Display = False
+    Exit Sub
+
+failed:
+    On Error Resume Next
+    Sh_Config_Skip_Display = False
+    ' MS_Set_Word_Config_For_Braille turns screen updating off near its top and back on near its
+    ' bottom and has no error handler of its own, so anything raising in between used to leave
+    ' Word not repainting at all. On this path that would be far worse than before: the next
+    ' click would run the same failing config and freeze the screen again, and again. Put it
+    ' back before anything else.
+    Application.ScreenUpdating = su_Prev
+    ' Say nothing is in force rather than claim a configuration that never finished, so the next
+    ' switch tries again instead of believing the job is done.
+    Sh_ConfiguredAs = ""
 End Sub
 
 Sub AutoOpen()
@@ -469,6 +725,7 @@ Sub Sh_HandleDocumentOpened()
     ' If the document is a large print document then setting for Large Print are made - if doc is braille then brille settings are made
     '   otherwise the settings for a normal document are made.
     '
+    ' Version 1.7  Date: 8/9/2026 - the three-way config now goes through Sh_Apply_Word_Config, shared with Sh_HandleDocumentNew and with switching between open documents (Sh_HandleDocumentActivated), so the three can never drift apart. Same calls in the same order. One behavior change: a configuration that raises is now caught inside Sh_Apply_Word_Config, so this sub carries on to Sh_Set_Prodnote_Style_Visibility instead of jumping to eom and skipping it
     ' Version 1.6  Date: 7/24/2026 - Sh_Set_Prodnote_Style_Visibility now runs for EVERY opened document (any template), not just large print, so the Prodnote style is removed from the Styles pane whenever the document contains no prodnotes regardless of the attached template
     ' Version 1.5  Date: 7/23/2026 - LP documents now called the Prodnote visibility helper on open (superseded by 1.6)
     ' Version 1.4  Date: 2/16/2026 - added call to p_CheckAndAssistDocumentState to check block and read only status
@@ -517,23 +774,19 @@ Sub Sh_HandleDocumentOpened()
                      & "Because of the differences in character and line spacing between the templates, attaching the latest template may " _
                      & "result in text flow changes which will require editing.", , "VistaType LP (123)"
                             
-                Application.Run MacroName:="MS_Set_Word_Config_For_Large_Print"
-                Application.Run MacroName:="Lp_Set_Display_For_Large_Print"
+                Sh_Apply_Word_Config "LP"
                 Lp_GP_String_3 = "Bypass Cleanup Checks"
                 Application.Run MacroName:="Lp_Attach_Lp_Template"
                 Exit Sub
             Else ' is a large print document with current LP template attached
-                Application.Run MacroName:="MS_Set_Word_Config_For_Large_Print"
-                Application.Run MacroName:="Lp_Set_Display_For_Large_Print"
+                Sh_Apply_Word_Config "LP"
         End If
-        
+
     Else ' check if it is a braille document
         If InStr(ActiveDocument.AttachedTemplate, "BANA Braille") > 0 Then
-            Application.Run MacroName:="MS_Set_Word_Config_For_Braille"
-            Application.TaskPanes(wdTaskPaneFormatting).Visible = False
-            Dx_GP_String_1 = "Doc_Is_Already_Brl"
+            Sh_Apply_Word_Config "BRL"
         Else   'document is not Braille and not Large Print
-            Application.Run MacroName:="MS_Set_Word_Config_For_New_Install"
+            Sh_Apply_Word_Config "DEF"
          End If
     End If
 
@@ -16653,9 +16906,11 @@ Sub MS_Set_Word_Config_For_New_Install()
     
     ActiveDocument.ActiveWindow.View.ReadingLayout = False  'will crash if document is in reading view ... close reading view
 
-    ActiveDocument.FormattingShowNextLevel = False
-    ActiveDocument.StyleSortMethod = wdStyleSortRecommended
-    ActiveDocument.FormattingShowFilter = wdShowFilterStylesAll
+    If Not Sh_Config_Skip_Display Then   ' the transcriber's screen is theirs - see Sh_Config_Skip_Display
+        ActiveDocument.FormattingShowNextLevel = False
+        ActiveDocument.StyleSortMethod = wdStyleSortRecommended
+        ActiveDocument.FormattingShowFilter = wdShowFilterStylesAll
+    End If
     
     ' Only write settings that differ from their target, so re-running this on every new
     ' document doesn't hand Word's (roaming) settings store a no-op "change" each time.
@@ -16703,12 +16958,14 @@ Sub MS_Set_Word_Config_For_New_Install()
         If .AutoFormatPlainTextWordMail <> True Then .AutoFormatPlainTextWordMail = True
     End With
     
-    ActiveWindow.View.ShowAll = True
-    ActiveWindow.DisplayRulers = True
-    ActiveWindow.DisplayVerticalRuler = True
-    ActiveWindow.ActivePane.View.Type = wdPrintView
-    Application.TaskPanes(wdTaskPaneFormatting).Visible = False 'turn off styles pane
-    Application.ScreenRefresh
+    If Not Sh_Config_Skip_Display Then   ' the transcriber's screen is theirs - see Sh_Config_Skip_Display
+        ActiveWindow.View.ShowAll = True
+        ActiveWindow.DisplayRulers = True
+        ActiveWindow.DisplayVerticalRuler = True
+        ActiveWindow.ActivePane.View.Type = wdPrintView
+        Application.TaskPanes(wdTaskPaneFormatting).Visible = False 'turn off styles pane
+        Application.ScreenRefresh
+    End If
     
     ' compact fractions are set in the normal style of word but may be there
     ' from Word configuration settings for braille
@@ -16734,6 +16991,7 @@ Sub MS_Set_Word_Config_For_New_Install()
     AutoCorrect.Entries("1/10").Delete
     
     MS_Word_Config = "Word is configured with default settings"
+    Sh_ConfiguredAs = "DEF"   ' see Sh_HandleDocumentActivated: record what is ACTUALLY in force
     On Error GoTo 0
 
 End Sub '*** end of MS_Set_Word_Config_For_New_Install ***
@@ -16802,24 +17060,28 @@ Sub MS_Set_Word_Config_For_Large_Print()
     End With
 
     Options.LabelSmartTags = False
-    ActiveWindow.StyleAreaWidth = 24.5
-    'Application.Options.ShowCropMarks = True
-    ActiveWindow.View.ShowAll = True
-    ActiveWindow.DisplayRulers = True
-    ActiveWindow.DisplayVerticalRuler = True
+    If Not Sh_Config_Skip_Display Then   ' the transcriber's screen is theirs - see Sh_Config_Skip_Display
+        ActiveWindow.StyleAreaWidth = 24.5
+        'Application.Options.ShowCropMarks = True
+        ActiveWindow.View.ShowAll = True
+        ActiveWindow.DisplayRulers = True
+        ActiveWindow.DisplayVerticalRuler = True
+    End If
     ' 8/2/2026 - no longer calls Lp_Turn_on_Styles_Pane. Configuring Word for large print must
     ' not seize the Styles pane: this sub runs on every LP document OPEN, so it was resetting
     ' the sort order and the "Select styles to show" filter of anyone who had chosen their own.
     ' Only attaching the LP template forces the pane now - see Lp_Attach_The_Template.
     ' FormattingShowNextLevel was riding INSIDE that call and is nowhere else in this sub, so
     ' it is written here explicitly rather than lost with it.
-    ActiveDocument.FormattingShowNextLevel = False
-    Application.ShowStylePreviews = True
-    Application.RestrictLinkedStyles = True
-    ActiveDocument.FormattingShowUserStyleName = False
-    ActiveWindow.ActivePane.View.Type = wdPrintView
+    If Not Sh_Config_Skip_Display Then   ' the transcriber's screen is theirs - see Sh_Config_Skip_Display
+        ActiveDocument.FormattingShowNextLevel = False
+        Application.ShowStylePreviews = True
+        Application.RestrictLinkedStyles = True
+        ActiveDocument.FormattingShowUserStyleName = False
+        ActiveWindow.ActivePane.View.Type = wdPrintView
+    End If
     Options.IgnoreUppercase = False
-    Application.ScreenRefresh
+    If Not Sh_Config_Skip_Display Then Application.ScreenRefresh
     
     ' compact fractions are not used in LP, but may be there
     ' from Word configuration settings for braille
@@ -16845,6 +17107,7 @@ Sub MS_Set_Word_Config_For_Large_Print()
     AutoCorrect.Entries("1/10").Delete
 
     MS_Word_Config = "Word is configured for large print"
+    Sh_ConfiguredAs = "LP"    ' see Sh_HandleDocumentActivated: record what is ACTUALLY in force
     
     On Error GoTo 0
 End Sub  '*** end of macro MS_Set_Word_Config_For_Large_Print ***
@@ -16870,10 +17133,12 @@ Sub MS_Set_Word_Config_For_Braille()
     Dim su_Prev As Boolean
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
-    ActiveDocument.FormattingShowNextLevel = False
-    ActiveDocument.StyleSortMethod = wdStyleSortRecommended
-    ActiveDocument.FormattingShowFilter = wdShowFilterFormattingRecommended
-    Application.RestrictLinkedStyles = True
+    If Not Sh_Config_Skip_Display Then   ' the transcriber's screen is theirs - see Sh_Config_Skip_Display
+        ActiveDocument.FormattingShowNextLevel = False
+        ActiveDocument.StyleSortMethod = wdStyleSortRecommended
+        ActiveDocument.FormattingShowFilter = wdShowFilterFormattingRecommended
+        Application.RestrictLinkedStyles = True
+    End If
     
     With Options
         .AutoFormatAsYouTypeApplyHeadings = False
@@ -16945,19 +17210,22 @@ Sub MS_Set_Word_Config_For_Braille()
     Options.LabelSmartTags = False
     Options.IgnoreUppercase = False
     
-    ActiveWindow.StyleAreaWidth = 64.5
-    'ActiveWindow.View.ShowAll = True
-    ActiveWindow.DisplayRulers = True
-    ActiveWindow.DisplayVerticalRuler = False
-    'Application.Options.ShowCropMarks = False
+    If Not Sh_Config_Skip_Display Then   ' the transcriber's screen is theirs - see Sh_Config_Skip_Display
+        ActiveWindow.StyleAreaWidth = 64.5
+        'ActiveWindow.View.ShowAll = True
+        ActiveWindow.DisplayRulers = True
+        ActiveWindow.DisplayVerticalRuler = False
+        'Application.Options.ShowCropMarks = False
 
-    Application.TaskPanes(wdTaskPaneFormatting).Visible = False 'turn off styles pane
-    ActiveWindow.ActivePane.View.Type = wdNormalView
+        Application.TaskPanes(wdTaskPaneFormatting).Visible = False 'turn off styles pane
+        ActiveWindow.ActivePane.View.Type = wdNormalView
+    End If
 
     MS_Word_Config = "Word is configured for braille"
+    Sh_ConfiguredAs = "BRL"   ' see Sh_HandleDocumentActivated: record what is ACTUALLY in force
     
     Application.ScreenUpdating = su_Prev ' Turn screen updating on
-    Application.ScreenRefresh
+    If Not Sh_Config_Skip_Display Then Application.ScreenRefresh
 
 End Sub  '*** end of  MS_Set_Word_Config_For_Braille macro***
 
@@ -17306,12 +17574,49 @@ Sub Sh_Para_Before_Dollar()
     
 End Sub '*** end of Sh_Para_Before_Dollar macro ***
 
+' The section whose page setup should be reported: the one the cursor is in, falling back to the
+' first. Everything that reads a page measurement for display goes through this, because
+' ActiveDocument.PageSetup returns wdUndefined (9999999) as soon as two sections disagree - and a
+' large-print book with one landscape page for a table disagrees with itself by design.
+'
+' Version: 1.0  Date: 8/9/2026
+Public Function Sh_Target_Section() As Section
+    On Error GoTo firstSection
+    If Not Selection Is Nothing Then
+        If Not Selection.Range Is Nothing Then
+            If Selection.Range.Sections.count > 0 Then
+                Set Sh_Target_Section = Selection.Range.Sections(1)
+                Exit Function
+            End If
+        End If
+    End If
+firstSection:
+    Set Sh_Target_Section = ActiveDocument.Sections(1)
+End Function
+
 Sub Sh_Doc_Info()
 '
 ' Sh_Doc_Info macro
 '
 ' Shows the settings and path info of the current Document
 '
+' Version: 2.0  Date: 8/9/2026 - page measurements are read from ONE SECTION, not from the
+'                               document. ActiveDocument.PageSetup returns wdUndefined - the
+'                               literal 9999999 - the moment two sections disagree, and divided
+'                               by 72 that printed 138888.88 where an inch measurement belonged.
+'                               A single landscape page for a wide table is enough, which is why
+'                               it struck only some books. New Sh_Target_Section picks the
+'                               section the cursor is in, and the box now says so when the rest
+'                               of the document differs (Jerry, 8/9/2026)
+' Version: 1.9  Date: 8/9/2026 - reconciles before it reports. This box states "Word is configured
+'                               for ...", and that sentence used to be whatever the last configuration
+'                               macro happened to set - so after working on a braille file it went on
+'                               saying braille in a plain document (Jerry, 8/9/2026). It now asks the
+'                               document in front of the transcriber what it wants and puts that in
+'                               force first, so the sentence is true by the time it is shown. That
+'                               also makes the box right on any machine where Word never raises the
+'                               window events at all, which is not hypothetical: they could not be
+'                               made to fire once on the build box
 ' Version: 1.8  Date: 8/8/2026 - reports the typeface three ways: what the Normal style says, what
 '                               was chosen when the template was attached, and whether that font is
 '                               actually installed on this machine. The last one answers "my
@@ -17325,25 +17630,59 @@ Sub Sh_Doc_Info()
 ' Version: 1.0  Date: 2/4/2021 - Full Rewrite
 
     Application.Run MacroName:="Sh_Is_Doc_Open"
-    
+
+    ' Make the "Word is configured for ..." line below TRUE before printing it - see 1.9 above.
+    ' Costs nothing when it already agrees, which is the normal case.
+    Sh_HandleDocumentActivated
+
     Dim AttachedTemplate As String
     Dim BrlType As String
-    
+    Dim MixedSetup As Boolean
+    Dim targetSection As Section
+    Dim ps As PageSetup
+    Dim SectionNote As String
+
     AttachedTemplate = ActiveDocument.AttachedTemplate
-    
-    PTM = Str(Round(ActiveDocument.PageSetup.TopMargin / Application.InchesToPoints(1), 2))
-    PBM = Str(Round(ActiveDocument.PageSetup.BottomMargin / Application.InchesToPoints(1), 2))
-    PLM = Str(Round(ActiveDocument.PageSetup.LeftMargin / Application.InchesToPoints(1), 2))
-    PRM = Str(Round(ActiveDocument.PageSetup.RightMargin / Application.InchesToPoints(1), 2))
-    PPH = Str(Round(PointsToInches(ActiveDocument.PageSetup.PageHeight), 2))
-    PPW = Str(Round(PointsToInches(ActiveDocument.PageSetup.PageWidth), 2))
-    PMM = ActiveDocument.PageSetup.MirrorMargins  ' Zero = not mirrored
+
+    ' Read the page setup from ONE section, not from the document.
+    '
+    ' ActiveDocument.PageSetup answers for the document as a whole, and when its sections do not
+    ' agree Word does not average them or pick one - it returns wdUndefined, which is the literal
+    ' number 9999999. Divided by 72 that printed "138888.88" where an inch measurement belonged
+    ' (Jerry, 8/9/2026: "a very large number rather than a simple decimal"). One landscape page
+    ' for a wide table is enough to do it, which is why it only happened to some books.
+    '
+    ' The gutter code further down already worked this way; now everything does. targetSection is
+    ' the section the cursor is in, so the figures describe the page the transcriber is looking
+    ' at, and MixedSetup below says so when the rest of the book differs.
+    Set targetSection = Sh_Target_Section()
+    Set ps = targetSection.PageSetup
+
+    MixedSetup = (ActiveDocument.PageSetup.PageHeight = wdUndefined) _
+              Or (ActiveDocument.PageSetup.PageWidth = wdUndefined) _
+              Or (ActiveDocument.PageSetup.TopMargin = wdUndefined) _
+              Or (ActiveDocument.PageSetup.LeftMargin = wdUndefined)
+
+    If MixedSetup Then
+        SectionNote = vbCr & vbCr _
+            & "NOTE: this document's sections do not all use the same page setup." & vbCr _
+            & "The measurements above are for section " & targetSection.Index _
+            & ", the one the cursor is in."
+    End If
+
+    PTM = Str(Round(ps.TopMargin / Application.InchesToPoints(1), 2))
+    PBM = Str(Round(ps.BottomMargin / Application.InchesToPoints(1), 2))
+    PLM = Str(Round(ps.LeftMargin / Application.InchesToPoints(1), 2))
+    PRM = Str(Round(ps.RightMargin / Application.InchesToPoints(1), 2))
+    PPH = Str(Round(PointsToInches(ps.PageHeight), 2))
+    PPW = Str(Round(PointsToInches(ps.PageWidth), 2))
+    PMM = ps.MirrorMargins  ' Zero = not mirrored
     Lp_Base_Font_Size = ActiveDocument.Styles(wdStyleNormal).Font.Size
     Lp_Base_Font_Name = ActiveDocument.Styles(wdStyleNormal).Font.Name
     If Len(Trim(Lp_Base_Font_Name)) = 0 Then Lp_Base_Font_Name = LP_FONT_TAHOMA
     TOCTabSetting = Str(Val(PPW) - (Val(PLM) + Val(PRM)))
- 
-    If ActiveDocument.PageSetup.Orientation = 1 Then 'Landscape
+
+    If ps.Orientation = 1 Then 'Landscape
         PPO = "L"
     Else
         PPO = "P"
@@ -17398,21 +17737,11 @@ Sub Sh_Doc_Info()
 
     ' *** begin Get Gutter Rounded As String
     ' the PPG (print page gutter) is a calculated value and does not appear correctly in the doc info files which have been exported
-    Dim targetSection As Section
-    Dim ps As PageSetup
     Dim gutterPts As Double
     Dim gutterInches As Double
     Dim gutterRounded As Double
 
-    ' Prefer the section containing the current selection; fall back to first section
-    If Not Selection Is Nothing And Not Selection.Range Is Nothing _
-       And Selection.Range.Sections.count > 0 Then
-        Set targetSection = Selection.Range.Sections(1)
-    Else
-        Set targetSection = ActiveDocument.Sections(1)
-    End If
-
-    Set ps = targetSection.PageSetup
+    ' targetSection and ps were chosen at the top, with everything else - see the note there.
 
     ' Gutter is returned in points (72 points = 1 inch)
     gutterPts = ps.Gutter
@@ -17439,7 +17768,7 @@ Sub Sh_Doc_Info()
                     & " Mirrored Margins              = " + MirrorString & vbCr _
                     & " Binding (Gutter) Width       = " + PPG & vbCr _
                     & " Orientation                        = " + Sh_GP_String_1 & vbCr _
-                    & " Output Media Type           = " + DM, , "Document Settings"
+                    & " Output Media Type           = " + DM & SectionNote, , "Document Settings"
                     
     ElseIf InStr(UCase(ActiveDocument.AttachedTemplate), "BRAILLE") > 0 Then
 
@@ -17470,7 +17799,7 @@ Unknown:
                         & " Bottom Margin                  = " + PBM & vbCr _
                         & " Left Margin                        = " + PLM & vbCr _
                         & " Right Margin                     = " + PRM & vbCr _
-                        & vbCr & BrlType & vbCr, , "Document Settings"
+                        & vbCr & BrlType & vbCr & SectionNote, , "Document Settings"
         Else
             MsgBox "Attached Template = " & ActiveDocument.AttachedTemplate & vbCr & vbCr _
                     & MS_Word_Config & vbCr & vbCr _
@@ -17480,7 +17809,7 @@ Unknown:
                     & " Top Margin                        = " + PTM & vbCr _
                     & " Bottom Margin                  = " + PBM & vbCr _
                     & " Left Margin                        = " + PLM & vbCr _
-                    & " Right Margin                     = " + PRM, , "Document Settings"
+                    & " Right Margin                     = " + PRM & SectionNote, , "Document Settings"
     End If
                
     Sh_GP_String_1 = ""
