@@ -41,7 +41,7 @@ python3 tools/lib/rescale_font.py --factor 1.094 \
     assets/fonts/atkinson-hyperlegible/upstream/ttf/*.ttf
 ```
 
-`OFL.txt` is the licence, and must travel with the font wherever it goes — see below.
+`OFL.txt` is the license, and must travel with the font wherever it goes — see below.
 
 Left in the archive as useless to a Word add-in: the EOT, SVG, WOFF and WOFF2 web formats.
 The archive itself was not copied in; the checksum above identifies it if it is needed again.
@@ -63,7 +63,7 @@ reports 18, and the ruler reads 18. Jerry confirmed the rescaled faces against t
 One trap worth knowing, because the first attempt fell into it: a font carries its names in
 **two** places. Renaming only the `name` table leaves the CFF table's PostScript name intact —
 and that is the name Word writes into a PDF. A large-print PDF would have reported
-`AtkinsonHyperlegible-Regular`, which is both a licence problem and a practical one: a print
+`AtkinsonHyperlegible-Regular`, which is both a license problem and a practical one: a print
 shop's system resolves fonts by that name, so it could substitute the genuine Atkinson and put
 the 9%-too-small face back on the paper, at the very last step, in front of the reader.
 `rescale_font.py` now re-opens every file it writes and refuses one that still carries a
@@ -74,12 +74,12 @@ reserved word in any name a user or a tool can see.
 Upstream's OTF and TTF carry **identical** typographic and window metrics but disagree about
 which of them applies: the OTF is OS/2 version 4 with `USE_TYPO_METRICS` set and a 150-unit
 `hhea` line gap; the TTF is version 3, where that flag isn't even defined, and its line gap is
-zero. Word honours `USE_TYPO_METRICS`, so the same design would set lines about **17% further
+zero. Word honors `USE_TYPO_METRICS`, so the same design would set lines about **17% further
 apart** as a TTF than as an OTF.
 
 Switching format to make embedding possible must not change how the type sits on the page, so
 the script bumps the TTF's OS/2 table to version 4 and pins its `hhea` values to the
-typographic ones. That normalises an upstream inconsistency; it doesn't invent a line height.
+typographic ones. That normalizes an upstream inconsistency; it doesn't invent a line height.
 
 The result sets lines **8.5% taller than Tahoma** at the same point size, which is the font's
 own design and is left alone. It's not a problem in practice: a book's typeface is chosen once
@@ -90,16 +90,16 @@ Measured against Tahoma at the same point size: cap height **1.005**, x-height *
 running text **1.065** wider, bullet glyph **1.054** wider. That last figure is where
 `Lp_Indent_Factor_For_Font` gets its number.
 
-## Licence — settled, with conditions we have to keep meeting
+## License — settled, with conditions we have to keep meeting
 
 **This was an open question and is now closed.** The fonts' own 2020 name table still says the
 typeface is offered *"without derivatives or alteration"*, which would have forbidden the
-rescale. That statement is **superseded**. Jerry obtained the Braille Institute's licence
+rescale. That statement is **superseded**. Jerry obtained the Braille Institute's license
 document (prepared by their counsel, dated December 2024), which places the typeface under the
 **SIL Open Font License, Version 1.1** under the copyright line *"Copyright 2020, Braille
 Institute of America, Inc."* — the same 2020 that our 1.02 files carry.
 
-`OFL.txt` in this folder is that licence, transcribed from Jerry's PDF and verified against it
+`OFL.txt` in this folder is that license, transcribed from Jerry's PDF and verified against it
 character for character. It reads very slightly differently from the generic SIL boilerplate —
 the Braille Institute flattened the optional "(s)" plurals, being a single copyright holder —
 so **this** wording is what we ship, not a copy fetched from elsewhere.
@@ -110,23 +110,23 @@ party's legal document, and the repo needs the text, not the file. It is kept at
 a file of that name, so a stray second copy dropped into the project cannot be committed.
 
 The OFL permits the rescale, permits shipping the result in the installer, and permits
-bundling it with software under a different licence. It attaches five conditions. Four bear on
+bundling it with software under a different license. It attaches five conditions. Four bear on
 us, and here is how each is met — **re-check these whenever the font or the installer
 changes**:
 
 | Condition | What it requires | How it is met |
 |---|---|---|
 | 1 — not sold alone | The font may not be sold by itself | VistaType LP is free; the font only ever ships inside the installer |
-| 2 — licence travels with it | Every copy carries the copyright notice and the licence | The font's own copyright/licence records are rewritten to the OFL by `rescale_font.py` (in the CFF table too, when there is one), **and** `OFL.txt` is installed to `%AppData%\VistaType LP` |
+| 2 — license travels with it | Every copy carries the copyright notice and the license | The font's own copyright/license records are rewritten to the OFL by `rescale_font.py` (in the CFF table too, when there is one), **and** `OFL.txt` is installed to `%AppData%\VistaType LP` |
 | 3 — Reserved Font Names | A modified version may not use **ATKINSON** or **HYPERLEGIBLE** in the name shown to users | The family is renamed **VistaTypeLP Legible**; `rescale_font.py` refuses any `--family` containing either word, and re-opens each file it writes to prove the words are gone from every name a user or tool can see |
-| 4 — no endorsement | The Braille Institute's name may not promote a modified version, only be acknowledged | The vendor record points at this project, not at them; the designer credit and the origin statement stay, as acknowledgement |
-| 5 — stays under the OFL | The font must be distributed entirely under the OFL and no other licence | The font is **not** covered by VistaType's GPLv3; the installer's welcome page says so, and `docs/Installation-Guide.md` explains it |
+| 4 — no endorsement | The Braille Institute's name may not promote a modified version, only be acknowledged | The vendor record points at this project, not at them; the designer credit and the origin statement stay, as acknowledgment |
+| 5 — stays under the OFL | The font must be distributed entirely under the OFL and no other license | The font is **not** covered by VistaType's GPLv3; the installer's welcome page says so, and `docs/Installation-Guide.md` explains it |
 
 Two consequences worth stating outright:
 
 - **The font is not GPL.** VistaType LP is GPLv3; this font is OFL, and the two simply travel
   together. The OFL expressly allows that. Do not let a future tidy-up sweep the font under
-  the project licence — condition 5 forbids it, and breaching any condition voids the grant.
+  the project license — condition 5 forbids it, and breaching any condition voids the grant.
 - **"VistaTypeLP Legible" cannot casually be renamed back.** Anything with "Atkinson" or
   "Hyperlegible" in it breaches condition 3. (The name also avoids a clash with VistaType, an
   unrelated existing font producer — hence "VistaTypeLP", not "VistaType".)
@@ -143,8 +143,8 @@ a subset holds only the characters the document already contains, so a teacher w
 book and types a new one would get a substitute for it.
 
 Better still, the OFL says outright that **the requirement for fonts to remain under this
-licence does not apply to any document created using the font**. So a transcriber's finished
-large-print document carries no licence obligation of any kind — they can hand it to a reader,
+license does not apply to any document created using the font**. So a transcriber's finished
+large-print document carries no license obligation of any kind — they can hand it to a reader,
 a school or a publisher without a thought. That is the answer to the obvious worry, and it is
 in `docs/Installation-Guide.md`.
 
@@ -152,8 +152,8 @@ in `docs/Installation-Guide.md`.
 
 | Where | What it does |
 |---|---|
-| `LP_Attach_An_Lp_Template_Form` | The Typeface buttons, beside the point size. Legible is the default, greyed out when it isn't installed. Sets the public `Lp_Base_Font_Name` |
-| `Lp_Apply_Base_Font_To_Styles` | Sets Normal — which almost everything follows — plus the 13 styles that name a face of their own: the 12 coloured character styles and `No Spacing` |
+| `LP_Attach_An_Lp_Template_Form` | The Typeface buttons, beside the point size. Legible is the default, grayed out when it isn't installed. Sets the public `Lp_Base_Font_Name` |
+| `Lp_Apply_Base_Font_To_Styles` | Sets Normal — which almost everything follows — plus the 13 styles that name a face of their own: the 12 colored character styles and `No Spacing` |
 | `Sh_Set_Whole_Document_Font` | Lays the face over the text as direct formatting, so a messy imported document actually conforms |
 | `Lp_Get_Doc_Setup_Params` | Reads it back off the Normal style. Nothing stores the choice separately, so it survives closing and reopening, and a book made before this feature answers Tahoma correctly |
 | `Lp_Indent_Factor_For_Font` | Scales the hand-tuned bulleted-list indents by 1.054 for Legible, 1.0 for Tahoma |

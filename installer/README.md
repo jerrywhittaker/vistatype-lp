@@ -44,27 +44,27 @@ ribbon tab and fails the build if they disagree. A stale `idQ` reference renders
 button on the user's machine with nothing to warn you. (`tools/lib/extract_qat.py` and the
 old `qat-controls.xml` are obsolete and no longer part of the pipeline.)
 
-## Licences the installer has to carry
+## Licenses the installer has to carry
 
-The installer carries **two** licences, and they are not interchangeable.
+The installer carries **two** licenses, and they are not interchangeable.
 
-**The GPLv3**, for the add-in itself. Shown on the wizard's licence page (`LicenseFile`) and
+**The GPLv3**, for the add-in itself. Shown on the wizard's license page (`LicenseFile`) and
 installed to `%AppData%\VistaType LP\LICENSE.txt`, so the user "receives a copy of the license"
 as the GPL requires.
 
 **The SIL Open Font License 1.1**, for the bundled `VistaTypeLP Legible` typeface — which is
 derived from Atkinson Hyperlegible and is **not** covered by the GPL. The OFL allows bundling
-it with software under any licence, but requires that every copy carry the licence text, so:
+it with software under any license, but requires that every copy carry the license text, so:
 
 - the four `.ttf` files install to `{autofonts}`, and
   `assets/fonts/atkinson-hyperlegible/OFL.txt` installs to `%AppData%\VistaType LP` — the same
   place and the same pattern `LICENSE.txt` uses (a text file does not belong in the Fonts
   folder, so the two do not literally sit side by side);
-- the wizard's welcome page names the typeface, its origin, and the fact that its licence is
+- the wizard's welcome page names the typeface, its origin, and the fact that its license is
   separate; `docs/Installation-Guide.md` says the same at more length.
 
 Do **not** merge the font into the GPL text, and do not drop `OFL.txt` on the grounds that the
-licence is embedded in the font file — condition 2 asks for both, and breaching any OFL
+license is embedded in the font file — condition 2 asks for both, and breaching any OFL
 condition voids the grant outright. The full condition-by-condition working is in
 `assets/fonts/atkinson-hyperlegible/README.md`.
 
@@ -73,7 +73,7 @@ Three things about the font entries in `[Files]` that look like oversights and a
 no `onlyifdoesntexist` (it would stop a corrected font ever reaching a machine that has the old
 one); and `MinVersion: 10.0.17134` on those four lines only (per-user font install needs
 Windows 10/1803 — an older machine gets a working add-in without the font, and the attach
-dialog greys the choice out). Each is commented at the entries themselves.
+dialog grays the choice out). Each is commented at the entries themselves.
 
 ## Build
 
@@ -136,7 +136,7 @@ thing trusting that folder was our key. Keep it.
    *running*. On a machine with no Word every file lands, every folder is created, and the
    user is told it succeeded. `IsWordInstalled()` now asks, and setup offers to stop. It is a
    Yes/No rather than a hard block, because Office can be registered in ways this will not
-   recognise (containerised or MSIX), and refusing a legitimate install is worse than a
+   recognize (containerised or MSIX), and refusing a legitimate install is worse than a
    no-op. The default is No, so an unattended deployment onto a machine without Word stops.
 
 2. **`OfficeVersion()` read `HKCU`, which Word does not create until a user first opens it.**

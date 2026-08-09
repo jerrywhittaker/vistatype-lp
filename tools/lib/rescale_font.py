@@ -34,21 +34,21 @@ words: **ATKINSON** and **HYPERLEGIBLE**. Condition 3 forbids a modified version
 either in the name presented to users, so this script REFUSES a --family containing them.
 Two independent reasons, and each alone would be enough:
 
-  * Licence. Using a reserved name in a modified version breaches condition 3, and the
-    licence terminates outright if any condition is not met.
+  * License. Using a reserved name in a modified version breaches condition 3, and the
+    license terminates outright if any condition is not met.
   * Practice. Jerry and his transcribers have the real Atkinson installed. Two different
     fonts with one name is not a supported state -- Word picks whichever it happens to find,
     and the same document sets differently on different machines.
 
 The naming restriction covers only the primary font name, so the origin is still credited in
-the description record, which is where the OFL expects that acknowledgement to live.
+the description record, which is where the OFL expects that acknowledgment to live.
 
-WHAT ELSE THE LICENCE MAKES US DO
+WHAT ELSE THE LICENSE MAKES US DO
 ---------------------------------
-Condition 2: every copy must carry the copyright notice and the licence. The upstream 1.02
-files predate the OFL grant -- their licence record still reads "without derivatives or
+Condition 2: every copy must carry the copyright notice and the license. The upstream 1.02
+files predate the OFL grant -- their license record still reads "without derivatives or
 alteration", which is superseded but would make our derivative contradict itself. So this
-script REWRITES the copyright, licence and licence-URL records to the OFL -- in the name table
+script REWRITES the copyright, license and license-URL records to the OFL -- in the name table
 AND in the CFF table, which keeps its own copy of the names and copyright. Shipping the font
 also means shipping OFL.txt beside it; the font's own records are not enough on their own.
 
@@ -97,8 +97,8 @@ POSTSCRIPT = 6
 MANUFACTURER = 8
 DESCRIPTION = 10
 VENDOR_URL = 11
-LICENCE = 13
-LICENCE_URL = 14
+LICENSE = 13
+LICENSE_URL = 14
 TYPO_FAMILY = 16
 TYPO_SUBFAMILY = 17
 COMPATIBLE_FULL = 18   # Mac-only legacy full name, capped at 31 characters by the spec
@@ -107,7 +107,7 @@ COMPATIBLE_FULL = 18   # Mac-only legacy full name, capped at 31 characters by t
 # Condition 3: a Modified Version may not use these in the name shown to users.
 RESERVED_NAMES = ("atkinson", "hyperlegible")
 
-# Condition 2: each copy carries the copyright notice and the licence. These replace the
+# Condition 2: each copy carries the copyright notice and the license. These replace the
 # upstream 1.02 records, which still carry the superseded "no derivatives" wording.
 OFL_COPYRIGHT = (
     'Copyright 2020, Braille Institute of America, Inc. '
@@ -115,11 +115,11 @@ OFL_COPYRIGHT = (
     '"ATKINSON" and "HYPERLEGIBLE". '
     'Modifications copyright 2026, Jerry Whittaker, for VistaType LP.'
 )
-OFL_LICENCE = (
+OFL_LICENSE = (
     'This Font Software is licensed under the SIL Open Font License, Version 1.1. '
     'This license is available with a FAQ at: https://openfontlicense.org'
 )
-OFL_LICENCE_URL = 'https://openfontlicense.org'
+OFL_LICENSE_URL = 'https://openfontlicense.org'
 
 PROJECT = 'VistaType LP'
 PROJECT_URL = 'https://github.com/jerrywhittaker/vistatype-lp'
@@ -170,11 +170,11 @@ def rescale(path, out_dir, factor, new_family, dry_run=False):
     # --- make the two upstream formats agree on line spacing --------------
     # Upstream's OTF and TTF carry IDENTICAL typo and win metrics but disagree on which of
     # them applies: the OTF sets USE_TYPO_METRICS and gives hhea a 150-unit line gap, the TTF
-    # does neither. Word honours USE_TYPO_METRICS, so the same design would set lines about
+    # does neither. Word honors USE_TYPO_METRICS, so the same design would set lines about
     # 17% further apart as a TTF than as an OTF -- a change nobody asked for, arriving purely
     # because we switched format to make embedding possible.
     #
-    # So pin the TrueType build to the PostScript build's behaviour. This normalises an
+    # So pin the TrueType build to the PostScript build's behavior. This normalizes an
     # upstream inconsistency; it does not invent a new line height. Jerry evaluated the OTF,
     # and what ships now spaces its lines the same way.
     #
@@ -218,13 +218,13 @@ def rescale(path, out_dir, factor, new_family, dry_run=False):
         if ver is not None:
             put(VERSION, f"{ver.toUnicode()}; rescaled x{factor} for {PROJECT}")
 
-        # --- licence records: condition 2 (see module docstring) ----------
+        # --- license records: condition 2 (see module docstring) ----------
         put(COPYRIGHT, OFL_COPYRIGHT)
-        put(LICENCE, OFL_LICENCE)
-        put(LICENCE_URL, OFL_LICENCE_URL)
+        put(LICENSE, OFL_LICENSE)
+        put(LICENSE_URL, OFL_LICENSE_URL)
 
         # This file was produced here, so it says so; the designer credit (name 9) and the
-        # designer's URL (name 12) stay untouched -- that is the acknowledgement condition 4
+        # designer's URL (name 12) stay untouched -- that is the acknowledgment condition 4
         # allows. The vendor URL must NOT keep pointing at the Braille Institute, which would
         # read as their endorsement of a version they did not make.
         put(MANUFACTURER, PROJECT)
@@ -276,8 +276,8 @@ def rescale(path, out_dir, factor, new_family, dry_run=False):
 
 
 # Name IDs a user or a tool may see AS the font's name. The OFL restricts the reserved words
-# here; IDs 0 (copyright) and 10 (description) are excluded on purpose -- the licence wants
-# the reserved names declared in the first and permits acknowledgement in the second.
+# here; IDs 0 (copyright) and 10 (description) are excluded on purpose -- the license wants
+# the reserved names declared in the first and permits acknowledgment in the second.
 PRIMARY_NAME_IDS = (1, 3, 4, 6, 16, 18, 20, 21, 25)
 
 
@@ -337,7 +337,7 @@ def main():
             f"ERROR: --family {a.family!r} contains the Reserved Font Name(s) "
             f"{', '.join(repr(w.upper()) for w in hit)}.\n"
             "The SIL Open Font License forbids a modified version using them in the name "
-            "shown to users, and the licence terminates if any condition is not met.\n"
+            "shown to users, and the license terminates if any condition is not met.\n"
             "Choose a family name with neither word. See the RENAMING IS NOT OPTIONAL "
             "section of this script, and assets/fonts/atkinson-hyperlegible/OFL.txt.")
 

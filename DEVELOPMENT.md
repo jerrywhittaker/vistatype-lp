@@ -210,7 +210,7 @@ automated.
 - **`.frm` files MUST keep CRLF line endings.** A UserForm `.frm` starts with a designer
   header block (`VERSION 5.00` / `Begin {GUID} FormName … End`) that Word's importer parses
   *before* the code. That parser requires **CRLF**. Rewrite a `.frm` with LF endings — easy to
-  do from Linux, e.g. any Python `open(path,"w")` — and Word silently fails to recognise the
+  do from Linux, e.g. any Python `open(path,"w")` — and Word silently fails to recognize the
   header, treats those lines as VBA source, and drops `VERSION 5#` / `Begin {…}` into the
   form's **code module**. The build still succeeds; the failure only shows on the user's
   machine as **"Compile error in hidden module: &lt;FormName&gt;"**. Cost a debugging round on

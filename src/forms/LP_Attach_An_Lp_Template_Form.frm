@@ -13,10 +13,11 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
+
 ' LP_Attach_An_Lp_Template_Form
 '
 ' Version: 5.9  Date: 8/8/2026 - added the Typeface choice beside the point size: Tahoma, or the
-'                                bundled VistaTypeLP Legible (the default). Legible is greyed out,
+'                                bundled VistaTypeLP Legible (the default). Legible is grayed out,
 '                                and says so on the button, when it is not installed - Word
 '                                substitutes a missing font silently and at the wrong size.
 '                                Re-attaching keeps the book's own typeface, and asks first if
@@ -871,7 +872,7 @@ Private Sub UserForm_Initialize()
     ' VistaTypeLP Legible is the default, but only when it is actually on this machine. A font
     ' Word cannot find is substituted SILENTLY, and the substitute has different metrics - so a
     ' book that reads 18 point on screen prints at some other size, which is the exact fault the
-    ' rescaled face exists to cure. Better to grey the choice out and say why on the button
+    ' rescaled face exists to cure. Better to gray the choice out and say why on the button
     ' itself, which needs no extra room on a form that has none.
     If Sh_Is_Font_Installed("VistaTypeLP Legible") Then
         FontLegible.Enabled = True
@@ -916,4 +917,3 @@ Private Sub UserForm_Initialize()
     Me.Top = Application.Top + (0.5 * Application.Height) - (0.5 * Me.Height)
 
 End Sub
-

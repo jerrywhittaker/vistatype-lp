@@ -47,7 +47,7 @@
 ; The literal here is the fallback for building this script by hand, and is kept in step
 ; with the Makefile by "make bump".
 #ifndef AppVer
-  #define AppVer      "3.0.101"
+  #define AppVer      "3.0.104"
 #endif
 #define DotmName    "LPandBRL.dotm"
 #define DotxName    "LargePrintTemplate.dotx"
@@ -57,7 +57,7 @@
 #define RepoUrl     "https://github.com/jerrywhittaker/vistatype-lp"
 ; The bundled typeface's family name. It must match src/vba/LPandBrlMacros.bas's
 ; LP_FONT_LEGIBLE exactly -- the add-in looks the font up by this name to decide whether to
-; offer it, and a mismatch greys the choice out on a machine that HAS it installed.
+; offer it, and a mismatch grays the choice out on a machine that HAS it installed.
 #define FontFamily  "VistaTypeLP Legible"
 ; Directory holding the three shipping files (staged by `make installer`).
 #ifndef SrcDir
@@ -97,7 +97,7 @@ UninstallDisplayName=VistaType LP + Braille Macros
 ; Inno 6 hides the welcome page by default. With the folder page and the program-group page
 ; also off, that left the GPL as the FIRST thing a transcriber saw -- a wall of legal text
 ; with an "I accept" button, and nothing anywhere saying what they were installing. Turned
-; back on 8/8/2026 so the licence is the second page and has some context in front of it.
+; back on 8/8/2026 so the license is the second page and has some context in front of it.
 DisableWelcomePage=no
 
 ; ----------------------------------------------------------------------------
@@ -113,13 +113,13 @@ DisableWelcomePage=no
 [Messages]
 WelcomeLabel1=VistaType LP and Braille Macros
 
-WelcomeLabel2=Version {#AppVer}%n%nJerry Whittaker's tools for transcribers, added to Microsoft Word: large print for readers with low vision, and braille source files for the Duxbury Braille Translator.%n%nAlso installs the {#FontFamily} typeface, which carries its own separate licence.%n%nPlease close Word before continuing.%n%nLatest version and guides:%n{#RepoUrl}
+WelcomeLabel2=Version {#AppVer}%n%nJerry Whittaker's tools for transcribers are VBA add-ins for Microsoft Word: large print for readers with low vision, and tools for formatting braille source files for the Duxbury Braille Translator.%n%nThis installer will also install the {#FontFamily} typeface, which carries its own separate license.%n%nPlease close Word before continuing.%n%nLatest version and guides:%n{#RepoUrl}
 ; Roughly 12 rendered lines against a label that shows about 13-15. It is at the ceiling, so
 ; anything added here must have something else taken out, and it must be LOOKED AT on the VM.
 ; Overflow is silently clipped from the bottom - no compile warning - and the bottom is where
 ; "close Word" and the address are.
 
-; The licence page's own heading, which by default asks the user to read an "important"
+; The license page's own heading, which by default asks the user to read an "important"
 ; agreement before continuing. The GPL governs copying and modifying, not using, so the
 ; stock wording overstates what a transcriber has to decide here.
 LicenseLabel3=VistaType LP is free software under the GNU General Public License v3, shown below in full. Use it for anything, copy it, pass it on. There is no warranty.
@@ -148,13 +148,13 @@ Source: "{#SrcDir}\LICENSE.txt";   DestDir: "{userappdata}\VistaType LP"; Flags:
 ; ---------------------------------------------------------------------------------------
 ;  VistaTypeLP Legible is Atkinson Hyperlegible (Braille Institute of America) rescaled so
 ;  that a point size set in Word matches the PRINTED letter size. See
-;  assets/fonts/atkinson-hyperlegible/README.md for the licence working, and OFL.txt below,
-;  which the licence REQUIRES to travel with the font.
+;  assets/fonts/atkinson-hyperlegible/README.md for the license working, and OFL.txt below,
+;  which the license REQUIRES to travel with the font.
 ;
 ;  {autofonts} is the PER-USER font folder, because PrivilegesRequired=lowest means Setup
 ;  never elevates. Windows only supports per-user fonts from 10/1803 (build 17134), hence
 ;  MinVersion on these four lines ONLY. An older machine still gets a fully working add-in;
-;  the attach dialog greys the typeface out because Sh_Is_Font_Installed says it is missing,
+;  the attach dialog grays the typeface out because Sh_Is_Font_Installed says it is missing,
 ;  and the transcriber carries on with Tahoma exactly as before. The MinVersion and that
 ;  dialog check are ONE mitigation -- do not remove either without the other, or the font
 ;  step fails part-way through an install with LPandBRL.dotm already in STARTUP, which reads
@@ -190,13 +190,13 @@ Source: "{#SrcDir}\VistaTypeLPLegible-Regular.ttf";    DestDir: "{autofonts}"; F
 Source: "{#SrcDir}\VistaTypeLPLegible-Bold.ttf";       DestDir: "{autofonts}"; FontInstall: "{#FontFamily} Bold";        Flags: uninsneveruninstall; MinVersion: 10.0.17134
 Source: "{#SrcDir}\VistaTypeLPLegible-Italic.ttf";     DestDir: "{autofonts}"; FontInstall: "{#FontFamily} Italic";      Flags: uninsneveruninstall; MinVersion: 10.0.17134
 Source: "{#SrcDir}\VistaTypeLPLegible-BoldItalic.ttf"; DestDir: "{autofonts}"; FontInstall: "{#FontFamily} Bold Italic"; Flags: uninsneveruninstall; MinVersion: 10.0.17134
-; OFL condition 2: every copy of the font carries the copyright notice and the licence. The
-; licence therefore has to live exactly as long as the font does, and the font never leaves
+; OFL condition 2: every copy of the font carries the copyright notice and the license. The
+; license therefore has to live exactly as long as the font does, and the font never leaves
 ; (uninsneveruninstall above).
 ;
 ; Hence its OWN folder, and uninsneveruninstall on it too. It cannot go in
 ; {userappdata}\VistaType LP with the GPL: [UninstallDelete] wipes that folder wholesale, so
-; uninstalling would strip the licence off a font that stays behind for ever.
+; uninstalling would strip the license off a font that stays behind for ever.
 Source: "{#SrcDir}\OFL.txt";       DestDir: "{userappdata}\VistaType LP Fonts"; Flags: uninsneveruninstall
 
 [Tasks]
@@ -221,7 +221,7 @@ Name: "qat";          GroupDescription: "Quick Access Toolbar (the small row of 
 ; So the common case has nothing of the user's to protect, and clicking straight through
 ; Next should leave a transcriber with a working setup rather than a bare toolbar. The
 ; people who HAVE built their own toolbar are the ones who read the options - and for them
-; the second choice keeps it untouched. This is not a return to the pre-3.0.33 behaviour
+; the second choice keeps it untouched. This is not a return to the pre-3.0.33 behavior
 ; that caused the complaints: that one merged silently, hid buttons they had chosen to keep,
 ; and offered no way back. This asks, saves what they had, and can restore it.
 ; With `exclusive`, the entry WITHOUT `unchecked` is the one selected.
@@ -280,9 +280,9 @@ Type: files; Name: "{app}\unins000.dat"
 Type: files;          Name: "{app}\{#DotmName}"
 Type: files;          Name: "{userappdata}\Microsoft\Templates\{#DotxName}"
 ; The bundled fonts are deliberately NOT listed here, and neither is
-; {userappdata}\VistaType LP Fonts, which holds their licence. The fonts must survive an
+; {userappdata}\VistaType LP Fonts, which holds their license. The fonts must survive an
 ; uninstall because the transcriber's finished books depend on them, and the OFL requires the
-; licence to stay with the font -- so both outlive us. Never add either. 8/8/2026.
+; license to stay with the font -- so both outlive us. Never add either. 8/8/2026.
 Type: filesandordirs; Name: "{userappdata}\VistaType LP"
 
 [Code]
@@ -512,7 +512,7 @@ begin
 
   { A Word add-in on a machine with no Word installs perfectly and does nothing at all -
     the folders get created, every file lands, and the user is told it succeeded. Say so
-    instead. Not a hard block: Office can be registered in ways this does not recognise
+    instead. Not a hard block: Office can be registered in ways this does not recognize
     (containerised or MSIX installs), and refusing a legitimate install is worse than a
     no-op. Default is No, so an unattended deployment onto a machine without Word stops
     rather than silently doing nothing. }

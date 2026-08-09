@@ -212,7 +212,7 @@ function Get-OurControlNames($doc, $el) {
 # A group id with VistaType's decoration taken off, so an old one and a current one compare
 # equal. Our generator built "vt_grp_mso_c1_18B5F8FF" from the id Word itself had written,
 # "mso_c1.18B5F8FF" -- same hash, prefixed, dots turned into underscores.
-function Get-NormalisedGroupId($id) {
+function Get-NormalizedGroupId($id) {
     if (-not $id) { return "" }
     $n = $id
     if ($n.StartsWith("vt_grp_")) { $n = $n.Substring(7) }
@@ -223,13 +223,13 @@ function Get-NormalisedGroupId($id) {
 #   * the id we write,
 #   * the add-in controls it holds (Word may have renumbered the id),
 #   * the same id as one of the template's groups with the decoration off -- which is how a
-#     PRE-3.0 group is recognised. Those hold no resolvable controls at all.
+#     PRE-3.0 group is recognized. Those hold no resolvable controls at all.
 # A group the user added satisfies none of them and is never touched.
 function Test-OurGroup($doc, $g, $templateGroupIds) {
     if ($g.GetAttribute("id") -like "vt_grp_*") { return $true }
     if ((Get-OurControlNames $doc $g).Count -gt 0) { return $true }
     if ($templateGroupIds -and
-        ($templateGroupIds -contains (Get-NormalisedGroupId $g.GetAttribute("id")))) { return $true }
+        ($templateGroupIds -contains (Get-NormalizedGroupId $g.GetAttribute("id")))) { return $true }
     return $false
 }
 
@@ -248,7 +248,7 @@ function Test-LegacyOurTab($tab, $templateGroupIds) {
     $groups = @(Get-Elements $tab | Where-Object { $_.LocalName -eq "group" })
     if ($groups.Count -lt 2) { return $false }
     foreach ($g in $groups) {
-        if ($templateGroupIds -notcontains (Get-NormalisedGroupId $g.GetAttribute("id"))) { return $false }
+        if ($templateGroupIds -notcontains (Get-NormalizedGroupId $g.GetAttribute("id"))) { return $false }
     }
     return $true
 }
@@ -329,7 +329,7 @@ function Remove-OurEntries($doc, $shared, $fullItems) {
                         if ($p -eq "mso") { [void]$shared.RemoveChild($c); $removed++; $n++ }
                     }
                 }
-                Write-Log "  recognised VistaType's standard toolbar and took it back out"
+                Write-Log "  recognized VistaType's standard toolbar and took it back out"
             }
         }
     }
@@ -482,7 +482,7 @@ function Apply-One([string]$Target) {
                 # Word-renumbered copy and a pre-3.0 one.
                 $wantGroups = @()
                 foreach ($g in (Get-Elements $t)) {
-                    if ($g.LocalName -eq "group") { $wantGroups += (Get-NormalisedGroupId $g.GetAttribute("id")) }
+                    if ($g.LocalName -eq "group") { $wantGroups += (Get-NormalizedGroupId $g.GetAttribute("id")) }
                 }
 
                 # EVERY tab of ours that answers to this template tab, not just the first.
@@ -492,8 +492,14 @@ function Apply-One([string]$Target) {
                     if ($e.GetAttribute("id") -eq $wantId) { $found += ,@(1000, $e); continue }
                     $have = Get-OurControlNames $doc $e
                     if ($have.Count -gt 0) {
-                        $shared = @($have | Where-Object { $wantNames -contains $_ }).Count
-                        if ($shared -gt 0) { $found += ,@($shared, $e) }
+                        # NOT $shared. That name holds the toolbar's own sharedControls element
+                        # (line 386), and this block used to overwrite it with a count. Harmless
+                        # only because every toolbar write finishes above, before the tabs work
+                        # starts -- so move either half, or add a toolbar touch-up after this,
+                        # and the toolbar silently fails on any machine that already has our
+                        # tabs. An upgrade only; a clean install would look perfect. 8/8/2026.
+                        $overlap = @($have | Where-Object { $wantNames -contains $_ }).Count
+                        if ($overlap -gt 0) { $found += ,@($overlap, $e) }
                         continue
                     }
                     if (Test-LegacyOurTab $e $wantGroups) {
@@ -511,7 +517,7 @@ function Apply-One([string]$Target) {
                     # Refresh the groups we own and leave everything else -- the tab element
                     # itself, its place, its name, and any group the user added.
                     #
-                    # $wantGroups is passed so a PRE-3.0 group is recognised too. Leaving it out
+                    # $wantGroups is passed so a PRE-3.0 group is recognized too. Leaving it out
                     # was the 3.0.96 disaster: the legacy groups were not removed, our seven were
                     # appended beside them, and the tab came out with fourteen groups, half of
                     # them rendering as empty placeholders because their controls point nowhere.

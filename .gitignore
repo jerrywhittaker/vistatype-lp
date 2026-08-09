@@ -8,7 +8,7 @@ build/
 # Linux read-only mirror produced by `make read` (redundant with src/).
 reference/vba-src/
 
-# The Atkinson Hyperlegible licence PDF lives OUTSIDE the project, in
+# The Atkinson Hyperlegible license PDF lives OUTSIDE the project, in
 # ~/reference/vistatype-lp/. This rule is the safety net for a stray second copy: never track
 # it. The repo carries the wording it actually needs in
 # assets/fonts/atkinson-hyperlegible/OFL.txt, transcribed from that PDF and verified against it.

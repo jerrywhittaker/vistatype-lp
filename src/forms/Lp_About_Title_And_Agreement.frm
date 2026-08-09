@@ -1,10 +1,10 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_About_Title_And_Agreement 
    Caption         =   "UserForm1"
-   ClientHeight    =   8805.001
+   ClientHeight    =   8808.001
    ClientLeft      =   105
    ClientTop       =   465
-   ClientWidth     =   11340
+   ClientWidth     =   11265
    OleObjectBlob   =   "Lp_About_Title_And_Agreement.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
@@ -51,7 +51,7 @@ Private Sub ViewLicense_Click()
     ' The full GNU GPL, the same text the installer shows. Shared helper so both About
     ' dialogs behave identically.
     '
-    ' Unload Me FIRST. This dialog is modal, so it blocks Word's own window -- the licence
+    ' Unload Me FIRST. This dialog is modal, so it blocks Word's own window -- the license
     ' document opened behind it and the user saw nothing happen (Jerry, 8/3/2026). The
     ' View Version button beside this one has always closed itself before following its
     ' link, for the same reason.
@@ -67,7 +67,7 @@ Private Sub UserForm_Initialize()
     Me.Top = Application.Top + (0.5 * Application.Height) - (0.5 * Me.Height)
     ' The Software Agreement summary. One shared copy in LPandBrlMacros so the LP and
     ' Braille dialogs can never drift apart, and so the wording stays in git-tracked
-    ' text instead of inside this form's binary .frx. The full licence is not here --
+    ' text instead of inside this form's binary .frx. The full license is not here --
     ' the View Full License button opens it read-only in Word, where it can be
     ' scrolled with the wheel and zoomed. See Sh_Show_Full_License.
     AgreementTextBox.Text = Sh_Software_Agreement_Text()

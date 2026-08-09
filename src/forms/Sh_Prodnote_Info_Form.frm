@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Sh_Prodnote_Info_Form 
    Caption         =   "Prodnotes in This Document"
-   ClientHeight    =   4056
+   ClientHeight    =   5892
    ClientLeft      =   120
    ClientTop       =   465
    ClientWidth     =   9600.001
@@ -27,11 +27,12 @@ Private Sub UserForm_Initialize()
 ' Fills in the note, then centers the form on the Word window.
 '
 ' The text lives here rather than in the form's binary layout file so that it can be read and
-' edited as text, in the VBE or in src/forms. The arrow in "Prodnote -> TN" is written as
-' ChrW(8594): it is the same character the ribbon button carries (&#8594;), but it is NOT in
-' the Windows-1252 set this file is exported as, so a literal one would not survive a build.
+' edited as text, in the VBE or in src/forms.
 '
-' Version: 1.0  Date: 8/1/2026
+' Version: 1.1  Date: 8/8/2026 - message rewritten; form made taller to suit. The arrow that
+'                                was written as ChrW(8594) is gone - the ribbon button now
+'                                reads "Prodnote to TN" - so this file is plain Windows-1252
+'                                again and no escape is needed (Jerry)
 '
     Dim m As String
 
@@ -39,27 +40,26 @@ Private Sub UserForm_Initialize()
       & "prodnotes (production notes). These prodnotes are formatted with a Prodnote " _
       & "style and are displayed in red text within the document. Prodnotes are not part " _
       & "of the publisher's printed version of the book but are added during the " _
-      & "production of the DAISY or NIMAS file. Prodnotes can be used to insert printable " _
-      & "text to improve accessibility and are often descriptions of visual " _
-      & "elements such as complex pictures and mathematical charts and graphs."
+      & "production of the DAISY or NIMAS file. Prodnotes can be used to insert printed " _
+      & "text into the document to improve accessibility and are often descriptions of visual " _
+      & "elements such as complex pictures or mathematical charts and graphs."
 
+    m = m & vbCrLf & vbCrLf _
+      & "The prodnotes should be viewed for their usefulness. Prodnotes " _
+      & "that are not useful can be deleted manually, leaving only the useful ones, or all " _
+      & "prodnotes can be deleted from the document."
+
+    m = m & vbCrLf & vbCrLf _
+      & "When the desired output is large print, prodnotes may only have value if the goal is to produce an " _
+      & "accessible PDF or web page. If not needed, the prodnotes should be deleted from the document by running the ""Delete Prodnotes"" " _
+      & "macro from the ""File Cleanup Group"" on the ""VistaType LP"" tab ribbon."
+    
     m = m & vbCrLf & vbCrLf _
       & "When the desired output is braille, descriptions of visual elements can provide " _
-      & "readers with additional information not in print. Edit the prodnotes as needed. " _
-      & "The prodnotes in the file may be converted to the ""Transcriber Note"" style " _
-      & "using the ""Prodnote " & ChrW(8594) & " TN"" macro after review and editing are completed."
-
-    m = m & vbCrLf & vbCrLf _
-      & "For large print, prodnotes may only have value if the goal is to produce an " _
-      & "accessible PDF or web page."
-
-    m = m & vbCrLf _
-      & "In either case, the prodnotes should be viewed for their usefulness. Prodnotes " _
-      & "that are not useful can be deleted manually, leaving only the useful ones, or all " _
-      & "prodnotes can be deleted from the document by running the ""Delete Prodnotes"" " _
-      & "macro from the ""File Cleanup"" group of either the ""Braille Macros"" tab or " _
-      & """VistaType LP"" tab."
-
+      & "readers with information not found in the text of the book. Edit or delete selected prodnotes as needed. " _
+      & "The remaining prodnotes in the file may be converted to the ""Transcriber Note"" style " _
+      & "by using the ""Prodnote to TN"" macro on the ""File Cleanup Group"" on the ""Braille Macros"" tab ribbon.."
+      
     Info_Text.Text = m
 
     ' Put the caret at the start rather than the end, so a note long enough to scroll opens

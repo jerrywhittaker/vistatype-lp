@@ -19,11 +19,11 @@
 #   make fonts   Regenerate the bundled typeface from the pristine upstream files. Only
 #                needed after changing the scale factor or rescale_font.py — then check it
 #                against a font ruler.
-#   make stage   Copy the licences and the bundled fonts into dist/ alongside the built
+#   make stage   Copy the licenses and the bundled fonts into dist/ alongside the built
 #                shipping files.
 #   make installer  Compile the Inno Setup installer on the Windows box; copies the
 #                Setup.exe back to dist/. Ships the .dotm, the .dotx, the GPL, and the
-#                four VistaTypeLP Legible font files with their own licence (OFL.txt).
+#                four VistaTypeLP Legible font files with their own license (OFL.txt).
 #   make clean   Remove dist/ and build/ scratch.
 
 -include build.config
@@ -33,7 +33,7 @@ DOTM      := LPandBRL.dotm
 DOTX      := LargePrintTemplate.dotx
 RIBBON    := Word.officeUI
 PROJNAME  := LPandBRL
-APPVER    := 3.0.101
+APPVER    := 3.0.104
 SETUP_EXE := VistaType LP and Braille Macros Setup $(APPVER).exe
 VERDATE   := $(shell date +%-m/%-d/%Y)
 
@@ -44,7 +44,7 @@ VERDATE   := $(shell date +%-m/%-d/%Y)
 FONTSRC   := assets/fonts/atkinson-hyperlegible/scaled
 # Must match LP_FONT_LEGIBLE in src/vba/LPandBrlMacros.bas and FontFamily in
 # installer/vistatype.iss. The add-in looks the font up by this name to decide whether to
-# offer it, so a mismatch greys the choice out on a machine that HAS it installed.
+# offer it, so a mismatch grays the choice out on a machine that HAS it installed.
 FONT_FAMILY := VistaTypeLP Legible
 FONTS     := VistaTypeLPLegible-Regular.ttf VistaTypeLPLegible-Bold.ttf \
              VistaTypeLPLegible-Italic.ttf VistaTypeLPLegible-BoldItalic.ttf
@@ -172,7 +172,7 @@ deploy:
 # embedded in the .dotm now, so only those two files ship (no Word.officeUI). Add the license.
 stage: build
 	cp LICENSE dist/LICENSE.txt
-	@# The font is under the SIL Open Font License, not the GPL, and that licence requires the
+	@# The font is under the SIL Open Font License, not the GPL, and that license requires the
 	@# text to travel with every copy of the font. Both go to the same place LICENSE.txt does.
 	cp assets/fonts/atkinson-hyperlegible/OFL.txt dist/OFL.txt
 	cp $(addprefix $(FONTSRC)/,$(FONTS)) dist/

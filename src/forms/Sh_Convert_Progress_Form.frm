@@ -27,7 +27,7 @@ Private Sub UserForm_Initialize()
 ' had never actually turned, under a message telling the user not to touch the keyboard and to
 ' "Wait for the BEEP!" - written when a conversion took minutes.
 '
-' MSForms has no progress bar, so the bar is two labels: a sunken track, and a coloured fill
+' MSForms has no progress bar, so the bar is two labels: a sunken track, and a colored fill
 ' whose Width the code drives. No ActiveX control, so nothing to fail to register on the
 ' transcriber''s machine.
 '

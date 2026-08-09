@@ -51,7 +51,7 @@ somewhere else on purpose:
 - [ ] **Selection Clean Up**  `Dx_Selected_File_CleanUp`  -- **RETURNS YOU**
   - opens dialog **Dx Selected Cleanup Form**: Okay
 - [ ] **Delete Prodnotes**  `Sh_Delete_Prodnote_Paragraphs`
-- [ ] **Prodnote → TN**  `Dx_Change_Prodnotes_To_Transcriber_Notes`  -- **RETURNS YOU**
+- [ ] **Prodnote to TN**  `Dx_Change_Prodnotes_To_Transcriber_Notes`  -- **RETURNS YOU**
 
 
 ### Reference Page Number Formatting

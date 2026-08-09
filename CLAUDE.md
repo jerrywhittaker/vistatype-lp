@@ -53,6 +53,22 @@ Other rules:
   as wrong as saying "rebase" unexplained. He is experienced, not a beginner.
 - Short paragraphs. One idea each. He is reading this in a terminal between Word sessions.
 
+## American spellings, everywhere
+
+Jerry's rule, 8/8/2026: **this product is for American transcribers, so everything in it uses
+American spellings** — dialog text, installer wording, documentation, and code comments alike.
+license (not licence), color, behavior, recognize, normalize, gray, dialog. The whole repo was
+swept on 8/8/2026; keep new writing in step.
+
+Three files are **excluded and must stay untouched**: `LICENSE` (the GPL's own text),
+`docs/Software-Agreement.md`, and `assets/fonts/atkinson-hyperlegible/OFL.txt` — that last one
+is a character-for-character transcription of the Braille Institute's own document and altering
+a single word would break the verification it rests on.
+
+No style name, ribbon id or control id contains any of these words, which is why the sweep was
+safe. Check that again before extending it: renaming an id breaks toolbars already installed in
+the field (see the `btn_*` rule further down).
+
 ## The pieces and how they work together
 
 The source of truth is `src/`. The items below are the *built* artifacts (and their
@@ -80,10 +96,10 @@ Installed by the Inno Setup installer (`installer/vistatype.iss`):
   `OFL.txt` → `%AppData%\VistaType LP\`. Flagged `uninsneveruninstall` and NOT listed in
   `[UninstallDelete]`: removing the font would silently reflow every book already produced.
   `MinVersion: 10.0.17134` on those four lines only — per-user font install needs Windows
-  10/1803, and on anything older the add-in installs fine and the dialog greys the choice out.
+  10/1803, and on anything older the add-in installs fine and the dialog grays the choice out.
   Never add `onlyifdoesntexist`: it would stop a corrected font ever reaching a machine that
   already has the old one. **The font is OFL, not GPL** — never sweep it under the project
-  licence; condition 5 forbids it and breaching any condition voids the grant.
+  license; condition 5 forbids it and breaching any condition voids the grant.
 - The **Quick Access Toolbar** is set up per the user's choice on the install wizard (append VistaType's icons / install VistaType's toolbar whole / restore their pre-VistaType one / leave it alone), written to `Word.officeUI` in **both** Roaming and Local; their ribbon is never touched and the embedded ribbon supplies the tabs
 
 ## Repo layout
@@ -152,7 +168,7 @@ tools/lib/      check_style_guards.py (refuses to build when an ActiveDocument.S
                 unitsPerEm at 1000, so the transcriber sets 18, Word REPORTS 18 and the ruler
                 READS 18 — confirmed on the ruler 8/8/2026. It also REFUSES any --family
                 containing "Atkinson" or "Hyperlegible", and rewrites the font's copyright,
-                licence and vendor records to the OFL. Both are licence conditions, not
+                license and vendor records to the OFL. Both are license conditions, not
                 fussiness — see assets/fonts/ below. It renames in the CFF table as well as the
                 name table, and RE-OPENS each file it writes to prove the reserved words are
                 gone: a font keeps its names in two places, and the CFF PostScript name is the
@@ -189,7 +205,7 @@ assets/fonts/   the typeface the installer SHIPS from 3.0.101, as VistaTypeLP Le
                 lines ~17% further apart. The face runs 8.5% taller-lined than Tahoma, which is
                 its own design and is LEFT ALONE — a book's typeface is chosen once at attach,
                 and re-attaching at a different size repaginates anyway (Jerry, 8/8/2026).
-                LICENCE — settled 8/8/2026, and it constrains us. The 2020 files' own name
+                LICENSE — settled 8/8/2026, and it constrains us. The 2020 files' own name
                 table says "without derivatives or alteration", which is SUPERSEDED: Jerry has
                 the Braille Institute's own document (their counsel, Dec 2024) placing the
                 typeface under the SIL Open Font License 1.1. OFL.txt there is that document,
@@ -201,9 +217,9 @@ assets/fonts/   the typeface the installer SHIPS from 3.0.101, as VistaTypeLP Le
                 Three conditions bind future work: the Reserved Font Names "ATKINSON" and
                 "HYPERLEGIBLE" may not appear in the name users see (hence the family
                 "VistaTypeLP Legible" — "VistaType" alone would clash with an unrelated font
-                producer, Jerry, 8/8/2026); every copy must carry the licence, so OFL.txt has
+                producer, Jerry, 8/8/2026); every copy must carry the license, so OFL.txt has
                 to be INSTALLED beside the fonts; and the font stays OFL and is NOT covered by
-                VistaType's GPLv3 — never sweep it under the project licence, condition 5
+                VistaType's GPLv3 — never sweep it under the project license, condition 5
                 forbids it and breaching any condition voids the grant. Good news that removes
                 a worry: the OFL expressly exempts documents CREATED with the font, so a
                 transcriber's finished large-print file carries no obligation at all.
@@ -261,7 +277,7 @@ Three subtleties that make it actually work:
   `%LOCALAPPDATA%` (Local) when the profile roams/redirects or Office can't roam, so the merge
   writes **both** (Word honors whichever it uses; the other is ignored).
 - **Every machine that ran VistaType before 3.0 still carries our OLD ribbon tabs**, and they
-  must be recognised and replaced on upgrade. Before 3.0 the install was a manual file copy
+  must be recognized and replaced on upgrade. Before 3.0 the install was a manual file copy
   that included the global `Word.officeUI` still tracked at the repo root, and it REPLACED the
   user's ribbon. Those tabs are `mso_c1.F9211` "Braille Macros", `mso_c1.56E551D` "VistaType
   LP" and `mso_c1.4EA2EBA` "LP and BRL QAT Icons" — Word-generated ids, and controls that no
@@ -271,7 +287,7 @@ Three subtleties that make it actually work:
   and four wrong theories to find, because it only appears on an upgrade and a clean install
   was always perfect.
 
-  A tab or group of ours is now recognised three ways, and `Merge-Qat.ps1` needs **all three**:
+  A tab or group of ours is now recognized three ways, and `Merge-Qat.ps1` needs **all three**:
   the `vt_*` id we write; the add-in controls it carries; or **the same id as one of the
   template's groups with the decoration stripped** — `vt_grp_mso_c1_18B5F8FF` and
   `mso_c1.18B5F8FF` are the same group, ours prefixed with dots turned into underscores. That
@@ -611,10 +627,10 @@ does not, tell Jerry before starting other work — an unfolded hotfix is a bug 
   correctly. `LargePrintTemplate.dotx` is deliberately UNTOUCHED — its docDefaults still names
   Tahoma and the macros override per document, which is exactly what makes that true.
   `Lp_Apply_Base_Font_To_Styles` sets Normal plus the **13** styles that name a face of their
-  own and so ignore Normal: the 12 coloured character styles and `No Spacing`, which has no
+  own and so ignore Normal: the 12 colored character styles and `No Spacing`, which has no
   basedOn at all. A book set in Legible EMBEDS it (`EmbedTrueTypeFonts`, never subsetted, never
   for Tahoma). A missing font is the one failure here that says nothing — Word substitutes
-  silently at the wrong size — so the dialog greys out a face `Sh_Is_Font_Installed` cannot
+  silently at the wrong size — so the dialog grays out a face `Sh_Is_Font_Installed` cannot
   find, and `Sh_Doc_Info` reports both the typeface and whether it is present.
 - **Large print**: reformatting for low-vision readers — big base fonts, custom page
   size/margins/gutter/orientation (public vars `PPH/PPW/PTM/PBM/PLM/PRM/PPG/PPO/DM`),

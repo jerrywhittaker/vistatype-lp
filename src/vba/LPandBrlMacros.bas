@@ -18,7 +18,21 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - LP - 8/8/2026 - the transcriber now CHOOSES the typeface on the attach dialog, beside the point size: Tahoma as
+' Notes:    - Sh - 8/8/2026 - American spellings throughout, in comments and in anything the transcriber reads. Jerry's call: the
+'           - Sh - 8/8/2026 - product is for American transcribers. licence->license, colour->color, behaviour->behavior,
+'           - Sh - 8/8/2026 - recognise->recognize, normalise->normalize, grey->gray, "dialogue window"->"dialog window". The three
+'           - Sh - 8/8/2026 - legal texts are NOT touched (LICENSE, docs/Software-Agreement.md, and the font's OFL.txt, which is a
+'           - Sh - 8/8/2026 - verified character-for-character transcription and must stay that way). No style name, ribbon id or
+'           - Sh - 8/8/2026 - control id contains any of these words, so nothing a document or an installed toolbar points at moved.
+'           - BRL - 8/8/2026 - the "Prodnote -> TN" button on the Braille Macros tab now reads "Prodnote to TN". The arrow was
+'           - BRL - 8/8/2026 - ChrW(8594), outside Windows-1252, which forced Sh_Prodnote_Info_Form to build its copy of the name
+'           - BRL - 8/8/2026 - with ChrW to survive export. Plain words on both sides now. Only the LABEL changed - the button id
+'           - BRL - 8/8/2026 - btn_Dx_Change_Prodnotes_To_Transcriber_Notes is untouched, so every toolbar already in the field
+'           - BRL - 8/8/2026 - still resolves it.
+'           - Sh - 8/8/2026 - Sh_Prodnote_Info_Form's note rewritten and the form made taller to suit (Jerry). The attach dialog
+'           - Sh - 8/8/2026 - LP_Attach_An_Lp_Template_Form was re-laid-out (Jerry) - layout only, no code change. The installer's
+'           - Sh - 8/8/2026 - welcome page says what the add-ins are and that the typeface carries its own separate license.
+'           - LP - 8/8/2026 - the transcriber now CHOOSES the typeface on the attach dialog, beside the point size: Tahoma as
 '           - LP - 8/8/2026 - before, or the bundled VistaTypeLP Legible, which is Atkinson Hyperlegible rescaled so that a point
 '           - LP - 8/8/2026 - size set in Word matches the PRINTED letter size (18 pt Atkinson measured about 16.5 on Jerry's
 '           - LP - 8/8/2026 - font ruler, 8/8/2026). Nothing new stores the choice: like the point size, it is read back off the
@@ -26,10 +40,10 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - LP - 8/8/2026 - existed correctly answers Tahoma. LargePrintTemplate.dotx is deliberately NOT touched - it stays
 '           - LP - 8/8/2026 - the Tahoma baseline and the macros override per document, which is what makes that true.
 '           - LP - 8/8/2026 - New: Lp_Apply_Base_Font_To_Styles (Normal, plus the 13 styles that name a face of their own and so
-'           - LP - 8/8/2026 - ignore Normal - the 12 coloured character styles and "No Spacing", which has no basedOn at all),
+'           - LP - 8/8/2026 - ignore Normal - the 12 colored character styles and "No Spacing", which has no basedOn at all),
 '           - LP - 8/8/2026 - Sh_Is_Font_Installed, Sh_Font_Status_Text, Lp_Indent_Factor_For_Font. Lp_Attach_The_Template also
 '           - LP - 8/8/2026 - EMBEDS the font when it is ours, so a book still sets correctly on a machine without it; Tahoma is
-'           - LP - 8/8/2026 - never embedded. The Tahoma-missing warning left Lp_Attach_Lp_Template and is now the dialog greying
+'           - LP - 8/8/2026 - never embedded. The Tahoma-missing warning left Lp_Attach_Lp_Template and is now the dialog graying
 '           - LP - 8/8/2026 - out a face that is not installed - a better answer, and it takes an "End" statement out of the path
 '           - LP - 8/8/2026 - that used to wipe every Public on the way past.
 ' Notes:    - Sh - 8/6/2026 - INSTALLER FIX: upgrading over an older version left the ribbon tabs stale (Jerry, 8/6/2026).
@@ -46,7 +60,7 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - BRL - 8/5/2026 - it into $pg12-14[[*lec*]][[*i*]]14, DBT code and all. Merging AFTER tagging, which is how it was
 '           - BRL - 8/5/2026 - first written, would have had to build that code by hand. Only numbers carrying a DIGIT merge:
 '           - BRL - 8/5/2026 - a pure roman pair is left alone because the [[*ii*]] lower-case marker is applied by the roman
-'           - BRL - 8/5/2026 - numeral loop further down, which cannot recognise a range. Tables are skipped and a section break
+'           - BRL - 8/5/2026 - numeral loop further down, which cannot recognize a range. Tables are skipped and a section break
 '           - BRL - 8/5/2026 - ends a run, both as on the LP side.
 ' Notes:    - Sh - 8/5/2026 - the DAISY/NIMAS conversion now ASKS whether to keep the images, straight after the DAISY/NIMAS
 '           - Sh - 8/5/2026 - choice (Jerry, 8/5/2026). New DN_Keep_Or_Omit_Images_Form: "Keep images (Large Print)" is the default,
@@ -91,8 +105,8 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Notes:    - Sh - 8/5/2026 - the DAISY/NIMAS conversion now puts the whole document into Tahoma 12 pt, just before the repaginate
 '           - Sh - 8/5/2026 - and save at the end - a font change moves every line and page break, so it has to precede both. The new
 '           - Sh - 8/5/2026 - Sh_Set_Whole_Document_Font does the work for it and for the braille attach's Courier New 12. Face and
-'           - Sh - 8/5/2026 - size only: colour is left alone, so the red $pg tags and red prodnotes come through unchanged.
-' Notes:    - BRL - 8/5/2026 - Dx_Fix_Common_File_Errors now ends by colouring the $pg tags red, via the new Dx_Color_Dollar_PG_Red.
+'           - Sh - 8/5/2026 - size only: color is left alone, so the red $pg tags and red prodnotes come through unchanged.
+' Notes:    - BRL - 8/5/2026 - Dx_Fix_Common_File_Errors now ends by coloring the $pg tags red, via the new Dx_Color_Dollar_PG_Red.
 '           - BRL - 8/5/2026 - Deliberately NOT the LP side's Sh_Color_Dollar_PG_Red: that also sets the replacement style to Normal,
 '           - BRL - 8/5/2026 - which Word applies to the whole paragraph and would strip the BANA style off every paragraph with a tag.
 ' Notes:    - BRL - 8/5/2026 - Dx_Attach_BANA_Template now ends by putting the whole document into Courier New 12 pt, via the new
@@ -102,7 +116,7 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - LP - 8/5/2026 - NIMAS files, which is a before-the-template job; run afterwards from File Cleanup it added stray
 '           - LP - 8/5/2026 - paragraph marks to a document that was already formatted.
 ' Notes:    - Sh - 8/5/2026 - Sh_ReplaceNonBreakingSpacesWithNormalSpace now SKIPS any non-breaking space in a paragraph styled
-'           - Sh - 8/5/2026 - "Print Pg Num". The bar built by Lp_Format_Page_Numbers begins and ends with one, and the colour pass
+'           - Sh - 8/5/2026 - "Print Pg Num". The bar built by Lp_Format_Page_Numbers begins and ends with one, and the color pass
 '           - Sh - 8/5/2026 - in that macro finds those ends by searching for ^s, so flattening them took the bar apart. A document
 '           - Sh - 8/5/2026 - with no such paragraph still gets the single whole-document replace, which is the usual case.
 '           - Sh - 8/3/2026 - the progress bar is weighted to where the time ACTUALLY goes, measured end to end on a real NIMAS book
@@ -124,7 +138,7 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - Sh - 8/3/2026 - the conversion shows a PROGRESS BAR now, not the old non-modal box. Jerry: without a visible activity
 '                             indicator "many will think the computer is frozen and well... reboot time". New
 '                             Sh_Convert_Progress_Form (51 forms) - MSForms has no progress bar control, so it is two labels, a sunken
-'                             track and a coloured fill whose Width the code drives; no ActiveX to fail to register on a transcriber's
+'                             track and a colored fill whose Width the code drives; no ActiveX to fail to register on a transcriber's
 '                             machine. Stage weights come from the timings below, so the bar is honest about where the work is
 '           - Sh - 8/3/2026 - the old box carried a spinner that had NEVER turned: Sh_ShowNonModalMessage only shows the form and
 '                             nothing in the converter ever called StartSpinner, so the flag stayed False and every tick exited at once.
@@ -153,7 +167,7 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - Sh - 8/3/2026 - prodnote tagging 3.79 s -> 0.00 s. The cost was InStr with vbTextCompare walking the whole file
 '                             looking for <prodnote and </prodnote>, 1564 times: locale-aware matching a character at a time.
 '                             It now lowercases a copy once and searches that with vbBinaryCompare, slicing from the original -
-'                             same case-insensitive behaviour, and LCase$ does not change the string's length so positions still
+'                             same case-insensitive behavior, and LCase$ does not change the string's length so positions still
 '                             line up. Output verified IDENTICAL to the old routine, character for character, on that book.
 '                             Accumulation also changed from outStr = outStr & ... to Join, but measurement says that was worth
 '                             0.09 s of the 3.79 - it is kept as the better shape, not as the fix
@@ -161,7 +175,7 @@ Attribute VB_Name = "LPandBrlMacros"
 '                             wildcard Find/Replace and read it all back, to perform ONE substitution. Now a VBScript.RegExp over
 '                             the string. Output identical apart from the trailing paragraph mark Word appends to any document.
 '                             Word wildcards escape < and > as \< and \> because they mean word boundaries; a regex does not
-'           - Sh - 8/3/2026 - untouched, deliberately: the red. Prodnote colour is set after the import (Styles("Prodnote").Font
+'           - Sh - 8/3/2026 - untouched, deliberately: the red. Prodnote color is set after the import (Styles("Prodnote").Font
 '                             .Color) and Sh_Color_Dollar_PG_Red runs after that, so neither depends on any of this. Jerry's two
 '                             conditions for trying a faster converter
 '           - Sh - 8/3/2026 - dead code cleared, 311 lines and eight macros. Nothing referenced any of them - not the ribbon, not the
@@ -181,17 +195,17 @@ Attribute VB_Name = "LPandBrlMacros"
 '                             screen reader support, in the application the transcriber is already in. Sh_License_Form is gone (49 forms)
 '           - Sh - 8/3/2026 - two things opening a document would otherwise have done to the user. ConfirmConversions is held off across
 '                             the open, or Word stops on its "Convert File" question for a .txt. And new Sh_Skip_Open_Handler makes
-'                             Sh_HandleDocumentOpened leave the licence completely alone - without it the licence counts as an ordinary
-'                             document, MS_Set_Word_Config_For_New_Install runs over it, and clicking a button to READ THE LICENCE would
+'                             Sh_HandleDocumentOpened leave the license completely alone - without it the license counts as an ordinary
+'                             document, MS_Set_Word_Config_For_New_Install runs over it, and clicking a button to READ THE LICENSE would
 '                             reset the transcriber's Styles pane. Measured on the build box 8/3/2026: an MSForms text box holds at least
 '                             65,000 characters, so the 32,000 ceiling that shaped the earlier attempt is folklore here
 '           - Sh - 8/2/2026 - both About dialogs now carry the GPLv3, not the old permissive agreement. The wording they had granted use
-'                             "at no cost to others" and read like an MIT licence - it never matched what this software actually ships
+'                             "at no cost to others" and read like an MIT license - it never matched what this software actually ships
 '                             under, which the installer has shown correctly all along. The thirteen old agreement labels are gone from
 '                             each form, replaced by ONE scrollable read-only text box filled at run time from new
 '                             Sh_Software_Agreement_Text. One copy of the wording, shared by both dialogs, so they cannot drift, and it
 '                             lives in git-tracked text instead of inside a binary .frx. Canonical source is docs/Software-Agreement.md
-'           - Sh - 8/2/2026 - the dialogs show a plain-English summary, not the licence itself: a new "View Full License" button opens
+'           - Sh - 8/2/2026 - the dialogs show a plain-English summary, not the license itself: a new "View Full License" button opens
 '                             the complete GPL that the installer writes to %AppData%\VistaType LP\LICENSE.txt (Sh_Show_Full_License),
 '                             falling back to a pointer at gnu.org if the add-in was copied into STARTUP by hand rather than installed.
 '                             The version label was deliberately left untouched on both forms - Import-Vba.ps1 finds it by matching the
@@ -276,7 +290,7 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - Lp - 7/30/2026 - border weights now come from ONE place, Lp_Border_Weight_For_Base_Font. There were four rules and they disagreed.
 '                             Lp_Set_Table_Border_Weights and Lp_SetSelectedTableBorderWeight matched the base size as TEXT against fifteen literals
 '                             ("14","16",..."42"), so any ODD size and anything ABOVE 42 fell through every branch and the border was left untouched -
-'                             a Table Tools colour button appeared to do nothing. ApplyTableBorders had its own Select Case that disagreed on 14 sizes:
+'                             a Table Tools color button appeared to do nothing. ApplyTableBorders had its own Select Case that disagreed on 14 sizes:
 '                             18-21 came out at 3 pt where the box and reference-page borders were 2 1/4, and anything above 42 hit Case Else and got
 '                             the THINNEST border of all, exactly where it should have been heaviest. Jerry: the weights should match everywhere, and
 '                             Print Pg Num is the one that is right - so its thresholds are now the shared rule. Sizes 14-42 EVEN are unchanged.
@@ -385,8 +399,8 @@ Public Const LP_FONT_TAHOMA As String = "Tahoma"
 Public Const LP_FONT_LEGIBLE As String = "VistaTypeLP Legible"
 
 ' Set while the add-in itself opens a document that is none of the user's business -- currently
-' only the licence, from Sh_Show_Full_License. Sh_HandleDocumentOpened checks it and leaves
-' such a document completely alone, so reading the licence cannot reconfigure Word or reset the
+' only the license, from Sh_Show_Full_License. Sh_HandleDocumentOpened checks it and leaves
+' such a document completely alone, so reading the license cannot reconfigure Word or reset the
 ' transcriber's Styles pane. 8/3/2026.
 Public Sh_Skip_Open_Handler As Boolean
 Public TOCTabSetting As String
@@ -407,7 +421,7 @@ Public MirrorString As String ' yes or no
 ' document (only AutoExec fires from a STARTUP global template). So document-type detection is
 ' driven by Word application events (see the VtEvents class), hooked once in AutoExec.
 ' gEvents is module-level so the event sink survives for the whole Word session. If hooking
-' fails, gEvents stays Nothing and the Auto* stubs below run the same logic - keeping behaviour
+' fails, gEvents stays Nothing and the Auto* stubs below run the same logic - keeping behavior
 ' correct if the add-in is instead loaded as Normal.dotm (the old deployment).
 Dim gEvents As VtEvents
 Public Sh_LastDocEvent As String   ' diagnostic breadcrumb: last document event handled
@@ -444,7 +458,7 @@ Sub AutoOpen()
 End Sub
 
 Sub Sh_HandleDocumentOpened()
-    ' A document the add-in opened for its own reasons - the licence - is not the user's
+    ' A document the add-in opened for its own reasons - the license - is not the user's
     ' working document and must not be configured as one. See Sh_Show_Full_License. 8/3/2026.
     If Sh_Skip_Open_Handler Then Exit Sub
 
@@ -743,7 +757,7 @@ Sub Sh_Set_Whole_Document_Font(ByVal targetDoc As Document, ByVal fontName As St
 ' attached template's styles ask for and it survives them. It covers the main text story, tables
 ' included, and leaves headers and footers alone.
 '
-' It sets the face and the size ONLY. Colour is untouched, so the red $pg tags and the red
+' It sets the face and the size ONLY. Color is untouched, so the red $pg tags and the red
 ' prodnotes a conversion produces come through it unchanged - which is the whole reason it is
 ' safe to run at the end of one.
 '
@@ -842,8 +856,8 @@ Sub Lp_Apply_Base_Font_To_Styles(ByVal targetDoc As Document, ByVal fontName As 
 ' "No Spacing" is in that list and is the easy one to miss - it has no basedOn AT ALL, so it
 ' never touches Normal. A paragraph in it would sit in Tahoma in the middle of a Legible book.
 '
-' The other twelve are the coloured character styles the transcriber applies by keyboard
-' shortcut. Leave them out and colouring a phrase snaps it back to Tahoma - visible, baffling,
+' The other twelve are the colored character styles the transcriber applies by keyboard
+' shortcut. Leave them out and coloring a phrase snaps it back to Tahoma - visible, baffling,
 ' and it looks like the font choice never worked.
 '
 ' Complex-script (w:cs) fonts are left alone on purpose. Font.Name does not touch Font.NameBi,
@@ -885,7 +899,7 @@ Function Lp_Indent_Factor_For_Font(ByVal fontName As String) As Double
 '
 ' The indent table in Lp_Normalize_Styles was tuned by hand against Tahoma and is the authority
 ' for it - it is not derivable from font metrics, because most of the measurement is Word's tab
-' behaviour rather than the bullet. So the table stays, and a face that is not Tahoma scales off
+' behavior rather than the bullet. So the table stays, and a face that is not Tahoma scales off
 ' it instead of getting a second table of guesses.
 '
 ' 1.054 is the bullet glyph's advance width in VistaTypeLP Legible divided by Tahoma's, measured
@@ -2184,7 +2198,7 @@ Sub Dx_Fix_Common_File_Errors()
 
 ' Dx_Fix_Common_File_Errors Macro
 '
-' Version: 2.11  Date: 8/5/2026 - colours the $pg tags red as its last content step, so they stay red when this macro is run on its own (Jerry)
+' Version: 2.11  Date: 8/5/2026 - colors the $pg tags red as its last content step, so they stay red when this macro is run on its own (Jerry)
 ' Version: 2.10  Date: 7/26/2026 - returns the user to where the cursor was when the macro started
 ' Version: 2.8 Date: 3/5/2024 - added "If ActiveDocument.Variables("BrailleType") = "EBAN" Or ActiveDocument.Variables("BrailleType") = "UEBN" then"
 ' Version: 2.7 Date: 2/6/2024 - moved Application.Run MacroName:="Dx_Fix_Para_Space_Errors" to last routine run
@@ -2307,13 +2321,13 @@ Sub Dx_Color_Dollar_PG_Red()
 '
 ' Author: Jerry Whittaker - jerry@thewhittakers.org
 '
-' Colours every $pg tag red, and nothing else.
+' Colors every $pg tag red, and nothing else.
 '
 ' NOT Sh_Color_Dollar_PG_Red, which the large print side uses for this. That one also sets the
 ' replacement STYLE to Normal, and Word applies a paragraph style to the whole paragraph rather
 ' than to the three characters matched - in a braille file it would strip the BANA style off
 ' every paragraph holding a tag. This is the closing pass of Dx_AutoTag_Page_Numbers instead:
-' colour only, then put the DBT code colours back, since a tag can be followed by a code such
+' color only, then put the DBT code colors back, since a tag can be followed by a code such
 ' as [[*ii*]] on the same paragraph.
 
     Application.Run MacroName:="Sh_Is_Doc_Open"
@@ -2337,7 +2351,7 @@ Sub Dx_Color_Dollar_PG_Red()
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
 
-    ' Put the DBT code colours back. Guarded: Dx_Set_DBT_Codes_Color_and_Style asks for the
+    ' Put the DBT code colors back. Guarded: Dx_Set_DBT_Codes_Color_and_Style asks for the
     ' "DBT Code" style BY NAME, and only the BANA template carries it. On a document without it
     ' that call raises 5941 with no handler, which in Word means a modal dialog and a wedged
     ' session. No such style means no DBT codes to restore, so skipping is the right answer.
@@ -3780,7 +3794,7 @@ Private Function Dx_Is_Bare_Pg_Number_Paragraph(ByVal r As Range) As Boolean
 ' True when this paragraph holds nothing but a reference page number, at the point in
 ' Dx_AutoTag_Page_Numbers where the tags have been stripped and none have been put back.
 '
-' The test is deliberately close to what the tagging passes below will actually recognise:
+' The test is deliberately close to what the tagging passes below will actually recognize:
 ' short, and made only of letters, digits and hyphens. It must also carry at least one DIGIT.
 '
 ' That last rule is what keeps a PURE ROMAN pair - v / vi - out of this. A LONE roman numeral is
@@ -7283,7 +7297,7 @@ Sub Lp_Attach_Lp_Template()
     ' Description: Attaches large print template to document
     '
     ' Version: 2.3  Date: 8/8/2026 - removed the inline Tahoma-installed check. The transcriber
-    '                               now chooses the typeface on the attach dialog, which greys out
+    '                               now chooses the typeface on the attach dialog, which grays out
     '                               one that is not installed - a better answer than a warning, and
     '                               it takes an End statement out of this path that wiped every
     '                               Public on the way past
@@ -7305,7 +7319,7 @@ Sub Lp_Attach_Lp_Template()
     ' The check for a missing Tahoma used to sit here. It has moved onto the attach dialog
     ' (Sh_Is_Font_Installed, called from LP_Attach_An_Lp_Template_Form.UserForm_Initialize),
     ' because from 8/8/2026 the transcriber CHOOSES the typeface and there is no point warning
-    ' about Tahoma before they have said whether they want it. The dialog greys out a face that
+    ' about Tahoma before they have said whether they want it. The dialog grays out a face that
     ' is not installed, which is a better answer than a warning after the fact.
     '
     ' Its "End" statement went with it, and good riddance: End wipes every Public, so a
@@ -7491,7 +7505,7 @@ Sub Lp_Fix_Common_File_Errors()
 ' Lp_Fix_Common_File_Errors
 '
 ' Version: 3.12  Date: 8/3/2026 - its 28 DoEvents are now Sh_Spin_DoEvents, so the please-wait spinner turns with each one; OnTime alone fires only once a second and the spinner looked stuck
-' Version: 3.11  Date: 8/2/2026 - runs Sh_Color_Dollar_PG_Red as the LAST step, so the $pg tags are still red when File Cleanup is run on its own rather than as part of the attach sequence; the cleanups above lose the colour and no Lp_Normalize_Styles follows to restore it
+' Version: 3.11  Date: 8/2/2026 - runs Sh_Color_Dollar_PG_Red as the LAST step, so the $pg tags are still red when File Cleanup is run on its own rather than as part of the attach sequence; the cleanups above lose the color and no Lp_Normalize_Styles follows to restore it
 ' Version: 3.10  Date: 7/26/2026 - returns the user to where the cursor was when the macro started
 ' Version: 3.8  Date: 3/2/2026 - added Sh_ReplaceNonBreakingSpacesWithNormalSpace
 ' Version: 3.7  Date: 11/25/2025 - added Lp_Fix_Para_Space_Errors
@@ -7600,9 +7614,9 @@ Sh_Spin_DoEvents
 Sh_Spin_DoEvents
     Application.Run MacroName:="Lp_Delete_Zero_Width_Spaces"
 Sh_Spin_DoEvents
-    ' Colour the $pg tags red LAST, so they are still red when this macro is run ON ITS OWN.
+    ' Color the $pg tags red LAST, so they are still red when this macro is run ON ITS OWN.
     ' File Cleanup is not only a step inside the attach sequence -- a transcriber can run it by
-    ' itself, with no Lp_Normalize_Styles afterwards to restore the colour. The cleanups above
+    ' itself, with no Lp_Normalize_Styles afterwards to restore the color. The cleanups above
     ' lose the original red, and nothing else would put it back. Jerry, 8/2/2026.
     Application.Run MacroName:="Sh_Color_Dollar_PG_Red"
 Sh_Spin_DoEvents
@@ -9173,7 +9187,7 @@ Sub Lp_Format_Page_Numbers()
         ' Reverted the next day: the en space worked - a test document confirmed 8194 at both
         ' ends - but it did not fix what prompted it. That macro now skips any paragraph
         ' styled Print Pg Num instead, which protects the bar without changing what it is
-        ' made of. If the character here ever changes, change the ^s the colour pass below
+        ' made of. If the character here ever changes, change the ^s the color pass below
         ' searches for to match, or the ends silently stay red.
         ' Separately: the trailing space falls outside the pink shading, and always did. That
         ' is the single right-aligned tab stop driving pn<number> to the margin, so anything
@@ -9229,7 +9243,7 @@ Sub Lp_Format_Page_Numbers()
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
     
-    ' Change the non-breaking spaces at each end of the bar to automatic colour - they inherit
+    ' Change the non-breaking spaces at each end of the bar to automatic color - they inherit
     ' the red from the $pg tag they replaced. This pass MUST always look for the same character
     ' the bar is built from above, or it silently finds nothing and the ends stay red.
     Selection.Find.ClearFormatting
@@ -9459,7 +9473,7 @@ Private Function Lp_Merge_One_Pg_Tag_Run(ByVal targetDoc As Document, _
 ' running from the first paragraph's mark to the end of the last paragraph's text. Measured on
 ' a real document the offsets were provably right -- first paragraph 12..21, last 27..33,
 ' delete 20..32, exactly its mark plus the middle paragraph plus the last one's text -- but
-' Word did not honour them: one paragraph mark survived every time the run was three or more,
+' Word did not honor them: one paragraph mark survived every time the run was three or more,
 ' leaving a blank paragraph after the merged bar. Deleting whole paragraphs is the pattern
 ' Sh_Delete_Prodnote_Paragraphs already uses, and it behaves.
 '
@@ -10433,7 +10447,7 @@ Sub Lp_Copy_To_Temp_Doc()
     ' intent was to keep the scratch window uncluttered, but pane visibility is a WORD-WIDE
     ' setting, not a per-document one, so there is no way to tidy the temp document without
     ' closing the pane in the user's book as well - and nothing ever put it back. With
-    ' eighteen callers (Table Tools, Fill-In Line, Horiz-to-Vert list, image colour) the pane
+    ' eighteen callers (Table Tools, Fill-In Line, Horiz-to-Vert list, image color) the pane
     ' died on the first one used and stayed dead for the rest of the session. Save-and-restore
     ' is not the answer either: several callers never reach Lp_Copy_From_Temp_Doc, so the
     ' saved state would strand.
@@ -12538,7 +12552,7 @@ su_Prev = Application.ScreenUpdating
 
      'Screen stays OFF through the temp-file cleanup below. Turning it on here and THEN
      'activating the temp document painted that document on screen - a splash of the table's
-     'alternating row colour - before it was closed again (Jerry, 7/26/2026).
+     'alternating row color - before it was closed again (Jerry, 7/26/2026).
      'delete temp file
      Documents(TempFileName).Activate
      ActiveDocument.Close SaveChanges:=wdDoNotSaveChanges
@@ -12851,7 +12865,7 @@ Sub Lp_Attach_The_Template()
     '                               to the styles AND the text, instead of hard-coding Tahoma, and
     '                               embeds the font in the document when it is ours. Also records
     '                               the choice in the BaseFontName document variable
-    ' Version: 3.2  Date: 8/2/2026 - now the ONE place that forces the Styles pane open at Recommended sort and Recommended filter, for both a new attach and a re-attach; placed before the Save As so it survives a cancelled save
+    ' Version: 3.2  Date: 8/2/2026 - now the ONE place that forces the Styles pane open at Recommended sort and Recommended filter, for both a new attach and a re-attach; placed before the Save As so it survives a canceled save
     ' Version: 3.1  Date: 7/23/2026 - calls Lp_Set_Prodnote_Style_Visibility after the attach so "Prodnote" shows in the Styles pane when the document uses it (the pre-attach hide-all loop hid it, and unhideWhenUsed does not fire for a style that was already in use, e.g. a converted DAISY/NIMAS document)
     ' Version: 3.0  Date: 7/23/2026 - reverted the 2.9 "Prodnote" exception: Style.Visibility = True sets <w:semiHidden/> (it HIDES), so the pre-attach loop hides every style as its comment says, and excluding Prodnote only stopped it being hidden
     ' Version: 2.9  Date: 7/22/2026 - (superseded) skipped "Prodnote" in the pre-attach visibility loop
@@ -12895,7 +12909,7 @@ Sub Lp_Attach_The_Template()
     If Lp_GP_String_1 <> "Doc_Is_Already_LP" Then  ' this only needs to be done on docs which are not lp
         ' The message belongs INSIDE the If. It used to be set just above it as well, so a
         ' re-attach announced "Fixing common file errors" and then skipped the macro - which is
-        ' correct behaviour for a document that is already large print, but the message said
+        ' correct behavior for a document that is already large print, but the message said
         ' otherwise. Jerry, 8/3/2026.
         '
         ' The spinner turns during the macro because its 28 DoEvents are now Sh_Spin_DoEvents,
@@ -13385,7 +13399,7 @@ Sub Lp_Set_Table_Border_Weights()
     ' clears any diagonal borders and table shadows, and sets Word's own default border
     ' width so a border the user draws afterwards matches.
     '
-    ' Called by Lp_Normalize_Styles and by all four "colour every table" buttons on
+    ' Called by Lp_Normalize_Styles and by all four "color every table" buttons on
     ' Lp_Table_Tools_Menu_Form - applying a Word table style resets the borders, so those
     ' buttons call this to put the weights back.
     '
@@ -13394,7 +13408,7 @@ Sub Lp_Set_Table_Border_Weights()
     '                                 literals. Sizes 14-42 EVEN behave exactly as before;
     '                                 odd sizes and anything above 42 previously fell through
     '                                 every branch and left the borders untouched, so a
-    '                                 Table Tools colour button appeared to do nothing to
+    '                                 Table Tools color button appeared to do nothing to
     '                                 them. Four near-identical 48-line blocks became one.
     ' Version: 1.2  Date: 1/9/2024 - added On Erro Resume if table has missing borders
     ' version: 1.1  Date: 10/16/2023 - set width 225pt range to include Lp_Base_Font_Size = "20"
@@ -13899,7 +13913,7 @@ Sub Sh_Set_Prodnote_Style_Visibility()
 ' filter, but a document with the Normal template attached is configured by
 ' MS_Set_Word_Config_For_New_Install, which sets the pane to "All styles" (wdShowFilterStylesAll)
 ' -- and under "All styles" a semiHidden style still shows. So hiding cannot work there, and the
-' behaviour would depend on which template is attached. Deleting the unused style removes it from
+' behavior would depend on which template is attached. Deleting the unused style removes it from
 ' the pane under ANY filter and for ANY template.
 '
 ' Deleting is safe: it happens only when the usage test finds no paragraph in the style, so no
@@ -14958,7 +14972,7 @@ su_Prev = Application.ScreenUpdating
 
      'Screen stays OFF through the temp-file cleanup below. Turning it on here and THEN
      'activating the temp document painted that document on screen - a splash of the table's
-     'alternating row colour - before it was closed again (Jerry, 7/26/2026).
+     'alternating row color - before it was closed again (Jerry, 7/26/2026).
      'delete temp file
      Documents(TempFileName).Activate
      ActiveDocument.Close SaveChanges:=wdDoNotSaveChanges
@@ -15608,7 +15622,7 @@ NextCell:
      DoEvents
 
      'Screen stays OFF through the temp-file cleanup below - see the note in the other two
-     'converts. Painting the temp document before closing it flashed the table's row colour.
+     'converts. Painting the temp document before closing it flashed the table's row color.
      'delete temp file
      Documents(TempFileName).Activate
      ActiveDocument.Close SaveChanges:=wdDoNotSaveChanges
@@ -15858,7 +15872,7 @@ Sub Lp_Normalize_Styles()
     '                                 border weights; each step now has its own. Sh_Color_Dollar_PG_Red
     '                                 moved from near the top to the LAST action, and shows no
     '                                 message - the style updates in between reset the font
-    '                                 colour of the styles they touch, so the red could be
+    '                                 color of the styles they touch, so the red could be
     '                                 undone before the macro finished
     ' Version: 3.3  Date: 7/26/2026 - stopped the screen flashing - see the note in the changelog header
     ' Version: 3.2  Date: 7/18/2026 - space-after now set once at story level (was a per-paragraph loop)
@@ -16157,7 +16171,7 @@ Sub Lp_Normalize_Styles()
 
     ' LAST thing done to the document, and deliberately silent (Jerry, 7/30/2026).
     ' It used to run near the top, before every style update above - and those updates reset
-    ' the font colour of the styles they touch, so the red could be undone again before the
+    ' the font color of the styles they touch, so the red could be undone again before the
     ' macro had finished. Doing it last means it survives. No progress message: it is quick,
     ' and it is not a step the user needs narrating.
     Application.Run MacroName:="Sh_Color_Dollar_PG_Red"
@@ -17032,10 +17046,10 @@ Function Sh_Software_Agreement_Text() As String
 ' wording lives in git-tracked text rather than inside a form's binary .frx.
 '
 ' Replaces the old permissive agreement, which granted use "at no cost to others" and read
-' like an MIT licence. It never matched what this software actually ships under. The canonical
+' like an MIT license. It never matched what this software actually ships under. The canonical
 ' wording is docs/Software-Agreement.md; keep the two in step.
 '
-' This is a plain-English summary, not the licence itself. The full GNU General Public License
+' This is a plain-English summary, not the license itself. The full GNU General Public License
 ' is what the installer displays and what it writes to %AppData%\VistaType LP\LICENSE.txt --
 ' the "View Full License" button on each dialog opens that copy. See Sh_Show_Full_License.
 '
@@ -17110,9 +17124,9 @@ Sub Sh_Show_Full_License()
     Application.Options.ConfirmConversions = False
 
     ' Tell the add-in's own document-open handler to leave this one alone. Without it,
-    ' Sh_HandleDocumentOpened treats the licence as an ordinary document and runs
+    ' Sh_HandleDocumentOpened treats the license as an ordinary document and runs
     ' MS_Set_Word_Config_For_New_Install over it -- which would reset the transcriber's Styles
-    ' pane just because they clicked a button to read the licence.
+    ' pane just because they clicked a button to read the license.
     Sh_Skip_Open_Handler = True
 
     Documents.Open FileName:=licensePath, ReadOnly:=True, AddToRecentFiles:=False, Visible:=True
@@ -18358,7 +18372,7 @@ Sub Sh_ReplaceNonBreakingSpacesWithNormalSpace()
     ' Version: 1.0  Date: 3/2/2026
     '
     ' The pink bar built by Lp_Format_Page_Numbers begins and ends with a NON-BREAKING space, and
-    ' the colour pass in that macro finds those ends by searching for ^s. Flattening them here
+    ' the color pass in that macro finds those ends by searching for ^s. Flattening them here
     ' took the bar apart. Find can select BY a style but has no way to exclude one, so every hit
     ' has to be looked at one at a time - see the fast path below for why that is affordable.
 
@@ -18481,7 +18495,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     Sh_Spin_DoEvents
 
     If MsgBox( _
-            "A file selection dialogue window will appear after this message is closed." & vbCrLf & vbCrLf & _
+            "A file selection dialog window will appear after this message is closed." & vbCrLf & vbCrLf & _
             "Select or open the folder which contains the DAISY or NIMAS book to be converted into a Word Document, then click OK." & vbCrLf & vbCrLf & _
             "Your screen will show a wait message until the book has been converted into a Word document." & vbCrLf & vbCrLf & _
             "After completion, the folder will contain two new files: The .xml in .txt format (with reference pages tagged with $pg), and an .html file which can be opened with a web browser.", _
@@ -18760,7 +18774,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     ' Normal (Documents.Add), so Word invents "Prodnote" from the mso-style-name rule in the
     ' generated HTML with no formatting of its own -- prodnotes would otherwise look like
     ' ordinary body text until the LP template is attached. EE0000 = RGB(238, 0, 0) is the
-    ' same red the Prodnote style carries in LargePrintTemplate.dotx, so the colour does not
+    ' same red the Prodnote style carries in LargePrintTemplate.dotx, so the color does not
     ' shift when that template is attached later. Silently skipped when the book contained no
     ' prodnotes (Word never creates the style, so the lookup fails).
     On Error Resume Next
@@ -18810,7 +18824,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     ' The whole book goes to Tahoma 12 HERE, ahead of the repaginate below. Changing the font
     ' changes where every line and every page breaks, so it has to happen while a repaginate and
     ' a save still follow it - done after the save, the file on disk would not match the file on
-    ' screen, and the document would be left dirty. Colour is not touched, so the red $pg tags
+    ' screen, and the document would be left dirty. Color is not touched, so the red $pg tags
     ' and the red prodnotes survive it. (Jerry, 8/5/2026)
     Sh_Convert_Progress_Form.Show vbModeless
     Sh_Convert_Progress_Form.SetProgress 76, "Setting the document font to Tahoma 12"

@@ -27,7 +27,7 @@ Attribute VB_Exposed = False
 ' VM both ways, 8/5/2026: 5 min 30 sec keeping the images, 2 min 30 sec omitting them.
 '
 ' Answers through Sh_GP_String_2, "KEEP" or "OMIT", the way the type form answers through
-' Sh_GP_String_1. An empty string means cancelled, and the caller stops.
+' Sh_GP_String_1. An empty string means canceled, and the caller stops.
 
 Private Sub CmdOkay_Click()
     If OmitImages = True Then

@@ -15,7 +15,7 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 'Lp_Table_And_TOC_Tools_Menu_Form
 '
-' Version: 2.3  Date: 8/8/2026 - table recolouring took its typeface and size from hard-coded
+' Version: 2.3  Date: 8/8/2026 - table recoloring took its typeface and size from hard-coded
 '                                "Tahoma" and the Lp_Base_Font_Size public. Both now come off the
 '                                document's own Normal style, so a table follows the typeface the
 '                                book was attached with, and a book keeps its own size when
@@ -53,7 +53,7 @@ Private Sub Default_Color_Selected_Click()
  
     ' Read the typeface AND the size off this document, not off the Public. The Public
     ' holds whatever was chosen the last time a template was attached in this Word
-    ' session, so recolouring a table in an 18 point book after attaching a 24 point
+    ' session, so recoloring a table in an 18 point book after attaching a 24 point
     ' one used to give the first book 24 point type. 8/8/2026.
     Dim BaseFont As String
     Dim BaseSize As Single
@@ -89,7 +89,7 @@ Private Sub Yellow_Color_Selected_Click()
  
     ' Read the typeface AND the size off this document, not off the Public. The Public
     ' holds whatever was chosen the last time a template was attached in this Word
-    ' session, so recolouring a table in an 18 point book after attaching a 24 point
+    ' session, so recoloring a table in an 18 point book after attaching a 24 point
     ' one used to give the first book 24 point type. 8/8/2026.
     Dim BaseFont As String
     Dim BaseSize As Single
@@ -125,7 +125,7 @@ Private Sub Gray_Color_Selected_Click()
  
     ' Read the typeface AND the size off this document, not off the Public. The Public
     ' holds whatever was chosen the last time a template was attached in this Word
-    ' session, so recolouring a table in an 18 point book after attaching a 24 point
+    ' session, so recoloring a table in an 18 point book after attaching a 24 point
     ' one used to give the first book 24 point type. 8/8/2026.
     Dim BaseFont As String
     Dim BaseSize As Single
@@ -161,7 +161,7 @@ Private Sub Black_And_White_Selected_Click()
  
     ' Read the typeface AND the size off this document, not off the Public. The Public
     ' holds whatever was chosen the last time a template was attached in this Word
-    ' session, so recolouring a table in an 18 point book after attaching a 24 point
+    ' session, so recoloring a table in an 18 point book after attaching a 24 point
     ' one used to give the first book 24 point type. 8/8/2026.
     Dim BaseFont As String
     Dim BaseSize As Single

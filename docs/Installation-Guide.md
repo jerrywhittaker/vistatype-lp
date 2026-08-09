@@ -86,11 +86,11 @@ specifically for readers with low vision.
   large-print document you have already produced would quietly reflow into some other typeface
   at the wrong size.
 - **It needs Windows 10 version 1803 or newer.** On an older computer everything else installs
-  normally and the typeface simply is not offered — the choice appears greyed out, and you
+  normally and the typeface simply is not offered — the choice appears grayed out, and you
   carry on with Tahoma exactly as before.
 - **If you work on more than one computer, run the installer on each.** The typeface is
   installed for you personally rather than for the whole machine, and on an office network
-  that kind of installation does not follow you between computers. If the choice is greyed out
+  that kind of installation does not follow you between computers. If the choice is grayed out
   on a machine where you expected it, that is why.
 
 ⚠️ **If you open a book already set in VistaTypeLP Legible on a computer that hasn't got the
@@ -98,13 +98,13 @@ typeface, do not re-attach the template.** The attach dialog will warn you. Goin
 converts the book to Tahoma permanently and moves every page break. Install the typeface,
 restart Word, and then carry on.
 
-**Its licence is separate.** VistaType LP is free software under the GPL. The typeface is
+**Its license is separate.** VistaType LP is free software under the GPL. The typeface is
 **not** covered by that; it is under the **SIL Open Font License**, and a copy is installed
 beside the program at `%AppData%\VistaType LP\OFL.txt`.
 
 That distinction never affects your work. The Open Font License says plainly that the
 requirement does not apply to any *document* made with the typeface — so **the large-print
-books you produce carry no licence obligation at all**. Hand them to anyone, print them, sell
+books you produce carry no license obligation at all**. Hand them to anyone, print them, sell
 them; nothing is owed and nothing needs saying.
 
 ---

@@ -361,7 +361,7 @@ There are two tabs and a lot of near-identical macros. Naming it saves a round t
 ### Point at the button or the macro when you know it
 
 > ✅ *"The `Dx_Remove_Bullets` macro"*
-> ✅ *"The button labeled 'Prodnote → TN'"*
+> ✅ *"The button labeled 'Prodnote to TN'"*
 
 ### Ask before you commit to a direction
 

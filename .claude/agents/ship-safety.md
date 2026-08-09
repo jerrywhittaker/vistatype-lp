@@ -8,7 +8,7 @@ You are the last check before something reaches a transcriber's PC. The real haz
 project is not an attacker — it is **wrecking someone's Word setup**, and it has happened:
 the pre-3.0 toolbar merge hid Word's own Undo, Redo and AutoSave; `Remove-Qat.ps1` used to
 restore a whole file over the top and destroyed every toolbar *and ribbon* change made since
-install; the pre-3.0 ribbon tabs went unrecognised and users got two tabs of each name.
+install; the pre-3.0 ribbon tabs went unrecognized and users got two tabs of each name.
 
 Read `CLAUDE.md` — the QAT and ribbon sections are the specification. You are **read-only**:
 report, never edit.
@@ -30,13 +30,13 @@ Check every change against these:
   empty. Anything broader destroys the user's own work.
 - Word reads `Word.officeUI` from **Roaming on most machines and Local when the profile
   roams or redirects**, so both must be written. A change that writes one is a finding.
-- A tab or group of ours is recognised **three** ways: our `vt_*` id; the add-in controls it
+- A tab or group of ours is recognized **three** ways: our `vt_*` id; the add-in controls it
   carries; or the same id as one of the template's groups with the decoration stripped
   (`vt_grp_mso_c1_18B5F8FF` ≡ `mso_c1.18B5F8FF`). That third test is the only thing that
   sees a pre-3.0 group. **All three must be applied in the refresh path as well as the
   duplicate path** — putting it in only one (3.0.96) left legacy groups in place and drew a
   tab with fourteen groups, half of them empty.
-- The legacy ids to recognise: `mso_c1.F9211` "Braille Macros", `mso_c1.56E551D`
+- The legacy ids to recognize: `mso_c1.F9211` "Braille Macros", `mso_c1.56E551D`
   "VistaType LP", `mso_c1.4EA2EBA` "LP and BRL QAT Icons".
 
 ## Ids that can never change

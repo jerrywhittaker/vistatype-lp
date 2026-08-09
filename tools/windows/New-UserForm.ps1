@@ -110,7 +110,7 @@ try {
             @('Locked', $true), @('TabStop', $false),
             @('SpecialEffect', 0),             # fmSpecialEffectFlat
             @('BorderStyle', 0),               # fmBorderStyleNone
-            @('BackColor', -2147483633)        # &H8000000F, the system form face colour
+            @('BackColor', -2147483633)        # &H8000000F, the system form face color
         )) { $tb.($pair[0]) = $pair[1] }
 
         $btn = $d.Controls.Add('Forms.CommandButton.1', 'Close_Me', $true)
