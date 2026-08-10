@@ -29,6 +29,14 @@ installing it with the new **one-click installer**.
    - If Windows shows a blue *“Windows protected your PC”* message, click **More info →
      Run anyway**. (This appears because the installer isn’t code-signed; it is safe.)
 3. Click **Next / Install** through the wizard, then **Finish**. It takes under a minute.
+4. **Restart the computer.** Signing out of Windows and back in does just as well.
+
+> **Why step 4 matters.** Everything except the typeface works straight away. The
+> **VistaTypeLP Legible** typeface is installed for you personally rather than for the whole
+> machine — that is what lets the installer run without an administrator password — and
+> Windows only takes personal typefaces into use when you sign in. Until you do, Word cannot
+> see it and the attach dialog shows Legible grayed out, as though it had never been
+> installed. One restart and it is there for good.
 
 That’s it. Open Word and look for the two new ribbon tabs.
 
@@ -85,6 +93,11 @@ specifically for readers with low vision.
 - **Uninstalling VistaType LP does not remove the typeface**, on purpose. If it did, every
   large-print document you have already produced would quietly reflow into some other typeface
   at the wrong size.
+- **Restart after installing it.** The typeface is installed for you personally, and Windows
+  only takes personal typefaces into use at sign-in. Until you restart — or sign out and back
+  in — Word cannot see it and the attach dialog shows **Legible** grayed out even though the
+  files are sitting on the machine. This catches people out, because everything else about the
+  installation works immediately.
 - **It needs Windows 10 version 1803 or newer.** On an older computer everything else installs
   normally and the typeface simply is not offered — the choice appears grayed out, and you
   carry on with Tahoma exactly as before.
@@ -244,6 +257,24 @@ because **Word has disabled the add-in**, which it does after a crash.
 If it isn’t listed, check the add-in is still installed: same dialog, **Manage: Word
 Add-ins → Go**, and make sure `LPandBRL.dotm` is ticked under Global Templates. If it has
 gone altogether, run the installer again.
+
+### “The Legible typeface is grayed out on the attach dialog”
+
+Restart the computer, or sign out of Windows and back in, and look again.
+
+The typeface is installed for you personally rather than for the whole machine, and Windows
+only takes personal typefaces into use when you sign in. The files are already on the machine;
+Word simply cannot see them yet. This is the usual answer, and once done it is done for good.
+
+If it is still grayed out after a restart:
+
+- **Check your Windows version.** The typeface needs Windows 10 version 1803 or newer. Press
+  the Windows key, type `winver`, and press Enter. On anything older the typeface is skipped on
+  purpose and you carry on with Tahoma.
+- **Check you are signed in as the same person who ran the installer.** A personal typeface
+  belongs to one Windows account; another account on the same computer will not see it.
+- **On an office network,** a personal typeface does not follow you between computers. Run the
+  installer on each machine you use.
 
 ### “I removed the VistaType tabs and want them back”
 

@@ -47,7 +47,7 @@
 ; The literal here is the fallback for building this script by hand, and is kept in step
 ; with the Makefile by "make bump".
 #ifndef AppVer
-  #define AppVer      "3.0.125"
+  #define AppVer      "3.0.135"
 #endif
 #define DotmName    "LPandBRL.dotm"
 #define DotxName    "LargePrintTemplate.dotx"
@@ -123,6 +123,21 @@ WelcomeLabel2=Version {#AppVer}%n%nJerry Whittaker's tools for transcribers are 
 ; agreement before continuing. The GPL governs copying and modifying, not using, so the
 ; stock wording overstates what a transcriber has to decide here.
 LicenseLabel3=VistaType LP is free software under the GNU General Public License v3, shown below in full. Use it for anything, copy it, pass it on. There is no warranty.
+
+; The last thing a transcriber reads, and the one place the restart can actually be asked for
+; at the moment it matters. Everything EXCEPT the typeface works the instant setup finishes:
+; the add-in, the ribbon tabs and the toolbar are all in place. The typeface is not, and it
+; looks exactly like a failed install - the attach dialog grays Legible out as though it had
+; never arrived. The cause is Windows, not this installer: {autofonts} installs the face for
+; this user rather than machine-wide (no administrator password needed, see the [Files] note),
+; and Windows only takes a per-user font into use at sign-in. Reported by Jerry from a
+; Windows 10 machine, 8/10/2026, where the four .ttf files were sitting in the per-user Fonts
+; folder and correctly registered under HKCU - and Windows itself still did not list the font,
+; so the add-in's check was telling the plain truth.
+;
+; NOT AlwaysRestart. Forcing a restart on a transcriber mid-book to deliver a typeface they
+; may not even use would be worse than the problem. This asks, and says why.
+FinishedLabel=Setup has finished installing VistaType LP and Braille Macros.%n%nThe macros, the ribbon tabs and the toolbar are ready to use now.%n%nPlease RESTART YOUR COMPUTER before using the {#FontFamily} typeface. Signing out of Windows and back in does just as well.%n%nWindows installs this typeface for you personally rather than for the whole machine, which is what lets this installer run without an administrator password - and it only takes personal typefaces into use when you sign in. Until then the attach dialog shows Legible grayed out, even though it is already on the machine.
 
 [Files]
 ; Macro add-in (with embedded ribbon) -> STARTUP. {app} == the STARTUP folder here.
@@ -374,11 +389,33 @@ begin
 end;
 
 { --- Is Word or Outlook running, by process OR by window? --- }
+function WordIsRunning(): Boolean;
+begin
+  Result := IsProcessRunning('WINWORD.EXE') or (FindWindowByClassName(WORD_CLASS) <> 0);
+end;
+
+function OutlookIsRunning(): Boolean;
+begin
+  Result := IsProcessRunning('OUTLOOK.EXE') or (FindWindowByClassName(OUTLOOK_CLASS) <> 0);
+end;
+
 function OfficeIsRunning(): Boolean;
 begin
-  Result := IsProcessRunning('WINWORD.EXE') or IsProcessRunning('OUTLOOK.EXE')
-         or (FindWindowByClassName(WORD_CLASS) <> 0)
-         or (FindWindowByClassName(OUTLOOK_CLASS) <> 0);
+  Result := WordIsRunning() or OutlookIsRunning();
+end;
+
+{ --- NAME the one that is actually in the way. The message used to say "Word or Outlook",
+      which sent Jerry hunting for an Outlook that was not installed on that machine while a
+      windowless WINWORD.EXE sat there holding the file (8/10/2026). A transcriber cannot act
+      on "one of these two". --- }
+function WhatIsRunning(): String;
+begin
+  if WordIsRunning() and OutlookIsRunning() then
+    Result := 'Microsoft Word and Microsoft Outlook are still running.'
+  else if OutlookIsRunning() then
+    Result := 'Microsoft Outlook is still running.'
+  else
+    Result := 'Microsoft Word is still running.';
 end;
 
 { --- Shared by install AND uninstall, so the two can never drift apart. Both need to
@@ -398,11 +435,15 @@ begin
     and we go on to return False, which is exactly the behavior wanted. }
   if OfficeIsRunning() then
   begin
-    SuppressibleMsgBox('Microsoft Word or Outlook is still running.' #13#10 #13#10
-      + 'Close every Word and Outlook window and try again. If you have already closed '
-      + 'them, Word may still be running in the background - sign out of Windows and back '
-      + 'in, then run this again.' #13#10 #13#10
-      + 'While Word is running the add-in cannot be ' + Verb + '.',
+    { A function result cannot sit next to #13#10 the way a literal can - Pascal needs the
+      plus signs. That is what broke this compile first time round. }
+    SuppressibleMsgBox(WhatIsRunning() + #13#10 + #13#10
+      + 'Close every Word and Outlook window and try again.' #13#10 #13#10
+      + 'If you have already closed them, one of them may still be running with no window '
+      + 'on screen - left behind by a crash, or started in the background. Sign out of '
+      + 'Windows and back in, then run this again. (Or end WINWORD.EXE in Task Manager, on '
+      + 'the Details tab.)' #13#10 #13#10
+      + 'While it is running the add-in cannot be ' + Verb + '.',
       mbError, MB_OK, IDOK);
     Result := False;
     Exit;

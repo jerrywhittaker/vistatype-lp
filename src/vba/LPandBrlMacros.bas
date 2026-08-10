@@ -12168,6 +12168,105 @@ Public Function Lp_Nothing_Precedes_On_Line() As Boolean
     End Select
 End Function
 
+' The character at a position, or "" when that position is outside the document. Keeps the
+' scanning below free of bounds arithmetic.
+'
+' Version: 1.0  Date: 8/10/2026
+Private Function Lp_Char_At(doc As Document, ByVal pos As Long) As String
+    If pos < 0 Then Exit Function
+    If pos > doc.Content.End - 1 Then Exit Function
+    Lp_Char_At = doc.Range(pos, pos + 1).Text
+End Function
+
+' True when the character at pos is part of a fill-in line: an underscore, or the manual line
+' break that a fill to the right margin puts BETWEEN its lines. The break only counts when it has
+' underscores on both sides - otherwise this would swallow a line break of the transcriber's that
+' merely happens to sit next to a fill.
+'
+' Version: 1.0  Date: 8/10/2026
+Private Function Lp_Is_Fill_Char(doc As Document, ByVal pos As Long) As Boolean
+    Select Case Lp_Char_At(doc, pos)
+        Case "_"
+            Lp_Is_Fill_Char = True
+        Case Chr(11)
+            Lp_Is_Fill_Char = (Lp_Char_At(doc, pos - 1) = "_") And (Lp_Char_At(doc, pos + 1) = "_")
+    End Select
+End Function
+
+' Deletes the fill-in line the cursor is touching, so that choosing a length REPLACES the line
+' instead of adding to it. Without this a transcriber who made a line too short had to
+' double-click it and delete, or backspace it away a character at a time, or copy and paste part
+' of it - a guessing game, because how long a line LOOKS depends on the point size (Jerry,
+' 8/10/2026).
+'
+' Scans out from the cursor in both directions for as long as it is still inside the fill, so it
+' handles a fill to the right margin with extra lines too - that one carries a manual line break
+' between each of its lines, and the whole thing goes.
+'
+' Minds the spaces: taking the underscores out of "Name: ____ is here." would leave two spaces
+' where one belongs, so a doubled space at the join is collapsed. The spaces the new line needs
+' are then put in by the macro that draws it, under its own rules, exactly as if the line were
+' being typed for the first time.
+'
+' Does nothing at all unless an underscore is actually touching the cursor, so it can be called
+' unconditionally.
+'
+' Version: 1.0  Date: 8/10/2026
+Public Sub Lp_Remove_Fill_In_Line_At_Cursor()
+    Dim doc As Document
+    Dim startPos As Long
+    Dim endPos As Long
+
+    On Error GoTo eom
+    Set doc = ActiveDocument
+
+    If Selection.Start <> Selection.End Then Exit Sub   ' a real selection - not ours to touch
+    startPos = Selection.Start
+    endPos = startPos
+
+    If Not (Lp_Is_Fill_Char(doc, startPos - 1) Or Lp_Is_Fill_Char(doc, startPos)) Then Exit Sub
+
+    Do While Lp_Is_Fill_Char(doc, startPos - 1)
+        startPos = startPos - 1
+    Loop
+    Do While Lp_Is_Fill_Char(doc, endPos)
+        endPos = endPos + 1
+    Loop
+
+    doc.Range(startPos, endPos).Delete
+
+    ' one space, not two, where the line used to be
+    If (Lp_Char_At(doc, startPos - 1) = " ") And (Lp_Char_At(doc, startPos) = " ") Then
+        doc.Range(startPos, startPos + 1).Delete
+    End If
+
+    Selection.SetRange startPos, startPos
+
+eom:
+End Sub
+
+' True when the character AT the cursor sits on a different line from the one before it - which,
+' called with the cursor between a fill-in line and the punctuation that follows it, means the
+' punctuation has dropped to the next line and the fill needs to give a character back.
+'
+' Version: 1.0  Date: 8/10/2026
+Private Function Lp_Next_Char_Wrapped() As Boolean
+    Dim p As Long
+    Dim doc As Document
+
+    On Error GoTo eom
+    Set doc = ActiveDocument
+    p = Selection.Start
+    If p < 1 Then Exit Function
+    If p > doc.Content.End - 2 Then Exit Function
+    If doc.Range(p - 1, p).Text <> "_" Then Exit Function   ' nothing of ours left to give back
+
+    Lp_Next_Char_Wrapped = _
+        (doc.Range(p, p + 1).Information(wdFirstCharacterLineNumber) <> _
+         doc.Range(p - 1, p).Information(wdFirstCharacterLineNumber))
+eom:
+End Function
+
 ' True when a space belongs after a fill-in line. Answers No in three cases:
 '
 '   * nothing follows on the line - a paragraph mark, a manual line break, a page break, the end
@@ -12215,6 +12314,17 @@ Sub Lp_Type_Fill_In_Line_To_Margin()
 
     ' Called from: Lp_Type_Fill_In_Form
     '
+    ' Version 2.2  Date: 8/10/2026 - proved WHY the last line has to be one underscore shorter when
+    '                                punctuation follows: the two are one unbreakable word, so if they
+    '                                do not fit Word moves the whole fill to the next line rather than
+    '                                wrapping the period alone. Making the room conditional was tried
+    '                                and stranded "Name:" on a line by itself. The comment now says so
+    ' Version 2.1  Date: 8/10/2026 - the manual line break between the first and second lines is no
+    '                                longer underlined. Word draws an underline for an underlined
+    '                                break and runs it to the right margin, which made that line look
+    '                                longer than the ones below it (Jerry)
+    ' Version 2.0  Date: 8/10/2026 - the cursor sitting in a fill-in line now REPLACES it. See
+    '                                Lp_Remove_Fill_In_Line_At_Cursor
     ' Version 1.9  Date: 8/10/2026 - never a space before a period, or before any of , ; : ! ? ) ] }
     '                                - a fill-in line that ends a sentence reads "____." (Jerry)
     ' Version 1.8  Date: 8/10/2026 - the fill now reaches the right margin when the cursor is in the
@@ -12265,7 +12375,10 @@ Sub Lp_Type_Fill_In_Line_To_Margin()
     If Selection.Type = wdSelectionNormal Then
         Selection.Delete Unit:=wdCharacter, count:=1
     End If
-    
+
+    ' Sitting in a fill-in line means REPLACE it, not add to it.
+    Lp_Remove_Fill_In_Line_At_Cursor
+
     CurrentLine = Selection.Range.Information(wdFirstCharacterLineNumber) ' get the line number where the cursor is located
     StartLine = CurrentLine
     NextLine = CurrentLine + 1
@@ -12372,6 +12485,14 @@ Sub Lp_Type_Fill_In_Line_To_Margin()
             Else
                 Selection.TypeBackspace
                 If Stubline Then
+                    ' NOT underlined. Word draws an underline for an underlined line break and
+                    ' runs it out to the right margin, so this line LOOKED longer than the ones
+                    ' below it even though it carries the same number of underscores (Jerry,
+                    ' 8/10/2026). The break is part of the layout, not part of the fill. The top
+                    ' of this loop switches underlining back on for the next line.
+                    With Selection.Font
+                        .Underline = wdUnderlineNone
+                    End With
                     Selection.TypeText Text:=Chr(11) ' manual line break
                     Stubline = False
                 Else
@@ -12385,8 +12506,21 @@ Sub Lp_Type_Fill_In_Line_To_Margin()
         .Underline = wdUnderlineNone  ' turn underline off
     End With
 
-    ' One underscore back when a period follows. It gets no space in front of it, so without a
-    ' character's width left on the line it would drop to the next line on its own (Jerry).
+    ' One underscore back when punctuation follows, and it has to happen HERE, while the sentence
+    ' is still parked - not after the rejoin.
+    '
+    ' The fill stops up to a character short of the margin already, so it is tempting to ask
+    ' afterwards whether the period actually needs the room. That does not work: the period has no
+    ' space in front of it, so the underscores and the period are ONE unbreakable word to Word. If
+    ' the pair does not fit, Word does not wrap the period on its own - it picks the whole run up
+    ' and moves it to the next line, leaving "Name:" stranded on a line by itself. Tried on
+    ' 8/10/2026 and that is exactly what happened. Because they move together, "did the period
+    ' wrap?" can never see the failure.
+    '
+    ' So the room is made in advance. The last line ends one underscore shorter than the lines
+    ' above it and the period stands in that place. A period is narrower than an underscore, so
+    ' the line does finish a fraction shorter than its neighbours - about a third of a character.
+    ' That is the cost of keeping the period on the line, and it is the smaller of the two evils.
     If punctFollows Then Selection.TypeBackspace
 
     ' Put the sentence back together - see the note above. Only ever removes the mark this macro
@@ -12426,6 +12560,8 @@ Sub Lp_Type_Counted_Fill_In_Lines()
 
     ' Called from: Lp_Type_Fill_In_Form
     '
+    ' Version 1.6:  Date: 8/10/2026 the cursor sitting in a fill-in line now REPLACES it. See
+    '                               Lp_Remove_Fill_In_Line_At_Cursor
     ' Version 1.5:  Date: 8/10/2026 never a space before a period, or before any of , ; : ! ? ) ] }
     '                               - a fill-in line that ends a sentence reads "____." (Jerry). Also
     '                               no space in FRONT when the fill starts a paragraph
@@ -12458,7 +12594,10 @@ Sub Lp_Type_Counted_Fill_In_Lines()
     If Selection.Type = wdSelectionNormal Then
         Selection.Delete Unit:=wdCharacter, count:=1
     End If
-    
+
+    ' Sitting in a fill-in line means REPLACE it, not add to it.
+    Lp_Remove_Fill_In_Line_At_Cursor
+
     ' A space in front only when there is something for it to separate the fill from. The test
     ' used to be "is the character before a space", which said yes to a paragraph mark as well -
     ' so a fill-in line starting a paragraph was pushed off the left margin by a space nobody

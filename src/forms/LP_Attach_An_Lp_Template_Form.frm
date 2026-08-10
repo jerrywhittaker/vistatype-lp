@@ -4,7 +4,7 @@ Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} LP_Attach_An_Lp_Template_Form
    ClientHeight    =   9132.001
    ClientLeft      =   120
    ClientTop       =   465
-   ClientWidth     =   12255
+   ClientWidth     =   12360
    OleObjectBlob   =   "LP_Attach_An_Lp_Template_Form.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
@@ -76,7 +76,8 @@ Private Sub BindingWidthValue_Change()
     Else
         InchWord = " inches "
     End If
-    FinalGutterSizeLabel.Caption = "There is a gutter with of " + Str(FinalGutterSize) + InchWord + "on each page."
+    'FinalGutterSizeLabel.Caption = "There is a gutter with of " + Str(FinalGutterSize) + InchWord + "on each page."
+    FinalGutterSizeLabel.Caption = "At the gutter, the left and right margins are " + Str(FinalGutterSize) + InchWord + "from the edge of the paper"
 End Sub
 
 Private Sub LMarginSizeValue_Change()
@@ -87,7 +88,8 @@ Private Sub LMarginSizeValue_Change()
         Else
             InchWord = " inches "
         End If
-        FinalGutterSizeLabel.Caption = "There is a gutter width of" + Str(FinalGutterSize) + InchWord + "on each page."
+        'FinalGutterSizeLabel.Caption = "There is a gutter width of" + Str(FinalGutterSize) + InchWord + "on each page."
+        FinalGutterSizeLabel.Caption = "At the gutter, the left and right margins are " + Str(FinalGutterSize) + InchWord + "from the edge of the paper"
     End If
 End Sub
 
@@ -114,7 +116,8 @@ Private Sub MirroredCheckBox_Click()
             InchWord = " inches "
         End If
         
-        FinalGutterSizeLabel.Caption = "There is a gutter width of" + Str(FinalGutterSize) + InchWord + "on each page."
+        'FinalGutterSizeLabel.Caption = "There is a gutter width of" + Str(FinalGutterSize) + InchWord + "on each page."
+        FinalGutterSizeLabel.Caption = "At the gutter, the left and right margins are " + Str(FinalGutterSize) + InchWord + "from the edge of the paper"
         FinalGutterSizeLabel.Visible = True
     Else
         PMM = False
