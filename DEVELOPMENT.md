@@ -34,7 +34,13 @@ of truth for what the buttons *are*. Where the visible tabs *live* depends on th
 | In *Customize the Ribbon*? | **no** | **yes** |
 | Hide / reorder / rename? | **no** | **yes** |
 | Travels with the add-in? | yes | **no** — see *orphan tabs* below |
-| When it applies | hand-copied install, or the option declined | ticked at install (the default) |
+| When it applies | hand-copied install, or an install older than 3.0.34 | every install from 3.0.118 |
+
+It stopped being a choice on 8/9/2026 (3.0.118). The installer's "Ribbon tabs:" task is gone
+and `-Tabs Install` is passed outright. Jerry's reasoning: declining it was the option that
+made Word behave abnormally — the user got two tabs they alone could not hide, rename or
+reorder — so offering it invited people to pick the odd one out. `Merge-Qat.ps1` still accepts
+`-Tabs Skip`; nothing in the installer asks for it.
 
 Why the second exists: Word does not list add-in customUI tabs in *File → Options →
 Customize the Ribbon*, so tabs defined in the `.dotm` cannot be hidden, reordered or
@@ -196,9 +202,9 @@ open `dist/LPandBRL.dotm` in Word once and confirm:
 - a couple of buttons actually run their macro (the `RibbonAction` dispatcher);
 - **which set of tabs you are looking at.** Opening the built `.dotm` by hand shows the
   *embedded* tabs, which will not be listed in *Customize the Ribbon* — correct for that
-  path. To test the user-installed tabs you have to run the Setup.exe with the **Ribbon
-  tabs** task ticked, then look for them in that dialog. Testing the wrong one and
-  concluding the feature is broken is an easy half-hour to lose.
+  path. To test the user-installed tabs you have to run the Setup.exe, which now always
+  writes them, then look for them in that dialog. Testing the wrong one and concluding the
+  feature is broken is an easy half-hour to lose.
 
 Enable VBE → *Tools → Options → General → Show ToolTips* and turn on ribbon load
 errors (`File → Options → Advanced → General → Show add-in user interface errors`)

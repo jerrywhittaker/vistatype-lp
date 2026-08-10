@@ -125,7 +125,10 @@ src/ribbon/     customUI14.xml — embedded ribbon (source of truth); Word.offic
                 From 3.0.34 the two VISIBLE tabs are also written into the user's own
                 Word.officeUI by the installer (generated: installer/ribbon-tabs.officeUI),
                 because Word does not list add-in tabs in Customize the Ribbon and they could
-                therefore not be hidden, reordered or renamed. The embedded copies stay as the
+                therefore not be hidden, reordered or renamed. ALWAYS written from 3.0.118 -
+                the installer's "Ribbon tabs:" task is gone (Jerry, 8/9/2026: declining it was
+                the option that made Word behave abnormally, so it should not have been one).
+                The embedded copies stay as the
                 fallback, hidden by getVisible when the user has their own. See DEVELOPMENT.md
                 "Embedded ribbon" for the two-homes table and the orphan-tab trade-off.
 src/keymap/     lp-template-keymap.xml — keyboard shortcuts, injected into LargePrintTemplate.dotx

@@ -133,12 +133,8 @@ Untick the box at the top of that page and VistaType will not touch your toolbar
 
 ## Your ribbon tabs — yours to arrange
 
-From version 3.0.34 the installer has a second choice, just below the toolbar one:
-
-> ☑ **Put the VistaType LP and Braille Macros tabs on my ribbon, so I can hide, rename and reorder them**
-
-Leave it ticked and the two VistaType tabs behave like any other tab in Word. Go to
-**File → Options → Customize the Ribbon** and you can:
+The installer always puts the two VistaType tabs on your ribbon as tabs of your own, so they
+behave like any other tab in Word. Go to **File → Options → Customize the Ribbon** and you can:
 
 - **Untick a tab to hide it.** Hiding **Braille Macros** while you work on large print is
   the obvious one — untick it, and it is gone until you want it back.
@@ -150,9 +146,10 @@ VistaType tab are ours to keep up to date; where the tab sits, what it is called
 whether it is showing are yours.* An upgrade refreshes the buttons and leaves the rest
 exactly as you set it.
 
-Untick that box and the tabs work exactly as they did before — they appear on the ribbon,
-but Word will not list them in Customize the Ribbon and they cannot be hidden or moved.
-Either way you always have the tabs.
+Up to version 3.0.117 this was a choice on the installer, and declining it left the tabs
+showing on the ribbon but missing from Customize the Ribbon — so they were the only tabs you
+could not hide, move or rename. That is not a useful thing to be able to choose, so the choice
+is gone and the tabs are always yours to arrange.
 
 > **Earlier versions did not ask.** Up to 3.0.32 the installer merged its toolbar into
 > yours, which pushed your icons to the right, removed dividers you had placed, and hid
@@ -250,8 +247,7 @@ gone altogether, run the installer again.
 
 ### “I removed the VistaType tabs and want them back”
 
-Run the installer again with **Put the VistaType tabs on my ribbon** ticked. It restores
-them without disturbing anything else on your ribbon.
+Run the installer again. It puts them back without disturbing anything else on your ribbon.
 
 ### “I see two VistaType tabs” (after upgrading)
 

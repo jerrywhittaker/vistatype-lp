@@ -429,6 +429,14 @@ Public Lp_Base_Font_Name As String
 Public Const LP_FONT_TAHOMA As String = "Tahoma"
 Public Const LP_FONT_LEGIBLE As String = "VistaTypeLP Legible"
 
+' Punctuation that must sit hard against a fill-in line: "____." never "____ ." So no space is
+' put after the fill when one of these follows, and a fill to the right margin stops one
+' character short to leave the punctuation somewhere to stand (Jerry, 8/10/2026).
+'
+' Quotation marks are deliberately absent: a closing one wants no space in front and an opening
+' one does, and in straight-quote form they are the same character.
+Public Const LP_TIGHT_PUNCTUATION As String = ".,;:!?)]}"
+
 ' Set while the add-in itself opens a document that is none of the user's business -- currently
 ' only the license, from Sh_Show_Full_License. Sh_HandleDocumentOpened checks it and leaves
 ' such a document completely alone, so reading the license cannot reconfigure Word or reset the
@@ -12122,10 +12130,109 @@ Sub Lp_File_Fix_Sequence()
     
 End Sub  '*** end of Lp_File_Fix_Sequence Macro ***
 
+' The character immediately BEFORE the cursor, and the one immediately AFTER it. Both peek by
+' moving the selection and then putting it back, which is the only way to read them - and which
+' is why anything that types afterwards must set its own underlining: moving the cursor throws
+' the pending character formatting away and picks it up afresh from whatever is beside it.
+'
+' "" means there is nothing there - the start or end of the document.
+'
+' Version: 1.0  Date: 8/10/2026
+Public Function Lp_Char_Before_Cursor() As String
+    On Error GoTo eom
+    Selection.MoveLeft Unit:=wdCharacter, count:=1, Extend:=wdExtend
+    Lp_Char_Before_Cursor = Selection.Text
+    Selection.MoveRight Unit:=wdCharacter, count:=1
+eom:
+End Function
+
+' Version: 1.0  Date: 8/10/2026
+Public Function Lp_Char_After_Cursor() As String
+    On Error GoTo eom
+    Selection.MoveRight Unit:=wdCharacter, count:=1, Extend:=wdExtend
+    Lp_Char_After_Cursor = Selection.Text
+    Selection.MoveLeft Unit:=wdCharacter, count:=1
+eom:
+End Function
+
+' True when nothing PRECEDES the cursor on this line, so a space put in front of the fill-in line
+' would be wrong: the start of a paragraph, the start of the document, just after a manual line
+' break or a page break, the start of a table cell - or a space that is already there. A fill-in
+' line at the start of a paragraph must sit hard against the left margin (Jerry, 8/10/2026).
+'
+' Version: 1.0  Date: 8/10/2026
+Public Function Lp_Nothing_Precedes_On_Line() As Boolean
+    Select Case Lp_Char_Before_Cursor()
+        Case " ", "", vbCr, Chr(11), Chr(12), Chr(7)
+            Lp_Nothing_Precedes_On_Line = True
+    End Select
+End Function
+
+' True when a space belongs after a fill-in line. Answers No in three cases:
+'
+'   * nothing follows on the line - a paragraph mark, a manual line break, a page break, the end
+'     of a table cell, the end of the document. A space there would show as nothing at all, and
+'     on a line that already reaches the right margin it would push the wrap
+'   * a space is already there
+'   * the next character is punctuation that has to sit hard against what comes before it. A
+'     fill-in line ending a sentence must read "____." and never "____ ." (Jerry, 8/10/2026)
+'
+' Quotation marks are deliberately NOT in the list: a closing one wants no space in front and an
+' opening one does, and in straight-quote form the two are the same character.
+'
+' Version: 1.0  Date: 8/10/2026
+Public Function Lp_Space_Wanted_After_Fill() As Boolean
+    Select Case Lp_Char_After_Cursor()
+        Case " ", "", vbCr, Chr(11), Chr(12), Chr(7)
+            ' nothing follows on this line, or a space is there already
+        Case Else
+            Lp_Space_Wanted_After_Fill = Not Lp_Punctuation_Follows()
+    End Select
+End Function
+
+' True when the very next character is one of LP_TIGHT_PUNCTUATION.
+'
+' Version: 1.0  Date: 8/10/2026
+Public Function Lp_Punctuation_Follows() As Boolean
+    Dim c As String
+    c = Lp_Char_After_Cursor()
+    If Len(c) = 1 Then Lp_Punctuation_Follows = (InStr(LP_TIGHT_PUNCTUATION, c) > 0)
+End Function
+
+' True when nothing follows the cursor on this line, so a space put there would be invisible:
+' a paragraph mark, a manual line break, a page break, the end of a table cell, the end of the
+' document - or a space that is already there.
+'
+' Version: 1.0  Date: 8/10/2026
+Public Function Lp_Nothing_Follows_On_Line() As Boolean
+    Select Case Lp_Char_After_Cursor()
+        Case " ", "", vbCr, Chr(11), Chr(12), Chr(7)
+            Lp_Nothing_Follows_On_Line = True
+    End Select
+End Function
+
 Sub Lp_Type_Fill_In_Line_To_Margin()
 
     ' Called from: Lp_Type_Fill_In_Form
     '
+    ' Version 1.9  Date: 8/10/2026 - never a space before a period, or before any of , ; : ! ? ) ] }
+    '                                - a fill-in line that ends a sentence reads "____." (Jerry)
+    ' Version 1.8  Date: 8/10/2026 - the fill now reaches the right margin when the cursor is in the
+    '                                MIDDLE of a sentence. The loop stops when the cursor's line number
+    '                                changes, and with text after the cursor that happened too early -
+    '                                the following word wrapped, and the insertion point sitting in
+    '                                front of it was reported on the new line. The shortfall was the
+    '                                width of that word: 72 underscores with nothing after, 64 and 56
+    '                                points of white space when "Whittaker." followed. The rest of the
+    '                                sentence is now parked behind a paragraph mark for the duration
+    '                                and put back straight afterwards (Jerry, 8/10/2026)
+    ' Version 1.7  Date: 8/10/2026 - no second space when one is already in front of the cursor, and
+    '                                a space after the fill when text follows it, so the underscores no
+    '                                longer run straight into the next word. The trailing one matters
+    '                                for more than looks: underscores and a word with no space between
+    '                                them are ONE unbreakable run to Word, and an unbreakable run that
+    '                                will not fit gets moved to the next line whole. Both mirror what
+    '                                Lp_Type_Counted_Fill_In_Lines already did (Jerry, 8/10/2026)
     ' Version 1.6  Date: 5/30/2025 - fixed blank line error at top of new page - additional lines from fill to right margin now have no manual line feed
     ' Version 1.5: Date: 12/2/23 - removed version 1.4 fix
     ' Version 1.4: Date: 10/21/2021 - Removed manual line break at margin
@@ -12145,6 +12252,10 @@ Sub Lp_Type_Fill_In_Line_To_Margin()
     Dim CurrentColumn As Integer
     Dim CurrentPageNumber As Integer
     Dim Stubline As Boolean
+    Dim tempSplit As Boolean
+    Dim punctFollows As Boolean
+    Dim splitPos As Long
+    Dim endPos As Long
     
     NoOfXtraLinesWanted = Lp_GP_Counter_1
     LineCounter = 0
@@ -12163,9 +12274,36 @@ Sub Lp_Type_Fill_In_Line_To_Margin()
     If Selection.Font.Bold = True Then
         Selection.Font.Bold = wdToggle  ' turn off bold
     End If
- 
+
+    ' Get the rest of the sentence out of the way while the line is being filled.
+    '
+    ' The loop below stops when the CURSOR's line number changes. With text after the cursor
+    ' that happens too early: as the underscores grow, the following word stops fitting and
+    ' wraps to the next line, and the insertion point - which sits immediately before that word -
+    ' is then reported as being on the next line too. The loop reads that as "the underscores
+    ' wrapped" and stops. Measured on the build box 8/10/2026: a fill with nothing after it took
+    ' 72 underscores, the same fill followed by "Whittaker." took 64 and left 56 points of white
+    ' space. The shortfall is the width of whatever word follows, which is why it looked like
+    ' five or six characters (Jerry, 8/10/2026).
+    '
+    ' A paragraph mark parked after the cursor removes the question: nothing follows on the line,
+    ' so nothing can wrap, and the fill behaves exactly as it already did at the end of a
+    ' paragraph. It is taken out again below, before the trailing space is decided.
+    punctFollows = Lp_Punctuation_Follows()   ' asked BEFORE the split, while the sentence is intact
+
+    tempSplit = False
+    If Not Lp_Nothing_Follows_On_Line() Then
+        splitPos = Selection.Start
+        ActiveDocument.Range(splitPos, splitPos).InsertAfter vbCr
+        Selection.SetRange splitPos, splitPos
+        tempSplit = True
+    End If
+
     If NoOfXtraLinesWanted = 0 Then  ' no extra lines - just the fill to margin
-        If CurrentColumn <> 1 Then  ' the cursor is not at the left margin (column 1)
+        ' A space in front only when there is something for it to separate the fill from. Not at
+        ' the start of a paragraph, and not when a space is already there - see
+        ' Lp_Nothing_Precedes_On_Line.
+        If Not Lp_Nothing_Precedes_On_Line() Then
             Selection.TypeText Text:=" "  ' non-underline space (if cursor is on last column then the following line (type x) will jump to next line
             Selection.TypeText Text:="x"  ' type the "x" to see if it is not
             If NextLine = Selection.Range.Information(wdFirstCharacterLineNumber) Then  ' has the cursor move to the next line
@@ -12198,7 +12336,10 @@ Sub Lp_Type_Fill_In_Line_To_Margin()
         
         CurrentColumn = Selection.Range.Information(wdFirstCharacterColumnNumber)
         
-        If CurrentColumn <> 1 Then
+        If Not Lp_Nothing_Precedes_On_Line() Then
+            With Selection.Font
+                .Underline = wdUnderlineNone
+            End With
             If Selection.Font.Bold = True Then
                 Selection.Font.Bold = wdToggle  ' turn off bold
             End If
@@ -12243,14 +12384,51 @@ Sub Lp_Type_Fill_In_Line_To_Margin()
     With Selection.Font
         .Underline = wdUnderlineNone  ' turn underline off
     End With
-    
-End Sub   '*** end of Lp_Type_Counted_Fill_In_Lines macro ***
+
+    ' One underscore back when a period follows. It gets no space in front of it, so without a
+    ' character's width left on the line it would drop to the next line on its own (Jerry).
+    If punctFollows Then Selection.TypeBackspace
+
+    ' Put the sentence back together - see the note above. Only ever removes the mark this macro
+    ' put there: it has to be the very next character, and it has to be a paragraph mark.
+    If tempSplit Then
+        endPos = Selection.End
+        If ActiveDocument.Range(endPos, endPos + 1).Text = vbCr Then
+            ActiveDocument.Range(endPos, endPos + 1).Delete
+            Selection.SetRange endPos, endPos
+        End If
+    End If
+
+    ' And a space after the fill when text follows it. Underlining is turned off HERE, after the
+    ' peek inside Lp_Nothing_Follows_On_Line, not before it: moving the cursor to look at the next
+    ' character throws the pending formatting away and takes it from what is beside it, which is
+    ' an underscore, and underlined.
+    If Lp_Space_Wanted_After_Fill() Then
+        With Selection.Font
+            .Underline = wdUnderlineNone
+        End With
+        If Selection.Font.Bold = True Then
+            Selection.Font.Bold = wdToggle  ' turn off bold
+        End If
+        Selection.TypeText Text:=" "  ' non underlined space
+    End If
+
+    ' Underlining OFF as the very last thing, whatever route got here. Every peek at a
+    ' neighbouring character moves the cursor, and moving it takes the pending formatting from
+    ' what is beside it - an underscore, underlined. Turning it off any earlier means the
+    ' transcriber's next keystroke comes out underlined (Jerry, 8/10/2026).
+    Selection.Font.Underline = wdUnderlineNone
+
+End Sub   '*** end of Lp_Type_Fill_In_Line_To_Margin macro ***
 
 
 Sub Lp_Type_Counted_Fill_In_Lines()
 
     ' Called from: Lp_Type_Fill_In_Form
     '
+    ' Version 1.5:  Date: 8/10/2026 never a space before a period, or before any of , ; : ! ? ) ] }
+    '                               - a fill-in line that ends a sentence reads "____." (Jerry). Also
+    '                               no space in FRONT when the fill starts a paragraph
     ' Version 1.4:  Date: 8/9/2026  that trailing space is no longer underlined. Peeking at the
     '                               next character moves the cursor, and moving it re-picks up the
     '                               formatting beside it - an underscore, underlined. Underlining
@@ -12273,7 +12451,6 @@ Sub Lp_Type_Counted_Fill_In_Lines()
     
     Dim Chr_Cntr As Integer
     Dim Loop_Cntr As Integer
-    Dim strTemp As String
 
     Chr_Cntr = Lp_GP_Counter_1
     Loop_Cntr = 1
@@ -12282,13 +12459,12 @@ Sub Lp_Type_Counted_Fill_In_Lines()
         Selection.Delete Unit:=wdCharacter, count:=1
     End If
     
-    Selection.MoveLeft Unit:=wdCharacter, count:=1, Extend:=wdExtend
-    strTemp = Selection.Text
-    Selection.MoveRight Unit:=wdCharacter, count:=1
-
-
-    If strTemp = " " Then  ' if the preceeding character is a space then do not add a space
-    Else
+    ' A space in front only when there is something for it to separate the fill from. The test
+    ' used to be "is the character before a space", which said yes to a paragraph mark as well -
+    ' so a fill-in line starting a paragraph was pushed off the left margin by a space nobody
+    ' asked for (Jerry, 8/10/2026). Lp_Nothing_Precedes_On_Line is now the one rule, shared with
+    ' Lp_Type_Fill_In_Line_To_Margin.
+    If Not Lp_Nothing_Precedes_On_Line() Then
         With Selection.Font
             .Underline = wdUnderlineNone
         End With
@@ -12315,30 +12491,22 @@ Sub Lp_Type_Counted_Fill_In_Lines()
     ' A space after the line as well, when the transcriber has put the fill-in line in the middle
     ' of a line of text. Same look as the space in front of it, and the same test read the other
     ' way round: peek at the character that FOLLOWS, then put the cursor back.
-    Selection.MoveRight Unit:=wdCharacter, count:=1, Extend:=wdExtend
-    strTemp = Selection.Text
-    Selection.MoveLeft Unit:=wdCharacter, count:=1
+    ' Underlining OFF after the peek inside Lp_Nothing_Follows_On_Line, not before it. Moving
+    ' the cursor to look at the next character throws away the pending character formatting and
+    ' picks it up afresh from what is beside it - which is an underscore, and underlined. The
+    ' space came out underlined for exactly that reason (Jerry, 8/9/2026).
+    If Lp_Space_Wanted_After_Fill() Then
+        With Selection.Font
+            .Underline = wdUnderlineNone
+        End With
+        If Selection.Font.Bold = True Then
+            Selection.Font.Bold = wdToggle  ' turn off bold
+        End If
+        Selection.TypeText Text:=" "  ' non underlined space
+    End If
 
-    Select Case strTemp
-        Case " ", "", vbCr, Chr(11), Chr(12), Chr(7)
-            ' A space is already there, or nothing follows on this line: a paragraph mark, a
-            ' manual line break, a page break, the end of a table cell, or the end of the
-            ' document. In every one of those a trailing space would show as nothing at all -
-            ' and on a line that already reaches the right margin it would push the wrap.
-        Case Else
-            ' Underlining OFF here, not before the peek above. Moving the cursor to look at the
-            ' next character throws away the pending character formatting and picks it up afresh
-            ' from what is beside it - which is an underscore, and underlined. The space came out
-            ' underlined for exactly that reason (Jerry, 8/9/2026). The space in FRONT of the line
-            ' does the same thing in the same order, for the same reason.
-            With Selection.Font
-                .Underline = wdUnderlineNone
-            End With
-            If Selection.Font.Bold = True Then
-                Selection.Font.Bold = wdToggle  ' turn off bold
-            End If
-            Selection.TypeText Text:=" "  ' non underlined space
-    End Select
+    ' Underlining OFF as the very last thing - see the same note in Lp_Type_Fill_In_Line_To_Margin.
+    Selection.Font.Underline = wdUnderlineNone
 
     'Unload Lp_Type_Fill_In_Line_Form
 

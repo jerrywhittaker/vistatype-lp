@@ -47,7 +47,7 @@
 ; The literal here is the fallback for building this script by hand, and is kept in step
 ; with the Makefile by "make bump".
 #ifndef AppVer
-  #define AppVer      "3.0.117"
+  #define AppVer      "3.0.125"
 #endif
 #define DotmName    "LPandBRL.dotm"
 #define DotxName    "LargePrintTemplate.dotx"
@@ -234,33 +234,34 @@ Name: "qat\mine";     Description: "Keep my toolbar exactly as it is, and add th
 Name: "qat\restore";  Description: "Put back the toolbar I had before VistaType LP and Braille Macros was installed, then add its icons"; \
                       Flags: exclusive unchecked checkedonce; Check: HasQatBackup
 
-; Separate top-level task, NOT a child of qat: those three are Flags: exclusive, and a
-; non-exclusive fourth sibling would confuse both Inno and the reader. Someone can perfectly
-; well want the tabs and not the toolbar, or the other way round.
-;
-; Unchecked leaves the tabs exactly as they were before 3.0.34 -- supplied by the add-in,
-; and not listed in Customize the Ribbon. So nobody can end up with no tabs at all.
-Name: "ribbontabs"; GroupDescription: "Ribbon tabs:"; \
-                    Description: "Put the VistaType LP and Braille Macros tabs on my ribbon, so I can hide, rename and reorder them"
+; There was a "Ribbon tabs:" task here until 8/9/2026. It is gone, and the tabs are now always
+; written into the user's own Word.officeUI. Jerry's call, and his reasoning: leaving it
+; UNCHECKED is what makes Word behave abnormally, because Word does not list add-in tabs in
+; Customize the Ribbon at all - so a transcriber who declined ended up with two tabs they could
+; not hide, rename or reorder like every other tab they have. Offering that as a choice invited
+; people to pick the odd one out. Nobody can end up with no tabs either way: the copies embedded
+; in the add-in stay as the fallback and getVisible switches them off only once the user has
+; their own. See DEVELOPMENT.md, "Embedded ribbon".
 
 [Run]
 ; At most one of the first three runs -- the qat tasks are mutually exclusive, and none runs
-; if the user left that parent unchecked. Each also carries the ribbon-tab decision, computed
-; by TabsArg below, so the toolbar and the tabs are set up in a single pass.
+; if the user left that parent unchecked. Each also writes the ribbon tabs, so the toolbar and
+; the tabs are set up in a single pass. The tabs are not optional (8/9/2026); the fourth entry
+; below covers the case where the toolbar is left alone and none of these three fires.
 Filename: "powershell.exe"; \
-  Parameters: "-ExecutionPolicy Bypass -NoProfile -File ""{userappdata}\VistaType LP\Merge-Qat.ps1"" -Mode Mine -Tabs {code:TabsArg} -FullTemplate ""{userappdata}\VistaType LP\qat-template.officeUI"" -IconsTemplate ""{userappdata}\VistaType LP\qat-icons-only.officeUI"" -TabsTemplate ""{userappdata}\VistaType LP\ribbon-tabs.officeUI"""; \
+  Parameters: "-ExecutionPolicy Bypass -NoProfile -File ""{userappdata}\VistaType LP\Merge-Qat.ps1"" -Mode Mine -Tabs Install -FullTemplate ""{userappdata}\VistaType LP\qat-template.officeUI"" -IconsTemplate ""{userappdata}\VistaType LP\qat-icons-only.officeUI"" -TabsTemplate ""{userappdata}\VistaType LP\ribbon-tabs.officeUI"""; \
   Tasks: qat\mine; Flags: runhidden; StatusMsg: "Setting up your Quick Access Toolbar and ribbon..."
 Filename: "powershell.exe"; \
-  Parameters: "-ExecutionPolicy Bypass -NoProfile -File ""{userappdata}\VistaType LP\Merge-Qat.ps1"" -Mode Vista -Tabs {code:TabsArg} -FullTemplate ""{userappdata}\VistaType LP\qat-template.officeUI"" -IconsTemplate ""{userappdata}\VistaType LP\qat-icons-only.officeUI"" -TabsTemplate ""{userappdata}\VistaType LP\ribbon-tabs.officeUI"""; \
+  Parameters: "-ExecutionPolicy Bypass -NoProfile -File ""{userappdata}\VistaType LP\Merge-Qat.ps1"" -Mode Vista -Tabs Install -FullTemplate ""{userappdata}\VistaType LP\qat-template.officeUI"" -IconsTemplate ""{userappdata}\VistaType LP\qat-icons-only.officeUI"" -TabsTemplate ""{userappdata}\VistaType LP\ribbon-tabs.officeUI"""; \
   Tasks: qat\vista; Flags: runhidden; StatusMsg: "Setting up your Quick Access Toolbar and ribbon..."
 Filename: "powershell.exe"; \
-  Parameters: "-ExecutionPolicy Bypass -NoProfile -File ""{userappdata}\VistaType LP\Merge-Qat.ps1"" -Mode Restore -Tabs {code:TabsArg} -FullTemplate ""{userappdata}\VistaType LP\qat-template.officeUI"" -IconsTemplate ""{userappdata}\VistaType LP\qat-icons-only.officeUI"" -TabsTemplate ""{userappdata}\VistaType LP\ribbon-tabs.officeUI"""; \
+  Parameters: "-ExecutionPolicy Bypass -NoProfile -File ""{userappdata}\VistaType LP\Merge-Qat.ps1"" -Mode Restore -Tabs Install -FullTemplate ""{userappdata}\VistaType LP\qat-template.officeUI"" -IconsTemplate ""{userappdata}\VistaType LP\qat-icons-only.officeUI"" -TabsTemplate ""{userappdata}\VistaType LP\ribbon-tabs.officeUI"""; \
   Tasks: qat\restore; Flags: runhidden; StatusMsg: "Putting back your original Quick Access Toolbar..."
-; ...and this one covers "leave my toolbar alone, but I do want the tabs", where none of the
-; three above fires.
+; ...and this one covers "leave my toolbar alone", where none of the three above fires. The tabs
+; still have to be written, so this run does them on their own.
 Filename: "powershell.exe"; \
   Parameters: "-ExecutionPolicy Bypass -NoProfile -File ""{userappdata}\VistaType LP\Merge-Qat.ps1"" -Mode None -Tabs Install -TabsTemplate ""{userappdata}\VistaType LP\ribbon-tabs.officeUI"""; \
-  Tasks: ribbontabs; Check: ToolbarUntouched; Flags: runhidden; StatusMsg: "Putting the VistaType tabs on your ribbon..."
+  Check: ToolbarUntouched; Flags: runhidden; StatusMsg: "Putting the VistaType tabs on your ribbon..."
 
 [UninstallRun]
 ; Remove only VistaType's QAT icons, leaving the user's own ribbon/QAT intact.
@@ -316,24 +317,18 @@ begin
     Result := NonEmptyFile(ExpandConstant('{localappdata}\Microsoft\Office\Word.officeUI.vtqatbak'));
 end;
 
-{ --- What to pass Merge-Qat for -Tabs. Called inline from the Parameters of the [Run]
-      entries, so the toolbar and the ribbon are set up by one run of the script rather than
-      two. "Skip" leaves the ribbon exactly as it was: tabs supplied by the add-in, and not
-      listed in Customize the Ribbon.
+{ --- TabsArg lived here until 8/9/2026, deciding whether to pass Install or Skip for -Tabs.
+      The tabs are no longer optional, so the [Run] entries pass Install outright and the
+      function is gone. Merge-Qat.ps1 still ACCEPTS -Tabs Skip; nothing in the installer asks
+      for it any more.
 
-      NOTE: braces are Pascal's comment delimiters, so an inline code reference must never be
-      written out inside one -- the closing brace ends the comment early and the rest of the
-      sentence is compiled. That is what broke the 3.0.34 build first time round. --- }
-function TabsArg(Param: String): String;
-begin
-  if WizardIsTaskSelected('ribbontabs') then
-    Result := 'Install'
-  else
-    Result := 'Skip';
-end;
+      NOTE for whoever writes the next one: braces are Pascal's comment delimiters, so an
+      inline code reference must never be written out inside a comment -- the closing brace
+      ends the comment early and the rest of the sentence is compiled. That broke the 3.0.34
+      build first time round. --- }
 
 { --- True when the user left the toolbar alone, so none of the three qat entries above will
-      fire. That is the one case where the tabs still need installing on their own. --- }
+      fire. That is the one case where the tabs still need writing on their own run. --- }
 function ToolbarUntouched(): Boolean;
 begin
   Result := not WizardIsTaskSelected('qat');
