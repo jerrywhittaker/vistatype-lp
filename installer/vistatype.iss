@@ -47,7 +47,7 @@
 ; The literal here is the fallback for building this script by hand, and is kept in step
 ; with the Makefile by "make bump".
 #ifndef AppVer
-  #define AppVer      "3.0.114"
+  #define AppVer      "3.0.116"
 #endif
 #define DotmName    "LPandBRL.dotm"
 #define DotxName    "LargePrintTemplate.dotx"
@@ -113,7 +113,7 @@ DisableWelcomePage=no
 [Messages]
 WelcomeLabel1=VistaType LP and Braille Macros
 
-WelcomeLabel2=Version {#AppVer}%n%nJerry Whittaker's tools for transcribers are VBA add-ins for Microsoft Word: large print for readers with low vision, and tools for formatting braille source files for the Duxbury Braille Translator.%n%nThis installer will also install the {#FontFamily} typeface, which carries its own separate license.%n%nPlease close Word before continuing.%n%nLatest version and guides:%n{#RepoUrl}
+WelcomeLabel2=Version {#AppVer}%n%nJerry Whittaker's tools for transcribers are VBA add-ins for Microsoft Word: large print for readers with low vision, and tools for formatting braille source files for the Duxbury Braille Translator.%n%nThis installer will also install the {#FontFamily} typeface, which carries its own separate license.%n%nPlease close Word and Outlook before continuing.%n%nLatest version and guides:%n{#RepoUrl}
 ; Roughly 12 rendered lines against a label that shows about 13-15. It is at the ceiling, so
 ; anything added here must have something else taken out, and it must be LOOKED AT on the VM.
 ; Overflow is silently clipped from the bottom - no compile warning - and the bottom is where

@@ -12251,6 +12251,20 @@ Sub Lp_Type_Counted_Fill_In_Lines()
 
     ' Called from: Lp_Type_Fill_In_Form
     '
+    ' Version 1.4:  Date: 8/9/2026  that trailing space is no longer underlined. Peeking at the
+    '                               next character moves the cursor, and moving it re-picks up the
+    '                               formatting beside it - an underscore, underlined. Underlining
+    '                               is now turned off AFTER the peek, immediately before the space
+    '                               is typed, which is the order the leading space already used
+    ' Version 1.3:  Date: 8/9/2026  a fill-in line dropped into the middle of a line of text now
+    '                               ends with a space when text follows it, the mirror of the space
+    '                               already put in front. Without it the underscores ran straight
+    '                               into the next word (Jerry, 8/9/2026). Nothing is added when a
+    '                               space is already there, or when the line ends after the
+    '                               underscores - a paragraph mark, a manual line break, the end of
+    '                               a table cell or the end of the document - because a trailing
+    '                               space at the end of a line is invisible, and it would still
+    '                               push a line that already reaches the margin onto the next one
     ' Version 1.2:  Date: 8/1/2019  added code to assure that lines are not bold
     ' Version 1.1:  Date: 1/10/2019
     ' Version 1.0:  Date: 12/13/2018
@@ -12297,9 +12311,37 @@ Sub Lp_Type_Counted_Fill_In_Lines()
     With Selection.Font
         .Underline = wdUnderlineNone  ' turn off underlineing
     End With
-    
+
+    ' A space after the line as well, when the transcriber has put the fill-in line in the middle
+    ' of a line of text. Same look as the space in front of it, and the same test read the other
+    ' way round: peek at the character that FOLLOWS, then put the cursor back.
+    Selection.MoveRight Unit:=wdCharacter, count:=1, Extend:=wdExtend
+    strTemp = Selection.Text
+    Selection.MoveLeft Unit:=wdCharacter, count:=1
+
+    Select Case strTemp
+        Case " ", "", vbCr, Chr(11), Chr(12), Chr(7)
+            ' A space is already there, or nothing follows on this line: a paragraph mark, a
+            ' manual line break, a page break, the end of a table cell, or the end of the
+            ' document. In every one of those a trailing space would show as nothing at all -
+            ' and on a line that already reaches the right margin it would push the wrap.
+        Case Else
+            ' Underlining OFF here, not before the peek above. Moving the cursor to look at the
+            ' next character throws away the pending character formatting and picks it up afresh
+            ' from what is beside it - which is an underscore, and underlined. The space came out
+            ' underlined for exactly that reason (Jerry, 8/9/2026). The space in FRONT of the line
+            ' does the same thing in the same order, for the same reason.
+            With Selection.Font
+                .Underline = wdUnderlineNone
+            End With
+            If Selection.Font.Bold = True Then
+                Selection.Font.Bold = wdToggle  ' turn off bold
+            End If
+            Selection.TypeText Text:=" "  ' non underlined space
+    End Select
+
     'Unload Lp_Type_Fill_In_Line_Form
-    
+
 End Sub   '*** end of Lp_Type_Counted_Fill_In_Lines macro ***
 
 Sub Lp_Set_Display_For_Large_Print()
