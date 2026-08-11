@@ -5923,124 +5923,82 @@ Sub Dx_Replace_Manual_Line_Break()
 '
 ' Dx_Replace_Manual_Line_Break Macro
 '
-' Version: 1.4  Date: 2/8/2026 - logic fixes
-' Version: 1.3  Date: 11/16/2016
 ' Author: Jerry Whittaker - jerry@thewhittakers.org
 '
-' Description:  Designed as a called routine using
-'               Application.Run MacroName:="Dx_Replace_Manual_Line_Break"
-'               does entire document
+' Version: 2.0  Date: 8/12/2026 - no temporary document; the passes are scoped to a range. Also
+'                                gone: the Selection.MoveUp that stretched the selection up by a
+'                                whole paragraph before copying out, and the run of
+'                                delete-one-character calls that tidied up after the paste.
 '
+'                                NOT merged with Lp_Replace_Manual_Line_Break. The two differ in
+'                                behavior, not just in plumbing, and the differences want Jerry's
+'                                decision rather than mine:
+'                                  * this one only ASKS the question when text is selected. With
+'                                    nothing selected it converts to paragraph marks without
+'                                    asking; the large-print one always asks.
+'                                  * this one removes multiple spaces afterwards whichever answer
+'                                    was given; the large-print one only does so for "Space", and
+'                                    also runs Dx_Fix_Para_Space_Errors.
+' Version: 1.4  Date: 2/8/2026 - logic fixes
+' Version: 1.3  Date: 11/16/2016
+'
+    Dim rng As Range
+    Dim su_Prev As Boolean
     Dim Limited_Selection As Boolean
 
-    Dim su_Prev As Boolean
-    su_Prev = Application.ScreenUpdating
-    Application.ScreenUpdating = False ' Turn screen updating off
-    
-    Sh_Save_User_Position
-    
-    If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
-        Limited_Selection = False
-        Sh_GP_String_1 = ""
-    Else
-        Limited_Selection = True
+    Limited_Selection = (Selection.Type = wdSelectionNormal)
+
+    If Limited_Selection Then
         Sh_Space_Or_Para_Form.Show
-    
+        ' End, not Exit Sub, and deliberately: this is called from the cleanup sequences, and
+        ' cancelling the question is meant to stop the whole sequence rather than let it carry on.
         If Sh_GP_String_1 <> "Para" And Sh_GP_String_1 <> "Space" Then
             End
         End If
-    End If
-
-    If Limited_Selection = True Then
-        Selection.MoveUp Unit:=wdParagraph, count:=1, Extend:=wdExtend
-        Application.Run MacroName:="Dx_Copy_To_Temp_Doc"
-        Application.Run MacroName:="Sh_Is_End_Paragraph_Mark_Included"
-        Selection.HomeKey Unit:=wdStory
-        Selection.TypeParagraph
-        Selection.HomeKey Unit:=wdStory
-    End If
-
-    If Sh_GP_String_1 = "Para" And Limited_Selection = True Then ' replace Manual line breaks with para marks
-        Selection.Find.ClearFormatting
-        Selection.Find.Replacement.ClearFormatting
-        With Selection.Find
-            .Text = "^l"
-            .Replacement.Text = "^p"
-            .Forward = True
-            .Wrap = wdFindContinue
-            .Format = False
-            .MatchCase = False
-            .MatchWholeWord = False
-            .MatchWildcards = False
-            .MatchSoundsLike = False
-            .MatchAllWordForms = False
-        End With
-        Selection.Find.Execute Replace:=wdReplaceAll
-    End If
-        
-    If Sh_GP_String_1 = "Space" And Limited_Selection = True Then ' Replace with space
-        Selection.Find.ClearFormatting
-        Selection.Find.Replacement.ClearFormatting
-        With Selection.Find
-            .Text = "^l"
-            .Replacement.Text = " "
-            .Forward = True
-            .Wrap = wdFindContinue
-            .Format = False
-            .MatchCase = False
-            .MatchWholeWord = False
-            .MatchWildcards = False
-            .MatchSoundsLike = False
-            .MatchAllWordForms = False
-        End With
-        Selection.Find.Execute Replace:=wdReplaceAll
-    End If
-    
-    If Limited_Selection = False And Sh_GP_String_1 = "" Then
-       Selection.Find.ClearFormatting
-        Selection.Find.Replacement.ClearFormatting
-        With Selection.Find
-            .Text = "^l"
-            .Replacement.Text = "^p"
-            .Forward = True
-            .Wrap = wdFindContinue
-            .Format = False
-            .MatchCase = False
-            .MatchWholeWord = False
-            .MatchWildcards = False
-            .MatchSoundsLike = False
-            .MatchAllWordForms = False
-        End With
-        Selection.Find.Execute Replace:=wdReplaceAll
-    End If
-    
-    Application.Run MacroName:="Sh_Remove_Multi_Spaces"
-    
-    If Limited_Selection = True Then
-        Selection.HomeKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.EndKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.EndKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.WholeStory
-        Selection.Copy
-        Selection.HomeKey Unit:=wdStory ', Extend:=wdExtend
-
-        ActiveDocument.Close SaveChanges:=False 'close the temp doc without saving
-        Selection.Paste 'paste the clipboard back into the original document
     Else
-        'get rid of extra pargraph mark at end of document
-        Selection.EndKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
+        Sh_GP_String_1 = ""
     End If
-    
+
+    su_Prev = Application.ScreenUpdating
+    Application.ScreenUpdating = False
+
+    Sh_Save_User_Position
+
+    If Limited_Selection Then
+        Set rng = Selection.Range
+    Else
+        Set rng = ActiveDocument.Content
+    End If
+
+    With rng.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
+        .Text = "^l"
+        If Sh_GP_String_1 = "Space" Then
+            .Replacement.Text = " "
+        Else
+            ' "Para", and also the no-selection case, which does not ask
+            .Replacement.Text = "^p"
+        End If
+        .Forward = True
+        .Wrap = wdFindStop
+        .Format = False
+        .MatchCase = False
+        .MatchWholeWord = False
+        .MatchWildcards = False
+        .MatchSoundsLike = False
+        .MatchAllWordForms = False
+        .Execute Replace:=wdReplaceAll
+    End With
+
+    Sh_Remove_Multi_Spaces rng
+
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     Sh_Return_User_To_Start_Position
     Selection.Collapse Direction:=wdCollapseStart
-    Application.ScreenUpdating = su_Prev ' Turn screen updating on
-    
+    Application.ScreenUpdating = su_Prev
+    Application.ScreenRefresh
+
 End Sub  '*** end of Dx_Replace_Manual_Line_Break ***
 
 Sub Dx_Delete_Images()
@@ -10945,111 +10903,88 @@ Sub Lp_Replace_Manual_Line_Break()
 '
 ' Lp_Replace_Manual_Line_Break Macro
 '
+' Author: Jerry Whittaker - jerry@thewhittakers.org
+'
+' Asks whether manual line breaks should become paragraph marks or spaces, then does it - over
+' the selection if there is one, the whole document if not.
+'
+' Version: 2.0  Date: 8/12/2026 - no temporary document; the passes are scoped to a range. Gone
+'                                with it: ActiveDocument.UndoClear, which threw away the WHOLE
+'                                undo history rather than this macro's part of it.
+'                                NOT merged with the braille version - the two ask their question
+'                                at different times and clean up differently afterwards. See the
+'                                note there.
 ' Version: 1.5  Date: 10/17/2023 - bug fix - no more leaving temp docs
 ' Version: 1.4  Date: 9/7/2021 - removed accidental delete of doc bug
 ' Version: 1.3  Date: 3/15/2021
 ' Version: 1.2  Date: 1/8/2019
 ' Version: 1.1  Date: 4/19/2016
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
-'
-' Description:  Designed as a called routine using
-'                   Application.Run MacroName:="Lp_Replace_Manual_Line_Break"
-'                   does entire document
-
-
-    Dim Limited_Selection As Boolean
+    Dim rng As Range
     Dim ReplaceType As String
-    Sh_Space_Or_Para_Form.Show
-
-    ReplaceType = Sh_GP_String_1
-    
     Dim su_Prev As Boolean
+
+    Sh_Space_Or_Para_Form.Show
+    ReplaceType = Sh_GP_String_1
+
     su_Prev = Application.ScreenUpdating
-    Application.ScreenUpdating = False ' Turn screen updating off
-    
+    Application.ScreenUpdating = False
+
     Sh_Save_User_Position
 
-    If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
-        Limited_Selection = False
+    If Selection.Type = wdSelectionNormal Then
+        Set rng = Selection.Range
     Else
-        Limited_Selection = True
-        Application.Run MacroName:="Lp_Copy_To_Temp_Doc"
+        Set rng = ActiveDocument.Content
     End If
-    
-    
-    If ReplaceType = "Para" Then ' replace with para marks
-        Selection.Find.ClearFormatting
-        Selection.Find.Replacement.ClearFormatting
-        With Selection.Find
+
+    If ReplaceType = "Para" Then
+        With rng.Find
+            .ClearFormatting
+            .Replacement.ClearFormatting
             .Text = "^l"
             .Replacement.Text = "^p"
             .Forward = True
-            .Wrap = wdFindContinue
+            .Wrap = wdFindStop
             .Format = False
             .MatchCase = False
             .MatchWholeWord = False
             .MatchWildcards = False
             .MatchSoundsLike = False
             .MatchAllWordForms = False
+            .Execute Replace:=wdReplaceAll
         End With
-        Selection.Find.Execute Replace:=wdReplaceAll
     End If
 
-    If ReplaceType = "Space" Then ' Replace Manual line breaks with space
-        Selection.Find.ClearFormatting
-        Selection.Find.Replacement.ClearFormatting
-        With Selection.Find
+    If ReplaceType = "Space" Then
+        With rng.Find
+            .ClearFormatting
+            .Replacement.ClearFormatting
             .Text = "^l"
             .Replacement.Text = " "
             .Forward = True
-            .Wrap = wdFindContinue
+            .Wrap = wdFindStop
             .Format = False
             .MatchCase = False
             .MatchWholeWord = False
             .MatchWildcards = False
             .MatchSoundsLike = False
             .MatchAllWordForms = False
+            .Execute Replace:=wdReplaceAll
         End With
-        Selection.Find.Execute Replace:=wdReplaceAll
-    
-        ' remove multiple spaces
-        Selection.Find.ClearFormatting
-        Selection.Find.Replacement.ClearFormatting
-        With Selection.Find
-            .Text = "^032{1,}"
-            .Replacement.Text = " "
-            .Forward = True
-            .Wrap = wdFindContinue
-            .Format = False
-            .MatchCase = False
-            .MatchWholeWord = False
-            .MatchWildcards = True
-            .MatchSoundsLike = False
-            .MatchAllWordForms = False
-        End With
-        Selection.Find.Execute Replace:=wdReplaceAll
-        
+
+        ' a line break turned into a space can land beside spaces already there
+        Sh_Remove_Multi_Spaces rng
+
         Application.Run MacroName:="Dx_Fix_Para_Space_Errors"
-        
     End If
 
-    If Limited_Selection = True Then
-        Selection.EndKey Unit:=wdStory
-        Selection.TypeBackspace
-        Selection.HomeKey Unit:=wdStory, Extend:=wdExtend
-        On Error Resume Next
-        Selection.Copy 'copy the selected text to the clipboard
-        ActiveDocument.Close SaveChanges:=False 'close the temp doc without saving
-        Selection.Paste 'AndFormat (wdFormatOriginalFormatting)
-    End If
-    
-    Application.ScreenUpdating = su_Prev ' Turn screen updating on
+    Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     Sh_Return_User_To_Start_Position
-    Selection.Collapse 'clear selection
+    Selection.Collapse Direction:=wdCollapseStart
+    Application.ScreenUpdating = su_Prev
     Application.ScreenRefresh
-    ActiveDocument.UndoClear
-     
+
 End Sub  '*** end of Lp_Replace_Manual_Line_Break ***
 
 Sub Lp_Replace_Tabs_With_Single_Space()

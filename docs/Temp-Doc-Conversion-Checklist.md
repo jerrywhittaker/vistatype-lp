@@ -114,6 +114,16 @@ these reach it only through a shared cleanup helper. Confirm per button as you g
       scanner leaves a ruled fill-in line as an underlined tab and a braille transcriber needs
       the underscores. That is different work, not different plumbing — the exception that shows
       what the merge rule actually means. Also reached by all four Cleanup buttons.
+- [x] Replace Manual Line Break — `Lp_` and `Dx_` both converted (3.0.151), **not** merged, and
+      this pair needs a decision rather than a merge. Two differences that are behavior, not
+      plumbing:
+      * the braille one only **asks** Space-or-Paragraph when text is selected. With nothing
+        selected it converts to paragraph marks without asking. The large-print one always asks.
+      * the braille one removes multiple spaces whichever answer was given; the large-print one
+        only does so for "Space", and also runs `Dx_Fix_Para_Space_Errors` — a `Dx_` macro called
+        from the large-print side, which looks accidental.
+      Only the braille no-selection path can be tested from a background session; both dialog
+      paths need a person.
 
 ## The helpers underneath
 
