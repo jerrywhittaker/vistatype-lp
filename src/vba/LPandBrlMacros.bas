@@ -2474,7 +2474,12 @@ Sub Dx_Fix_Common_File_Errors()
     
     Application.Run MacroName:="Dx_Remove_Breaks" 'page breaks
     
-    Application.Run MacroName:="Sh_Replace_Manual_Line_Break"
+    ' "Para" supplied, so this does NOT stop to ask - Full File Cleanup must run straight
+    ' through. See the note on Sh_Replace_Manual_Line_Break.
+    ' A direct call, not Application.Run. Once MacroName:= is written as a NAMED argument every
+    ' argument after it must be named too, so "Application.Run MacroName:=..., ""Para""" does not
+    ' compile. This is a Public Sub in this same module, so it can simply be called.
+    Sh_Replace_Manual_Line_Break "Para"
     
     Application.Run MacroName:="Dx_Replace_Underscore_With_Single_Underscore"
     
@@ -5919,10 +5924,7 @@ Sub Dx_Convert_Hyper_To_Addresses()
     
 End Sub  '*** end of Dx_Convert_Hyper_To_Addresses ***
 
-' Dx_Replace_Manual_Line_Break was here until 8/12/2026. Once the two sides were asked the same
-' question at the same time and cleaned up the same way, they were the same macro written twice,
-' so they are now Sh_Replace_Manual_Line_Break. See the merge rule in
-' docs/Temp-Doc-Conversion-Checklist.md.
+' Dx_Replace_Manual_Line_Break was here until 8/12/2026 - see Sh_Replace_Manual_Line_Break.
 
 
 Sub Dx_Delete_Images()
@@ -10823,35 +10825,33 @@ Sub Lp_Remove_Txt_Bxs_And_Frames()
 
 End Sub '***** end of Lp_Remove_Txt_Bxs_And_Frames macro *****
 
-Sub Sh_Replace_Manual_Line_Break()
+Sub Sh_Replace_Manual_Line_Break(Optional ByVal answer As String)
 '
 ' Author: Jerry Whittaker - jerry@thewhittakers.org
 '
-' Asks whether manual line breaks should become paragraph marks or spaces, then does it - over
-' the selection if there is one, the whole document if not. Shared by both sides.
+' Turns manual line breaks into paragraph marks or spaces, over the selection if there is one and
+' the whole document if not. Shared by both sides.
 '
-' Version: 2.1  Date: 8/12/2026 - ONE macro. Lp_ and Dx_Replace_Manual_Line_Break disagreed in
-'                                two ways, and Jerry settled both:
-'                                  * it ALWAYS asks. The braille copy used to ask only when text
-'                                    was selected, so a whole-document run never offered the
-'                                    choice and the same button behaved differently on the two
-'                                    tabs.
-'                                  * cancelling the question STOPS the run, and the cleanup
-'                                    sequence it was called from with it. The large-print copy
-'                                    used to carry on quietly doing nothing, which is the more
-'                                    surprising of the two.
-'                                  * multiple spaces are removed only for "Space". Turning line
-'                                    breaks into paragraph marks creates no spaces, so doing it
-'                                    for "Para" only touched doubled spaces that were already in
-'                                    the transcriber's text - work nobody asked for.
-'                                  * the Dx_Fix_Para_Space_Errors call is gone: a braille macro
-'                                    on the large-print side, which looked like a slip.
+' answer  "Para" or "Space" from a caller that already knows, and then NOTHING IS ASKED. Omit it
+'         and the transcriber is asked.
+'
+'         That distinction is the point. The braille copy used to decide by whether text was
+'         selected - ask if it was, silently use "Para" if it was not - and that quietly did the
+'         right thing for the wrong reason: Full File Cleanup runs it with nothing selected, and
+'         must not stop to ask. Making it always ask broke Full File Cleanup on the braille side
+'         (Jerry, 8/12/2026). What actually separates the two cases is WHO IS CALLING: a sequence
+'         knows the answer, a person is asked. So the sequence passes it.
+'
+' Version: 2.2  Date: 8/12/2026 - one macro again, with the answer as a parameter
+' Version: 2.1  Date: 8/12/2026 - merged, then reverted when it interrupted Full File Cleanup
 ' Version: 2.0  Date: 8/12/2026 - no temporary document; the passes are scoped to a range. Gone
 '                                with it: ActiveDocument.UndoClear, which threw away the WHOLE
 '                                undo history rather than this macro's part of it, and on the
 '                                braille side the Selection.MoveUp that stretched the selection up
-'                                by a paragraph and the run of delete-one-character calls that
-'                                tidied up after the paste.
+'                                by a paragraph and the delete-one-character calls that tidied up
+'                                after the paste. The Dx_Fix_Para_Space_Errors call is dropped
+'                                from the large-print side - a braille macro called from there
+'                                looked like a slip (Jerry).
 ' Version: 1.5  Date: 10/17/2023 - bug fix - no more leaving temp docs
 ' Version: 1.4  Date: 9/7/2021 - removed accidental delete of doc bug
 ' Version: 1.3  Date: 3/15/2021
@@ -10861,12 +10861,15 @@ Sub Sh_Replace_Manual_Line_Break()
     Dim rng As Range
     Dim su_Prev As Boolean
 
-    Sh_Space_Or_Para_Form.Show
-
-    ' End, not Exit Sub, and deliberately: this is called from the cleanup sequences, and
-    ' cancelling the question is meant to stop the whole sequence rather than let it carry on.
-    If Sh_GP_String_1 <> "Para" And Sh_GP_String_1 <> "Space" Then
-        End
+    If answer = "Para" Or answer = "Space" Then
+        Sh_GP_String_1 = answer
+    Else
+        Sh_Space_Or_Para_Form.Show
+        ' End, not Exit Sub, and deliberately: this is called from the cleanup sequences, and
+        ' cancelling the question is meant to stop the whole sequence rather than let it carry on.
+        If Sh_GP_String_1 <> "Para" And Sh_GP_String_1 <> "Space" Then
+            End
+        End If
     End If
 
     su_Prev = Application.ScreenUpdating
@@ -10903,7 +10906,7 @@ Sub Sh_Replace_Manual_Line_Break()
     End With
 
     ' Only for "Space": a line break turned into a space can land beside spaces already there.
-    ' A paragraph mark cannot, so there is nothing to tidy in that case.
+    ' A paragraph mark cannot, so there is nothing to tidy in that case (Jerry).
     If Sh_GP_String_1 = "Space" Then Sh_Remove_Multi_Spaces rng
 
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"

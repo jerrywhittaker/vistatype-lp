@@ -71,6 +71,30 @@ history afterwards. After it, the only difference left was the order of five tid
 Helpers are usually not on the ribbon, so merging them costs nothing in button ids — unlike
 `Lp_Horz_List_To_Vertical`, where two ids had to be kept alive.
 
+## Two traps that are not about paragraph marks
+
+**A quirk may be load-bearing.** `Dx_Replace_Manual_Line_Break` decided whether to ask by whether
+text was selected. That looked like an inconsistency next to the large-print copy, which always
+asked — so it was "fixed" to always ask, and that broke Full File Cleanup on the braille side,
+which runs it with nothing selected and must not stop for a dialog. The old test was doing the
+right thing for the wrong reason. What actually separates the cases is **who is calling**: a
+sequence knows the answer, a person is asked. So the answer became a parameter.
+
+Before removing an oddity, find out which sequences reach the macro and what they rely on.
+
+**Nothing in the build compiles VBA.** A compile error ships and reaches the transcriber as
+"Compile error in hidden module". Running any macro against the built `.dotm` forces Word to
+compile the whole project, and takes seconds:
+
+```powershell
+$doc = $word.Documents.Open("...\dist\LPandBRL.dotm", $false, $false)
+$word.Run("Sh_Doc_Config_Type")     # any macro will do
+```
+
+Do it before handing over a build. `Application.Run MacroName:="X", "arg"` is the mistake that
+made the point: once `MacroName:=` is named, every later argument must be named too. A public sub
+in the same module can simply be called — `Sh_Replace_Manual_Line_Break "Para"`.
+
 ## Buttons that reach the round trip
 
 Derived by following the call graph from each ribbon button, so it may over-report: some of
@@ -118,8 +142,11 @@ these reach it only through a shared cleanup helper. Confirm per button as you g
       3.0.151, then merged once Jerry settled the four ways the two sides disagreed: it always
       asks; cancelling stops the run and the cleanup sequence with it; multiple spaces are
       removed only for "Space"; and the `Dx_Fix_Para_Space_Errors` call is gone from the
-      large-print side. **Cannot be tested from a background session at all** — it always shows
-      Sh_Space_Or_Para_Form now, and a dialog needs a person. Test both answers, and cancel.
+      large-print side. The answer is a **parameter**: a caller that knows it passes it and
+      nothing is asked, otherwise the transcriber is asked. That distinction matters — see below.
+      **Cannot be tested from a background session at all**, since asking needs a person. Test
+      Full File Cleanup on the braille tab first (it must run straight through, no dialog), then
+      Selection Cleanup on both tabs, including Cancel.
 
 ## The helpers underneath
 
