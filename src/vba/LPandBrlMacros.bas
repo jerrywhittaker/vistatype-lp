@@ -481,6 +481,12 @@ Public Sh_ConfiguredAs As String       ' "LP", "BRL" or "DEF" - empty until the 
 ' See Lp_Split_Ordered_List_Sequence.
 Public Lp_ListSplitError As String
 
+' What Lp_Horz_To_Vert_List_Form's OK button chose. The form records these and closes; the work
+' happens in Lp_Horz_List_To_Vertical afterwards, never inside the form's own event handler.
+Public Lp_Hv_Kind As String
+Public Lp_Hv_Sort_Wanted As Boolean
+Public Lp_Hv_Go As Boolean
+
 ' Which round trip Sh_Copy_To_Temp_Doc took, so Sh_Copy_From_Temp_Doc can take the same one
 ' back. Asking the document again would be wrong - by then the active document IS the temp one.
 Public Sh_TempDocRoute As String
@@ -12048,7 +12054,13 @@ End Function
 ' carry on with the old passes.
 '
 ' Version: 1.0  Date: 8/10/2026
-Public Function Lp_Split_Ordered_List_Sequence() As Boolean
+' target   the text to work on. Nothing means the whole document.
+' leadMark  True to leave a paragraph mark at the very start, which the caller that ends by
+'           deleting the first character needs. The hidden-document route does not.
+'
+' Version: 1.1  Date: 8/12/2026 - takes a range
+Public Function Lp_Split_Ordered_List_Sequence(Optional ByVal target As Range, _
+                                              Optional ByVal leadMark As Boolean = True) As Boolean
     Const MAX_MARKERS As Long = 400
     Dim txt As String
     Dim i As Long, n As Long, j As Long, k As Long
@@ -12063,12 +12075,16 @@ Public Function Lp_Split_Ordered_List_Sequence() As Boolean
     Dim sIdx As Long, r As Integer, v As Long
     Dim runStart As Long, runCount As Long, lastVal As Long
     Dim seenBefore As Boolean
+    Dim base As Long
     Dim doc As Document
 
     On Error GoTo eom
     Lp_ListSplitError = ""
     Set doc = ActiveDocument
-    txt = doc.Content.Text
+    If Not target Is Nothing Then Set doc = target.Document
+    If target Is Nothing Then Set target = doc.Content
+    base = target.Start
+    txt = target.Text
     If Len(txt) = 0 Then Exit Function
 
     ReDim pos(1 To MAX_MARKERS)
@@ -12212,9 +12228,9 @@ Public Function Lp_Split_Ordered_List_Sequence() As Boolean
             If i > 1 Then
                 If Mid$(txt, i - 1, 1) = " " Then
                     ' the space becomes the line break rather than being left dangling
-                    doc.Range(i - 2, i - 1).Text = vbCr
+                    doc.Range(base + i - 2, base + i - 1).Text = vbCr
                 ElseIf Mid$(txt, i - 1, 1) <> vbCr Then
-                    doc.Range(i - 1, i - 1).InsertBefore vbCr
+                    doc.Range(base + i - 1, base + i - 1).InsertBefore vbCr
                 End If
             End If
         End If
@@ -12226,7 +12242,9 @@ Public Function Lp_Split_Ordered_List_Sequence() As Boolean
     ' - exist to take it away again. Leave it out and that Delete eats the first real character
     ' instead: "A. Grant's Tomb" came back as ".Grant's Tomb", and a lead-in line lost its first
     ' letter (Jerry, 8/10 and 8/11/2026).
-    If Left$(doc.Content.Text, 1) <> vbCr Then doc.Range(0, 0).InsertBefore vbCr
+    If leadMark Then
+        If Left$(doc.Range(base, base + 1).Text, 1) <> vbCr Then doc.Range(base, base).InsertBefore vbCr
+    End If
 
     Lp_Split_Ordered_List_Sequence = True
     Exit Function
@@ -12239,6 +12257,222 @@ End Function
 Public Function Lp_Get_List_Split_Error() As String
     Lp_Get_List_Split_Error = Lp_ListSplitError
 End Function
+
+' --- Horizontal list to vertical, in a temporary document that never appears -----------------
+'
+' Same architecture as the round trip this project has always used - copy the selection out,
+' work on it, put it back - and the same single undo, because the text goes home in ONE
+' assignment. What is different is that the temporary document is never shown.
+'
+' Lp_Copy_To_Temp_Doc creates it hidden and then deliberately gives it a window, makes the
+' window visible, maximizes it and activates it. That is the flashing, and it is four
+' statements, not an accident. It has to do that because its callers work through Selection,
+' and Selection only reaches the document that is active.
+'
+' So the passes here work on a RANGE instead. The range is the temporary document's own
+' content, which holds nothing but the selection, so there is no region to track and nothing
+' of the transcriber's to damage - the two things that made the in-place attempt of 8/11/2026
+' risky. No custom undo record either: one FormattedText assignment is already one undo step.
+'
+' The temporary document is built from the SOURCE document's own attached template, so styles
+' resolve the same way on both sides. That is why this needs no separate braille route: a BANA
+' document gets a BANA temporary document.
+'
+' Version: 1.0  Date: 8/12/2026
+Public Sub Lp_Horz_To_Vert_Hidden(ByVal src As Range, ByVal listKind As String, _
+                                  ByVal sortWanted As Boolean)
+    Dim origDoc As Document
+    Dim tempDoc As Document
+    Dim tpl As String
+    Dim su_Prev As Boolean
+    Dim body As Range
+    Dim work As Range
+    Dim srcTrail As Long
+
+    If src Is Nothing Then Exit Sub
+    Set origDoc = src.Document
+
+    su_Prev = Application.ScreenUpdating
+    Application.ScreenUpdating = False
+
+    On Error Resume Next
+    tpl = origDoc.AttachedTemplate.FullName
+    On Error GoTo 0
+
+    ' How many paragraph marks the selection ends with. They have to travel WITH the text and
+    ' come back in the same number, and both halves of that matter:
+    '
+    '   * a paragraph's formatting - its indentation among it - lives IN its paragraph mark.
+    '     Leaving the last mark behind cost the last item its indentation (Jerry, 8/12/2026).
+    '   * the cleanup passes collapse runs of marks, so the text can come back ending with
+    '     fewer than it left with. That deleted the mark after the last item and welded it onto
+    '     the paragraph below ("A. Jack Nicklaus ... D. Ben Hogan", Jerry, 8/12/2026).
+    '
+    ' So: send everything, then put the count back before handing it home.
+    srcTrail = 0
+    Do While Len(src.Text) > srcTrail
+        If Mid$(src.Text, Len(src.Text) - srcTrail, 1) = vbCr Then
+            srcTrail = srcTrail + 1
+        Else
+            Exit Do
+        End If
+    Loop
+    Set work = src
+
+    On Error GoTo eom
+    If Len(tpl) > 0 Then
+        Set tempDoc = Documents.Add(Template:=tpl, Visible:=False)
+    Else
+        Set tempDoc = Documents.Add(Visible:=False)
+    End If
+
+    ' NOTHING here shows, maximizes or activates the temporary document. That is the whole point.
+    tempDoc.Content.FormattedText = work.FormattedText
+
+    Lp_Hv_Passes tempDoc, listKind, sortWanted
+
+    ' Put the trailing mark count back to what the selection had - see above.
+    Lp_Hv_Set_Trailing_Marks tempDoc, srcTrail
+
+    ' Home in one assignment, which Word records as a single undo step. The temporary
+    ' document's own final paragraph mark is never part of the text and is left behind.
+    Set body = tempDoc.Range(0, tempDoc.Content.End - 1)
+    work.FormattedText = body.FormattedText
+
+    tempDoc.Close SaveChanges:=wdDoNotSaveChanges
+    Application.ScreenUpdating = su_Prev
+    Exit Sub
+
+eom:
+    On Error Resume Next
+    If Not tempDoc Is Nothing Then tempDoc.Close SaveChanges:=wdDoNotSaveChanges
+    Application.ScreenUpdating = su_Prev
+End Sub
+
+' Every pass, against the temporary document's whole content. listKind is "ORDERED", "SPACED"
+' or "TABBED".
+'
+' Version: 1.0  Date: 8/12/2026
+Private Sub Lp_Hv_Passes(ByVal doc As Document, ByVal listKind As String, _
+                         ByVal sortWanted As Boolean)
+    Lp_Hv_Repl doc, "^l", "^p"                 ' manual line break becomes a paragraph mark
+    Lp_Hv_Repl doc, "^0149^032*", "^p^&"       ' ordinary bullet followed by a space
+    Lp_Hv_Repl doc, "^046{2,}", "^046"         ' multiple periods
+    Lp_Hv_Repl doc, "^032{2,}", "^032"         ' multiple spaces
+    Lp_Hv_Repl doc, "^032^046", "^046"         ' space before a period
+
+    Select Case listKind
+    Case "ORDERED"
+        If Not Lp_Split_Ordered_List_Sequence(doc.Content, True) Then
+            Lp_Hv_Repl doc, "[A-z0-9]{1,}^046^032", "^p^&"
+            Lp_Hv_Repl doc, "\(([A-z0-9]{1,})\)", "~\1" & ChrW(338)
+            Lp_Hv_Repl doc, "(~[A-z0-9]{1,}" & ChrW(338) & "^032)", "^p^&"
+            Lp_Hv_Repl doc, "(~[A-z0-9]{1,}" & ChrW(338) & "^046)", "^p^&"
+            Lp_Hv_Repl doc, "^0149^032*", "^p^&"
+            Lp_Hv_Repl doc, "([A-z0-9]{1,}^046)", "^p\1^032"
+            Lp_Hv_Repl doc, "([A-z0-9]{1,}\)^046)", "^p\1^032"
+            Lp_Hv_Repl doc, "([A-z0-9]{1,}\))", "^p\1^032"
+        End If
+
+    Case "SPACED"
+        Lp_Hv_Repl doc, "^032{1,}", "^p"
+
+    Case Else   ' TABBED
+        Lp_Hv_Repl doc, "^032{2,}", "^032"
+        Lp_Hv_Repl doc, "^009^032{1,}", "^009"
+        Lp_Hv_Repl doc, "^032{1,}^009", "^009"
+        Lp_Hv_Repl doc, "^009{2,}", "^009"
+        Lp_Hv_Repl doc, "^009{1,}", "^p"
+    End Select
+
+    Lp_Hv_Repl doc, "^032{1,}", "^032"
+    Lp_Hv_Repl doc, "~", "("
+    Lp_Hv_Repl doc, ChrW(338), ")"
+    Lp_Hv_Repl doc, "^032{1,}^013", "^p"
+    Lp_Hv_Repl doc, "^013^032{1,}", "^p"
+    Lp_Hv_Repl doc, "^032{1,}^046", "^046"
+    Lp_Hv_Repl doc, "^013{2,}", "^p"
+
+    If sortWanted Then Lp_Hv_Sort doc
+
+    ' The passes leave a spare paragraph mark at the front, which is what the old route removed
+    ' by going to the top and deleting one character. AFTER the sort, not before: an empty
+    ' paragraph sorts above everything, so trimming first only let it come back to the top.
+    On Error Resume Next
+    Do While Left$(doc.Content.Text, 1) = vbCr
+        doc.Range(0, 1).Delete
+    Loop
+    On Error GoTo 0
+End Sub
+
+' Make the temporary document's text end with exactly `wanted` paragraph marks, not counting
+' the document's own final one, which is never part of the text.
+'
+' Version: 1.0  Date: 8/12/2026
+Private Sub Lp_Hv_Set_Trailing_Marks(ByVal doc As Document, ByVal wanted As Long)
+    Dim have As Long
+    Dim body As String
+    Dim guard As Long
+
+    On Error GoTo eom
+    Do
+        body = doc.Range(0, doc.Content.End - 1).Text
+        have = 0
+        Do While Len(body) > have
+            If Mid$(body, Len(body) - have, 1) = vbCr Then
+                have = have + 1
+            Else
+                Exit Do
+            End If
+        Loop
+
+        If have = wanted Then Exit Do
+        If have > wanted Then
+            doc.Range(doc.Content.End - 2, doc.Content.End - 1).Delete
+        Else
+            doc.Range(doc.Content.End - 1, doc.Content.End - 1).InsertBefore vbCr
+        End If
+
+        guard = guard + 1
+    Loop While guard < 20
+eom:
+End Sub
+
+' Version: 1.0  Date: 8/12/2026
+Private Sub Lp_Hv_Repl(ByVal doc As Document, ByVal findText As String, ByVal replText As String)
+    On Error GoTo eom
+    With doc.Content.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
+        .Text = findText
+        .Replacement.Text = replText
+        .Forward = True
+        .Wrap = wdFindStop
+        .Format = False
+        .MatchCase = False
+        .MatchWholeWord = False
+        .MatchAllWordForms = False
+        .MatchSoundsLike = False
+        .MatchWildcards = True
+        .Execute Replace:=wdReplaceAll
+    End With
+eom:
+End Sub
+
+' A selection Word cannot sort used to close the temporary document and say so. Here the list is
+' already converted and correct - only the sort was refused - so it is left as it is and the
+' reason goes to the breadcrumb rather than into a dialog.
+'
+' Version: 1.0  Date: 8/12/2026
+Private Sub Lp_Hv_Sort(ByVal doc As Document)
+    On Error GoTo SortMsg
+    doc.Content.Sort ExcludeHeader:=False, FieldNumber:="Paragraphs", _
+        SortFieldType:=wdSortFieldAlphanumeric, SortOrder:=wdSortOrderAscending, _
+        CaseSensitive:=False, LanguageID:=wdEnglishUS
+    Exit Sub
+SortMsg:
+    Lp_ListSplitError = "sort refused: " & Err.Description
+End Sub
 
 ' --- One horizontal-to-vertical macro, two kinds of document -------------------------------
 '
@@ -12284,6 +12518,7 @@ Sub Lp_Horz_List_To_Vertical()
     '
     ' Author: Jerry Whittaker -  jerry@thewhittakers.org
     '
+    ' Version: 1.4: Date: 8/12/2026 - the temporary document is no longer shown, so no flashing
     ' Version: 1.3: Date: 8/11/2026 - now serves BOTH ribbon tabs; Dx_Horz_List_To_Vertical and its form are gone
     ' Version: 1.2: Date: 9/20/2018 - added optional manual selection of text (before execution) or automatic selection of current para
     ' Version: 1.1: Date: 9/10/2018 - added automatic paragraph selection
@@ -12298,7 +12533,16 @@ Sub Lp_Horz_List_To_Vertical()
     End If
 
     Application.Run MacroName:="Lp_Is_Text_Selected"
+
+    Lp_Hv_Go = False
     Lp_Horz_To_Vert_List_Form.Show
+    Unload Lp_Horz_To_Vert_List_Form
+    If Not Lp_Hv_Go Then Exit Sub
+
+    ' The document is touched HERE, with the dialog gone. No custom undo record: the text goes
+    ' home in one FormattedText assignment, which Word already records as a single undo step.
+    Lp_Horz_To_Vert_Hidden Selection.Range, Lp_Hv_Kind, Lp_Hv_Sort_Wanted
+    Lp_Hv_Go = False
 
 End Sub  '*** end of Lp_Horz_List_To_Vertical macro ***
 
