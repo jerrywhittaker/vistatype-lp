@@ -90,7 +90,7 @@ Private Sub Okay_Click()
         
     If Manual_Line_Break Then
         Unload Dx_Selected_Cleanup_Form
-        Application.Run MacroName:="Dx_Replace_Manual_Line_Break"
+        Application.Run MacroName:="Sh_Replace_Manual_Line_Break"
     End If
         
     If NonBreakingSpace Then

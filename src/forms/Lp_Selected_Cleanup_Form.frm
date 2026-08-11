@@ -52,7 +52,7 @@ Private Sub OkayButton_Click()
         Application.Run MacroName:="Lp_Convert_Hyper_To_Addresses"
     ElseIf Maunal_Line_Break Then
         Application.Run MacroName:="Lp_Is_Text_Selected"
-        Application.Run MacroName:="Lp_Replace_Manual_Line_Break"
+        Application.Run MacroName:="Sh_Replace_Manual_Line_Break"
     ElseIf Kill_Hyperlinks Then
         Application.Run MacroName:="Lp_Is_Text_Selected"
         Application.Run MacroName:="Lp_Kill_The_Hyperlinks"

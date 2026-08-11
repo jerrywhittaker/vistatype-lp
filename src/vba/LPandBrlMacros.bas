@@ -2474,7 +2474,7 @@ Sub Dx_Fix_Common_File_Errors()
     
     Application.Run MacroName:="Dx_Remove_Breaks" 'page breaks
     
-    Application.Run MacroName:="Dx_Replace_Manual_Line_Break"
+    Application.Run MacroName:="Sh_Replace_Manual_Line_Break"
     
     Application.Run MacroName:="Dx_Replace_Underscore_With_Single_Underscore"
     
@@ -5919,87 +5919,11 @@ Sub Dx_Convert_Hyper_To_Addresses()
     
 End Sub  '*** end of Dx_Convert_Hyper_To_Addresses ***
 
-Sub Dx_Replace_Manual_Line_Break()
-'
-' Dx_Replace_Manual_Line_Break Macro
-'
-' Author: Jerry Whittaker - jerry@thewhittakers.org
-'
-' Version: 2.0  Date: 8/12/2026 - no temporary document; the passes are scoped to a range. Also
-'                                gone: the Selection.MoveUp that stretched the selection up by a
-'                                whole paragraph before copying out, and the run of
-'                                delete-one-character calls that tidied up after the paste.
-'
-'                                NOT merged with Lp_Replace_Manual_Line_Break. The two differ in
-'                                behavior, not just in plumbing, and the differences want Jerry's
-'                                decision rather than mine:
-'                                  * this one only ASKS the question when text is selected. With
-'                                    nothing selected it converts to paragraph marks without
-'                                    asking; the large-print one always asks.
-'                                  * this one removes multiple spaces afterwards whichever answer
-'                                    was given; the large-print one only does so for "Space", and
-'                                    also runs Dx_Fix_Para_Space_Errors.
-' Version: 1.4  Date: 2/8/2026 - logic fixes
-' Version: 1.3  Date: 11/16/2016
-'
-    Dim rng As Range
-    Dim su_Prev As Boolean
-    Dim Limited_Selection As Boolean
+' Dx_Replace_Manual_Line_Break was here until 8/12/2026. Once the two sides were asked the same
+' question at the same time and cleaned up the same way, they were the same macro written twice,
+' so they are now Sh_Replace_Manual_Line_Break. See the merge rule in
+' docs/Temp-Doc-Conversion-Checklist.md.
 
-    Limited_Selection = (Selection.Type = wdSelectionNormal)
-
-    If Limited_Selection Then
-        Sh_Space_Or_Para_Form.Show
-        ' End, not Exit Sub, and deliberately: this is called from the cleanup sequences, and
-        ' cancelling the question is meant to stop the whole sequence rather than let it carry on.
-        If Sh_GP_String_1 <> "Para" And Sh_GP_String_1 <> "Space" Then
-            End
-        End If
-    Else
-        Sh_GP_String_1 = ""
-    End If
-
-    su_Prev = Application.ScreenUpdating
-    Application.ScreenUpdating = False
-
-    Sh_Save_User_Position
-
-    If Limited_Selection Then
-        Set rng = Selection.Range
-    Else
-        Set rng = ActiveDocument.Content
-    End If
-
-    With rng.Find
-        .ClearFormatting
-        .Replacement.ClearFormatting
-        .Text = "^l"
-        If Sh_GP_String_1 = "Space" Then
-            .Replacement.Text = " "
-        Else
-            ' "Para", and also the no-selection case, which does not ask
-            .Replacement.Text = "^p"
-        End If
-        .Forward = True
-        .Wrap = wdFindStop
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-        .Execute Replace:=wdReplaceAll
-    End With
-
-    Sh_Remove_Multi_Spaces rng
-
-    Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    Sh_Return_User_To_Start_Position
-    Selection.Collapse Direction:=wdCollapseStart
-    Application.ScreenUpdating = su_Prev
-    Application.ScreenRefresh
-
-End Sub  '*** end of Dx_Replace_Manual_Line_Break ***
 
 Sub Dx_Delete_Images()
 '
@@ -10899,21 +10823,35 @@ Sub Lp_Remove_Txt_Bxs_And_Frames()
 
 End Sub '***** end of Lp_Remove_Txt_Bxs_And_Frames macro *****
 
-Sub Lp_Replace_Manual_Line_Break()
-'
-' Lp_Replace_Manual_Line_Break Macro
+Sub Sh_Replace_Manual_Line_Break()
 '
 ' Author: Jerry Whittaker - jerry@thewhittakers.org
 '
 ' Asks whether manual line breaks should become paragraph marks or spaces, then does it - over
-' the selection if there is one, the whole document if not.
+' the selection if there is one, the whole document if not. Shared by both sides.
 '
+' Version: 2.1  Date: 8/12/2026 - ONE macro. Lp_ and Dx_Replace_Manual_Line_Break disagreed in
+'                                two ways, and Jerry settled both:
+'                                  * it ALWAYS asks. The braille copy used to ask only when text
+'                                    was selected, so a whole-document run never offered the
+'                                    choice and the same button behaved differently on the two
+'                                    tabs.
+'                                  * cancelling the question STOPS the run, and the cleanup
+'                                    sequence it was called from with it. The large-print copy
+'                                    used to carry on quietly doing nothing, which is the more
+'                                    surprising of the two.
+'                                  * multiple spaces are removed only for "Space". Turning line
+'                                    breaks into paragraph marks creates no spaces, so doing it
+'                                    for "Para" only touched doubled spaces that were already in
+'                                    the transcriber's text - work nobody asked for.
+'                                  * the Dx_Fix_Para_Space_Errors call is gone: a braille macro
+'                                    on the large-print side, which looked like a slip.
 ' Version: 2.0  Date: 8/12/2026 - no temporary document; the passes are scoped to a range. Gone
 '                                with it: ActiveDocument.UndoClear, which threw away the WHOLE
-'                                undo history rather than this macro's part of it.
-'                                NOT merged with the braille version - the two ask their question
-'                                at different times and clean up differently afterwards. See the
-'                                note there.
+'                                undo history rather than this macro's part of it, and on the
+'                                braille side the Selection.MoveUp that stretched the selection up
+'                                by a paragraph and the run of delete-one-character calls that
+'                                tidied up after the paste.
 ' Version: 1.5  Date: 10/17/2023 - bug fix - no more leaving temp docs
 ' Version: 1.4  Date: 9/7/2021 - removed accidental delete of doc bug
 ' Version: 1.3  Date: 3/15/2021
@@ -10921,11 +10859,15 @@ Sub Lp_Replace_Manual_Line_Break()
 ' Version: 1.1  Date: 4/19/2016
 '
     Dim rng As Range
-    Dim ReplaceType As String
     Dim su_Prev As Boolean
 
     Sh_Space_Or_Para_Form.Show
-    ReplaceType = Sh_GP_String_1
+
+    ' End, not Exit Sub, and deliberately: this is called from the cleanup sequences, and
+    ' cancelling the question is meant to stop the whole sequence rather than let it carry on.
+    If Sh_GP_String_1 <> "Para" And Sh_GP_String_1 <> "Space" Then
+        End
+    End If
 
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False
@@ -10938,46 +10880,31 @@ Sub Lp_Replace_Manual_Line_Break()
         Set rng = ActiveDocument.Content
     End If
 
-    If ReplaceType = "Para" Then
-        With rng.Find
-            .ClearFormatting
-            .Replacement.ClearFormatting
-            .Text = "^l"
-            .Replacement.Text = "^p"
-            .Forward = True
-            .Wrap = wdFindStop
-            .Format = False
-            .MatchCase = False
-            .MatchWholeWord = False
-            .MatchWildcards = False
-            .MatchSoundsLike = False
-            .MatchAllWordForms = False
-            .Execute Replace:=wdReplaceAll
-        End With
-    End If
-
-    If ReplaceType = "Space" Then
-        With rng.Find
-            .ClearFormatting
-            .Replacement.ClearFormatting
-            .Text = "^l"
+    With rng.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
+        .Text = "^l"
+        If Sh_GP_String_1 = "Space" Then
             .Replacement.Text = " "
-            .Forward = True
-            .Wrap = wdFindStop
-            .Format = False
-            .MatchCase = False
-            .MatchWholeWord = False
-            .MatchWildcards = False
-            .MatchSoundsLike = False
-            .MatchAllWordForms = False
-            .Execute Replace:=wdReplaceAll
-        End With
+        Else
+            .Replacement.Text = "^p"
+        End If
+        .Forward = True
+        ' wdFindStop, not wdFindContinue: continue would run past the end of the range and
+        ' quietly turn "the selection" into "the whole document".
+        .Wrap = wdFindStop
+        .Format = False
+        .MatchCase = False
+        .MatchWholeWord = False
+        .MatchWildcards = False
+        .MatchSoundsLike = False
+        .MatchAllWordForms = False
+        .Execute Replace:=wdReplaceAll
+    End With
 
-        ' a line break turned into a space can land beside spaces already there
-        Sh_Remove_Multi_Spaces rng
-
-        Application.Run MacroName:="Dx_Fix_Para_Space_Errors"
-    End If
+    ' Only for "Space": a line break turned into a space can land beside spaces already there.
+    ' A paragraph mark cannot, so there is nothing to tidy in that case.
+    If Sh_GP_String_1 = "Space" Then Sh_Remove_Multi_Spaces rng
 
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     Sh_Return_User_To_Start_Position
@@ -10985,7 +10912,7 @@ Sub Lp_Replace_Manual_Line_Break()
     Application.ScreenUpdating = su_Prev
     Application.ScreenRefresh
 
-End Sub  '*** end of Lp_Replace_Manual_Line_Break ***
+End Sub  '*** end of Sh_Replace_Manual_Line_Break ***
 
 Sub Lp_Replace_Tabs_With_Single_Space()
 '
