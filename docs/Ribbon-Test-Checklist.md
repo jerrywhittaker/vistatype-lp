@@ -73,7 +73,7 @@ somewhere else on purpose:
 - [ ] **Foreign Lang in Color**  `Dx_Add_Color_To_Foreign_Language_Words`  -- *should not land at the top*
 - [ ] **Format Spelling List**  `Dx_Spelling_List`  -- *should not land at the top*
   - opens dialog **Dx Spelling List Options Form**: Cmd Ok
-- [ ] **Horiz List to Vertical**  `Dx_Horz_List_To_Vertical`  -- **RETURNS YOU**
+- [ ] **Horiz List to Vertical**  `Lp_Horz_List_To_Vertical`  -- **RETURNS YOU** (shared with the LP tab from 3.0.140)
   - opens dialog **Dx Horz To Vert List Form**: Cmd Ok
 - [ ] **Exercise Levels 1 && 2**  `Dx_Format_Exercise_Lv_1_and_Lv_2`  -- **RETURNS YOU**
   - opens dialog **Dx UEB EBAE Fill In YN Form**: Cmd NO, Cmd YES

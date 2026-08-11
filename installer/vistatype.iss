@@ -47,7 +47,7 @@
 ; The literal here is the fallback for building this script by hand, and is kept in step
 ; with the Makefile by "make bump".
 #ifndef AppVer
-  #define AppVer      "3.0.139"
+  #define AppVer      "3.0.140"
 #endif
 #define DotmName    "LPandBRL.dotm"
 #define DotxName    "LargePrintTemplate.dotx"

@@ -22,7 +22,7 @@
       <group id="grp_mso_c1_1761941" label="Other Formatting Tools" autoScale="true">
         <button id="btn_Dx_Add_Color_To_Foreign_Language_Words" label="Foreign Lang in Color" imageMso="AppointmentColorDialog" onAction="RibbonAction" tag="Dx_Add_Color_To_Foreign_Language_Words"/>
         <button id="btn_Dx_Spelling_List" label="Format Spelling List" imageMso="MailMergeResultsPreview" onAction="RibbonAction" tag="Dx_Spelling_List"/>
-        <button id="btn_Dx_Horz_List_To_Vertical" label="Horiz List to Vertical" imageMso="_3DPerspectiveIncrease" onAction="RibbonAction" tag="Dx_Horz_List_To_Vertical"/>
+        <button id="btn_Dx_Horz_List_To_Vertical" label="Horiz List to Vertical" imageMso="_3DPerspectiveIncrease" onAction="RibbonAction" tag="Lp_Horz_List_To_Vertical"/>
         <button id="btn_Dx_Format_Exercise_Lv_1_and_Lv_2" label="Exercise Levels 1 &amp;&amp; 2" imageMso="Pushpin" onAction="RibbonAction" tag="Dx_Format_Exercise_Lv_1_and_Lv_2"/>
         <button id="btn_Dx_Type_Dashes" label="Dashes/Primes/Fractions" imageMso="SelectionPaneHidden" onAction="RibbonAction" tag="Dx_Type_Dashes"/>
         <button id="btn_Dx_Compress_Linear_Math" label="Compress Linear Math" imageMso="HorizontalSpacingDecrease" onAction="RibbonAction" tag="Dx_Compress_Linear_Math"/>

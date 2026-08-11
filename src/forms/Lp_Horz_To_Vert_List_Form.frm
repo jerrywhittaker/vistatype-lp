@@ -16,6 +16,9 @@ Attribute VB_Exposed = False
 
 ' Lp_Horz_To_Vert_List_Form
 
+' Version 1.8 8/11/2026 - serves BOTH ribbon tabs; Dx_Horz_To_Vert_List_Form is gone. The
+'                        round trip through the temp document picks its route from the
+'                        document being worked on - see Sh_Copy_To_Temp_Doc
 ' Version 1.7 8/10/2026 - an ordered list is recognized by its SEQUENCE first
 '                        (Lp_Split_Ordered_List_Sequence), falling back to the passes below
 '                        when nothing convincing is found
@@ -40,7 +43,7 @@ Private Sub Cmd_Ok_Click()
 
     Sh_Save_User_Position
 
-    Application.Run MacroName:="Lp_Copy_To_Temp_Doc" 'move selected text to temp file
+    Application.Run MacroName:="Sh_Copy_To_Temp_Doc" 'move selected text to temp file - the route depends on the document, see Sh_Copy_To_Temp_Doc
     Application.Run MacroName:="Sh_Is_End_Paragraph_Mark_Included"
     Selection.WholeStory 'select the whole document
 
@@ -383,7 +386,7 @@ SortMsg:
     GoTo eom
 
 GoodFinish:
-    Application.Run MacroName:="Lp_Copy_From_Temp_Doc"
+    Application.Run MacroName:="Sh_Copy_From_Temp_Doc"
 
     Application.ScreenUpdating = True ' Turn screen updating on
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"

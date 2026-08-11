@@ -481,6 +481,10 @@ Public Sh_ConfiguredAs As String       ' "LP", "BRL" or "DEF" - empty until the 
 ' See Lp_Split_Ordered_List_Sequence.
 Public Lp_ListSplitError As String
 
+' Which round trip Sh_Copy_To_Temp_Doc took, so Sh_Copy_From_Temp_Doc can take the same one
+' back. Asking the document again would be wrong - by then the active document IS the temp one.
+Public Sh_TempDocRoute As String
+
 ' True while a configuration is being applied because the transcriber SWITCHED documents, as
 ' opposed to opening one or attaching a template. The three MS_Set_Word_Config_* subs then set
 ' Word's typing behavior - Options, AutoCorrect, spelling, fractions, the things that are wrong
@@ -3146,21 +3150,17 @@ Sub Dx_Close_with_no_Save()
     ActiveDocument.Close SaveChanges:=wdDoNotSaveChanges
 End Sub  '*** end of Dx_Close_with_no_Save macro ***
 
-Sub Dx_Horz_List_To_Vertical()
+' Dx_Horz_List_To_Vertical was here until 8/11/2026. There were two of these, one per side,
+' and the braille copy was the 2018 version - it never got the bullet handling, the trapped
+' crash on sorting a non-sortable selection, the 8/2/2026 change that stopped it seizing the
+' Styles pane, or the sequence recognizer. Both ribbon buttons now run
+' Lp_Horz_List_To_Vertical, which is the one that has been maintained. Its BANA-template guard
+' went with it: the macro does not care what template is attached, and the large-print side had
+' already commented its own template check out (Jerry, 8/11/2026).
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
-' Version: 1.0: Date: 3/13/2018
-' Version: 1.1: Date: 9/10/2018 - added automatic paragraph selection
-' Version: 1.2: Date: 9/20/2018 - added optional manual selection of text (before execution) or automatic selection of current para.
-'
-    Application.Run MacroName:="Dx_Is_BANA_Template_Attached"
-    If Selection.Type <> wdSelectionNormal Then
-        Selection.Paragraphs(1).Range.Select
-    End If
-    Application.Run MacroName:="Dx_Is_Text_Selected"
-    Dx_Horz_To_Vert_List_Form.Show
+' The round trip through the temporary document still differs by document type, and has to -
+' see Sh_Copy_To_Temp_Doc.
 
-End Sub  '*** end of Dx_Horz_List_To_Vertical macro ***
 
 Sub Dx_Fix_Em_Dash_Space_Errors()
 '
@@ -12240,21 +12240,63 @@ Public Function Lp_Get_List_Split_Error() As String
     Lp_Get_List_Split_Error = Lp_ListSplitError
 End Function
 
+' --- One horizontal-to-vertical macro, two kinds of document -------------------------------
+'
+' The two sides copy the selection into a temporary document in genuinely different ways, and
+' the difference matters:
+'
+'   Lp_Copy_To_Temp_Doc   builds the temp document FROM LargePrintTemplate.dotx, and stops with
+'                         "Template not found" when it is missing
+'   Dx_Copy_To_Temp_Doc   plain new document, then re-attaches the SAME BANA template and keeps
+'                         the document's BrailleType
+'
+' Send a braille file through the large-print route and three things go wrong: it fails outright
+' on a machine with no large-print template, the text is round-tripped through a document
+' carrying LP styles, and the BANA template and BrailleType are not put back. The last one would
+' not show up until much later.
+'
+' So the route is chosen from the document being worked on. Sh_Doc_Config_Type answers that
+' already. The choice is REMEMBERED, because by the time the text comes back the active document
+' is the temporary one and asking again would give the wrong answer.
+'
+' Version: 1.0  Date: 8/11/2026
+Public Sub Sh_Copy_To_Temp_Doc()
+    If Sh_Doc_Config_Type() = "BRL" Then
+        Sh_TempDocRoute = "BRL"
+        Application.Run MacroName:="Dx_Copy_To_Temp_Doc"
+    Else
+        Sh_TempDocRoute = "LP"
+        Application.Run MacroName:="Lp_Copy_To_Temp_Doc"
+    End If
+End Sub
+
+' Version: 1.0  Date: 8/11/2026
+Public Sub Sh_Copy_From_Temp_Doc()
+    If Sh_TempDocRoute = "BRL" Then
+        Application.Run MacroName:="Dx_Copy_From_Temp_Doc"
+    Else
+        Application.Run MacroName:="Lp_Copy_From_Temp_Doc"
+    End If
+    Sh_TempDocRoute = ""
+End Sub
+
 Sub Lp_Horz_List_To_Vertical()
     '
     ' Author: Jerry Whittaker -  jerry@thewhittakers.org
     '
+    ' Version: 1.3: Date: 8/11/2026 - now serves BOTH ribbon tabs; Dx_Horz_List_To_Vertical and its form are gone
     ' Version: 1.2: Date: 9/20/2018 - added optional manual selection of text (before execution) or automatic selection of current para
     ' Version: 1.1: Date: 9/10/2018 - added automatic paragraph selection
     ' Version: 1.0: Date: 3/13/2018
     '
+    ' Shared by BOTH ribbon tabs from 8/11/2026 - see the note where Dx_Horz_List_To_Vertical
+    ' used to be. No template check on either side: this macro does not care what is attached.
     Application.Run MacroName:="Sh_Is_Doc_Open"
-    'Application.Run MacroName:="Lp_Is_Lp_Template_Attached"
-    
+
     If Selection.Type <> wdSelectionNormal Then
         Selection.Paragraphs(1).Range.Select
     End If
-    
+
     Application.Run MacroName:="Lp_Is_Text_Selected"
     Lp_Horz_To_Vert_List_Form.Show
 
