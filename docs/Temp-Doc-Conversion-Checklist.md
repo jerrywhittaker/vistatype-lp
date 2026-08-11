@@ -71,6 +71,27 @@ history afterwards. After it, the only difference left was the order of five tid
 Helpers are usually not on the ribbon, so merging them costs nothing in button ids — unlike
 `Lp_Horz_List_To_Vertical`, where two ids had to be kept alive.
 
+## Two more traps, from Fix_Para_Space_Errors
+
+Both were things the temporary document was quietly handling, and both are easy to lose.
+
+**Never include the document's own final paragraph mark.** Any pass that rewrites `^013` will
+rewrite that one too and ADD a paragraph. The old code cleaned up afterwards with "go to the end,
+delete one character" — which looked like pure temp-document tidying and was removed as such. It
+was not: on the no-selection route it was also removing the paragraph this pass had just created,
+and it deleted the last character of the transcriber's text into the bargain. Not touching the
+mark beats tidying up after it.
+
+**When there is a selection, reach back one character to take in the paragraph mark in front of
+it.** "Spaces after a paragraph mark" cannot match the first selected paragraph otherwise,
+because its opening mark sits outside the selection — so leading spaces on the first line
+survive. The temporary document got this right by accident: it began by typing a paragraph mark
+at the top so the pattern had something to match. Including the real one is the same trick
+without the scratch document, and nothing before the selection is harmed, because every one of
+these patterns puts the mark back.
+
+`Sh_Para_Fix_Range` does both. Use it for any macro whose passes touch `^013`.
+
 ## Two traps that are not about paragraph marks
 
 **A quirk may be load-bearing.** `Dx_Replace_Manual_Line_Break` decided whether to ask by whether
@@ -147,6 +168,10 @@ these reach it only through a shared cleanup helper. Confirm per button as you g
       **Cannot be tested from a background session at all**, since asking needs a person. Test
       Full File Cleanup on the braille tab first (it must run straight through, no dialog), then
       Selection Cleanup on both tabs, including Cancel.
+- [x] Fix Para Space Errors — `Lp_` and `Dx_` both converted (3.0.157), **not** merged: the
+      large-print one protects the "1 point" style, the braille one handles middle dots and tabs
+      after paragraph marks. Merging would give each side passes nobody asked for. New shared
+      `Sh_Para_Fix_Range` — see the traps above.
 
 ## The helpers underneath
 

@@ -1384,155 +1384,130 @@ Sub Dx_Fix_Para_Space_Errors()
 '
 ' Author: Jerry Whittaker -  jerry@thewhittakers.org
 '
-' Version: 1.8 Date: 226/2024 - added Replace middle dot with space
+' Version: 2.0 Date: 8/12/2026 - no temporary document; every pass is scoped to a range. Also
+'                               gone: the Selection.MoveUp that stretched the selection up by a
+'                               whole paragraph before copying out, and the run of
+'                               delete-one-character calls that tidied up after the paste - one
+'                               of which deleted the last character of the document on the
+'                               no-selection route.
+'
+'                               NOT merged with the large-print version - the two do different
+'                               work. This one handles middle dots and tabs after paragraph
+'                               marks; the large-print one protects the "1 point" style.
+' Version: 1.8 Date: 2/26/2024 - added Replace middle dot with space
 ' Version: 1.7 Date: 3/29/2017
 '
-    Dim Limited_Selection As Boolean
-
+    Dim rng As Range
     Dim su_Prev As Boolean
-    su_Prev = Application.ScreenUpdating
-    Application.ScreenUpdating = False ' Turn screen updating off
-    
-    Sh_Save_User_Position
-    
-    If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
-        Limited_Selection = False
-    Else
-        Limited_Selection = True
-    End If
 
-    If Limited_Selection = True Then
-        Selection.MoveUp Unit:=wdParagraph, count:=1, Extend:=wdExtend
-        Application.Run MacroName:="Dx_Copy_To_Temp_Doc"
-        Application.Run MacroName:="Sh_Is_End_Paragraph_Mark_Included"
-        Selection.HomeKey Unit:=wdStory
-        Selection.TypeParagraph
-        Selection.HomeKey Unit:=wdStory
-    End If
-    
-    '*******************************************************
-    ' Fix rogue paragraph marks
-    '*******************************************************
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
+    su_Prev = Application.ScreenUpdating
+    Application.ScreenUpdating = False
+
+    Sh_Save_User_Position
+
+    Set rng = Sh_Para_Fix_Range()
+
+    ' rogue paragraph marks
+    With rng.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
         .Text = "^013"
         .Replacement.Text = "^p"
         .Forward = True
-        .Wrap = wdFindContinue  'replaces all in the document
+        ' wdFindStop, not wdFindContinue: continue would run past the end of the range and
+        ' quietly turn "the selection" into "the whole document".
+        .Wrap = wdFindStop
         .Format = False
         .MatchCase = False
         .MatchWholeWord = False
         .MatchAllWordForms = False
         .MatchSoundsLike = False
         .MatchWildcards = True
+        .Execute Replace:=wdReplaceAll
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    '*******************************************************
-    ' Replace middle dot (Unicode 00B7) with space
-    '*******************************************************
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "·{1,}" 'middle dot - Unicode 00B7
-        .Replacement.Text = " " 'with space
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
 
-    '*******************************************************
-    ' Remove spaces before paragraph marks
-    '*******************************************************
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
+    ' middle dot (Unicode 00B7) becomes a space
+    With rng.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
+        .Text = ChrW(183) & "{1,}"
+        .Replacement.Text = " "
+        .Forward = True
+        ' wdFindStop, not wdFindContinue: continue would run past the end of the range and
+        ' quietly turn "the selection" into "the whole document".
+        .Wrap = wdFindStop
+        .Format = False
+        .MatchCase = False
+        .MatchWholeWord = False
+        .MatchAllWordForms = False
+        .MatchSoundsLike = False
+        .MatchWildcards = True
+        .Execute Replace:=wdReplaceAll
+    End With
+
+    ' spaces before a paragraph mark
+    With rng.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
         .Text = "^032{1,}^013"
         .Replacement.Text = "^p"
         .Forward = True
-        .Wrap = wdFindContinue  'replaces all in the document
+        ' wdFindStop, not wdFindContinue: continue would run past the end of the range and
+        ' quietly turn "the selection" into "the whole document".
+        .Wrap = wdFindStop
         .Format = False
         .MatchCase = False
         .MatchWholeWord = False
         .MatchAllWordForms = False
         .MatchSoundsLike = False
         .MatchWildcards = True
+        .Execute Replace:=wdReplaceAll
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    '*******************************************************
-    ' Remove tabs following paragraph marks
-    '*******************************************************
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
+
+    ' tabs after a paragraph mark
+    With rng.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
         .Text = "^013^009{1,}"
         .Replacement.Text = "^p"
         .Forward = True
-        .Wrap = wdFindContinue  'replaces all in the document
+        ' wdFindStop, not wdFindContinue: continue would run past the end of the range and
+        ' quietly turn "the selection" into "the whole document".
+        .Wrap = wdFindStop
         .Format = False
         .MatchCase = False
         .MatchWholeWord = False
         .MatchAllWordForms = False
         .MatchSoundsLike = False
         .MatchWildcards = True
+        .Execute Replace:=wdReplaceAll
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
 
-    '*******************************************************
-    ' Remove Spaces following paragraph marks
-    '*******************************************************
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
+    ' spaces after a paragraph mark
+    With rng.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
         .Text = "^013^032{1,}"
         .Replacement.Text = "^p"
         .Forward = True
-        .Wrap = wdFindContinue  'replaces all in the document
+        ' wdFindStop, not wdFindContinue: continue would run past the end of the range and
+        ' quietly turn "the selection" into "the whole document".
+        .Wrap = wdFindStop
         .Format = False
         .MatchCase = False
         .MatchWholeWord = False
         .MatchAllWordForms = False
         .MatchSoundsLike = False
         .MatchWildcards = True
+        .Execute Replace:=wdReplaceAll
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-
-    If Limited_Selection = True Then
-        Selection.HomeKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.EndKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.EndKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.WholeStory
-        Selection.Copy
-        Selection.HomeKey Unit:=wdStory ', Extend:=wdExtend
-        
-        ActiveDocument.Close SaveChanges:=False 'close the temp doc without saving
-        Selection.Paste 'paste the clipboard back into the original document
-    Else
-        'get rid of extra pargraph mark at end of document
-        Selection.EndKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-    End If
 
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     Sh_Return_User_To_Start_Position
     Selection.Collapse Direction:=wdCollapseStart
-    Application.ScreenUpdating = su_Prev ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev
+    Application.ScreenRefresh
 
-    
 End Sub '***** End of Dx_Fix_Para_Space_Errors ********
 ' Dx_Remove_Multi_Spaces was here until 8/12/2026. Taking the temporary document out of the
 ' pair left the two byte-for-byte the same job - everything that differed between them existed
@@ -10219,137 +10194,169 @@ Sub Lp_Kill_The_Hyperlinks()
         
 End Sub '***** End of Lp_Kill_The_Hyperlinks Macro ******************
 
+' The range the paragraph-and-space passes should work on, with two adjustments that the
+' temporary document used to make by hand. Both were found by testing the conversion of
+' Lp_/Dx_Fix_Para_Space_Errors on 8/12/2026, and both are easy to lose:
+'
+' 1. NEVER include the document's own final paragraph mark. These passes rewrite ^013, and
+'    rewriting the final mark ADDS a paragraph. The old code cleaned that up afterwards with
+'    "go to the end, delete one character" - which on the no-selection route also deleted the
+'    last character of the transcriber's text. Not touching the mark is better than tidying
+'    up after it.
+'
+' 2. When there IS a selection, reach back one character to take in the paragraph mark in
+'    FRONT of it. "Spaces after a paragraph mark" cannot match the first selected paragraph
+'    otherwise, because its opening mark sits outside the selection - so leading spaces on
+'    the first line survived. The temporary document got this right by accident: it began by
+'    typing a paragraph mark at the top so the pattern had something to match. Including the
+'    real one is the same trick without the scratch document. Nothing before the selection is
+'    harmed: every one of these patterns puts the paragraph mark back.
+'
+' Version: 1.0  Date: 8/12/2026
+Public Function Sh_Para_Fix_Range() As Range
+    Dim doc As Document
+    Dim a As Long, b As Long
+
+    Set doc = ActiveDocument
+
+    If Selection.Type = wdSelectionNormal Then
+        a = Selection.Range.Start
+        b = Selection.Range.End
+        If a > 0 Then
+            If doc.Range(a - 1, a).Text = vbCr Then a = a - 1
+        End If
+    Else
+        a = 0
+        b = doc.Content.End
+    End If
+
+    If b > doc.Content.End - 1 Then b = doc.Content.End - 1
+    If b < a Then b = a
+
+    Set Sh_Para_Fix_Range = doc.Range(a, b)
+End Function
+
 Sub Lp_Fix_Para_Space_Errors()
 '
 ' Lp_Fix_Para_Space_Errors Macro
 '
 ' Author: Jerry Whittaker -  jerry@thewhittakers.org
 '
-' Version: 1.3 Date: 10/17/23 - fixed bug adding para makr and deleted last char in selection
+' Version: 2.0 Date: 8/12/2026 - no temporary document; every pass is scoped to a range.
+'
+'                               NOT merged with the braille version: the two do different work.
+'                               This one protects the "1 point" style; the braille one deals with
+'                               middle dots and with tabs after paragraph marks. Merging would
+'                               mean each side gaining passes nobody asked for.
+'
+'                               A REAL BUG went with the round trip. The old tail did
+'                               Selection.EndKey then Delete one character on EVERY route out,
+'                               not just the temp-document one - so running this with nothing
+'                               selected deleted the last character of the transcriber's
+'                               document. It existed to tidy up after the paste.
+'
+'                               Also gone: ActiveDocument.UndoClear, which threw away the WHOLE
+'                               undo history rather than this macro's part of it.
+' Version: 1.3 Date: 10/17/2023 - fixed bug adding para mark and deleted last char in selection
 ' Version: 1.2 Date:  2/8/2020 - added protection for all "1 point" styles
 ' Version: 1.1 Date: 1/8/2019
 ' Version: 1.0 Date: 2/13/2015
 '
-    Dim Limited_Selection As Boolean
-    
+    Dim rng As Range
     Dim su_Prev As Boolean
+
     su_Prev = Application.ScreenUpdating
-    Application.ScreenUpdating = False ' Turn screen updating off
-    
+    Application.ScreenUpdating = False
+
     Sh_Save_User_Position
-        
-    If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
-        Limited_Selection = False
-    Else
-        Limited_Selection = True
-        Application.Run MacroName:="Lp_Copy_To_Temp_Doc"
-    End If
-   
-    '*******************************************************
-    ' Fix rogue paragraph marks
-    '*******************************************************
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
+
+    Set rng = Sh_Para_Fix_Range()
+
+    ' rogue paragraph marks
+    With rng.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
         .Text = "^013"
         .Replacement.Text = "^p"
         .Forward = True
-        .Wrap = wdFindContinue  'replaces all in the document
+        ' wdFindStop, not wdFindContinue: continue would run past the end of the range and
+        ' quietly turn "the selection" into "the whole document".
+        .Wrap = wdFindStop
         .Format = False
         .MatchCase = False
         .MatchWholeWord = False
         .MatchAllWordForms = False
         .MatchSoundsLike = False
         .MatchWildcards = True
+        .Execute Replace:=wdReplaceAll
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    '*******************************************************
-    ' in order to protect "1 point" from the rest of the set of macros,
-    ' this F&R protects that style by making sure that all "1 point"
-    ' pragraphs are preceded by a single non breaking space.. therefore
-    ' in paragraph style "1 point", replace any and all characters before
-    ' the paragraph mark with a single non-breaking space
-    '*******************************************************
-    On Error GoTo Next1
-    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
-    ' this pass can do nothing without it - no style means nothing is formatted with it.
-    If Sh_Style_Exists(ActiveDocument, "1 point") Then
-    Selection.Find.ClearFormatting
-    Selection.Find.Style = ActiveDocument.Styles("1 point")
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "?{1,}^013"
-        .Replacement.Text = "^s^013"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = True
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    End If
-Next1:
-On Error GoTo 0
 
-    '*******************************************************
-    ' Remove spaces before paragraph marks
-    '*******************************************************
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
+    ' Protect the "1 point" style from the rest of the macros: every "1 point" paragraph is left
+    ' holding a single non-breaking space and nothing else. Guarded - Styles(name) raises 5941
+    ' when the document does not carry the style, and with no style there is nothing to protect.
+    If Sh_Style_Exists(ActiveDocument, "1 point") Then
+        With rng.Find
+            .ClearFormatting
+            .Style = ActiveDocument.Styles("1 point")
+            .Replacement.ClearFormatting
+            .Text = "?{1,}^013"
+            .Replacement.Text = "^s^013"
+            .Forward = True
+            .Wrap = wdFindStop
+            .Format = True
+            .MatchCase = False
+            .MatchWholeWord = False
+            .MatchAllWordForms = False
+            .MatchSoundsLike = False
+            .MatchWildcards = True
+            .Execute Replace:=wdReplaceAll
+        End With
+    End If
+
+    ' spaces before a paragraph mark
+    With rng.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
         .Text = "^032{1,}^013"
         .Replacement.Text = "^p"
         .Forward = True
-        .Wrap = wdFindContinue  'replaces all in the document
+        ' wdFindStop, not wdFindContinue: continue would run past the end of the range and
+        ' quietly turn "the selection" into "the whole document".
+        .Wrap = wdFindStop
         .Format = False
         .MatchCase = False
         .MatchWholeWord = False
         .MatchAllWordForms = False
         .MatchSoundsLike = False
         .MatchWildcards = True
+        .Execute Replace:=wdReplaceAll
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    '*******************************************************
-    ' Remove Spaces following paragraph marks
-    '*******************************************************
-    With Selection.Find
+
+    ' spaces after a paragraph mark
+    With rng.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
         .Text = "^013^032{1,}"
         .Replacement.Text = "^p"
         .Forward = True
-        .Wrap = wdFindContinue  'replaces all in the document
+        ' wdFindStop, not wdFindContinue: continue would run past the end of the range and
+        ' quietly turn "the selection" into "the whole document".
+        .Wrap = wdFindStop
         .Format = False
         .MatchCase = False
         .MatchWholeWord = False
         .MatchAllWordForms = False
         .MatchSoundsLike = False
         .MatchWildcards = True
+        .Execute Replace:=wdReplaceAll
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
 
-    If Limited_Selection = True Then
-        Selection.EndKey Unit:=wdStory
-        Selection.TypeBackspace
-        Selection.HomeKey Unit:=wdStory, Extend:=wdExtend
-        Selection.Copy 'copy the selected text to the clipboard
-        ActiveDocument.Close SaveChanges:=False 'close the temp doc without saving
-        Selection.Paste 'AndFormat (wdFormatOriginalFormatting)
-    End If
-
-    Selection.EndKey Unit:=wdStory
-    Selection.Delete Unit:=wdCharacter, count:=1
-    Application.ScreenUpdating = su_Prev ' Turn screen updating on
-    Sh_Return_User_To_Start_Position
-    Selection.Collapse 'clear selection
-    Application.ScreenRefresh
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    ActiveDocument.UndoClear
-      
+    Sh_Return_User_To_Start_Position
+    Selection.Collapse Direction:=wdCollapseStart
+    Application.ScreenUpdating = su_Prev
+    Application.ScreenRefresh
+
 End Sub '***** End of Lp_Fix_Para_Space_Errors ********
 
 Sub Lp_Fix_Em_Dash_Space_Errors()
