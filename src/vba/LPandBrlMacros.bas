@@ -478,6 +478,9 @@ Public Sh_LastDocEvent As String   ' diagnostic breadcrumb: last document event 
 ' below would then believe a lie.
 Public Sh_ConfiguredAs As String       ' "LP", "BRL" or "DEF" - empty until the first config
 
+' See Lp_Split_Ordered_List_Sequence.
+Public Lp_ListSplitError As String
+
 ' True while a configuration is being applied because the transcriber SWITCHED documents, as
 ' opposed to opening one or attaching a template. The three MS_Set_Word_Config_* subs then set
 ' Word's typing behavior - Options, AutoCorrect, spelling, fractions, the things that are wrong
@@ -11979,6 +11982,263 @@ Sub Lp_Validate_Dollar_PG()
     Unload Sh_Validation_Choices_Form
     
 End Sub
+
+' --- Recognizing a horizontal ordered list -------------------------------------------------
+'
+' "a) 149 B.C. b) 323 B.C. c) 44 A.D. d) 70 A.D." used to come apart at every period, because
+' the passes in Lp_Horz_To_Vert_List_Form match a marker by what it looks like on its own - a
+' letter or number, a period or bracket - and "B." looks exactly like "b." does. No amount of
+' local pattern-matching can tell them apart; "a.Alpha b.Beta" is a real list written with no
+' spaces, and it is the same shape as "B.C." (Jerry, 8/10/2026).
+'
+' What DOES tell them apart is the sequence. A list's markers share a style - the same kind of
+' character, the same bracket or period, parenthesized or not - and they count up by one. So
+' these routines collect every candidate marker, group them by style, and look for the longest
+' run that ascends a, b, c or 1, 2, 3 or i, ii, iii. In the example above the a/b/c/d run is
+' four long; the B/A "run" never gets past one, because the values go 2, 2, 1, 1. The list wins
+' and the dates are left alone.
+'
+' Lp_Split_Ordered_List_Sequence returns False when it finds nothing convincing, and the form
+' then falls back to the passes that were always there. It only ever takes over when it is sure.
+
+' The value of a marker body: a-z as 1-26, a number as itself, i/ii/iii/iv... as 1-10. Zero
+' means "not a marker".
+'
+' Version: 1.0  Date: 8/10/2026
+Public Function Lp_Marker_Value(ByVal body As String) As Long
+    Dim low As String
+    low = LCase$(Trim$(body))
+
+    If Len(low) = 0 Then Exit Function
+
+    If IsNumeric(low) Then
+        If Val(low) >= 1 And Val(low) <= 999 Then Lp_Marker_Value = Val(low)
+        Exit Function
+    End If
+
+    If Len(low) = 1 And low >= "a" And low <= "z" Then
+        ' A single letter is BOTH a letter marker and a roman numeral when it is i, v or x.
+        ' Treated as a letter here; the roman reading is tried separately by the caller.
+        Lp_Marker_Value = Asc(low) - Asc("a") + 1
+        Exit Function
+    End If
+End Function
+
+' The roman reading of a marker body, or zero. Kept separate from Lp_Marker_Value because "i"
+' and "v" are both letters and numerals, and which one a list means only shows in the run.
+'
+' Version: 1.0  Date: 8/10/2026
+Public Function Lp_Roman_Value(ByVal body As String) As Long
+    Select Case LCase$(Trim$(body))
+        Case "i": Lp_Roman_Value = 1
+        Case "ii": Lp_Roman_Value = 2
+        Case "iii": Lp_Roman_Value = 3
+        Case "iv": Lp_Roman_Value = 4
+        Case "v": Lp_Roman_Value = 5
+        Case "vi": Lp_Roman_Value = 6
+        Case "vii": Lp_Roman_Value = 7
+        Case "viii": Lp_Roman_Value = 8
+        Case "ix": Lp_Roman_Value = 9
+        Case "x": Lp_Roman_Value = 10
+    End Select
+End Function
+
+' Splits the active document's text at the markers of the best ordered-list run it can find.
+' True when it split something, False when it found nothing convincing and the caller should
+' carry on with the old passes.
+'
+' Version: 1.0  Date: 8/10/2026
+Public Function Lp_Split_Ordered_List_Sequence() As Boolean
+    Const MAX_MARKERS As Long = 400
+    Dim txt As String
+    Dim i As Long, n As Long, j As Long, k As Long
+    Dim ch As String
+    Dim prevCh As String
+    Dim body As String
+    Dim delim As String
+    Dim opened As Boolean
+    Dim pos() As Long, val_() As Long, roman() As Long, style() As String
+    Dim keep() As Boolean, bestKeep() As Boolean
+    Dim bestScore As Long, sc As Long
+    Dim sIdx As Long, r As Integer, v As Long
+    Dim runStart As Long, runCount As Long, lastVal As Long
+    Dim seenBefore As Boolean
+    Dim doc As Document
+
+    On Error GoTo eom
+    Lp_ListSplitError = ""
+    Set doc = ActiveDocument
+    txt = doc.Content.Text
+    If Len(txt) = 0 Then Exit Function
+
+    ReDim pos(1 To MAX_MARKERS)
+    ReDim val_(1 To MAX_MARKERS)
+    ReDim roman(1 To MAX_MARKERS)
+    ReDim style(1 To MAX_MARKERS)
+    n = 0
+    bestScore = 0
+
+    ' --- collect the candidates -----------------------------------------------------------
+    For i = 1 To Len(txt)
+        ' A marker starts the text, or follows a space or a paragraph mark. That single rule is
+        ' what keeps "C." inside "B.C." from ever being considered.
+        '
+        ' The character before, read WITHOUT asking for character zero. VBA does not
+        ' short-circuit Or - it evaluates every operand - so "i = 1 Or Mid$(txt, i - 1, 1) = ..."
+        ' calls Mid$ with a start of 0 on the first character and raises error 5 every time.
+        If i = 1 Then
+            prevCh = " "
+        Else
+            prevCh = Mid$(txt, i - 1, 1)
+        End If
+
+        If prevCh = " " Or prevCh = vbCr Then
+            j = i
+            opened = False
+            If Mid$(txt, j, 1) = "(" Then
+                opened = True
+                j = j + 1
+            End If
+            body = ""
+            Do While j <= Len(txt) And Len(body) < 4
+                ch = Mid$(txt, j, 1)
+                If (ch >= "0" And ch <= "9") Or (LCase$(ch) >= "a" And LCase$(ch) <= "z") Then
+                    body = body & ch
+                    j = j + 1
+                Else
+                    Exit Do
+                End If
+            Loop
+            If Len(body) > 0 And j <= Len(txt) Then
+                delim = Mid$(txt, j, 1)
+                If (delim = ")" Or (delim = "." And Not opened) Or (delim = ":" And Not opened)) Then
+                    If Not (opened And delim <> ")") Then
+                        If n < MAX_MARKERS Then
+                            n = n + 1
+                            pos(n) = i
+                            val_(n) = Lp_Marker_Value(body)
+                            roman(n) = Lp_Roman_Value(body)
+                            ' The style a marker belongs to: parenthesized or not, which
+                            ' delimiter, and whether it is a number, lower case or capitals. Two
+                            ' markers only count as part of the same list when all three agree.
+                            '
+                            ' The LENGTH of the marker is deliberately NOT part of this. It was
+                            ' at first, and it quietly broke every roman-numeral list - i, ii,
+                            ' iii and iv are one, two, three and four characters long, so no two
+                            ' of them were ever the same "style" and the run never got past one.
+                            ' It would have done the same to 9 followed by 10.
+                            style(n) = CStr(Abs(opened)) & delim & _
+                                       IIf(IsNumeric(body), "9", IIf(body = LCase$(body), "a", "A"))
+                        End If
+                    End If
+                End If
+            End If
+        End If
+    Next i
+
+    If n < 2 Then Exit Function
+    ReDim keep(1 To n)
+    ReDim bestKeep(1 To n)
+
+    ' --- score every style, in both readings ----------------------------------------------
+    '
+    ' Not "the single longest run". A scanned page often carries the list across two adjacent
+    ' paragraphs, and the numbering may RESTART in the second one - a, b then a, b again. Taking
+    ' only the longest run split the first pair and left the second alone (Jerry, 8/11/2026).
+    '
+    ' So: pick the best STYLE, then split at every marker in that style which belongs to any run
+    ' of two or more that ascends by one. A restarted run counts. A marker standing on its own
+    ' does not, which is what keeps "B.C." and "J. R. R." out - their values never ascend, so
+    ' every run they could form is one long and is thrown away.
+    For sIdx = 1 To n
+        seenBefore = False
+        For j = 1 To sIdx - 1
+            If style(j) = style(sIdx) Then seenBefore = True
+        Next j
+
+        If Not seenBefore Then
+            For r = 0 To 1        ' 0 = letters and numbers, 1 = roman numerals
+                For j = 1 To n
+                    keep(j) = False
+                Next j
+                runStart = 0
+                runCount = 0
+                lastVal = 0
+
+                For j = 1 To n
+                    If style(j) = style(sIdx) Then
+                        If r = 1 Then
+                            v = roman(j)
+                        Else
+                            v = val_(j)
+                        End If
+                        If v > 0 Then
+                            If runCount > 0 And v = lastVal + 1 Then
+                                runCount = runCount + 1
+                                keep(j) = True
+                            Else
+                                If runCount = 1 Then keep(runStart) = False   ' a run of one is not a list
+                                runStart = j
+                                runCount = 1
+                                keep(j) = True
+                            End If
+                            lastVal = v
+                        End If
+                    End If
+                Next j
+                If runCount = 1 Then keep(runStart) = False
+
+                sc = 0
+                For j = 1 To n
+                    If keep(j) Then sc = sc + 1
+                Next j
+
+                If sc > bestScore Then
+                    bestScore = sc
+                    For j = 1 To n
+                        bestKeep(j) = keep(j)
+                    Next j
+                End If
+            Next r
+        End If
+    Next sIdx
+
+    If bestScore < 2 Then Exit Function
+
+    ' --- split, working backwards so the earlier positions stay valid ---------------------
+    For j = n To 1 Step -1
+        If bestKeep(j) Then
+            i = pos(j)
+            If i > 1 Then
+                If Mid$(txt, i - 1, 1) = " " Then
+                    ' the space becomes the line break rather than being left dangling
+                    doc.Range(i - 2, i - 1).Text = vbCr
+                ElseIf Mid$(txt, i - 1, 1) <> vbCr Then
+                    doc.Range(i - 1, i - 1).InsertBefore vbCr
+                End If
+            End If
+        End If
+    Next j
+
+    ' A paragraph mark at the very start, ALWAYS - even when the list begins part-way down and
+    ' the first paragraph is a lead-in of ordinary prose. The passes this function stands in for
+    ' always left one there, and the form's last two lines - go to the top, delete one character
+    ' - exist to take it away again. Leave it out and that Delete eats the first real character
+    ' instead: "A. Grant's Tomb" came back as ".Grant's Tomb", and a lead-in line lost its first
+    ' letter (Jerry, 8/10 and 8/11/2026).
+    If Left$(doc.Content.Text, 1) <> vbCr Then doc.Range(0, 0).InsertBefore vbCr
+
+    Lp_Split_Ordered_List_Sequence = True
+    Exit Function
+
+eom:
+    Lp_ListSplitError = "err " & Err.Number & ": " & Err.Description & " (markers found: " & n & ")"
+End Function
+
+' Diagnostic breadcrumb: why Lp_Split_Ordered_List_Sequence gave up. Empty when it did not.
+Public Function Lp_Get_List_Split_Error() As String
+    Lp_Get_List_Split_Error = Lp_ListSplitError
+End Function
 
 Sub Lp_Horz_List_To_Vertical()
     '

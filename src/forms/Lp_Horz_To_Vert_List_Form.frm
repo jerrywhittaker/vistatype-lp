@@ -16,6 +16,9 @@ Attribute VB_Exposed = False
 
 ' Lp_Horz_To_Vert_List_Form
 
+' Version 1.7 8/10/2026 - an ordered list is recognized by its SEQUENCE first
+'                        (Lp_Split_Ordered_List_Sequence), falling back to the passes below
+'                        when nothing convincing is found
 ' Version 1.6 8/2/2026 - no longer runs "MS_Set_Word_Config_For_Large_Print" on form open
 ' Version 1.5 3/10/2026 - trapped crash on sort of non-sortable selection
 ' Version 1.4 10/3/2018 - added ordinary bullet
@@ -101,6 +104,20 @@ Private Sub Cmd_Ok_Click()
     Selection.Find.Execute Replace:=wdReplaceAll
 
     If Ordered_List Then
+
+        ' Try the sequence recognizer first. It splits only where the markers actually
+        ' count up - a, b, c or 1, 2, 3 or i, ii, iii - in one consistent style, which is
+        ' the one thing that tells a list marker from an abbreviation. The passes below
+        ' cannot: "a.Alpha b.Beta" is a real list and "149 B.C. 323 B.C." is not, and to a
+        ' pattern they look identical. That is what came apart on
+        '   a) 149 B.C. b) 323 B.C. c) 44 A.D. d) 70 A.D.
+        ' which broke at every period (Jerry, 8/10/2026). See
+        ' Lp_Split_Ordered_List_Sequence in LPandBrlMacros.
+        '
+        ' When it finds nothing convincing it says so and the original passes run exactly
+        ' as they always did, so nothing that worked before can stop working. The block
+        ' below is deliberately NOT re-indented, to keep the change readable.
+        If Not Lp_Split_Ordered_List_Sequence() Then
 
         ' upper or lower case followed by period followed by period and space
         'number followed by period followed by period and space
@@ -189,6 +206,8 @@ Private Sub Cmd_Ok_Click()
             .Replacement.Text = "^p\1^032"
         End With
         Selection.Find.Execute Replace:=wdReplaceAll
+
+        End If   ' the sequence recognizer did not take it
 
     ElseIf Spaced_List Then
         
