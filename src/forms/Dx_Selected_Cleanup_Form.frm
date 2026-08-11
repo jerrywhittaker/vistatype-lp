@@ -55,12 +55,12 @@ Private Sub Okay_Click()
     If Replace_Tabs_With_Single_Space Then
         Unload Dx_Selected_Cleanup_Form
         Application.Run MacroName:="Dx_Replace_Tabs_With_Single_Space"
-        Application.Run MacroName:="Dx_Remove_Multi_Spaces"
+        Application.Run MacroName:="Sh_Remove_Multi_Spaces"
      End If
 
     If Replace_Mult_Spaces_With_Single Then
         Unload Dx_Selected_Cleanup_Form
-        Application.Run MacroName:="Dx_Remove_Multi_Spaces"
+        Application.Run MacroName:="Sh_Remove_Multi_Spaces"
     End If
     
     If Kill_Hyperlinks Then
@@ -96,7 +96,7 @@ Private Sub Okay_Click()
     If NonBreakingSpace Then
         Unload Dx_Selected_Cleanup_Form
         Application.Run MacroName:="Dx_Replace_NonBreaking_Spaces"
-        Application.Run MacroName:="Dx_Remove_Multi_Spaces"
+        Application.Run MacroName:="Sh_Remove_Multi_Spaces"
     End If
     
     'If xx Then  ' dummy routine

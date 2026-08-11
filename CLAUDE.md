@@ -53,6 +53,25 @@ Other rules:
   as wrong as saying "rebase" unexplained. He is experienced, not a beginner.
 - Short paragraphs. One idea each. He is reading this in a terminal between Word sessions.
 
+## Converting a macro off the temporary document
+
+`Lp_Copy_To_Temp_Doc` and `Dx_Copy_To_Temp_Doc` create the scratch document hidden and then
+deliberately show, maximize and activate it — four statements, not an accident. That is the
+screen flashing. They must, because their callers work through `Selection`, and `Selection` only
+reaches the active document. Converting a macro means moving its passes onto a **range**, so the
+window is never needed. The round trip itself stays: it is what gives the single undo and the
+private workspace.
+
+**Jerry's rule, 8/12/2026: whenever converting a pair leaves the `Lp_` and `Dx_` versions
+identical, merge them into one `Sh_` macro.** That is not a coincidence when it happens —
+everything that differed between a pair usually existed to serve the round trip, and goes with
+it. Merging as we go makes the second half of the list shorter rather than longer.
+
+Worked examples: `Lp_Horz_List_To_Vertical` (3.0.147, hidden scratch document) and
+`Sh_Remove_Multi_Spaces` (3.0.149, no scratch document at all, and the first merge under the
+rule). The full list, what to test, and the two paragraph-mark traps are in
+`docs/Temp-Doc-Conversion-Checklist.md`.
+
 ## American spellings, everywhere
 
 Jerry's rule, 8/8/2026: **this product is for American transcribers, so everything in it uses

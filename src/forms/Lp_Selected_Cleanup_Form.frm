@@ -37,7 +37,7 @@ Private Sub OkayButton_Click()
     
     If Replace_Mult_Spaces_With_Single Then
         Application.Run MacroName:="Lp_Is_Text_Selected"
-        Application.Run MacroName:="Lp_Remove_Multi_Spaces"
+        Application.Run MacroName:="Sh_Remove_Multi_Spaces"
     ElseIf Remove_Spaces_Before_And_After_Para_Marks Then
         Application.Run MacroName:="Lp_Is_Text_Selected"
         Application.Run MacroName:="Lp_Fix_Para_Space_Errors"

@@ -1534,79 +1534,13 @@ Sub Dx_Fix_Para_Space_Errors()
 
     
 End Sub '***** End of Dx_Fix_Para_Space_Errors ********
-Sub Dx_Remove_Multi_Spaces()
+' Dx_Remove_Multi_Spaces was here until 8/12/2026. Taking the temporary document out of the
+' pair left the two byte-for-byte the same job - everything that differed between them existed
+' only to serve the round trip - so they are now one macro, Sh_Remove_Multi_Spaces.
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
-'
-' Date: 11/16/2016
-' Version: 1.4
-'
-    Dim Limited_Selection As Boolean
+' THE RULE, Jerry 8/12/2026: whenever converting a pair leaves them identical, merge them.
+' See docs/Temp-Doc-Conversion-Checklist.md.
 
-    Dim su_Prev As Boolean
-    su_Prev = Application.ScreenUpdating
-    Application.ScreenUpdating = False ' Turn screen updating off
-    
-    Sh_Save_User_Position
-    
-    If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
-        Limited_Selection = False
-    Else
-        Limited_Selection = True
-    End If
-
-    If Limited_Selection = True Then
-        Selection.MoveUp Unit:=wdParagraph, count:=1, Extend:=wdExtend
-        Application.Run MacroName:="Dx_Copy_To_Temp_Doc"
-        Application.Run MacroName:="Sh_Is_End_Paragraph_Mark_Included"
-        Selection.HomeKey Unit:=wdStory
-        Selection.TypeParagraph
-        Selection.HomeKey Unit:=wdStory
-    End If
-
-    With Selection.Find
-        .Text = "^032{2,}"
-        .Replacement.Text = "^032"
-        .Forward = True
-        .Wrap = wdFindContinue  'replaces all in the document
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-
-    If Limited_Selection = True Then
-        Selection.HomeKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.EndKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.EndKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.WholeStory
-        Selection.Copy
-        Selection.HomeKey Unit:=wdStory ', Extend:=wdExtend
-        
-        ActiveDocument.Close SaveChanges:=False 'close the temp doc without saving
-        Selection.Paste 'paste the clipboard back into the original document
-    Else
-        'get rid of extra pargraph mark at end of document
-        Selection.EndKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-    End If
-
-    Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-
-    Sh_Return_User_To_Start_Position
-
-    Selection.Collapse Direction:=wdCollapseStart
-
-    Application.ScreenUpdating = su_Prev ' Turn screen updating on
-    
-End Sub  '***** End of Dx_Remove_Multi_Spaces ********
 
 Sub Dx_Replace_NonBreaking_Spaces()
 '
@@ -2562,7 +2496,7 @@ Sub Dx_Fix_Common_File_Errors()
 
     Application.Run MacroName:="Dx_Replace_Spaces_Before_Punctuation"
 
-    Application.Run MacroName:="Dx_Remove_Multi_Spaces"
+    Application.Run MacroName:="Sh_Remove_Multi_Spaces"
     
     If ActiveDocument.Variables("BrailleType") = "EBAN" Or ActiveDocument.Variables("BrailleType") = "UEBN" Then
         Application.Run MacroName:="Dx_Replace_Function_Application_With_Space" ' code used in math - U+2061 or chrW8289"
@@ -4344,7 +4278,7 @@ Sub Dx_Format_Exercise_Lv_1_and_Lv_2()
     Application.ScreenUpdating = False ' Turn screen updating off
     Application.Run MacroName:="Dx_Convert_Auto_List_To_Text"
     Application.Run MacroName:="Dx_Fix_Para_Space_Errors"
-    Application.Run MacroName:="Dx_Remove_Multi_Spaces"
+    Application.Run MacroName:="Sh_Remove_Multi_Spaces"
     Application.ScreenUpdating = False ' Turn screen updating off
     Selection.WholeStory
     If Sh_Style_Exists(ActiveDocument, "Body Text") Then
@@ -5083,7 +5017,7 @@ Sub Dx_Format_Exercise_Lv_1_and_Lv_2()
 
     Selection.HomeKey Unit:=wdStory
 
-    Application.Run MacroName:="Dx_Remove_Multi_Spaces"
+    Application.Run MacroName:="Sh_Remove_Multi_Spaces"
     Application.Run MacroName:="Dx_Copy_From_Temp_Doc"
 
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
@@ -5822,7 +5756,7 @@ Sub Dx_Tabs_To_Fill_Ins()
     Selection.Find.Execute Replace:=wdReplaceAll
     
     'remove extra spaces
-    'Application.Run MacroName:="Dx_Remove_Multi_Spaces"
+    'Application.Run MacroName:="Sh_Remove_Multi_Spaces"
 
     'remove spaces before periods
     Selection.Find.ClearFormatting
@@ -6094,7 +6028,7 @@ Sub Dx_Replace_Manual_Line_Break()
         Selection.Find.Execute Replace:=wdReplaceAll
     End If
     
-    Application.Run MacroName:="Dx_Remove_Multi_Spaces"
+    Application.Run MacroName:="Sh_Remove_Multi_Spaces"
     
     If Limited_Selection = True Then
         Selection.HomeKey Unit:=wdStory
@@ -7859,7 +7793,7 @@ Sh_Spin_DoEvents
     Application.Run MacroName:="Lp_Fix_Normal_Styles"  'no longer ruins picture placement (left, right, center)
            'takes too long on large docs
 Sh_Spin_DoEvents
-    Application.Run MacroName:="Lp_Remove_Multi_Spaces"
+    Application.Run MacroName:="Sh_Remove_Multi_Spaces"
 Sh_Spin_DoEvents
     Application.Run MacroName:="Lp_Fix_Hyphen_Errors"
 Sh_Spin_DoEvents
@@ -10606,63 +10540,72 @@ Sub Lp_Fix_Em_Dash_Space_Errors()
     
 End Sub '***** End of Lp_Fix_Em_Dash_Space_Errors Macro *****
 
-Sub Lp_Remove_Multi_Spaces()
+Sub Sh_Remove_Multi_Spaces()
 '
 ' Author: Jerry Whittaker -  jerry@thewhittakers.org
 '
-' Version: 1.3  Date: 722/2025 - added code for table pasting - store index of table in original doc and para mark when pasting
+' Collapses runs of spaces to one, over the selection if there is one and the whole document if
+' there is not. Shared by both sides.
+'
+' Version: 2.1  Date: 8/12/2026 - ONE macro. Lp_ and Dx_Remove_Multi_Spaces were separate, and
+'                                after 2.0 below the two were the same job written twice -
+'                                everything that had differed existed to serve the round trip.
+'                                The rule from here: converting a pair that leaves them identical
+'                                means merging them (Jerry).
+' Version: 2.0  Date: 8/12/2026 - no temporary document. It was only ever there to keep the
+'                                replace inside the selection, and a RANGE does that on its own -
+'                                so the scratch window is never created, shown or activated, and
+'                                the flashing goes with it. Two things went with the round trip:
+'                                the large-print copy's ActiveDocument.UndoClear, which threw away
+'                                the WHOLE undo history and not just this macro's part of it, and
+'                                the braille copy's Selection.MoveUp, which quietly stretched the
+'                                work up by a paragraph beyond what was selected.
+' Version: 1.3  Date: 7/22/2025 - added code for table pasting
 ' Version: 1.2  Date: 10/17/2023 - bug fix for deleting last char and adding para mark
 ' Version: 1.1  Date: 1/8/2019
 ' Version: 1.0  Date: 2/13/2015
 '
-'
-    Dim Limited_Selection As Boolean
-    
+    Dim rng As Range
     Dim su_Prev As Boolean
+
     su_Prev = Application.ScreenUpdating
-    Application.ScreenUpdating = False ' Turn screen updating off
-    
+    Application.ScreenUpdating = False
+
     Sh_Save_User_Position
-        
-    If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
-        Limited_Selection = False
+
+    ' Text selected means "just this bit"; nothing selected means the whole document. That was
+    ' the ONLY thing the round trip decided, and Find on a range answers it directly.
+    If Selection.Type = wdSelectionNormal Then
+        Set rng = Selection.Range
     Else
-        Limited_Selection = True
-        Application.Run MacroName:="Lp_Copy_To_Temp_Doc"
+        Set rng = ActiveDocument.Content
     End If
-    With Selection.Find
+
+    With rng.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
         .Text = "^032{2,}"
         .Replacement.Text = "^032"
         .Forward = True
-        .Wrap = wdFindContinue
+        ' wdFindStop, not wdFindContinue: continue would carry on past the end of the range and
+        ' quietly treat "the selection" as "the whole document".
+        .Wrap = wdFindStop
         .Format = False
         .MatchCase = False
         .MatchWholeWord = False
         .MatchAllWordForms = False
         .MatchSoundsLike = False
         .MatchWildcards = True
+        .Execute Replace:=wdReplaceAll
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-   
-    If Limited_Selection = True Then
-        Selection.EndKey Unit:=wdStory
-        Selection.TypeBackspace
-        Selection.HomeKey Unit:=wdStory, Extend:=wdExtend
-        Selection.Copy 'copy the selected text to the clipboard
-        ActiveDocument.Close SaveChanges:=False 'close the temp doc without saving
-        Selection.Paste 'AndFormat (wdFormatOriginalFormatting)
-    End If
-    
-    Selection.EndKey Unit:=wdStory
-    'Selection.Delete Unit:=wdCharacter, Count:=1
-    Application.ScreenUpdating = su_Prev ' Turn screen updating on
-    Sh_Return_User_To_Start_Position
-    Selection.Collapse 'clear selection
-    Application.ScreenRefresh
+
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    ActiveDocument.UndoClear
-    
-End Sub  '***** End of Lp_Remove_Multi_Spaces ********
+    Sh_Return_User_To_Start_Position
+    Selection.Collapse Direction:=wdCollapseStart
+    Application.ScreenUpdating = su_Prev
+    Application.ScreenRefresh
+
+End Sub  '***** End of Sh_Remove_Multi_Spaces ********
 
 Sub Lp_Copy_To_Temp_Doc()
     '
@@ -11157,7 +11100,7 @@ Sub Lp_Replace_Tabs_With_Single_Space()
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
       
-    Application.Run MacroName:="Lp_Remove_Multi_Spaces"
+    Application.Run MacroName:="Sh_Remove_Multi_Spaces"
 
     If Limited_Selection = True Then
         Selection.EndKey Unit:=wdStory
@@ -11451,7 +11394,7 @@ Sub Lp_Format_Exercise_Lv_1_and_Lv_2()
     Application.ScreenUpdating = False ' Turn screen updating off
     Application.Run MacroName:="Lp_Convert_Auto_List_To_Text"
     Application.Run MacroName:="Lp_Fix_Para_Space_Errors"
-    Application.Run MacroName:="Lp_Remove_Multi_Spaces"
+    Application.Run MacroName:="Sh_Remove_Multi_Spaces"
     Application.ScreenUpdating = False ' Turn screen updating off
     Selection.WholeStory
     Selection.Style = ActiveDocument.Styles("Normal")
@@ -11842,7 +11785,7 @@ Sub Lp_Format_Exercise_Lv_1_and_Lv_2()
     End If
 
     Application.Run MacroName:="Lp_Fix_Para_Space_Errors"
-    Application.Run MacroName:="Lp_Remove_Multi_Spaces"
+    Application.Run MacroName:="Sh_Remove_Multi_Spaces"
     Application.Run MacroName:="Sh_Remove_Spaces_Before_Punctuation"
 
     '*****************************************************
