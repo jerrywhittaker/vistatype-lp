@@ -2287,119 +2287,105 @@ Sub Dx_Replace_Tabs_With_Single_Space()
 '
 ' Dx_Replace_Tabs_With_Single_Space Macro
 '
-' Version: 1.4  Date: 3/8/2023
-' Version: 1.4  Date: 3/6/2003 added replacement of Underlined tabs with single underscore
-' Version: 1.3  Date: 11/16/2016
 ' Author: Jerry Whittaker - jerry@thewhittakers.org
 '
-' Description:  Designed as a called routine using
-'               Application.Run MacroName:="Dx_Replace_Tabs_With_Single_Space"
-'               does entire document
+' Runs of tabs become one space - but UNDERLINED tabs become underscores first, because a
+' scanner turns a ruled fill-in line into an underlined tab and a braille transcriber needs the
+' underscores, not a space.
 '
-    Dim Limited_Selection As Boolean
-    
+' Version: 2.0  Date: 8/12/2026 - no temporary document, the same conversion as
+'                                Sh_Remove_Multi_Spaces.
+'
+'                                NOT merged with Lp_Replace_Tabs_With_Single_Space, and it is
+'                                the exception that shows what the merge rule actually means:
+'                                the two differ in WORK, not in plumbing. The underlined-tab
+'                                passes below are braille's alone, so taking the round trip out
+'                                leaves them still doing different jobs.
+'
+'                                One behavior change worth knowing: the first underlined-tab
+'                                pass used to run before the temporary document was made, with
+'                                Wrap:=wdFindContinue, so it could reach PAST a selection and
+'                                change the rest of the document. Scoped to a range it now stays
+'                                inside what the transcriber selected.
+' Version: 1.4  Date: 3/8/2023
+' Version: 1.4  Date: 3/6/2003 - added replacement of underlined tabs with single underscore
+' Version: 1.3  Date: 11/16/2016
+'
+    Dim rng As Range
     Dim su_Prev As Boolean
+
     su_Prev = Application.ScreenUpdating
-    Application.ScreenUpdating = False ' Turn screen updating off
-    
+    Application.ScreenUpdating = False
+
     Sh_Save_User_Position
-    
-    If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
-        Limited_Selection = False
+
+    If Selection.Type = wdSelectionNormal Then
+        Set rng = Selection.Range
     Else
-        Limited_Selection = True
+        Set rng = ActiveDocument.Content
     End If
-    
-    ' Replace underlined tab with single underscore (often created by Abbyy)
-    Selection.Find.ClearFormatting
-    Selection.Find.Font.Underline = wdUnderlineSingle
-    Selection.Find.Replacement.ClearFormatting
-    Selection.Find.Replacement.Font.Underline = wdUnderlineNone
-    With Selection.Find
+
+    ' a single underlined tab becomes one underscore (often left by Abbyy)
+    With rng.Find
+        .ClearFormatting
+        .Font.Underline = wdUnderlineSingle
+        .Replacement.ClearFormatting
+        .Replacement.Font.Underline = wdUnderlineNone
         .Text = "^t"
         .Replacement.Text = "_"
         .Forward = True
-        .Wrap = wdFindContinue
+        .Wrap = wdFindStop
         .Format = True
         .MatchCase = False
         .MatchWholeWord = False
         .MatchWildcards = False
         .MatchSoundsLike = False
         .MatchAllWordForms = False
+        .Execute Replace:=wdReplaceAll
     End With
-    Selection.Find.Execute
-    Selection.Find.Execute Replace:=wdReplaceAll
 
-    If Limited_Selection = True Then
-        Selection.MoveUp Unit:=wdParagraph, count:=1, Extend:=wdExtend
-        Application.Run MacroName:="Dx_Copy_To_Temp_Doc"
-        Application.Run MacroName:="Sh_Is_End_Paragraph_Mark_Included"
-        Selection.HomeKey Unit:=wdStory
-        Selection.TypeParagraph
-        Selection.HomeKey Unit:=wdStory
-    End If
-    
-    'convert underscored tabs to single underline
-    Selection.Find.ClearFormatting
-    Selection.Find.Font.Underline = wdUnderlineSingle
-    Selection.Find.Replacement.ClearFormatting
-    Selection.Find.Replacement.Font.Underline = wdUnderlineNone
-    With Selection.Find
+    ' a RUN of underlined tabs becomes a spaced underscore
+    With rng.Find
+        .ClearFormatting
+        .Font.Underline = wdUnderlineSingle
+        .Replacement.ClearFormatting
+        .Replacement.Font.Underline = wdUnderlineNone
         .Text = "^t{1,}"
         .Replacement.Text = " _ "
         .Forward = True
-        .Wrap = wdFindContinue
+        .Wrap = wdFindStop
         .Format = True
         .MatchCase = False
         .MatchWholeWord = False
         .MatchAllWordForms = False
         .MatchSoundsLike = False
         .MatchWildcards = True
+        .Execute Replace:=wdReplaceAll
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    'remove remaining tabs
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
+
+    ' whatever tabs are left become a space
+    With rng.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
         .Text = "^t{1,}"
         .Replacement.Text = "^032"
         .Forward = True
-        .Wrap = wdFindContinue  'replaces all in the document
+        .Wrap = wdFindStop
         .Format = False
         .MatchCase = False
         .MatchWholeWord = False
         .MatchAllWordForms = False
         .MatchSoundsLike = False
         .MatchWildcards = True
+        .Execute Replace:=wdReplaceAll
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    If Limited_Selection = True Then
-        Selection.HomeKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.EndKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.EndKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.WholeStory
-        Selection.Copy
-        Selection.HomeKey Unit:=wdStory ', Extend:=wdExtend
-        
-        ActiveDocument.Close SaveChanges:=False 'close the temp doc without saving
-        Selection.Paste 'paste the clipboard back into the original document
-    Else
-        'get rid of extra pargraph mark at end of document
-        Selection.EndKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-    End If
-    
+
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     Sh_Return_User_To_Start_Position
     Selection.Collapse Direction:=wdCollapseStart
-    Application.ScreenUpdating = su_Prev ' Turn screen updating on
-    
+    Application.ScreenUpdating = su_Prev
+    Application.ScreenRefresh
+
 End Sub  '*** end of Dx_Replace_Tabs_With_Single_Space Macro ***
 
 Sub Dx_Fix_Common_File_Errors()
@@ -10540,7 +10526,12 @@ Sub Lp_Fix_Em_Dash_Space_Errors()
     
 End Sub '***** End of Lp_Fix_Em_Dash_Space_Errors Macro *****
 
-Sub Sh_Remove_Multi_Spaces()
+' target  a range to work on. Omit it and the macro decides for itself, as it does when a
+'         transcriber runs it: the selection if there is one, the whole document if not. A
+'         converted caller that is already working on a range passes that range, which also
+'         skips the cursor save-and-restore - the caller owns that.
+'
+Sub Sh_Remove_Multi_Spaces(Optional ByVal target As Range)
 '
 ' Author: Jerry Whittaker -  jerry@thewhittakers.org
 '
@@ -10567,18 +10558,23 @@ Sub Sh_Remove_Multi_Spaces()
 '
     Dim rng As Range
     Dim su_Prev As Boolean
+    Dim onOwn As Boolean
 
-    su_Prev = Application.ScreenUpdating
-    Application.ScreenUpdating = False
+    onOwn = (target Is Nothing)
 
-    Sh_Save_User_Position
-
-    ' Text selected means "just this bit"; nothing selected means the whole document. That was
-    ' the ONLY thing the round trip decided, and Find on a range answers it directly.
-    If Selection.Type = wdSelectionNormal Then
-        Set rng = Selection.Range
+    If onOwn Then
+        su_Prev = Application.ScreenUpdating
+        Application.ScreenUpdating = False
+        Sh_Save_User_Position
+        ' Text selected means "just this bit"; nothing selected means the whole document. That
+        ' was the ONLY thing the round trip decided, and Find on a range answers it directly.
+        If Selection.Type = wdSelectionNormal Then
+            Set rng = Selection.Range
+        Else
+            Set rng = ActiveDocument.Content
+        End If
     Else
-        Set rng = ActiveDocument.Content
+        Set rng = target
     End If
 
     With rng.Find
@@ -10599,11 +10595,13 @@ Sub Sh_Remove_Multi_Spaces()
         .Execute Replace:=wdReplaceAll
     End With
 
-    Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    Sh_Return_User_To_Start_Position
-    Selection.Collapse Direction:=wdCollapseStart
-    Application.ScreenUpdating = su_Prev
-    Application.ScreenRefresh
+    If onOwn Then
+        Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
+        Sh_Return_User_To_Start_Position
+        Selection.Collapse Direction:=wdCollapseStart
+        Application.ScreenUpdating = su_Prev
+        Application.ScreenRefresh
+    End If
 
 End Sub  '***** End of Sh_Remove_Multi_Spaces ********
 
@@ -11058,68 +11056,63 @@ Sub Lp_Replace_Tabs_With_Single_Space()
 '
 ' Lp_Replace_Tabs_With_Single_Space Macro
 '
+' Author: Jerry Whittaker - jerry@thewhittakers.org
+'
+' Runs of tabs become one space, over the selection if there is one and the whole document if
+' there is not.
+'
+' Version: 2.0  Date: 8/12/2026 - no temporary document, the same conversion as
+'                                Sh_Remove_Multi_Spaces. Gone with it: ActiveDocument.UndoClear,
+'                                which threw away the WHOLE undo history and not just this
+'                                macro's part of it, and the trailing "delete one character at the
+'                                end of the document", which existed to tidy up after the paste.
+'                                NOT merged with the braille version - see the note there.
 ' Version: 1.3  Date: 10/17/2023 - minor bug fix
 ' Version: 1.2  Date: 1/8/2019
 ' Version: 1.1  Date: 1/7/2016
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
-'
-' Description:  Designed as a called routine using
-'               Application.Run MacroName:="Lp_Replace_Tabs_With_Single_Space"
-'               does entire document
-'
-    
-    Dim Limited_Selection As Boolean
-    
+    Dim rng As Range
     Dim su_Prev As Boolean
+
     su_Prev = Application.ScreenUpdating
-    Application.ScreenUpdating = False ' Turn screen updating off
-    
+    Application.ScreenUpdating = False
+
     Sh_Save_User_Position
-        
-    If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
-        Limited_Selection = False
+
+    If Selection.Type = wdSelectionNormal Then
+        Set rng = Selection.Range
     Else
-        Limited_Selection = True
-        Application.Run MacroName:="Lp_Copy_To_Temp_Doc"
+        Set rng = ActiveDocument.Content
     End If
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
+
+    With rng.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
         .Text = "^t{1,}"
         .Replacement.Text = "^032"
         .Forward = True
-        .Wrap = wdFindContinue  'replaces all in the document
+        ' wdFindStop, not wdFindContinue: continue would run past the end of the range and
+        ' quietly turn "the selection" into "the whole document".
+        .Wrap = wdFindStop
         .Format = False
         .MatchCase = False
         .MatchWholeWord = False
         .MatchAllWordForms = False
         .MatchSoundsLike = False
         .MatchWildcards = True
+        .Execute Replace:=wdReplaceAll
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-      
-    Application.Run MacroName:="Sh_Remove_Multi_Spaces"
 
-    If Limited_Selection = True Then
-        Selection.EndKey Unit:=wdStory
-        Selection.TypeBackspace
-        Selection.HomeKey Unit:=wdStory, Extend:=wdExtend
-        Selection.Copy 'copy the selected text to the clipboard
-        ActiveDocument.Close SaveChanges:=False 'close the temp doc without saving
-        Selection.Paste 'AndFormat (wdFormatOriginalFormatting)
-    End If
-    
-    Selection.EndKey Unit:=wdStory
-    Selection.Delete Unit:=wdCharacter, count:=1
-    Application.ScreenUpdating = su_Prev ' Turn screen updating on
-    Sh_Return_User_To_Start_Position
-    Selection.Collapse 'clear selection
-    Application.ScreenRefresh
+    ' Tabs turned into spaces can sit next to spaces that were already there. Hand the range
+    ' over rather than letting it work out its own scope again.
+    Sh_Remove_Multi_Spaces rng
+
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    ActiveDocument.UndoClear
-    
+    Sh_Return_User_To_Start_Position
+    Selection.Collapse Direction:=wdCollapseStart
+    Application.ScreenUpdating = su_Prev
+    Application.ScreenRefresh
+
 End Sub  '*** end of Lp_Replace_Tabs_With_Single_Space Macro ***
 
 Sub Lp_Replace_Small_Caps_With_All_Caps()

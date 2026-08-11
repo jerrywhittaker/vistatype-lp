@@ -60,7 +60,11 @@ same helper usually exists only to serve the round trip, so taking the round tri
 leave the two the same job written twice. When that happens, merge them into one `Sh_` macro and
 repoint the callers.
 
-`Sh_Remove_Multi_Spaces` was the first. Before the conversion the two genuinely differed — the
+The test is whether they differ in WORK or only in plumbing. `Replace_Tabs_With_Single_Space`
+converted to ranges and still stayed two macros, because the braille side has underlined-tab
+passes the large-print side has no use for.
+
+`Sh_Remove_Multi_Spaces` was the first merge. Before the conversion the two genuinely differed — the
 braille copy reached up a paragraph before copying out, the large-print copy wiped the whole undo
 history afterwards. After it, the only difference left was the order of five tidy-up lines.
 
@@ -105,6 +109,11 @@ these reach it only through a shared cleanup helper. Confirm per button as you g
 - [x] Horiz List to Vertical — `Lp_Horz_List_To_Vertical` (both tabs, 3.0.147)
 - [x] Remove Multi Spaces — now `Sh_Remove_Multi_Spaces` (3.0.149, first merge under the rule).
       Reached by Full File Cleanup and Selection Cleanup on both tabs, so test it through those.
+- [x] Replace Tabs With Single Space — `Lp_` and `Dx_` both converted (3.0.150), and deliberately
+      **not** merged: the braille one turns UNDERLINED tabs into underscores first, because a
+      scanner leaves a ruled fill-in line as an underlined tab and a braille transcriber needs
+      the underscores. That is different work, not different plumbing — the exception that shows
+      what the merge rule actually means. Also reached by all four Cleanup buttons.
 
 ## The helpers underneath
 
