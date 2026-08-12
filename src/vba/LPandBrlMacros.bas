@@ -1517,76 +1517,10 @@ End Sub '***** End of Dx_Fix_Para_Space_Errors ********
 ' See docs/Temp-Doc-Conversion-Checklist.md.
 
 
-Sub Dx_Replace_NonBreaking_Spaces()
-'
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
-'
-' Date: 11/16/2016
-' Version: 1.1
-'
-    Dim Limited_Selection As Boolean
+' Dx_Replace_NonBreaking_Spaces was here until 8/12/2026. Three macros did this job and only
+' Sh_ReplaceNonBreakingSpacesWithNormalSpace protected a "Print Pg Num" bar, so everything
+' runs through that one now.
 
-    Dim su_Prev As Boolean
-    su_Prev = Application.ScreenUpdating
-    Application.ScreenUpdating = False ' Turn screen updating off
-    
-    Sh_Save_User_Position
-    
-    If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
-        Limited_Selection = False
-    Else
-        Limited_Selection = True
-    End If
-
-    If Limited_Selection = True Then
-        Selection.MoveUp Unit:=wdParagraph, count:=1, Extend:=wdExtend
-        Application.Run MacroName:="Dx_Copy_To_Temp_Doc"
-        Application.Run MacroName:="Sh_Is_End_Paragraph_Mark_Included"
-        Selection.HomeKey Unit:=wdStory
-        Selection.TypeParagraph
-        Selection.HomeKey Unit:=wdStory
-    End If
-
-    With Selection.Find
-        .Text = "^s{1,}"
-        .Replacement.Text = "^032"
-        .Forward = True
-        .Wrap = wdFindContinue  'replaces all in the document
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-
-    If Limited_Selection = True Then
-        Selection.HomeKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.EndKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.EndKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.WholeStory
-        Selection.Copy
-        Selection.HomeKey Unit:=wdStory ', Extend:=wdExtend
-        
-        ActiveDocument.Close SaveChanges:=False 'close the temp doc without saving
-        Selection.Paste 'paste the clipboard back into the original document
-    Else
-        'get rid of extra pargraph mark at end of document
-        Selection.EndKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-    End If
-    
-    Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    Sh_Return_User_To_Start_Position
-    Selection.Collapse Direction:=wdCollapseStart
-    Application.ScreenUpdating = su_Prev ' Turn screen updating on
-    
-End Sub  '***** End of Dx_Replace_NonBreaking_Spaces ********
 
 Sub Dx_Format_Tagged_Page_Numbers()
 '
@@ -2458,7 +2392,7 @@ Sub Dx_Fix_Common_File_Errors()
     
     Application.Run MacroName:="Dx_Replace_Underscore_With_Single_Underscore"
     
-    Application.Run MacroName:="Dx_Replace_NonBreaking_Space_With_Space"
+    Application.Run MacroName:="Sh_ReplaceNonBreakingSpacesWithNormalSpace"
 
     Application.Run MacroName:="Dx_Replace_Spaces_Before_Punctuation"
 
@@ -7008,27 +6942,10 @@ Selection.Find.ClearFormatting
     
 End Sub  '*** end of Dx_Replace_Word_NonBreaking_Hyphen_With_Unicode_Non_Breaking_Hypen ***
 
-Sub Dx_Replace_NonBreaking_Space_With_Space()
-'
-' Version: 1.0  Date: 3/4/2023
-'
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "^s{1,}" 'non-breaking space U00A0
-        .Replacement.Text = " "
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = True
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-End Sub   '*** End of Dx_Replace_NonBreaking_Space_With_Space macro ***
+' Dx_Replace_NonBreaking_Space_With_Space was here until 8/12/2026. Three macros did this job and only
+' Sh_ReplaceNonBreakingSpacesWithNormalSpace protected a "Print Pg Num" bar, so everything
+' runs through that one now.
+
 
 Sub Dx_Replace_Underscore_With_Single_Underscore()
 '
@@ -19400,6 +19317,20 @@ End Sub   '*** end of Sh_Copy_Ref_Pg_Tags_To_Temp_File macro ***
 
 Sub Sh_ReplaceNonBreakingSpacesWithNormalSpace()
     '
+    ' Version: 3.0  Date: 8/12/2026 - the ONLY one of these left, and no temporary document.
+    '                                There were three doing this job and they disagreed:
+    '                                Dx_Replace_NonBreaking_Spaces went through the temp
+    '                                document, and Dx_Replace_NonBreaking_Space_With_Space was a
+    '                                bare whole-document replace with no scoping at all. Neither
+    '                                protected a "Print Pg Num" bar. Both are gone and everything
+    '                                runs through here (Jerry, 8/12/2026).
+    '
+    '                                Scope is the same rule as the rest of the cleanup suite:
+    '                                the selection if there is one, the whole document if not.
+    '                                Runs are collapsed afterwards on the same range, which is
+    '                                what the two braille copies did by replacing ^s{1,} in one
+    '                                go - it cannot be done that way here, because the slow path
+    '                                below depends on replacing one character with one character.
     ' Version: 2.0  Date: 8/5/2026 - a non-breaking space in a paragraph styled "Print Pg Num" is left alone
     ' Version: 1.0  Date: 3/2/2026
     '
@@ -19410,40 +19341,46 @@ Sub Sh_ReplaceNonBreakingSpacesWithNormalSpace()
 
     Const PgNumStyle As String = "Print Pg Num"
 
+    Dim rng As Range
+    Dim hit As Range
+    Dim stopAt As Long
+
+    If Selection.Type = wdSelectionNormal Then
+        Set rng = Selection.Range
+    Else
+        Set rng = ActiveDocument.Content
+    End If
+
     ' Fast path. With no Print Pg Num paragraph in the document there is nothing to protect, so
-    ' keep the single whole-document replace this macro has always done. That is the usual case:
-    ' File Cleanup normally runs BEFORE Format $pg Tags has built any bars.
+    ' keep the single replace this macro has always done. That is the usual case: File Cleanup
+    ' normally runs BEFORE Format $pg Tags has built any bars.
     If Not Sh_Style_Is_In_Use(ActiveDocument, PgNumStyle) Then
-        With ActiveDocument.Range.Find
+        With rng.Find
             .ClearFormatting
             .Replacement.ClearFormatting
-
             .Text = "^s"          'Word wildcard for non-breaking space
             .Replacement.Text = " "
-
             .Forward = True
-            .Wrap = wdFindContinue
+            .Wrap = wdFindStop
             .Format = False
             .MatchWildcards = False
-
             .Execute Replace:=wdReplaceAll
         End With
+        Sh_Remove_Multi_Spaces rng
         Exit Sub
     End If
 
     ' Slow path. Walk the non-breaking spaces one by one and skip the ones in a bar. Only the
     ' hits are visited, not every paragraph, so this costs no more than the number of
-    ' non-breaking spaces in the file.
-    Dim hit As Range
-    Set hit = ActiveDocument.Content
+    ' non-breaking spaces in the range.
+    stopAt = rng.End
+    Set hit = rng.Duplicate
 
     With hit.Find
         .ClearFormatting
         .Replacement.ClearFormatting
-
         .Text = "^s"
         .Replacement.Text = ""
-
         .Forward = True
         .Wrap = wdFindStop    ' MUST be wdFindStop - wdFindContinue would wrap past the end and never finish
         .Format = False
@@ -19451,16 +19388,21 @@ Sub Sh_ReplaceNonBreakingSpacesWithNormalSpace()
     End With
 
     Do While hit.Find.Execute
+        If hit.Start >= stopAt Then Exit Do
         If Not Sh_Para_Style_Is(hit, PgNumStyle) Then
             hit.Text = " "    ' one character for one, so nothing after this point shifts
         End If
 
         ' Step past the space just looked at, whether or not it was replaced, and search on to
-        ' the end of the document from there.
+        ' the end of the range from there.
         hit.Collapse Direction:=wdCollapseEnd
-        If hit.Start >= ActiveDocument.Content.End Then Exit Do
-        hit.End = ActiveDocument.Content.End
+        If hit.Start >= stopAt Then Exit Do
+        hit.End = stopAt
     Loop
+
+    ' The runs the two braille copies used to collapse in one replace - done here instead,
+    ' because the walk above must replace one character with one character.
+    Sh_Remove_Multi_Spaces ActiveDocument.Range(rng.Start, stopAt)
 
 End Sub   '*** end of Sh_ReplaceNonBreakingSpacesWithNormalSpace macro ***
 

@@ -172,6 +172,12 @@ these reach it only through a shared cleanup helper. Confirm per button as you g
       large-print one protects the "1 point" style, the braille one handles middle dots and tabs
       after paragraph marks. Merging would give each side passes nobody asked for. New shared
       `Sh_Para_Fix_Range` — see the traps above.
+- [x] Replace NonBreaking Spaces — three macros became one (3.0.159). `Dx_Replace_NonBreaking_Spaces`
+      (temp document) and `Dx_Replace_NonBreaking_Space_With_Space` (a bare whole-document replace
+      with no scoping at all) are gone; everything runs through
+      `Sh_ReplaceNonBreakingSpacesWithNormalSpace`, the only one that protects the non-breaking
+      spaces holding a **Print Pg Num** bar together. Runs are collapsed afterwards on the same
+      range, because the slow path must replace one character with one character.
 
 ## The helpers underneath
 

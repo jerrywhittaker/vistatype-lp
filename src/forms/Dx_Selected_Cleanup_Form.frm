@@ -95,7 +95,7 @@ Private Sub Okay_Click()
         
     If NonBreakingSpace Then
         Unload Dx_Selected_Cleanup_Form
-        Application.Run MacroName:="Dx_Replace_NonBreaking_Spaces"
+        Application.Run MacroName:="Sh_ReplaceNonBreakingSpacesWithNormalSpace"
         Application.Run MacroName:="Sh_Remove_Multi_Spaces"
     End If
     
