@@ -55,7 +55,7 @@ Private Sub OkayButton_Click()
         Application.Run MacroName:="Sh_Replace_Manual_Line_Break"
     ElseIf Kill_Hyperlinks Then
         Application.Run MacroName:="Lp_Is_Text_Selected"
-        Application.Run MacroName:="Lp_Kill_The_Hyperlinks"
+        Application.Run MacroName:="Sh_Kill_The_Hyperlinks"
     ElseIf Small_Caps_To_All_Caps Then
         Application.Run MacroName:="Lp_Is_Text_Selected"
         Application.Run MacroName:="Lp_Replace_Small_Caps_With_All_Caps"

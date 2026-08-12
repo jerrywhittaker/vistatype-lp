@@ -178,6 +178,48 @@ these reach it only through a shared cleanup helper. Confirm per button as you g
       `Sh_ReplaceNonBreakingSpacesWithNormalSpace`, the only one that protects the non-breaking
       spaces holding a **Print Pg Num** bar together. Runs are collapsed afterwards on the same
       range, because the slow path must replace one character with one character.
+- [x] Kill The Hyperlinks — now `Sh_Kill_The_Hyperlinks` (3.0.160). The scratch document was
+      doing real work: `Sh_Remove_Hyperlinks` deletes every hyperlink in the ACTIVE DOCUMENT, so
+      copying the selection out was the only thing confining it. It takes a range now; the
+      default is still the whole document, so its three unconverted callers are unaffected.
+- [x] Replace Multiple Para Marks — now `Sh_Replace_Multiple_Para_Marks_No_Warning` (3.0.161).
+      Two bugs, both found by Jerry running it: the braille side was still doing
+      `^013{2,}` -> `^p` through the temp document, which needs the marks to be TOUCHING and so
+      never sees a line holding a single space; and the large-print paragraph walk added in July
+      ignored the selection entirely, while the caution box was telling the transcriber that
+      selecting text is how you limit it.
+      At 3.0.163 the blank test became Jerry's own `Lp_IsEmptyPara` — tabs and non-breaking
+      spaces count as empty too — and `Lp_IsEmptyPara` itself is gone. `Sh_IsBlankParaMark` is
+      the one blank test in the project now. It leaves `Chr(7)` alone on purpose: that is what
+      stops an empty table cell reading as an empty paragraph.
+
+      **The rule, settled by Jerry 8/13/2026: EVERY empty paragraph goes — a run of them, and a
+      lone blank line too — and every macro that goes looking for empty paragraph marks works
+      that way.** "Replace multiple paragraph marks with a single paragraph mark" means one mark
+      between the two paragraphs, which is no blank line at all; the caution box has said since
+      2018 that deliberately added blank lines will be removed. Read as "collapse a run down to
+      one blank line" for two builds, which is what Jerry was reporting each time. The only
+      paragraph mark left standing is the document's own final one, which Word will not give up. Macros that touch runs
+      of `^p` as part of a different job — Format Exercise, `Sh_Para_Before_Dollar`,
+      `Sh_Remove_Empty_Para_Before_Tables`, `Dx_Remove_Page_Breaks`, the DAISY/NIMAS text
+      re-paragraphing, the two table tools — are not covered by it and were audited and left
+      alone; the count is the point in each of them.
+
+      And one that was not on any list. `Lp_Convert_Hyper_To_Addresses` finished by running
+      `Selection.Range.AutoFormat` over the whole document to turn plain URLs blue — and
+      **AutoFormat removes empty paragraphs.** It is reached by Fix Common File Errors, so it
+      ran on every cleanup and every template attach, and it took blank lines out of documents
+      with no hyperlinks in them at all. Jerry found it by noticing that Fix Common File Errors
+      disagreed with itself. Turning off every AutoFormat option except `ReplaceHyperlinks` does
+      **not** stop it — that was tried and measured; the paragraph analysis is not one of the
+      options. AutoFormat is gone (3.0.166) and `Sh_Linkify_Range` makes the links directly.
+      Two things it has to get right: skip text that is already inside a hyperlink, and walk
+      each paragraph's tokens **back to front**, because `Hyperlinks.Add` inserts a field and
+      every offset after it moves. Front to back linked the first address on a line and silently
+      missed the rest.
+
+      The braille twin never had the bug — `Dx_Convert_Hyper_To_Addresses` has no AutoFormat
+      call. It also makes no links; it only strips them to text.
 
 ## The helpers underneath
 

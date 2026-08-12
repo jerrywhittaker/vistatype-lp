@@ -34,7 +34,7 @@ Private Sub Okay_Click()
     
     If Replace_Multi_Para_Marks_With_Single Then
         Unload Dx_Selected_Cleanup_Form
-        Application.Run MacroName:="Dx_Replace_Multiple_Para_Marks_No_Warning"
+        Application.Run MacroName:="Sh_Replace_Multiple_Para_Marks_No_Warning"
     End If
 
     If Remove_Spaces_Before_And_After_Para_Marks Then
@@ -65,7 +65,7 @@ Private Sub Okay_Click()
     
     If Kill_Hyperlinks Then
         Unload Dx_Selected_Cleanup_Form
-        Application.Run MacroName:="Dx_Kill_The_Hyperlinks"
+        Application.Run MacroName:="Sh_Kill_The_Hyperlinks"
     End If
     
     If Remove_Pictures Then

@@ -391,6 +391,10 @@ Public Dx_UEB_EBAE_String As String
 
 Public Lp_GP_String_1 As String
 Public Lp_GP_String_2 As String
+' Set by Lp_Attach_Lp_Template on EVERY run, read by Lp_Attach_The_Template. It has its own
+' variable because the general-purpose Lp_GP_String_1 it used to live in is written by other
+' features and never cleared - see the note at the top of Lp_Attach_Lp_Template. 8/12/2026
+Public Lp_Doc_Was_Already_LP As Boolean
 Public Lp_GP_String_3 As String
 Public Lp_GP_Boolean_1 As Boolean
 Public Lp_GP_Counter_1 As Integer
@@ -994,7 +998,7 @@ Sub Dx_Attach_BANA_Template()
                 Application.Run MacroName:="Dx_Fix_Common_File_Errors"
             End If
             If MsgBox("Do you want to remove multiple consecutive paragraph marks? ", vbYesNo, "Braille Macros") = vbYes Then
-                Application.Run MacroName:="Dx_Replace_Multiple_Para_Marks_No_Warning"
+                Application.Run MacroName:="Sh_Replace_Multiple_Para_Marks_No_Warning"
             End If
         End If
     End If
@@ -5282,66 +5286,9 @@ Sub Dx_Attach_Same_BANA_Template()
     
 End Sub  '***** End of Dx_Attach_Same_BANA_Template Macro *****
 
-Sub Dx_Kill_The_Hyperlinks()
-'
-' Dx_Kill_The_Hyperlinks Macro
-'
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
-'
-' Version 1.
-' Date: 11/16/2016
+' Dx_Kill_The_Hyperlinks was here until 8/12/2026. With the round trip gone the two sides were
+' the same macro written twice, so they are now Sh_Kill_The_Hyperlinks.
 
-    Dim Limited_Selection As Boolean
-    
-    Dim su_Prev As Boolean
-    su_Prev = Application.ScreenUpdating
-    Application.ScreenUpdating = False ' Turn screen updating off
-    
-    Sh_Save_User_Position
-    
-    If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
-        Limited_Selection = False
-    Else
-        Limited_Selection = True
-    End If
-
-    If Limited_Selection = True Then
-        Selection.MoveUp Unit:=wdParagraph, count:=1, Extend:=wdExtend
-        Application.Run MacroName:="Dx_Copy_To_Temp_Doc"
-        Application.Run MacroName:="Sh_Is_End_Paragraph_Mark_Included"
-        Selection.HomeKey Unit:=wdStory
-        Selection.TypeParagraph
-        Selection.HomeKey Unit:=wdStory
-    End If
-    
-    Application.Run MacroName:="Sh_Remove_Hyperlinks"
-    
-    If Limited_Selection = True Then
-        Selection.HomeKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.EndKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.EndKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.WholeStory
-        Selection.Copy
-        Selection.HomeKey Unit:=wdStory ', Extend:=wdExtend
-        
-        ActiveDocument.Close SaveChanges:=False 'close the temp doc without saving
-        Selection.Paste 'paste the clipboard back into the original document
-    Else
-        'get rid of extra pargraph mark at end of document
-        Selection.EndKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-    End If
-    
-    Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    Sh_Return_User_To_Start_Position
-    Selection.Collapse Direction:=wdCollapseStart
-    Application.ScreenUpdating = su_Prev ' Turn screen updating on
-    
-End Sub '***** End of Dx_Kill_The_Hyperlinks Macro *******************
 
 Sub Dx_Remove_Bullets()
 '
@@ -7112,67 +7059,17 @@ Sub Dx_Replace_Multiple_Para_Marks_With_Warning()
         
     End If
     
-    Application.Run MacroName:="Dx_Replace_Multiple_Para_Marks_No_Warning"
+    Application.Run MacroName:="Sh_Replace_Multiple_Para_Marks_No_Warning"
     
 End Sub    '***   end of  Dx_Replace_Multiple_Para_Marks_With_Warning macro ***
 
-Sub Dx_Replace_Multiple_Para_Marks_No_Warning()
-'
-'   Version: 1.0  Date: 2/17/2024
-'
-    Dim Limited_Selection As Boolean
-    
-    Dim su_Prev As Boolean
-    su_Prev = Application.ScreenUpdating
-    Application.ScreenUpdating = False ' Turn screen updating off
-    
-    Sh_Save_User_Position
-        
-    If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
-        Limited_Selection = False
-        Selection.WholeStory
-    Else
-        Limited_Selection = True
-        Application.Run MacroName:="Dx_Copy_To_Temp_Doc"
-    End If
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "^013{2,}"
-        .Replacement.Text = "^p"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+' Dx_Replace_Multiple_Para_Marks_No_Warning was here until 8/12/2026. It was still the original
+' "^013{2,} -> ^p" find-and-replace through a temporary document, which cannot see a paragraph
+' that LOOKS empty but holds a space - the run of marks is broken by the space, so the pattern
+' never matches and the blank line survives (Jerry, 8/12/2026). The large-print side was rewritten
+' in July to walk the paragraphs and test each one with Trim$, which does see them. Both sides now
+' use that: Sh_Replace_Multiple_Para_Marks_No_Warning.
 
-    If Limited_Selection = True Then
-        Selection.EndKey Unit:=wdStory
-        Selection.TypeBackspace
-        Selection.HomeKey Unit:=wdStory, Extend:=wdExtend
-        Selection.Copy 'copy the selected text to the clipboard
-        ActiveDocument.Close SaveChanges:=False 'close the temp doc without saving
-        Selection.Paste 'AndFormat (wdFormatOriginalFormatting)
-    End If
-
-    Selection.EndKey Unit:=wdStory
-
-    Application.ScreenUpdating = su_Prev ' Turn screen updating on
-    Sh_Return_User_To_Start_Position
-    Selection.Collapse 'clear selection
-    Application.ScreenRefresh
-    Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    'ActiveDocument.UndoClear
-
-    MsgBox "Multiple paragraph marks deleted", , "Braille Macros"
-    
-End Sub '***** Dx_Replace_Multiple_Para_Marks_No_Warning ********
 
 Sub Dx_Fix_Equals_Before_Para_Mark()
 '
@@ -7262,6 +7159,24 @@ Sub Lp_Attach_Lp_Template()
     '
     ' Description: Attaches large print template to document
     '
+    ' Version: 2.4  Date: 8/12/2026 - records "was this document already large print?" in its own
+    '                               Lp_Doc_Was_Already_LP, on EVERY path through this macro.
+    '
+    '                               It used to be recorded by writing "Doc_Is_Already_LP" into
+    '                               Lp_GP_String_1 - and only on the re-attach branch. Nothing
+    '                               ever cleared it. So once a transcriber re-attached the
+    '                               template to a document that was already large print, that
+    '                               string stayed set for the rest of the Word session, and the
+    '                               NEXT attach - to a raw scanned file - silently skipped both
+    '                               blocks it guards in Lp_Attach_The_Template: the whole of
+    '                               Lp_Fix_Common_File_Errors, the table color pass, and the
+    '                               empty-paragraph removal. That is exactly what Jerry saw:
+    '                               empty paragraph marks surviving the attach, then coming out
+    '                               the moment Full File Cleanup was run by hand.
+    '
+    '                               Lp_GP_String_1 is also written by Lp_Columns_Wanted_Form and
+    '                               Lp_TOC_Format_And_Color_Form, so the flag could equally flip
+    '                               back the other way. It is not a place to keep a decision.
     ' Version: 2.3  Date: 8/8/2026 - removed the inline Tahoma-installed check. The transcriber
     '                               now chooses the typeface on the attach dialog, which grays out
     '                               one that is not installed - a better answer than a warning, and
@@ -7308,7 +7223,13 @@ Sub Lp_Attach_Lp_Template()
     '------------------------------------------------------------------------------------
     ' Give warning if already and LP Template
     '------------------------------------------------------------------------------------
-    If (Lp_Is_The_Attached_Template_LP = True And InStr(UCase(ActiveDocument.AttachedTemplate.Name), UCase("Normal.do")) = 0) Then
+    ' Answer this fresh every time. Both blocks in Lp_Attach_The_Template that are meant to run
+    ' only on a document which is NOT already large print read this, and a stale True there is
+    ' silent - the attach just does less work than it says it does.
+    Lp_Doc_Was_Already_LP = (Lp_Is_The_Attached_Template_LP = True And _
+                             InStr(UCase(ActiveDocument.AttachedTemplate.Name), UCase("Normal.do")) = 0)
+
+    If Lp_Doc_Was_Already_LP Then
         Lp_ReAttachWarning_Form.Show
         GoTo eom  ' by-pass the "Lp_Attach_An_Lp_Template_Form.show" - which will be called from "Lp_ReAttachWarning_Form.show"
     End If
@@ -7467,6 +7388,10 @@ Sub Lp_Remove_Box_Bullets_Bullets_and_Numbers()
 End Sub '****** End of Lp_Remove_Box_Bullets_Bullets_and_Numbers Macro *****
 
 Sub Lp_Fix_Common_File_Errors()
+' Version: 2.1  Date: 8/13/2026 - now removes empty paragraphs too, as its last repair.
+'                               Jerry, 8/13/2026. Note for the File Cleanup form: checking
+'                               "fix common file errors" alone now takes the blank lines out,
+'                               without the caution the "remove para marks" box shows first.
 '
 ' Lp_Fix_Common_File_Errors
 '
@@ -7580,6 +7505,18 @@ Sh_Spin_DoEvents
 Sh_Spin_DoEvents
     Application.Run MacroName:="Lp_Delete_Zero_Width_Spaces"
 Sh_Spin_DoEvents
+
+    ' Empty paragraphs go LAST of the repairs, and after Lp_Delete_Zero_Width_Spaces in
+    ' particular: a paragraph holding nothing but a zero-width space is not empty until that
+    ' pass has run. Nothing above this line creates a blank paragraph that is meant to stay --
+    ' Lp_Add_Para_After_Image splits an image away from the text stuck to it, and
+    ' Sh_Para_Before_Dollar already reduces its own runs to a single mark. Added 8/13/2026 at
+    ' Jerry's request; until then the only callers were the attach and the cleanup form, each
+    ' running it as a step of their own. See the note in that macro about what "multiple
+    ' paragraph marks replaced by a single paragraph mark" means -- every blank line goes.
+    Application.Run MacroName:="Sh_Replace_Multiple_Para_Marks_No_Warning"
+Sh_Spin_DoEvents
+
     ' Color the $pg tags red LAST, so they are still red when this macro is run ON ITS OWN.
     ' File Cleanup is not only a step inside the attach sequence -- a transcriber can run it by
     ' itself, with no Lp_Normalize_Styles afterwards to restore the color. The cleanups above
@@ -10066,50 +10003,51 @@ Sub Lp_Manual_Tag_with_Dollar_pg()
     
 End Sub  '***** end of Lp_Manual_Tag_with_Dollar_pg Macro *****
 
-Sub Lp_Kill_The_Hyperlinks()
-'
-' Lp_Kill_The_Hyperlinks Macro
+Sub Sh_Kill_The_Hyperlinks()
 '
 ' Author: Jerry Whittaker -  jerry@thewhittakers.org
 '
-' Version 1.3  Date: 10/6/2023 - tu
-' Version 1.2  Date: 1/8/2019
-' Version 1.1  Date: 1/9/2016
+' Strips hyperlinks from the selection if there is one, and from the whole document if not.
+' Shared by both sides.
 '
-
-    Dim Limited_Selection As Boolean
-    
+' Version: 2.0  Date: 8/12/2026 - no temporary document, and ONE macro. The whole body of both
+'                                copies was one call to Sh_Remove_Hyperlinks wrapped in
+'                                round-trip plumbing - but the scratch document was doing real
+'                                work here, because Sh_Remove_Hyperlinks deleted every hyperlink
+'                                in the active document. It takes a range now, so the scope is
+'                                explicit. With that, the two sides were identical and merged.
+'                                Gone with the round trip: the braille copy's Selection.MoveUp
+'                                and its delete-one-character run, and the large-print copy's
+'                                "delete one character at the end of the document", which ran on
+'                                every route out and ate the last character when nothing was
+'                                selected.
+' Version: 1.3  Date: 10/6/2023
+' Version: 1.2  Date: 1/8/2019
+' Version: 1.1  Date: 1/9/2016
+'
+    Dim rng As Range
     Dim su_Prev As Boolean
-    su_Prev = Application.ScreenUpdating
-    Application.ScreenUpdating = False ' Turn screen updating off
-    
-    Sh_Save_User_Position
-        
-    If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
-        Limited_Selection = False
-    Else
-        Limited_Selection = True
-        Application.Run MacroName:="Lp_Copy_To_Temp_Doc"
-    End If
-    
-    Application.Run MacroName:="Sh_Remove_Hyperlinks"
 
-    If Limited_Selection = True Then
-        'Selection.Delete Unit:=wdCharacter, Count:=1
-        Application.Run MacroName:="Lp_Copy_From_Temp_Doc"
-        Selection.TypeBackspace
+    su_Prev = Application.ScreenUpdating
+    Application.ScreenUpdating = False
+
+    Sh_Save_User_Position
+
+    If Selection.Type = wdSelectionNormal Then
+        Set rng = Selection.Range
+    Else
+        Set rng = ActiveDocument.Content
     End If
-    
-    Selection.EndKey Unit:=wdStory
-    Selection.Delete Unit:=wdCharacter, count:=1
-    Application.ScreenUpdating = su_Prev ' Turn screen updating on
-    Sh_Return_User_To_Start_Position
-    Selection.Collapse 'clear selection
-    Application.ScreenRefresh
+
+    Sh_Remove_Hyperlinks rng
+
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    'ActiveDocument.UndoClear
-        
-End Sub '***** End of Lp_Kill_The_Hyperlinks Macro ******************
+    Sh_Return_User_To_Start_Position
+    Selection.Collapse Direction:=wdCollapseStart
+    Application.ScreenUpdating = su_Prev
+    Application.ScreenRefresh
+
+End Sub '***** End of Sh_Kill_The_Hyperlinks Macro ******************
 
 ' The range the paragraph-and-space passes should work on, with two adjustments that the
 ' temporary document used to make by hand. Both were found by testing the conversion of
@@ -10565,8 +10503,133 @@ Sub Lp_Selected_File_CleanUp()
 
 End Sub  '*** end of Lp_Selected_File_CleanUp macro ***
 
+Public Sub Sh_Linkify_Range(ByVal target As Range)
+'
+' Version: 1.0  Date: 8/13/2026
+'
+' Makes a live hyperlink out of every plain URL or e-mail address in the range. This is the
+' replacement for Selection.Range.AutoFormat, which did the same job as a side effect of
+' reformatting the entire document - and took empty paragraphs with it. See the note in
+' Lp_Convert_Hyper_To_Addresses.
+'
+' Text that is already part of a hyperlink is left alone, so running this twice is harmless.
+'
+    Dim doc As Document
+    Dim p As Paragraph
+    Dim raw As String, flat As String, low As String
+    Dim parts() As String
+    Dim k As Long, pos As Long, lead As Long
+    Dim offs() As Long
+    Dim tok As String, addr As String
+    Dim r As Range
+
+    If target Is Nothing Then Exit Sub
+    Set doc = target.Document
+
+    On Error Resume Next
+
+    For Each p In target.Paragraphs
+        raw = p.Range.Text
+
+        ' Everything that separates one token from the next becomes a space, one character for
+        ' one character, so an offset into flat is still an offset into the paragraph.
+        flat = Replace(raw, vbTab, " ")
+        flat = Replace(flat, Chr(160), " ")      ' non-breaking space
+        flat = Replace(flat, Chr(11), " ")       ' manual line break
+        flat = Replace(flat, vbCr, " ")
+        flat = Replace(flat, Chr(7), " ")        ' end-of-cell marker
+
+        ' Cheap gate: most paragraphs are prose and can be skipped without splitting them.
+        low = LCase$(flat)
+        If InStr(low, "://") > 0 Or InStr(low, "www.") > 0 Or InStr(low, "@") > 0 Then
+
+            parts = Split(flat, " ")
+
+            ' Offsets first, then work BACK TO FRONT. Hyperlinks.Add turns the anchor into a
+            ' field, and the field takes up room, so every offset later in the paragraph moves
+            ' the moment the first link is made. Going backwards means nothing we have yet to
+            ' handle has moved. (Front to back linked the first address in a paragraph and
+            ' quietly missed the rest - measured, on a line holding an e-mail and a URL.)
+            ReDim offs(UBound(parts))
+            pos = 0
+            For k = 0 To UBound(parts)
+                offs(k) = pos
+                pos = pos + Len(parts(k)) + 1    ' + 1 for the space Split ate
+            Next k
+
+            For k = UBound(parts) To 0 Step -1
+                pos = offs(k)
+                tok = parts(k)
+                If Len(tok) > 0 Then
+                    ' Trim what a sentence puts around an address. Count what comes off the
+                    ' FRONT - the anchor has to start after it.
+                    lead = 0
+                    Do While Len(tok) > 0
+                        If InStr("([{<" & Chr(34) & "'", Left$(tok, 1)) = 0 Then Exit Do
+                        tok = Mid$(tok, 2)
+                        lead = lead + 1
+                    Loop
+                    Do While Len(tok) > 0
+                        If InStr(".,;:!?)]}>" & Chr(34) & "'", Right$(tok, 1)) = 0 Then Exit Do
+                        tok = Left$(tok, Len(tok) - 1)
+                    Loop
+
+                    addr = Sh_Link_Address(tok)
+                    If Len(addr) > 0 Then
+                        Set r = doc.Range(p.Range.Start + pos + lead, _
+                                          p.Range.Start + pos + lead + Len(tok))
+                        If r.Hyperlinks.count = 0 Then
+                            doc.Hyperlinks.Add Anchor:=r, Address:=addr
+                        End If
+                        Set r = Nothing
+                    End If
+                End If
+            Next k
+
+        End If
+    Next p
+
+    Err.Clear
+
+End Sub   '*** end of Sh_Linkify_Range ***
+
+Private Function Sh_Link_Address(ByVal tok As String) As String
+'
+' The address a token should point at, or "" when it is not an address at all.
+'
+    Dim low As String
+    Dim at As Long
+
+    If Len(tok) < 5 Then Exit Function
+    low = LCase$(tok)
+
+    If Left$(low, 7) = "http://" Or Left$(low, 8) = "https://" Or Left$(low, 6) = "ftp://" Then
+        Sh_Link_Address = tok
+
+    ElseIf Left$(low, 4) = "www." Then
+        ' www.example.com - needs a dot after the "www." or it is not a host name
+        If InStr(5, low, ".") > 0 Then Sh_Link_Address = "http://" & tok
+
+    Else
+        ' name@example.com - an @ with something either side and a dot in the domain
+        at = InStr(low, "@")
+        If at > 1 Then
+            If InStr(at + 2, low, ".") > 0 And InStr(at + 1, low, "@") = 0 Then
+                Sh_Link_Address = "mailto:" & tok
+            End If
+        End If
+    End If
+
+End Function   '*** end of Sh_Link_Address ***
+
 Sub Lp_Convert_Hyper_To_Addresses()
 '
+' Version: 1.3   Date: 8/13/2026 - the Selection.Range.AutoFormat that turns plain URLs back into
+'                                 live links now runs with every other AutoFormat option turned
+'                                 off and restored afterwards. It was deleting empty paragraphs
+'                                 out of documents that had no hyperlinks in them - see the note
+'                                 at the call. This macro is reached by Fix Common File Errors,
+'                                 so it was happening on every cleanup and every template attach.
 ' Version: 1.2   Date: 1/8/2019
 ' Version: 1.1   Date: 6/9/2016
 '
@@ -10627,13 +10690,20 @@ On Error Resume Next
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
 
-    ' turn text back into blue underlined hyperlink
-    ' from https://social.msdn.microsoft.com/Forums/en-US/2fbd1629-29db-4e06-aeb5-e23bf0f59347/
-    '      macro-to-convert-text-to-hyperlink?forum=isvvba
-    Options.AutoFormatReplaceHyperlinks = True
-    ActiveDocument.Select
-    Selection.Range.AutoFormat
-    Selection.Collapse
+    ' Turn plain URLs and e-mail addresses back into live links.
+    '
+    ' 8/13/2026 - this used to be Selection.Range.AutoFormat over the whole document, and that
+    ' is what Jerry tracked down: AutoFormat is Word's entire AutoFormat command, and it REMOVES
+    ' EMPTY PARAGRAPHS. A document with no hyperlinks in it at all came out of Fix Common File
+    ' Errors with a run of blank lines one shorter and a lone blank line gone, before the
+    ' empty-paragraph macro had even run - which is why the attach and the cleanup disagreed.
+    '
+    ' Turning off every AutoFormat option except ReplaceHyperlinks does NOT stop it. The blank
+    ' paragraphs still go; the paragraph analysis is not one of the options. That was measured,
+    ' not assumed. So AutoFormat is gone and the links are made directly, which also means this
+    ' macro no longer changes Options.AutoFormatReplaceHyperlinks - an Application setting that
+    ' belongs to the transcriber and that the old code turned on permanently.
+    Sh_Linkify_Range ActiveDocument.Content
 
     If Limited_Selection = True Then
         'Selection.Delete Unit:=wdCharacter, Count:=1
@@ -11029,75 +11099,114 @@ Sub Lp_Replace_Multiple_Para_Marks_With_Warning()
     ' above asks "Do you wish to continue?", and a "Working - Please Wait" window sitting
     ' over a question the user has not answered yet would be nonsense. Jerry, 8/3/2026.
     Sh_Show_Please_Wait "Removing consecutive empty paragraph marks"
-    Application.Run MacroName:="Lp_Replace_Multiple_Para_Marks_No_Warning"
+    Application.Run MacroName:="Sh_Replace_Multiple_Para_Marks_No_Warning"
     Sh_Hide_Please_Wait
     
 End Sub    '***   end of  Lp_Replace_Multiple_Para_Marks_With_Warning macro ***
      
-Sub Lp_Replace_Multiple_Para_Marks_No_Warning()
+Sub Sh_Replace_Multiple_Para_Marks_No_Warning()
 '
+'  Version: 2.2  Date: 8/13/2026 - it removes EVERY empty paragraph in range, leaving none.
+'
+'                                 2.0 and 2.1 left one behind on the reading that "collapse a
+'                                 run" meant "down to one blank line". It does not. The caution
+'                                 in Sh_Replace_Multiple_Para_Marks_With_Warning has said what
+'                                 this macro does since 2018 - replace multiple paragraph marks
+'                                 with A SINGLE PARAGRAPH MARK, and "if you have purposely added
+'                                 extra blank lines this macro will remove those lines". One
+'                                 paragraph mark between two paragraphs is no blank line at all.
+'                                 A lone blank line is two consecutive marks, so it goes too.
+'  Version: 2.1  Date: 8/13/2026 - the blank test now also counts a paragraph holding only tabs
+'                                 or only non-breaking spaces - see Sh_IsBlankParaMark 1.1
+'  Version: 2.0  Date: 8/12/2026 - ONE macro, and it respects the selection.
+'
+'                                 The braille side was still doing "^013{2,} -> ^p" through a
+'                                 temporary document. That pattern needs the paragraph marks to
+'                                 be TOUCHING, so a line holding a single space breaks the run
+'                                 and survives - which is what Jerry was seeing. The walk below
+'                                 tests each paragraph with Trim$ instead, so a spaces-only line
+'                                 counts as blank. Both sides use this now.
+'
+'                                 It also now works on the SELECTION when there is one. The walk
+'                                 added in July went over the whole document however much was
+'                                 selected - while the caution in
+'                                 Sh_Replace_Multiple_Para_Marks_With_Warning was telling the
+'                                 transcriber that selecting text is how you limit it. The
+'                                 warning was right and the code was not.
 '  Version: 1.8  Date: 8/3/2026 - the throttled DoEvents is now Sh_Spin_DoEvents, so it turns whichever progress box is showing
 '  Version: 1.7  Date: 7/18/2026 - throttle DoEvents to every 200 paragraphs (was every one)
 '  Version: 1.6  Date: 7/18/2026 - walk paragraphs via .Previous (linked) instead of
 '                                  indexed paras(i); ~O(n) vs ~O(n^2) on large files.
-'                                  Same collapse-runs-of-blanks-to-one behavior.
 '  Version: 1.5  Date: 7/2/2026 - complete rewrite
 '
     Dim doc As Document
+    Dim rng As Range
     Dim p As Paragraph
     Dim prevP As Paragraph
+    Dim stopBefore As Long
+    Dim deCount As Long
 
     Set doc = ActiveDocument
-    Set p = doc.Paragraphs.Last
+
+    If Selection.Type = wdSelectionNormal Then
+        Set rng = Selection.Range
+    Else
+        Set rng = doc.Content
+    End If
+    stopBefore = rng.Start
+
+    Set p = rng.Paragraphs.Last
 
     ' Walk backward via the linked .Previous so we never random-index the (slow) Paragraphs
     ' collection. Capture prevP BEFORE any delete: deleting p invalidates p, not prevP.
-    ' Delete a blank paragraph only when the one before it is also blank -> a run of 2+
-    ' blank paragraphs collapses to a single blank paragraph (unchanged behavior).
-    ' DoEvents only every 200 paragraphs (keeps Word responsive without paying the message-
-    ' pump cost on every iteration of a loop that can run thousands of times on large docs).
-    Dim deCount As Long
+    ' Every empty paragraph goes, however many there are in a row and whether or not it has a
+    ' blank neighbor. DoEvents only every 200 paragraphs.
     Do While Not (p Is Nothing)
-        Set prevP = p.Previous          ' Nothing at the first paragraph
-        If Not (prevP Is Nothing) Then
-            If Lp_IsBlankParaMark(p) And Lp_IsBlankParaMark(prevP) Then
-                p.Range.Delete
-            End If
+        Set prevP = p.Previous          ' Nothing at the first paragraph of the document
+
+        ' The document's own final paragraph mark cannot be removed - Word always keeps one -
+        ' so leave it alone rather than ask and be refused.
+        If p.Range.End < doc.Content.End Then
+            If Sh_IsBlankParaMark(p) Then p.Range.Delete
         End If
+
+        If Not (prevP Is Nothing) Then
+            ' .Previous walks out of the selection quite happily, so stop at its edge.
+            If prevP.Range.Start < stopBefore Then Exit Do
+        End If
+
         Set p = prevP
         deCount = deCount + 1
         If deCount Mod 200 = 0 Then Sh_Spin_DoEvents
     Loop
 
-End Sub   '***** Lp_Replace_Multiple_Para_Marks_No_Warning ********
+End Sub   '***** Sh_Replace_Multiple_Para_Marks_No_Warning ********
 
-Private Function Lp_IsBlankParaMark(p As Paragraph) As Boolean
-    ' Exact blank test the old indexed loop used: strip paragraph marks, then Trim$.
-    ' Note: intentionally does NOT strip tabs/nbsp, so a tab-only paragraph is NOT blank.
+Private Function Sh_IsBlankParaMark(p As Paragraph) As Boolean
+    '
+    ' Version: 1.1  Date: 8/13/2026 - a tab-only or non-breaking-space-only paragraph now counts
+    '                                as empty. This is Jerry's own Lp_IsEmptyPara test, written
+    '                                for exactly this and never wired to anything; that function
+    '                                is gone and this is now the one blank test in the project.
+    '                                The narrower Trim$-only version that used to be here was
+    '                                preserving the behavior of the old indexed loop, and a line
+    '                                holding one tab looks every bit as empty on the page as a
+    '                                line holding one space.
+    '
+    ' NOT stripped, deliberately: the end-of-cell marker, Chr(7). The last paragraph of a table
+    ' cell reads as vbCr & Chr(7), so leaving Chr(7) in place is what stops this returning True
+    ' for an empty cell - and deleting that paragraph would damage the table.
+    '
     Dim txt As String
-    txt = p.Range.Text
-    txt = Replace(txt, vbCr, "")
-    txt = Trim$(txt)
-    Lp_IsBlankParaMark = (Len(txt) = 0)
-End Function   '***** Lp_IsBlankParaMark ********
-
-Function Lp_IsEmptyPara(p As Paragraph) As Boolean
-    Dim txt As String
 
     txt = p.Range.Text
+    txt = Replace(txt, vbCr, "")      ' paragraph mark
+    txt = Replace(txt, Chr(160), "")  ' non-breaking space
+    txt = Replace(txt, Chr(9), "")    ' tab
+    txt = Trim$(txt)                  ' ordinary spaces
 
-    ' Remove paragraph mark
-    If Right$(txt, 1) = vbCr Then
-        txt = Left$(txt, Len(txt) - 1)
-    End If
-
-    ' Normalize whitespace
-    txt = Replace(txt, Chr(160), "") ' nonbreaking space
-    txt = Replace(txt, Chr(9), "")   ' tabs
-    txt = Trim$(txt)
-
-    Lp_IsEmptyPara = (Len(txt) = 0)
-End Function '   *** end of Lp_IsEmptyPara(p As Paragraph) As Boolean ***
+    Sh_IsBlankParaMark = (Len(txt) = 0)
+End Function   '***** Sh_IsBlankParaMark ********
 
 Sub Lp_Turn_on_Styles_Pane()
     '
@@ -13734,6 +13843,12 @@ Sub Lp_Attach_The_Template()
 
     ' Attaches the LP template with style changes
     '
+    ' Version: 3.4  Date: 8/12/2026 - the two "only on a document that is not already LP" blocks
+    '                               now test Lp_Doc_Was_Already_LP instead of a leftover string in
+    '                               the shared Lp_GP_String_1. See Lp_Attach_Lp_Template 2.4: the
+    '                               old flag was never cleared, so after one re-attach in a Word
+    '                               session every later attach skipped the file cleanup and the
+    '                               empty-paragraph removal without saying so
     ' Version: 3.3  Date: 8/8/2026 - applies the typeface the transcriber chose (Lp_Base_Font_Name)
     '                               to the styles AND the text, instead of hard-coding Tahoma, and
     '                               embeds the font in the document when it is ours. Also records
@@ -13748,7 +13863,7 @@ Sub Lp_Attach_The_Template()
     ' Version: 2.5  Date: 3/5/2026 - added non-modal message
     ' Version: 2.4  Date: 10/13/2025 - Moved "Lp_ResizePicturesAndShapesToFitPageWidthAndPageHeight" from runnining only on new documents
     '                                  to running anytime template is added to new documents or added to existing LP doc
-    ' Version: 2.3  Date: 9/1/2025 - added Application.Run MacroName:="Lp_Replace_Multiple_Para_Marks_No_Warning"
+    ' Version: 2.3  Date: 9/1/2025 - added Application.Run MacroName:="Sh_Replace_Multiple_Para_Marks_No_Warning"
     ' Version: 2.2  Date: 5/13/2025 - added Application.Run MacroName:="MS_Set_Word_Config_For_Large_Print"
     ' Version: 2.1  Date: 5/5/2025 - added   Lp_ResizePicturesAndShapesToFitPageWidthAndPageHeight AND Lp_SetPicturesToInlineAndLockAspectRatio
     ' Version: 2.0  Date: 2/4/2024 - removed  Application.Run MacroName:="Lp_Fix_Normal_Styles"
@@ -13779,7 +13894,7 @@ Sub Lp_Attach_The_Template()
     Dim currentdoc As Document
     Set currentdoc = ActiveDocument 'will work with blank, unsaved documents too
     
-    If Lp_GP_String_1 <> "Doc_Is_Already_LP" Then  ' this only needs to be done on docs which are not lp
+    If Not Lp_Doc_Was_Already_LP Then  ' this only needs to be done on docs which are not lp
         ' The message belongs INSIDE the If. It used to be set just above it as well, so a
         ' re-attach announced "Fixing common file errors" and then skipped the macro - which is
         ' correct behavior for a document that is already large print, but the message said
@@ -13945,7 +14060,7 @@ DoEvents
    ' Fix para styles
    ' ----------------------------------------------------------------------------------------------------------------------------
 
-    If Lp_GP_String_1 <> "Doc_Is_Already_LP" Then  ' this only needs to be done on docs which are not lp
+    If Not Lp_Doc_Was_Already_LP Then  ' this only needs to be done on docs which are not lp
     
 Sh_NonModalMessageForm.SetActivityMessage "Setting table alternating color style"
 DoEvents
@@ -13963,7 +14078,7 @@ DoEvents
 Sh_NonModalMessageForm.SetActivityMessage "Removing empty paragraphs"
 DoEvents
 
-        Application.Run MacroName:="Lp_Replace_Multiple_Para_Marks_No_Warning"
+        Application.Run MacroName:="Sh_Replace_Multiple_Para_Marks_No_Warning"
         
 Sh_NonModalMessageForm.SetActivityMessage "Fixing Abbyy FineReader headings and normal styles"
 DoEvents
@@ -15527,50 +15642,62 @@ Sub DN_Remove_Para_Formatting_From_Text_Files()
 
 End Sub '***** End of DN_Remove_Para_Formatting_From_Text_Files Macro *****
 
-Sub Sh_Remove_Hyperlinks()
+Sub Sh_Remove_Hyperlinks(Optional ByVal target As Range)
 '
 ' Author: Jerry Whittaker -  jerry@thewhittakers.org
-' Date: 1/31/2016
-' Version: 1.0
 '
-'Called by both Lp and Dx Sections
+' Strips the blue-and-underlined look, then deletes the links themselves.
 '
-'------------------------------------------------------------------------------------
-' clear the color and underlining
-'------------------------------------------------------------------------------------
-    Selection.Find.ClearFormatting
-    With Selection.Find.Font
-        .Underline = wdUnderlineSingle
-        .Color = wdColorBlue
-    End With
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find.Replacement.Font
-        .Underline = wdUnderlineNone
-        .Color = wdColorAutomatic
-    End With
-    With Selection.Find
+' target  the range to work on. Omit it and the WHOLE DOCUMENT is stripped, which is what this
+'         macro has always done and what its unconverted callers still expect.
+'
+'         That default is the point to understand before converting anything that calls this.
+'         The old Kill_The_Hyperlinks pair confined it to a selection by copying that selection
+'         into a temporary document first - the deletion below reaches every hyperlink in
+'         whatever document is active, so the scratch document WAS the scope. That is real work
+'         the round trip was doing, not plumbing (Jerry, 8/12/2026).
+'
+' Version: 2.0  Date: 8/12/2026 - takes a range
+' Version: 1.0  Date: 1/31/2016
+'
+    Dim rng As Range
+    Dim guard As Long
+
+    If target Is Nothing Then
+        Set rng = ActiveDocument.Content
+    Else
+        Set rng = target
+    End If
+
+    ' the blue and the underline
+    With rng.Find
+        .ClearFormatting
+        .Font.Underline = wdUnderlineSingle
+        .Font.Color = wdColorBlue
+        .Replacement.ClearFormatting
+        .Replacement.Font.Underline = wdUnderlineNone
+        .Replacement.Font.Color = wdColorAutomatic
         .Text = ""
         .Replacement.Text = ""
         .Forward = True
-        .Wrap = wdFindContinue
+        .Wrap = wdFindStop
         .Format = True
         .MatchCase = False
         .MatchWholeWord = False
         .MatchWildcards = False
         .MatchSoundsLike = False
         .MatchAllWordForms = False
+        .Execute Replace:=wdReplaceAll
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
 
-'------------------------------------------------------------------------------------
-' clear links
-'------------------------------------------------------------------------------------
+    ' the links themselves. Always index 1: deleting renumbers the collection, so walking it
+    ' forwards would step over every other one. Bounded, because a collection that will not
+    ' shrink must not spin for ever.
+    Do While rng.Hyperlinks.count > 0 And guard < 5000
+        rng.Hyperlinks(1).Delete
+        guard = guard + 1
+    Loop
 
-  Dim nHL As Long
-    For nHL = 1 To ActiveDocument.Hyperlinks.count
-         ActiveDocument.Hyperlinks(1).Delete
-    Next nHL
-    
  End Sub  '***** end of Sh_Remove_Hyperlinks macro ***
 
 Sub Sh_Color_Dollar_PG_Red()

@@ -21,7 +21,10 @@ Private Sub CmdNoButton_Click()
 End Sub
 
 Private Sub CmdYesButton_Click()
-    Lp_GP_String_1 = "Doc_Is_Already_LP"
+    ' 8/12/2026 - the "Lp_GP_String_1 = 'Doc_Is_Already_LP'" line that used to sit here is
+    ' gone. Lp_Attach_Lp_Template now sets Lp_Doc_Was_Already_LP before it shows this form,
+    ' and on every other path too. Writing the answer into the shared, never-cleared
+    ' Lp_GP_String_1 was what made later attaches skip their file cleanup.
     Lp_ReAttachWarning_Form.Hide
     LP_Attach_An_Lp_Template_Form.Show
     Unload Me
