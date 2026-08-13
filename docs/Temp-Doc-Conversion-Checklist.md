@@ -221,6 +221,53 @@ these reach it only through a shared cleanup helper. Confirm per button as you g
       The braille twin never had the bug — `Dx_Convert_Hyper_To_Addresses` has no AutoFormat
       call. It also makes no links; it only strips them to text.
 
+### Group 2 — shapes, frames and numbering (3.0.169)
+
+Jerry's guess was right: **the round trip was doing real work in every one of these**, and more
+of it than anywhere else so far. `ActiveDocument.Shapes`, `.Frames`, `.ListParagraphs` and
+`ConvertNumbersToText` are whole-document by nature — there is no "the shapes in this selection"
+to ask for — so copying the selection into a scratch document was the only thing keeping any of
+them off the rest of the book.
+
+- [x] Remove Txt Bxs And Frames — now `Sh_Remove_Txt_Bxs_And_Frames` (3.0.170). Converted as two
+      macros and reported as "different work, not merged"; Jerry's answer was to make the
+      large-print one behave like the braille one — ungroup first, take text from ANY shape that
+      has some, keep the formatting — and with that they were the same job written twice, so they
+      merged. **The rule cuts both ways.** A real difference in behavior is a question for Jerry,
+      not a reason to stop: he may want one of the two behaviors everywhere. Ask before assuming
+      the difference is wanted.
+      Two large-print faults went with it: the text came out as a plain STRING, so a bold word in
+      a text box arrived flat, and the closing marker had no paragraph mark after it, so it welded
+      onto the front of the anchor paragraph.
+- [x] Remove Bullets — `Dx_Remove_Bullets`. Three separate things reached past the selection
+      here: `Sh_Remove_Hyperlinks` (whose default is still the whole document),
+      `Dx_Convert_Auto_List_To_Text`, and every `Selection.Find` with `wdFindContinue`.
+- [x] Remove Box Bullets, Bullets and Numbers — `Lp_Remove_Box_Bullets_Bullets_and_Numbers`.
+- [x] Convert Auto List To Text — `Lp_` and `Dx_`, converted here rather than in group 3 because
+      `Dx_Remove_Bullets` calls it. **A macro scoped to a range cannot call one that goes through
+      a temporary document**: the paste back invalidates the range it was holding. Convert the
+      callee first, always.
+
+New traps from this group:
+
+**A shape belongs to a range when its ANCHOR does.** A floating shape has no place in the text of
+its own; the anchor is what travels with copied text, so the anchor is what decides.
+`Sh_Shape_In_Range` and `Sh_Frame_In_Range` do it, and both check `StoryType` first — a shape
+anchored in a header has an anchor whose `.Start` counts from the beginning of THAT story, and it
+would otherwise fall inside the main story's numbers by coincidence.
+
+**Delete shapes backwards by index.** `For Each` over `Shapes` while deleting from it skips the
+next shape. `Lp_Remove_Txt_Bxs_And_Frames` was working around that by running the whole pass four
+times; backwards by index, one pass is enough and nothing is missed.
+
+**`Range.FormattedText` replaces the clipboard.** The braille copy kept the text box's formatting
+by copying and pasting. Assigning `FormattedText` to a COLLAPSED range inserts at that point and
+keeps the formatting, without taking the transcriber's clipboard away.
+
+**Selecting a range does not flash.** Where a helper still reads `Selection` — the large-print
+Convert Auto List To Text needs `Lp_Toggle_Space_After_Current_Para` — select the range and call
+it. The flashing came from ACTIVATING another document, not from moving the selection within one.
+
 ## The helpers underneath
 
 These are what the buttons above reach. Converting a helper converts every button that uses it,

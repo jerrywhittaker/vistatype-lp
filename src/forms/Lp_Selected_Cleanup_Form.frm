@@ -46,7 +46,7 @@ Private Sub OkayButton_Click()
         Application.Run MacroName:="Lp_Convert_Auto_List_To_Text"
     ElseIf Text_Boxes_And_Frames Then
         Application.Run MacroName:="Lp_Is_Text_Selected"
-        Application.Run MacroName:="Lp_Remove_Txt_Bxs_And_Frames"
+        Application.Run MacroName:="Sh_Remove_Txt_Bxs_And_Frames"
     ElseIf ReplaceHyper Then
         Application.Run MacroName:="Lp_Is_Text_Selected"
         Application.Run MacroName:="Lp_Convert_Hyper_To_Addresses"

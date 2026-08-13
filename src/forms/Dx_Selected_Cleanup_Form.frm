@@ -1,10 +1,10 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Dx_Selected_Cleanup_Form 
    Caption         =   "Selected Cleanup"
-   ClientHeight    =   9660.001
+   ClientHeight    =   9156.001
    ClientLeft      =   120
    ClientTop       =   450
-   ClientWidth     =   8670.001
+   ClientWidth     =   8520.001
    OleObjectBlob   =   "Dx_Selected_Cleanup_Form.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
@@ -13,6 +13,7 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
+
 ' Dx_Selected_Cleanup_Form
 '
 ' Version: 1.3  Date: 3/4/2024 - removed "End" from CmdCancel_Click() added "MS_Set_Word_Config_For_Braille"  to "UserForm_Initialize"
@@ -80,7 +81,7 @@ Private Sub Okay_Click()
 
     If Text_Boxes_And_Frames Then
         Unload Dx_Selected_Cleanup_Form
-        Application.Run MacroName:="Dx_Remove_Txt_Bxs_And_Frames"
+        Application.Run MacroName:="Sh_Remove_Txt_Bxs_And_Frames"
     End If
              
     If ReplaceHyper Then
@@ -118,6 +119,8 @@ Private Sub UserForm_Initialize()
     Me.StartUpPosition = 0
     Me.Left = Application.Left + (0.5 * Application.Width) - (0.5 * Me.Width)
     Me.Top = Application.Top + (0.5 * Application.Height) - (0.5 * Me.Height)
+    Me.ScrollBars = fmScrollBarsNone
+
     
 
 End Sub

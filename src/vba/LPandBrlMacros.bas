@@ -395,6 +395,12 @@ Public Lp_GP_String_2 As String
 ' variable because the general-purpose Lp_GP_String_1 it used to live in is written by other
 ' features and never cleared - see the note at the top of Lp_Attach_Lp_Template. 8/12/2026
 Public Lp_Doc_Was_Already_LP As Boolean
+
+' The markers Remove_Txt_Bxs_And_Frames leaves around rescued text, so a transcriber can find
+' where it came from. Sh_Text_Frame_Warning_To_Red colors these, so all three macros have to
+' agree on the wording character for character - which is why they are constants. 8/13/2026
+Public Const SH_TBX_BELOW As String = "<CONTENT FROM A TEXT BOX OR FRAME IS BELOW>"
+Public Const SH_TBX_ABOVE As String = "<CONTENT FROM A TEXT BOX OR FRAME IS ABOVE>"
 Public Lp_GP_String_3 As String
 Public Lp_GP_Boolean_1 As Boolean
 Public Lp_GP_Counter_1 As Integer
@@ -986,7 +992,7 @@ Sub Dx_Attach_BANA_Template()
 
     'converts Word Lang Tags into DBT foreign language tags - BANA template must be attached for this to work
     Application.Run MacroName:="Dx_Add_Color_To_Foreign_Language_Words"
-    Application.Run MacroName:="Dx_Remove_Txt_Bxs_And_Frames"
+    Application.Run MacroName:="Sh_Remove_Txt_Bxs_And_Frames"
     Application.ScreenUpdating = su_Prev ' Turn screen updating on
     Application.ScreenRefresh
     MsgBox (ActiveDocument.AttachedTemplate) + " template has been attached!", , "Braille Macros"
@@ -2039,162 +2045,123 @@ GetTempTypeFromUserExit:
     
 End Sub   '*** end of Dx_Is_BANA_Template_Attached macro ***
 
-Sub Dx_Convert_Auto_List_To_Text()
+Sub Dx_Convert_Auto_List_To_Text(Optional ByVal target As Range)
     '
     ' Original title "AutoListOff2"
     ' From: Computer Tools for Editors(and Proofreaders)by Paul Beverley, LCGI
     '        http://www.archivepub.co.uk/book.html
+    ' Initial version by Paul Beverley; modified by Jerry Whittaker - jerry@thewhittakers.org
     '
-    ' Version 21.02.12
-    ' Changes auto-bulleted, auto-numbered and auto-outline listing to real bullets and numbers
-    ' Removes tab character from bullets
-    ' Works on entire document
+    ' Changes auto-bulleted, auto-numbered and auto-outline listing to real bullets and numbers,
+    ' and takes the tab out from behind the marker.
     '
-    ' Modified by Jerry Whittaker - jerry@thewhittakers.org
-    ' Modification Version: 1.3
-    ' Date Modified: 11/16/2016
-    
-    ' Call: Application.Run MacroName:="Dx_Convert_Auto_List_To_Text
-    
-        Dim Limited_Selection As Boolean
+    ' target  the range to work on. Omit it and the selection is used, or the whole document when
+    '         there is no selection.
+    '
+    ' Version: 2.0  Date: 8/13/2026 - no temporary document; takes a range.
+    '
+    '                                ActiveDocument.ConvertNumbersToText is a whole-document
+    '                                operation, and every Find was built on ActiveDocument.Range
+    '                                with wdFindContinue - the comments even say "replaces all in
+    '                                the document". The scratch document was the only thing
+    '                                confining any of it to the transcriber's selection, so this
+    '                                is another one where the round trip was doing real work.
+    '
+    '                                Converted now because Dx_Remove_Bullets calls it: a macro
+    '                                that has been scoped to a range cannot call one that goes
+    '                                through a temporary document, because the paste back
+    '                                invalidates the range it was holding.
+    '
+    '                                Gone with the round trip: the four-character delete run and
+    '                                "delete one character at the end of the document".
+    ' Version: 1.3  Date: 11/16/2016
+    '
+    Dim rng As Range
     Dim NewCharacter As String
     Dim NormalFont As String
-    Dim rng As Range
-    
     Dim su_Prev As Boolean
+
     su_Prev = Application.ScreenUpdating
-    Application.ScreenUpdating = False ' Turn screen updating off
-    
+    Application.ScreenUpdating = False
+
     Sh_Save_User_Position
-    
-    If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
-        Limited_Selection = False
-    Else
-        Limited_Selection = True
-    End If
 
-    If Limited_Selection = True Then
-        Selection.MoveUp Unit:=wdParagraph, count:=1, Extend:=wdExtend
-        Application.Run MacroName:="Dx_Copy_To_Temp_Doc"
-        Application.Run MacroName:="Sh_Is_End_Paragraph_Mark_Included"
-        Selection.HomeKey Unit:=wdStory
-        Selection.TypeParagraph
-        Selection.HomeKey Unit:=wdStory
+    If target Is Nothing Then
+        If Selection.Type = wdSelectionNormal Then
+            Set rng = Selection.Range
+        Else
+            Set rng = ActiveDocument.Content
+        End If
+    Else
+        Set rng = target
     End If
-    
     NewCharacter = ChrW(8226): ' a bullet
-      
-    ActiveDocument.ConvertNumbersToText 'this gets rid of the protected nature
-    
     NormalFont = ActiveDocument.Styles(wdStyleNormal).Font.Name
-    
-    ' One common type of bullet uses Symbol font
-     Set rng = ActiveDocument.Range
-     With rng.Find
-       .ClearFormatting
-       .Replacement.ClearFormatting
-       .MatchWildcards = False
-       .Text = ChrW(&HF0B7) & "^t"
-       .Forward = True
-       .Font.Name = "Symbol"
-       .Replacement.Text = NewCharacter & " "
-       .Replacement.Font.Name = NormalFont
-       .Wrap = wdFindContinue  'replaces all in the document
-       .Execute Replace:=wdReplaceAll
-     End With
-    
-     ' The other type of bullet uses Wingding font
-     Set rng = ActiveDocument.Range
-     With rng.Find
-       .Text = ChrW(&HF0FC) & "^t"
-       .Font.Name = "Wingding"
-       .Replacement.Text = NewCharacter & " "
-       .Replacement.Font.Name = NormalFont
-       .Wrap = wdFindContinue  'replaces all in the document
-       .Execute Replace:=wdReplaceAll
-     End With
-    
-    ' Remove the tabs from mumbered list
-     Set rng = ActiveDocument.Range
-     With rng.Find
-        .MatchWildcards = True
-       .Text = "([0-9]{1,}^046)^009"
-       .Replacement.Text = "\1^032"
-       .Replacement.Font.Name = NormalFont
-       .Wrap = wdFindContinue  'replaces all in the document
-       .Execute Replace:=wdReplaceAll
-     End With
-     
-    ' Remove the tabs from bulleted list
-     Set rng = ActiveDocument.Range
-     With rng.Find
-    .MatchWildcards = True
-       .Text = "(^0149)^009"
-       .Replacement.Text = "\1^032"
-       .Replacement.Font.Name = NormalFont
-       .Wrap = wdFindContinue  'replaces all in the document
-       .Execute Replace:=wdReplaceAll
-     End With
-     
-    ' Remove the tabs small alpa from outline list
-     Set rng = ActiveDocument.Range
-     With rng.Find
-        .MatchWildcards = True
-       .Text = "(^013[A-Za-z]{1,}^046)^009"
-       .Replacement.Text = "\1^032"
-       .Replacement.Font.Name = NormalFont
-       .Wrap = wdFindContinue  'replaces all in the document
-       .Execute Replace:=wdReplaceAll
-     End With
-     
-    ' Remove the tabs small alpa with paren from outline list
-     Set rng = ActiveDocument.Range
-     With rng.Find
-        .MatchWildcards = True
-        .Text = "([A-Za-z]{1,}\))^009"
-        .Replacement.Text = "\1^032"
-       .Replacement.Font.Name = NormalFont
-       .Wrap = wdFindContinue  'replaces all in the document
-       .Execute Replace:=wdReplaceAll
-     End With
-     
-    ' Remove the tabs numb with paren from outline list
-     Set rng = ActiveDocument.Range
-     With rng.Find
-        .MatchWildcards = True
-        .Text = "([0-9]{1,}\))^009"
-        .Replacement.Text = "\1^032"
-       .Replacement.Font.Name = NormalFont
-       .Wrap = wdFindContinue  'replaces all in the document
-       .Execute Replace:=wdReplaceAll
-     End With
 
-    If Limited_Selection = True Then
-        Selection.HomeKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.EndKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.EndKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.WholeStory
-        Selection.Copy
-        Selection.HomeKey Unit:=wdStory ', Extend:=wdExtend
-        
-        ActiveDocument.Close SaveChanges:=False 'close the temp doc without saving
-        Selection.Paste 'paste the clipboard back into the original document
-    Else
-        'get rid of extra pargraph mark at end of document
-        Selection.EndKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-    End If
-    
+    rng.ListFormat.ConvertNumbersToText   ' this gets rid of the protected nature
+
+    ' One common type of bullet uses Symbol font
+    With rng.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
+        .MatchWildcards = False
+        .Text = ChrW(&HF0B7) & "^t"
+        .Forward = True
+        .Font.Name = "Symbol"
+        .Replacement.Text = NewCharacter & " "
+        .Replacement.Font.Name = NormalFont
+        .Wrap = wdFindStop
+        .Execute Replace:=wdReplaceAll
+    End With
+
+    ' The other type of bullet uses Wingding font
+    With rng.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
+        .MatchWildcards = False
+        .Text = ChrW(&HF0FC) & "^t"
+        .Font.Name = "Wingding"
+        .Replacement.Text = NewCharacter & " "
+        .Replacement.Font.Name = NormalFont
+        .Wrap = wdFindStop
+        .Execute Replace:=wdReplaceAll
+    End With
+
+    ' The tab behind the marker becomes a space, for each shape of list marker in turn
+    Sh_Marker_Tab_To_Space rng, "([0-9]{1,}^046)^009", NormalFont      ' 1.
+    Sh_Marker_Tab_To_Space rng, "(^0149)^009", NormalFont              ' bullet
+    Sh_Marker_Tab_To_Space rng, "(^013[A-Za-z]{1,}^046)^009", NormalFont   ' a.
+    Sh_Marker_Tab_To_Space rng, "([A-Za-z]{1,}\))^009", NormalFont     ' a)
+    Sh_Marker_Tab_To_Space rng, "([0-9]{1,}\))^009", NormalFont        ' 1)
+
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     Sh_Return_User_To_Start_Position
     Selection.Collapse Direction:=wdCollapseStart
-    Application.ScreenUpdating = su_Prev ' Turn screen updating on
-    
+    Application.ScreenUpdating = su_Prev
+
 End Sub  '**** end of Dx_Convert_Auto_List_To_Text Macro ***********
+
+Public Sub Sh_Marker_Tab_To_Space(ByVal rng As Range, ByVal pattern As String, ByVal fontName As String)
+'
+' Version: 1.0  Date: 8/13/2026
+'
+' One "list marker followed by a tab becomes list marker followed by a space" pass. Both copies
+' of Convert_Auto_List_To_Text had five or six of these written out longhand and identical apart
+' from the pattern.
+'
+    With rng.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
+        .MatchWildcards = True
+        .Text = pattern
+        .Replacement.Text = "\1^032"
+        .Replacement.Font.Name = fontName
+        .Forward = True
+        .Wrap = wdFindStop
+        .Execute Replace:=wdReplaceAll
+    End With
+
+End Sub   '*** end of Sh_Marker_Tab_To_Space ***
 
 Sub Dx_Replace_Tabs_With_Single_Space()
 '
@@ -2355,7 +2322,7 @@ Sub Dx_Fix_Common_File_Errors()
 
     Application.Run MacroName:="Dx_Fix_En_Dash_Errors"
 
-    Application.Run MacroName:="Dx_Remove_Txt_Bxs_And_Frames"
+    Application.Run MacroName:="Sh_Remove_Txt_Bxs_And_Frames"
     
     Application.Run MacroName:="Dx_Convert_Auto_List_To_Text"
 
@@ -2689,115 +2656,6 @@ Sub Dx_Fix_En_Dash_Errors()
     Selection.Find.Execute Replace:=wdReplaceAll
 
 End Sub  '*** end of Dx_Fix_En_Dash_Errors macro ***
-
-Sub Dx_Remove_Txt_Bxs_And_Frames()
-    '
-    ' Original Macro Name "TextBoxFrameCut" by author below
-    '
-    ' From: Computer Tools for Editors(and Proofreaders)by Paul Beverley, LCGI
-    '        downloadable at no cost from http://www.archivepub.co.uk/book.html
-    '
-    ' Version 01.06.10
-    ' Remove textboxes and frames
-    ' Initial version by richardwalshe@prufrock.co.uk
-    '
-    ' Revision Version: 1.1
-    ' Revision Date: 11/16/2016
-    
-    ' Places </TBX> at the begining and end of the text from the box
-    ' Places </FRM> at the begining and end of the text from a frame
-    '
-    Dim Limited_Selection As Boolean
-    
-    Dim su_Prev As Boolean
-    su_Prev = Application.ScreenUpdating
-    Application.ScreenUpdating = False ' Turn screen updating off
-    
-    Sh_Save_User_Position
-    
-    If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
-        Limited_Selection = False
-    Else
-        Limited_Selection = True
-    End If
-
-    If Limited_Selection = True Then
-        Selection.MoveUp Unit:=wdParagraph, count:=1, Extend:=wdExtend
-        Application.Run MacroName:="Dx_Copy_To_Temp_Doc"
-        Application.Run MacroName:="Sh_Is_End_Paragraph_Mark_Included"
-        Selection.HomeKey Unit:=wdStory
-        Selection.TypeParagraph
-        Selection.HomeKey Unit:=wdStory
-    End If
-    
-    Dim sh As Shape
-    Dim fr As Frame
-    
-    For Each sh In ActiveDocument.Shapes
-        If sh.Type = msoGroup Then sh.Ungroup
-    Next sh
-    
-    For Each sh In ActiveDocument.Shapes
-        If sh.TextFrame.HasText Then
-          ' Leaves images intact
-            sh.TextFrame.TextRange.Copy
-          ' Finds where the anchor for the textbox is
-          ' N.B. This is not necessarily where the textbox
-          '  has ended up
-            sh.Anchor.Paragraphs(1).Range.Select
-            Selection.Collapse
-            sh.Delete
-          ' Marks material so correctness of position
-          '  can be checked
-            Selection.TypeText Text:="<CONTENT FROM A TEXT BOX OR FRAME IS BELOW>"
-            Selection.TypeParagraph
-            Selection.Paste
-            Selection.TypeText Text:="<CONTENT FROM A TEXT BOX OR FRAME IS ABOVE>" & vbCrLf
-        End If
-    Next sh
-    
-    For Each fr In ActiveDocument.Frames
-      ' Removes frames with similar tagging for later checking
-        fr.Select
-        Selection.Collapse
-        Selection.TypeText Text:="<CONTENT FROM A TEXT BOX OR FRAME IS BELOW>"
-        Selection.TypeParagraph
-        fr.Select
-        Selection.Collapse Direction:=wdCollapseEnd
-        Selection.TypeText Text:="<CONTENT FROM A TEXT BOX OR FRAME IS ABOVE>" & vbCrLf
-      ' This is the bit that actually removes the frames
-        fr.Select
-        fr.Delete
-    Next fr
-    
-    Application.Run MacroName:="Sh_Text_Frame_Warning_To_Red"
-    
-    If Limited_Selection = True Then
-        Selection.HomeKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.EndKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.EndKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.WholeStory
-        Selection.Copy
-        Selection.HomeKey Unit:=wdStory ', Extend:=wdExtend
-        
-        ActiveDocument.Close SaveChanges:=False 'close the temp doc without saving
-        Selection.Paste 'paste the clipboard back into the original document
-    Else
-        'get rid of extra pargraph mark at end of document
-        Selection.EndKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-    End If
-    
-    Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    Sh_Return_User_To_Start_Position
-    Selection.Collapse Direction:=wdCollapseStart
-    Application.ScreenUpdating = su_Prev ' Turn screen updating on
-
-End Sub '***** end of Dx_Remove_Txt_Bxs_And_Frames macro *****
 
 Sub Dx_Add_Color_To_Foreign_Language_Words()
 '
@@ -5292,21 +5150,34 @@ End Sub  '***** End of Dx_Attach_Same_BANA_Template Macro *****
 
 Sub Dx_Remove_Bullets()
 '
-' Dx_Remove_Bullets Macro
+' Removes bullets and automatic numbering from a list and, if the transcriber asked for it on
+' Dx_Bullet_Removal_Form, restyles the paragraphs and strips the hyperlinks.
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Version: 2.0  Date: 8/13/2026 - no temporary document; everything is scoped to a range.
 '
-' Version: 1.3  Date: 7/26/2026 - returns the user to where the cursor was when the macro started
-' Date: 12/29/2016
+'                                Three things here reached past a selection on their own:
+'                                Sh_Remove_Hyperlinks, whose default is the whole document;
+'                                Dx_Convert_Auto_List_To_Text, which was whole-document
+'                                throughout; and every Find below, built on Selection.Find with
+'                                wdFindContinue. The scratch document was holding all three
+'                                back, so this is real work the round trip was doing.
 '
+'                                The bullet-removal form is still only shown when text is
+'                                selected. That is not plumbing either - with nothing selected
+'                                this runs over the whole document with the defaults, which is
+'                                how the cleanup sequences call it.
+'
+'                                Gone with the round trip: the four-character delete run.
+' Version: 1.1  Date: 11/16/2016
+'
+    Dim rng As Range
     Dim su_Prev As Boolean
+    Dim Limited_Selection As Boolean
+
     su_Prev = Application.ScreenUpdating
-    Application.ScreenUpdating = False ' Turn screen updating off
+    Application.ScreenUpdating = False
 
     Sh_Save_User_Position
-    
-    Dim Limited_Selection As Boolean
-    Dim Sel As Selection
 
     If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
         Limited_Selection = False
@@ -5315,148 +5186,97 @@ Sub Dx_Remove_Bullets()
         Dx_Bullet_Removal_Form.Show
     End If
 
+    ' AFTER the form - it is modal, and the transcriber can change the selection behind it.
     If Limited_Selection = True Then
-        Application.Run MacroName:="Dx_Copy_To_Temp_Doc"
-        Selection.HomeKey Unit:=wdStory
-        Selection.TypeParagraph
+        Set rng = Selection.Range
+    Else
+        Set rng = ActiveDocument.Content
     End If
-    
-    If Dx_GP_String_1 = "Remove_Hyper" Then
-        Application.Run MacroName:="Sh_Remove_Hyperlinks"
-    End If
-    
-    Application.Run MacroName:="Dx_Convert_Auto_List_To_Text"
-       
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = ChrW(61623)
-        .Replacement.Text = ""
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "^0149"
-        .Replacement.Text = ""
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-      
-    ' remove braille bullet
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "_9"
-        .Replacement.Text = ""
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
 
-    ' remove braille bullet
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "_4"
-        .Replacement.Text = ""
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Selection.HomeKey Unit:=wdStory
+    If Dx_GP_String_1 = "Remove_Hyper" Then
+        Sh_Remove_Hyperlinks rng
+    End If
+
+    Dx_Convert_Auto_List_To_Text rng
+
+    Sh_Delete_Text_In_Range rng, ChrW(61623)   ' the Symbol-font bullet
+    Sh_Delete_Text_In_Range rng, "^0149"       ' the ordinary bullet
+    Sh_Delete_Text_In_Range rng, "_9"
+    Sh_Delete_Text_In_Range rng, "_4"
 
     If Dx_GP_String_2 <> "U" Then
-        'change all para styles
-        ' Guarded on each branch rather than around the whole pass: only ONE of these five runs,
-        ' so requiring all five styles would skip the pass whenever any one was absent.
-        Selection.Find.ClearFormatting
-        Selection.Find.Replacement.ClearFormatting
+        With rng.Find
+            .ClearFormatting
+            .Replacement.ClearFormatting
 
-        If Dx_GP_String_2 = "T1" And Sh_Style_Exists(ActiveDocument, "TOC 1") Then
-            Selection.Find.Replacement.Style = ActiveDocument.Styles("TOC 1")
-        End If
-        If Dx_GP_String_2 = "T2" And Sh_Style_Exists(ActiveDocument, "TOC 2") Then
-            Selection.Find.Replacement.Style = ActiveDocument.Styles("TOC 2")
-        End If
-        If Dx_GP_String_2 = "L1" And Sh_Style_Exists(ActiveDocument, "List1") Then
-            Selection.Find.Replacement.Style = ActiveDocument.Styles("List1")
-        End If
-        If Dx_GP_String_2 = "L2" And Sh_Style_Exists(ActiveDocument, "List2") Then
-            Selection.Find.Replacement.Style = ActiveDocument.Styles("List2")
-        End If
-        If Dx_GP_String_2 = "B" And Sh_Style_Exists(ActiveDocument, "Body Text") Then
-            Selection.Find.Replacement.Style = ActiveDocument.Styles("Body Text")
-        End If
-        
-        With Selection.Find
+            If Dx_GP_String_2 = "T1" And Sh_Style_Exists(ActiveDocument, "TOC 1") Then
+                .Replacement.Style = ActiveDocument.Styles("TOC 1")
+            End If
+            If Dx_GP_String_2 = "T2" And Sh_Style_Exists(ActiveDocument, "TOC 2") Then
+                .Replacement.Style = ActiveDocument.Styles("TOC 2")
+            End If
+            If Dx_GP_String_2 = "L1" And Sh_Style_Exists(ActiveDocument, "List1") Then
+                .Replacement.Style = ActiveDocument.Styles("List1")
+            End If
+            If Dx_GP_String_2 = "L2" And Sh_Style_Exists(ActiveDocument, "List2") Then
+                .Replacement.Style = ActiveDocument.Styles("List2")
+            End If
+            If Dx_GP_String_2 = "B" And Sh_Style_Exists(ActiveDocument, "Body Text") Then
+                .Replacement.Style = ActiveDocument.Styles("Body Text")
+            End If
+
             .Text = "^013"
             .Replacement.Text = "^p"
             .Forward = True
-            .Wrap = wdFindContinue
+            .Wrap = wdFindStop
             .Format = True
             .MatchCase = False
             .MatchWholeWord = False
             .MatchWildcards = False
             .MatchSoundsLike = False
             .MatchAllWordForms = False
+            .Execute Replace:=wdReplaceAll
         End With
-        Selection.Find.Execute Replace:=wdReplaceAll
     End If
-    
-    If Limited_Selection = True Then
-        Selection.HomeKey Unit:=wdStory
-        Application.Run MacroName:="Dx_Fix_Para_Space_Errors"
-        Selection.HomeKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.EndKey Unit:=wdStory
-        Selection.EndKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.HomeKey Unit:=wdStory, Extend:=wdExtend
-        Selection.Copy
-        ActiveDocument.Close SaveChanges:=False 'close the temp doc without saving
-        Selection.Paste 'paste the clipboard back into the original document
-    End If
-    
-    Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    ActiveDocument.UndoClear
-    Selection.Collapse Direction:=wdCollapseStart
-    Application.ScreenUpdating = su_Prev ' Turn screen updating on
 
+    If Limited_Selection = True Then
+        ' Dx_Fix_Para_Space_Errors scopes itself to the selection, which is still the
+        ' transcriber's own - nothing here took it away.
+        Application.Run MacroName:="Dx_Fix_Para_Space_Errors"
+    End If
+
+    Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     Sh_Return_User_To_Start_Position
+    Selection.Collapse Direction:=wdCollapseStart
+    Application.ScreenUpdating = su_Prev
+    Application.ScreenRefresh
 
 End Sub '****** end of Dx_Remove_Bullets Macro *****
+
+Public Sub Sh_Delete_Text_In_Range(ByVal rng As Range, ByVal what As String)
+'
+' Version: 1.0  Date: 8/13/2026
+'
+' Deletes every occurrence of a literal string from a range. Dx_Remove_Bullets had four of these
+' written out longhand, forty lines of Find options differing only in one line.
+'
+    With rng.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
+        .Text = what
+        .Replacement.Text = ""
+        .Forward = True
+        .Wrap = wdFindStop
+        .Format = False
+        .MatchCase = False
+        .MatchWholeWord = False
+        .MatchWildcards = False
+        .MatchSoundsLike = False
+        .MatchAllWordForms = False
+        .Execute Replace:=wdReplaceAll
+    End With
+
+End Sub   '*** end of Sh_Delete_Text_In_Range ***
 
 Sub Dx_Remove_Optional_Hyphens()
 '
@@ -7250,140 +7070,103 @@ Sub Lp_Remove_Box_Bullets_Bullets_and_Numbers()
 '
 ' Author: Jerry Whittaker -  jerry@thewhittakers.org
 '
+' Turns automatic numbering and bullets into nothing, removes the box bullet and the tab behind
+' it, drops hyperlinks, underlining and colored text.
+'
+' Version: 2.0  Date: 8/13/2026 - no temporary document; everything is scoped to a range.
+'
+'                                The scratch document was doing real work in three places.
+'                                ActiveDocument.ListParagraphs is a whole-document collection;
+'                                Selection.WholeStory before RemoveNumbers means what it says;
+'                                and Sh_Remove_Hyperlinks with no argument strips every link in
+'                                the document. All three are held to the range now.
+'
+'                                Gone with the round trip: the "delete one character at the end
+'                                of the document" and the TypeParagraph/TypeBackspace pair that
+'                                tidied up after the paste.
 ' Version: 1.3  Date: 11/18/2021 - fixed bug which removed first char of selection
 ' Version: 1.2  Date: 4/21/2021 - added new remove underline and blue color of links
 ' Version: 1.1  Date: 1/11/2019
 ' Version: 1.0  Date: 2/13/2015
 '
-'
-    Dim Limited_Selection As Boolean
-    
+    Dim doc As Document
+    Dim rng As Range
+    Dim i As Long
     Dim su_Prev As Boolean
+
     su_Prev = Application.ScreenUpdating
-    Application.ScreenUpdating = False ' Turn screen updating off
-    
+    Application.ScreenUpdating = False
+
     Sh_Save_User_Position
 
-    If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
-        Limited_Selection = False
+    Set doc = ActiveDocument
+    If Selection.Type = wdSelectionNormal Then
+        Set rng = Selection.Range
     Else
-        Limited_Selection = True
-        Application.Run MacroName:="Lp_Copy_To_Temp_Doc"
+        Set rng = doc.Content
     End If
 
-    ' remove autolist numbrs and bullets (leaves tabs)
-    Dim LP As Paragraph
-    For Each LP In ActiveDocument.ListParagraphs
-        LP.Range.ListFormat.ConvertNumbersToText
-    Next LP
-     
-    'remove tabs
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "^t"
-        .Replacement.Text = ""
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Application.Run MacroName:="Sh_Remove_Hyperlinks"
-    
-    Selection.WholeStory
-    Selection.Range.ListFormat.RemoveNumbers NumberType:=wdNumberParagraph 'bullets too
+    ' Backwards: converting a list paragraph to text takes it out of ListParagraphs, and a
+    ' forward For Each over a collection that is shrinking under it misses every other one.
+    For i = rng.ListParagraphs.count To 1 Step -1
+        rng.ListParagraphs(i).Range.ListFormat.ConvertNumbersToText
+    Next i
 
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = ChrW(61623) & " "
-        .Replacement.Text = ""
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    With Selection.Find
-        .Text = ChrW(61623)
-        .Replacement.Text = ""
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+    Sh_Delete_Text_In_Range rng, "^t"
 
-    ' clear color and underlining
-    Selection.Find.ClearFormatting
-    Selection.Find.Font.Underline = wdUnderlineSingle
-    Selection.Find.Replacement.ClearFormatting
-    Selection.Find.Replacement.Font.Underline = wdUnderlineNone
-    With Selection.Find
+    Sh_Remove_Hyperlinks rng
+
+    rng.ListFormat.RemoveNumbers NumberType:=wdNumberParagraph   ' bullets too
+
+    Sh_Delete_Text_In_Range rng, ChrW(61623) & " "
+    Sh_Delete_Text_In_Range rng, ChrW(61623)
+
+    ' underlining off
+    With rng.Find
+        .ClearFormatting
+        .Font.Underline = wdUnderlineSingle
+        .Replacement.ClearFormatting
+        .Replacement.Font.Underline = wdUnderlineNone
         .Text = ""
         .Replacement.Text = ""
         .Forward = True
-        .Wrap = wdFindContinue
+        .Wrap = wdFindStop
         .Format = True
         .MatchCase = False
         .MatchWholeWord = False
         .MatchWildcards = False
         .MatchSoundsLike = False
         .MatchAllWordForms = False
+        .Execute Replace:=wdReplaceAll
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    Selection.Find.Replacement.Font.Color = wdColorAutomatic
-    With Selection.Find
+
+    ' every character back to automatic color
+    With rng.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
+        .Replacement.Font.Color = wdColorAutomatic
         .Text = "^?"
         .Replacement.Text = "^&"
         .Forward = True
-        .Wrap = wdFindContinue
+        .Wrap = wdFindStop
         .Format = True
         .MatchCase = False
         .MatchWholeWord = False
         .MatchWildcards = False
         .MatchSoundsLike = False
         .MatchAllWordForms = False
+        .Execute Replace:=wdReplaceAll
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
+
+    ' Lp_Fix_Para_Space_Errors scopes itself to the selection, which is still the transcriber's
+    ' own - nothing above took it away.
     Application.Run MacroName:="Lp_Fix_Para_Space_Errors"
 
-    If Limited_Selection = True Then
-        'Selection.Delete Unit:=wdCharacter, Count:=1
-        Selection.EndKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Application.Run MacroName:="Lp_Copy_From_Temp_Doc"
-        Selection.TypeParagraph
-        Selection.TypeBackspace
-    End If
-    
-    'Selection.EndKey Unit:=wdStory
-    'Selection.Delete Unit:=wdCharacter, Count:=1
-    Application.ScreenUpdating = su_Prev ' Turn screen updating on
-    Sh_Return_User_To_Start_Position
-    Selection.Collapse 'clear selection
-    Application.ScreenRefresh
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    'ActiveDocument.UndoClear
+    Sh_Return_User_To_Start_Position
+    Selection.Collapse Direction:=wdCollapseStart
+    Application.ScreenUpdating = su_Prev
+    Application.ScreenRefresh
 
 End Sub '****** End of Lp_Remove_Box_Bullets_Bullets_and_Numbers Macro *****
 
@@ -7463,7 +7246,7 @@ Sh_Spin_DoEvents
 Sh_Spin_DoEvents
     Application.Run MacroName:="Sh_Remove_Spaces_Before_Punctuation"
 Sh_Spin_DoEvents
-    Application.Run MacroName:="Lp_Remove_Txt_Bxs_And_Frames"
+    Application.Run MacroName:="Sh_Remove_Txt_Bxs_And_Frames"
 Sh_Spin_DoEvents
     Application.Run MacroName:="Lp_Remove_Tab_Plus_Space_Combos"
 Sh_Spin_DoEvents
@@ -8794,165 +8577,125 @@ Sub Lp_Set_Page_To_White()
     
 End Sub  ' ***** End of Lp_Set_Page_To_White Macro *********
 
-Sub Lp_Convert_Auto_List_To_Text()
-
+Sub Lp_Convert_Auto_List_To_Text(Optional ByVal target As Range)
     '
     ' Original title "AutoListOff2"
     ' From: Computer Tools for Editors(and Proofreaders)by Paul Beverley, LCGI
     '        http://www.archivepub.co.uk/book.html
-    '
-    ' Version 21.02.12
-    ' Changes auto-bulleted, auto-numbered and auto-outline listing to real bullets and numbers
-    ' Removes tab character from bullets
-    ' Works on entire document
-    '
     ' Modified by Jerry Whittaker - jerry@thewhittakers.org
     '
-    ' Modification version: 1.5  Date Modified: 9/30/2023 - added convert automatic numbers, bullets, and multi-level
-    '                            lists to plain text - convert tabs to spaces - remove space lines below list items
-    '                            - Move list to left margin - remove multiple spaces from list items
-    ' Modification version: 1.4  Date Modified: 1/15/2019
-    ' Modification Version: 1.3  Date Modified: 1/8/2019
-    ' Modification Version: 1.2  Date Modified: 1/8/2016
+    ' Changes auto-bulleted, auto-numbered and auto-outline listing to plain text, takes the tab
+    ' out from behind the marker, closes up the space below list items, moves the list to the
+    ' left margin and squeezes multiple spaces.
     '
-    Dim Limited_Selection As Boolean
+    ' target  the range to work on. Omit it and the selection is used, or the whole document when
+    '         there is no selection.
+    '
+    ' Version: 2.0  Date: 8/13/2026 - no temporary document; takes a range. See the note in the
+    '                                braille copy - ConvertNumbersToText and every Find here were
+    '                                whole-document, so the scratch document was the scope.
+    '
+    '                                NOT merged with the braille copy: this one also closes the
+    '                                space below list items, outdents three times and squeezes
+    '                                multiple spaces, none of which a braille transcriber asked
+    '                                for. Different work, not different plumbing.
+    '
+    '                                Gone with the round trip: "delete one character at the end of
+    '                                the document", which ran whether or not there had been a
+    '                                temporary document to tidy up after.
+    ' Version: 1.5  Date: 9/30/2023 - added convert automatic numbers, bullets, and multi-level
+    '                                lists to plain text - convert tabs to spaces - remove space
+    '                                lines below list items - Move list to left margin - remove
+    '                                multiple spaces from list items
+    ' Version: 1.4  Date: 1/15/2019
+    ' Version: 1.3  Date: 1/8/2019
+    ' Version: 1.2  Date: 1/8/2016
+    '
+    Dim rng As Range
     Dim NewCharacter As String
     Dim NormalFont As String
-    Dim rng As Range
-    
     Dim su_Prev As Boolean
+
     su_Prev = Application.ScreenUpdating
-    Application.ScreenUpdating = False ' Turn screen updating off
-    
+    Application.ScreenUpdating = False
+
     Sh_Save_User_Position
-        
-    If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
-        Limited_Selection = False
+
+    If target Is Nothing Then
+        If Selection.Type = wdSelectionNormal Then
+            Set rng = Selection.Range
+        Else
+            Set rng = ActiveDocument.Content
+        End If
     Else
-        Limited_Selection = True
-        Application.Run MacroName:="Lp_Copy_To_Temp_Doc"
-        Application.Run MacroName:="Sh_Is_End_Paragraph_Mark_Included"
+        Set rng = target
     End If
-    
     NewCharacter = ChrW(8226): ' a bullet
-      
-    ActiveDocument.ConvertNumbersToText 'convert automatic numbers, bullets, and multi-level lists to plain text
-
     NormalFont = ActiveDocument.Styles(wdStyleNormal).Font.Name
-    
+
+    rng.ListFormat.ConvertNumbersToText  ' automatic numbers, bullets and multi-level lists
+
     ' One common type of bullet uses Symbol font
-     Set rng = ActiveDocument.Range
-     With rng.Find
-       .ClearFormatting
-       .Replacement.ClearFormatting
-       .MatchWildcards = False
-       .Text = ChrW(&HF0B7) & "^t"
-       .Forward = True
-       .Font.Name = "Symbol"
-       .Replacement.Text = NewCharacter & " "
-       .Replacement.Font.Name = NormalFont
-       .Wrap = wdFindContinue  'replaces all in the document
-       .Execute Replace:=wdReplaceAll
-     End With
-    
-     ' The other type of bullet uses Wingding font
-     Set rng = ActiveDocument.Range
-     With rng.Find
-       .Text = ChrW(&HF0FC) & "^t"
-       .Font.Name = "Wingding"
-       .Replacement.Text = NewCharacter & " "
-       .Replacement.Font.Name = NormalFont
-       .Wrap = wdFindContinue  'replaces all in the document
-       .Execute Replace:=wdReplaceAll
-     End With
-     
-    ' Remove the tabs from bulleted list
-     Set rng = ActiveDocument.Range
-     With rng.Find
-        .MatchWildcards = True
-       .Text = "(^0149)^009"
-       .Replacement.Text = "\1^032"
-       .Replacement.Font.Name = NormalFont
-       .Wrap = wdFindContinue  'replaces all in the document
-       .Execute Replace:=wdReplaceAll
-     End With
-     
-    ' Remove the tabs small alpa from outline list
-     Set rng = ActiveDocument.Range
-     With rng.Find
-        .MatchWildcards = True
-       .Text = "(^013[A-Za-z]{1,}^046)^009"
-       .Replacement.Text = "\1^032"
-       .Replacement.Font.Name = NormalFont
-       .Wrap = wdFindContinue  'replaces all in the document
-       .Execute Replace:=wdReplaceAll
-     End With
-     
-    ' Remove the tabs small alpa with paren from outline list
-     Set rng = ActiveDocument.Range
-     With rng.Find
-        .MatchWildcards = True
-        .Text = "([A-Za-z]{1,}\))^009"
-        .Replacement.Text = "\1^032"
-       .Replacement.Font.Name = NormalFont
-       .Wrap = wdFindContinue  'replaces all in the document
-       .Execute Replace:=wdReplaceAll
-     End With
+    With rng.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
+        .MatchWildcards = False
+        .Text = ChrW(&HF0B7) & "^t"
+        .Forward = True
+        .Font.Name = "Symbol"
+        .Replacement.Text = NewCharacter & " "
+        .Replacement.Font.Name = NormalFont
+        .Wrap = wdFindStop
+        .Execute Replace:=wdReplaceAll
+    End With
 
-    ' Remove the tabs numb with paren from outline list
-     Set rng = ActiveDocument.Range
-     With rng.Find
-        .MatchWildcards = True
-        .Text = "([0-9]{1,}\))^009"
-        .Replacement.Text = "\1^032"
-       .Replacement.Font.Name = NormalFont
-       .Wrap = wdFindContinue  'replaces all in the document
-       .Execute Replace:=wdReplaceAll
-     End With
+    ' The other type of bullet uses Wingding font
+    With rng.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
+        .MatchWildcards = False
+        .Text = ChrW(&HF0FC) & "^t"
+        .Font.Name = "Wingding"
+        .Replacement.Text = NewCharacter & " "
+        .Replacement.Font.Name = NormalFont
+        .Wrap = wdFindStop
+        .Execute Replace:=wdReplaceAll
+    End With
 
-    ' Replace the tabs from mumbered list with space
-     Set rng = ActiveDocument.Range
-     With rng.Find
-        .MatchWildcards = True
-       .Text = "([0-9]{1,}^046)^009"
-       .Replacement.Text = "\1^032"
-       .Replacement.Font.Name = NormalFont
-       .Wrap = wdFindContinue  'replaces all in the document
-       .Execute Replace:=wdReplaceAll
-     End With
+    Sh_Marker_Tab_To_Space rng, "(^0149)^009", NormalFont              ' bullet
+    Sh_Marker_Tab_To_Space rng, "(^013[A-Za-z]{1,}^046)^009", NormalFont   ' a.
+    Sh_Marker_Tab_To_Space rng, "([A-Za-z]{1,}\))^009", NormalFont     ' a)
+    Sh_Marker_Tab_To_Space rng, "([0-9]{1,}\))^009", NormalFont        ' 1)
+    Sh_Marker_Tab_To_Space rng, "([0-9]{1,}^046)^009", NormalFont      ' 1.
 
-    Selection.WholeStory
+    ' Close the space below the list items and bring them to the left margin.
+    ' Lp_Toggle_Space_After_Current_Para reads the selection, so the range is selected for it.
+    ' That costs nothing on screen - the flashing came from ACTIVATING another document, not
+    ' from moving the selection inside this one.
+    rng.Select
     Application.Run MacroName:="Lp_Toggle_Space_After_Current_Para"
-    Selection.Paragraphs.Outdent
-    Selection.Paragraphs.Outdent
-    Selection.Paragraphs.Outdent
-    Selection.Collapse 'clear selection
-    
-    ' Remove the tabs multiple spaces
-     Set rng = ActiveDocument.Range
-     With rng.Find
+    rng.Paragraphs.Outdent
+    rng.Paragraphs.Outdent
+    rng.Paragraphs.Outdent
+
+    ' Squeeze multiple spaces
+    With rng.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
         .MatchWildcards = True
         .Text = "^032{1,}"
         .Replacement.Text = "^032"
-       .Replacement.Font.Name = NormalFont
-       .Wrap = wdFindContinue  'replaces all in the document
-       .Execute Replace:=wdReplaceAll
-     End With
+        .Replacement.Font.Name = NormalFont
+        .Forward = True
+        .Wrap = wdFindStop
+        .Execute Replace:=wdReplaceAll
+    End With
 
-    If Limited_Selection = True Then
-        'Selection.Delete Unit:=wdCharacter, Count:=1
-        Application.Run MacroName:="Lp_Copy_From_Temp_Doc"
-        Selection.TypeBackspace
-    End If
-    
-    Selection.EndKey Unit:=wdStory
-    Selection.Delete Unit:=wdCharacter, count:=1
-    Application.ScreenUpdating = su_Prev ' Turn screen updating on
-    Sh_Return_User_To_Start_Position
-    Selection.Collapse 'clear selection
-    Application.ScreenRefresh
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    'ActiveDocument.UndoClear
+    Sh_Return_User_To_Start_Position
+    Selection.Collapse Direction:=wdCollapseStart
+    Application.ScreenUpdating = su_Prev
+    Application.ScreenRefresh
 
 End Sub  '**** end of Lp_Convert_Auto_List_To_Text Macro ***********
 
@@ -10722,102 +10465,169 @@ On Error Resume Next
     
 End Sub  '*** end of Lp_Convert_Hyper_To_Addresses ***
 
-Sub Lp_Remove_Txt_Bxs_And_Frames()
+Sub Sh_Remove_Txt_Bxs_And_Frames()
     '
     ' Original Macro Name "TextBoxFrameCut" by author below
     '
     ' From: Computer Tools for Editors(and Proofreaders)by Paul Beverley, LCGI
     '        downloadable at no cost from http://www.archivepub.co.uk/book.html
-    '
     ' Also from: https://wordribbon.tips.net/T009169_Removing_All_Text_Boxes_In_a_Document.html
     ' Initial version by richardwalshe@prufrock.co.uk
     '
+    ' Takes the text out of every text box and frame in scope, leaves it where the box was
+    ' anchored, marked top and bottom so the transcriber can check that it landed somewhere
+    ' sensible, and deletes the box.
+    '
+    ' Version: 4.0 Date: 8/13/2026 - ONE macro. At Jerry's word the large-print copy took on the
+    '                               braille behavior - ungroup first, take text from ANY shape
+    '                               that has some rather than text boxes only, and keep the text's
+    '                               formatting - and with that the two were the same job written
+    '                               twice, so they merged. The old names are gone and all five
+    '                               callers point here.
+    '
+    '                               Two things the large-print copy loses in the bargain, both
+    '                               worth having lost: it pulled the text out as a plain STRING,
+    '                               so bold, italics and everything else in a text box arrived
+    '                               flat; and its closing marker had no paragraph mark after it,
+    '                               so it welded itself onto the front of the anchor paragraph.
+    '
+    ' Version: 3.0 Date: 8/13/2026 - no temporary document.
+    '
+    '                               The scratch document was REAL WORK here, not plumbing.
+    '                               ActiveDocument.Shapes and .Frames are collections of the whole
+    '                               document - there is no such thing as "the shapes in this
+    '                               selection" - so copying the selection out was the only thing
+    '                               keeping this off the rest of the book. Scope is explicit now:
+    '                               a shape belongs to the range when its ANCHOR does
+    '                               (Sh_Shape_In_Range), which is the same test Word itself uses
+    '                               when it decides what travels with copied text.
+    '
+    '                               Gone with the round trip: the large-print "go to the end of
+    '                               the document and delete one character", which ran on EVERY
+    '                               route out and ate the last character of the book when nothing
+    '                               was selected; its ActiveDocument.UndoClear, which threw away
+    '                               the whole undo history rather than this macro's part of it;
+    '                               and the braille four-character delete run.
+    '
+    '                               The clipboard is gone too. The braille copy kept formatting by
+    '                               copying and pasting; a FormattedText assignment does the same
+    '                               thing without taking the transcriber's clipboard away.
+    '
+    '                               The shape loop runs backwards by index. For Each over Shapes
+    '                               while deleting from it SKIPS the next shape, which is what the
+    '                               old large-print "do the whole pass four times" loop was
+    '                               working around. Backwards, one pass is enough.
     ' Version: 2.0 Date: 1/17/2023 - corrected spacing and removed added para mark and char deletion
-    ' Version: 1.9 Date: 1/8/2019
-    ' Version: 1.8 Date: 1/19/2018
+    ' Version: 1.1 Date: 11/16/2016
     '
-    ' Remove textboxes and frames - leave text
-    '
-    Dim sh As Shape
-    Dim fr As Frame
-    Dim ShapeError As Boolean
-    Dim Cntr As Integer
+    Dim doc As Document
+    Dim rng As Range
     Dim shp As Shape
-    Dim sString As String
-    Dim oRngAnchor As Object
-
-    
-    
-    Dim Limited_Selection As Boolean
-    
+    Dim fr As Frame
+    Dim dest As Range
+    Dim i As Long
     Dim su_Prev As Boolean
+
     su_Prev = Application.ScreenUpdating
-    Application.ScreenUpdating = False ' Turn screen updating off
-    
+    Application.ScreenUpdating = False
+
     Sh_Save_User_Position
-        
-    If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
-        Limited_Selection = False
+
+    Set doc = ActiveDocument
+    If Selection.Type = wdSelectionNormal Then
+        Set rng = Selection.Range
     Else
-        Limited_Selection = True
-        Application.Run MacroName:="Lp_Copy_To_Temp_Doc"
+        Set rng = doc.Content
     End If
 
-    Do While Cntr < 4
-        For Each shp In ActiveDocument.Shapes
-            If shp.Type = msoTextBox Then
-                ' copy text to string, without last paragraph mark
-                sString = Left(shp.TextFrame.TextRange.Text, _
-                  shp.TextFrame.TextRange.Characters.count - 1)
-                If Len(sString) > 0 Then
-                    ' set the range to insert the text
-                    Set oRngAnchor = shp.Anchor.Paragraphs(1).Range
-                    ' insert the textbox text before the range object
-                    oRngAnchor.InsertBefore _
-                       "<CONTENT FROM A TEXT BOX OR FRAME IS BELOW>" & vbCrLf & sString & vbCrLf & "<CONTENT FROM A TEXT BOX OR FRAME IS ABOVE>"
-                                      
-                End If
+    ' Ungroup first - a text box inside a group is not reachable as a shape of its own.
+    For i = doc.Shapes.count To 1 Step -1
+        Set shp = doc.Shapes(i)
+        If shp.Type = msoGroup Then
+            If Sh_Shape_In_Range(shp, rng) Then shp.Ungroup
+        End If
+    Next i
+
+    ' Backwards by index: deleting from Shapes inside a For Each skips the next one.
+    For i = doc.Shapes.count To 1 Step -1
+        Set shp = doc.Shapes(i)
+        If Sh_Shape_In_Range(shp, rng) Then
+            On Error Resume Next
+            If shp.TextFrame.HasText Then
+                ' Build at the anchor paragraph, forwards: marker, the text with its formatting
+                ' intact, marker. Assigning FormattedText to a COLLAPSED range inserts.
+                Set dest = shp.Anchor.Paragraphs(1).Range
+                dest.Collapse Direction:=wdCollapseStart
+                dest.InsertAfter SH_TBX_BELOW & vbCr
+                dest.Collapse Direction:=wdCollapseEnd
+                dest.FormattedText = shp.TextFrame.TextRange.FormattedText
+                dest.Collapse Direction:=wdCollapseEnd
+                dest.InsertAfter vbCr & SH_TBX_ABOVE & vbCr
                 shp.Delete
             End If
-        Next shp
-        Cntr = Cntr + 1
-    Loop
-    
-    For Each fr In ActiveDocument.Frames
-      ' Removes frames with similar tagging for later checking
-        fr.Select
-        Selection.Collapse
-        Selection.TypeText Text:="<CONTENT FROM A TEXT BOX OR FRAME IS BELOW>"
-        Selection.TypeParagraph
-        fr.Select
-        Selection.Collapse Direction:=wdCollapseEnd
-        Selection.TypeText Text:="<CONTENT FROM A TEXT BOX OR FRAME IS ABOVE>" & vbCrLf
-      ' This is the bit that actually removes the frames
-        fr.Select
-        fr.Delete
-    Next fr
-    
-    Application.Run MacroName:="Sh_Text_Frame_Warning_To_Red"
+            On Error GoTo 0
+        End If
+    Next i
 
-    If Limited_Selection = True Then
-        Selection.EndKey Unit:=wdStory
-        Selection.TypeBackspace
-        Selection.HomeKey Unit:=wdStory, Extend:=wdExtend
-        Selection.Copy 'copy the selected text to the clipboard
-        ActiveDocument.Close SaveChanges:=False 'close the temp doc without saving
-        Selection.Paste 'AndFormat (wdFormatOriginalFormatting)
-    End If
-    
-    Selection.EndKey Unit:=wdStory
-    Selection.Delete Unit:=wdCharacter, count:=1
-    Application.ScreenUpdating = su_Prev ' Turn screen updating on
-    Sh_Return_User_To_Start_Position
-    Selection.Collapse 'clear selection
-    Application.ScreenRefresh
+    For i = doc.Frames.count To 1 Step -1
+        Set fr = doc.Frames(i)
+        If Sh_Frame_In_Range(fr, rng) Then
+            fr.Range.InsertBefore SH_TBX_BELOW & vbCr
+            fr.Range.InsertAfter vbCr & SH_TBX_ABOVE & vbCr
+            fr.Delete
+        End If
+    Next i
+
+    Sh_Text_Frame_Warning_To_Red rng
+
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    ActiveDocument.UndoClear
+    Sh_Return_User_To_Start_Position
+    Selection.Collapse Direction:=wdCollapseStart
+    Application.ScreenUpdating = su_Prev
+    Application.ScreenRefresh
 
-End Sub '***** end of Lp_Remove_Txt_Bxs_And_Frames macro *****
+End Sub '***** end of Sh_Remove_Txt_Bxs_And_Frames macro *****
+
+Public Function Sh_Shape_In_Range(ByVal shp As Shape, ByVal rng As Range) As Boolean
+'
+' Version: 1.0  Date: 8/13/2026
+'
+' Is this floating shape part of the range? A shape has no position in the text of its own - it
+' hangs off an ANCHOR, and the anchor is what moves with the text when it is copied. So the
+' anchor is what decides.
+'
+' The story has to match before the offsets are worth comparing: a shape anchored in a header or
+' a footnote has an anchor whose .Start counts from the beginning of THAT story, and it would
+' otherwise land inside the range's numbers by coincidence.
+'
+    Dim a As Range
+
+    On Error Resume Next
+    Set a = shp.Anchor
+    If a Is Nothing Then Exit Function
+    If a.StoryType <> rng.StoryType Then Exit Function
+    Sh_Shape_In_Range = (a.start >= rng.start And a.start <= rng.End)
+    Err.Clear
+
+End Function   '*** end of Sh_Shape_In_Range ***
+
+Public Function Sh_Frame_In_Range(ByVal fr As Frame, ByVal rng As Range) As Boolean
+'
+' Version: 1.0  Date: 8/13/2026
+'
+' A frame does sit in the text, so its own range answers the question. Same story guard as
+' Sh_Shape_In_Range.
+'
+    Dim a As Range
+
+    On Error Resume Next
+    Set a = fr.Range
+    If a Is Nothing Then Exit Function
+    If a.StoryType <> rng.StoryType Then Exit Function
+    Sh_Frame_In_Range = (a.start >= rng.start And a.start <= rng.End)
+    Err.Clear
+
+End Function   '*** end of Sh_Frame_In_Range ***
 
 Sub Sh_Replace_Manual_Line_Break(Optional ByVal answer As String)
 '
@@ -18563,50 +18373,52 @@ Unknown:
 
 End Sub  '*** end of Sh_Doc_Info macro ***
 
-Sub Sh_Text_Frame_Warning_To_Red()
+Sub Sh_Text_Frame_Warning_To_Red(Optional ByVal target As Range)
 '
 ' Sh_Text_Frame_Warning_To_Red Macro
 '
 ' Author: Jerry Whittaker -  jerry@thewhittakers.org
 '
-' Date: 11/16/2016
-' Version: 1.2
+' Colors the markers Remove_Txt_Bxs_And_Frames leaves behind, so rescued text is easy to find.
 '
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    Selection.Find.Replacement.Font.Color = wdColorRed
-    With Selection.Find
-        .Text = "<CONTENT FROM A TEXT BOX OR FRAME IS BELOW>"
-        .Replacement.Text = "^&"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = True
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    Selection.Find.Replacement.Font.Color = wdColorRed
-    With Selection.Find
-        .Text = "<CONTENT FROM A TEXT BOX OR FRAME IS ABOVE>"
-        .Replacement.Text = "^&"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = True
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-End Sub  '*** end of Sh_Text_Frame_Warning_To_Red ***
+' target  the range to color. Omit it and the whole document is colored, which is what this
+'         macro did before it took an argument.
+'
+' Version: 2.0  Date: 8/13/2026 - takes a range, and works through that range instead of through
+'                                 Selection.Find. Its two callers pass their own scope; on the
+'                                 old Selection.Find with wdFindContinue, "just the selection"
+'                                 was never available to them.
+' Version: 1.2  Date: 11/16/2016
+'
+    Dim rng As Range
+    Dim marker As Variant
+
+    If target Is Nothing Then
+        Set rng = ActiveDocument.Content
+    Else
+        Set rng = target
+    End If
+
+    For Each marker In Array(SH_TBX_BELOW, SH_TBX_ABOVE)
+        With rng.Find
+            .ClearFormatting
+            .Replacement.ClearFormatting
+            .Replacement.Font.Color = wdColorRed
+            .Text = CStr(marker)
+            .Replacement.Text = "^&"
+            .Forward = True
+            .Wrap = wdFindStop
+            .Format = True
+            .MatchCase = False
+            .MatchWholeWord = False
+            .MatchWildcards = False
+            .MatchSoundsLike = False
+            .MatchAllWordForms = False
+            .Execute Replace:=wdReplaceAll
+        End With
+    Next marker
+
+End Sub   '*** end of Sh_Text_Frame_Warning_To_Red ***
 
 Sub Sh_Remove_Spaces_Before_Punctuation()
 '
