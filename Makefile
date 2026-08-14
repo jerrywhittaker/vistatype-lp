@@ -33,7 +33,7 @@ DOTM      := LPandBRL.dotm
 DOTX      := LargePrintTemplate.dotx
 RIBBON    := Word.officeUI
 PROJNAME  := LPandBRL
-APPVER    := 3.0.176
+APPVER    := 3.0.186
 SETUP_EXE := VistaType LP and Braille Macros Setup $(APPVER).exe
 VERDATE   := $(shell date +%-m/%-d/%Y)
 
@@ -179,9 +179,16 @@ stage: build
 	@echo "Staged dist/$(DOTM) + dist/$(DOTX) + LICENSE.txt + OFL.txt + $(words $(FONTS)) font files for packaging."
 
 # --- compile the Inno Setup installer on the Windows box ---
-# The finished Setup.exe is copied both back to local dist/ and onto the build box's
-# Desktop, so it's one double-click away when you test the install on the VM. The Desktop
-# path is resolved on the box (GetFolderPath handles OneDrive-redirected Desktops).
+# The finished Setup.exe is copied both back to local dist/ and into "VT Installer" on the
+# build box's Desktop, so it's one double-click away when you test the install on the VM.
+# The Desktop path is resolved on the box (GetFolderPath handles OneDrive-redirected Desktops).
+#
+# It goes in that FOLDER and not on the Desktop itself because Windows Defender deletes the
+# Setup.exe within seconds of it landing - Trojan:Win32/Bearfoos.B!ml, a machine-learning
+# guess, on an unsigned installer that drops a macro-enabled template into Word's STARTUP
+# folder. "VT Installer" is a Defender exclusion on the build box, so builds survive there.
+# Jerry, 8/13/2026. The exclusion is on that machine only; a transcriber downloading from
+# GitHub has no such thing, and a code-signing certificate is the actual fix.
 # Bump the third digit and write it to all four places the version must agree.
 # Runs before every installer build so each Setup.exe is distinguishable (Jerry, 7/26/2026).
 # The .frx captions are handled by Import-Vba.ps1 during the build itself.
@@ -223,8 +230,8 @@ installer-build: check-config stage
 	$(SSH) '$(WIN_PWSH) -NoProfile -Command "Copy-Item \"$(WIN_DIR)/dist/$(SETUP_EXE)\" \"$(WIN_DIR)/dist/setup-staged.exe\" -Force"'
 	scp -q "$(WIN_HOST):$(WIN_DIR)/dist/setup-staged.exe" "dist/$(SETUP_EXE)"
 	$(SSH) '$(WIN_PWSH) -NoProfile -Command "Remove-Item \"$(WIN_DIR)/dist/setup-staged.exe\" -Force -ErrorAction SilentlyContinue"'
-	$(SSH) '$(WIN_PWSH) -NoProfile -Command "Copy-Item \"$(WIN_DIR)/dist/$(SETUP_EXE)\" ([Environment]::GetFolderPath(\"Desktop\")) -Force"'
-	@echo "Built dist/$(SETUP_EXE)  (also copied to the build box Desktop)."
+	$(SSH) '$(WIN_PWSH) -NoProfile -Command "$$d = Join-Path ([Environment]::GetFolderPath(\"Desktop\")) \"VT Installer\"; if (-not (Test-Path $$d)) { New-Item -ItemType Directory -Force -Path $$d | Out-Null }; Copy-Item \"$(WIN_DIR)/dist/$(SETUP_EXE)\" $$d -Force"'
+	@echo "Built dist/$(SETUP_EXE)  (also copied to 'VT Installer' on the build box Desktop)"
 
 # --- regenerate the bundled typeface from the pristine upstream files ---
 # Nothing else regenerates $(FONTSRC), so it is the one build output that can silently go
