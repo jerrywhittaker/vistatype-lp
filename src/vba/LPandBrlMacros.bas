@@ -10402,6 +10402,9 @@ Sub Sh_Remove_Txt_Bxs_And_Frames()
     Dim fr As Frame
     Dim dest As Range
     Dim i As Long
+    Dim ipos As Long
+    Dim hasText As Boolean
+    Dim landed As Boolean
     Dim su_Prev As Boolean
 
     su_Prev = Application.ScreenUpdating
@@ -10410,10 +10413,14 @@ Sub Sh_Remove_Txt_Bxs_And_Frames()
     Sh_Save_User_Position
 
     Set doc = ActiveDocument
+    Set rng = doc.Content
     If Selection.Type = wdSelectionNormal Then
-        Set rng = Selection.Range
-    Else
-        Set rng = doc.Content
+        ' A selection INSIDE a text box is Selection.Type = wdSelectionNormal too, but its story
+        ' is the text box's own, not the document's - and the shapes we are looking for are
+        ' anchored in the document. Scoping to it matches nothing and the macro appears to do
+        ' nothing at all, which is what Jerry hit on 8/13/2026 after clicking into a box. A
+        ' selection that is not document text is treated as no selection.
+        If Selection.Range.StoryType = wdMainTextStory Then Set rng = Selection.Range
     End If
 
     ' Ungroup first - a text box inside a group is not reachable as a shape of its own.
@@ -10428,28 +10435,64 @@ Sub Sh_Remove_Txt_Bxs_And_Frames()
     For i = doc.Shapes.count To 1 Step -1
         Set shp = doc.Shapes(i)
         If Sh_Shape_In_Range(shp, rng) Then
-            On Error Resume Next
-            If shp.TextFrame.HasText Then
+
+            ' NOT TextFrame.HasText. Word answers True for a text box holding nothing but its
+            ' own paragraph mark, so an empty box came out as a pair of markers with nothing
+            ' between them - Jerry's "phantom converted text box", 8/13/2026. An empty box has
+            ' nothing to rescue, so it is deleted without ceremony.
+            hasText = Sh_Shape_Has_Real_Text(shp)
+
+            If Not hasText Then
+                ' Only an actual EMPTY TEXT BOX goes. Every other shape without text is a
+                ' picture, a line or a drawing, and this macro has always left images alone -
+                ' "Leaves images intact", as the braille copy's own comment put it.
+                If shp.Type = msoTextBox Then
+                    On Error Resume Next
+                    shp.Delete
+                    On Error GoTo 0
+                End If
+            Else
                 ' Build at the anchor paragraph, forwards: marker, the text with its formatting
                 ' intact, marker. Assigning FormattedText to a COLLAPSED range inserts.
-                Set dest = shp.Anchor.Paragraphs(1).Range
-                dest.Collapse Direction:=wdCollapseStart
+                '
+                ' The shape is deleted ONLY if the text actually arrived. This whole block used
+                ' to sit under one On Error Resume Next, so a failed FormattedText assignment
+                ' was swallowed and the macro carried on to delete the box - leaving a pair of
+                ' markers with nothing between them and the text gone for good. Losing a text
+                ' box's contents is far worse than leaving the box where it is for the
+                ' transcriber to deal with. Jerry, 8/13/2026.
+                ipos = shp.Anchor.Paragraphs(1).Range.start
+                Set dest = doc.Range(ipos, ipos)
                 dest.InsertAfter SH_TBX_BELOW & vbCr
                 dest.Collapse Direction:=wdCollapseEnd
+
+                On Error Resume Next
+                Err.Clear
                 dest.FormattedText = shp.TextFrame.TextRange.FormattedText
-                dest.Collapse Direction:=wdCollapseEnd
-                dest.InsertAfter vbCr & SH_TBX_ABOVE & vbCr
-                shp.Delete
+                landed = (Err.Number = 0)
+                Err.Clear
+                On Error GoTo 0
+
+                If landed Then
+                    dest.Collapse Direction:=wdCollapseEnd
+                    dest.InsertAfter vbCr & SH_TBX_ABOVE & vbCr
+                    shp.Delete
+                Else
+                    ' take the opening marker back out and leave the box alone
+                    doc.Range(ipos, ipos + Len(SH_TBX_BELOW) + 1).Delete
+                End If
             End If
-            On Error GoTo 0
         End If
     Next i
 
     For i = doc.Frames.count To 1 Step -1
         Set fr = doc.Frames(i)
         If Sh_Frame_In_Range(fr, rng) Then
-            fr.Range.InsertBefore SH_TBX_BELOW & vbCr
-            fr.Range.InsertAfter vbCr & SH_TBX_ABOVE & vbCr
+            ' An empty frame gets no markers either - same reason as the empty text box above.
+            If Len(Trim$(Replace(Replace(fr.Range.Text, vbCr, ""), Chr(11), ""))) > 0 Then
+                fr.Range.InsertBefore SH_TBX_BELOW & vbCr
+                fr.Range.InsertAfter vbCr & SH_TBX_ABOVE & vbCr
+            End If
             fr.Delete
         End If
     Next i
@@ -10482,10 +10525,44 @@ Public Function Sh_Shape_In_Range(ByVal shp As Shape, ByVal rng As Range) As Boo
     Set a = shp.Anchor
     If a Is Nothing Then Exit Function
     If a.StoryType <> rng.StoryType Then Exit Function
-    Sh_Shape_In_Range = (a.start >= rng.start And a.start <= rng.End)
+    ' STRICTLY less than rng.End. A selection of one paragraph ends at the START of the
+    ' next one, so "<=" pulled in a shape anchored to the paragraph just past the
+    ' selection - selecting one paragraph converted a shape belonging to the one below it.
+    Sh_Shape_In_Range = (a.start >= rng.start And a.start < rng.End)
     Err.Clear
 
 End Function   '*** end of Sh_Shape_In_Range ***
+
+Public Function Sh_Shape_Has_Real_Text(ByVal shp As Shape) As Boolean
+'
+' Version: 1.0  Date: 8/13/2026
+'
+' Has this shape any text worth rescuing?
+'
+' TextFrame.HasText cannot answer that. It returns TRUE for a text box that holds nothing but
+' its own paragraph mark - which is what an empty text box IS - so a document with a stray
+' empty box came out of Remove_Txt_Bxs_And_Frames with a pair of markers and nothing between
+' them. Jerry found it on 8/13/2026 and called it a phantom converted text box, which is
+' exactly what it looked like.
+'
+' A shape that is not a text container at all (a picture, a line, a group) raises an error on
+' TextFrame and answers False, which is also what we want.
+'
+    Dim t As String
+
+    On Error Resume Next
+    If shp.TextFrame.HasText Then t = shp.TextFrame.TextRange.Text
+    Err.Clear
+    On Error GoTo 0
+
+    t = Replace(t, vbCr, "")
+    t = Replace(t, Chr(11), "")      ' manual line break
+    t = Replace(t, Chr(160), " ")    ' non-breaking space
+    t = Replace(t, vbTab, " ")
+
+    Sh_Shape_Has_Real_Text = (Len(Trim$(t)) > 0)
+
+End Function   '*** end of Sh_Shape_Has_Real_Text ***
 
 Public Function Sh_Frame_In_Range(ByVal fr As Frame, ByVal rng As Range) As Boolean
 '
@@ -10500,7 +10577,10 @@ Public Function Sh_Frame_In_Range(ByVal fr As Frame, ByVal rng As Range) As Bool
     Set a = fr.Range
     If a Is Nothing Then Exit Function
     If a.StoryType <> rng.StoryType Then Exit Function
-    Sh_Frame_In_Range = (a.start >= rng.start And a.start <= rng.End)
+    ' STRICTLY less than rng.End. A selection of one paragraph ends at the START of the
+    ' next one, so "<=" pulled in a frame anchored to the paragraph just past the
+    ' selection - selecting one paragraph converted a frame belonging to the one below it.
+    Sh_Frame_In_Range = (a.start >= rng.start And a.start < rng.End)
     Err.Clear
 
 End Function   '*** end of Sh_Frame_In_Range ***

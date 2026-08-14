@@ -123,9 +123,9 @@ these reach it only through a shared cleanup helper. Confirm per button as you g
 
 ### Braille Macros tab
 
-- [ ] Attach BANA Template — `Dx_Attach_BANA_Template`
-- [ ] Full File Cleanup — `Dx_File_Fix_Sequence`
-- [ ] Selection Clean Up — `Dx_Selected_File_CleanUp`
+- [x] Attach BANA Template — `Dx_Attach_BANA_Template` (Jerry, 8/13/2026, build 3.0.174)
+- [x] Full File Cleanup — `Dx_File_Fix_Sequence` (Jerry, 8/13/2026, build 3.0.174)
+- [x] Selection Clean Up — `Dx_Selected_File_CleanUp` (Jerry, 8/13/2026, build 3.0.174)
 - [ ] AutoTag Ref Pages — `Dx_AutoTag_Page_Numbers`
 - [ ] Validate $pg Tags — `Dx_Ref_Pg_Number_Sequence_Menu`
 - [ ] Manual Tag Ref Page — `Dx_Manual_Tag_with_Dollar_pg`
@@ -134,17 +134,28 @@ these reach it only through a shared cleanup helper. Confirm per button as you g
 - [ ] UnEmbed Ref Pg Numb — `Dx_UnEmbed_Ref_Pg_No`
 - [ ] Foreign Lang in Color — `Dx_Add_Color_To_Foreign_Language_Words`
 - [ ] Format Spelling List — `Dx_Spelling_List`
-- [ ] Exercise Levels 1 & 2 — `Dx_Format_Exercise_Lv_1_and_Lv_2`
+- [x] Exercise Levels 1 & 2 — `Dx_Format_Exercise_Lv_1_and_Lv_2` (Jerry, 8/13/2026, build
+      3.0.174). Reaches Convert Auto List To Text. Missed off the braille list first time round;
+      the caller scan had attributed that call to `Dx_Replace_Straight_Quotes_With_Smart_Quotes`,
+      which does not make it.
 - [ ] Dashes/Primes/Fractions — `Dx_Type_Dashes`
 - [ ] Compress Linear Math — `Dx_Compress_Linear_Math`
 - [ ] DAISY or NIMAS to Word — `DN_Menu_Starter`
 
 ### VistaType LP tab
 
-- [ ] Full File Cleanup — `Lp_File_Fix_Sequence`
-- [ ] Selection Cleanup — `Lp_Selected_File_CleanUp`
+- [x] Attach LP Template — `Lp_Attach_Lp_Template` (Jerry, 8/13/2026, build 3.0.174). Not on
+      this list originally, and it should have been: the attach runs `Lp_Fix_Common_File_Errors`
+      end to end, so every helper converted for the cleanup reaches a transcriber through the
+      attach as well — on a whole document, with nothing selected.
+- [x] Full File Cleanup — `Lp_File_Fix_Sequence` (Jerry, 8/13/2026, build 3.0.174)
+- [x] Selection Cleanup — `Lp_Selected_File_CleanUp` (Jerry, 8/13/2026, build 3.0.174)
 - [ ] AutoTag Ref Pages — `Lp_AutoTag_Page_Numbers`
-- [ ] Format Exercise — `Lp_Format_Exercise_Lv_1_and_Lv_2`
+- [x] Format Exercise — `Lp_Format_Exercise_Lv_1_and_Lv_2` (Jerry, 8/13/2026, build 3.0.174).
+      This is the LP button that reaches Convert Auto List To Text — NOT Fill-In Line, which was
+      reported to Jerry as its caller by mistake. `Lp_Format_Exercise_Lv_1_and_Lv_2` begins two
+      lines after `Lp_Type_Fill_In_Line` ends, and a script that walked back to the nearest
+      preceding Sub landed on the wrong one. Fill-In Line reaches nothing on this list.
 - [ ] Table and TOC Tools — `Lp_Table_Tools`
 - [ ] Bkgrnd & Picture Tools — `Lp_Picture_Tools_Menu_Starter`
 - [ ] DAISY or NIMAS to Word — `DN_Menu_Starter`
@@ -291,6 +302,41 @@ it. The flashing came from ACTIVATING another document, not from moving the sele
 Trap from this group: **rewrite hyperlinks backwards by index.** Writing `r.Text` takes the
 link out of the collection AND changes the length of the text, so anything counted from the
 front has moved by the next turn of the loop.
+
+## Three faults Jerry's text-box test found (3.0.175)
+
+All three were in `Sh_Remove_Txt_Bxs_And_Frames`, and none of them showed up in the first round
+of headless tests because those tests all had either the whole document or a tidy text selection.
+
+**A swallowed error deleted the box anyway.** The whole rescue block sat under one
+`On Error Resume Next`, so a failed `FormattedText` assignment was passed over and the macro
+carried straight on to `shp.Delete` — leaving a pair of markers with nothing between them and
+the text gone for good. The shape is now deleted ONLY once the text has actually arrived; if it
+has not, the opening marker is taken back out and the box is left where it is. Losing a text
+box's contents is far worse than leaving the box for the transcriber to deal with.
+
+**A selection inside a text box scoped the macro to nothing.** Clicking into a box makes
+`Selection.Type = wdSelectionNormal` — same as selecting document text — but the range's story
+is the box's own, so no shape's anchor could ever fall inside it and the macro silently did
+nothing at all. A selection whose `StoryType` is not `wdMainTextStory` is now treated as no
+selection.
+
+**Off by one at the end of the range.** `Sh_Shape_In_Range` used `anchor.Start <= rng.End`. A
+selection of one paragraph ENDS at the start of the next one, so a text box anchored to the
+paragraph just below the selection was pulled in and converted. It is `< rng.End` now. Same fix
+in `Sh_Frame_In_Range`.
+
+Worth knowing about the route in: the Selection Cleanup forms run `Lp_Is_Text_Selected` before
+every option, which stops with "Text must be selected first!" and `End` when the selection is
+not document text — so with only shapes ctrl-clicked, that button cannot reach this macro at all.
+
+## Still never tested: grouped shapes
+
+Word refuses to group shapes programmatically in a headless instance ("Grouping is disabled for
+the selected shapes"), so the `msoGroup` / `Ungroup` branch of `Sh_Remove_Txt_Bxs_And_Frames` has
+never run under test. It is the braille code unchanged, but from 3.0.170 it is reached from the
+LARGE-PRINT side too, where it had never run before. The case: two text boxes, grouped, cleaned
+from the VistaType LP tab.
 
 ## The helpers underneath
 
