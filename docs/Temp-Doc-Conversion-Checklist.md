@@ -268,6 +268,30 @@ keeps the formatting, without taking the transcriber's clipboard away.
 Convert Auto List To Text needs `Lp_Toggle_Space_After_Current_Para` — select the range and call
 it. The flashing came from ACTIVATING another document, not from moving the selection within one.
 
+### Group 3 — small caps and hyperlink addresses (3.0.173)
+
+- [x] Replace Small Caps With All Caps — now `Sh_Replace_Small_Caps_With_All_Caps`. The whole
+      body of both copies was ONE formatted find-and-replace; everything else was round-trip
+      plumbing, so they were identical the moment it came out. Small caps are a look, not
+      letters — the text underneath stays lower case, and a screen reader or DBT reads it as
+      lower case — which is why this exists at all.
+      The closing "turn small caps and all caps off" now runs on a COLLAPSED selection. That is
+      what it always amounted to on the large-print side: it is there so the transcriber's next
+      keystrokes are not in small caps, NOT to strip the capitals just applied. On the braille
+      side it ran right after the paste, where the selection was the pasted text — a line that
+      could have undone the macro's own work.
+- [x] Convert Hyper To Addresses — `Lp_` and `Dx_` both converted, **not** merged. The
+      large-print one turns the plain addresses back into live links (`Sh_Linkify_Range`); the
+      braille one stops at plain text, because a DBT source file has no use for a clickable
+      link. A real difference in what the transcriber gets, so it stays two — but it is Jerry's
+      call, not ours: he settled the text-box pair the other way. Ask.
+      `ActiveDocument.Hyperlinks` is a whole-document collection, so the scratch document was
+      the scope here too.
+
+Trap from this group: **rewrite hyperlinks backwards by index.** Writing `r.Text` takes the
+link out of the collection AND changes the length of the text, so anything counted from the
+front has moved by the next turn of the loop.
+
 ## The helpers underneath
 
 These are what the buttons above reach. Converting a helper converts every button that uses it,

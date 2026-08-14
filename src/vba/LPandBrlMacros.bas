@@ -2332,7 +2332,7 @@ Sub Dx_Fix_Common_File_Errors()
       
     Application.Run MacroName:="Dx_Replace_Straight_Quotes_With_Smart_Quotes"
     
-    Application.Run MacroName:="Dx_Replace_Small_Caps_With_All_Caps"
+    Application.Run MacroName:="Sh_Replace_Small_Caps_With_All_Caps"
 
     Application.Run MacroName:="Dx_Remove_Optional_Hyphens"
     
@@ -5012,74 +5012,6 @@ Sub Dx_Is_Text_Selected()
     
 End Sub '***** End of Dx_Is_Text_Selected *************
 
-    Sub Dx_Replace_Small_Caps_With_All_Caps()
-    '
-    ' Dx_Replace_Small_Caps_With_All_Caps Macro
-    '
-    ' Author: Jerry Whittaker -  jerry@thewhittakers.org
-    ' Date: 1/8/2016
-    ' Version: 1.0
-'
-    Dim Limited_Selection As Boolean
-    
-    Dim su_Prev As Boolean
-    su_Prev = Application.ScreenUpdating
-    Application.ScreenUpdating = False ' Turn screen updating off
-    
-    If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
-        Limited_Selection = False
-    Else
-        Limited_Selection = True
-    End If
-
-    If Limited_Selection = True Then
-        Application.Run MacroName:="Dx_Copy_To_Temp_Doc"
-    End If
-    
-    ' perform the needed find and replaces
-    Selection.Find.ClearFormatting
-    With Selection.Find.Font
-        .SmallCaps = True
-        .AllCaps = False
-    End With
-    
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find.Replacement.Font
-        .SmallCaps = False
-        .AllCaps = True
-    End With
-    
-    With Selection.Find
-        .Text = ""
-        .Replacement.Text = ""
-        .Wrap = wdFindContinue
-        .Format = True
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    If Limited_Selection = True Then
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Application.Run MacroName:="Dx_Copy_From_Temp_Doc"
-    End If
-    
-    'set turn all caps and small caps off
-    With Selection.Font
-        .SmallCaps = False
-        .AllCaps = False
-    End With
-
-    Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    ActiveDocument.UndoClear
-       
-    Application.ScreenUpdating = su_Prev ' Turn screen updating on
-    
-End Sub '***** end of Dx_Replace_Small_Caps_With_All_Caps Macro *****
-
 Sub Dx_Copy_To_Temp_Doc()
 '
 ' Author: Jerry Whittaker -  jerry@thewhittakers.org
@@ -5507,97 +5439,64 @@ End Sub  '***** end of Dx_Tabs_To_Fill_Ins macro *****
 
 Sub Dx_Convert_Hyper_To_Addresses()
 '
-' Replaces hyperlinks with the address of the hyperlink
+' Replaces hyperlinks with the address of the hyperlink. The address is left as plain text -
+' a Duxbury source file has no use for a clickable link, which is the one thing that separates
+' this from the large-print copy.
 '
 ' from: http://stackoverflow.com/questions/16493791/
 '     extract-hyperlink-address-from-hyperlink-field-code
 '
+' Version: 2.0 Date: 8/13/2026 - no temporary document; everything is scoped to a range. See the
+'                               note in Lp_Convert_Hyper_To_Addresses - Hyperlinks is a
+'                               whole-document collection, so the scratch document was doing
+'                               real work. Gone with it: the four-character delete run and
+'                               "delete one character at the end of the document".
 ' Version: 1.2 Date: 11/16/2016
 '
-
-    Dim su_Prev As Boolean
-    su_Prev = Application.ScreenUpdating
-    Application.ScreenUpdating = False ' Turn screen updating off
-    
-    Dim Limited_Selection As Boolean
-    
-    Sh_Save_User_Position
-    
-    If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
-        Limited_Selection = False
-    Else
-        Limited_Selection = True
-    End If
-
-    If Limited_Selection = True Then
-        Selection.MoveUp Unit:=wdParagraph, count:=1, Extend:=wdExtend
-        Application.Run MacroName:="Dx_Copy_To_Temp_Doc"
-        Application.Run MacroName:="Sh_Is_End_Paragraph_Mark_Included"
-        Selection.HomeKey Unit:=wdStory
-        Selection.TypeParagraph
-        Selection.HomeKey Unit:=wdStory
-    End If
-    
-    Dim hl As Word.Hyperlink
-    Dim i As Integer
-    Dim r As Word.Range
+    Dim rng As Range
+    Dim r As Range
     Dim strLinkText As String
-        For i = ActiveDocument.Hyperlinks.count To 1 Step -1
-          With ActiveDocument.Hyperlinks(i)
-            Set r = .Range
+    Dim i As Long
+    Dim su_Prev As Boolean
+
+    su_Prev = Application.ScreenUpdating
+    Application.ScreenUpdating = False
+
+    Sh_Save_User_Position
+
+    If Selection.Type = wdSelectionNormal Then
+        Set rng = Selection.Range
+    Else
+        Set rng = ActiveDocument.Content
+    End If
+
+    ' Every hyperlink in scope becomes its own address, as plain text. Backwards by index:
+    ' writing r.Text takes the hyperlink out of the collection and changes the length of the
+    ' text, so anything counted from the front has moved by the next turn of the loop.
+    On Error Resume Next
+    For i = rng.Hyperlinks.count To 1 Step -1
+        With rng.Hyperlinks(i)
             strLinkText = .Address
             ' optional, should be OK for HTML links
             If .SubAddress <> "" Then
-              strLinkText = strLinkText & "#" & .SubAddress
+                strLinkText = strLinkText & "#" & .SubAddress
             End If
-            r.Text = strLinkText
-            ' r.Font.Color = wdColorBlue
-            ' r.Font.Underline = wdUnderlineSingle
-            Set r = Nothing
-          End With
-        Next
-        
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "mailto:"
-        .Replacement.Text = ""
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    If Limited_Selection = True Then
-        Selection.HomeKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.EndKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.EndKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.WholeStory
-        Selection.Copy
-        Selection.HomeKey Unit:=wdStory ', Extend:=wdExtend
-        
-        ActiveDocument.Close SaveChanges:=False 'close the temp doc without saving
-        Selection.Paste 'paste the clipboard back into the original document
-    Else
-        'get rid of extra pargraph mark at end of document
-        Selection.EndKey Unit:=wdStory
-        Selection.Delete Unit:=wdCharacter, count:=1
-    End If
-    
+            Set r = .Range
+        End With
+        r.Text = strLinkText
+        Set r = Nothing
+    Next i
+    On Error GoTo 0
+
+    ' "mailto:" is how Word writes an e-mail address and is not part of the address a reader
+    ' wants to see
+    Sh_Delete_Text_In_Range rng, "mailto:"
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     Sh_Return_User_To_Start_Position
     Selection.Collapse Direction:=wdCollapseStart
-    Application.ScreenUpdating = su_Prev ' Turn screen updating ong
-    
+    Application.ScreenUpdating = su_Prev
+    Application.ScreenRefresh
+
 End Sub  '*** end of Dx_Convert_Hyper_To_Addresses ***
 
 ' Dx_Replace_Manual_Line_Break was here until 8/12/2026 - see Sh_Replace_Manual_Line_Break.
@@ -7269,7 +7168,7 @@ Sh_Spin_DoEvents
 Sh_Spin_DoEvents
     Application.Run MacroName:="Sh_Para_Before_Dollar" 'Fixes DAISY Page Problems
 Sh_Spin_DoEvents
-    Application.Run MacroName:="Lp_Replace_Small_Caps_With_All_Caps"
+    Application.Run MacroName:="Sh_Replace_Small_Caps_With_All_Caps"
 Sh_Spin_DoEvents
     Application.Run MacroName:="Lp_Remove_Tabs_Before_and_After_Para_Marks"
 Sh_Spin_DoEvents
@@ -10367,102 +10266,79 @@ End Function   '*** end of Sh_Link_Address ***
 
 Sub Lp_Convert_Hyper_To_Addresses()
 '
-' Version: 1.3   Date: 8/13/2026 - the Selection.Range.AutoFormat that turns plain URLs back into
-'                                 live links now runs with every other AutoFormat option turned
-'                                 off and restored afterwards. It was deleting empty paragraphs
-'                                 out of documents that had no hyperlinks in them - see the note
-'                                 at the call. This macro is reached by Fix Common File Errors,
-'                                 so it was happening on every cleanup and every template attach.
-' Version: 1.2   Date: 1/8/2019
-' Version: 1.1   Date: 6/9/2016
-'
-' Replaces hyperlinks with the address of the hyperlink
+' Replaces hyperlinks with the address of the hyperlink, then turns the plain addresses back
+' into live links.
 '
 ' from: http://stackoverflow.com/questions/16493791/
 '     extract-hyperlink-address-from-hyperlink-field-code
 '
-    Dim hl As Word.Hyperlink
-    Dim i As Integer
-    Dim r As Word.Range
+' Version: 2.0   Date: 8/13/2026 - no temporary document; everything is scoped to a range.
+'
+'                                 ActiveDocument.Hyperlinks is a whole-document collection and
+'                                 the "mailto:" pass was a Selection.Find with wdFindContinue, so
+'                                 the scratch document was the only thing holding either of them
+'                                 to the transcriber's selection. Sh_Linkify_Range was being
+'                                 handed ActiveDocument.Content outright.
+'
+'                                 Gone with the round trip: "go to the end of the document and
+'                                 delete one character", which ran on EVERY route out and ate the
+'                                 last character of the book when nothing was selected, and
+'                                 ActiveDocument.UndoClear, which threw away the whole undo
+'                                 history rather than this macro's part of it.
+'
+'                                 NOT merged with the braille copy, which stops after turning
+'                                 the links into text and does not make them live again. A DBT
+'                                 source file has no use for a clickable link.
+' Version: 1.3   Date: 8/13/2026 - AutoFormat gone; see the note on Sh_Linkify_Range
+' Version: 1.2   Date: 1/8/2019
+' Version: 1.1   Date: 6/9/2016
+'
+    Dim rng As Range
+    Dim r As Range
     Dim strLinkText As String
-    Dim Limited_Selection As Boolean
-    
+    Dim i As Long
     Dim su_Prev As Boolean
+
     su_Prev = Application.ScreenUpdating
-    Application.ScreenUpdating = False ' Turn screen updating off
-    
+    Application.ScreenUpdating = False
+
     Sh_Save_User_Position
-        
-    If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
-        Limited_Selection = False
+
+    If Selection.Type = wdSelectionNormal Then
+        Set rng = Selection.Range
     Else
-        Limited_Selection = True
-        Application.Run MacroName:="Lp_Copy_To_Temp_Doc"
+        Set rng = ActiveDocument.Content
     End If
-    
-    ' convert address type hyperlink and hidden type hyperlink to text
-On Error Resume Next
-    For i = ActiveDocument.Hyperlinks.count To 1 Step -1
-      With ActiveDocument.Hyperlinks(i)
-        Set r = .Range
-        strLinkText = .Address
-        ' optional, should be OK for HTML links
-        If .SubAddress <> "" Then
-          strLinkText = strLinkText & "#" & .SubAddress
-        End If
+
+    ' Every hyperlink in scope becomes its own address, as plain text. Backwards by index:
+    ' writing r.Text takes the hyperlink out of the collection and changes the length of the
+    ' text, so anything counted from the front has moved by the next turn of the loop.
+    On Error Resume Next
+    For i = rng.Hyperlinks.count To 1 Step -1
+        With rng.Hyperlinks(i)
+            strLinkText = .Address
+            ' optional, should be OK for HTML links
+            If .SubAddress <> "" Then
+                strLinkText = strLinkText & "#" & .SubAddress
+            End If
+            Set r = .Range
+        End With
         r.Text = strLinkText
-        ' r.Font.Color = wdColorBlue
-        ' r.Font.Underline = wdUnderlineSingle
         Set r = Nothing
-      End With
-    Next
-        
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "mailto:"
-        .Replacement.Text = ""
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+    Next i
+    On Error GoTo 0
 
-    ' Turn plain URLs and e-mail addresses back into live links.
-    '
-    ' 8/13/2026 - this used to be Selection.Range.AutoFormat over the whole document, and that
-    ' is what Jerry tracked down: AutoFormat is Word's entire AutoFormat command, and it REMOVES
-    ' EMPTY PARAGRAPHS. A document with no hyperlinks in it at all came out of Fix Common File
-    ' Errors with a run of blank lines one shorter and a lone blank line gone, before the
-    ' empty-paragraph macro had even run - which is why the attach and the cleanup disagreed.
-    '
-    ' Turning off every AutoFormat option except ReplaceHyperlinks does NOT stop it. The blank
-    ' paragraphs still go; the paragraph analysis is not one of the options. That was measured,
-    ' not assumed. So AutoFormat is gone and the links are made directly, which also means this
-    ' macro no longer changes Options.AutoFormatReplaceHyperlinks - an Application setting that
-    ' belongs to the transcriber and that the old code turned on permanently.
-    Sh_Linkify_Range ActiveDocument.Content
+    ' "mailto:" is how Word writes an e-mail address and is not part of the address a reader
+    ' wants to see
+    Sh_Delete_Text_In_Range rng, "mailto:"
+    Sh_Linkify_Range rng
 
-    If Limited_Selection = True Then
-        'Selection.Delete Unit:=wdCharacter, Count:=1
-        Application.Run MacroName:="Lp_Copy_From_Temp_Doc"
-        Selection.TypeBackspace
-    End If
-    
-    Selection.EndKey Unit:=wdStory
-    Selection.Delete Unit:=wdCharacter, count:=1
-    Application.ScreenUpdating = su_Prev ' Turn screen updating on
-    Sh_Return_User_To_Start_Position
-    Selection.Collapse 'clear selection
-    Application.ScreenRefresh
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    ActiveDocument.UndoClear
-    
+    Sh_Return_User_To_Start_Position
+    Selection.Collapse Direction:=wdCollapseStart
+    Application.ScreenUpdating = su_Prev
+    Application.ScreenRefresh
+
 End Sub  '*** end of Lp_Convert_Hyper_To_Addresses ***
 
 Sub Sh_Remove_Txt_Bxs_And_Frames()
@@ -10784,81 +10660,87 @@ Sub Lp_Replace_Tabs_With_Single_Space()
 
 End Sub  '*** end of Lp_Replace_Tabs_With_Single_Space Macro ***
 
-Sub Lp_Replace_Small_Caps_With_All_Caps()
+Sub Sh_Replace_Small_Caps_With_All_Caps()
 '
-' Lp_Replace_Small_Caps_With_All_Caps Macro
+' Sh_Replace_Small_Caps_With_All_Caps Macro
 '
 ' Author: Jerry Whittaker -  jerry@thewhittakers.org
 '
+' Small caps are a look, not letters - the text underneath is still lower case, and a screen
+' reader or a braille translator reads it as lower case. This turns the look into real capitals.
+'
+' Version: 2.0 Date: 8/13/2026 - no temporary document, and ONE macro.
+'
+'                               The whole body of both copies was a single formatted
+'                               find-and-replace. Everything else was round-trip plumbing, so
+'                               once that came out the two were identical and merged.
+'
+'                               Gone with the round trip: the large-print "go to the end of the
+'                               document and delete one character", which ran on EVERY route out
+'                               and ate the last character of the book when nothing was selected;
+'                               the braille "delete one character" before the paste back; and
+'                               ActiveDocument.UndoClear on both sides, which threw away the
+'                               whole undo history rather than this macro's part of it.
+'
+'                               The "turn small caps and all caps off" at the end now runs on a
+'                               COLLAPSED selection, which is what it has always amounted to on
+'                               the large-print side: it is there so the transcriber's next
+'                               keystrokes are not in small caps, not to strip the capitals this
+'                               macro has just applied.
 ' Version: 1.2 Date: 10/19/2023 - fixed removal of characters in selected text
 ' Version: 1.1 Date: 1/8/2019
 ' Version: 1.0 Date: 1/8/2016
 '
-    Dim Limited_Selection As Boolean
-    
+    Dim rng As Range
     Dim su_Prev As Boolean
+
     su_Prev = Application.ScreenUpdating
-    Application.ScreenUpdating = False ' Turn screen updating off
-    
+    Application.ScreenUpdating = False
+
     Sh_Save_User_Position
-        
-    If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
-        Limited_Selection = False
+
+    If Selection.Type = wdSelectionNormal Then
+        Set rng = Selection.Range
     Else
-        Limited_Selection = True
-        Application.Run MacroName:="Lp_Copy_To_Temp_Doc"
+        Set rng = ActiveDocument.Content
     End If
-    
-    ' perform the needed find and replaces
-    Selection.Find.ClearFormatting
-    With Selection.Find.Font
-        .SmallCaps = True
-        .AllCaps = False
-    End With
-    
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find.Replacement.Font
-        .SmallCaps = False
-        .AllCaps = True
-    End With
-    
-    With Selection.Find
+
+    With rng.Find
+        .ClearFormatting
+        .Font.SmallCaps = True
+        .Font.AllCaps = False
+        .Replacement.ClearFormatting
+        .Replacement.Font.SmallCaps = False
+        .Replacement.Font.AllCaps = True
         .Text = ""
         .Replacement.Text = ""
-        .Wrap = wdFindContinue
+        .Forward = True
+        ' wdFindStop, not wdFindContinue: continue would run past the end of the range and
+        ' quietly turn "the selection" into "the whole document".
+        .Wrap = wdFindStop
         .Format = True
         .MatchCase = False
         .MatchWholeWord = False
         .MatchWildcards = False
         .MatchSoundsLike = False
         .MatchAllWordForms = False
+        .Execute Replace:=wdReplaceAll
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    If Limited_Selection = True Then
-        Selection.EndKey Unit:=wdStory
-        Selection.HomeKey Unit:=wdStory, Extend:=wdExtend
-        Selection.Copy 'copy the selected text to the clipboard
-        ActiveDocument.Close SaveChanges:=False 'close the temp doc without saving
-        Selection.Paste 'AndFormat (wdFormatOriginalFormatting)
-    End If
-    
-    Selection.EndKey Unit:=wdStory
-    Selection.Delete Unit:=wdCharacter, count:=1
-    Application.ScreenUpdating = su_Prev ' Turn screen updating on
-    Sh_Return_User_To_Start_Position
-    Selection.Collapse 'clear selection
-    Application.ScreenRefresh
+
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    ActiveDocument.UndoClear
-    
-    'set turn all caps and small caps off
+    Sh_Return_User_To_Start_Position
+    Selection.Collapse Direction:=wdCollapseStart
+
+    ' so the next thing typed is not in small caps
     With Selection.Font
         .SmallCaps = False
         .AllCaps = False
     End With
-    
-End Sub '***** end of Lp_Replace_Small_Caps_With_All_Caps Macro *****
+
+    Application.ScreenUpdating = su_Prev
+    Application.ScreenRefresh
+
+End Sub '***** end of Sh_Replace_Small_Caps_With_All_Caps Macro *****
 Sub Lp_Replace_Section_Break_With_Page_Break()
 '
 ' Lp_Replace_Section_Break_With_Page_Break Macro

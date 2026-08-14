@@ -50,7 +50,7 @@ Private Sub Okay_Click()
            
     If Small_Caps_To_All_Caps Then
         Unload Dx_Selected_Cleanup_Form
-        Application.Run MacroName:="Dx_Replace_Small_Caps_With_All_Caps"
+        Application.Run MacroName:="Sh_Replace_Small_Caps_With_All_Caps"
     End If
     
     If Replace_Tabs_With_Single_Space Then
