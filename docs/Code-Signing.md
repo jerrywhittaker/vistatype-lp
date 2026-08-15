@@ -332,6 +332,47 @@ because it would say whether signing the `.dotm` alone is enough.
 **Also still to do:** report the false positive to Microsoft as a software developer. Free, and
 independent of everything above.
 
+### Deferred until signing is settled — do not start these
+
+Jerry, 8/15/2026: **everything below waits on the certificate.** They were worked out, not
+forgotten, and they are recorded here so the reasoning does not have to be rebuilt.
+
+**The repository is still private, and stays that way for now.** Only Jerry's account can reach
+it — there are no collaborators. So nobody can download from GitHub at all, and the Download
+button on vistatypelp.org leads to a "page not found" for every visitor. That is known and
+accepted for the moment: pointing the public at an installer their antivirus deletes is worse
+than pointing them at nothing. **3.0.135, the build that worked in the field, is flagged too**
+(5 of 70 engines, Microsoft calling it `Program:Win32/Wacapew.C!ml`), so releasing it would not
+have avoided this.
+
+Note for whenever it does go public: the GPL says anyone given the installer is entitled to the
+source for that exact version, and the About dialog and the installed `LICENSE.txt` both promise
+it. The history was checked on 8/15/2026 and is clean — `build.config` was never committed, and
+there are no keys, tokens or the Atkinson PDF anywhere in it.
+
+**A release-candidate lane was designed and deferred.** The shape, so it need not be worked out
+twice:
+
+- A fourth lane, `X.Y-rcN`, for builds handed to the testers. `3.0.X` stays the private build
+  counter; `X.Y` stays a real release; `X.Y.0.N` stays a hotfix.
+- **Two version strings, not one.** `VersionInfoVersion` accepts *numbers only* (up to four,
+  dot-separated), so `3.1-rc1` breaks the build if fed to it. Everything a person reads — the
+  About box, Programs and Features, the wizard, the file name — takes free text.
+- The numeric half should be **the build the candidate was cut from**: `3.1-rc1 (build 3.0.188)`,
+  numerically `3.0.188.0`. Anything cleverer collides with the hotfix lane, where `3.1.0.1`
+  already means "3.1, repair 1". It also means a tester's report points at one exact commit.
+- **Published with GitHub's pre-release flag**, which is excluded from "the newest release" — so
+  a candidate can never become the public download by accident, which is what the website
+  follows.
+- **Tagged on `dev`; `master` never moves.** That keeps "master is the last released version"
+  true.
+- **Never put "rc" in `AppName`.** With no `AppId`, Inno derives product identity from it, so a
+  renamed one looks like a different product and leaves a second entry in Programs and Features.
+  Say it in `AppVersion`, `UninstallDisplayName`, the welcome and finished pages, and the About
+  dialogs instead.
+- Build side: leave `APPVER` and `make bump` alone (its arithmetic would trip over a label), add
+  an optional `RCVER`, and pass the installer two defines instead of one.
+
 ## Sources
 
 - [Trojan:Win32/Bearfoos.B!ml — Microsoft Security Intelligence](https://www.microsoft.com/en-us/wdsi/threats/malware-encyclopedia-description?Name=Trojan%3AWin32%2FBearfoos.B%21ml)

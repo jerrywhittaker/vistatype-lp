@@ -585,6 +585,29 @@ onto `master` directly — stop and ask Jerry rather than forcing a merge.
 
 9. Delete the superseded `"VistaType LP and Braille Macros Setup *.exe"` from `dist/` and the VM Desktop (keep old
    real releases).
+10. **Remind Jerry to update the website — and do not touch it yourself.** See *The website is a
+    separate project* immediately below. Give him the paste-able prompt from
+    `docs/Daily-Workflow-and-Releases.md` → *Step 7*.
+
+### The website is a separate project — never merge them
+
+**`~/projects/vistatypelp-org`** (live at **vistatypelp.org**) is the public website. It is its
+own repository with its own `CLAUDE.md`, and **the separation is deliberate and permanent**.
+
+**Jerry's rule, 8/15/2026: never merge the two, and never suggest merging them** — not as a
+monorepo, not as a subfolder, not "while we're in here". Do not propose it as a tidy-up, and do
+not edit the website from this project even when the change looks trivial. If something there
+needs doing, say so and stop.
+
+They are related in exactly one way: **when a real release goes out (an `X.Y`, not a `3.0.X`
+build), the website should be looked at.** Nothing breaks if it is not — the site's download
+button points at "the newest release" on purpose, so releasing never *requires* a website change.
+What goes stale is the writing: what the add-in does, what is new, and the install page.
+
+So at step 10, tell Jerry to **open Claude in a second session in that folder**, and hand him the
+ready-made prompt in `docs/Daily-Workflow-and-Releases.md` → *Step 7* with the version number
+filled in. That session has the website's own guidance and its own "never publish without being
+asked" rule. This one does not do the work.
 
 ### The `.exe` IS the release — non-negotiable
 
@@ -672,6 +695,9 @@ does not, tell Jerry before starting other work — an unfolded hotfix is a bug 
 - **Never force-push, never rewrite a published tag**, and never delete a `v*` tag without
   being asked — the tags are the recovery points.
 - **Never publish a release without its `.exe`** — see the non-negotiable section above.
+- **Never merge this project with `~/projects/vistatypelp-org`, and never suggest it.** Never
+  edit the website from here either. On a real release, remind Jerry and hand him the prompt to
+  paste into a second Claude session there. See *The website is a separate project* above.
 - This workflow is new to Jerry. **Guide him through the release steps explicitly** — say which
   command comes next and what it will do, run the git steps for him, and confirm each stage
   landed before moving on. Don't assume he knows the branch he is on; tell him.

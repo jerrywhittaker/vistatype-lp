@@ -45,21 +45,26 @@ WORDMARK_SRC = SRC / "vistatype-wordmark.png"
 # and looks it.
 ICO_SIZES = (16, 20, 24, 32, 40, 48, 64, 128, 256)
 
-# The welcome page's image area, at the DPI settings Inno Setup documents. Setup picks the
-# closest and does not have to stretch. All four are the same shape, so nothing is distorted.
-WIZARD_SIZES = ((202, 386), (269, 515), (336, 643), (404, 772))
+# The wordmark, laid across the top of the welcome and finished pages.
+#
+# Jerry, 8/15/2026: the tall left-hand panel used to carry the mark AND the wordmark stacked, and
+# having both on one screen looked wrong. The panel is gone from both of those pages; the
+# wordmark sits at the top and the text runs the full width beneath it.
+#
+# WIDTHS in pixels at each display scaling from 100% to 250%. The installer draws whichever it
+# picks at its NATURAL size -- no stretching at all, which is why there is one per step rather
+# than one image scaled to fit: Windows' stretch is not smooth, and it shows on lettering.
+#
+# BMP, not PNG, because the wizard code loads this one itself and Inno Setup's scripting can
+# only read a bitmap. Flattened onto white to match the page behind it.
+WORDMARK_WIDTHS = (260, 325, 390, 455, 520, 650)
+WORDMARK_BACKGROUND = (255, 255, 255)
 
 # The small image sits top-right on every page after the welcome one. Square.
 SMALL_SIZES = (58, 77, 97, 116, 124, 143, 159)
 
-# Fractions of the welcome panel. The mark and the name are stacked as ONE group and that group
-# is centred, rather than each being pinned to its own fixed height -- pinning them left the
-# bottom third of the panel empty and the two drifting apart. Slightly above true centre,
-# because an optically centred block sits a little high.
-ICON_WIDTH = 0.58
-WORDMARK_WIDTH = 0.86
-GAP = 0.045
-GROUP_CENTRE = 0.44
+# The small image sits top-right on every page BETWEEN the welcome and finished ones, which is
+# where the mark still appears.
 
 
 def fit(img, width=None, height=None):
@@ -80,29 +85,17 @@ def square(img, size):
     return canvas
 
 
-def welcome_panel(icon, wordmark, size):
-    """The tall image on the welcome page: the mark above, the name below.
-
-    Transparent, so it sits on the wizard's own background whatever Windows theme is in use.
-    """
-    width, height = size
-    canvas = Image.new("RGBA", size, (0, 0, 0, 0))
-
-    mark = fit(icon, width=round(width * ICON_WIDTH))
-    name = fit(wordmark, width=round(width * WORDMARK_WIDTH))
-    gap = round(height * GAP)
-
-    stack = mark.height + gap + name.height
-    top = round(height * GROUP_CENTRE) - stack // 2
-
-    canvas.paste(mark, ((width - mark.width) // 2, top), mark)
-    canvas.paste(name, ((width - name.width) // 2, top + mark.height + gap), name)
+def wordmark_strip(wordmark, width):
+    """The wordmark at one exact width, flattened onto the page's own white."""
+    scaled = fit(wordmark, width=width)
+    canvas = Image.new("RGB", scaled.size, WORDMARK_BACKGROUND)
+    canvas.paste(scaled, (0, 0), scaled)
     return canvas
 
 
 def expected_outputs():
     names = ["vistatype.ico"]
-    names += [f"wizard-{w}x{h}.png" for w, h in WIZARD_SIZES]
+    names += [f"welcome-wordmark-{w}.bmp" for w in WORDMARK_WIDTHS]
     names += [f"wizard-small-{s}.png" for s in SMALL_SIZES]
     return names
 
@@ -137,17 +130,24 @@ def main():
     largest = max(ICO_SIZES)
     square(icon, largest).save(OUT / "vistatype.ico", format="ICO", sizes=[(s, s) for s in ICO_SIZES])
 
-    for w, h in WIZARD_SIZES:
-        welcome_panel(icon, wordmark, (w, h)).save(OUT / f"wizard-{w}x{h}.png")
+    for w in WORDMARK_WIDTHS:
+        wordmark_strip(wordmark, w).save(OUT / f"welcome-wordmark-{w}.bmp")
 
     for s in SMALL_SIZES:
         square(icon, s).save(OUT / f"wizard-small-{s}.png")
 
+    stale = sorted(OUT.glob("wizard-2*.png")) + sorted(OUT.glob("wizard-3*.png")) + \
+        sorted(OUT.glob("wizard-4*.png"))
+    for old in stale:
+        old.unlink()
+
     made = expected_outputs()
     print(f"Wrote {len(made)} files to {OUT}/ from {SRC}/:")
-    print(f"  vistatype.ico          {len(ICO_SIZES)} sizes, {'/'.join(str(s) for s in ICO_SIZES)}")
-    print(f"  wizard-*.png           {len(WIZARD_SIZES)} sizes for the welcome page")
-    print(f"  wizard-small-*.png     {len(SMALL_SIZES)} sizes for the top-right corner")
+    print(f"  vistatype.ico            {len(ICO_SIZES)} sizes, {'/'.join(str(s) for s in ICO_SIZES)}")
+    print(f"  welcome-wordmark-*.bmp   {len(WORDMARK_WIDTHS)} widths for the welcome/finished pages")
+    print(f"  wizard-small-*.png       {len(SMALL_SIZES)} sizes for the top-right corner")
+    if stale:
+        print(f"  removed {len(stale)} superseded welcome-panel image(s)")
     return 0
 
 

@@ -221,6 +221,30 @@ Claude then:
 
 The GitHub release page has the installer on it. That link is what you give transcribers.
 
+### Step 7 — Update the website
+
+**vistatypelp.org is a separate project, in its own folder, with its own Claude.** It is not
+part of this one and the two are never joined together. Claude working here will remind you at
+this point, and will not go and edit the site itself.
+
+The download button on the site always points at "the newest release", so it keeps working on
+its own and nothing breaks if you skip this. What can go stale is the *writing* — what the
+add-in does, what is new, and the install instructions if anything about installing changed.
+
+**Open a second terminal, go to the website folder, start Claude there, and paste this:**
+
+```
+VistaType LP 3.1 has just been released. Here is the release page:
+https://github.com/jerrywhittaker/vistatype-lp/releases/latest
+
+Please read what is new in that release, then go through the site and tell me
+what is now out of date - the description of what the add-in does, anything on
+the install page, and anything that says or implies a version number. Show me
+what you would change before changing it, and do not publish until I say so.
+```
+
+Change `3.1` to whichever version you released. Everything else stays as it is.
+
 ---
 
 ## ⚠️ The one rule that matters most
