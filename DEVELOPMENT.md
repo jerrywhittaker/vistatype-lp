@@ -143,6 +143,88 @@ ever runs `ssh $(WIN_HOST)`; your SSH agent/config resolves the key.
   their permissions and agent integration work correctly.
 - No separate `.env` file is needed: `build.config` already is the per-machine,
   gitignored settings file.
+- The one credential that may live in `build.config` is `VT_API_KEY`, the free VirusTotal key
+  used by `make scan` (below). It is a read/submit key for a public scanning service, not a
+  signing key or an account password — but it is still a token, so it stays in that gitignored
+  file or in the environment, and never in a tracked file.
+
+## The installer's icon and artwork — `make branding`
+
+`assets/branding/` holds Jerry's two artwork PNGs — the mark and the wordmark — and is the
+source of truth. `make branding` turns them into `installer/branding/`: `vistatype.ico` at nine
+sizes, four sizes of the tall welcome-page panel, and seven of the small corner image. Several
+sizes of each so a high-DPI screen gets a sharp one; Inno Setup picks the closest and does not
+have to stretch it.
+
+Those generated files are **build outputs** — regenerate them, never hand-edit them. They live
+under `installer/` rather than beside the artwork on purpose: `installer/` is wiped on the build
+box before each copy, so a deleted one really goes, whereas `assets/` is never wiped there.
+
+`make installer` runs `--check-only` and refuses to build if they are missing, but does **not**
+regenerate them — the generator needs Pillow, and a machine without it can still build
+everything else. Run `make branding` after changing the artwork. To move the two elements about
+on the welcome panel, change the four constants at the top of `tools/lib/build_branding.py`;
+they are fractions of the panel, so all four sizes follow together.
+
+Added 8/15/2026 along with the version block in `installer/vistatype.iss`. Until then the built
+`Setup.exe` was a generic Inno stub reporting **FileVersion 0.0.0.0** with the file-version and
+original-filename strings blank — one of the two heavily-weighted factors behind the
+machine-learning deletions described in `docs/Code-Signing.md`.
+
+## Checking a build against antivirus engines — `make scan`
+
+On 8/13/2026 Windows Defender started deleting every built `Setup.exe` within seconds, calling
+it `Trojan:Win32/Bearfoos.B!ml` — a machine-learning guess, not a match against anything known.
+Two days of arguing about which part of the installer caused it produced four wrong answers, so
+the question is now measured instead:
+
+```
+make scan                                       # the build APPVER currently names
+make scan SCAN_ARGS="--rescan"                  # run the engines again on a file VT already knows
+make scan SCAN_ARGS="--max 5 --json"            # loosen the limit; keep the full report
+make scan SCAN_FILE="dist/…Setup 3.0.135.exe"   # an older build, by name
+```
+
+`tools/lib/scan_virustotal.py` uploads the file, waits, and prints every engine that flagged it
+and what it called it. It exits non-zero if **Microsoft** flagged it, or if more than `--max`
+(default 3) engines did. Microsoft is singled out because Defender is what a transcriber
+actually has; two obscure engines flagging an unsigned installer is ordinary noise. A report that
+comes back with no engine results in it — which happens transiently just after a rescan — exits
+**2**, never 0: a gate that fails open is worse than no gate. Each run appends a line to
+`virustotal-history.tsv` at the repo root (gitignored, and outside `dist/` so `make clean` cannot
+take the record with it), and the next run says whether this build did better or worse than the
+last.
+
+Three things to hold on to:
+
+- **Uploads are public and permanent.** VirusTotal keeps the file for ever, shares it with every
+  antivirus vendor, and lets its paying customers download it. Harmless for a GPL installer given
+  away free, and useful — it puts the sample in front of the vendors who need to stop flagging
+  it. There is no way to withdraw one. So the script **refuses anything that is not a `.exe`
+  directly inside `dist/`**, with no override flag — the likeliest reason anyone would ever type
+  a filename here is a transcriber's document that Defender ate, which is exactly the thing that
+  must never go. To scan something else, copy it into `dist/` first; that is meant to take a
+  conscious act. It is a separate target and not part of `make installer` for the same reason.
+- **VirusTotal's "Microsoft" engine is not the Defender on a real machine.** VirusTotal runs the
+  engines without their cloud, and `!ml` verdicts are cloud verdicts. It can come back clean
+  while a real machine still deletes the file.
+- **So confirm on the build box**, where `-DisableRemediation` gets a verdict without losing the
+  file:
+
+  ```
+  "C:\Program Files\Windows Defender\MpCmdRun.exe" -Scan -ScanType 3 ^
+      -File "C:\path\to\Setup.exe" -DisableRemediation
+  ```
+
+  `Get-MpThreat` lists what Defender has found and `Get-MpComputerStatus` gives the definition
+  version and when it last updated — enough to line a detection up against a definition change.
+  Note that `make installer` delivers into `VT Installer` on the build box Desktop, which is a
+  Defender **exclusion** on that machine: a file there is not being scanned, so it proves
+  nothing. Copy it elsewhere to test it.
+
+The whole background — what the detection is, what in the installer scores against it, the two
+free fixes, reporting a false positive to Microsoft, and the code-signing options — is in
+**`docs/Code-Signing.md`**.
 
 ## Everyday loop
 

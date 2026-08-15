@@ -47,10 +47,14 @@
 ; The literal here is the fallback for building this script by hand, and is kept in step
 ; with the Makefile by "make bump".
 #ifndef AppVer
-  #define AppVer      "3.0.186"
+  #define AppVer      "3.0.187"
 #endif
 #define DotmName    "LPandBRL.dotm"
 #define DotxName    "LargePrintTemplate.dotx"
+; The output file's name, defined once because it is now used TWICE: as the name Inno writes,
+; and as OriginalFileName inside the .exe's own version block. Two literals would drift, and a
+; wrong OriginalFileName is worse than a blank one.
+#define OutputBase  "VistaType LP and Braille Macros Setup " + AppVer
 ; Where a transcriber gets the newest Setup.exe, the guides, and the source. Defined once
 ; because it appears on the welcome page AND in Programs & Features; releases are published
 ; here, so this is the address to give anyone asking for an update.
@@ -89,7 +93,7 @@ OutputDir=..\dist
 ; derives the product identity from AppName when no AppId is set, so renaming it would
 ; make an upgrade look like a different product and leave a second entry behind in
 ; Programs & Features. Renaming only the output file has no such effect.
-OutputBaseFilename=VistaType LP and Braille Macros Setup {#AppVer}
+OutputBaseFilename={#OutputBase}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -99,6 +103,44 @@ UninstallDisplayName=VistaType LP + Braille Macros
 ; with an "I accept" button, and nothing anywhere saying what they were installing. Turned
 ; back on 8/8/2026 so the license is the second page and has some context in front of it.
 DisableWelcomePage=no
+
+; ----------------------------------------------------------------------------
+;  Identity: the icon, the artwork, and the version block inside the .exe
+;
+;  All added 8/15/2026. Until then the installer set NO icon and NO version numbers, so the
+;  built file was a generic Inno Setup stub whose properties read FileVersion 0.0.0.0 with the
+;  file-version and original-filename strings blank. That is not cosmetic: "no version
+;  information" sits beside "unsigned" as one of the two heavily-weighted factors when one of
+;  Microsoft's own tools was hit by the same kind of machine-learning detection that has been
+;  deleting this Setup.exe. See docs/Code-Signing.md. A file that looks like a product is less
+;  likely to be judged as though it were not one -- and a transcriber who checks Properties
+;  before running an installer, which is exactly what a careful one does, now sees who made it.
+;
+;  branding/ is GENERATED from the artwork in assets/branding/ by tools/lib/build_branding.py
+;  (`make branding`, and `make installer` refuses to run if it is missing). Regenerate it;
+;  never hand-edit it. The several sizes of each image are so a high-DPI screen gets a sharp
+;  one: Inno picks the closest and does not have to stretch it.
+; ----------------------------------------------------------------------------
+SetupIconFile=branding\vistatype.ico
+WizardImageFile=branding\wizard-202x386.png,branding\wizard-269x515.png,branding\wizard-336x643.png,branding\wizard-404x772.png
+WizardSmallImageFile=branding\wizard-small-58.png,branding\wizard-small-77.png,branding\wizard-small-97.png,branding\wizard-small-116.png,branding\wizard-small-124.png,branding\wizard-small-143.png,branding\wizard-small-159.png
+
+; The icon shown beside the entry in Programs & Features. It has to be a file that survives the
+; install, so the .ico is installed alongside the scripts in the per-user folder ([Files] below).
+UninstallDisplayIcon={userappdata}\VistaType LP\vistatype.ico
+
+; VersionInfoVersion is the one that fills VS_FIXEDFILEINFO, which is where 0.0.0.0 was coming
+; from. Inno wants up to four numbers; AppVer is three (3.0.186), which it accepts. The rest were
+; being half-filled from AppName/AppPublisher/AppCopyright -- set them outright so nothing is
+; left to a default, and so OriginalFileName stops being blank.
+VersionInfoVersion={#AppVer}
+VersionInfoProductVersion={#AppVer}
+VersionInfoTextVersion={#AppVer}
+VersionInfoProductName=VistaType LP + Braille Macros
+VersionInfoDescription=VistaType LP + Braille Macros Setup
+VersionInfoCompany=Jerry Whittaker
+VersionInfoCopyright=Copyright (C) 2015-2026 Jerry Whittaker (GNU GPL v3.0)
+VersionInfoOriginalFileName={#OutputBase}.exe
 
 ; ----------------------------------------------------------------------------
 ;  Wizard wording. Overrides Inno's stock text; see the Messages section of its
@@ -157,6 +199,10 @@ Source: "qat-icons-only.officeUI";   DestDir: "{userappdata}\VistaType LP"; Flag
 Source: "ribbon-tabs.officeUI";      DestDir: "{userappdata}\VistaType LP"; Flags: ignoreversion
 ; Install a copy of the GPL so the user "receives a copy of the license" per the GPL.
 Source: "{#SrcDir}\LICENSE.txt";   DestDir: "{userappdata}\VistaType LP"; Flags: ignoreversion
+; The icon Programs & Features draws beside the entry (UninstallDisplayIcon above points here).
+; It has to be a file that OUTLIVES the install, which is why it is installed rather than only
+; compiled in. Goes with the folder at uninstall, like everything else here.
+Source: "branding\vistatype.ico";    DestDir: "{userappdata}\VistaType LP"; Flags: ignoreversion
 
 ; ---------------------------------------------------------------------------------------
 ;  The bundled typeface -- SIL Open Font License 1.1, NOT the GPL

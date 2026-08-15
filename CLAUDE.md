@@ -185,6 +185,31 @@ tools/lib/      check_style_guards.py (refuses to build when an ActiveDocument.S
                 guard); trim_frm_blanks.py (collapses the blank lines Word adds to a form's code
                 section on every export — the two About forms are re-exported by the version
                 stamper on EVERY build, so the runs grow without limit; runs as part of `make build`);
+                build_branding.py (`make branding` — turns the two artwork PNGs in
+                assets/branding/ into installer/branding/: vistatype.ico at nine sizes, four
+                sizes of the welcome-page panel and seven of the small corner image, so a
+                high-DPI screen gets a sharp one instead of a stretched one. Needs Pillow.
+                `make installer` runs --check-only and refuses to build if they are missing,
+                but does NOT regenerate — a machine without Pillow can still build everything
+                else. Regenerate, never hand-edit. Added 8/15/2026 with the version block:
+                until then the Setup.exe was a generic Inno stub reporting FileVersion 0.0.0.0,
+                and "no version information" sits beside "unsigned" as one of the two
+                high-weight factors behind the machine-learning deletions — docs/Code-Signing.md);
+                scan_virustotal.py (`make scan` — uploads the built Setup.exe to VirusTotal and
+                reports which of its ~70 engines flag it. Exists because Defender began deleting
+                every build on 8/13/2026 as Trojan:Win32/Bearfoos.B!ml, a machine-learning GUESS,
+                and two days of theorizing produced four wrong answers. Fails the run if
+                MICROSOFT flags it — that engine is what a transcriber has — or if more than
+                --max (3) do, and exits 2 - never 0 - on a report with no engine results in it,
+                because a gate that fails open is worse than none. Deliberately NOT part of
+                `make installer`: the upload is PUBLIC and PERMANENT and cannot be withdrawn, so
+                it must be a decision, never a side effect. For the same reason it REFUSES
+                anything that is not a .exe directly inside dist/, with no override - the
+                likeliest thing anyone would ever name here is a transcriber's document that
+                Defender ate. VirusTotal runs Defender WITHOUT its cloud and !ml
+                verdicts are cloud verdicts, so a clean line there is not proof — confirm with
+                MpCmdRun -DisableRemediation on the build box. Reads VT_API_KEY from the
+                gitignored build.config. Background: docs/Code-Signing.md);
                 extract_qat.py (obsolete/reference — QAT is now qat-template.officeUI);
                 rescale_font.py (makes Word's point size and the PRINTED letter size agree.
                 A point size sets the em, not any letter, and Atkinson Hyperlegible fills less
@@ -201,6 +226,14 @@ tools/lib/      check_style_guards.py (refuses to build when an ActiveDocument.S
                 one Word puts in a PDF. Missing it the first time left every large-print PDF
                 reporting "AtkinsonHyperlegible-Regular" — which a print shop's RIP can resolve
                 to the REAL Atkinson, restoring the 9% error on the printed page)
+assets/branding/  vistatype-icon.png + vistatype-wordmark.png — Jerry's artwork, 8/15/2026, the
+                source of truth for how the installer looks. Never edited by the build.
+                installer/branding/ is DERIVED from these by tools/lib/build_branding.py and is a
+                build output. The generated files live under installer/ and not beside the
+                artwork ON PURPOSE: installer/ is wiped on the build box before each copy, so a
+                deleted one really goes, whereas assets/ is never wiped there. README.md records
+                what is made, the four constants that move the welcome panel about, and why the
+                installer has an icon at all.
 installer/      Like src/ and tools/, this folder is WIPED on the build box before each copy, so a
                 file deleted here is really gone from the next Setup.exe. scp only adds and
                 overwrites; see the note on push-src above for what that cost when it bit.
@@ -212,7 +245,7 @@ installer/      Like src/ and tools/, this folder is WIPED on the build box befo
                 validates every x1:btn_* in the curated toolbar against the hidden ribbon tab
                 and stops if they disagree; a stale reference renders as a blank button on the
                 user's machine with no warning.
-docs/           Daily-Workflow-and-Releases.md (Jerry's plain-language guide to dev/master, building, releasing, and what to ask Claude); Installation-Guide.md (end-user install); Build-VM-Setup.md (Hyper-V build/test box); Software-Agreement.md (GPLv3 About-dialog text)
+docs/           Daily-Workflow-and-Releases.md (Jerry's plain-language guide to dev/master, building, releasing, and what to ask Claude); Installation-Guide.md (end-user install); Build-VM-Setup.md (Hyper-V build/test box); Software-Agreement.md (GPLv3 About-dialog text); Code-Signing.md (why Defender deleted the unsigned Setup.exe on 8/13-14/2026, what in the installer scores against it, how to test with `make scan` and MpCmdRun, and the signing options — note Azure Artifact Signing does NOT sign VBA projects, and EV no longer skips SmartScreen)
 reference/      generated read aids (gitignored mirror + interim form-code dump)
 assets/fonts/   the typeface the installer SHIPS from 3.0.101, as VistaTypeLP Legible.
                 atkinson-hyperlegible/upstream/ is the pristine 2020-0514 download and is never
@@ -259,7 +292,8 @@ assets/fonts/   the typeface the installer SHIPS from 3.0.101, as VistaTypeLP Le
                 a hotfix reached dev). All four are READ-ONLY and report; none edits or pushes.
                 They complement tools/lib's guards rather than repeat them — each file says
                 what the guards already cover.
-Makefile        pull / build / ribbon / qat / read / deploy / stage / installer  (see DEVELOPMENT.md)
+Makefile        pull / build / ribbon / qat / read / deploy / branding / stage / installer / scan
+                (see DEVELOPMENT.md)
 ```
 
 The ribbon is **embedded** in `LPandBRL.dotm` (`src/ribbon/customUI14.xml`), so it merges

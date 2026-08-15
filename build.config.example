@@ -19,3 +19,9 @@ WIN_DIR = C:/build/vistatype
 
 # Path to powershell on the Windows box (Windows PowerShell 5.1 or pwsh 7+).
 WIN_PWSH = powershell
+
+# OPTIONAL. Free VirusTotal API key, used only by `make scan` to check the built Setup.exe
+# against about seventy antivirus engines. Get one from a virustotal.com account: sign in,
+# click your name, API key. Leave it out and `make scan` simply says so.
+# This file is gitignored, so the key never reaches the repository. Never commit a key.
+# VT_API_KEY = 0000000000000000000000000000000000000000000000000000000000000000

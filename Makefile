@@ -19,11 +19,18 @@
 #   make fonts   Regenerate the bundled typeface from the pristine upstream files. Only
 #                needed after changing the scale factor or rescale_font.py — then check it
 #                against a font ruler.
+#   make branding  Regenerate the installer's icon and wizard artwork (installer/branding/)
+#                from assets/branding/. Only needed after the artwork changes; `make installer`
+#                refuses to run if the generated files are missing.
 #   make stage   Copy the licenses and the bundled fonts into dist/ alongside the built
 #                shipping files.
 #   make installer  Compile the Inno Setup installer on the Windows box; copies the
 #                Setup.exe back to dist/. Ships the .dotm, the .dotx, the GPL, and the
 #                four VistaTypeLP Legible font files with their own license (OFL.txt).
+#   make scan    Upload the newest dist/ Setup.exe to VirusTotal and report which of its
+#                ~70 engines flag it, and as what. Fails if Microsoft flags it (that is
+#                Defender, which is what a transcriber has) or if more than 3 do. Needs
+#                VT_API_KEY in build.config. NOTE: uploads are PUBLIC. See docs/Code-Signing.md.
 #   make clean   Remove dist/ and build/ scratch.
 
 -include build.config
@@ -33,7 +40,7 @@ DOTM      := LPandBRL.dotm
 DOTX      := LargePrintTemplate.dotx
 RIBBON    := Word.officeUI
 PROJNAME  := LPandBRL
-APPVER    := 3.0.186
+APPVER    := 3.0.187
 SETUP_EXE := VistaType LP and Braille Macros Setup $(APPVER).exe
 VERDATE   := $(shell date +%-m/%-d/%Y)
 
@@ -124,6 +131,15 @@ check-qat:
 check-tabs:
 	@python3 tools/lib/build_ribbon_tabs.py
 
+# The installer's icon and wizard artwork, generated from assets/branding/. `branding`
+# regenerates; `check-branding` only refuses to build an installer when they are missing, so a
+# machine without Pillow can still build everything else.
+branding:
+	@python3 tools/lib/build_branding.py
+
+check-branding:
+	@python3 tools/lib/build_branding.py --check-only
+
 build: check-config check-frm-eol check-vba-lines check-form-calls check-style-guards check-qat check-tabs push-src
 	$(SSH) '$(WIN_PWSH) -ExecutionPolicy Bypass -File $(WSCRIPTS)/Import-Vba.ps1 -Shell "$(WIN_DIR)/$(DOTM)" -SrcRoot "$(WIN_DIR)/src" -OutDotm "$(WIN_DIR)/dist/$(DOTM)" -ProjectName $(PROJNAME) -AppVer $(APPVER) -VerDate "$(VERDATE)"'
 	@# The two About forms carry the version in their binary .frx, so bring them home if the
@@ -204,7 +220,7 @@ installer:
 	@$(MAKE) --no-print-directory bump
 	@$(MAKE) --no-print-directory installer-build
 
-installer-build: check-config stage
+installer-build: check-config check-branding stage
 	$(SSH) "if not exist \"$(WIN_DIR)\" mkdir \"$(WIN_DIR)\""
 	$(SSH) "if not exist \"$(WIN_DIR)\\dist\" mkdir \"$(WIN_DIR)\\dist\""
 	@# Wipe installer/ on the box first, for the same reason push-src does it: scp only ADDS
@@ -249,7 +265,27 @@ fonts:
 	    --out $(FONTSRC) assets/fonts/atkinson-hyperlegible/upstream/ttf/*.ttf
 	@echo "Regenerated $(FONTSRC) at x$(FONT_SCALE). CHECK IT ON THE FONT RULER."
 
+# --- scan the built installer with about seventy antivirus engines ---
+# Deliberately NOT part of `make installer`: the upload is public and permanent, so it has to
+# be a decision, not a side effect. Kept separate from the guards that gate `make build` for
+# the same reason - this one reaches the network and can be slow.
+#
+# The one that matters in the output is Microsoft: VirusTotal's other engines flagging an
+# unsigned installer is ordinary background noise, but Defender is what a transcriber has.
+# Even so, VirusTotal runs Defender WITHOUT its cloud, and the Bearfoos verdicts of 8/13-14
+# were cloud verdicts, so a clean line there is not proof. Confirm on the build box with
+#  "C:\Program Files\Windows Defender\MpCmdRun.exe" -Scan -ScanType 3 -File <path> -DisableRemediation
+# (-DisableRemediation reports the verdict without deleting the file). docs/Code-Signing.md.
+# SCAN_FILE names the build EXACTLY rather than letting the script pick the newest file by
+# timestamp - a copy without -p, or a restore, would otherwise make it scan the wrong build and
+# still look right. Quoted, because every installer name has spaces in it. To scan an older one:
+#   make scan SCAN_FILE="dist/VistaType LP and Braille Macros Setup 3.0.135.exe"
+SCAN_FILE ?= dist/$(SETUP_EXE)
+
+scan:
+	@python3 tools/lib/scan_virustotal.py "$(SCAN_FILE)" $(SCAN_ARGS)
+
 clean:
 	rm -rf dist build
 
-.PHONY: help check-config push-src pull build ribbon qat check-qat check-tabs check-frm-eol check-vba-lines read deploy stage fonts bump installer installer-build clean
+.PHONY: help check-config push-src pull build ribbon qat check-qat check-tabs check-frm-eol check-vba-lines read deploy stage fonts branding check-branding bump installer installer-build scan clean

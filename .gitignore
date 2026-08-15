@@ -8,6 +8,10 @@ build/
 # Linux read-only mirror produced by `make read` (redundant with src/).
 reference/vba-src/
 
+# `make scan` keeps its record of how each build scored here. Deliberately NOT under dist/,
+# which `make clean` wipes - it is the only place the comparison with the last build lives.
+virustotal-history.tsv
+
 # The Atkinson Hyperlegible license PDF lives OUTSIDE the project, in
 # ~/reference/vistatype-lp/. This rule is the safety net for a stray second copy: never track
 # it. The repo carries the wording it actually needs in
