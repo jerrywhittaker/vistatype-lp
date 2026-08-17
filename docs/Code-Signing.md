@@ -281,9 +281,12 @@ Three practical points:
   without it stops being trusted the day the certificate lapses, and every installer ever shipped
   goes bad at once. This matters doubly for Azure Artifact Signing, whose certificates last three
   days by design.
-- **Signing the VBA project is separate and manual** — Word's VBA editor, **Tools → Digital
-  Signature**. It would have to be redone on every build, which means it belongs in
-  `Import-Vba.ps1` rather than in anyone's hands.
+- **Signing the VBA project is a separate operation, but it is not manual** — corrected 8/17/2026.
+  Word's VBA editor (**Tools → Digital Signature**) is one way and would have to be redone by hand
+  on every build. It is not the only way: Microsoft publishes libraries that teach `signtool` to
+  sign the VBA project inside a `.dotm` from the command line, so it can go into the build like
+  anything else. They are installed and tested on the build box — see *The card is bought, and the
+  build box is ready* at the end of this file.
 
 ## What to do, in order
 
@@ -297,10 +300,9 @@ Three practical points:
    stop theorizing and find out. An empty installer, then one that only copies the files, then
    one that adds the Trusted Location, then one that adds the PowerShell — `make scan` each.
    About an hour.
-4. **Decide on signing.** With both testers affected this has stopped being a build-box
-   curiosity — it is between a transcriber and the software. A certificate is the only thing
-   that helps someone downloading from GitHub, and the choice is not obvious, because the
-   installer and the macros may need different ones.
+4. ~~**Decide on signing.**~~ **Decided and bought, 8/17/2026** — the Certum open source kit, card
+   and reader, three or four days for delivery. Everything that can be prepared without the card is
+   done; see *The card is bought, and the build box is ready* at the end of this file.
 
 Worth noticing about the two remaining unsigned-file factors, 9 and 10 having now been ruled
 out: **Rising's label is `Macro.Run.f` and Skyhigh's is `BehavesLike.Win32.ObfuscatedPoly`.**
@@ -373,6 +375,182 @@ twice:
 - Build side: leave `APPVER` and `make bump` alone (its arithmetic would trip over a label), add
   an optional `RCVER`, and pass the installer two defines instead of one.
 
+## The card is bought, and the build box is ready — 8/17/2026
+
+Jerry ordered the **Certum open source signing kit** — the card and its reader — on 8/17/2026, with
+three or four days to delivery.
+
+Everything that does not need the card in hand is now done, and more importantly **proved**, so the
+day it arrives is a short day rather than the full day of troubleshooting other people report.
+
+### What the build box now has
+
+`tools/windows/Setup-SigningTools.ps1` did it, and can do it again if the box is ever rebuilt:
+
+```bash
+# vistabuild is WIN_HOST from build.config; C:/vt-signing is where the script puts things anyway
+scp tools/windows/Setup-SigningTools.ps1 vistabuild:'C:/vt-signing/Setup-SigningTools.ps1'
+ssh vistabuild 'powershell -ExecutionPolicy Bypass -File C:/vt-signing/Setup-SigningTools.ps1'
+ssh vistabuild 'powershell -ExecutionPolicy Bypass -File C:/vt-signing/Setup-SigningTools.ps1 -SkipSdk -Register'
+```
+
+That copy on the box is a copy, and copies drift. The one under `tools/` in this repository is the
+real one; if the box's ever disagrees, delete it and send this one again.
+
+**Before that folder is ever deleted or moved, run the script with `-Unregister`.** Windows points
+at those libraries machine-wide, and a dangling pointer breaks signature checking on Word files for
+every program on the box, silently. A `DO-NOT-DELETE.txt` saying so is written into the folder.
+
+- **`signtool.exe`, from Windows SDK 10.0.28000.2526** — the **`SigningTools` feature only**, which
+  is a small install; the whole SDK is several gigabytes and nothing else in it is wanted. Three
+  copies arrive, at
+  `C:\Program Files (x86)\Windows Kits\10\bin\10.0.28000.0\{x64,x86,arm64}\signtool.exe`.
+- **The Office Subject Interface Packages, 16.0.19416.43425** — `msosip.dll` and `msosipx.dll`,
+  which is what lets `signtool` sign the VBA project inside a `.dotm`. Both the 64-bit and the
+  32-bit set, unpacked to `C:\vt-signing\officesips-x64` and `...-x86`, and registered in both
+  halves of the registry. They also bring `offsign.bat` (the wrapper that does the whole signing
+  dance) and `offclearsig.exe` (removes existing signatures).
+  **These do not ship with Office** — checked on 8/17/2026, there is no copy anywhere under
+  Program Files, which is exactly why Microsoft publishes them separately.
+- The **Visual C++ 2015–2022 runtimes** their readme requires: both already present.
+- Everything lives under **`C:\vt-signing`**, deliberately outside the build folder, because
+  `src/`, `tools/` and `installer/` are all wiped on that box before each build.
+- Both Microsoft downloads were **checked with `Get-AuthenticodeSignature` before anything was run
+  or registered** — both "Valid", both Microsoft Corporation. That check is not decoration: this
+  package was reported in 2022 as being signed by *Microsoft Testing Root Certificate Authority
+  2010*, which nothing trusts. It is fixed in this release. The script refuses to register a
+  library whose signature is anything other than valid.
+
+### Signing was rehearsed end to end, without the card
+
+A throwaway self-signed certificate was created on the box, used, and removed again — confirmed gone
+from all three certificate stores afterwards. Five things came out of it, and the second would have
+cost a day.
+
+1. **The `.dotm` signs, in all three signature formats.** `offsign.bat` clears any old signature,
+   then signs and verifies three times over — the legacy format, the agile one, and the 2020 one —
+   and reported exit code 0 against the real 1.6 MB shipping `LPandBRL.dotm`. Word wants all three;
+   only one can be written per pass, which is why the wrapper exists.
+2. **Use the x64 `signtool`, not the x86 one — Microsoft's own instructions are wrong for this
+   box.** Their guidance says to use x86. Here x86 fails every single time with
+   `SignerSign() failed (0x800403f4)` and no further explanation, while x64 signs the same file
+   without complaint. Word on this box is 64-bit and the signing library has to match it. Starting
+   from the documented command would have looked exactly like a faulty card or a bad certificate.
+3. **Injecting the ribbon afterwards does not break the macro signature.** Tested directly: sign the
+   `.dotm`, run `inject_customui.py` over it, verify again — still valid. So the signature covers
+   the VBA project alone and not the rest of the file, and the signing step can sit on either side
+   of the injection. (The keyboard shortcuts never touch the `.dotm` at all — they go into the
+   `.dotx`.)
+4. **`offsign.bat` is fussy in two ways.** Its first argument is the *folder* holding `signtool.exe`
+   and it **must end with a backslash**. And drive it from a `.cmd` file on the box: quoted Windows
+   paths passed down through ssh → PowerShell → cmd get mangled three different ways.
+5. **Verifying an unsigned `.dotm` answers "No signature found"** rather than "cannot be verified".
+   That one line is how you tell the libraries are properly registered, and it works before any
+   certificate exists.
+
+The command, for the record — only the thumbprint and the file change:
+
+```bat
+cd /d C:\vt-signing\officesips-x64
+offsign.bat "C:\Program Files (x86)\Windows Kits\10\bin\10.0.28000.0\x64\" ^
+  "sign /sha1 <THUMBPRINT> /fd SHA256 /tr http://time.certum.pl /td SHA256" ^
+  "verify /pa" "C:\Users\jerry\vistatype-build\dist\LPandBRL.dotm"
+```
+
+**Take that `10.0.28000.0` folder name from the script's own output, not from this page.** It
+prints every `signtool.exe` it can find, with versions; the SDK moves on and this page will not.
+(The two numbers looking almost alike — installer `10.0.28000.2526`, folder `10.0.28000.0` — are
+both right and neither is a typo, so resist tidying one to match the other.)
+
+### When the card arrives — in this order
+
+1. **Reader driver first, then proCertum CardManager, then reboot.** Expect to hunt for the reader's
+   own driver; Certum does not always supply it.
+2. **CardManager → Common Profile → Initialize profile**, and set the **PIN and the PUK**. Write
+   both down somewhere permanent before going further. Exhausting the PUK attempts turns the card
+   into a coaster, and Certum does not refund cards.
+3. **Prove who you are.** A full copy of an ID document, photographs of you holding it, a utility
+   bill, and the project's URL — or the automated route (IDNow: photograph the ID, record some head
+   movements), which came back in about two days for one developer.
+
+   **Ask Certum about this one now, before the card arrives — it is free and it is the item most
+   likely to stall for days.** Their open source certificate is issued on the strength of a
+   *visible* open source project, and **this repository is private**: only Jerry's account can
+   reach it, which was a deliberate decision while the installer was being deleted by antivirus
+   (see *Deferred until signing is settled* above). vistatypelp.org is public and can be offered
+   instead, but whether that satisfies them is their call, not a guess worth making. The answer
+   may be that the repository has to be made public first, which is a decision with its own
+   consequences and Jerry's alone to make.
+4. **Certum SignService** — a third application, and *not* SimplySign or SmartSign. Their activation
+   page uses it to generate the key pair **on the card** and send Certum the request.
+5. **Download the issued certificate, import it to the card** in CardManager, and then into Windows'
+   own Personal certificate store.
+6. **The gotcha everybody hits.** Windows shows the certificate with *"No key provider information"*
+   and *"Missing stored keyset"* — it does not know the key is on the card. The fix is a small
+   `keyinfo.inf` naming the Subject Key Identifier, then:
+
+   ```
+   certutil -repairstore -user MY <THUMBPRINT> keyinfo.inf
+   ```
+
+7. **Prove the certificate works on something disposable first** — a copy of any small `.exe` — so
+   that a PIN problem and a signing problem never get confused with each other.
+8. **Then the two real ones**: the `.dotm` with the command above, and the `Setup.exe`.
+
+### Where signing lands in the build
+
+- **The `.dotm` gets signed on the build box, as part of `make installer` — not `make build`.** Day
+  to day builds then stay unattended and need no card in the reader; only a build that is going to a
+  person needs it. It has to happen **before** Inno Setup compiles, or the installer carries the
+  unsigned copy.
+- **The `Setup.exe` gets signed by Inno Setup itself** — a `SignTool` entry in `installer/vistatype.iss`
+  plus `SignedUninstaller=yes`, so the uninstaller left on the transcriber's machine carries a
+  signature too.
+- **Always timestamp** (`/tr` and `/td`). Without it, every installer ever shipped stops being
+  trusted the day the certificate lapses.
+- **Expect four PIN prompts per installer at least** — three for the `.dotm`, because each pass is
+  its own session, and one for the `.exe`. `SignedUninstaller=yes` signs the uninstaller as a
+  further operation, so five or six would not be a fault. Look at CardManager's PIN-caching
+  setting before accepting that as permanent.
+- **Find out where the PIN prompt appears when the build is driven over SSH, before wiring anything
+  in.** The card asks for its PIN with a window. A window has nowhere to go in an SSH session that
+  has no desktop, and the likely result is `make installer` hanging with no error at all — which is
+  exactly how the leftover `~$` lock-file bug behaved (`DEVELOPMENT.md`, "Gotchas baked into the
+  tooling"), and it cost a long time to find. Sign one throwaway file over a plain `ssh` before
+  believing any of this works unattended. If the prompt cannot be reached that way, signing has to
+  be a step Jerry runs at the box's own screen.
+
+**The exact place, in the `installer-build` target of the Makefile:** between the line that copies
+`$(SHIPFILES)` up to the box's `dist/` and the line that runs `ISCC`. At that moment the box's
+`dist/LPandBRL.dotm` is the finished file with the ribbon already in it, and Inno has not read it
+yet. Nothing else has to move.
+
+**A signed `.dotm` must never travel back to this machine. This is the trap in the whole plan.**
+
+`make deploy` copies `dist/LPandBRL.dotm` to the repo root, and the root `.dotm` is the **base every
+future build starts from** — `push-src` sends it to the box and `Import-Vba.ps1` copies it and
+imports the modules into that copy. So a signed file reaching the root would seed every later build
+with a signature that stops matching the moment the modules are re-imported.
+
+Signing at the point named above avoids it completely: the signature is applied to the box's own
+`dist/` copy, minutes before Inno reads it, and it exists nowhere afterwards except inside the
+`Setup.exe`. This machine's `dist/` and the tracked root `.dotm` both stay unsigned, which is
+correct. **Do not "improve" this by copying the signed file back down.** The consequence is that a
+`make deploy` smoke-test runs an unsigned add-in while transcribers get a signed one; that
+difference is the safe side of the trade, and the signed copy gets tested by installing the
+`Setup.exe`, which is how it should be tested anyway.
+
+### Still unknown until the card is here
+
+- **Whether Word accepts it.** Set Word's macro settings on the test box to require a digital
+  signature, install, and check the add-in still loads. `Document.VBASigned` answers the narrower
+  question of whether a signature is present at all.
+- **Whether it moves the antivirus verdict.** `make scan` before and after — ideally the same build
+  signed and unsigned. That number is what this whole exercise is for, and the two engines reacting
+  to the macro template (`Macro.Run.f`, `BehavesLike.Win32.ObfuscatedPoly`) are the ones to watch.
+- **Whether the bisect ladder is still worth an hour.** It would say whether signing the `.dotm`
+  alone is what did the work. Cheaper to answer once there is a signature to compare against.
+
 ## Sources
 
 - [Trojan:Win32/Bearfoos.B!ml — Microsoft Security Intelligence](https://www.microsoft.com/en-us/wdsi/threats/malware-encyclopedia-description?Name=Trojan%3AWin32%2FBearfoos.B%21ml)
@@ -385,3 +563,9 @@ twice:
 - [SignPath Foundation — conditions for open source projects](https://signpath.org/terms.html)
 - [Certum — shorter code signing certificate validity](https://www.certum.eu/en/news/shortening-code-signing-certificate-validity/)
 - [Certum Shop — Open Source Code Signing](https://shop.certum.eu/open-source-code-signing.html)
+- [Certum — activating a Code Signing certificate on a card (PDF)](https://files.certum.eu/documents/manual_en/CS-Open_Source_Code_Signing_Certificate_activation.pdf)
+- [Certum — signing with signtool and jarsigner (PDF)](https://www.files.certum.eu/documents/manual_en/Code-Signing-signing-the-code-using-tools-like-Singtool-and-Jarsigner_v2.3.pdf)
+- [One developer's start-to-finish account, including the "missing stored keyset" fix](https://piers.rocks/2025/10/30/certum-open-source-code-sign.html)
+- [Office Subject Interface Packages — download](https://www.microsoft.com/en-us/download/details.aspx?id=56617)
+- [Upgrade signed Office VBA macro projects to V3 signature — Microsoft](https://devblogs.microsoft.com/microsoft365dev/upgrade-signed-office-vba-macro-projects-to-v3-signature/)
+- [Windows SDK downloads](https://learn.microsoft.com/windows/apps/windows-sdk/downloads)

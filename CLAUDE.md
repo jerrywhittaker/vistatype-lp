@@ -116,7 +116,9 @@ Installed by the Inno Setup installer (`installer/vistatype.iss`):
 - `LPandBRL.dotm` → `%AppData%\Microsoft\Word\STARTUP\` (Word auto-loads it as a global add-in)
 - `LargePrintTemplate.dotx` → `%AppData%\Microsoft\Templates\`; attached to each LP document
 - The four `VistaTypeLPLegible-*.ttf` faces → `{autofonts}` (the per-user Fonts folder), with
-  `OFL.txt` → `%AppData%\VistaType LP\`. Flagged `uninsneveruninstall` and NOT listed in
+  `OFL.txt` → `%AppData%\VistaType LP Fonts\` — a *separate* folder from `%AppData%\VistaType LP`
+  on purpose, because `[UninstallDelete]` wipes the latter whole and would strip the license off a
+  font that deliberately stays behind. Flagged `uninsneveruninstall` and NOT listed in
   `[UninstallDelete]`: removing the font would silently reflow every book already produced.
   `MinVersion: 10.0.17134` on those four lines only — per-user font install needs Windows
   10/1803, and on anything older the add-in installs fine and the dialog grays the choice out.
@@ -168,6 +170,24 @@ tools/windows/  Export-Vba.ps1 / Import-Vba.ps1 / New-UserForm.ps1 — run in Wo
                 (Import-Vba.ps1 clears stale hidden `~$*` Word lock files first — a leftover
                  one makes Word raise an invisible "File In Use" dialog and the build hangs
                  forever with no error; see DEVELOPMENT.md "Gotchas baked into the tooling")
+                Setup-SigningTools.ps1 — one-time box preparation for CODE SIGNING, added
+                 8/17/2026 when Jerry bought the Certum card. Installs only the Windows SDK's
+                 SigningTools feature (which lands in the usual C:\Program Files (x86)\Windows
+                 Kits\10) and Microsoft's Office Subject Interface Packages (msosip/msosipx —
+                 what lets signtool sign the VBA project inside a .dotm; they do NOT ship with
+                 Office) into C:\vt-signing, which is OUTSIDE the build folder because src/,
+                 tools/ and installer/ are wiped there before every build. Those two libraries
+                 are registered MACHINE-WIDE and point at that folder, so run the script with
+                 -Unregister before ever deleting or moving it: a dangling registration breaks
+                 signature checking on Word files for every process on the box, silently. Checks
+                 every download with Get-AuthenticodeSignature and refuses to register a library
+                 that is not validly signed. Needs no card, and nothing in the daily build calls
+                 it. Two findings from the rehearsal that will save a day: the **x64** signtool
+                 signs a .dotm and the x86 one always fails with SignerSign() 0x800403f4, which
+                 is the OPPOSITE of Microsoft's own instructions (Word here is 64-bit and the
+                 library must match); and the ribbon injection does NOT break a macro signature,
+                 so signing can sit on either side of it. Full write-up, including what to do the
+                 day the card arrives, is docs/Code-Signing.md)
 tools/lib/      check_style_guards.py (refuses to build when an ActiveDocument.Styles("name") lookup is
                 not behind Sh_Style_Exists / Sh_Style_In_Use. Styles(name) raises run-time error 5941 on a
                 document that does not carry the style, and documents legitimately do not: RefPageNemeth
@@ -245,7 +265,7 @@ installer/      Like src/ and tools/, this folder is WIPED on the build box befo
                 validates every x1:btn_* in the curated toolbar against the hidden ribbon tab
                 and stops if they disagree; a stale reference renders as a blank button on the
                 user's machine with no warning.
-docs/           Daily-Workflow-and-Releases.md (Jerry's plain-language guide to dev/master, building, releasing, and what to ask Claude); Installation-Guide.md (end-user install); Build-VM-Setup.md (Hyper-V build/test box); Software-Agreement.md (GPLv3 About-dialog text); Code-Signing.md (why Defender deleted the unsigned Setup.exe on 8/13-14/2026, what in the installer scores against it, how to test with `make scan` and MpCmdRun, and the signing options — note Azure Artifact Signing does NOT sign VBA projects, and EV no longer skips SmartScreen)
+docs/           Daily-Workflow-and-Releases.md (Jerry's plain-language guide to dev/master, building, releasing, and what to ask Claude); Installation-Guide.md (end-user install); Build-VM-Setup.md (Hyper-V build/test box); Software-Agreement.md (GPLv3 About-dialog text); Code-Signing.md (why Defender deleted the unsigned Setup.exe on 8/13-14/2026, what in the installer scores against it, how to test with `make scan` and MpCmdRun, and the signing options — note Azure Artifact Signing does NOT sign VBA projects, and EV no longer skips SmartScreen. Jerry bought the Certum open source card on 8/17/2026; the last section is the step-by-step for the day it arrives, what the build box already has, and the five things the card-free rehearsal proved)
 reference/      generated read aids (gitignored mirror + interim form-code dump)
 assets/fonts/   the typeface the installer SHIPS from 3.0.101, as VistaTypeLP Legible.
                 atkinson-hyperlegible/upstream/ is the pristine 2020-0514 download and is never
