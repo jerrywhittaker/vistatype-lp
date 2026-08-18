@@ -40,7 +40,7 @@ DOTM      := LPandBRL.dotm
 DOTX      := LargePrintTemplate.dotx
 RIBBON    := Word.officeUI
 PROJNAME  := LPandBRL
-APPVER    := 3.0.188
+APPVER    := 3.0.196
 SETUP_EXE := VistaType LP and Braille Macros Setup $(APPVER).exe
 VERDATE   := $(shell date +%-m/%-d/%Y)
 
@@ -121,6 +121,14 @@ check-form-calls:
 check-style-guards:
 	@python3 tools/lib/check_style_guards.py
 
+# Nothing in this build compiles VBA, so a structural mistake - a module-level Const or Dim
+# written beside the procedure that uses it instead of in the declarations section at the top,
+# a duplicated procedure name, a With with no End With - imports perfectly, ships, and fails on
+# the transcriber's machine as "Compile error in hidden module", with no line number and nothing
+# naming the cause. Cost a build on 8/18/2026.
+check-vba-structure:
+	@python3 tools/lib/check_vba_structure.py
+
 check-qat:
 	@python3 tools/lib/build_qat.py
 
@@ -140,7 +148,7 @@ branding:
 check-branding:
 	@python3 tools/lib/build_branding.py --check-only
 
-build: check-config check-frm-eol check-vba-lines check-form-calls check-style-guards check-qat check-tabs push-src
+build: check-config check-frm-eol check-vba-lines check-vba-structure check-form-calls check-style-guards check-qat check-tabs push-src
 	$(SSH) '$(WIN_PWSH) -ExecutionPolicy Bypass -File $(WSCRIPTS)/Import-Vba.ps1 -Shell "$(WIN_DIR)/$(DOTM)" -SrcRoot "$(WIN_DIR)/src" -OutDotm "$(WIN_DIR)/dist/$(DOTM)" -ProjectName $(PROJNAME) -AppVer $(APPVER) -VerDate "$(VERDATE)"'
 	@# The two About forms carry the version in their binary .frx, so bring them home if the
 	@# stamp changed them. -u: only if newer, so an unchanged build copies nothing.

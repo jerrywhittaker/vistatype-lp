@@ -18,7 +18,77 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Sh - 8/9/2026 - the Word configuration now FOLLOWS the document. Word keeps one set of Options and AutoCorrect entries
+' Notes:    - BRL - 8/18/2026 - attaching a BANA template now puts the whole document into TIMES NEW ROMAN 14 pt. It was Courier New
+'           - BRL - 8/18/2026 - 12 pt from 8/5/2026 until today. The reason is INTEROPERABILITY, not typography: Duxbury ships its own
+'           - BRL - 8/18/2026 - Word add-in, SWIFT, and SWIFT sets Times New Roman 14 when it attaches a template. A transcriber may use
+'           - BRL - 8/18/2026 - both, and a file whose face depends on which add-in touched it last is one more thing for her to think
+'           - BRL - 8/18/2026 - about. Monospace was the right instinct for braille source and is overruled by this. Jerry, 8/18/2026.
+'           - BRL - 8/18/2026 - The sub is renamed to match - it named the font -
+'           - BRL - 8/18/2026 - and it is not a ribbon button or a toolbar id, so nothing in the field references it. It still runs LAST,
+'           - BRL - 8/18/2026 - after the optional cleanups, for the reason it always did: those passes rewrite text, so a font set any
+'           - BRL - 8/18/2026 - earlier is not the font the transcriber ends up reading.
+' Notes:    - Dx - 8/18/2026 - braille switches OFF "Set left- and first-indent with tabs and backspaces" (Options.TabIndentKey).
+'           - Dx - 8/18/2026 - Jerry, 8/18/2026. It had been one of the fifteen removed from all three configurations earlier the same
+'           - Dx - 8/18/2026 - day, on the measurement that all three wrote it True - which was correct at the time and is now wrong.
+'           - Dx - 8/18/2026 - It comes back as a SWITCHED setting, not a forced one: noted while the ordinary configuration is in force
+'           - Dx - 8/18/2026 - and put back on the way to an ordinary document, through the same store as the five spelling ones. The two
+'           - Dx - 8/18/2026 - helpers are renamed Sh_Save_/Sh_Restore_Transcriber_Settings, since they no longer cover spelling alone.
+' Notes:    - Sh - 8/18/2026 - a small SETTINGS STORE, %AppData%\VistaType LP Settings\VistaType.ini, written with Word's own
+'           - Sh - 8/18/2026 - System.PrivateProfileString (Sh_Settings_File / Sh_Setting_Read / Sh_Setting_Write). The five spelling and
+'           - Sh - 8/18/2026 - grammar settings now live there instead of in module variables. That is not tidiness: VBA's End statement
+'           - Sh - 8/18/2026 - resets every module-level variable, and this project runs End on ordinary paths - 34 times in this module,
+'           - Sh - 8/18/2026 - plus dialog Cancel buttons and Sh_Is_Doc_Open when no document is open. Held in memory, one Cancel in a
+'           - Sh - 8/18/2026 - braille file lost what she had, the next ordinary document put nothing back, and the switch after that
+'           - Sh - 8/18/2026 - recorded braille's own switched-off values as her preference for good. The file also survives Word closing,
+'           - Sh - 8/18/2026 - so her settings now hold across sessions, and it can be copied to a new machine. A SEPARATE folder from
+'           - Sh - 8/18/2026 - %AppData%\VistaType LP, which the uninstaller wipes whole - see installer/vistatype.iss. Related: the five
+'           - Sh - 8/18/2026 - writes in the braille sub, and the two in the large print one, now come AFTER the line recording what is in
+'           - Sh - 8/18/2026 - force, so a configuration that raises part way through cannot leave them off while the record still says DEF.
+' Notes:    - Dx - 8/18/2026 - Word's AutoFormat command is no longer run by Dx_Fix_Common_File_Errors, the last place in the project
+'           - Dx - 8/18/2026 - that ran it. The large print side dropped the same call on 8/13/2026 because AutoFormat REMOVES EMPTY
+'           - Dx - 8/18/2026 - PARAGRAPHS and no combination of its options stops it; the braille copy had the identical fault and nobody
+'           - Dx - 8/18/2026 - had looked. Quotes, fractions and dashes are done by dedicated steps in the same sequence, and the live
+'           - Dx - 8/18/2026 - hyperlinks it made were turned back into text a few steps later. Symbols and ordinals go with it, neither
+'           - Dx - 8/18/2026 - wanted in a DBT source file. Jerry, 8/18/2026. It also removes the reason the on-demand AutoFormat settings
+'           - Dx - 8/18/2026 - had to be written at all - they were arguments to that command, and are now the transcriber's like the rest.
+' Notes:    - MS - 8/18/2026 - the three Word configurations, measured against each other and then cut back. FIFTEEN settings were being
+'           - MS - 8/18/2026 - written IDENTICALLY by all three - replaceText ("Replace text as you type"), smart quotes, hyperlinks, two
+'           - MS - 8/18/2026 - initial capitals, days of the week, cAPS LOCK, tab indents and the rest - so nothing was ever switching them
+'           - MS - 8/18/2026 - and the 45 writes did one thing only: overwrite whatever the transcriber had chosen. That is what the beta
+'           - MS - 8/18/2026 - tester on 3.0.135 reported. All 45 deleted; those settings are hers now, in every kind of document. Of what
+'           - MS - 8/18/2026 - remains, every write in the large print and braille subs is guarded with If <> - not for switching, where the
+'           - MS - 8/18/2026 - values genuinely differ, but because about a dozen places run those subs DIRECTLY while that configuration is
+'           - MS - 8/18/2026 - already in force. Five spelling and grammar settings (grammar as you type, contextual speller, mixed digits,
+'           - MS - 8/18/2026 - smart tags, ignore uppercase) were switched off by braille, two of them by large print, and put back by
+'           - MS - 8/18/2026 - nothing: ONE braille file turned grammar checking off for every document she opened, that session and every
+'           - MS - 8/18/2026 - session after. They are now noted while the ordinary configuration is genuinely in force (seeded by AutoExec
+'           - MS - 8/18/2026 - before anything can configure) and put back on the way to an ordinary document. CorrectKeyboardSetting is no
+'           - MS - 8/18/2026 - longer written by any of the three. Counts: default 35 -> 20, large print 37 -> 22, braille 40 -> 25.
+' Notes:    - Sh - 8/18/2026 - Sh_HandleDocumentNew now skips itself while a MACRO is running, the same test Sh_HandleDocumentActivated
+'           - Sh - 8/18/2026 - has had since 8/9/2026 and the only one of the handlers that was missing it. Word raises NewDocument for
+'           - Sh - 8/18/2026 - every Documents.Add, so the scratch document that Lp_/Dx_Copy_To_Temp_Doc make - from about 35 places -
+'           - Sh - 8/18/2026 - was reconfiguring Word for an ORDINARY document in the middle of a large print or braille job: Styles pane
+'           - Sh - 8/18/2026 - closed and screen refreshed where the macro had deliberately turned refreshing off, the configuration
+'           - Sh - 8/18/2026 - written twice, and the 18 fraction entries added and deleted again on every run. A document a macro makes
+'           - Sh - 8/18/2026 - FOR the transcriber is configured when her cursor reaches it instead. Jerry, 8/18/2026.
+' Notes:    - MS - 8/18/2026 - the DEFAULT Word configuration (MS_Set_Word_Config_For_New_Install, the one an ordinary document gets)
+'           - MS - 8/18/2026 - was checked setting by setting against Word's factory defaults. Thirty-two of the thirty-four already agreed. Two did not:
+'           - MS - 8/18/2026 - AutoFormatAsYouTypeApplyFirstIndents was never written and is now True; AutoFormatReplacePlainTextEmphasis
+'           - MS - 8/18/2026 - was True where a clean install has it False; and CorrectKeyboardSetting, which follows the keyboard to the
+'           - MS - 8/18/2026 - language being typed, is no longer written at all - it belongs to a multilingual transcriber and to nothing
+'           - MS - 8/18/2026 - in large print or braille. The AutoCorrect block now also records what must NEVER be written there: the four
+'           - MS - 8/18/2026 - AutoAdd properties and the four exception lists, which are her accumulated work and cannot be rebuilt.
+'           - MS - 8/18/2026 - Large print and braille were NOT touched - Jerry scoped this to the default configuration only.
+' Notes:    - MS - 8/18/2026 - the DEFAULT Word configuration no longer deletes the 18 compact fraction AutoCorrect entries. It adds them,
+'           - MS - 8/18/2026 - exactly as the braille configuration does (Jerry, 8/18/2026). What that changes: Word's own half, quarter and
+'           - MS - 8/18/2026 - three-quarters come from AutoFormatAsYouTypeReplaceFractions and never stopped working, but the other fifteen
+'           - MS - 8/18/2026 - - 1/3, 2/3, 1/5 and the rest - exist only as these entries, and the deletes here (10/19/2021) undid braille's
+'           - MS - 8/18/2026 - adds the same day. They now stay in the transcriber's own AutoCorrect list, in her own documents, for good.
+'           - MS - 8/18/2026 - The eighteen live in ONE place, Sh_Add_Compact_Fractions, called by both, so the two lists cannot drift; it
+'           - MS - 8/18/2026 - writes only an entry that is missing or holds something else, because the default sub runs on EVERY ordinary
+'           - MS - 8/18/2026 - document and needless writes are what brought on the privacy notice of 7/18/2026. Large print still deletes
+'           - MS - 8/18/2026 - them: a large print book keeps 1/2 as it was typed.
+'           - Sh - 8/9/2026 - the Word configuration now FOLLOWS the document. Word keeps one set of Options and AutoCorrect entries
 '           - Sh - 8/9/2026 - for the whole application, so an LP book and a braille file open together could not both have their
 '           - Sh - 8/9/2026 - configuration in force: whichever was opened last won and went on winning, and Sh_Doc_Info reported the
 '           - Sh - 8/9/2026 - configuration of a document the transcriber had clicked away from. VtEvents now takes Word's
@@ -141,7 +211,7 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - BRL - 8/5/2026 - Deliberately NOT the LP side's Sh_Color_Dollar_PG_Red: that also sets the replacement style to Normal,
 '           - BRL - 8/5/2026 - which Word applies to the whole paragraph and would strip the BANA style off every paragraph with a tag.
 ' Notes:    - BRL - 8/5/2026 - Dx_Attach_BANA_Template now ends by putting the whole document into Courier New 12 pt, via the new
-'           - BRL - 8/5/2026 - Dx_Set_Whole_Document_To_Courier_New_12. It runs LAST, after the optional fix-errors and para-mark
+'           - BRL - 8/5/2026 - Dx_Set_Whole_Document_To_Times_New_Roman_14. It runs LAST, after the optional fix-errors and para-mark
 '           - BRL - 8/5/2026 - cleanups, because both of those rewrite text and would otherwise be the last word on the font.
 ' Notes:    - LP - 8/5/2026 - Lp_Add_Para_After_Image now EXITS at once if the LP template is attached. It repairs raw DAISY and
 '           - LP - 8/5/2026 - NIMAS files, which is a before-the-template job; run afterwards from File Cleanup it added stray
@@ -475,6 +545,35 @@ Public MirrorString As String ' yes or no
 Dim gEvents As VtEvents
 Public Sh_LastDocEvent As String   ' diagnostic breadcrumb: last document event handled
 
+' --- The spelling and grammar settings braille and large print switch OFF ---------------
+' Five settings belong here, and until 8/18/2026 nothing ever put any of them back. Braille
+' switches off all five - correctly: the grammar checker and the contextual speller flag
+' braille formatting endlessly - and large print switches off the last two. The DEFAULT
+' configuration switched none of them on, so ONE braille file left grammar checking off in
+' that file, in the transcriber's letters, in every document for the rest of the session, and
+' in every session afterwards, because Word remembers them. She had no reason to connect it
+' to VistaType. Jerry, 8/18/2026: note what she had and put it back, the same way everything
+' else follows the document.
+'
+' Seeded by AutoExec, before any configuration has run, so the values captured are the ones
+' Word loaded from her own settings. Re-captured whenever a book or braille configuration is
+' applied while the ORDINARY one is genuinely in force (Sh_ConfiguredAs = "DEF"), which is how
+' a change she makes mid-session is picked up. Put back by MS_Set_Word_Config_For_New_Install.
+'
+' The known limit, and it is unavoidable: if the last session ended with a braille file open,
+' Word starts with braille's values and that is what gets captured. She sets them once more in
+' an ordinary document and they hold from then on.
+' They are kept in a FILE, not in variables here. VBA's End statement resets every module-level
+' variable in the project, and this project runs End on perfectly ordinary paths - 34 times in
+' this module alone, plus the dialogs' Cancel buttons, and Sh_Is_Doc_Open runs it whenever no
+' document is open. Held in memory, one Cancel in a braille file would lose what she had; the
+' next return to an ordinary document would put nothing back, and the switch after that would
+' record braille's own switched-off values as her preference, for good. A file survives End,
+' survives Word closing, and can be carried to a new machine. See Sh_Settings_File.
+Private Const VT_STORE_FOLDER As String = "VistaType LP Settings"
+Private Const VT_STORE_FILE As String = "VistaType.ini"
+Private Const VT_STORE_MINE As String = "TranscriberSettings"
+
 ' Which of the three configurations is in force. Word's Options and AutoCorrect entries are
 ' per-APPLICATION, not per-document, so with an LP book and a braille file both open only one
 ' of them can be active at a time. This remembers which, so that switching documents can put
@@ -532,6 +631,11 @@ Public Sh_LastSeenAs As String
 Sub AutoExec()
     ' Runs once when Word starts (fires even from a STARTUP global template, unlike AutoOpen).
     On Error Resume Next
+
+    ' FIRST, before a document can be configured: note the settings a book would take away while
+    ' they are still the transcriber's own. See the declarations at the top of this module.
+    Sh_Save_Transcriber_Settings
+
     Set gEvents = New VtEvents
     Set gEvents.App = Application
     If Not gEvents Is Nothing Then
@@ -554,7 +658,39 @@ Sub AutoNew()
     If gEvents Is Nothing Then Sh_HandleDocumentNew
 End Sub
 
+' Version: 1.1  Date: 8/18/2026 - skip while a macro is running (Jerry, 8/18/2026)
+' Version: 1.0  Date: 8/9/2026
 Sub Sh_HandleDocumentNew()
+    ' A MACRO is running, not a transcriber. The same test, for the same reason, as the one at
+    ' the top of Sh_HandleDocumentActivated - see the long note there - but it was missing here,
+    ' and Word raises NewDocument for EVERY Documents.Add, including the ones macros make.
+    ' Lp_Copy_To_Temp_Doc and Dx_Copy_To_Temp_Doc create the scratch document from about 35
+    ' places, so a book being cleaned up had Word reconfigured for an ORDINARY document half way
+    ' through the job. Three costs, none of them visible: the Styles pane closed and the screen
+    ' refreshed at the exact points the macro had turned refreshing off - the 7/24 and 8/2/2026
+    ' complaints arriving by another door; the whole configuration written twice, once on the way
+    ' in and once when the book came back; and, from 8/18/2026, the eighteen compact fraction
+    ' entries added and then deleted again, 36 writes to Word's AutoCorrect store per macro run,
+    ' which is the churn behind Office's "restart to apply your privacy settings" notice.
+    ' Screen updating being off is the marker: every one of those macros turns it off, and a
+    ' transcriber creating a document has it on.
+    '
+    ' Which transcriber-facing documents this actually reaches was checked site by site on
+    ' 8/18/2026, because guessing got it wrong first time. The DAISY/NIMAS conversion creates its
+    ' document with screen updating still ON (it goes off 22 lines later), and the two export
+    ' macros make theirs Visible:=False and save and close it inside the macro - so none of those
+    ' three changes at all. The ONE that does is the blank document Dx_Attach_BANA_Template makes
+    ' when nothing is open, and that one is fine: it runs MS_Set_Word_Config_For_Braille directly
+    ' a few lines later.
+    '
+    ' One thing to know before adding another Documents.Add for the transcriber inside a screen-off
+    ' macro: the later pick-up by Sh_HandleDocumentActivated sets the TYPING side only - it passes
+    ' DisplayToo False - so such a document would never get formatting marks, the rulers, Print view
+    ' or the Styles pane. Nothing hits that today. Configure it in the macro itself, as
+    ' Dx_Attach_BANA_Template does.
+    If Not Application.ScreenUpdating Then Exit Sub
+
+    ' Written only when work actually happens - see the breadcrumb note in Sh_HandleDocumentActivated.
     Sh_LastDocEvent = "NewDocument"
     Sh_Apply_Word_Config "DEF"
 End Sub
@@ -869,6 +1005,7 @@ Sub Dx_Attach_BANA_Template()
 '    Converts word foreign language tags to BANA template styles
 '    Turns show-all status on
 '
+'  Version: 3.4  Date: 8/18/2026 - that font is now Times New Roman 14 pt, not Courier New 12 pt - matching what Duxbury's own SWIFT add-in sets when IT attaches a template (Jerry)
 '  Version: 3.3  Date: 8/5/2026 - puts the whole document into Courier New 12 pt as the last thing it does (Jerry)
 '  Version: 3.2  Date: 7/24/2026 - repaint (ScreenUpdating on + ScreenRefresh) before the template-choice and translation-choice forms; they were shown while ScreenUpdating was off, so the Word workspace behind them rendered black instead of the normal gray
 '  Version: 3.1  Date: 6/29/2025 - added Copy BANA Braille Template From Word Startup Folder to Templates Folder - Duxbury began
@@ -1010,24 +1147,35 @@ Sub Dx_Attach_BANA_Template()
     End If
 
     ' LAST, after the optional cleanups above rather than beside the attach itself. Both of them
-    ' rewrite text - Dx_Fix_Common_File_Errors runs Word's AutoFormat - so a font set any earlier
-    ' is not the font the transcriber ends up looking at.
-    Application.Run MacroName:="Dx_Set_Whole_Document_To_Courier_New_12"
+    ' rewrite text - Dx_Fix_Common_File_Errors alone runs some thirty passes over the document -
+    ' so a font set any earlier is not the font the transcriber ends up looking at. (Until
+    ' 8/18/2026 this note named Word's AutoFormat command as the reason; that call is gone, but
+    ' the passes that replaced it rewrite text just the same, so this still belongs last.)
+    Application.Run MacroName:="Dx_Set_Whole_Document_To_Times_New_Roman_14"
 
 End Sub   '***** end of Dx_Attach_BANA_Template macro *****
 
-Sub Dx_Set_Whole_Document_To_Courier_New_12()
+Sub Dx_Set_Whole_Document_To_Times_New_Roman_14()
 '
+' Version: 2.0  Date: 8/18/2026 - Times New Roman 14 pt, was Courier New 12 pt (Jerry)
 ' Version: 1.0  Date: 8/5/2026
 '
 ' Author: Jerry Whittaker - jerry@thewhittakers.org
 '
-' Puts every character of the document into Courier New at 12 points, so the transcriber reads
-' the whole file in one fixed-width face however mixed the source was.
+' Puts every character of the document into Times New Roman at 14 points, so the transcriber
+' reads the whole file in one face and size however mixed the source was.
+'
+' WHY A PROPORTIONAL FACE, ON BRAILLE SOURCE. It reads like a mistake and is not, so do not
+' change it back to a monospace one. Duxbury ships its own Word add-in, SWIFT, and when SWIFT
+' attaches a template it sets the document to Times New Roman 14. A transcriber may use both,
+' or move a file between them, and a file that changes face depending on which add-in touched
+' it last is a file she has to think about. Matching SWIFT is the point. Jerry, 8/18/2026.
+' It was Courier New 12 from 8/5/2026 until then, chosen for exactly the fixed-width reason
+' you would expect - that reasoning was sound and this one outranks it.
 
-    Sh_Set_Whole_Document_Font ActiveDocument, "Courier New", 12
+    Sh_Set_Whole_Document_Font ActiveDocument, "Times New Roman", 14
 
-End Sub   '***** end of Dx_Set_Whole_Document_To_Courier_New_12 macro *****
+End Sub   '***** end of Dx_Set_Whole_Document_To_Times_New_Roman_14 macro *****
 
 Sub Sh_Set_Whole_Document_Font(ByVal targetDoc As Document, ByVal fontName As String, ByVal fontSize As Single)
 '
@@ -2272,6 +2420,10 @@ Sub Dx_Fix_Common_File_Errors()
 
 ' Dx_Fix_Common_File_Errors Macro
 '
+' Version: 2.12  Date: 8/18/2026 - Word's own AutoFormat command is no longer run over the document. It ate empty
+'                                  paragraphs (measured on the LP side, 8/13/2026), and everything it did that
+'                                  braille wants is done properly by other steps in this same sequence. Jerry,
+'                                  8/18/2026. The redundant configuration call that fed it went with it.
 ' Version: 2.11  Date: 8/5/2026 - colors the $pg tags red as its last content step, so they stay red when this macro is run on its own (Jerry)
 ' Version: 2.10  Date: 7/26/2026 - returns the user to where the cursor was when the macro started
 ' Version: 2.8 Date: 3/5/2024 - added "If ActiveDocument.Variables("BrailleType") = "EBAN" Or ActiveDocument.Variables("BrailleType") = "UEBN" then"
@@ -2299,9 +2451,30 @@ Sub Dx_Fix_Common_File_Errors()
 
     '------------- start cleanup ------------------
 
-    MS_Set_Word_Config_For_Braille ' sets autoformat params
-    Selection.Range.AutoFormat ' run autoformat
-  
+    ' Word's own AutoFormat command was run over the whole document here, first thing, from
+    ' 3/18/2017 until 8/18/2026. It is gone, and nothing replaces it. Jerry, 8/18/2026.
+    '
+    ' The large print side removed the same call on 8/13/2026 and the reasons carry over intact:
+    ' AutoFormat REMOVES EMPTY PARAGRAPHS, and turning off every AutoFormat option except the one
+    ' wanted does not stop it - that was tried and measured. It was one of the three faults behind
+    ' the empty paragraph marks that survived Full File Cleanup. It also restyles headings and
+    ' rewrites quotes and fractions behind the transcriber's back.
+    '
+    ' Nothing here needed it. What it did for braille was already done properly elsewhere in this
+    ' same sequence: quotes by Dx_Replace_Straight_Quotes_With_Smart_Quotes, fractions by
+    ' Dx_Replace_Fraction_Text_With_Compact_Fractions, dashes by Dx_Fix_En_Dash_Errors and
+    ' Dx_Fix_Em_Dash_Space_Errors. It also made plain URLs into live hyperlinks, which is pointless
+    ' here - Dx_Convert_Hyperliks_To_Text turns them straight back into text a few steps later,
+    ' because a DBT source file has no use for a clickable link. Deliberately NOT replaced with
+    ' Sh_Linkify_Range for that reason; large print keeps its links, braille does not.
+    '
+    ' What is genuinely gone: AutoFormat's symbol replacement ((c) to the copyright sign) and its
+    ' ordinals (1st to a superscript st). Neither is wanted in a braille source file.
+    '
+    ' This also settles a second thing. That call was the ONLY place in the whole project that ran
+    ' Word's AutoFormat command, which is what made the on-demand AutoFormat settings load-bearing
+    ' rather than cosmetic. With it gone they are the transcriber's, like the rest of the fifteen
+    ' removed from the three configuration subs on 8/18/2026.
     Application.Run MacroName:="MS_Set_Word_Config_For_Braille"
 
     If ActiveDocument.Variables("BrailleType") = "EBAT" Or ActiveDocument.Variables("BrailleType") = "EBAN" Then 'are cleaned up only for EBAE Textbook and EBAE Nemeth
@@ -17412,6 +17585,24 @@ Sub MS_Set_Word_Config_For_New_Install()
     '
     ' Author: Jerry Whittaker -  jerry@thewhittakers.org
     '
+    ' Version: 2.5  Date: 8/18/2026 - the 15 settings all three configurations wrote IDENTICALLY are gone
+    '                                 from all three: nothing was ever switching them, so the only thing the
+    '                                 writes did was overwrite the transcriber's own choice - which is what
+    '                                 the beta tester on 3.0.135 reported. They are hers now, in every kind
+    '                                 of document. This sub also PUTS BACK the five spelling and grammar
+    '                                 settings the two books switch off (Sh_Restore_Transcriber_Settings), which
+    '                                 nothing had ever done. 35 writes -> 20.
+    ' Version: 2.4  Date: 8/18/2026 - checked setting by setting against Word's factory defaults (Jerry's table,
+    '                                 8/18/2026). Three differences, all here: AutoFormatAsYouTypeApplyFirstIndents
+    '                                 was never written and is now True; AutoFormatReplacePlainTextEmphasis was
+    '                                 True and a clean install has it False; CorrectKeyboardSetting is no longer
+    '                                 written at all. The other 32 already agreed. Note the deliberate asymmetry
+    '                                 that is NOT a bug: ApplyHeadings is False as you type and True on demand.
+    ' Version: 2.3  Date: 8/18/2026 - stopped DELETING the 18 compact fraction AutoCorrect entries and ADDS
+    '                                 them instead, through the shared Sh_Add_Compact_Fractions - the same
+    '                                 eighteen the braille configuration uses (Jerry, 8/18/2026). Fifteen of
+    '                                 them are not Word's; they now stay in the transcriber's own AutoCorrect
+    '                                 list. Large print still deletes them.
     ' Version: 2.2  Date: 7/18/2026 - only write Options/AutoCorrect that actually differ (idempotent),
     '                                 so re-running on every new doc no longer churns Word's roaming
     '                                 settings and triggers Office's "restart to apply your privacy
@@ -17434,32 +17625,35 @@ Sub MS_Set_Word_Config_For_New_Install()
     ' Only write settings that differ from their target, so re-running this on every new
     ' document doesn't hand Word's (roaming) settings store a no-op "change" each time.
     With Options
-        If .AutoFormatAsYouTypeApplyHeadings <> False Then .AutoFormatAsYouTypeApplyHeadings = False
         If .AutoFormatAsYouTypeApplyBorders <> True Then .AutoFormatAsYouTypeApplyBorders = True
         If .AutoFormatAsYouTypeApplyBulletedLists <> True Then .AutoFormatAsYouTypeApplyBulletedLists = True
         If .AutoFormatAsYouTypeApplyNumberedLists <> True Then .AutoFormatAsYouTypeApplyNumberedLists = True
         If .AutoFormatAsYouTypeApplyTables <> True Then .AutoFormatAsYouTypeApplyTables = True
-        If .AutoFormatAsYouTypeReplaceQuotes <> True Then .AutoFormatAsYouTypeReplaceQuotes = True
         If .AutoFormatAsYouTypeReplaceSymbols <> True Then .AutoFormatAsYouTypeReplaceSymbols = True
         If .AutoFormatAsYouTypeReplaceOrdinals <> True Then .AutoFormatAsYouTypeReplaceOrdinals = True
         If .AutoFormatAsYouTypeReplaceFractions <> True Then .AutoFormatAsYouTypeReplaceFractions = True
-        If .AutoFormatAsYouTypeReplacePlainTextEmphasis <> False Then .AutoFormatAsYouTypeReplacePlainTextEmphasis = False
-        If .AutoFormatAsYouTypeReplaceHyperlinks <> True Then .AutoFormatAsYouTypeReplaceHyperlinks = True
         If .AutoFormatAsYouTypeFormatListItemBeginning <> True Then .AutoFormatAsYouTypeFormatListItemBeginning = True
-        If .AutoFormatAsYouTypeDefineStyles <> False Then .AutoFormatAsYouTypeDefineStyles = False
-        If .TabIndentKey <> True Then .TabIndentKey = True
+        If .AutoFormatAsYouTypeApplyFirstIndents <> True Then .AutoFormatAsYouTypeApplyFirstIndents = True
     End With
 
     With AutoCorrect
-        If .CorrectInitialCaps <> True Then .CorrectInitialCaps = True
         If .CorrectSentenceCaps <> True Then .CorrectSentenceCaps = True
-        If .CorrectDays <> True Then .CorrectDays = True
-        If .CorrectCapsLock <> True Then .CorrectCapsLock = True
-        If .replaceText <> True Then .replaceText = True
-        If .ReplaceTextFromSpellingChecker <> True Then .ReplaceTextFromSpellingChecker = True
-        If .CorrectKeyboardSetting <> False Then .CorrectKeyboardSetting = False
-        If .DisplayAutoCorrectOptions <> True Then .DisplayAutoCorrectOptions = True
         If .CorrectTableCells <> True Then .CorrectTableCells = True
+
+        ' NOT WRITTEN HERE, DELIBERATELY - do not add them.
+        '
+        ' The four "AutoAdd" properties - FirstLetterAutoAdd, TwoInitialCapsAutoAdd,
+        ' OtherCorrectionsAutoAdd and HangulAndAlphabetAutoAdd - and the four exception
+        ' lists they feed (FirstLetterExceptions and the rest) are the transcriber's
+        ' accumulated work, not configuration. Everything above can be written back from
+        ' the table this sub is built to; an exception list cannot be reconstructed once
+        ' it is damaged. Nothing anywhere in this project writes them, and nothing should.
+        '
+        ' CorrectKeyboardSetting was written False here until 8/18/2026, and by large print
+        ' and braille as well. None of the three writes it now. It is the keyboard-follows-
+        ' the-language setting, which belongs to a multilingual transcriber's own setup and
+        ' to no part of large print or braille. Leaving it in only the two books would have
+        ' been worse than leaving it everywhere: one book opened and it was off for good.
     End With
 
     With Options
@@ -17467,12 +17661,9 @@ Sub MS_Set_Word_Config_For_New_Install()
         If .AutoFormatApplyLists <> True Then .AutoFormatApplyLists = True
         If .AutoFormatApplyBulletedLists <> True Then .AutoFormatApplyBulletedLists = True
         If .AutoFormatApplyOtherParas <> True Then .AutoFormatApplyOtherParas = True
-        If .AutoFormatReplaceQuotes <> True Then .AutoFormatReplaceQuotes = True
         If .AutoFormatReplaceSymbols <> True Then .AutoFormatReplaceSymbols = True
         If .AutoFormatReplaceOrdinals <> True Then .AutoFormatReplaceOrdinals = True
         If .AutoFormatReplaceFractions <> True Then .AutoFormatReplaceFractions = True
-        If .AutoFormatReplacePlainTextEmphasis <> True Then .AutoFormatReplacePlainTextEmphasis = True
-        If .AutoFormatReplaceHyperlinks <> True Then .AutoFormatReplaceHyperlinks = True
         If .AutoFormatPreserveStyles <> True Then .AutoFormatPreserveStyles = True
         If .AutoFormatPlainTextWordMail <> True Then .AutoFormatPlainTextWordMail = True
     End With
@@ -17486,32 +17677,25 @@ Sub MS_Set_Word_Config_For_New_Install()
         Application.ScreenRefresh
     End If
     
-    ' compact fractions are set in the normal style of word but may be there
-    ' from Word configuration settings for braille
-    ' delete compact fractions
-    On Error Resume Next
-    AutoCorrect.Entries("1/2").Delete
-    AutoCorrect.Entries("1/3").Delete
-    AutoCorrect.Entries("2/3").Delete
-    AutoCorrect.Entries("1/4").Delete
-    AutoCorrect.Entries("3/4").Delete
-    AutoCorrect.Entries("1/5").Delete
-    AutoCorrect.Entries("2/5").Delete
-    AutoCorrect.Entries("3/5").Delete
-    AutoCorrect.Entries("4/5").Delete
-    AutoCorrect.Entries("1/6").Delete
-    AutoCorrect.Entries("5/6").Delete
-    AutoCorrect.Entries("1/7").Delete
-    AutoCorrect.Entries("1/8").Delete
-    AutoCorrect.Entries("3/8").Delete
-    AutoCorrect.Entries("5/8").Delete
-    AutoCorrect.Entries("7/8").Delete
-    AutoCorrect.Entries("1/9").Delete
-    AutoCorrect.Entries("1/10").Delete
-    
     MS_Word_Config = "Word is configured with default settings"
     Sh_ConfiguredAs = "DEF"   ' see Sh_HandleDocumentActivated: record what is ACTUALLY in force
-    On Error GoTo 0
+
+    ' The settings braille and large print switch off - five spelling and grammar ones, and the
+    ' tab-indent key. Nothing put them back before 8/18/2026 - see the top of this module.
+    Sh_Restore_Transcriber_Settings
+
+    ' The compact fractions. Until 8/18/2026 this sub DELETED all eighteen. Be clear about what
+    ' that did and did not cost: Word itself does only three - one half, one quarter and three
+    ' quarters - and it does them through AutoFormatAsYouTypeReplaceFractions above, not through
+    ' an AutoCorrect entry, so those three went on working. The other fifteen (1/3, 2/3, 1/5 and
+    ' the rest) exist ONLY as the entries the braille configuration adds, and these deletes were
+    ' written the same day, 10/19/2021, to take them straight back out again.
+    ' Jerry, 8/18/2026: an ordinary document should have all eighteen, so the same list the
+    ' braille configuration uses is added here instead. They then STAY in the transcriber's own
+    ' AutoCorrect list. Large print still deletes them - a large print book keeps 1/2 as typed.
+    ' Runs LAST, and below the two lines above on purpose: if it ever raised, Sh_Apply_Word_Config's
+    ' handler would blank Sh_ConfiguredAs and Doc Info would report the previous document's setup.
+    Sh_Add_Compact_Fractions
 
 End Sub '*** end of MS_Set_Word_Config_For_New_Install ***
 
@@ -17521,6 +17705,15 @@ Sub MS_Set_Word_Config_For_Large_Print()
     '
     ' Author: Jerry Whittaker -  jerry@thewhittakers.org
     '
+    ' Version: 2.2  Date: 8/18/2026 - dropped the 15 settings that were identical in all three configurations
+    '                                 (see MS_Set_Word_Config_For_New_Install 2.5), stopped writing
+    '                                 CorrectKeyboardSetting, and every remaining write is now guarded with
+    '                                 If <> - about a dozen places run this sub directly while large print is
+    '                                 ALREADY in force, and those wrote all 37 settings blind. 37 -> 22.
+    ' Version: 2.1  Date: 8/18/2026 - no code change: the REASON the compact fractions are deleted is
+    '                                 now written down beside them (Jerry's cardinal rule for large
+    '                                 print - a compact fraction's digits are smaller than the base
+    '                                 font size). Nothing else in this sub was touched on 8/18/2026.
     ' Version: 2.0  Date: 8/2/2026 - no longer calls Lp_Turn_on_Styles_Pane, so configuring Word for large print no longer seizes the user's Styles pane; FormattingShowNextLevel, which rode inside that call, is now written here
     ' Version: 1.9  Date: 5/13/2025 - added Application.ShowStylePreviews = True
     ' Version: 1.8  Date: 5/7/2025  -  added Application.RestrictLinkedStyles = True
@@ -17533,52 +17726,39 @@ Sub MS_Set_Word_Config_For_Large_Print()
     Application.Run MacroName:="Sh_Is_Doc_Open"
     
     ActiveDocument.ActiveWindow.View.ReadingLayout = False  'will crash if document is in reading view ... close reading view
+
+    ' Note the settings this sub is about to take away, but only if the ORDINARY configuration
+    ' is in force - see Sh_Save_Transcriber_Settings.
+    If Sh_ConfiguredAs = "DEF" Then Sh_Save_Transcriber_Settings
     
     With Options
-        .AutoFormatAsYouTypeApplyHeadings = False
-        .AutoFormatAsYouTypeApplyBorders = False
-        .AutoFormatAsYouTypeApplyBulletedLists = False
-        .AutoFormatAsYouTypeApplyNumberedLists = False
-        .AutoFormatAsYouTypeApplyTables = False
-        .AutoFormatAsYouTypeReplaceQuotes = True
-        .AutoFormatAsYouTypeReplaceSymbols = False
-        .AutoFormatAsYouTypeReplaceOrdinals = False
-        .AutoFormatAsYouTypeReplaceFractions = False
-        .AutoFormatAsYouTypeReplacePlainTextEmphasis = False
-        .AutoFormatAsYouTypeReplaceHyperlinks = True
-        .AutoFormatAsYouTypeFormatListItemBeginning = False
-        .AutoFormatAsYouTypeDefineStyles = False
-        .TabIndentKey = True
+        If .AutoFormatAsYouTypeApplyBorders <> False Then .AutoFormatAsYouTypeApplyBorders = False
+        If .AutoFormatAsYouTypeApplyBulletedLists <> False Then .AutoFormatAsYouTypeApplyBulletedLists = False
+        If .AutoFormatAsYouTypeApplyNumberedLists <> False Then .AutoFormatAsYouTypeApplyNumberedLists = False
+        If .AutoFormatAsYouTypeApplyTables <> False Then .AutoFormatAsYouTypeApplyTables = False
+        If .AutoFormatAsYouTypeReplaceSymbols <> False Then .AutoFormatAsYouTypeReplaceSymbols = False
+        If .AutoFormatAsYouTypeReplaceOrdinals <> False Then .AutoFormatAsYouTypeReplaceOrdinals = False
+        If .AutoFormatAsYouTypeReplaceFractions <> False Then .AutoFormatAsYouTypeReplaceFractions = False
+        If .AutoFormatAsYouTypeFormatListItemBeginning <> False Then .AutoFormatAsYouTypeFormatListItemBeginning = False
     End With
     
     With AutoCorrect
-        .CorrectInitialCaps = True
-        .CorrectSentenceCaps = False
-        .CorrectDays = True
-        .CorrectCapsLock = True
-        .replaceText = True
-        .ReplaceTextFromSpellingChecker = True
-        .CorrectKeyboardSetting = False
-        .DisplayAutoCorrectOptions = True
-        .CorrectTableCells = False
+        If .CorrectSentenceCaps <> False Then .CorrectSentenceCaps = False
+        If .CorrectTableCells <> False Then .CorrectTableCells = False
     End With
 
     With Options
-        .AutoFormatApplyHeadings = False
-        .AutoFormatApplyLists = False
-        .AutoFormatApplyBulletedLists = False
-        .AutoFormatApplyOtherParas = False
-        .AutoFormatReplaceQuotes = True
-        .AutoFormatReplaceSymbols = False
-        .AutoFormatReplaceOrdinals = False
-        .AutoFormatReplaceFractions = False
-        .AutoFormatReplacePlainTextEmphasis = False
-        .AutoFormatReplaceHyperlinks = True
-        .AutoFormatPreserveStyles = True
-        .AutoFormatPlainTextWordMail = False
+        If .AutoFormatApplyHeadings <> False Then .AutoFormatApplyHeadings = False
+        If .AutoFormatApplyLists <> False Then .AutoFormatApplyLists = False
+        If .AutoFormatApplyBulletedLists <> False Then .AutoFormatApplyBulletedLists = False
+        If .AutoFormatApplyOtherParas <> False Then .AutoFormatApplyOtherParas = False
+        If .AutoFormatReplaceSymbols <> False Then .AutoFormatReplaceSymbols = False
+        If .AutoFormatReplaceOrdinals <> False Then .AutoFormatReplaceOrdinals = False
+        If .AutoFormatReplaceFractions <> False Then .AutoFormatReplaceFractions = False
+        If .AutoFormatPreserveStyles <> True Then .AutoFormatPreserveStyles = True
+        If .AutoFormatPlainTextWordMail <> False Then .AutoFormatPlainTextWordMail = False
     End With
 
-    Options.LabelSmartTags = False
     If Not Sh_Config_Skip_Display Then   ' the transcriber's screen is theirs - see Sh_Config_Skip_Display
         ActiveWindow.StyleAreaWidth = 24.5
         'Application.Options.ShowCropMarks = True
@@ -17599,12 +17779,25 @@ Sub MS_Set_Word_Config_For_Large_Print()
         ActiveDocument.FormattingShowUserStyleName = False
         ActiveWindow.ActivePane.View.Type = wdPrintView
     End If
-    Options.IgnoreUppercase = False
     If Not Sh_Config_Skip_Display Then Application.ScreenRefresh
     
-    ' compact fractions are not used in LP, but may be there
-    ' from Word configuration settings for braille
-    ' delete compact fractions
+    ' Delete the 18 compact fraction AutoCorrect entries. This is not a preference and it is not
+    ' negotiable, so do not remove it to save the writes:
+    '
+    '   A compact fraction is ONE character, and its digits are drawn far smaller than the base
+    '   font size - on the screen and on the printed page alike. Large print's cardinal rule is
+    '   that every character is the size the transcriber set. A book at 18 pt containing a single
+    '   'one half' character has text in it that the reader it was made for cannot read.
+    '   Jerry, 8/18/2026.
+    '
+    ' So the entries go, and typing 1/2 in a large print book leaves 1/2 on the page. Characters
+    ' that arrive some other way - pasted in from a source document - are caught separately, by
+    ' Lp_Replace_Compact_Fractions_With_Fraction_Text, inside Lp_Fix_Common_File_Errors - which
+    ' Full File Cleanup reaches through its menu form, and which also runs when the LP template is
+    ' attached. So a pasted-in one is corrected when the book is cleaned up, not as it lands.
+    '
+    ' They may be present because the braille configuration adds them, and, from 8/18/2026, so
+    ' does the default one (Jerry: an ordinary document should have them).
     On Error Resume Next
     AutoCorrect.Entries("1/2").Delete
     AutoCorrect.Entries("1/3").Delete
@@ -17627,6 +17820,14 @@ Sub MS_Set_Word_Config_For_Large_Print()
 
     MS_Word_Config = "Word is configured for large print"
     Sh_ConfiguredAs = "LP"    ' see Sh_HandleDocumentActivated: record what is ACTUALLY in force
+
+    ' These come LAST, after the line above that records what is in force. If this sub raises
+    ' part way through - the display block can, on an odd window - the five must not already be
+    ' switched off while Sh_ConfiguredAs still says "DEF", because the next direct call would then
+    ' save VistaType's own switched-off values as the transcriber's. Written here, a sub that dies
+    ' early leaves them untouched. See Sh_Save_Transcriber_Settings.
+    If Options.LabelSmartTags <> False Then Options.LabelSmartTags = False
+    If Options.IgnoreUppercase <> False Then Options.IgnoreUppercase = False
     
     On Error GoTo 0
 End Sub  '*** end of macro MS_Set_Word_Config_For_Large_Print ***
@@ -17636,6 +17837,18 @@ Sub MS_Set_Word_Config_For_Braille()
     '
     ' Author: Jerry Whittaker -  jerry@thewhittakers.org
     '
+    ' Version: 2.3  Date: 8/18/2026 - "Set left- and first-indent with tabs and backspaces" (TabIndentKey) is
+    '                                 switched OFF for braille (Jerry). It was one of the 15 removed earlier the
+    '                                 same day as identical everywhere, so it comes back as a SWITCHED setting,
+    '                                 noted and put back through the store rather than left off for good.
+    ' Version: 2.2  Date: 8/18/2026 - dropped the 15 settings that were identical in all three configurations
+    '                                 (see MS_Set_Word_Config_For_New_Install 2.5), stopped writing
+    '                                 CorrectKeyboardSetting, guarded every remaining write with If <>, and
+    '                                 noted the five spelling and grammar settings on the way in so the
+    '                                 default configuration can put them back. 40 -> 25.
+    ' Version: 2.1  Date: 8/18/2026 - the 18 compact fraction entries moved out into Sh_Add_Compact_Fractions,
+    '                                 now shared with MS_Set_Word_Config_For_New_Install. Same eighteen, same
+    '                                 values; braille behavior unchanged.
     ' Version: 2.0  Date:  10/27/2021 - Turned ruler display on - Disable linked styles in styles pane
     ' Version: 1.9  Date:  10/23/2021 - added     ' Options.CheckGrammarAsYouType = False
                                                                     ' Options.IgnoreMixedDigits = False
@@ -17648,7 +17861,10 @@ Sub MS_Set_Word_Config_For_Braille()
     ' Version: 1.4  Date: 8/8/2018
     '
     ActiveDocument.ActiveWindow.View.ReadingLayout = False  'will crash if document is in reading view ... close reading view
-    
+    ' Note the settings this sub is about to take away, but only if the ORDINARY configuration
+    ' is in force - see Sh_Save_Transcriber_Settings.
+    If Sh_ConfiguredAs = "DEF" Then Sh_Save_Transcriber_Settings
+
     Dim su_Prev As Boolean
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
@@ -17660,74 +17876,37 @@ Sub MS_Set_Word_Config_For_Braille()
     End If
     
     With Options
-        .AutoFormatAsYouTypeApplyHeadings = False
-        .AutoFormatAsYouTypeApplyBorders = False
-        .AutoFormatAsYouTypeApplyBulletedLists = False
-        .AutoFormatAsYouTypeApplyNumberedLists = False
-        .AutoFormatAsYouTypeApplyTables = False
-        .AutoFormatAsYouTypeReplaceQuotes = True
-        .AutoFormatAsYouTypeReplaceSymbols = True
-        .AutoFormatAsYouTypeReplaceOrdinals = True
-        .AutoFormatAsYouTypeReplaceFractions = True
-        .AutoFormatAsYouTypeReplacePlainTextEmphasis = False
-        .AutoFormatAsYouTypeReplaceHyperlinks = True
-        .AutoFormatAsYouTypeFormatListItemBeginning = False
-        .AutoFormatAsYouTypeDefineStyles = False
-        .TabIndentKey = True
+        If .AutoFormatAsYouTypeApplyBorders <> False Then .AutoFormatAsYouTypeApplyBorders = False
+        If .AutoFormatAsYouTypeApplyBulletedLists <> False Then .AutoFormatAsYouTypeApplyBulletedLists = False
+        If .AutoFormatAsYouTypeApplyNumberedLists <> False Then .AutoFormatAsYouTypeApplyNumberedLists = False
+        If .AutoFormatAsYouTypeApplyTables <> False Then .AutoFormatAsYouTypeApplyTables = False
+        If .AutoFormatAsYouTypeReplaceSymbols <> True Then .AutoFormatAsYouTypeReplaceSymbols = True
+        If .AutoFormatAsYouTypeReplaceOrdinals <> True Then .AutoFormatAsYouTypeReplaceOrdinals = True
+        If .AutoFormatAsYouTypeReplaceFractions <> True Then .AutoFormatAsYouTypeReplaceFractions = True
+        If .AutoFormatAsYouTypeFormatListItemBeginning <> False Then .AutoFormatAsYouTypeFormatListItemBeginning = False
     End With
     
     With AutoCorrect
-        .CorrectInitialCaps = True
-        .CorrectSentenceCaps = False
-        .CorrectDays = True
-        .CorrectCapsLock = True
-        .replaceText = True
-        .ReplaceTextFromSpellingChecker = True
-        .CorrectKeyboardSetting = False
-        .DisplayAutoCorrectOptions = True
-        .CorrectTableCells = False
+        If .CorrectSentenceCaps <> False Then .CorrectSentenceCaps = False
+        If .CorrectTableCells <> False Then .CorrectTableCells = False
     End With
 
     With Options
-        .AutoFormatApplyHeadings = False
-        .AutoFormatApplyLists = False
-        .AutoFormatApplyBulletedLists = False
-        .AutoFormatApplyOtherParas = False
-        .AutoFormatReplaceQuotes = True
-        .AutoFormatReplaceSymbols = True
-        .AutoFormatReplaceOrdinals = True
-        .AutoFormatReplaceFractions = True
-        .AutoFormatReplacePlainTextEmphasis = False
-        .AutoFormatReplaceHyperlinks = True
-        .AutoFormatPreserveStyles = False
-        .AutoFormatPlainTextWordMail = False
+        If .AutoFormatApplyHeadings <> False Then .AutoFormatApplyHeadings = False
+        If .AutoFormatApplyLists <> False Then .AutoFormatApplyLists = False
+        If .AutoFormatApplyBulletedLists <> False Then .AutoFormatApplyBulletedLists = False
+        If .AutoFormatApplyOtherParas <> False Then .AutoFormatApplyOtherParas = False
+        If .AutoFormatReplaceSymbols <> True Then .AutoFormatReplaceSymbols = True
+        If .AutoFormatReplaceOrdinals <> True Then .AutoFormatReplaceOrdinals = True
+        If .AutoFormatReplaceFractions <> True Then .AutoFormatReplaceFractions = True
+        If .AutoFormatPreserveStyles <> False Then .AutoFormatPreserveStyles = False
+        If .AutoFormatPlainTextWordMail <> False Then .AutoFormatPlainTextWordMail = False
     End With
     
-    ' add fractions to autocorrect
-    AutoCorrect.Entries.Add Name:="1/2", Value:="½"
-    AutoCorrect.Entries.Add Name:="1/3", Value:=ChrW(8531)
-    AutoCorrect.Entries.Add Name:="2/3", Value:=ChrW(8532)
-    AutoCorrect.Entries.Add Name:="1/4", Value:="¼"
-    AutoCorrect.Entries.Add Name:="3/4", Value:="¾"
-    AutoCorrect.Entries.Add Name:="1/5", Value:=ChrW(8533)
-    AutoCorrect.Entries.Add Name:="2/5", Value:=ChrW(8534)
-    AutoCorrect.Entries.Add Name:="3/5", Value:=ChrW(8535)
-    AutoCorrect.Entries.Add Name:="4/5", Value:=ChrW(8536)
-    AutoCorrect.Entries.Add Name:="1/6", Value:=ChrW(8537)
-    AutoCorrect.Entries.Add Name:="5/6", Value:=ChrW(8538)
-    AutoCorrect.Entries.Add Name:="1/7", Value:=ChrW(8528)
-    AutoCorrect.Entries.Add Name:="1/8", Value:=ChrW(8539)
-    AutoCorrect.Entries.Add Name:="3/8", Value:=ChrW(8540)
-    AutoCorrect.Entries.Add Name:="5/8", Value:=ChrW(8541)
-    AutoCorrect.Entries.Add Name:="7/8", Value:=ChrW(8542)
-    AutoCorrect.Entries.Add Name:="1/9", Value:=ChrW(8529)
-    AutoCorrect.Entries.Add Name:="1/10", Value:=ChrW(8530)
+    ' add the compact fractions to autocorrect - the list lives in Sh_Add_Compact_Fractions,
+    ' shared with MS_Set_Word_Config_For_New_Install from 8/18/2026
+    Sh_Add_Compact_Fractions
     
-    Options.CheckGrammarAsYouType = False
-    Options.IgnoreMixedDigits = False
-    Options.ContextualSpeller = False
-    Options.LabelSmartTags = False
-    Options.IgnoreUppercase = False
     
     If Not Sh_Config_Skip_Display Then   ' the transcriber's screen is theirs - see Sh_Config_Skip_Display
         ActiveWindow.StyleAreaWidth = 64.5
@@ -17742,11 +17921,244 @@ Sub MS_Set_Word_Config_For_Braille()
 
     MS_Word_Config = "Word is configured for braille"
     Sh_ConfiguredAs = "BRL"   ' see Sh_HandleDocumentActivated: record what is ACTUALLY in force
+
+    ' These come LAST, after the line above that records what is in force. If this sub raises
+    ' part way through - the display block can, on an odd window - the five must not already be
+    ' switched off while Sh_ConfiguredAs still says "DEF", because the next direct call would then
+    ' save VistaType's own switched-off values as the transcriber's. Written here, a sub that dies
+    ' early leaves them untouched. See Sh_Save_Transcriber_Settings.
+    If Options.CheckGrammarAsYouType <> False Then Options.CheckGrammarAsYouType = False
+    If Options.IgnoreMixedDigits <> False Then Options.IgnoreMixedDigits = False
+    If Options.ContextualSpeller <> False Then Options.ContextualSpeller = False
+    If Options.LabelSmartTags <> False Then Options.LabelSmartTags = False
+    If Options.IgnoreUppercase <> False Then Options.IgnoreUppercase = False
+    ' "Set left- and first-indent with tabs and backspaces" - off for braille. Jerry, 8/18/2026.
+    If Options.TabIndentKey <> False Then Options.TabIndentKey = False
     
     Application.ScreenUpdating = su_Prev ' Turn screen updating on
     If Not Sh_Config_Skip_Display Then Application.ScreenRefresh
 
 End Sub  '*** end of  MS_Set_Word_Config_For_Braille macro***
+
+Sub Sh_Add_Compact_Fractions()
+'
+' Adds the 18 compact fraction AutoCorrect entries - 1/2 -> ½ and the rest.
+'
+' Only three of the eighteen are Word's own, and Word does those through the AutoFormat as you
+' type option, not through an AutoCorrect entry. The other fifteen are this add-in's.
+'
+' ONE copy of the list. Called by MS_Set_Word_Config_For_Braille and, from 8/18/2026, by
+' MS_Set_Word_Config_For_New_Install as well: two copies of eighteen entries would drift.
+' MS_Set_Word_Config_For_Large_Print deletes them instead - a large print book keeps 1/2
+' as it was typed - so that list stays where it is.
+'
+' Writes only an entry that is MISSING or holds something else, for the same reason
+' MS_Set_Word_Config_For_New_Install writes only the Options that differ (7/18/2026): that
+' sub runs on every ordinary document, and eighteen needless writes to Word's AutoCorrect
+' store on each one is exactly the churn that brought on Office's "restart to apply your
+' privacy settings" notice.
+'
+' Author: Jerry Whittaker -  jerry@thewhittakers.org
+'
+' Version: 1.0  Date: 8/18/2026
+'
+    Sh_Add_One_Compact_Fraction "1/2", ChrW(189)
+    Sh_Add_One_Compact_Fraction "1/3", ChrW(8531)
+    Sh_Add_One_Compact_Fraction "2/3", ChrW(8532)
+    Sh_Add_One_Compact_Fraction "1/4", ChrW(188)
+    Sh_Add_One_Compact_Fraction "3/4", ChrW(190)
+    Sh_Add_One_Compact_Fraction "1/5", ChrW(8533)
+    Sh_Add_One_Compact_Fraction "2/5", ChrW(8534)
+    Sh_Add_One_Compact_Fraction "3/5", ChrW(8535)
+    Sh_Add_One_Compact_Fraction "4/5", ChrW(8536)
+    Sh_Add_One_Compact_Fraction "1/6", ChrW(8537)
+    Sh_Add_One_Compact_Fraction "5/6", ChrW(8538)
+    Sh_Add_One_Compact_Fraction "1/7", ChrW(8528)
+    Sh_Add_One_Compact_Fraction "1/8", ChrW(8539)
+    Sh_Add_One_Compact_Fraction "3/8", ChrW(8540)
+    Sh_Add_One_Compact_Fraction "5/8", ChrW(8541)
+    Sh_Add_One_Compact_Fraction "7/8", ChrW(8542)
+    Sh_Add_One_Compact_Fraction "1/9", ChrW(8529)
+    Sh_Add_One_Compact_Fraction "1/10", ChrW(8530)
+
+End Sub  '*** end of Sh_Add_Compact_Fractions ***
+
+Private Sub Sh_Add_One_Compact_Fraction(ByVal fractionTyped As String, ByVal fractionChar As String)
+'
+' One entry for Sh_Add_Compact_Fractions. Reading an entry that is not there raises an
+' error, so the read is trapped and an absent entry simply reads as empty and gets added.
+'
+' Author: Jerry Whittaker -  jerry@thewhittakers.org
+'
+' Version: 1.0  Date: 8/18/2026
+'
+    Dim inForce As String
+
+    On Error Resume Next
+    inForce = AutoCorrect.Entries(fractionTyped).Value
+    On Error GoTo 0
+
+    If inForce <> fractionChar Then AutoCorrect.Entries.Add Name:=fractionTyped, Value:=fractionChar
+
+End Sub  '*** end of Sh_Add_One_Compact_Fraction ***
+
+' --- The settings store -------------------------------------------------------------------
+' One small file, written and read with Word's own System.PrivateProfileString, so no file
+' handling has to be written here. RibbonCallbacks.bas already uses the same call.
+'
+' It lives in %AppData%\VistaType LP Settings and NOT in %AppData%\VistaType LP, deliberately:
+' the uninstaller deletes that second folder whole, and a reinstall must not cost the
+' transcriber her settings. Same reasoning that puts the font license in its own folder - see
+' installer/vistatype.iss. A file rather than the registry because transcribers get new
+' computers and a file can be copied to one.
+'
+' Version: 1.0  Date: 8/18/2026
+'
+
+Private Function Sh_Settings_File() As String
+'
+' The full path of the store, creating its folder the first time. Returns "" if it cannot be
+' had at all - every caller treats that as "nothing is remembered" and leaves Word alone,
+' which is the safe direction: no store is far better than a store holding the wrong answer.
+'
+' Version: 1.0  Date: 8/18/2026
+'
+    Dim fso As Object
+    Dim folder As String
+
+    On Error Resume Next
+    folder = Environ$("APPDATA")
+    If folder = "" Then Exit Function
+    folder = folder & "\" & VT_STORE_FOLDER
+
+    ' FileSystemObject rather than Dir(): Dir is stateful, and a Dir loop running anywhere else
+    ' in the project would be silently restarted by a call from here.
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    If fso Is Nothing Then Exit Function
+    If Not fso.FolderExists(folder) Then fso.CreateFolder folder
+    If Not fso.FolderExists(folder) Then Exit Function
+
+    Sh_Settings_File = folder & "\" & VT_STORE_FILE
+
+End Function  '*** end of Sh_Settings_File ***
+
+Public Function Sh_Setting_Read(ByVal storeSection As String, ByVal storeKey As String, _
+                                ByVal whenMissing As String) As String
+'
+' One value out of the store, or whenMissing if there is no store or no such value.
+'
+' Version: 1.0  Date: 8/18/2026
+'
+    Dim storePath As String
+    Dim held As String
+
+    Sh_Setting_Read = whenMissing
+
+    storePath = Sh_Settings_File()
+    If storePath = "" Then Exit Function
+
+    On Error Resume Next
+    held = System.PrivateProfileString(storePath, storeSection, storeKey)
+    On Error GoTo 0
+
+    If held <> "" Then Sh_Setting_Read = held
+
+End Function  '*** end of Sh_Setting_Read ***
+
+Public Sub Sh_Setting_Write(ByVal storeSection As String, ByVal storeKey As String, _
+                            ByVal storeValue As String)
+'
+' One value into the store. Silently does nothing if there is no store to write to - see
+' Sh_Settings_File. Never write "": that DELETES the key rather than storing an empty value.
+'
+' Version: 1.0  Date: 8/18/2026
+'
+    Dim storePath As String
+
+    storePath = Sh_Settings_File()
+    If storePath = "" Then Exit Sub
+    If storeValue = "" Then Exit Sub
+
+    On Error Resume Next
+    System.PrivateProfileString(storePath, storeSection, storeKey) = storeValue
+    On Error GoTo 0
+
+End Sub  '*** end of Sh_Setting_Write ***
+
+Private Function Sh_Bool_To_Store(ByVal flag As Boolean) As String
+    If flag Then Sh_Bool_To_Store = "1" Else Sh_Bool_To_Store = "0"
+End Function
+
+Private Function Sh_Store_To_Bool(ByVal held As String) As Boolean
+    Sh_Store_To_Bool = (held = "1")
+End Function
+
+Sub Sh_Save_Transcriber_Settings()
+'
+' Note the settings a book or braille configuration is about to take away, while they are still
+' the transcriber's. See the note beside the declarations at the top of this module for why they
+' exist and why they are kept in a file.
+'
+' Called from AutoExec (so the very first thing a session knows is what Word loaded from her own
+' settings) and from the top of the large print and braille configurations. From those two it
+' saves ONLY when the ordinary configuration is genuinely in force: called any other time the
+' live values are ones a book already imposed, and saving those would record VistaType's own
+' setting as the transcriber's choice. That is why the test is on Sh_ConfiguredAs and not on who
+' the caller is - about a dozen places run the configuration subs directly.
+'
+' Author: Jerry Whittaker -  jerry@thewhittakers.org
+'
+' Version: 2.0  Date: 8/18/2026 - kept in the settings file instead of module variables, which
+'                                 VBA's End statement wiped
+' Version: 1.0  Date: 8/18/2026
+'
+    On Error Resume Next
+    Sh_Setting_Write VT_STORE_MINE, "CheckGrammarAsYouType", Sh_Bool_To_Store(Options.CheckGrammarAsYouType)
+    Sh_Setting_Write VT_STORE_MINE, "IgnoreMixedDigits", Sh_Bool_To_Store(Options.IgnoreMixedDigits)
+    Sh_Setting_Write VT_STORE_MINE, "ContextualSpeller", Sh_Bool_To_Store(Options.ContextualSpeller)
+    Sh_Setting_Write VT_STORE_MINE, "LabelSmartTags", Sh_Bool_To_Store(Options.LabelSmartTags)
+    Sh_Setting_Write VT_STORE_MINE, "IgnoreUppercase", Sh_Bool_To_Store(Options.IgnoreUppercase)
+    Sh_Setting_Write VT_STORE_MINE, "TabIndentKey", Sh_Bool_To_Store(Options.TabIndentKey)
+    ' Written LAST, so a half-finished save is never mistaken for a complete one.
+    Sh_Setting_Write VT_STORE_MINE, "Saved", "1"
+    On Error GoTo 0
+
+End Sub  '*** end of Sh_Save_Transcriber_Settings ***
+
+Sub Sh_Restore_Transcriber_Settings()
+'
+' Put them back. Called by MS_Set_Word_Config_For_New_Install only - returning to an ordinary
+' document is the moment they become hers again.
+'
+' Guarded writes, like everything else in that sub: her value is usually already in force and
+' Word does not need telling twice.
+'
+' Author: Jerry Whittaker -  jerry@thewhittakers.org
+'
+' Version: 2.0  Date: 8/18/2026 - reads the settings file rather than module variables
+' Version: 1.0  Date: 8/18/2026
+'
+    Dim wanted As Boolean
+
+    ' Nothing noted yet - leave Word exactly as it is.
+    If Sh_Setting_Read(VT_STORE_MINE, "Saved", "") <> "1" Then Exit Sub
+
+    On Error Resume Next
+    wanted = Sh_Store_To_Bool(Sh_Setting_Read(VT_STORE_MINE, "CheckGrammarAsYouType", "1"))
+    If Options.CheckGrammarAsYouType <> wanted Then Options.CheckGrammarAsYouType = wanted
+    wanted = Sh_Store_To_Bool(Sh_Setting_Read(VT_STORE_MINE, "IgnoreMixedDigits", "0"))
+    If Options.IgnoreMixedDigits <> wanted Then Options.IgnoreMixedDigits = wanted
+    wanted = Sh_Store_To_Bool(Sh_Setting_Read(VT_STORE_MINE, "ContextualSpeller", "1"))
+    If Options.ContextualSpeller <> wanted Then Options.ContextualSpeller = wanted
+    wanted = Sh_Store_To_Bool(Sh_Setting_Read(VT_STORE_MINE, "LabelSmartTags", "0"))
+    If Options.LabelSmartTags <> wanted Then Options.LabelSmartTags = wanted
+    wanted = Sh_Store_To_Bool(Sh_Setting_Read(VT_STORE_MINE, "IgnoreUppercase", "0"))
+    If Options.IgnoreUppercase <> wanted Then Options.IgnoreUppercase = wanted
+    wanted = Sh_Store_To_Bool(Sh_Setting_Read(VT_STORE_MINE, "TabIndentKey", "1"))
+    If Options.TabIndentKey <> wanted Then Options.TabIndentKey = wanted
+    On Error GoTo 0
+
+End Sub  '*** end of Sh_Restore_Transcriber_Settings ***
 
 Sub MS_Clear_F_and_R_Params_and_Clipboard()
 '

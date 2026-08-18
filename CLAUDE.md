@@ -125,6 +125,19 @@ Installed by the Inno Setup installer (`installer/vistatype.iss`):
   Never add `onlyifdoesntexist`: it would stop a corrected font ever reaching a machine that
   already has the old one. **The font is OFL, not GPL** — never sweep it under the project
   license; condition 5 forbids it and breaching any condition voids the grant.
+- `%AppData%\VistaType LP Settings\VistaType.ini` — **written by the add-in, never by the installer,
+  and deliberately NOT in `[UninstallDelete]`.** Holds the transcriber's own Word settings that
+  VistaType puts back for her: from 8/18/2026 the five spelling/grammar settings braille and large
+  print switch off (`CheckGrammarAsYouType`, `IgnoreMixedDigits`, `ContextualSpeller`,
+  `LabelSmartTags`, `IgnoreUppercase`), and whatever the saved-settings library grows to hold. A
+  *separate folder* from `%AppData%\VistaType LP` on purpose — that one is wiped whole at uninstall,
+  and a reinstall must not cost her her settings; same reasoning as the font license folder. Read and
+  written with Word's own `System.PrivateProfileString` via `Sh_Settings_File` /
+  `Sh_Setting_Read` / `Sh_Setting_Write` in `LPandBrlMacros`. **A file, not module variables:** VBA's
+  `End` statement resets every module-level variable, and this project runs `End` on ordinary paths
+  (34 times in `LPandBrlMacros` alone, plus dialog Cancel buttons and `Sh_Is_Doc_Open`), so anything
+  held in memory would be lost mid-session — and the next save would record VistaType's own value as
+  the transcriber's choice. See `docs/User-Settings-And-Word-Configuration.md`.
 - The **Quick Access Toolbar** is set up per the user's choice on the install wizard (append VistaType's icons / install VistaType's toolbar whole / restore their pre-VistaType one / leave it alone), written to `Word.officeUI` in **both** Roaming and Local; their ribbon is never touched and the embedded ribbon supplies the tabs
 
 ## Repo layout
@@ -199,6 +212,13 @@ tools/lib/      check_style_guards.py (refuses to build when an ActiveDocument.S
                 user's machine as "Compile error in hidden module: <form name>", naming the form
                 and not the missing macro; it also WARNS, without failing, about Application.Run
                 "name" string calls, which compile and fail only when the button is pressed);
+                check_vba_structure.py (refuses to build on the structural mistakes that COMPILE nowhere in
+                this pipeline and so ship silently: a module-level Const/Dim/Type written beside the
+                procedure that uses it instead of in the declarations section at the top of the module,
+                a procedure name declared twice in one module, or a With with no End With. All three
+                reach the transcriber as "Compile error in hidden module: <name>" with no line number
+                and nothing naming the cause. Cost a build on 8/18/2026 - three Private Const lines for
+                the settings store. Covers .bas, .cls and the code section of .frm);
                 decompress_vba.py (reader); officeui_to_customui.py + inject_customui.py (ribbon);
                 inject_keymap.py (keyboard shortcuts -> .dotx/.dotm); build_ribbon_tabs.py
                 (ribbon tabs -> installer/ribbon-tabs.officeUI, plus the shipped-button-id

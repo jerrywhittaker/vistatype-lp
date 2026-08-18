@@ -47,7 +47,7 @@
 ; The literal here is the fallback for building this script by hand, and is kept in step
 ; with the Makefile by "make bump".
 #ifndef AppVer
-  #define AppVer      "3.0.188"
+  #define AppVer      "3.0.196"
 #endif
 #define DotmName    "LPandBRL.dotm"
 #define DotxName    "LargePrintTemplate.dotx"
@@ -356,6 +356,12 @@ Type: files;          Name: "{userappdata}\Microsoft\Templates\{#DotxName}"
 ; {userappdata}\VistaType LP Fonts, which holds their license. The fonts must survive an
 ; uninstall because the transcriber's finished books depend on them, and the OFL requires the
 ; license to stay with the font -- so both outlive us. Never add either. 8/8/2026.
+; NOT listed, and never add it: {userappdata}\VistaType LP Settings, which holds the
+; transcriber's own Word settings that VistaType puts back for her (the spelling and grammar
+; ones braille switches off, and whatever the settings library grows to hold). It is a separate
+; folder from "VistaType LP" for exactly this reason - that one is wiped whole by the line
+; below, and a reinstall must not cost her her settings. Same reasoning as the font license
+; folder above. 8/18/2026.
 Type: filesandordirs; Name: "{userappdata}\VistaType LP"
 
 [Code]
