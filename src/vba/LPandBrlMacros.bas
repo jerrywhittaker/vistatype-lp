@@ -18,6 +18,23 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - MS - 8/20/2026 - the SCREEN half of PIECE 3 of the automatic-configuration plan. What a plain letter looks like when it
+'           - MS - 8/20/2026 - opens is now stated: no formatting marks, no Styles pane, no navigation pane, both rulers, print view.
+'           - MS - 8/20/2026 - Two of those five changed. ShowAll was forced ON here and is now OFF - Jerry, after testing 3.0.205:
+'           - MS - 8/20/2026 - forcing pilcrows on meant a transcriber who works without them switched them off again on EVERY letter
+'           - MS - 8/20/2026 - she opened, not once. The rulers are the opposite case and stay forced, the vertical one especially,
+'           - MS - 8/20/2026 - since it is buried in File > Options > Advanced > Display. And ActiveWindow.DocumentMap = False is new,
+'           - MS - 8/20/2026 - closing the navigation pane; it is a WINDOW property so it cannot reach another document, unlike the
+'           - MS - 8/20/2026 - other half of the navigation pane that Dx_Attach_BANA_Template writes - CommandBars("Navigation") is
+'           - MS - 8/20/2026 - application-wide, and bringing the two together is still to do.
+'           - MS - 8/20/2026 - Also gone from the ordinary configuration, and not to be put back: FormattingShowNextLevel,
+'           - MS - 8/20/2026 - StyleSortMethod and FormattingShowFilter. All three are DOCUMENT properties saved inside her file, so
+'           - MS - 8/20/2026 - writing them on every ordinary document open overwrote what that document was carrying - the 7/24/2026
+'           - MS - 8/20/2026 - complaint again, in her letters this time rather than her books. Decision 6 of the plan.
+'           - MS - 8/20/2026 - The TYPING half of Piece 3 is deliberately NOT in this: the twenty Options and AutoCorrect writes still
+'           - MS - 8/20/2026 - stand, because nothing can replace them until the settings ledger of Piece 4 exists. Until then,
+'           - MS - 8/20/2026 - clearing an AutoFormat box and reopening the document still puts it back, and that is not a saving
+'           - MS - 8/20/2026 - fault - it is this sub rewriting it, exactly as it always has.
 ' Notes:    - LP - 8/20/2026 - PIECE 1 of the automatic-configuration plan (docs/Automatic-Configuration-Plan.md, agreed with the beta
 '           - LP - 8/20/2026 - tester the same day): document type is read from the ATTACHED TEMPLATE and not from the style "Box Black".
 '           - LP - 8/20/2026 - Jerry: the style test was written before he knew how to test for an attached template. The function that
@@ -18063,6 +18080,11 @@ Sub MS_Set_Word_Config_For_New_Install()
     '
     ' Author: Jerry Whittaker -  jerry@thewhittakers.org
     '
+    ' Version: 2.6  Date: 8/20/2026 - the SCREEN half of Piece 3 of the automatic-configuration plan. Formatting
+    '                                 marks off rather than on, the navigation pane closed, and the three Styles
+    '                                 pane settings saved inside her file no longer written at all. The twenty
+    '                                 Options and AutoCorrect writes below are NOT touched yet - they go when the
+    '                                 settings ledger exists to replace them, which is Piece 4
     ' Version: 2.5  Date: 8/18/2026 - the 15 settings all three configurations wrote IDENTICALLY are gone
     '                                 from all three: nothing was ever switching them, so the only thing the
     '                                 writes did was overwrite the transcriber's own choice - which is what
@@ -18094,11 +18116,13 @@ Sub MS_Set_Word_Config_For_New_Install()
     
     ActiveDocument.ActiveWindow.View.ReadingLayout = False  'will crash if document is in reading view ... close reading view
 
-    If Not Sh_Config_Skip_Display Then   ' the transcriber's screen is theirs - see Sh_Config_Skip_Display
-        ActiveDocument.FormattingShowNextLevel = False
-        ActiveDocument.StyleSortMethod = wdStyleSortRecommended
-        ActiveDocument.FormattingShowFilter = wdShowFilterStylesAll
-    End If
+    ' 8/20/2026 - three Styles pane settings are no longer written here, and must not be put
+    ' back: FormattingShowNextLevel, StyleSortMethod, and FormattingShowFilter, which was being
+    ' forced to wdShowFilterStylesAll. All three are DOCUMENT properties, saved inside her file
+    ' and carried with it, so writing them on every ordinary document open overwrote whatever
+    ' that document was carrying - the 7/24/2026 complaint, in her letters rather than her books.
+    ' Decision 6 of the automatic-configuration plan. The pane's VISIBILITY is a separate
+    ' question and is still decided here; see the block below.
     
     ' Only write settings that differ from their target, so re-running this on every new
     ' document doesn't hand Word's (roaming) settings store a no-op "change" each time.
@@ -18146,12 +18170,25 @@ Sub MS_Set_Word_Config_For_New_Install()
         If .AutoFormatPlainTextWordMail <> True Then .AutoFormatPlainTextWordMail = True
     End With
     
+    ' What a plain letter looks like when it opens, decided by Jerry and the beta tester on
+    ' 8/20/2026: no formatting marks, no Styles pane, no navigation pane, both rulers, print
+    ' view. Five things stated rather than four, and two of them changed that day.
+    '
+    ' ShowAll was True here until 8/20/2026 and is now False. Forcing pilcrows ON meant a
+    ' transcriber who works without them had to switch them off again on every single letter she
+    ' opened - not once. The rulers are the opposite case and stay forced: the vertical one is
+    ' buried in File > Options > Advanced > Display and she should not have to go looking.
+    '
+    ' The navigation pane is new here, and it goes through Sh_Set_Navigation_Pane because it has
+    ' two halves that both need writing - a window property and an application-wide command bar.
+    ' See that sub; getting it wrong is what left the pane standing after a close in 3.0.207.
     If Not Sh_Config_Skip_Display Then   ' the transcriber's screen is theirs - see Sh_Config_Skip_Display
-        ActiveWindow.View.ShowAll = True
+        ActiveWindow.View.ShowAll = False
         ActiveWindow.DisplayRulers = True
         ActiveWindow.DisplayVerticalRuler = True
         ActiveWindow.ActivePane.View.Type = wdPrintView
         Application.TaskPanes(wdTaskPaneFormatting).Visible = False 'turn off styles pane
+        Sh_Set_Navigation_Pane False                                'turn off navigation pane
         Application.ScreenRefresh
     End If
     
