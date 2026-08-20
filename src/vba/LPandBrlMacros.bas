@@ -18,6 +18,36 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Sh - 8/20/2026 - new Sh_Close_And_Reopen, called by Lp_Attach_The_Template right after the Save As. Word does not
+'           - Sh - 8/20/2026 - repaint the Quick Style gallery on the Home tab when the attached template changes which styles belong
+'           - Sh - 8/20/2026 - in it, and closing the file and opening it again is the only thing that does - Jerry's own finding.
+'           - Sh - 8/20/2026 - He hit it after putting qFormat on the five List Bullet styles the same day. Two answers were tried
+'           - Sh - 8/20/2026 - first and are written up at the macro so nobody spends the afternoon again: the document is ALREADY
+'           - Sh - 8/20/2026 - correct, measured straight after an attach (List Bullet through List Bullet 5 each read
+'           - Sh - 8/20/2026 - QuickStyle = True, Visibility = False), so nothing about the styles wants fixing; and toggling each
+'           - Sh - 8/20/2026 - gallery style QuickStyle off and back on does NOT refresh it - that was 3.0.201, tested, stale.
+'           - Sh - 8/20/2026 - Document.UpdateStyles does refresh it and MUST NEVER BE USED: it re-copies every style from the
+'           - Sh - 8/20/2026 - template, throwing away the base font and size just applied and dragging a book set in the dropped
+'           - Sh - 8/20/2026 - VistaTypeLP Legible back to Tahoma, moving every page break in it.
+'           - Sh - 8/20/2026 - The open handler is deliberately NOT suppressed. Reopening makes a NEW window, so the per-window
+'           - Sh - 8/20/2026 - settings the attach applied are gone with the old one, and Sh_HandleDocumentOpened putting them back
+'           - Sh - 8/20/2026 - is the point. It cannot loop - that handler only re-opens the attach dialog for an OBSOLETE template,
+'           - Sh - 8/20/2026 - and a document reaching here has the current one. It saves explicitly rather than closing with
+'           - Sh - 8/20/2026 - wdDoNotSaveChanges, and does nothing at all to a document that has never been saved: a stale gallery
+'           - Sh - 8/20/2026 - is far better than a lost book. If the reopen fails it returns NOTHING and the caller says where the
+'           - Sh - 8/20/2026 - file is and stops - never the active document, which on a machine with a second book open handed back
+'           - Sh - 8/20/2026 - the WRONG one and announced the save as finished over it. It reports a file that comes back READ-ONLY
+'           - Sh - 8/20/2026 - (a sync program still holding the ~$ owner file), captures ConfirmConversions BEFORE arming its error
+'           - Sh - 8/20/2026 - handler, and closes with screen updating OFF so the activate handler stands down and a neighboring
+'           - Sh - 8/20/2026 - document's configuration is not switched in and straight back out, rewriting her AutoCorrect list twice.
+'           - Sh - 8/20/2026 - The attach re-asserts the Styles pane afterwards: pane VISIBILITY is application state and does not
+'           - Sh - 8/20/2026 - survive the last document closing, though the sort and filter do, being saved in the file.
+'           - Sh - 8/20/2026 - What makes the reopen safe at all is one line elsewhere - Lp_Attach_The_Template sets
+'           - Sh - 8/20/2026 - UpdateStylesOnOpen = False right after attaching, so the saved file does not re-copy styles from the
+'           - Sh - 8/20/2026 - template on open. Do not tidy that line away.
+'           - Sh - 8/20/2026 - Sh_HandleDocumentClosing got its On Error back, lost with the Styles-pane line on 8/2/2026: version 1.1
+'           - Sh - 8/20/2026 - added it because that sub crashes if an image is selected when a document closes, and this change makes
+'           - Sh - 8/20/2026 - the add-in close a document on every single attach.
 ' Notes:    - LP - 8/20/2026 - the bundled VistaTypeLP Legible typeface is GONE - dropped from the product, not merely un-defaulted.
 '           - LP - 8/20/2026 - Jerry's call, and the reason is coverage: the face carries a Latin character set. English, French, German,
 '           - LP - 8/20/2026 - Spanish and Italian set correctly in it; Latin, mathematics, the IPA and the Greek that runs through medical
@@ -1025,6 +1055,14 @@ Sub Sh_HandleDocumentClosing()
     ' Version 1.0  Date: 10/17/2020
     ' Author: Jerry Whittaker - jerry@thewhittakers.org
     '
+    ' Version 1.1 put an On Error here because this line "crashes if image is selected when
+    ' document is closed", and the guard was lost with the Styles-pane line in 1.2 - the eom label
+    ' below is what it left behind. Restored 8/20/2026, when Lp_Attach_The_Template started
+    ' closing the document ITSELF after every attach: what used to need the transcriber to close a
+    ' document with a picture selected now happens automatically, on every job. An error raised
+    ' inside a Word application event can also stop Word calling the sink back for the rest of the
+    ' session, which would kill document-type detection silently - see Sh_HandleDocumentActivated.
+    On Error GoTo eom
     If Lp_Is_The_Attached_Template_LP = True Then ' is the document being closed an lp doc
         ActiveWindow.ActivePane.View.Type = wdPrintView
         'Application.Options.ShowCropMarks = False
@@ -11234,6 +11272,132 @@ Private Function Sh_IsBlankParaMark(p As Paragraph) As Boolean
     Sh_IsBlankParaMark = (Len(txt) = 0)
 End Function   '***** Sh_IsBlankParaMark ********
 
+Function Sh_Close_And_Reopen(ByVal targetDoc As Document) As Document
+'
+' Version: 1.1  Date: 8/20/2026 - never returns a document other than the one asked for. 1.0 fell
+'                               back to ActiveDocument when the reopen raised, which on a machine
+'                               with a second document open handed back THAT one - and the caller
+'                               went on to activate it and announce the save as finished, leaving
+'                               the transcriber looking at the wrong book. Also captures
+'                               ConfirmConversions before arming the error handler, closes with
+'                               screen updating off, and says so when the file comes back read-only
+' Version: 1.0  Date: 8/20/2026
+'
+' Author: Jerry Whittaker - jerry@thewhittakers.org
+'
+' Saves a document, closes it, and opens it again from disk. Returns the reopened Document, or
+' NOTHING if it could not be reopened - the caller's old object variable is dead the moment the
+' close happens, so use what this hands back and check it.
+'
+' WHY THIS EXISTS: Word does not repaint the Quick Style gallery - the row of style thumbnails
+' on the Home tab - when the attached template changes which styles belong in it. Closing the
+' file and opening it again is the only thing that does, and that is Jerry's own finding, made
+' on 8/20/2026 after he put qFormat on the five List Bullet styles.
+'
+' Two other answers were tried first and are recorded so nobody spends the afternoon again:
+'
+'   The document is ALREADY CORRECT, so nothing about the styles needs fixing. Measured on the
+'   build box straight after an attach, before any save: List Bullet through List Bullet 5 each
+'   read QuickStyle = True and Visibility = False, exactly as the template says. The fault is
+'   the ribbon, not the style sheet.
+'
+'   Toggling each gallery style QuickStyle False and back True, with screen updating on, does
+'   NOT refresh it. That was 3.0.201 and Jerry tested it - the gallery stayed stale. Writing the
+'   property is not what Word watches.
+'
+'   Document.UpdateStyles DOES refresh the gallery and MUST NEVER BE USED HERE. It works by
+'   re-copying every style from the attached template, which throws away the base font and size
+'   Lp_Attach_The_Template has just applied - and drags a book set in the dropped VistaTypeLP
+'   Legible back to Tahoma, moving every page break in it.
+'
+' WHAT MAKES THE REOPEN ITSELF SAFE, and it is one line elsewhere: Lp_Attach_The_Template sets
+' UpdateStylesOnOpen = False immediately after attaching, so the saved file does not re-copy
+' styles from the template when it is opened. Without that, this reopen would do the very damage
+' the paragraph above forbids. Do not "tidy" that line away.
+'
+' The open handler is deliberately NOT suppressed. Sh_Skip_Open_Handler exists for documents the
+' add-in opens that are not the transcriber's work, like the GPL text; this one IS her work, and
+' it needs exactly what any opened large print document gets. Reopening makes a NEW window, so
+' the per-window settings the attach applied - view type, rulers, style area - are gone with the
+' old one, and Sh_HandleDocumentOpened putting them back is the point rather than a side effect.
+' It cannot loop: that handler only re-opens the attach dialog for an OBSOLETE template, and the
+' document reaching here has the current one attached.
+'
+' Screen updating: OFF for the close, ON for the open. The open is what has to repaint, so it
+' must be on by then. The close is different - Sh_HandleDocumentActivated treats screen updating
+' being off as "a macro is running" and stands down, and with a second document open the close
+' activates it and would otherwise run a full configuration switch for that document's type,
+' rewriting the transcriber's AutoCorrect list on the way out and again on the way back.
+
+    Dim docPath As String
+    Dim cc_Prev As Boolean
+    Dim su_Prev As Boolean
+    Dim reopened As Document
+
+    Set Sh_Close_And_Reopen = targetDoc
+
+    ' Never been saved, so there is nothing on disk to reopen. Leave it exactly as it is - a
+    ' stale gallery is a great deal better than losing the transcriber's document.
+    If targetDoc Is Nothing Then Exit Function
+    If Len(targetDoc.Path) = 0 Then Exit Function
+
+    docPath = targetDoc.FullName
+
+    ' Both captured BEFORE the error handler is armed. Read them after, and a raise inside the
+    ' close sends Bail off to "restore" them from uninitialized variables - which for
+    ' ConfirmConversions means switching OFF, application-wide and for good, a setting a
+    ' transcriber working from raw publisher .doc files may have turned on deliberately.
+    cc_Prev = Application.Options.ConfirmConversions
+    su_Prev = Application.ScreenUpdating
+
+    On Error GoTo Bail
+
+    ' Saved explicitly rather than closing with wdDoNotSaveChanges. The caller has just been
+    ' through the Save As, so this is normally a no-op - but if anything is ever added between
+    ' that save and this call, discarding it silently is how work disappears.
+    If Not targetDoc.Saved Then targetDoc.Save
+
+    Application.ScreenUpdating = False
+    targetDoc.Close SaveChanges:=wdDoNotSaveChanges
+    Application.ScreenUpdating = True
+
+    ' Same guard Sh_Show_Full_License uses: without it Word can stop on a "Convert File"
+    ' question and the macro waits for a dialog nobody is looking at.
+    Application.Options.ConfirmConversions = False
+    Set reopened = Documents.Open(FileName:=docPath, AddToRecentFiles:=True)
+    Application.Options.ConfirmConversions = cc_Prev
+    On Error GoTo 0
+
+    Set Sh_Close_And_Reopen = reopened
+
+    ' Word writes a hidden ~$ owner file beside an open document and does not always release it
+    ' at once. Reopening the same path milliseconds after closing it - on OneDrive, SharePoint or
+    ' a network share - is the setup for coming back READ-ONLY. Say so. The alternative is a
+    ' transcriber being told her file is saved and then typing into a book that will not take it.
+    If Not reopened Is Nothing Then
+        If reopened.ReadOnly Then
+            MsgBox "Your document was saved, but Word has reopened it as READ-ONLY." & vbCr & vbCr _
+                 & docPath & vbCr & vbCr _
+                 & "Close it and open it again before you carry on editing. This usually means a " _
+                 & "sync program - OneDrive or SharePoint - had not finished with the file.", _
+                 vbExclamation, "VistaType LP (232)"
+        End If
+    End If
+    Exit Function
+
+Bail:
+    ' The close or the open failed. NEVER answer with whatever document happens to be active -
+    ' with a second book open that hands back the wrong one, and the caller activates it and
+    ' announces the save as finished. Returning Nothing is the honest answer and the caller
+    ' checks for it.
+    On Error Resume Next
+    Application.Options.ConfirmConversions = cc_Prev
+    Application.ScreenUpdating = su_Prev
+    On Error GoTo 0
+    Set Sh_Close_And_Reopen = Nothing
+
+End Function   '***** end of Sh_Close_And_Reopen macro *****
+
 Sub Lp_Turn_on_Styles_Pane()
     '
     ' Version: 1.2 Date:  10/26/2021 - added "Application.RestrictLinkedStyles = True"
@@ -13869,6 +14033,13 @@ Sub Lp_Attach_The_Template()
 
     ' Attaches the LP template with style changes
     '
+    ' Version: 3.6  Date: 8/20/2026 - closes and reopens the document after the Save As, which is
+    '                               the only thing that makes Word repaint the Quick Style gallery
+    '                               after the attached template has changed which styles belong in
+    '                               it - see Sh_Close_And_Reopen, and do NOT reach for
+    '                               Document.UpdateStyles instead. Re-asserts the Styles pane
+    '                               afterwards, because pane visibility is application state and
+    '                               does not survive the last document closing
     ' Version: 3.5  Date: 8/20/2026 - the typeface is no longer a choice. Lp_Base_Font_Name arrives
     '                               as Tahoma for every new book, and as the book's own face for one
     '                               already set in the dropped VistaTypeLP Legible - see
@@ -14246,13 +14417,48 @@ SaveTheFile:
     'Unload the progress form completely
     Unload Sh_NonModalMessageForm
     DoEvents
-    
+
+    ' Close and reopen the saved file, which is the ONLY thing that makes Word repaint the Quick
+    ' Style gallery after the attached template has changed which styles belong in it. Jerry's
+    ' finding, 8/20/2026; see Sh_Close_And_Reopen for the two answers that were tried first and
+    ' the one that must never be used.
+    '
+    ' AFTER the save and before the closing message, so the transcriber sees the window blink
+    ' once and then "File has been stabilized and saved" - rather than a blink after being told
+    ' the job was finished.
+    '
+    ' BOTH variables have to be re-pointed. The close kills whatever they referred to, and
+    ' currentdoc is the one the earlier half of this macro used - leave it stale and the next
+    ' person to add a line down here gets "object variable not set" on a document that is sitting
+    ' open in front of them.
+    Set doc = Sh_Close_And_Reopen(doc)
+    Set currentdoc = doc
+
+    ' Nothing means the reopen failed and the document is not on screen. Her work is on disk -
+    ' the Save As above succeeded, which is the only way this line is reached - so say where it
+    ' is and stop, rather than activating a document that is not there.
+    If doc Is Nothing Then
+        Application.ScreenUpdating = True
+        MsgBox "Your document has been saved, but Word could not reopen it." & vbCr & vbCr _
+             & "Open it again from where you saved it and carry on. Nothing has been lost.", _
+             vbExclamation, "VistaType LP (233)"
+        Exit Sub
+    End If
+
     'Re-assert dominance for your saved document AFTER the form is entirely gone
     Application.Activate
     doc.Activate
     ActiveWindow.View.Type = wdPrintView
     DoEvents
-    
+
+    ' The Styles pane again, and it is not a duplicate of the call further up. Pane VISIBILITY is
+    ' application state, not document state: on the common machine where this book is the only one
+    ' open, closing it leaves Word with no documents and the pane goes with them. The sort and
+    ' filter settings do survive - those are saved in the file - so this is here for the pane
+    ' itself. Attaching the template is still the ONE place that forces it (Jerry, 8/2/2026);
+    ' this is the same attach, finishing the job after the reopen.
+    Application.Run MacroName:="Lp_Turn_on_Styles_Pane"
+
     MsgBox "File has been stabilized and saved", vbInformation, "VistaType LP (201)"
     
     Unload Sh_NonModalMessageForm
