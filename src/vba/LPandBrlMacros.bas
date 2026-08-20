@@ -18,6 +18,29 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - LP - 8/20/2026 - the Styles pane follows the large print document now: open one and the pane is there, close one
+'           - LP - 8/20/2026 - and it goes with it. Jerry, after attaching the template to a book, saving it, opening it again and
+'           - LP - 8/20/2026 - finding no pane. This is a deliberate change to the 8/2/2026 rule that made the pane the user's own,
+'           - LP - 8/20/2026 - and only half of it moves. The pane's VISIBILITY is what follows the document. The Recommended sort
+'           - LP - 8/20/2026 - and the "Select styles to show" filter are NOT forced on open and Lp_Turn_on_Styles_Pane is NOT put
+'           - LP - 8/20/2026 - back in either handler - those two are DOCUMENT properties saved into the file, so a book the attach
+'           - LP - 8/20/2026 - set to Recommended already reopens that way, and a transcriber who chose "All Styles" in her own book
+'           - LP - 8/20/2026 - keeps it. Forcing those on every open was the 7/24 and 8/2/2026 complaint and it stays fixed.
+'           - LP - 8/20/2026 - Opening: MS_Set_Word_Config_For_Large_Print, inside its skip-display guard, which makes it the mirror
+'           - LP - 8/20/2026 - of what the other two configurations have always done - braille and default both HIDE the pane there,
+'           - LP - 8/20/2026 - and large print was the one of the three that said nothing, so it showed whatever the last document
+'           - LP - 8/20/2026 - left behind. Being inside that guard also means merely SWITCHING to another book cannot move it.
+'           - LP - 8/20/2026 - Closing: Sh_HandleDocumentClosing hides it again, which 8/2/2026 removed as a plain bug - and that bug
+'           - LP - 8/20/2026 - was real, so the line is not simply back. DocumentBeforeClose fires on close ATTEMPTS and Word raises
+'           - LP - 8/20/2026 - it BEFORE the "save your changes?" prompt, so X then Cancel took the pane and nothing put it back. The
+'           - LP - 8/20/2026 - Cancel flag the event passes is no help: it says what the handler wants, not what she is about to
+'           - LP - 8/20/2026 - answer. So the hide is RECORDED in new Public Sh_PaneHiddenForDoc, and Sh_HandleDocumentActivated (1.1)
+'           - LP - 8/20/2026 - reconsiders it the next time a document is looked at - which a cancelled close makes immediate, since
+'           - LP - 8/20/2026 - she never left the book. It tests what is ON SCREEN rather than whether the named document survived,
+'           - LP - 8/20/2026 - which covers the second case too: close one of two open large print books and the pane belongs to the
+'           - LP - 8/20/2026 - other one. That test sits BEFORE the handler's same-document early exit, or the cancelled close - same
+'           - LP - 8/20/2026 - document, same configuration - would walk straight past it. Pane visibility is WORD-WIDE, which is why
+'           - LP - 8/20/2026 - the recovery matters: the hide does not take the pane off one window, it takes it off all of them.
 ' Notes:    - Sh - 8/20/2026 - new Sh_Close_And_Reopen, called by Lp_Attach_The_Template right after the Save As. Word does not
 '           - Sh - 8/20/2026 - repaint the Quick Style gallery on the Home tab when the attached template changes which styles belong
 '           - Sh - 8/20/2026 - in it, and closing the file and opening it again is the only thing that does - Jerry's own finding.
@@ -699,6 +722,15 @@ Public Sh_ActivateCount As Long
 Public Sh_LastSeenDoc As String
 Public Sh_LastSeenAs As String
 
+' The large print document Sh_HandleDocumentClosing last hid the Styles pane for, or "" if it has
+' not hidden it. This is how the close-time hide is made safe, and it is the reason that hide was
+' removed once already on 8/2/2026: DocumentBeforeClose fires on close ATTEMPTS, before the "save
+' your changes?" prompt, so clicking the X and then Cancel took the pane away and left the
+' transcriber sitting in the document without it. Word raises no event to say a close was
+' abandoned, so nothing can be read at the time - the answer is written down here instead and
+' Sh_HandleDocumentActivated reconsiders it the moment a document is looked at again. See both.
+Public Sh_PaneHiddenForDoc As String
+
 Sub AutoExec()
     ' Runs once when Word starts (fires even from a STARTUP global template, unlike AutoOpen).
     On Error Resume Next
@@ -802,6 +834,8 @@ End Sub
 ' Nothing here may raise: an error inside a Word application event can stop Word calling back
 ' for the rest of the session, which would silently kill document-type detection outright.
 '
+' Version: 1.1  Date: 8/20/2026 - puts back a Styles pane that Sh_HandleDocumentClosing hid for a
+'                               close that never happened. See Sh_PaneHiddenForDoc
 ' Version: 1.0  Date: 8/9/2026 (Jerry asked for it: the configuration should follow the document)
 Sub Sh_HandleDocumentActivated()
     Static busy As Boolean
@@ -837,9 +871,31 @@ Sub Sh_HandleDocumentActivated()
     ' guard - which only spans the Documents.Open call - does not cover clicking back to it later.
     If Sh_Is_Addins_Own_Document() Then Exit Sub
 
+    docName = ActiveDocument.FullName
+
+    ' Reconsider a Styles pane hidden by Sh_HandleDocumentClosing, and do it BEFORE the cheap
+    ' early exit below - the case this exists for is a close the transcriber cancelled, where the
+    ' document and the configuration are both exactly what they were and that exit would take us
+    ' straight past it.
+    '
+    ' The test is what is ON SCREEN now, not whether the named document survived. That answers
+    ' both ways it can go wrong with one line: the cancelled close leaves her in the same large
+    ' print book, and closing one of two open large print books leaves her in the other. Either
+    ' way a large print document is in front of her and the pane belongs open. If what is on
+    ' screen is braille or an ordinary document, the close did what it looked like and the pane
+    ' stays down.
+    '
+    ' Cleared unconditionally, so one hide is reconsidered exactly once and a stale name can
+    ' never make the pane reappear on some unrelated document later in the session.
+    If Len(Sh_PaneHiddenForDoc) > 0 Then
+        Sh_PaneHiddenForDoc = ""
+        If Sh_Doc_Config_Type() = "LP" Then
+            Application.TaskPanes(wdTaskPaneFormatting).Visible = True
+        End If
+    End If
+
     ' One string comparison in the overwhelmingly common case - the cursor moved, or the same
     ' document was clicked again. See Sh_LastSeenDoc.
-    docName = ActiveDocument.FullName
     If docName = Sh_LastSeenDoc And Sh_ConfiguredAs = Sh_LastSeenAs Then Exit Sub
 
     newType = Sh_Doc_Config_Type()
@@ -1050,6 +1106,7 @@ Sub Sh_HandleDocumentClosing()
     ' If the document is a large print document then print view is set. (The styles pane and
     ' crop marks used to be turned off here too; see 1.2.)
     '
+    ' Version 1.3  Date: 8/20/2026 - hides the Styles pane again (Jerry: the pane follows the large print document). 1.2 removed it as a plain bug and that bug is real, so it is not simply back - the document is recorded in Sh_PaneHiddenForDoc and Sh_HandleDocumentActivated puts the pane straight back if the close turns out not to have happened
     ' Version 1.2  Date: 8/2/2026 - no longer hides the Styles pane. It is the user's now, and this fired on close ATTEMPTS - cancelling the "save your changes?" prompt left you in the document with the pane gone
     ' Version 1.1  Date:  12/16/2021 - set on error - crashes if image is selected when document is closed    Application.TaskPanes(wdTaskPaneFormatting).Visible = True
     ' Version 1.0  Date: 10/17/2020
@@ -1066,12 +1123,29 @@ Sub Sh_HandleDocumentClosing()
     If Lp_Is_The_Attached_Template_LP = True Then ' is the document being closed an lp doc
         ActiveWindow.ActivePane.View.Type = wdPrintView
         'Application.Options.ShowCropMarks = False
-        ' 8/2/2026 - no longer hides the Styles pane, and the On Error that guarded that one
-        ' line went with it. Two reasons. The pane is the user's now (only attaching the LP
-        ' template forces it), and this fired on close ATTEMPTS: DocumentBeforeClose passes a
-        ' Cancel flag that nothing here reads, so clicking the X, then Cancel at "save your
-        ' changes?", left you still in the document with the pane gone. Pane visibility is
-        ' Word-wide, so it also stripped the pane from every other document open at the time.
+
+        ' The Styles pane goes with the large print document. Jerry, 8/20/2026, and it is the
+        ' other half of MS_Set_Word_Config_For_Large_Print opening it: the pane follows an LP
+        ' book on and off the screen instead of outliving it.
+        '
+        ' 8/2/2026 took this line out and the reason was sound, so read it before touching this.
+        ' DocumentBeforeClose fires on close ATTEMPTS, and Word raises it BEFORE the "save your
+        ' changes?" prompt. Click the X, then Cancel at that prompt, and the close never happens
+        ' - but the pane is already gone and nothing was ever going to put it back. The Cancel
+        ' flag the event passes is no help either: it says what THIS handler wants, not what the
+        ' transcriber is about to answer, and by the time she answers the event is over.
+        '
+        ' So the hide is recorded rather than trusted. Sh_HandleDocumentActivated reads
+        ' Sh_PaneHiddenForDoc the next time a document is looked at - which the cancelled close
+        ' leaves happening immediately, because she is still in the book - and if what is on
+        ' screen is a large print document the pane goes back up. The flag is set AFTER the hide
+        ' so that a hide which raises is not recorded as one that happened.
+        '
+        ' Pane visibility is WORD-WIDE, which is what makes the recovery matter rather than being
+        ' tidiness: this does not take the pane off one window, it takes it off every document
+        ' open at the time.
+        Application.TaskPanes(wdTaskPaneFormatting).Visible = False
+        Sh_PaneHiddenForDoc = ActiveDocument.FullName
     End If
 eom: 'End of Macro
 
@@ -13236,11 +13310,13 @@ Sub Lp_Set_Display_For_Large_Print()
     ActiveWindow.View.ShowAll = True
     ActiveWindow.DisplayRulers = True
     ActiveWindow.DisplayVerticalRuler = True
-    ' 8/2/2026 - the Styles pane is no longer opened or re-sorted here. This sub runs on every
-    ' LP document open, and it was applying the Recommended sort and filter three times over
-    ' (once itself, once through Lp_Turn_on_Styles_Pane, once more through the
+    ' 8/2/2026 - the Styles pane is not opened or re-sorted HERE. This sub runs on every LP
+    ' document open, and it was applying the Recommended sort and filter three times over (once
+    ' itself, once through Lp_Turn_on_Styles_Pane, once more through the
     ' MS_Set_Word_Config_For_Large_Print call below), wiping out whatever the user had chosen.
-    ' Attaching the LP template is the only thing that forces the pane now.
+    ' The sort and the filter are still hers. 8/20/2026 - the pane's VISIBILITY is a different
+    ' question and it did come back: MS_Set_Word_Config_For_Large_Print, one line below, opens
+    ' the pane for a large print document. Do not add a second copy of that here.
     ' RestrictLinkedStyles went with the removed Lp_Turn_on_Styles_Pane call but is still set,
     ' one line later, by MS_Set_Word_Config_For_Large_Print.
     ActiveDocument.FormattingShowNextLevel = False
@@ -14335,7 +14411,9 @@ DoEvents
 
     Sh_SetBarVisible "Styles", True
 
-    ' The ONE place the Styles pane is forced open at Recommended sort and Recommended filter:
+    ' The ONE place the Styles pane is forced to Recommended sort and Recommended filter (opening
+    ' it is no longer exclusive to the attach - MS_Set_Word_Config_For_Large_Print does that for
+    ' any large print document as of 8/20/2026; the sort and the filter are still only set here):
     ' attaching the LP template, whether it is new to this document or being re-attached (both
     ' arrive here - the re-attach path only adds the warning form first). Everywhere else the
     ' user's own pane settings are left alone, so they survive from session to session.
@@ -14455,8 +14533,10 @@ SaveTheFile:
     ' application state, not document state: on the common machine where this book is the only one
     ' open, closing it leaves Word with no documents and the pane goes with them. The sort and
     ' filter settings do survive - those are saved in the file - so this is here for the pane
-    ' itself. Attaching the template is still the ONE place that forces it (Jerry, 8/2/2026);
-    ' this is the same attach, finishing the job after the reopen.
+    ' itself. This is the same attach, finishing the job after the reopen. Still needed after
+    ' 8/20/2026 gave every large print document its pane on open: the reopen runs with the open
+    ' handler live, but on a machine where this book was the only one open the pane went when the
+    ' document did, and Word does not always restore it from that.
     Application.Run MacroName:="Lp_Turn_on_Styles_Pane"
 
     MsgBox "File has been stabilized and saved", vbInformation, "VistaType LP (201)"
@@ -18003,6 +18083,9 @@ Sub MS_Set_Word_Config_For_Large_Print()
     '
     ' Author: Jerry Whittaker -  jerry@thewhittakers.org
     '
+    ' Version: 2.3  Date: 8/20/2026 - opens the Styles pane for a large print document, the mirror image of what
+    '                                 the braille and default configurations have always done. Visibility only:
+    '                                 the Recommended sort and filter stay the transcriber's, see the note below
     ' Version: 2.2  Date: 8/18/2026 - dropped the 15 settings that were identical in all three configurations
     '                                 (see MS_Set_Word_Config_For_New_Install 2.5), stopped writing
     '                                 CorrectKeyboardSetting, and every remaining write is now guarded with
@@ -18064,13 +18147,26 @@ Sub MS_Set_Word_Config_For_Large_Print()
         ActiveWindow.DisplayRulers = True
         ActiveWindow.DisplayVerticalRuler = True
     End If
-    ' 8/2/2026 - no longer calls Lp_Turn_on_Styles_Pane. Configuring Word for large print must
-    ' not seize the Styles pane: this sub runs on every LP document OPEN, so it was resetting
-    ' the sort order and the "Select styles to show" filter of anyone who had chosen their own.
-    ' Only attaching the LP template forces the pane now - see Lp_Attach_The_Template.
-    ' FormattingShowNextLevel was riding INSIDE that call and is nowhere else in this sub, so
-    ' it is written here explicitly rather than lost with it.
+    ' The Styles pane is OPEN for a large print document. Jerry, 8/20/2026, after attaching the
+    ' template to a book, saving it, opening it again and finding no pane. This completes a
+    ' pattern the other two configurations have had all along - MS_Set_Word_Config_For_Braille
+    ' hides the pane and so does MS_Set_Word_Config_For_New_Install, and large print was the one
+    ' of the three that said nothing, so it showed whatever the last document left behind.
+    '
+    ' VISIBILITY ONLY, and that is the whole of the 8/2/2026 note this replaces. The Recommended
+    ' sort and the "Select styles to show" filter are NOT set here, and Lp_Turn_on_Styles_Pane
+    ' must not be put back: those two are DOCUMENT properties saved into the file, so a book the
+    ' attach set to Recommended reopens that way by itself, while a transcriber who chose "All
+    ' Styles" in her own book keeps it. Forcing those on every open was the 7/24 and 8/2/2026
+    ' complaint and is not being reopened - only whether the pane is on screen has changed.
+    '
+    ' Inside the skip-display guard, so merely glancing at another book cannot move it: on a
+    ' SWITCH between open documents this block does not run at all.
+    '
+    ' FormattingShowNextLevel was riding INSIDE the removed Lp_Turn_on_Styles_Pane call and is
+    ' nowhere else in this sub, so it is written here explicitly rather than lost with it.
     If Not Sh_Config_Skip_Display Then   ' the transcriber's screen is theirs - see Sh_Config_Skip_Display
+        Application.TaskPanes(wdTaskPaneFormatting).Visible = True 'turn on styles pane
         ActiveDocument.FormattingShowNextLevel = False
         Application.ShowStylePreviews = True
         Application.RestrictLinkedStyles = True
