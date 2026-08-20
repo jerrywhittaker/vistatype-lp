@@ -18,6 +18,66 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Sh - 8/20/2026 - the Styles pane needs TWO handles written as well, for the same reason the navigation pane did, and
+'           - Sh - 8/20/2026 - it is worth writing the reason down once properly. Application.TaskPanes(wdTaskPaneFormatting) needs a
+'           - Sh - 8/20/2026 - DOCUMENT WINDOW to hang the pane on, and when Word is empty it quietly does nothing at all. Jerry,
+'           - Sh - 8/20/2026 - testing 3.0.209: closing the last document put the navigation pane down and left the Styles pane
+'           - Sh - 8/20/2026 - sitting there - the identical fault to 3.0.207 one build earlier, and the identical cause.
+'           - Sh - 8/20/2026 - CommandBars("Styles") is the other handle on the same pane and is application-wide. Measured on the
+'           - Sh - 8/20/2026 - build box 8/20/2026: with NO document open, CommandBars("Navigation") and CommandBars("Styles") both
+'           - Sh - 8/20/2026 - still answer and can be written, while TaskPanes cannot. New Sh_Set_Styles_Pane writes both, and
+'           - Sh - 8/20/2026 - Sh_Tidy_Panes_After_Close (1.1) is its ONLY caller and the only place that needs it - everywhere else
+'           - Sh - 8/20/2026 - the pane is set while configuring a document that is open in front of us, where TaskPanes alone is
+'           - Sh - 8/20/2026 - right. Do not sweep the other sites into it.
+'           - Sh - 8/20/2026 - The general lesson, since it has now cost two builds: a task pane in Word has a per-document handle
+'           - Sh - 8/20/2026 - and an application-wide one, they are not interchangeable, and the difference only shows itself when
+'           - Sh - 8/20/2026 - there is no document.
+' Notes:    - Sh - 8/20/2026 - the panes now come down AFTER a close, not during one, and the two entries below about recording a
+'           - Sh - 8/20/2026 - hide and undoing it are superseded. Jerry, testing 3.0.207: he cancelled at the "save your changes?"
+'           - Sh - 8/20/2026 - prompt and had to put both panes back by hand. The idea was wrong, not the implementation.
+'           - Sh - 8/20/2026 - DocumentBeforeClose fires on close ATTEMPTS and Word says nothing afterwards about which button she
+'           - Sh - 8/20/2026 - pressed, so three versions running tried to hide first and undo it on the next activation. Stop
+'           - Sh - 8/20/2026 - guessing and LOOK instead: Sh_HandleDocumentClosing (1.6) now hides nothing at all and simply asks
+'           - Sh - 8/20/2026 - Application.OnTime for a tick one second out. New Sh_Tidy_Panes_After_Close is that tick. OnTime
+'           - Sh - 8/20/2026 - cannot run while a modal dialog is up, which is the whole trick - it cannot fire until she has
+'           - Sh - 8/20/2026 - answered the prompt, however long she takes, and by then the document has either gone or it has not.
+'           - Sh - 8/20/2026 - Its test is Documents.count = 0, and that is deliberate rather than lazy. Word empty: put the panes
+'           - Sh - 8/20/2026 - down, so the next document does not inherit them, which is what Jerry asked for. Anything still open:
+'           - Sh - 8/20/2026 - do NOTHING - a cancelled close, or one of two documents closed, leaves a document in front of her
+'           - Sh - 8/20/2026 - whose panes are the ones she has been working with, and a close elsewhere is no reason to take them.
+'           - Sh - 8/20/2026 - A cancelled close now costs her nothing at all: the panes never move, so there is not even a flicker.
+'           - Sh - 8/20/2026 - Gone with it: Sh_PaneHiddenForDoc, Sh_PaneWasStyles, Sh_PaneWasNav, and the recovery block in
+'           - Sh - 8/20/2026 - Sh_HandleDocumentActivated (1.4). Do not bring any of them back.
+' Notes:    - Sh - 8/20/2026 - the navigation pane has TWO halves and both have to be written. ActiveWindow.DocumentMap is a WINDOW
+'           - Sh - 8/20/2026 - property and CommandBars("Navigation").Visible is application-wide. Writing DocumentMap alone works
+'           - Sh - 8/20/2026 - while a document is being CONFIGURED, because the window is there and stays - which is why the
+'           - Sh - 8/20/2026 - ordinary configuration looked right in 3.0.206 - but it does NOTHING during DocumentBeforeClose,
+'           - Sh - 8/20/2026 - where the window it names is on its way out and Word's own remembered pane state is the thing left
+'           - Sh - 8/20/2026 - standing. Jerry, testing 3.0.207: the Styles pane went and the navigation pane stayed.
+'           - Sh - 8/20/2026 - Dx_Attach_BANA_Template has written both halves since 2021, with the On Error added in 2023 (2.3)
+'           - Sh - 8/20/2026 - because the CommandBars line raises on some Word versions - so the answer was already in the file.
+'           - Sh - 8/20/2026 - New Sh_Set_Navigation_Pane and Sh_Navigation_Pane_Showing put the pair in one place, and the reading
+'           - Sh - 8/20/2026 - half asks the application-wide setting FIRST, since that is the half that survives a close and is
+'           - Sh - 8/20/2026 - therefore the half worth handing back. Used by Sh_HandleDocumentClosing (1.5),
+'           - Sh - 8/20/2026 - Sh_HandleDocumentActivated (1.3), MS_Set_Word_Config_For_New_Install and Lp_Attach_The_Template -
+'           - Sh - 8/20/2026 - that last one had written the window half alone since long before any of this.
+' Notes:    - Sh - 8/20/2026 - the panes come down with ANY document that closes, not only a large print one, and the navigation
+'           - Sh - 8/20/2026 - pane comes down with the Styles pane. Jerry, testing 3.0.206: he opened both panes in a letter, saved,
+'           - Sh - 8/20/2026 - and closed it, and both were still sitting there. A letter is DEFINED as having no panes, so leaving
+'           - Sh - 8/20/2026 - them behind was the odd case rather than the tidy-up. Sh_HandleDocumentClosing is 1.4.
+'           - Sh - 8/20/2026 - The trap this walks into is the one pane visibility always sets: it is WORD-WIDE, so with two letters
+'           - Sh - 8/20/2026 - open, closing one takes the panes off the other. Two new Publics, Sh_PaneWasStyles and Sh_PaneWasNav,
+'           - Sh - 8/20/2026 - note what was on screen BEFORE anything is hidden - once those two lines have run there is no way left
+'           - Sh - 8/20/2026 - to ask - and Sh_HandleDocumentActivated 1.2 hands it back. What it hands back depends on what is on
+'           - Sh - 8/20/2026 - screen, not on what closed: a large print book gets the Styles pane and no navigation pane because
+'           - Sh - 8/20/2026 - that is what its configuration asks for; braille gets neither, which is what the close already left;
+'           - Sh - 8/20/2026 - and an ORDINARY document gets back exactly what was up. That last case is the point of recording it.
+'           - Sh - 8/20/2026 - Her letter's panes are hers - she opened them by hand, and the ordinary configuration does not touch
+'           - Sh - 8/20/2026 - them again once the document is open - so a close that happened to some OTHER document must not be
+'           - Sh - 8/20/2026 - what takes them away. It also still covers the case the recording was invented for on the same day:
+'           - Sh - 8/20/2026 - a close the transcriber CANCELLED at the "save your changes?" prompt, where she never left the
+'           - Sh - 8/20/2026 - document at all. Closing the LAST document raises no activation, so nothing is handed back and Word
+'           - Sh - 8/20/2026 - is left tidy, which is what was asked for.
 ' Notes:    - MS - 8/20/2026 - the SCREEN half of PIECE 3 of the automatic-configuration plan. What a plain letter looks like when it
 '           - MS - 8/20/2026 - opens is now stated: no formatting marks, no Styles pane, no navigation pane, both rulers, print view.
 '           - MS - 8/20/2026 - Two of those five changed. ShowAll was forced ON here and is now OFF - Jerry, after testing 3.0.205:
@@ -764,14 +824,14 @@ Public Sh_ActivateCount As Long
 Public Sh_LastSeenDoc As String
 Public Sh_LastSeenAs As String
 
-' The large print document Sh_HandleDocumentClosing last hid the Styles pane for, or "" if it has
-' not hidden it. This is how the close-time hide is made safe, and it is the reason that hide was
-' removed once already on 8/2/2026: DocumentBeforeClose fires on close ATTEMPTS, before the "save
-' your changes?" prompt, so clicking the X and then Cancel took the pane away and left the
-' transcriber sitting in the document without it. Word raises no event to say a close was
-' abandoned, so nothing can be read at the time - the answer is written down here instead and
-' Sh_HandleDocumentActivated reconsiders it the moment a document is looked at again. See both.
-Public Sh_PaneHiddenForDoc As String
+' 8/20/2026 - three module variables lived here, Sh_PaneHiddenForDoc, Sh_PaneWasStyles and
+' Sh_PaneWasNav. They existed to undo a pane hide that turned out not to be a close, because
+' DocumentBeforeClose fires on close ATTEMPTS and nothing says afterwards whether the attempt
+' succeeded. Recording what was hidden and reconsidering it on the next activation LOOKED right
+' and did not work: Jerry, testing 3.0.207, cancelled at the "save your changes?" prompt and had
+' to put both panes back by hand. Sh_Tidy_Panes_After_Close replaced the whole idea - it does not
+' guess whether the close happened, it waits a second and looks. See it, and do not bring these
+' variables back.
 
 Sub AutoExec()
     ' Runs once when Word starts (fires even from a STARTUP global template, unlike AutoOpen).
@@ -876,8 +936,8 @@ End Sub
 ' Nothing here may raise: an error inside a Word application event can stop Word calling back
 ' for the rest of the session, which would silently kill document-type detection outright.
 '
-' Version: 1.1  Date: 8/20/2026 - puts back a Styles pane that Sh_HandleDocumentClosing hid for a
-'                               close that never happened. See Sh_PaneHiddenForDoc
+' Version: 1.4  Date: 8/20/2026 - the Styles pane recovery of 1.1 to 1.3 is GONE. Nothing on the close
+'                               path hides a pane any more - see Sh_Tidy_Panes_After_Close
 ' Version: 1.0  Date: 8/9/2026 (Jerry asked for it: the configuration should follow the document)
 Sub Sh_HandleDocumentActivated()
     Static busy As Boolean
@@ -913,28 +973,10 @@ Sub Sh_HandleDocumentActivated()
     ' guard - which only spans the Documents.Open call - does not cover clicking back to it later.
     If Sh_Is_Addins_Own_Document() Then Exit Sub
 
+    ' 8/20/2026 - a Styles pane recovery lived here and is gone. Nothing on the close path hides
+    ' anything any more, so there is nothing to put back; Sh_Tidy_Panes_After_Close waits until
+    ' the close has settled and only then decides. See it before adding anything of the kind here.
     docName = ActiveDocument.FullName
-
-    ' Reconsider a Styles pane hidden by Sh_HandleDocumentClosing, and do it BEFORE the cheap
-    ' early exit below - the case this exists for is a close the transcriber cancelled, where the
-    ' document and the configuration are both exactly what they were and that exit would take us
-    ' straight past it.
-    '
-    ' The test is what is ON SCREEN now, not whether the named document survived. That answers
-    ' both ways it can go wrong with one line: the cancelled close leaves her in the same large
-    ' print book, and closing one of two open large print books leaves her in the other. Either
-    ' way a large print document is in front of her and the pane belongs open. If what is on
-    ' screen is braille or an ordinary document, the close did what it looked like and the pane
-    ' stays down.
-    '
-    ' Cleared unconditionally, so one hide is reconsidered exactly once and a stale name can
-    ' never make the pane reappear on some unrelated document later in the session.
-    If Len(Sh_PaneHiddenForDoc) > 0 Then
-        Sh_PaneHiddenForDoc = ""
-        If Sh_Doc_Config_Type() = "LP" Then
-            Application.TaskPanes(wdTaskPaneFormatting).Visible = True
-        End If
-    End If
 
     ' One string comparison in the overwhelmingly common case - the cursor moved, or the same
     ' document was clicked again. See Sh_LastSeenDoc.
@@ -1169,6 +1211,16 @@ Sub Sh_HandleDocumentClosing()
     ' If the document is a large print document then print view is set. (The styles pane and
     ' crop marks used to be turned off here too; see 1.2.)
     '
+    ' Version 1.6  Date: 8/20/2026 - hides nothing itself. It asks Sh_Tidy_Panes_After_Close to look, a second
+    '                                from now, at whether the close actually happened. 1.3 to 1.5 hid the panes
+    '                                here and tried to undo it if the transcriber cancelled, which did not work
+    ' Version 1.5  Date: 8/20/2026 - writes BOTH halves of the navigation pane. 1.4 wrote only
+    '                                ActiveWindow.DocumentMap, which is a window property and does nothing
+    '                                on a window that is closing - Jerry, testing 3.0.207
+    ' Version 1.4  Date: 8/20/2026 - the panes come down for ANY document, not only a large print one, and the
+    '                                navigation pane comes down with the Styles pane (Jerry, after testing 3.0.206:
+    '                                closing a letter left both up). What was on screen is noted first, so the
+    '                                recovery can hand it back - see Sh_PaneWasStyles
     ' Version 1.3  Date: 8/20/2026 - hides the Styles pane again (Jerry: the pane follows the large print document). 1.2 removed it as a plain bug and that bug is real, so it is not simply back - the document is recorded in Sh_PaneHiddenForDoc and Sh_HandleDocumentActivated puts the pane straight back if the close turns out not to have happened
     ' Version 1.2  Date: 8/2/2026 - no longer hides the Styles pane. It is the user's now, and this fired on close ATTEMPTS - cancelling the "save your changes?" prompt left you in the document with the pane gone
     ' Version 1.1  Date:  12/16/2021 - set on error - crashes if image is selected when document is closed    Application.TaskPanes(wdTaskPaneFormatting).Visible = True
@@ -1186,30 +1238,26 @@ Sub Sh_HandleDocumentClosing()
     If Lp_Is_The_Attached_Template_LP = True Then ' is the document being closed an lp doc
         ActiveWindow.ActivePane.View.Type = wdPrintView
         'Application.Options.ShowCropMarks = False
-
-        ' The Styles pane goes with the large print document. Jerry, 8/20/2026, and it is the
-        ' other half of MS_Set_Word_Config_For_Large_Print opening it: the pane follows an LP
-        ' book on and off the screen instead of outliving it.
-        '
-        ' 8/2/2026 took this line out and the reason was sound, so read it before touching this.
-        ' DocumentBeforeClose fires on close ATTEMPTS, and Word raises it BEFORE the "save your
-        ' changes?" prompt. Click the X, then Cancel at that prompt, and the close never happens
-        ' - but the pane is already gone and nothing was ever going to put it back. The Cancel
-        ' flag the event passes is no help either: it says what THIS handler wants, not what the
-        ' transcriber is about to answer, and by the time she answers the event is over.
-        '
-        ' So the hide is recorded rather than trusted. Sh_HandleDocumentActivated reads
-        ' Sh_PaneHiddenForDoc the next time a document is looked at - which the cancelled close
-        ' leaves happening immediately, because she is still in the book - and if what is on
-        ' screen is a large print document the pane goes back up. The flag is set AFTER the hide
-        ' so that a hide which raises is not recorded as one that happened.
-        '
-        ' Pane visibility is WORD-WIDE, which is what makes the recovery matter rather than being
-        ' tidiness: this does not take the pane off one window, it takes it off every document
-        ' open at the time.
-        Application.TaskPanes(wdTaskPaneFormatting).Visible = False
-        Sh_PaneHiddenForDoc = ActiveDocument.FullName
     End If
+
+    ' Ask, a second from now, whether that close actually happened - and hide nothing here.
+    '
+    ' This sub runs on close ATTEMPTS. Word raises DocumentBeforeClose BEFORE the "save your
+    ' changes?" prompt, and nothing afterwards says which button she pressed. Versions 1.3 to 1.5
+    ' hid the panes here and tried to undo it on the next activation if the document turned out to
+    ' still be there. It read well and it did not work: Jerry, testing 3.0.207, cancelled at the
+    ' prompt and had to put both panes back by hand.
+    '
+    ' So stop guessing and look instead. Application.OnTime cannot run while a modal dialog is up,
+    ' which is the whole trick - the tick cannot fire until she has answered the prompt, and by
+    ' then the document has either gone or it has not. Sh_Tidy_Panes_After_Close simply looks.
+    '
+    ' Nothing is hidden on this path at all, so a cancelled close costs her nothing: the panes
+    ' never moved, and there is no flicker to explain either.
+    On Error Resume Next
+    Application.OnTime When:=Now + TimeSerial(0, 0, 1), Name:="Sh_Tidy_Panes_After_Close"
+    Err.Clear
+
 eom: 'End of Macro
 
 End Sub  '*** end of AutoClose macro ***
@@ -11539,6 +11587,120 @@ Bail:
 
 End Function   '***** end of Sh_Close_And_Reopen macro *****
 
+' The navigation pane has TWO halves and needs both written, which is not obvious and cost a
+' build to find out. ActiveWindow.DocumentMap is a WINDOW property; CommandBars("Navigation") is
+' application-wide. Writing DocumentMap alone works when a document is being CONFIGURED - the
+' window is there and stays - but does nothing at all during DocumentBeforeClose, because the
+' window it names is on its way out and Word's own remembered pane state is the thing still
+' standing. Jerry, testing 3.0.207: the Styles pane went and the navigation pane stayed.
+'
+' Dx_Attach_BANA_Template has written both since 2021, with the On Error added in 2023 (2.3)
+' because the CommandBars line raises on some Word versions. That pair was the answer all along.
+'
+' Version: 1.0  Date: 8/20/2026
+Sub Sh_Tidy_Panes_After_Close()
+'
+' Version: 1.1  Date: 8/20/2026 - the Styles pane goes through Sh_Set_Styles_Pane, because
+'                               Application.TaskPanes does nothing when Word has no document open
+' Version: 1.0  Date: 8/20/2026
+'
+' Author: Jerry Whittaker - jerry@thewhittakers.org
+'
+' Scheduled by Sh_HandleDocumentClosing one second after a close was ATTEMPTED, and the whole
+' point of it is that by the time it runs the attempt has been settled. Word raises
+' DocumentBeforeClose before the "save your changes?" prompt and says nothing afterwards about
+' which button was pressed - so this does not try to know. It waits and looks.
+'
+' Application.OnTime cannot run while a modal dialog is up, which is what makes one second
+' enough however long she takes to answer: the tick simply cannot fire until the prompt is gone.
+' One second is also the floor - OnTime will not schedule closer than that.
+'
+' THE TEST IS "IS WORD EMPTY", and that is deliberate rather than lazy:
+'
+'   She cancelled the close, or closed one of two documents - Documents.count is not zero, and
+'   this does NOTHING. A document is still in front of her, its panes are the ones she has been
+'   working with, and a close that happened to some other document is not a reason to take them.
+'   This is the case versions 1.3 to 1.5 got wrong by hiding first and trying to undo it after.
+'
+'   She closed the last document - Word is empty, and the panes are put down so the next document
+'   she opens does not inherit them. That is what Jerry asked for on 8/20/2026, and it is also
+'   where the panes are most obviously wrong: an empty Word with a Styles pane in it.
+'
+' Both panes go through a setter that writes TWO handles each - see Sh_Set_Styles_Pane and
+' Sh_Set_Navigation_Pane. With no document open, Application.TaskPanes has nothing to hang a pane
+' on and quietly does nothing; the CommandBars name for the same pane is application-wide and
+' still answers. That caught the navigation pane in 3.0.207 and the Styles pane again in 3.0.209.
+'
+' Nothing here can raise into Word: a tick that fails is a pane left showing, which is untidy and
+' nothing worse.
+'
+    On Error Resume Next
+
+    ' Still working. Leave her screen exactly as it is.
+    If Documents.count > 0 Then
+        Err.Clear
+        Exit Sub
+    End If
+
+    Sh_Set_Styles_Pane False
+    Sh_Set_Navigation_Pane False
+
+    Err.Clear
+
+End Sub  '*** end of Sh_Tidy_Panes_After_Close ***
+
+' Put the Styles pane up or down, from a place where there may be NO DOCUMENT OPEN.
+'
+' Everywhere else in this module the pane is set with Application.TaskPanes(wdTaskPaneFormatting),
+' which is right and should stay - but it needs a document window to hang the pane on, and quietly
+' does nothing when Word is empty. Jerry, testing 3.0.209: he closed the last document and the
+' navigation pane went while the Styles pane stayed sitting there. Exactly the same shape as the
+' navigation pane fault one build earlier, for exactly the same reason.
+'
+' CommandBars("Styles") is the other handle on the same pane and is application-wide, so it
+' answers and can be written with nothing open - measured on the build box 8/20/2026, where with
+' no document open CommandBars("Navigation") and CommandBars("Styles") were both still readable.
+' Both are written here, in that order, because the CommandBar is the one that works when Word is
+' empty and TaskPanes is the one that has always worked when it is not.
+'
+' Sh_Tidy_Panes_After_Close is the ONLY caller and the only place that needs this. Every other
+' site sets the pane while configuring a document that is open in front of it, where TaskPanes
+' alone is correct - do not sweep them into this.
+'
+' Version: 1.0  Date: 8/20/2026
+Private Sub Sh_Set_Styles_Pane(ByVal wanted As Boolean)
+    On Error Resume Next
+    Application.TaskPanes(wdTaskPaneFormatting).Visible = wanted
+    CommandBars("Styles").Visible = wanted
+    Err.Clear
+    On Error GoTo 0
+End Sub  '*** end of Sh_Set_Styles_Pane ***
+
+Private Sub Sh_Set_Navigation_Pane(ByVal wanted As Boolean)
+    On Error Resume Next
+    ActiveWindow.DocumentMap = wanted
+    CommandBars("Navigation").Visible = wanted
+    Err.Clear
+    On Error GoTo 0
+End Sub  '*** end of Sh_Set_Navigation_Pane ***
+
+' Is the navigation pane showing? Asks the application-wide half first: it is the half that
+' survives a document closing, and therefore the half worth putting back.
+'
+' Version: 1.0  Date: 8/20/2026
+Private Function Sh_Navigation_Pane_Showing() As Boolean
+    On Error Resume Next
+
+    Sh_Navigation_Pane_Showing = CommandBars("Navigation").Visible
+    If Err.Number <> 0 Then
+        Err.Clear
+        Sh_Navigation_Pane_Showing = ActiveWindow.DocumentMap
+    End If
+
+    Err.Clear
+    On Error GoTo 0
+End Function  '*** end of Sh_Navigation_Pane_Showing ***
+
 Sub Lp_Turn_on_Styles_Pane()
     '
     ' Version: 1.2 Date:  10/26/2021 - added "Application.RestrictLinkedStyles = True"
@@ -14519,7 +14681,7 @@ DoEvents
 
     Application.ScreenUpdating = True ' Turn screen updating on
     Application.ScreenRefresh
-    ActiveWindow.DocumentMap = False 'navigation pane
+    Sh_Set_Navigation_Pane False 'navigation pane - both halves, see Sh_Set_Navigation_Pane
     ActiveDocument.UndoClear ' clear the undo stack
     
 DoEvents
