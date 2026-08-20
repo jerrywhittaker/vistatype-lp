@@ -12,10 +12,11 @@ reference/vba-src/
 # which `make clean` wipes - it is the only place the comparison with the last build lives.
 virustotal-history.tsv
 
-# The Atkinson Hyperlegible license PDF lives OUTSIDE the project, in
-# ~/reference/vistatype-lp/. This rule is the safety net for a stray second copy: never track
-# it. The repo carries the wording it actually needs in
-# assets/fonts/atkinson-hyperlegible/OFL.txt, transcribed from that PDF and verified against it.
+# VistaType LP bundled a typeface derived from Atkinson Hyperlegible from 3.0.101 to 3.0.196.
+# It was dropped on 8/20/2026 - no Greek, no IPA, not enough mathematics - and assets/fonts/
+# went with it. This rule STAYS anyway: the Braille Institute's license PDF is still on Jerry's
+# disk in ~/reference/vistatype-lp/, and a stray second copy landing here must never be tracked.
+# It costs nothing and it is the kind of guard that is only missed once.
 Atkinson-Hyperlegible-SIL-OPEN-FONT-LICENSE-*.pdf
 
 # Windows "downloaded from the internet" markers, which WSL surfaces as real files.

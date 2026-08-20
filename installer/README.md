@@ -44,42 +44,29 @@ ribbon tab and fails the build if they disagree. A stale `idQ` reference renders
 button on the user's machine with nothing to warn you. (`tools/lib/extract_qat.py` and the
 old `qat-controls.xml` are obsolete and no longer part of the pipeline.)
 
-## Licenses the installer has to carry
-
-The installer carries **two** licenses, and they are not interchangeable.
+## The license the installer has to carry
 
 **The GPLv3**, for the add-in itself. Shown on the wizard's license page (`LicenseFile`) and
 installed to `%AppData%\VistaType LP\LICENSE.txt`, so the user "receives a copy of the license"
 as the GPL requires.
 
-**The SIL Open Font License 1.1**, for the bundled `VistaTypeLP Legible` typeface — which is
-derived from Atkinson Hyperlegible and is **not** covered by the GPL. The OFL allows bundling
-it with software under any license, but requires that every copy carry the license text, so:
+It used to carry a second one. From 3.0.101 to 3.0.196 the installer shipped a bundled typeface,
+`VistaTypeLP Legible`, under the SIL Open Font License, with four `.ttf` files going to
+`{autofonts}` and an `OFL.txt` to its own folder. **Jerry dropped the typeface on 8/20/2026** —
+it has no Greek, no IPA and almost no mathematics, and Word fills a missing character from
+another face at another size without a word, which is intolerable in large print.
 
-- the four `.ttf` files install to `{autofonts}`, and
-  `assets/fonts/atkinson-hyperlegible/OFL.txt` installs to `%AppData%\VistaType LP` — the same
-  place and the same pattern `LICENSE.txt` uses (a text file does not belong in the Fonts
-  folder, so the two do not literally sit side by side);
-- the wizard's welcome page names the typeface, its origin, and the fact that its license is
-  separate; `docs/Installation-Guide.md` says the same at more length.
-
-Do **not** merge the font into the GPL text, and do not drop `OFL.txt` on the grounds that the
-license is embedded in the font file — condition 2 asks for both, and breaching any OFL
-condition voids the grant outright. The full condition-by-condition working is in
-`assets/fonts/atkinson-hyperlegible/README.md`.
-
-Three things about the font entries in `[Files]` that look like oversights and are not:
-`uninsneveruninstall` (removing the font would silently reflow every book already produced);
-no `onlyifdoesntexist` (it would stop a corrected font ever reaching a machine that has the old
-one); and `MinVersion: 10.0.17134` on those four lines only (per-user font install needs
-Windows 10/1803 — an older machine gets a working add-in without the font, and the attach
-dialog grays the choice out). Each is commented at the entries themselves.
+So there is now one license again, and one thing to know about the removal: it is not enough to
+stop shipping the font. `RemoveLegacyLegibleFont` in `[Code]` takes it back OFF a machine that
+already has it, because every build from 3.0.101 on installed it with `uninsneveruninstall`. See
+the comments at that procedure for why removing a font is safe here (every book set in it embeds
+its own copy) and why the registry half matters more than the file half (Windows will not release
+a per-user font mid-session).
 
 ## Build
 
 From Linux: `make installer` — stages the shipping files into `dist/`
-(`LPandBRL.dotm`, `LargePrintTemplate.dotx`, `LICENSE.txt`, `OFL.txt` and the four
-`VistaTypeLPLegible-*.ttf` faces), pushes to the Windows box,
+(`LPandBRL.dotm`, `LargePrintTemplate.dotx` and `LICENSE.txt`), pushes to the Windows box,
 runs `ISCC.exe`, and copies `"VistaType LP and Braille Macros Setup <ver>.exe"` back to local `dist/` **and**
 onto the build box's Desktop (ready to double-click for a test install on the VM).
 

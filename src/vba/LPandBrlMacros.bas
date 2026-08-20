@@ -18,6 +18,26 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - LP - 8/20/2026 - the bundled VistaTypeLP Legible typeface is GONE - dropped from the product, not merely un-defaulted.
+'           - LP - 8/20/2026 - Jerry's call, and the reason is coverage: the face carries a Latin character set. English, French, German,
+'           - LP - 8/20/2026 - Spanish and Italian set correctly in it; Latin, mathematics, the IPA and the Greek that runs through medical
+'           - LP - 8/20/2026 - transcription do not. Word substitutes a character the face has not got SILENTLY, out of another typeface at
+'           - LP - 8/20/2026 - another size, which breaks the one promise large print makes - every character at the size the reader asked
+'           - LP - 8/20/2026 - for. Tahoma covers the lot, and is what a large print book was set in for years before 8/8/2026.
+'           - LP - 8/20/2026 - The Typeface choice is off the attach dialog (FontChoiceFrame / FontTahoma / FontLegible are removed from
+'           - LP - 8/20/2026 - LP_Attach_An_Lp_Template_Form, with their two Click handlers and the Initialize block). A new large print
+'           - LP - 8/20/2026 - book is Tahoma, with no question asked, exactly as before the choice existed. The installer no longer ships
+'           - LP - 8/20/2026 - the four .ttf files or their OFL license, and REMOVES a copy it finds already installed.
+'           - LP - 8/20/2026 - A book ALREADY set in the face keeps it. LP_FONT_LEGIBLE became LP_FONT_LEGACY_LEGIBLE and now does one
+'           - LP - 8/20/2026 - job: recognizing such a book in AttachOkay_Click so re-attaching leaves its typeface alone. Without that,
+'           - LP - 8/20/2026 - opening one of Jerry's or the testers' books and pressing Attach would rewrite it to Tahoma and move every
+'           - LP - 8/20/2026 - page break, silently, in a book that may already be in a reader's hands. The EmbedTrueTypeFonts line stays
+'           - LP - 8/20/2026 - for the same reason - those books carry their own copy of the face and go on setting correctly after the
+'           - LP - 8/20/2026 - font leaves the machine. Lp_Indent_Factor_For_Font keeps its 1.054 case for the same books.
+'           - LP - 8/20/2026 - KEPT, because neither is about that typeface: Sh_Is_Font_Installed and Sh_Font_Status_Text answer the
+'           - LP - 8/20/2026 - question for ANY face, and Sh_Doc_Info's "is this typeface here?" line is the only thing that ever says out
+'           - LP - 8/20/2026 - loud that Word is substituting. Lp_Apply_Base_Font_To_Styles is kept too: Normal alone does not reach the
+'           - LP - 8/20/2026 - 12 colored character styles or "No Spacing", so Tahoma still has to be put on all 14 by hand.
 ' Notes:    - BRL - 8/18/2026 - attaching a BANA template now puts the whole document into TIMES NEW ROMAN 14 pt. It was Courier New
 '           - BRL - 8/18/2026 - 12 pt from 8/5/2026 until today. The reason is INTEROPERABILITY, not typography: Duxbury ships its own
 '           - BRL - 8/18/2026 - Word add-in, SWIFT, and SWIFT sets Times New Roman 14 when it attaches a template. A transcriber may use
@@ -496,10 +516,13 @@ Public Sh_Pos_Saved As Boolean     ' guards against a return with no matching sa
 ' Large Print Page and Font Settings
 Public Lp_Base_Font_Size As String
 
-' The typeface the transcriber picked on the attach dialog, alongside the point size above.
-' Like the size, it is NOT stored anywhere of its own: it is read back off the document's
-' Normal style by Lp_Get_Doc_Setup_Params, so it survives closing and reopening for free.
-' 8/8/2026.
+' The typeface a large print book is set in. It is NOT stored anywhere of its own: it is read
+' back off the document's Normal style by Lp_Get_Doc_Setup_Params, so it survives closing and
+' reopening for free. 8/8/2026.
+'
+' From 8/20/2026 it is no longer a choice. New books are Tahoma; this still exists because an
+' older book may be set in something else and is allowed to keep it - see
+' LP_FONT_LEGACY_LEGIBLE below.
 Public Lp_Base_Font_Name As String
 
 ' Deliberately UPPERCASE, and it is not a style choice. tools/lib/check_form_calls.py finds
@@ -507,7 +530,25 @@ Public Lp_Base_Font_Name As String
 ' that captures the word "Const", not the name, so a form mentioning an Lp_-prefixed constant
 ' would fail the build as an undefined macro. LP_ is not one of the prefixes it checks.
 Public Const LP_FONT_TAHOMA As String = "Tahoma"
-Public Const LP_FONT_LEGIBLE As String = "VistaTypeLP Legible"
+
+' The bundled typeface VistaType LP shipped from 3.0.101 (8/8/2026) to 3.0.196 (8/20/2026), and
+' no longer ships. It was Atkinson Hyperlegible rescaled so that a point size set in Word matched
+' the printed letter size, and for those twelve days it was the default face for a large print
+' book.
+'
+' It was dropped because its character set is a Latin one. English, French, German, Spanish and
+' Italian are fine; Latin, mathematics, the IPA, and the Greek that runs through medical work are
+' not - and a character the face has not got is substituted SILENTLY, out of some other typeface,
+' at some other size. In large print that is unacceptable: the whole promise is that every
+' character comes out at the size the reader asked for. Tahoma covers all of it. (Jerry,
+' 8/20/2026.)
+'
+' The NAME stays because books were produced in it - Jerry's and two testers'. This constant now
+' does one job: recognize such a book so that attaching the template again LEAVES ITS TYPEFACE
+' ALONE, instead of rewriting it to Tahoma and moving every page break in a book that may already
+' be in a reader's hands. Nothing offers this face and nothing installs it. Do not add either
+' back.
+Public Const LP_FONT_LEGACY_LEGIBLE As String = "VistaTypeLP Legible"
 
 ' Punctuation that must sit hard against a fill-in line: "____." never "____ ." So no space is
 ' put after the fill when one of these follows, and a fill to the right margin stops one
@@ -1218,11 +1259,15 @@ Function Sh_Is_Font_Installed(ByVal fontName As String) As Boolean
 '
 ' True when Word can see the named font on this machine.
 '
-' Lifted out of Lp_Attach_Lp_Template, where it was written inline for Tahoma alone. It matters
-' more now than it did: a missing font is the ONE failure here that says nothing at all. Word
-' substitutes silently, the substitute has different metrics, and a book that reads 18 point on
-' screen prints at some other size - which is the exact defect VistaTypeLP Legible was rescaled
-' to cure, coming back invisibly.
+' Lifted out of Lp_Attach_Lp_Template, where it was written inline for Tahoma alone. It answers
+' the question for ANY face, and it is worth keeping for the reason it was written: a missing
+' font is the ONE failure here that says nothing at all. Word substitutes silently, the
+' substitute has different metrics, and a book that reads 18 point on screen prints at some
+' other size.
+'
+' Its caller changed on 8/20/2026. The attach dialog used to ask about the bundled typeface, and
+' that typeface is gone; Sh_Font_Status_Text below now asks on behalf of Sh_Doc_Info, about
+' whatever face the document in front of the transcriber is actually set in.
 '
 ' Adapted from: https://code.adonline.id.au/test-font-installed-microsoft-word/
 '
@@ -1242,8 +1287,11 @@ Function Sh_Is_Font_Installed(ByVal fontName As String) As Boolean
 
 End Function   '***** end of Sh_Is_Font_Installed macro *****
 
-Function Sh_Font_Status_Text(ByVal fontName As String) As String
+Function Sh_Font_Status_Text(ByVal fontName As String, Optional ByVal targetDoc As Document) As String
 '
+' Version: 1.1  Date: 8/20/2026 - a THIRD answer, for a face that is not installed but is carried
+'                                inside the document. Optional targetDoc; without one it behaves
+'                                exactly as version 1.0 did
 ' Version: 1.0  Date: 8/8/2026
 '
 ' Author: Jerry Whittaker - jerry@thewhittakers.org
@@ -1253,9 +1301,29 @@ Function Sh_Font_Status_Text(ByVal fontName As String) As String
 ' It is here rather than inline in the message because a missing font is invisible everywhere
 ' else: Word substitutes without a word, and the substitute sets at a different size. "My
 ' document went small" is the support call, and this is the line that answers it.
+'
+' THE THIRD ANSWER, and why it had to be added on 8/20/2026. Dropping the bundled typeface means
+' the installer takes it off the machine, while every book already set in it keeps that face -
+' and those books are safe precisely because they carry their own embedded, unsubsetted copy.
+' Ask Sh_Is_Font_Installed alone and every one of Jerry's and the testers' large print books
+' answers "NO - Word is substituting, sizes will be wrong". That is FALSE for those books, and it
+' is an emergency message: the natural reaction to it is to re-attach or reset the book to
+' Tahoma, which moves every page break in a book that may already be printed. The change written
+' to protect those books would have destroyed them through a different door.
+'
+' EmbedTrueTypeFonts is a document property, so this is what the document itself says it does. It
+' does not name WHICH faces are embedded - Word offers no such list - so the answer is worded as
+' "carries its own copy" rather than as a guarantee about this one face. That is honest, and it
+' is enough to stop the transcriber acting on a false alarm.
 
     If Sh_Is_Font_Installed(fontName) Then
         Sh_Font_Status_Text = "Yes"
+    ElseIf Not targetDoc Is Nothing Then
+        If targetDoc.EmbedTrueTypeFonts Then
+            Sh_Font_Status_Text = "No - but this document carries its own copy, so it sets correctly"
+        Else
+            Sh_Font_Status_Text = "NO - Word is substituting, sizes will be wrong"
+        End If
     Else
         Sh_Font_Status_Text = "NO - Word is substituting, sizes will be wrong"
     End If
@@ -1286,11 +1354,15 @@ Sub Lp_Apply_Base_Font_To_Styles(ByVal targetDoc As Document, ByVal fontName As 
 '   short list below: styles that name a face outright and so ignore Normal completely.
 '
 ' "No Spacing" is in that list and is the easy one to miss - it has no basedOn AT ALL, so it
-' never touches Normal. A paragraph in it would sit in Tahoma in the middle of a Legible book.
+' never touches Normal. A paragraph in it would sit in whatever face the style names, in the
+' middle of a book set in another one.
 '
 ' The other twelve are the colored character styles the transcriber applies by keyboard
-' shortcut. Leave them out and coloring a phrase snaps it back to Tahoma - visible, baffling,
-' and it looks like the font choice never worked.
+' shortcut. Leave them out and coloring a phrase snaps it back to whatever those styles name -
+' visible, baffling, and it looks like the typeface was never applied.
+'
+' Still needed after the bundled typeface was dropped on 8/20/2026: these 14 styles name a face
+' outright, so nothing puts TAHOMA on them either unless this sub does.
 '
 ' Complex-script (w:cs) fonts are left alone on purpose. Font.Name does not touch Font.NameBi,
 ' and pointing Arabic or Hebrew at a 352-glyph Latin face would be worse than leaving it.
@@ -1338,11 +1410,16 @@ Function Lp_Indent_Factor_For_Font(ByVal fontName As String) As Double
 ' from the two font files on 8/8/2026 (479 against 455 units per 1000-unit em). It moves an
 ' 18 point hang from -0.34" to -0.358".
 '
+' That case is KEPT although the typeface was dropped on 8/20/2026, and it is not dead code.
+' A book already set in the face keeps it - that is the whole point of LP_FONT_LEGACY_LEGIBLE -
+' so Lp_Normalize_Styles can still be run on one, and it should still get the hang that face
+' needs rather than Tahoma's.
+'
 ' A face this function does not know returns 1, i.e. Tahoma's numbers unchanged - the safe
 ' answer, since those are the ones that have been in the field for years.
 
     Select Case UCase(Trim(fontName))
-        Case UCase(LP_FONT_LEGIBLE)
+        Case UCase(LP_FONT_LEGACY_LEGIBLE)
             Lp_Indent_Factor_For_Font = 1.054
         Case Else
             Lp_Indent_Factor_For_Font = 1#
@@ -7089,11 +7166,15 @@ Sub Lp_Attach_Lp_Template()
     
     Application.Run MacroName:="Lp_Check_Compatibility"  'check to see if doc is .docx or .doc
     
-    ' The check for a missing Tahoma used to sit here. It has moved onto the attach dialog
-    ' (Sh_Is_Font_Installed, called from LP_Attach_An_Lp_Template_Form.UserForm_Initialize),
-    ' because from 8/8/2026 the transcriber CHOOSES the typeface and there is no point warning
-    ' about Tahoma before they have said whether they want it. The dialog grays out a face that
-    ' is not installed, which is a better answer than a warning after the fact.
+    ' The check for a missing Tahoma used to sit here, and there is now NOTHING in its place.
+    ' That is deliberate. It moved to the attach dialog on 8/8/2026, when the transcriber briefly
+    ' chose the typeface and the dialog grayed out a face that was not installed; the typeface was
+    ' dropped on 8/20/2026 and that check went with the choice.
+    '
+    ' Nothing replaced it because there is nothing left to warn about. Every Windows machine has
+    ' Tahoma - a missing one means a broken Windows installation, not a VistaType problem - and
+    ' Sh_Doc_Info reports the document's face and whether it is present, on demand, which is the
+    ' right place for an answer nobody needs before they have asked.
     '
     ' Its "End" statement went with it, and good riddance: End wipes every Public, so a
     ' transcriber who answered No there would have cleared Lp_Base_Font_Size and every page
@@ -13788,6 +13869,11 @@ Sub Lp_Attach_The_Template()
 
     ' Attaches the LP template with style changes
     '
+    ' Version: 3.5  Date: 8/20/2026 - the typeface is no longer a choice. Lp_Base_Font_Name arrives
+    '                               as Tahoma for every new book, and as the book's own face for one
+    '                               already set in the dropped VistaTypeLP Legible - see
+    '                               LP_FONT_LEGACY_LEGIBLE and AttachOkay_Click. Nothing in this
+    '                               macro changed; the value reaching it did
     ' Version: 3.4  Date: 8/12/2026 - the two "only on a document that is not already LP" blocks
     '                               now test Lp_Doc_Was_Already_LP instead of a leftover string in
     '                               the shared Lp_GP_String_1. See Lp_Attach_Lp_Template 2.4: the
@@ -13925,9 +14011,15 @@ DoEvents
     ' file with no font in it and nothing to notice. These are document properties, so they stick:
     ' every later Ctrl+S re-embeds.
     '
-    ' Turned on only when the transcriber chose our face. There is nothing worth embedding in a
-    ' Tahoma book - every Windows machine has Tahoma - and leaving it off keeps those files the
-    ' size they have always been.
+    ' Turned on only when the book is set in something other than Tahoma. There is nothing worth
+    ' embedding in a Tahoma book - every Windows machine has Tahoma - and leaving it off keeps
+    ' those files the size they have always been.
+    '
+    ' This line is what makes dropping the bundled typeface on 8/20/2026 safe. Every book attached
+    ' in VistaTypeLP Legible between 8/8 and 8/20/2026 carries its own copy of the face, so it goes
+    ' on setting and printing correctly after the installer takes that font off the machine. Do not
+    ' reduce this to a constant False because nothing bundles a font any more - a legacy book keeps
+    ' its face through a re-attach, and it must keep the embedded copy with it.
     '
     ' Be clear about what this switch is, though: it is per DOCUMENT, not per font. Word embeds
     ' every embeddable non-system face the document uses, so a running head left in some other
@@ -18688,8 +18780,8 @@ Sub Sh_Doc_Info()
                     & MS_Word_Config & vbCr & vbCr _
                     & " Normal Style Font Size      = " + Trim(Lp_Base_Font_Size) & vbCr _
                     & " Typeface (Normal style)     = " + Trim(Lp_Base_Font_Name) & vbCr _
-                    & " Typeface chosen at attach = " + IntendedFontName & vbCr _
-                    & " Typeface installed here     = " + Sh_Font_Status_Text(Lp_Base_Font_Name) & vbCr _
+                    & " Typeface recorded at attach = " + IntendedFontName & vbCr _
+                    & " Typeface installed here     = " + Sh_Font_Status_Text(Lp_Base_Font_Name, ActiveDocument) & vbCr _
                     & " Paper/Screen Height         = " + PPH & vbCr _
                     & " Paper/ScreenWidth           = " + PPW & vbCr _
                     & " Top Margin                       = " + PTM & vbCr _

@@ -345,8 +345,10 @@ Word's own `System.PrivateProfileString` so no file handling has to be written.
 Two reasons for that folder name rather than `%AppData%\VistaType LP`:
 
 - **The uninstaller deletes `%AppData%\VistaType LP` wholesale**, and a reinstall must not lose the
-  transcriber's settings. This is the same reasoning that already puts `OFL.txt` in
-  `%AppData%\VistaType LP Fonts` — see `installer/vistatype.iss` and the note in `CLAUDE.md`.
+  transcriber's settings. The same reasoning used to keep the bundled typeface's `OFL.txt` in
+  `%AppData%\VistaType LP Fonts`; that typeface was dropped on 8/20/2026 and its folder goes with
+  it, but the principle it established is why this one is separate. See `installer/vistatype.iss`
+  and the note in `CLAUDE.md`.
 - A file **can be copied to a new machine**; a registry entry effectively cannot. Transcribers do
   get new computers.
 

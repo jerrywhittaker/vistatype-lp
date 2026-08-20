@@ -47,7 +47,7 @@
 ; The literal here is the fallback for building this script by hand, and is kept in step
 ; with the Makefile by "make bump".
 #ifndef AppVer
-  #define AppVer      "3.0.196"
+  #define AppVer      "3.0.200"
 #endif
 #define DotmName    "LPandBRL.dotm"
 #define DotxName    "LargePrintTemplate.dotx"
@@ -59,10 +59,21 @@
 ; because it appears on the welcome page AND in Programs & Features; releases are published
 ; here, so this is the address to give anyone asking for an update.
 #define RepoUrl     "https://github.com/jerrywhittaker/vistatype-lp"
-; The bundled typeface's family name. It must match src/vba/LPandBrlMacros.bas's
-; LP_FONT_LEGIBLE exactly -- the add-in looks the font up by this name to decide whether to
-; offer it, and a mismatch grays the choice out on a machine that HAS it installed.
-#define FontFamily  "VistaTypeLP Legible"
+; A #define FontFamily "VistaTypeLP Legible" stood here until 8/20/2026. The bundled typeface
+; is gone from the product -- see the [Code] procedure RemoveLegacyLegibleFont, which takes the
+; font back OFF a machine that has it.
+;
+; The per-user Fonts folder, written out rather than using Inno's {autofonts}. Every reference to
+; the dropped typeface is now a REMOVAL, and a removal must be able to run on any Windows the
+; add-in itself supports. {autofonts} resolves to {userfonts}, which Inno documents as Windows 10
+; version 1803 and later; the four [Files] lines that used it therefore carried
+; MinVersion: 10.0.17134, and the comment there said the version guard and the add-in's own font
+; check were ONE mitigation that must not be separated. Both halves are gone now, so rather than
+; re-create a version guard for a delete that is harmless anywhere, this names the folder
+; outright. On a Windows too old to have per-user fonts it simply does not exist, and deleting
+; from a folder that is not there is a no-op -- which is exactly the wanted behavior, and it
+; cannot raise at ssPostInstall on an install that has already put LPandBRL.dotm in STARTUP.
+#define UserFontsDir "{localappdata}\Microsoft\Windows\Fonts"
 ; Directory holding the three shipping files (staged by `make installer`).
 #ifndef SrcDir
   #define SrcDir "..\dist"
@@ -161,7 +172,7 @@ VersionInfoOriginalFileName={#OutputBase}.exe
 [Messages]
 WelcomeLabel1=VistaType LP and Braille Macros
 
-WelcomeLabel2=Version {#AppVer}%n%nJerry Whittaker's tools for transcribers are VBA add-ins for Microsoft Word: large print for readers with low vision, and tools for formatting braille source files for the Duxbury Braille Translator.%n%nThis installer will also install the {#FontFamily} typeface, which carries its own separate license.%n%nPlease close Word and Outlook before continuing.%n%nLatest version and guides:%n{#RepoUrl}
+WelcomeLabel2=Version {#AppVer}%n%nJerry Whittaker's tools for transcribers are VBA add-ins for Microsoft Word: large print for readers with low vision, and tools for formatting braille source files for the Duxbury Braille Translator.%n%nPlease close Word and Outlook before continuing.%n%nLatest version and guides:%n{#RepoUrl}
 ; Roughly 12 rendered lines against a label that shows about 13-15. It is at the ceiling, so
 ; anything added here must have something else taken out, and it must be LOOKED AT on the VM.
 ; Overflow is silently clipped from the bottom - no compile warning - and the bottom is where
@@ -172,20 +183,15 @@ WelcomeLabel2=Version {#AppVer}%n%nJerry Whittaker's tools for transcribers are 
 ; stock wording overstates what a transcriber has to decide here.
 LicenseLabel3=VistaType LP is free software under the GNU General Public License v3, shown below in full. Use it for anything, copy it, pass it on. There is no warranty.
 
-; The last thing a transcriber reads, and the one place the restart can actually be asked for
-; at the moment it matters. Everything EXCEPT the typeface works the instant setup finishes:
-; the add-in, the ribbon tabs and the toolbar are all in place. The typeface is not, and it
-; looks exactly like a failed install - the attach dialog grays Legible out as though it had
-; never arrived. The cause is Windows, not this installer: {autofonts} installs the face for
-; this user rather than machine-wide (no administrator password needed, see the [Files] note),
-; and Windows only takes a per-user font into use at sign-in. Reported by Jerry from a
-; Windows 10 machine, 8/10/2026, where the four .ttf files were sitting in the per-user Fonts
-; folder and correctly registered under HKCU - and Windows itself still did not list the font,
-; so the add-in's check was telling the plain truth.
+; The last thing a transcriber reads. From 8/20/2026 there is nothing left that needs a restart:
+; the bundled typeface is gone, and the add-in, the ribbon tabs and the toolbar are all live the
+; instant setup finishes. This page said the opposite for ten days, because a per-user font is
+; only taken into use at sign-in.
 ;
-; NOT AlwaysRestart. Forcing a restart on a transcriber mid-book to deliver a typeface they
-; may not even use would be worse than the problem. This asks, and says why.
-FinishedLabel=Setup has finished installing VistaType LP and Braille Macros.%n%nThe macros, the ribbon tabs and the toolbar are ready to use now.%n%nPlease RESTART YOUR COMPUTER before using the {#FontFamily} typeface. Signing out of Windows and back in does just as well.%n%nWindows installs this typeface for you personally rather than for the whole machine, which is what lets this installer run without an administrator password - and it only takes personal typefaces into use when you sign in. Until then the attach dialog shows Legible grayed out, even though it is already on the machine.
+; Do NOT put a restart request back here without a reason as concrete as that one was. Asking a
+; transcriber to restart mid-book, for nothing she can see, is how an installer earns a
+; reputation.
+FinishedLabel=Setup has finished installing VistaType LP and Braille Macros.%n%nThe macros, the ribbon tabs and the toolbar are ready to use now. Start Word and look for the VistaType LP and Braille Macros tabs.
 
 [Files]
 ; Macro add-in (with embedded ribbon) -> STARTUP. {app} == the STARTUP folder here.
@@ -216,60 +222,26 @@ Source: "branding\vistatype.ico";    DestDir: "{userappdata}\VistaType LP"; Flag
 Source: "branding\welcome-wordmark-*.bmp";                                 Flags: dontcopy
 
 ; ---------------------------------------------------------------------------------------
-;  The bundled typeface -- SIL Open Font License 1.1, NOT the GPL
+;  The bundled typeface -- REMOVED 8/20/2026
 ; ---------------------------------------------------------------------------------------
-;  VistaTypeLP Legible is Atkinson Hyperlegible (Braille Institute of America) rescaled so
-;  that a point size set in Word matches the PRINTED letter size. See
-;  assets/fonts/atkinson-hyperlegible/README.md for the license working, and OFL.txt below,
-;  which the license REQUIRES to travel with the font.
+;  Four VistaTypeLPLegible-*.ttf files installed to {autofonts} here, with their SIL Open Font
+;  License to {userappdata}\VistaType LP Fonts, from 3.0.101 (8/8/2026) to 3.0.196 (8/20/2026).
 ;
-;  {autofonts} is the PER-USER font folder, because PrivilegesRequired=lowest means Setup
-;  never elevates. Windows only supports per-user fonts from 10/1803 (build 17134), hence
-;  MinVersion on these four lines ONLY. An older machine still gets a fully working add-in;
-;  the attach dialog grays the typeface out because Sh_Is_Font_Installed says it is missing,
-;  and the transcriber carries on with Tahoma exactly as before. The MinVersion and that
-;  dialog check are ONE mitigation -- do not remove either without the other, or the font
-;  step fails part-way through an install with LPandBRL.dotm already in STARTUP, which reads
-;  as a broken installer.
+;  Jerry dropped the typeface: its character set is Latin. English, French, German, Spanish and
+;  Italian set correctly in it; Latin proper, mathematics, the IPA and the Greek that runs
+;  through medical transcription do not, and Word fills a character the face has not got out of
+;  another typeface at another size without saying a word. In large print that is the one thing
+;  that must never happen.
 ;
-;  NO onlyifdoesntexist, though Inno's own sample uses it. That flag exists to avoid
-;  clobbering someone else's copy of a shared font, which cannot happen here -- the family
-;  name is ours alone. What it would actually do is guarantee that a corrected scale factor
-;  NEVER reaches a machine that already has the old font: clean install perfect, upgrade a
-;  silent no-op, nothing in the log.
+;  It is not enough to stop shipping it -- see RemoveLegacyLegibleFont in [Code], which takes it
+;  back off a machine that already has it. This is a deliberate reversal of the
+;  uninsneveruninstall rule that used to be written here, and it is safe for one specific
+;  reason: Lp_Attach_The_Template EMBEDS the face in every book set in it, unsubsetted, so those
+;  books carry their own copy and go on setting and printing correctly with the font gone.
 ;
-;  UNTESTED, AND THE ONE THING TO TEST FIRST -- 8/8/2026. Windows loads a per-user font at
-;  logon and holds the file open for the whole session, and closing Word does not release it.
-;  So on an UPGRADE where the font is already installed, this copy may fail and put up
-;  Abort/Retry/Ignore ("code 32"). Abort rolls the install back. restartreplace is not a way
-;  out; it needs administrator rights and this installer never elevates.
-;
-;  To settle it: install, SIGN OUT and back in (so the font is loaded the way it is on a real
-;  machine), then install a later build over the top and watch these four entries.
-;
-;  If it does fail, add onlyifdoesntexist after all -- and treat a changed scale factor as a
-;  NEW FAMILY NAME rather than a new file under the old one. That is not a workaround, it is
-;  what this project already believes: two different fonts sharing one name means the same
-;  document sets differently on different machines, which is the reason the face was renamed
-;  away from Atkinson Hyperlegible in the first place. See
-;  assets/fonts/atkinson-hyperlegible/README.md.
-;
-;  uninsneveruninstall stays, and is not an oversight. Removing the font at uninstall would
-;  silently reflow every large-print book the transcriber has already produced, into a
-;  substitute face at the wrong size, with nothing said. Same principle as .vtqatbak: never
-;  take away the thing the user's own files depend on.
-Source: "{#SrcDir}\VistaTypeLPLegible-Regular.ttf";    DestDir: "{autofonts}"; FontInstall: "{#FontFamily}";             Flags: uninsneveruninstall; MinVersion: 10.0.17134
-Source: "{#SrcDir}\VistaTypeLPLegible-Bold.ttf";       DestDir: "{autofonts}"; FontInstall: "{#FontFamily} Bold";        Flags: uninsneveruninstall; MinVersion: 10.0.17134
-Source: "{#SrcDir}\VistaTypeLPLegible-Italic.ttf";     DestDir: "{autofonts}"; FontInstall: "{#FontFamily} Italic";      Flags: uninsneveruninstall; MinVersion: 10.0.17134
-Source: "{#SrcDir}\VistaTypeLPLegible-BoldItalic.ttf"; DestDir: "{autofonts}"; FontInstall: "{#FontFamily} Bold Italic"; Flags: uninsneveruninstall; MinVersion: 10.0.17134
-; OFL condition 2: every copy of the font carries the copyright notice and the license. The
-; license therefore has to live exactly as long as the font does, and the font never leaves
-; (uninsneveruninstall above).
-;
-; Hence its OWN folder, and uninsneveruninstall on it too. It cannot go in
-; {userappdata}\VistaType LP with the GPL: [UninstallDelete] wipes that folder wholesale, so
-; uninstalling would strip the license off a font that stays behind for ever.
-Source: "{#SrcDir}\OFL.txt";       DestDir: "{userappdata}\VistaType LP Fonts"; Flags: uninsneveruninstall
+;  If a bundled typeface is ever considered again, the test to apply first is character
+;  COVERAGE, before metrics, before legibility: Greek, the IPA, and the mathematical operators.
+;  A face that fails it fails silently, which is why this one shipped at all.
 
 [Tasks]
 ; Deliberately [Tasks] and not [Components]: components choose which FILES get installed,
@@ -342,6 +314,21 @@ Filename: "powershell.exe"; \
   Flags: runhidden; RunOnceId: "RemoveVistaTypeQat"
 
 [InstallDelete]
+; The bundled typeface, dropped 8/20/2026 -- see the note in [Files] and RemoveLegacyLegibleFont
+; in [Code]. The files go here, at the START of the install; the registry entries that make
+; Windows load them go in that procedure at the end, because Inno has no [Registry] flag that
+; can find a value by its DATA and these were written with Inno's own FontInstall naming, which
+; this installer no longer performs and so cannot assume.
+;
+; A file Windows has already loaded for this session CANNOT be deleted, and that is expected:
+; Windows opens a per-user font at sign-in and holds it for the whole session. Inno ignores an
+; [InstallDelete] it cannot carry out, which is the behavior wanted here - the unregistering
+; below is what actually retires the font, and the file goes on the next run or is left as an
+; orphan nothing points at. Never make this fatal.
+Type: files; Name: "{#UserFontsDir}\VistaTypeLPLegible-Regular.ttf"
+Type: files; Name: "{#UserFontsDir}\VistaTypeLPLegible-Bold.ttf"
+Type: files; Name: "{#UserFontsDir}\VistaTypeLPLegible-Italic.ttf"
+Type: files; Name: "{#UserFontsDir}\VistaTypeLPLegible-BoldItalic.ttf"
 ; Remove the obsolete template folder from older versions.
 Type: filesandordirs; Name: "{userappdata}\Microsoft\Templates\Large Print Templates"
 ; Remove a stale uninstaller left in the STARTUP folder by pre-fix installers (it now lives
@@ -352,10 +339,11 @@ Type: files; Name: "{app}\unins000.dat"
 [UninstallDelete]
 Type: files;          Name: "{app}\{#DotmName}"
 Type: files;          Name: "{userappdata}\Microsoft\Templates\{#DotxName}"
-; The bundled fonts are deliberately NOT listed here, and neither is
-; {userappdata}\VistaType LP Fonts, which holds their license. The fonts must survive an
-; uninstall because the transcriber's finished books depend on them, and the OFL requires the
-; license to stay with the font -- so both outlive us. Never add either. 8/8/2026.
+; The bundled typeface used to be excluded here on purpose, so that an uninstall could not
+; reflow the transcriber's finished books. That whole arrangement is gone: the typeface was
+; dropped from the product on 8/20/2026 and is removed at INSTALL time instead, by
+; RemoveLegacyLegibleFont in [Code]. Nothing here installs a font any more, so there is nothing
+; for this section to protect.
 ; NOT listed, and never add it: {userappdata}\VistaType LP Settings, which holds the
 ; transcriber's own Word settings that VistaType puts back for her (the spelling and grammar
 ; ones braille switches off, and whatever the settings library grows to hold). It is a separate
@@ -718,6 +706,113 @@ begin
 end;
 
 
+{ --- Take the dropped VistaTypeLP Legible typeface back off the machine. ---------------
+
+  VistaType LP bundled this face from 3.0.101 (8/8/2026) to 3.0.196 (8/20/2026) and no longer
+  does. Not shipping it is only half the job: it was installed with uninsneveruninstall, so on
+  every machine that ever ran one of those builds it is still there, still registered, and still
+  the face Word offers in every font list.
+
+  Removing a font a user's own documents might depend on is normally the wrong thing, and this
+  file said so at length. It is right here because Lp_Attach_The_Template embeds the face,
+  unsubsetted, in every book set in it -- those books carry their own copy and go on setting and
+  printing correctly with the font gone. That is the whole reason Jerry could drop it.
+
+  Two halves, and the REGISTRY half is the one that matters. Windows opens a per-user font at
+  sign-in and holds the file for the session, so the .ttf usually cannot be deleted during an
+  install and [InstallDelete] quietly fails on it. Unregistering always works, and at the next
+  sign-in Windows simply does not load the face. The leftover file is then an orphan nothing
+  points at, and the next run of this installer deletes it.
+
+  So: nothing here is fatal, and nothing here reports failure to the transcriber. A font that
+  survives one more session is not worth a scary dialog on an install that otherwise worked. }
+procedure RemoveLegacyLegibleFont();
+var
+  FontsKey, FontDir, Data, LowerData, LowerName: String;
+  Names: TArrayOfString;
+  Files: TArrayOfString;
+  I, J, Unregistered, Remaining: Integer;
+begin
+  FontsKey := 'Software\Microsoft\Windows NT\CurrentVersion\Fonts';
+  FontDir  := ExpandConstant('{#UserFontsDir}');
+
+  SetArrayLength(Files, 4);
+  Files[0] := 'VistaTypeLPLegible-Regular.ttf';
+  Files[1] := 'VistaTypeLPLegible-Bold.ttf';
+  Files[2] := 'VistaTypeLPLegible-Italic.ttf';
+  Files[3] := 'VistaTypeLPLegible-BoldItalic.ttf';
+
+  Unregistered := 0;
+
+  { Matched on the value's DATA (the file it points at) as well as its name. The name Inno wrote
+    was "VistaTypeLP Legible (TrueType)" and friends, but that is Inno's own convention for a
+    FontInstall this installer no longer performs -- and a machine could have been touched by a
+    hand-install too. The filename is the thing that is genuinely ours. }
+  if RegGetValueNames(HKCU, FontsKey, Names) then
+  begin
+    for I := 0 to GetArrayLength(Names) - 1 do
+    begin
+      LowerName := Lowercase(Names[I]);
+      Data := '';
+      RegQueryStringValue(HKCU, FontsKey, Names[I], Data);
+      LowerData := Lowercase(Data);
+
+      for J := 0 to GetArrayLength(Files) - 1 do
+      begin
+        if (Pos(Lowercase(Files[J]), LowerData) > 0) or
+           (Pos('vistatypelp legible', LowerName) > 0) then
+        begin
+          if RegDeleteValue(HKCU, FontsKey, Names[I]) then
+          begin
+            Log('Unregistered dropped typeface: ' + Names[I]);
+            Unregistered := Unregistered + 1;
+          end;
+          Break;
+        end;
+      end;
+    end;
+  end;
+
+  { Tried again here as well as in [InstallDelete], because unregistering can be what releases
+    it on a machine where the font was added mid-session and never loaded at sign-in. }
+  for J := 0 to GetArrayLength(Files) - 1 do
+  begin
+    if FileExists(FontDir + '\' + Files[J]) then
+      if not DeleteFile(FontDir + '\' + Files[J]) then
+        Log('Dropped typeface still in use, left for the next run: ' + Files[J]);
+  end;
+
+  { Counted by ASKING, not by adding up what this run managed to do. The difference matters, and
+    it is the OFL condition below that makes it matter: a font hand-installed somewhere else --
+    machine-wide under C:\Windows\Fonts, say -- leaves all four of these absent, and tallying
+    successes would read that as "all removed" and delete the license text of a font that is
+    still on the machine. Which is the exact breach the guard exists to prevent. }
+  Remaining := 0;
+  for J := 0 to GetArrayLength(Files) - 1 do
+    if FileExists(FontDir + '\' + Files[J]) then
+      Remaining := Remaining + 1;
+
+  { The OFL text lived in its OWN folder so that it could outlive an uninstall alongside a font
+    that never left. The font is leaving, so the license goes with it -- but ONLY once no font
+    file of ours is left in that folder AND we have actually retired something. While a font file
+    is on disk, its license has to be on disk beside it; that is condition 2 of the OFL, and it
+    does not stop applying because we have decided to stop shipping the face.
+
+    RegDeleteValue and DeleteFile between them are what proves this machine ever had our copy. On
+    a clean install nothing is unregistered and nothing is deleted, so the folder is left alone --
+    it will not be there anyway, and a DelTree of a folder we have no evidence about is not a
+    thing to do on someone else's machine. }
+  if (Remaining = 0) and (Unregistered > 0) then
+    DelTree(ExpandConstant('{userappdata}\VistaType LP Fonts'), True, True, True)
+  else if Remaining > 0 then
+    Log('Dropped typeface not fully removed yet; leaving its license folder in place.');
+
+  if (Unregistered > 0) or (Remaining > 0) then
+    Log('VistaTypeLP Legible retired: ' + IntToStr(Unregistered) + ' registry entries removed, '
+        + IntToStr(Remaining) + ' of 4 files still present. Takes effect at the next sign-in.');
+end;
+
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   Ver, Key, TL: String;
@@ -759,6 +854,10 @@ begin
       { Remember where we wrote, so uninstall does not have to guess the version again. }
       RegWriteStringValue(HKCU, 'Software\VistaType LP', 'OfficeVersion', Ver);
     end;
+
+    { Last, and deliberately after everything that makes the add-in work: an upgrade must leave
+      a working VistaType LP behind even if the font clean-up hits something unexpected. }
+    RemoveLegacyLegibleFont();
   end;
 end;
 
@@ -784,5 +883,12 @@ begin
           RegDeleteValue(HKCU, TL, 'AllowNetworkLocations');
     end;
     RegDeleteKeyIncludingSubkeys(HKCU, 'Software\VistaType LP');
+
+    { And again here, because the normal case leaves work behind. On the first upgrade the
+      registry entries go but the four .ttf files usually cannot -- Windows holds a per-user font
+      open for the whole session. If the transcriber's next move is to UNINSTALL rather than to
+      install again, nothing would ever come back for them, and four orphaned files plus a license
+      folder would outlive the product that put them there. }
+    RemoveLegacyLegibleFont();
   end;
 end;

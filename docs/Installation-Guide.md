@@ -29,16 +29,8 @@ installing it with the new **one-click installer**.
    - If Windows shows a blue *“Windows protected your PC”* message, click **More info →
      Run anyway**. (This appears because the installer isn’t code-signed; it is safe.)
 3. Click **Next / Install** through the wizard, then **Finish**. It takes under a minute.
-4. **Restart the computer.** Signing out of Windows and back in does just as well.
 
-> **Why step 4 matters.** Everything except the typeface works straight away. The
-> **VistaTypeLP Legible** typeface is installed for you personally rather than for the whole
-> machine — that is what lets the installer run without an administrator password — and
-> Windows only takes personal typefaces into use when you sign in. Until you do, Word cannot
-> see it and the attach dialog shows Legible grayed out, as though it had never been
-> installed. One restart and it is there for good.
-
-That’s it. Open Word and look for the two new ribbon tabs.
+That’s it — nothing to restart. Open Word and look for the two new ribbon tabs.
 
 ---
 
@@ -50,11 +42,11 @@ So you know exactly what changed on your computer:
 |---|---|---|
 | The macros (`LPandBRL.dotm`) | Word **STARTUP** folder | Loads automatically every time Word opens |
 | The large-print template (`LargePrintTemplate.dotx`) | Your **Templates** folder | Holds the large-print styles |
-| The **VistaTypeLP Legible** typeface (4 files) | Your personal **Fonts** folder | For large-print documents — see below. Left in place if you uninstall |
 | Two ribbon tabs: **VistaType LP** and **Braille Macros** | Word ribbon | **Added next to your existing tabs** — your ribbon is not replaced |
 | Quick Access Toolbar icons | Your QAT | **You choose** during install — see below. The default installs VistaType’s standard toolbar; your own is saved first and you can have it back at any time |
 | Trust settings so macros run | Word Trust Center | Marks the STARTUP folder as trusted (including network/roaming profiles) |
 | Removed leftover files from old versions | Templates folder | Cleans up the obsolete “Large Print Templates” folder |
+| Removed the **VistaTypeLP Legible** typeface | Your personal **Fonts** folder | If an earlier version had installed it — see below |
 
 ---
 
@@ -69,56 +61,38 @@ If the tabs are there and buttons respond, you’re ready to go.
 
 ---
 
-## The VistaTypeLP Legible typeface
+## The VistaTypeLP Legible typeface has been withdrawn
 
-The installer adds a typeface called **VistaTypeLP Legible**. When you attach the large-print
-template, you choose it or Tahoma, right beside where you choose the point size. It is offered
-first.
+For a short time VistaType LP installed a typeface of its own, **VistaTypeLP Legible**, and
+offered it beside Tahoma when you attached the large-print template. **It is gone.** Large-print
+books are set in Tahoma, as they were for years, and the attach dialog no longer asks.
 
-**Why it exists.** A point size in Word sets the height of an invisible box the letters sit in,
-not the height of the letters themselves — and every typeface fills that box differently. Set
-18 point in the original Atkinson Hyperlegible and the letters measure about 16½ on a font
-ruler. VistaTypeLP Legible is that typeface adjusted so that when you set 18 point, Word says
-18 point and a ruler on the printed page reads 18 point.
+**Why it was withdrawn.** The typeface covers the Latin alphabet and the accents that go with
+it — English, French, German, Spanish and Italian all set correctly. It does not cover Greek,
+the phonetic alphabet, or most mathematical symbols. Word does not tell you when a character is
+missing: it silently borrows that one character from some other typeface, at some other size.
+In a large-print book that is the one thing that must never happen, and it turns up exactly
+where you would least want it — Latin, mathematics, phonetics, and the Greek that runs all
+through medical material. Tahoma covers the lot.
 
-It is based on **Atkinson Hyperlegible**, designed by the Braille Institute of America
-specifically for readers with low vision.
+**What this means for you:**
 
-**Three things worth knowing:**
-
-- **Your documents carry the typeface with them.** When you use VistaTypeLP Legible, Word
-  stores a copy of it inside the document. Send the file to a reader, a school or a print shop
-  and it will look right on their machine even if they have never heard of this typeface. This
-  does not happen with Tahoma, which every Windows computer already has.
-- **Uninstalling VistaType LP does not remove the typeface**, on purpose. If it did, every
-  large-print document you have already produced would quietly reflow into some other typeface
-  at the wrong size.
-- **Restart after installing it.** The typeface is installed for you personally, and Windows
-  only takes personal typefaces into use at sign-in. Until you restart — or sign out and back
-  in — Word cannot see it and the attach dialog shows **Legible** grayed out even though the
-  files are sitting on the machine. This catches people out, because everything else about the
-  installation works immediately.
-- **It needs Windows 10 version 1803 or newer.** On an older computer everything else installs
-  normally and the typeface simply is not offered — the choice appears grayed out, and you
-  carry on with Tahoma exactly as before.
-- **If you work on more than one computer, run the installer on each.** The typeface is
-  installed for you personally rather than for the whole machine, and on an office network
-  that kind of installation does not follow you between computers. If the choice is grayed out
-  on a machine where you expected it, that is why.
-
-⚠️ **If you open a book already set in VistaTypeLP Legible on a computer that hasn't got the
-typeface, do not re-attach the template.** The attach dialog will warn you. Going ahead
-converts the book to Tahoma permanently and moves every page break. Install the typeface,
-restart Word, and then carry on.
-
-**Its license is separate.** VistaType LP is free software under the GPL. The typeface is
-**not** covered by that; it is under the **SIL Open Font License**, and a copy is installed
-beside the program at `%AppData%\VistaType LP\OFL.txt`.
-
-That distinction never affects your work. The Open Font License says plainly that the
-requirement does not apply to any *document* made with the typeface — so **the large-print
-books you produce carry no license obligation at all**. Hand them to anyone, print them, sell
-them; nothing is owed and nothing needs saying.
+- **Nothing to do.** Install the new version over the old one in the usual way.
+- **Books you already made in it are safe, and are left alone.** Word stored a complete copy of
+  the typeface inside each of those documents when you attached the template, so they still open,
+  set and print exactly as they did. If you attach the template to one of them again, VistaType
+  LP recognizes it and **keeps the typeface it is already in** — it will not convert your book to
+  Tahoma or move your page breaks.
+- **New books are Tahoma.** No question is asked.
+- **The typeface is removed from your computer.** The installer takes it back off, because
+  leaving a face on the machine that VistaType LP no longer supports invites it being picked by
+  hand for the very documents it cannot set. The removal finishes the next time you sign in to
+  Windows — Windows will not release a typeface in the middle of a session — so if you still see
+  it in Word's font list today, sign out and back in.
+- **If you deliberately want to keep it**, install it yourself from the Braille Institute's own
+  **Atkinson Hyperlegible**, which is free. Do that knowing what is written above: a point size
+  set in Word will print about 8% smaller than it says, and the missing characters are still
+  missing.
 
 ---
 
@@ -258,23 +232,17 @@ If it isn’t listed, check the add-in is still installed: same dialog, **Manage
 Add-ins → Go**, and make sure `LPandBRL.dotm` is ticked under Global Templates. If it has
 gone altogether, run the installer again.
 
-### “The Legible typeface is grayed out on the attach dialog”
+### “Where did the VistaTypeLP Legible typeface go?”
 
-Restart the computer, or sign out of Windows and back in, and look again.
+It was withdrawn — see *The VistaTypeLP Legible typeface has been withdrawn* above. The short
+version: it has no Greek, no phonetic alphabet and almost no mathematics, and Word substitutes a
+missing character silently and at the wrong size. Large-print books are Tahoma again.
 
-The typeface is installed for you personally rather than for the whole machine, and Windows
-only takes personal typefaces into use when you sign in. The files are already on the machine;
-Word simply cannot see them yet. This is the usual answer, and once done it is done for good.
+Books you have already produced in it are untouched and keep working: each one carries its own
+copy of the typeface inside the file.
 
-If it is still grayed out after a restart:
-
-- **Check your Windows version.** The typeface needs Windows 10 version 1803 or newer. Press
-  the Windows key, type `winver`, and press Enter. On anything older the typeface is skipped on
-  purpose and you carry on with Tahoma.
-- **Check you are signed in as the same person who ran the installer.** A personal typeface
-  belongs to one Windows account; another account on the same computer will not see it.
-- **On an office network,** a personal typeface does not follow you between computers. Run the
-  installer on each machine you use.
+If Word still lists the typeface after installing the new version, **sign out of Windows and
+back in**. Windows does not release a personal typeface in the middle of a session.
 
 ### “I removed the VistaType tabs and want them back”
 

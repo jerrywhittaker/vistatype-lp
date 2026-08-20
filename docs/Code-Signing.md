@@ -86,7 +86,11 @@ Ranked heaviest first, from a full inventory of the built `.exe` on 8/15/2026:
    the textbook shape of Office macro persistence, and it is what Defender's Office rules exist to
    catch. VistaType has an honest reason for every step; a model cannot see reasons.
 5. Two `.ps1` files written into `%AppData%` and then run hidden.
-6. Fonts installed and registered under the user's own Fonts key.
+6. ~~Fonts installed and registered under the user's own Fonts key.~~ **Gone 8/20/2026** — the
+   bundled typeface was dropped from the product. The installer now *deletes* four `.ttf` files
+   and clears their entries from that key instead, which is a different shape but not obviously a
+   friendlier one to a machine-learning model. Worth re-running `make scan` to see whether the
+   score moved either way.
 7. A WMI `Win32_Process` query, to find a running Word (`:365–367`).
 8. A rename-and-rename-back probe on a file in Word's STARTUP folder, to test whether Word has it
    locked (`:377–389`). Innocent, and also what ransomware rules watch for.
@@ -350,7 +354,10 @@ have avoided this.
 Note for whenever it does go public: the GPL says anyone given the installer is entitled to the
 source for that exact version, and the About dialog and the installed `LICENSE.txt` both promise
 it. The history was checked on 8/15/2026 and is clean — `build.config` was never committed, and
-there are no keys, tokens or the Atkinson PDF anywhere in it.
+there are no keys or tokens anywhere in it. (It also checked for the Braille Institute's
+Atkinson Hyperlegible license PDF, from the typeface bundled between 3.0.101 and 3.0.196. That
+typeface was dropped on 8/20/2026 and `assets/fonts/` deleted; the `.gitignore` rule refusing
+the PDF by name stays, since the file is still on Jerry's disk.)
 
 **A release-candidate lane was designed and deferred.** The shape, so it need not be worked out
 twice:

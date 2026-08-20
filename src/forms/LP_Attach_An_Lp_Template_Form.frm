@@ -4,7 +4,7 @@ Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} LP_Attach_An_Lp_Template_Form
    ClientHeight    =   9132.001
    ClientLeft      =   120
    ClientTop       =   465
-   ClientWidth     =   12360
+   ClientWidth     =   12390
    OleObjectBlob   =   "LP_Attach_An_Lp_Template_Form.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
@@ -14,8 +14,25 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
+
+
 ' LP_Attach_An_Lp_Template_Form
 '
+' Version: 6.1  Date: 8/20/2026 - the Typeface choice is GONE, and so is the typeface. Jerry
+'                                dropped the bundled VistaTypeLP Legible from the product: its
+'                                character set is Latin, and Latin proper, mathematics, the IPA
+'                                and the Greek in medical work all fall back to another face at
+'                                another size, silently. A large print book is Tahoma again, as
+'                                it was for years before 8/8/2026, and nothing is asked.
+'                                FontChoiceFrame, FontTahoma and FontLegible are off the form,
+'                                with their two Click handlers and the Initialize block.
+'                                Lp_Doc_Font_At_Open STAYS and now does the whole job: a book
+'                                already set in the dropped face keeps it, so pressing Attach on
+'                                one of the books already produced in it cannot rewrite it to
+'                                Tahoma and move every page break. The missing-font warning goes
+'                                with the choice - there is nothing left to warn about, since the
+'                                only two outcomes are "keep what the book has" and "Tahoma",
+'                                and every machine has Tahoma
 ' Version: 6.0  Date: 8/8/2026 - Jerry took CustomOrientationFrame off the form and moved the two
 '                                orientation buttons up into CustomizeFrame, where they are still
 '                                the only option buttons and so still switch each other. The three
@@ -53,8 +70,8 @@ Attribute VB_Exposed = False
 
 Dim IsPaper As Boolean
 ' The typeface this document was already using when the dialog opened, or "" if it was not a
-' large print document. UserForm_Initialize records it; AttachOkay_Click checks it, so that a
-' book set in a typeface this computer has not got cannot be rewritten without being asked.
+' large print document. UserForm_Initialize records it; AttachOkay_Click uses it to decide
+' whether this attach may change the book's typeface at all.
 Dim Lp_Doc_Font_At_Open As String
 Dim Hold_Orientation As String
 Dim Hold_HeightValue As String
@@ -235,32 +252,38 @@ Private Sub AttachOkay_Click()
         PPG = "0"
     End If
 
+    ' ***** Typeface *****
     ' This is the one that has to happen. Lp_Attach_The_Template runs LATER and ASYNCHRONOUSLY,
     ' through Sh_BridgeTargetMacro and Application.OnTime below, and it unloads this form before
     ' it does anything - so the controls are gone by then and the public is the only carrier.
-    If FontLegible.Value = True Then
-        Lp_Base_Font_Name = "VistaTypeLP Legible"
+    '
+    ' A large print book is Tahoma. It was for years, it was a choice for twelve days from
+    ' 8/8/2026, and from 8/20/2026 it is not a choice again - the bundled VistaTypeLP Legible was
+    ' dropped because it has no Greek, no IPA and not enough mathematics, and Word fills a missing
+    ' character from another face at another size without a word.
+    '
+    ' The ONE exception, and the reason this is not simply an assignment: a book ALREADY set in
+    ' that face keeps it. Rewriting one to Tahoma would move every page break in a book that may
+    ' already be printed and in a reader's hands, and nothing on screen would say it had happened
+    ' - the pages would simply be different. Those books also carry the face embedded in
+    ' themselves (Lp_Attach_The_Template's EmbedTrueTypeFonts line), so they still set correctly
+    ' even though the installer now takes that font off the machine.
+    '
+    ' The test names the face outright rather than carrying forward whatever it finds. An LP
+    ' document whose Normal style has drifted to Calibri is a document attaching is supposed to
+    ' REPAIR, and blanket carry-forward would preserve the fault instead.
+    '
+    ' The two constants come from LPandBrlMacros so the name lives in ONE place. A form may use
+    ' them BECAUSE they are uppercase LP_: tools/lib/check_form_calls.py looks for Lp_-prefixed
+    ' tokens and its pattern is case-sensitive, so LP_FONT_LEGACY_LEGIBLE is invisible to it,
+    ' while an Lp_-prefixed constant would be read as a call to a macro that does not exist and
+    ' would fail the build. That is why they were declared uppercase in the first place.
+    If UCase(Lp_Doc_Font_At_Open) = UCase(LP_FONT_LEGACY_LEGIBLE) Then
+        Lp_Base_Font_Name = Lp_Doc_Font_At_Open
     Else
-        Lp_Base_Font_Name = "Tahoma"
+        Lp_Base_Font_Name = LP_FONT_TAHOMA
     End If
-
-    ' The book is ALREADY set in VistaTypeLP Legible, the font is not on this computer, and so
-    ' the only choice available is Tahoma. Carrying on rewrites the book permanently and moves
-    ' every page break - and nothing on screen would say so afterwards; the pages would simply
-    ' be different. Ask before doing it, and default to No.
-    If UCase(Lp_Doc_Font_At_Open) = UCase("VistaTypeLP Legible") _
-       And UCase(Lp_Base_Font_Name) <> UCase("VistaTypeLP Legible") Then
-        If MsgBox("This document is set in VistaTypeLP Legible, which is not installed on this " _
-            + "computer." + vbCr + vbCr _
-            + "If you continue, the document will be permanently changed to Tahoma and its page " _
-            + "breaks will move." + vbCr + vbCr _
-            + "To keep it as it is: choose No, install VistaType LP on this computer, restart " _
-            + "Word, and try again." + vbCr + vbCr _
-            + "Continue and change this document to Tahoma?", _
-            vbYesNo + vbExclamation + vbDefaultButton2, "VistaType LP (232)") = vbNo Then
-            Exit Sub
-        End If
-    End If
+    ' ***** end Typeface *****
     ' ** end of move form values to public variables **
 
    LP_Attach_An_Lp_Template_Form.Hide
@@ -823,19 +846,10 @@ Private Sub Point42_Click()
         Lp_Base_Font_Size = "42"
 End Sub
 
-' Lp_Base_Font_Name is a public variable, exactly like Lp_Base_Font_Size above.
-' The names are written out in full rather than using the LP_FONT_ constants in LPandBrlMacros,
-' to match how the point sizes are done here - and because a form referring to an Lp_-prefixed
-' constant fails tools/lib/check_form_calls.py, which reads a Const declaration as defining a
-' variable called "Const".
-
-Private Sub FontTahoma_Click()
-        Lp_Base_Font_Name = "Tahoma"
-End Sub
-
-Private Sub FontLegible_Click()
-        Lp_Base_Font_Name = "VistaTypeLP Legible"
-End Sub
+' FontTahoma_Click and FontLegible_Click stood here until 8/20/2026, when the Typeface choice
+' came off the form with the typeface. Lp_Base_Font_Name is now set once, in AttachOkay_Click,
+' from the LP_FONT_ constants in LPandBrlMacros - see the note there about why a form may name
+' those two and may not name an Lp_-prefixed one.
 
 Private Sub UserForm_Initialize()
 
@@ -880,45 +894,19 @@ Private Sub UserForm_Initialize()
     FinalGutterSizeLabel.Visible = False
 
     ' ***** Typeface *****
-    ' VistaTypeLP Legible is the default, but only when it is actually on this machine. A font
-    ' Word cannot find is substituted SILENTLY, and the substitute has different metrics - so a
-    ' book that reads 18 point on screen prints at some other size, which is the exact fault the
-    ' rescaled face exists to cure. Better to gray the choice out and say why on the button
-    ' itself, which needs no extra room on a form that has none.
-    If Sh_Is_Font_Installed("VistaTypeLP Legible") Then
-        FontLegible.Enabled = True
-        FontLegible.Value = True
-        Lp_Base_Font_Name = "VistaTypeLP Legible"
-    Else
-        FontLegible.Enabled = False
-        FontTahoma.Value = True
-        Lp_Base_Font_Name = "Tahoma"
-        ' Appended, not replaced, so the button keeps whatever wording it was given in the
-        ' designer. Word only rebuilds its font list at startup, hence the second half.
-        FontLegible.Caption = FontLegible.Caption & "  --  NOT INSTALLED (or Word needs restarting)"
-    End If
-
-    ' On a re-attach, carry the book's own typeface forward. Without this a 24 point Legible book
-    ' would come back as Legible only by luck of the default, and as Tahoma the moment the default
-    ' ever changes - with nothing on screen to show it had happened.
+    ' Nothing on the form asks about the typeface any more - a large print book is Tahoma. All
+    ' this does is note what the book in front of us is ALREADY set in, so that AttachOkay_Click
+    ' can leave a book made in the dropped VistaTypeLP Legible exactly as it is rather than
+    ' repaginating it. See the comment there.
     '
-    ' Lp_Doc_Font_At_Open is checked again in AttachOkay_Click: if this book is already Legible
-    ' and the font is missing, going ahead rewrites it to Tahoma for good, and that warning is
-    ' too important for a caption.
+    ' Only asked of a document that is already large print. On anything else the Normal style is
+    ' whatever Word or the original author left behind, and attaching is meant to replace it.
     Lp_Doc_Font_At_Open = ""
     On Error Resume Next
     If Lp_Is_The_Attached_Template_LP = True Then
         Lp_Doc_Font_At_Open = ActiveDocument.Styles(wdStyleNormal).Font.Name
     End If
     On Error GoTo 0
-
-    If UCase(Lp_Doc_Font_At_Open) = UCase("Tahoma") Then
-        FontTahoma.Value = True
-        Lp_Base_Font_Name = "Tahoma"
-    ElseIf UCase(Lp_Doc_Font_At_Open) = UCase("VistaTypeLP Legible") And FontLegible.Enabled = True Then
-        FontLegible.Value = True
-        Lp_Base_Font_Name = "VistaTypeLP Legible"
-    End If
     ' ***** end Typeface *****
 
     ' From: https://www.thespreadsheetguru.com/the-code-vault/launch-vba-userforms-in-correct-window-with-dual-monitors
