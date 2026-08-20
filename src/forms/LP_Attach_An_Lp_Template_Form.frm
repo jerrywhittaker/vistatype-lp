@@ -903,7 +903,10 @@ Private Sub UserForm_Initialize()
     ' whatever Word or the original author left behind, and attaching is meant to replace it.
     Lp_Doc_Font_At_Open = ""
     On Error Resume Next
-    If Lp_Is_The_Attached_Template_LP = True Then
+    ' The LOOSER test - 8/20/2026. A book set in the dropped VistaTypeLP Legible is exactly the
+    ' kind that may also be on an older template, and it is the FACE that must not be rewritten
+    ' here, whatever template it arrived on. See Lp_Was_Made_As_An_Lp_Book.
+    If Lp_Was_Made_As_An_Lp_Book() = True Then
         Lp_Doc_Font_At_Open = ActiveDocument.Styles(wdStyleNormal).Font.Name
     End If
     On Error GoTo 0

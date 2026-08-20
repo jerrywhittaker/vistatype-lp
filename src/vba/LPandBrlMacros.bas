@@ -18,6 +18,24 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - LP - 8/20/2026 - PIECE 1 of the automatic-configuration plan (docs/Automatic-Configuration-Plan.md, agreed with the beta
+'           - LP - 8/20/2026 - tester the same day): document type is read from the ATTACHED TEMPLATE and not from the style "Box Black".
+'           - LP - 8/20/2026 - Jerry: the style test was written before he knew how to test for an attached template. The function that
+'           - LP - 8/20/2026 - did it is named Lp_Is_The_Attached_Template_LP, so the name was right all along and only the implementation
+'           - LP - 8/20/2026 - was the stopgap - it is now 2.0 and asks AttachedTemplate.Name against the new LP_TEMPLATE_FILE constant,
+'           - LP - 8/20/2026 - by name and never by path, since the Templates folder differs between machines and Office versions.
+'           - LP - 8/20/2026 - The style test is KEPT, as new Lp_Was_Made_As_An_Lp_Book, because it answers a different question that is
+'           - LP - 8/20/2026 - still needed: not "is this a large print document" but "was this ever MADE as a large print book". The
+'           - LP - 8/20/2026 - difference is a real document - a book on an OBSOLETE template still has Box Black, but the template on it
+'           - LP - 8/20/2026 - is not ours. Test that book the new way and it reads as an ordinary document, is configured as one, and is
+'           - LP - 8/20/2026 - never warned that it must be re-attached before she edits it. Of the eight callers, five wanted the type
+'           - LP - 8/20/2026 - question and were left alone; three wanted the book question and were moved: Sh_HandleDocumentOpened's
+'           - LP - 8/20/2026 - obsolete-template warning, Lp_Attach_Lp_Template's re-attach warning (a book on an old template is exactly
+'           - LP - 8/20/2026 - the one that needs telling its text will re-flow), and LP_Attach_An_Lp_Template_Form's Initialize, which
+'           - LP - 8/20/2026 - notes the face a legacy book is already set in - the FACE must not be rewritten whatever template it came on.
+'           - LP - 8/20/2026 - Sh_HandleDocumentOpened's two tests became If/ElseIf rather than nested, because they are now independent
+'           - LP - 8/20/2026 - questions rather than one refining the other. That also closes a hole the old shape had: a document carrying
+'           - LP - 8/20/2026 - our template but WITHOUT the style could not be seen at all, and was configured as an ordinary document.
 ' Notes:    - LP - 8/20/2026 - the Styles pane follows the large print document now: open one and the pane is there, close one
 '           - LP - 8/20/2026 - and it goes with it. Jerry, after attaching the template to a book, saving it, opening it again and
 '           - LP - 8/20/2026 - finding no pane. This is a deliberate change to the 8/2/2026 rule that made the pane the user's own,
@@ -668,6 +686,13 @@ Private Const VT_STORE_FOLDER As String = "VistaType LP Settings"
 Private Const VT_STORE_FILE As String = "VistaType.ini"
 Private Const VT_STORE_MINE As String = "TranscriberSettings"
 
+' The large print template's file name, and as of 8/20/2026 the ONE fact that decides whether a
+' document is a large print document - see Lp_Is_The_Attached_Template_LP. Compared by NAME and
+' never by path: the template lives in the user's Templates folder, and that folder differs
+' between machines and between Office versions. It is the only large print template name the
+' add-in has ever shipped.
+Private Const LP_TEMPLATE_FILE As String = "LargePrintTemplate.dotx"
+
 ' Which of the three configurations is in force. Word's Options and AutoCorrect entries are
 ' per-APPLICATION, not per-document, so with an LP book and a braille file both open only one
 ' of them can be active at a time. This remembers which, so that switching documents can put
@@ -933,6 +958,12 @@ End Function
 ' "DEF" everything else. Reads the attached template only - no document body - so it is cheap
 ' enough to run on every window activation.
 '
+' That "no document body" claim became true on 8/20/2026 rather than 8/9: until then the large
+' print half went through a style lookup. Both halves now ask the attached template's name and
+' nothing else, which is the rule as Jerry and the beta tester wrote it.
+'
+' Version: 1.1  Date: 8/20/2026 - no code change; Lp_Is_The_Attached_Template_LP 2.0 made the
+'                               large print half a template test, which is what this always said
 ' Version: 1.0  Date: 8/9/2026
 Public Function Sh_Doc_Config_Type() As String
     Dim attached As String
@@ -1037,44 +1068,59 @@ Sub Sh_HandleDocumentOpened()
     On Error GoTo 0
 
     ActiveDocument.ActiveWindow.View.ReadingLayout = False
+
+    ' Three cases, and the ORDER of the first two is what makes the obsolete-template warning
+    ' possible. 8/20/2026: document type is now read from the attached template, so the first
+    ' test is simply "is this a large print document". A book made on an OBSOLETE template is
+    ' not one - its template is not ours - and would fall straight through to the ordinary
+    ' configuration with no warning, which is why the second test exists and why it asks the
+    ' looser question. See Lp_Was_Made_As_An_Lp_Book.
+    '
+    ' Written as ElseIf rather than nested, because the two tests are now independent questions
+    ' about the document rather than one refining the other. The old shape asked Box Black first
+    ' and the template second, which could not see a document carrying our template WITHOUT the
+    ' style - rare, but it read as an ordinary document and was configured as one.
     If Lp_Is_The_Attached_Template_LP = True Then
-        If InStr(UCase(Application.ActiveDocument.AttachedTemplate), UCase("Normal.do")) > 0 Or _
-            Application.ActiveDocument.AttachedTemplate <> "LargePrintTemplate.dotx" Then  'the attached lp template is obsolete
+        ' The current large print template is attached. The ordinary case, and much the commonest.
+        Sh_Apply_Word_Config "LP"
+
+    ElseIf Lp_Was_Made_As_An_Lp_Book() = True Then
+        ' Made as a large print book, but not on the template we ship today - an older template,
+        ' or one Word reset to Normal when the file was mailed or the template was moved. She
+        ' must re-attach before editing, because character and line spacing differ between
+        ' templates and the text will re-flow.
             
-            Application.Run MacroName:="Lp_Get_Doc_Setup_Params"
-            Dim OrientName As String
+        Application.Run MacroName:="Lp_Get_Doc_Setup_Params"
+        Dim OrientName As String
             
-            If PPO = "L" Then 'discovered by Lp_Get_Doc_Setup_Params
-                OrientName = "Landscape"
-            Else
-                OrientName = "Portrait"
-            End If
-                
-            MsgBox " This document is using an obsolete large print template." & vbCr & vbCr _
-                     & "YOU MUST ATTACH THE LATEST TEMPLATE IN ORDER TO CONTINUE EDITING THIS DOCUMENT!" & vbCr & vbCr _
-                     & "When this message is closed, the 'Attach Lp Template & Select Output Media' form will be displayed. " _
-                     & "Make note of the following information regarding this document to assist you in your media and font size selections on that form." & vbCr & vbCr _
-                     & "      Font Size                           = " + Trim(Lp_Base_Font_Size) & vbCr _
-                     & "      Paper/Screen Height        = " + Trim(Str(PPH)) & vbCr _
-                     & "      Paper/ScreenWidth          = " + Trim(Str(PPW)) & vbCr _
-                     & "      Top Margin                        = " + Trim(Str(PTM)) & vbCr _
-                     & "      Bottom Margin                  = " + Trim(Str(PBM)) & vbCr _
-                     & "      Left Margin                        = " + Trim(Str(PLM)) & vbCr _
-                     & "      Right Margin                     = " + Trim(Str(PRM)) & vbCr _
-                     & "      Mirrored Margins              = " + MirrorString & vbCr _
-                     & "      Binding Width                    = " + PPG & vbCr _
-                     & "      Orientation                        = " + OrientName & vbCr _
-                     & "      Output Media Type           = " + DM & vbCr & vbCr _
-                     & "Because of the differences in character and line spacing between the templates, attaching the latest template may " _
-                     & "result in text flow changes which will require editing.", , "VistaType LP (123)"
-                            
-                Sh_Apply_Word_Config "LP"
-                Lp_GP_String_3 = "Bypass Cleanup Checks"
-                Application.Run MacroName:="Lp_Attach_Lp_Template"
-                Exit Sub
-            Else ' is a large print document with current LP template attached
-                Sh_Apply_Word_Config "LP"
+        If PPO = "L" Then 'discovered by Lp_Get_Doc_Setup_Params
+            OrientName = "Landscape"
+        Else
+            OrientName = "Portrait"
         End If
+                
+        MsgBox " This document is using an obsolete large print template." & vbCr & vbCr _
+                 & "YOU MUST ATTACH THE LATEST TEMPLATE IN ORDER TO CONTINUE EDITING THIS DOCUMENT!" & vbCr & vbCr _
+                 & "When this message is closed, the 'Attach Lp Template & Select Output Media' form will be displayed. " _
+                 & "Make note of the following information regarding this document to assist you in your media and font size selections on that form." & vbCr & vbCr _
+                 & "      Font Size                           = " + Trim(Lp_Base_Font_Size) & vbCr _
+                 & "      Paper/Screen Height        = " + Trim(Str(PPH)) & vbCr _
+                 & "      Paper/ScreenWidth          = " + Trim(Str(PPW)) & vbCr _
+                 & "      Top Margin                        = " + Trim(Str(PTM)) & vbCr _
+                 & "      Bottom Margin                  = " + Trim(Str(PBM)) & vbCr _
+                 & "      Left Margin                        = " + Trim(Str(PLM)) & vbCr _
+                 & "      Right Margin                     = " + Trim(Str(PRM)) & vbCr _
+                 & "      Mirrored Margins              = " + MirrorString & vbCr _
+                 & "      Binding Width                    = " + PPG & vbCr _
+                 & "      Orientation                        = " + OrientName & vbCr _
+                 & "      Output Media Type           = " + DM & vbCr & vbCr _
+                 & "Because of the differences in character and line spacing between the templates, attaching the latest template may " _
+                 & "result in text flow changes which will require editing.", , "VistaType LP (123)"
+                            
+            Sh_Apply_Word_Config "LP"
+            Lp_GP_String_3 = "Bypass Cleanup Checks"
+            Application.Run MacroName:="Lp_Attach_Lp_Template"
+            Exit Sub
 
     Else ' check if it is a braille document
         If InStr(ActiveDocument.AttachedTemplate, "BANA Braille") > 0 Then
@@ -7311,7 +7357,11 @@ Sub Lp_Attach_Lp_Template()
     ' Answer this fresh every time. Both blocks in Lp_Attach_The_Template that are meant to run
     ' only on a document which is NOT already large print read this, and a stale True there is
     ' silent - the attach just does less work than it says it does.
-    Lp_Doc_Was_Already_LP = (Lp_Is_The_Attached_Template_LP = True And _
+    ' The LOOSER test, deliberately - 8/20/2026. What this decides is whether she is warned that
+    ' re-attaching will re-flow her text, and that is true of a book on an OBSOLETE large print
+    ' template just as much as one on the current template. Asking Lp_Is_The_Attached_Template_LP
+    ' here would send exactly the book that most needs the warning through without one.
+    Lp_Doc_Was_Already_LP = (Lp_Was_Made_As_An_Lp_Book() = True And _
                              InStr(UCase(ActiveDocument.AttachedTemplate.Name), UCase("Normal.do")) = 0)
 
     If Lp_Doc_Was_Already_LP Then
@@ -10372,7 +10422,7 @@ Sub Lp_Copy_To_Temp_Doc()
     Dim strTemplatePath As String
     
     ' 1. Set the Template Path and Verify
-    strTemplatePath = Options.DefaultFilePath(wdUserTemplatesPath) & "\LargePrintTemplate.dotx"
+    strTemplatePath = Options.DefaultFilePath(wdUserTemplatesPath) & "\" & LP_TEMPLATE_FILE
     
     If Dir(strTemplatePath) = "" Then
         MsgBox "Template not found at: " & strTemplatePath, vbCritical, "Template Error"
@@ -13336,33 +13386,83 @@ Sub Lp_Is_Lp_Template_Attached()
     
 End Sub   '*** end of Lp_Is_Lp_Template_Attached macro ***
 
-Function Lp_Is_The_Attached_Template_LP()
+Function Lp_Is_The_Attached_Template_LP() As Boolean
 '
+' Version: 2.0  Date: 8/20/2026 - asks the ATTACHED TEMPLATE, which is what this function has
+'                               always been named after. Was: does the style "Box Black" exist
 ' Version: 1.1  Date: 2/15/2026 - Changed from Print Pg Num to Box Black
 ' Version: 1.0  Date: 4/15/2021
 '
-' Returns True if the style "Box Black" is in the attached template
-' When true, the attached template is a large print template
+' True when the document in front of us is a large print document - the template named
+' LP_TEMPLATE_FILE is attached to it.
+'
+' READ THIS BEFORE CHANGING A CALLER. Until 8/20/2026 this tested for the presence of the style
+' "Box Black" instead, and answered a subtly different question: not "is this a large print
+' document" but "was this document ever MADE as a large print book". Jerry, 8/20/2026: the style
+' test was written before he knew how to test for an attached template, and testing for the
+' template is the better idea. The name was right all along; the implementation was the stopgap.
+'
+' The two questions are not the same, and the difference is a real document: a book made on an
+' OBSOLETE large print template still has Box Black in it, but the template attached to it is
+' not ours. That book must be recognized, warned about and re-attached - which is what
+' Lp_Was_Made_As_An_Lp_Book, immediately below, now exists for. Three callers wanted that
+' question and were moved to it; the other five wanted this one and were left alone.
+'
+' Compared on the NAME only. AttachedTemplate returns a Template object whose default property
+' is its full path, so .Name is taken explicitly rather than letting VBA coerce the object -
+' the folder differs between machines and between Office versions and must not be part of the
+' test. Compared case-insensitively: Word reports the name as the file system has it.
+'
+    Dim attachedName As String
+
+    ' No document open, or a document Word will not answer for. Not a large print document, and
+    ' not a fault either - about a dozen callers ask this before knowing what is on screen.
+    On Error GoTo eom
+
+    attachedName = ActiveDocument.AttachedTemplate.Name
+    Lp_Is_The_Attached_Template_LP = (StrComp(attachedName, LP_TEMPLATE_FILE, vbTextCompare) = 0)
+
+eom:
+    ' Whatever raised is this function's normal "no" answer, not something the caller caused.
+    Err.Clear
+
+End Function '*** end of Lp_Is_The_Attached_Template_LP Function ***
+
+Function Lp_Was_Made_As_An_Lp_Book() As Boolean
+'
+' Version: 1.0  Date: 8/20/2026 - the body of Lp_Is_The_Attached_Template_LP 1.1, kept for the
+'                               one question it is actually right for
+'
+' True when this document was ever made as a large print book, whatever template is attached to
+' it NOW. The test is the presence of the style "Box Black", which comes from the large print
+' template and is not something a transcriber would have by accident.
+'
+' This is deliberately the LOOSER of the two tests, and that is the whole point of it. Ask
+' Lp_Is_The_Attached_Template_LP which configuration a document gets; ask this one whether a
+' document needs the large print template re-attached, because the answer is yes precisely when
+' this is True and that one is False - a book on an obsolete template, or on one Word reset to
+' Normal when the file was mailed or the template was moved. Test it the other way round and
+' such a book reads as an ordinary document, gets the ordinary configuration, and is never
+' warned that it must be re-attached before she edits it.
+'
+' Three callers: Sh_HandleDocumentOpened (the obsolete-template warning), Lp_Attach_Lp_Template
+' (whether to warn about re-attaching), and LP_Attach_An_Lp_Template_Form's Initialize (noting
+' the face a legacy book is already set in). All three are about the book, not the template.
 '
     Dim oStyle As Style
-    Dim styleName As String
-    
-    'styleName = "Print Pg Num" ' a hidden style in the LP template
-    styleName = "Box Black"
+
     Set oStyle = Nothing
-    
+
     On Error Resume Next
-    Set oStyle = ActiveDocument.Styles(styleName)
-    
-    If Not oStyle Is Nothing Then ' the style was found
-        Lp_Is_The_Attached_Template_LP = True
-    End If
+    Set oStyle = ActiveDocument.Styles("Box Black")   ' was "Print Pg Num" before 2/15/2026
+
+    If Not oStyle Is Nothing Then Lp_Was_Made_As_An_Lp_Book = True
 
     ' Styles(...) raises 5941 when the style is absent, which is this function's normal "no"
     ' answer, not a fault. Clear it so the caller does not inherit an error it never caused.
     Err.Clear
 
-End Function '*** end of Lp_Is_The_Attached_Template_LP Function ***
+End Function '*** end of Lp_Was_Made_As_An_Lp_Book Function ***
 
 Sub Lp_Para_To_Next_Page()
     Application.Run MacroName:="Sh_Is_Doc_Open"
@@ -14216,7 +14316,7 @@ AvoidCrash:
     'attach "LargePrintTemplate.dotx"
     With ActiveDocument
             Dim TemplatePathandName As String
-            TemplatePathandName = Options.DefaultFilePath(wdUserTemplatesPath) + "\LargePrintTemplate.dotx"
+            TemplatePathandName = Options.DefaultFilePath(wdUserTemplatesPath) + "\" + LP_TEMPLATE_FILE
             If Sh_FileExists(TemplatePathandName) Then  ' is the large print template available for this user?
                 Lp_Fix_Normal_Styles
                 .UpdateStylesOnOpen = True
