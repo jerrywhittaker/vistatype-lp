@@ -18,6 +18,20 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - MS - 8/21/2026 - Two faults in Piece 4, both found by Jerry testing 3.0.214 and 3.0.215, and neither of them
+'           - MS - 8/21/2026 - in the machinery itself. FIRST: Sh_Note_Book_Settings was called ABOVE the spelling and grammar
+'           - MS - 8/21/2026 - writes that both books deliberately keep at the very bottom, so it recorded HER values as the
+'           - MS - 8/21/2026 - book's for two settings in large print and six in braille. The next ordinary document then found
+'           - MS - 8/21/2026 - them different, decided she had changed them, and wrote the BOOK's switched-off values into her
+'           - MS - 8/21/2026 - preferences - the 8/18 fault rebuilt by the thing meant to prevent it. The call is now genuinely
+'           - MS - 8/21/2026 - last in both subs. SECOND, and it is a decision rather than a slip: Jerry opened a large print
+'           - MS - 8/21/2026 - document and found boxes checked he had never checked. They are four of the fifteen settings
+'           - MS - 8/21/2026 - dropped from all three configurations on 8/18 as "identical everywhere" - which was true, and
+'           - MS - 8/21/2026 - which also took them away from the BOOKS, leaving Word's own value standing inside one. Smart
+'           - MS - 8/21/2026 - quotes and hyperlinks, both forms, are back in the two book configurations and in the tracked
+'           - MS - 8/21/2026 - list, 27 -> 31, store stamp 2 -> 3. Not in the ordinary configuration: that is the whole
+'           - MS - 8/21/2026 - difference between a book setting and a preference imposed on her Word. The other eleven stay
+'           - MS - 8/21/2026 - hers, including "*bold* and _italic_ with real formatting", which is the one Jerry unchecked.
 ' Notes:    - MS - 8/20/2026 - PIECE 4 of the automatic-configuration plan, with the typing half of Piece 3 that depends on it.
 '           - MS - 8/20/2026 - The twenty Options and AutoCorrect writes in MS_Set_Word_Config_For_New_Install are GONE. They set
 '           - MS - 8/20/2026 - Word's factory value on every ordinary document open, which LOOKED like restoring her settings and
@@ -807,9 +821,10 @@ Private Const VT_STORE_BOOK As String = "BookApplied"
 
 ' The shape of the store, so a file written by an older build is thrown away whole rather than
 ' half-read. Bump it whenever Sh_Tracked_Settings changes. "1" was the six spelling and grammar
-' settings of 8/18/2026; "2" is the twenty-seven of 8/20/2026.
+' settings of 8/18/2026; "2" the twenty-seven of 8/20/2026; "3" the thirty-one of 8/21/2026,
+' when smart quotes and hyperlinks came back as book settings.
 Private Const VT_STORE_STAMP As String = "StoreVersion"
-Private Const VT_STORE_STAMP_NOW As String = "2"
+Private Const VT_STORE_STAMP_NOW As String = "3"
 
 ' The large print template's file name, and as of 8/20/2026 the ONE fact that decides whether a
 ' document is a large print document - see Lp_Is_The_Attached_Template_LP. Compared by NAME and
@@ -18344,7 +18359,7 @@ Sub MS_Set_Word_Config_For_New_Install()
     ' Nothing had failed to save. This sub was rewriting them.
     '
     ' What puts them back now is Sh_Restore_Transcriber_Settings, one call below, working from the
-    ' ledger - HER values, not Word's factory ones, and covering twenty-seven settings rather than
+    ' ledger - HER values, not Word's factory ones, and covering thirty-one settings rather than
     ' the twenty that were written here. Do not add a fixed write back into this sub: a value
     ' written here cannot be told from a value she chose.
     '
@@ -18417,6 +18432,9 @@ Sub MS_Set_Word_Config_For_Large_Print()
     '
     ' Author: Jerry Whittaker -  jerry@thewhittakers.org
     '
+    ' Version: 2.5  Date: 8/21/2026 - smart quotes and hyperlinks are written again, both forms, and
+    '                                 Sh_Note_Book_Settings moved below the trailing writes (Jerry, 3.0.215)
+    ' Version: 2.4  Date: 8/20/2026 - records what it applied, for the ledger - Sh_Note_Book_Settings
     ' Version: 2.3  Date: 8/20/2026 - opens the Styles pane for a large print document, the mirror image of what
     '                                 the braille and default configurations have always done. Visibility only:
     '                                 the Recommended sort and filter stay the transcriber's, see the note below
@@ -18455,6 +18473,14 @@ Sub MS_Set_Word_Config_For_Large_Print()
         If .AutoFormatAsYouTypeReplaceOrdinals <> False Then .AutoFormatAsYouTypeReplaceOrdinals = False
         If .AutoFormatAsYouTypeReplaceFractions <> False Then .AutoFormatAsYouTypeReplaceFractions = False
         If .AutoFormatAsYouTypeFormatListItemBeginning <> False Then .AutoFormatAsYouTypeFormatListItemBeginning = False
+
+        ' Smart quotes and hyperlinks, back as BOOK settings on 8/21/2026 - Jerry. Both books
+        ' forced them on until 8/18/2026, when they were dropped from all three configurations
+        ' as "identical everywhere". Identical is not the same as unimportant: dropping them
+        ' left Word's own value standing in a book, and a book needs these on. They are in
+        ' Sh_Tracked_Settings, so her own value comes back in her letters.
+        If .AutoFormatAsYouTypeReplaceQuotes <> True Then .AutoFormatAsYouTypeReplaceQuotes = True
+        If .AutoFormatAsYouTypeReplaceHyperlinks <> True Then .AutoFormatAsYouTypeReplaceHyperlinks = True
     End With
     
     With AutoCorrect
@@ -18472,6 +18498,9 @@ Sub MS_Set_Word_Config_For_Large_Print()
         If .AutoFormatReplaceFractions <> False Then .AutoFormatReplaceFractions = False
         If .AutoFormatPreserveStyles <> True Then .AutoFormatPreserveStyles = True
         If .AutoFormatPlainTextWordMail <> False Then .AutoFormatPlainTextWordMail = False
+        ' The on-demand half of the same pair - see the note above.
+        If .AutoFormatReplaceQuotes <> True Then .AutoFormatReplaceQuotes = True
+        If .AutoFormatReplaceHyperlinks <> True Then .AutoFormatReplaceHyperlinks = True
     End With
 
     If Not Sh_Config_Skip_Display Then   ' the transcriber's screen is theirs - see Sh_Config_Skip_Display
@@ -18546,13 +18575,6 @@ Sub MS_Set_Word_Config_For_Large_Print()
     AutoCorrect.Entries("1/9").Delete
     AutoCorrect.Entries("1/10").Delete
 
-
-    ' Write down what this configuration has just applied, so that returning to an ordinary
-    ' document can tell a setting SHE changed from one this sub set. Last, after every write
-    ' above has run - see Sh_Note_Book_Settings for why reading the live values here is right and
-    ' recording the intended ones would not be.
-    Sh_Note_Book_Settings
-
     MS_Word_Config = "Word is configured for large print"
     Sh_ConfiguredAs = "LP"    ' see Sh_HandleDocumentActivated: record what is ACTUALLY in force
 
@@ -18563,6 +18585,11 @@ Sub MS_Set_Word_Config_For_Large_Print()
     ' early leaves them untouched. See Sh_Save_Transcriber_Settings.
     If Options.LabelSmartTags <> False Then Options.LabelSmartTags = False
     If Options.IgnoreUppercase <> False Then Options.IgnoreUppercase = False
+
+    ' Write down what this configuration has just applied, so that returning to an ordinary
+    ' document can tell a setting SHE changed from one this sub set. THE VERY LAST THING THE SUB
+    ' DOES, below the two writes above and not above them - see Sh_Note_Book_Settings 1.1.
+    Sh_Note_Book_Settings
     
     On Error GoTo 0
 End Sub  '*** end of macro MS_Set_Word_Config_For_Large_Print ***
@@ -18572,6 +18599,9 @@ Sub MS_Set_Word_Config_For_Braille()
     '
     ' Author: Jerry Whittaker -  jerry@thewhittakers.org
     '
+    ' Version: 2.5  Date: 8/21/2026 - smart quotes and hyperlinks are written again, both forms, and
+    '                                 Sh_Note_Book_Settings moved below the trailing writes (Jerry, 3.0.215)
+    ' Version: 2.4  Date: 8/20/2026 - records what it applied, for the ledger - Sh_Note_Book_Settings
     ' Version: 2.3  Date: 8/18/2026 - "Set left- and first-indent with tabs and backspaces" (TabIndentKey) is
     '                                 switched OFF for braille (Jerry). It was one of the 15 removed earlier the
     '                                 same day as identical everywhere, so it comes back as a SWITCHED setting,
@@ -18619,6 +18649,14 @@ Sub MS_Set_Word_Config_For_Braille()
         If .AutoFormatAsYouTypeReplaceOrdinals <> True Then .AutoFormatAsYouTypeReplaceOrdinals = True
         If .AutoFormatAsYouTypeReplaceFractions <> True Then .AutoFormatAsYouTypeReplaceFractions = True
         If .AutoFormatAsYouTypeFormatListItemBeginning <> False Then .AutoFormatAsYouTypeFormatListItemBeginning = False
+
+        ' Smart quotes and hyperlinks, back as BOOK settings on 8/21/2026 - Jerry. Both books
+        ' forced them on until 8/18/2026, when they were dropped from all three configurations
+        ' as "identical everywhere". Identical is not the same as unimportant: dropping them
+        ' left Word's own value standing in a book, and a book needs these on. They are in
+        ' Sh_Tracked_Settings, so her own value comes back in her letters.
+        If .AutoFormatAsYouTypeReplaceQuotes <> True Then .AutoFormatAsYouTypeReplaceQuotes = True
+        If .AutoFormatAsYouTypeReplaceHyperlinks <> True Then .AutoFormatAsYouTypeReplaceHyperlinks = True
     End With
     
     With AutoCorrect
@@ -18636,6 +18674,9 @@ Sub MS_Set_Word_Config_For_Braille()
         If .AutoFormatReplaceFractions <> True Then .AutoFormatReplaceFractions = True
         If .AutoFormatPreserveStyles <> False Then .AutoFormatPreserveStyles = False
         If .AutoFormatPlainTextWordMail <> False Then .AutoFormatPlainTextWordMail = False
+        ' The on-demand half of the same pair - see the note above.
+        If .AutoFormatReplaceQuotes <> True Then .AutoFormatReplaceQuotes = True
+        If .AutoFormatReplaceHyperlinks <> True Then .AutoFormatReplaceHyperlinks = True
     End With
     
     ' add the compact fractions to autocorrect - the list lives in Sh_Add_Compact_Fractions,
@@ -18654,13 +18695,6 @@ Sub MS_Set_Word_Config_For_Braille()
         ActiveWindow.ActivePane.View.Type = wdNormalView
     End If
 
-
-    ' Write down what this configuration has just applied, so that returning to an ordinary
-    ' document can tell a setting SHE changed from one this sub set. Last, after every write
-    ' above has run - see Sh_Note_Book_Settings for why reading the live values here is right and
-    ' recording the intended ones would not be.
-    Sh_Note_Book_Settings
-
     MS_Word_Config = "Word is configured for braille"
     Sh_ConfiguredAs = "BRL"   ' see Sh_HandleDocumentActivated: record what is ACTUALLY in force
 
@@ -18676,6 +18710,11 @@ Sub MS_Set_Word_Config_For_Braille()
     If Options.IgnoreUppercase <> False Then Options.IgnoreUppercase = False
     ' "Set left- and first-indent with tabs and backspaces" - off for braille. Jerry, 8/18/2026.
     If Options.TabIndentKey <> False Then Options.TabIndentKey = False
+
+    ' Write down what this configuration has just applied, so that returning to an ordinary
+    ' document can tell a setting SHE changed from one this sub set. THE VERY LAST THING THE SUB
+    ' DOES, below the six writes above and not above them - see Sh_Note_Book_Settings 1.1.
+    Sh_Note_Book_Settings
     
     Application.ScreenUpdating = su_Prev ' Turn screen updating on
     If Not Sh_Config_Skip_Display Then Application.ScreenRefresh
@@ -18836,9 +18875,10 @@ Private Function Sh_Store_To_Bool(ByVal held As String) As Boolean
 End Function
 
 ' EVERY setting a large print or braille configuration takes away from her, in one list, walked
-' by all three of the subs below - the save, the compare and the restore. Twenty-seven of them,
+' by all three of the subs below - the save, the compare and the restore. Thirty-one of them,
 ' and the list is not guesswork: it is the union of what MS_Set_Word_Config_For_Large_Print and
-' MS_Set_Word_Config_For_Braille actually write, read out of those two subs on 8/20/2026.
+' MS_Set_Word_Config_For_Braille actually write, read out of those two subs on 8/20/2026, plus
+' the four smart-quote and hyperlink settings the books took back on 8/21/2026.
 '
 ' ADDING A SETTING TO EITHER BOOK CONFIGURATION MEANS ADDING IT HERE, and to both Select Cases
 ' below, and bumping VT_STORE_STAMP_NOW. A setting a book writes and this list does not name is
@@ -18846,10 +18886,18 @@ End Function
 ' turned grammar checking off for every document she opened, that session and every session after.
 '
 ' Twenty of these the ordinary configuration used to rewrite to Word's factory value, which is
-' why nobody noticed: it looked like restoring and was overwriting. The other seven it never put
-' back at all - the six spelling and grammar ones found on 8/18, plus ShowStylePreviews and
+' why nobody noticed: it looked like restoring and was overwriting. Seven more it never put back
+' at all - the six spelling and grammar ones found on 8/18, plus ShowStylePreviews and
 ' RestrictLinkedStyles, which the books switch on and nothing has ever switched off.
 '
+' The last four are smart quotes and hyperlinks, in both their as-you-type and on-demand forms.
+' Both books forced them on until 8/18/2026, when they went with the fifteen settings that were
+' identical in all three configurations. Jerry, 8/21/2026, testing 3.0.215: identical is not the
+' same as unimportant. Dropping them left WORD's value standing inside a book, where the work
+' needs them on. Back in the two book configurations only - never in the ordinary one, which is
+' the difference between a book setting and a preference imposed on her Word.
+'
+' Version: 1.1  Date: 8/21/2026 - the four smart-quote and hyperlink settings, 27 -> 31
 ' Version: 1.0  Date: 8/20/2026
 Private Function Sh_Tracked_Settings() As Variant
     ' Built with Split rather than Array(...) and a line continuation per name: VBA allows at
@@ -18861,12 +18909,14 @@ Private Function Sh_Tracked_Settings() As Variant
     nm = "AutoFormatApplyBulletedLists,AutoFormatApplyHeadings,AutoFormatApplyLists,"
     nm = nm & "AutoFormatApplyOtherParas,AutoFormatAsYouTypeApplyBorders,AutoFormatAsYouTypeApplyBulletedLists,"
     nm = nm & "AutoFormatAsYouTypeApplyNumberedLists,AutoFormatAsYouTypeApplyTables,AutoFormatAsYouTypeFormatListItemBeginning,"
-    nm = nm & "AutoFormatAsYouTypeReplaceFractions,AutoFormatAsYouTypeReplaceOrdinals,AutoFormatAsYouTypeReplaceSymbols,"
-    nm = nm & "AutoFormatPlainTextWordMail,AutoFormatPreserveStyles,AutoFormatReplaceFractions,"
-    nm = nm & "AutoFormatReplaceOrdinals,AutoFormatReplaceSymbols,CheckGrammarAsYouType,"
-    nm = nm & "ContextualSpeller,CorrectSentenceCaps,CorrectTableCells,"
-    nm = nm & "IgnoreMixedDigits,IgnoreUppercase,LabelSmartTags,"
-    nm = nm & "RestrictLinkedStyles,ShowStylePreviews,TabIndentKey"
+    nm = nm & "AutoFormatAsYouTypeReplaceFractions,AutoFormatAsYouTypeReplaceHyperlinks,AutoFormatAsYouTypeReplaceOrdinals,"
+    nm = nm & "AutoFormatAsYouTypeReplaceQuotes,AutoFormatAsYouTypeReplaceSymbols,AutoFormatPlainTextWordMail,"
+    nm = nm & "AutoFormatPreserveStyles,AutoFormatReplaceFractions,AutoFormatReplaceHyperlinks,"
+    nm = nm & "AutoFormatReplaceOrdinals,AutoFormatReplaceQuotes,AutoFormatReplaceSymbols,"
+    nm = nm & "CheckGrammarAsYouType,ContextualSpeller,CorrectSentenceCaps,"
+    nm = nm & "CorrectTableCells,IgnoreMixedDigits,IgnoreUppercase,"
+    nm = nm & "LabelSmartTags,RestrictLinkedStyles,ShowStylePreviews,"
+    nm = nm & "TabIndentKey"
 
     Sh_Tracked_Settings = Split(nm, ",")
 End Function  '*** end of Sh_Tracked_Settings ***
@@ -18889,12 +18939,16 @@ Private Function Sh_Setting_Live(ByVal nm As String) As Boolean
         Case "AutoFormatAsYouTypeApplyTables": Sh_Setting_Live = Options.AutoFormatAsYouTypeApplyTables
         Case "AutoFormatAsYouTypeFormatListItemBeginning": Sh_Setting_Live = Options.AutoFormatAsYouTypeFormatListItemBeginning
         Case "AutoFormatAsYouTypeReplaceFractions": Sh_Setting_Live = Options.AutoFormatAsYouTypeReplaceFractions
+        Case "AutoFormatAsYouTypeReplaceHyperlinks": Sh_Setting_Live = Options.AutoFormatAsYouTypeReplaceHyperlinks
         Case "AutoFormatAsYouTypeReplaceOrdinals": Sh_Setting_Live = Options.AutoFormatAsYouTypeReplaceOrdinals
+        Case "AutoFormatAsYouTypeReplaceQuotes": Sh_Setting_Live = Options.AutoFormatAsYouTypeReplaceQuotes
         Case "AutoFormatAsYouTypeReplaceSymbols": Sh_Setting_Live = Options.AutoFormatAsYouTypeReplaceSymbols
         Case "AutoFormatPlainTextWordMail": Sh_Setting_Live = Options.AutoFormatPlainTextWordMail
         Case "AutoFormatPreserveStyles": Sh_Setting_Live = Options.AutoFormatPreserveStyles
         Case "AutoFormatReplaceFractions": Sh_Setting_Live = Options.AutoFormatReplaceFractions
+        Case "AutoFormatReplaceHyperlinks": Sh_Setting_Live = Options.AutoFormatReplaceHyperlinks
         Case "AutoFormatReplaceOrdinals": Sh_Setting_Live = Options.AutoFormatReplaceOrdinals
+        Case "AutoFormatReplaceQuotes": Sh_Setting_Live = Options.AutoFormatReplaceQuotes
         Case "AutoFormatReplaceSymbols": Sh_Setting_Live = Options.AutoFormatReplaceSymbols
         Case "CheckGrammarAsYouType": Sh_Setting_Live = Options.CheckGrammarAsYouType
         Case "ContextualSpeller": Sh_Setting_Live = Options.ContextualSpeller
@@ -18929,12 +18983,16 @@ Private Sub Sh_Setting_Put(ByVal nm As String, ByVal wanted As Boolean)
         Case "AutoFormatAsYouTypeApplyTables": If Options.AutoFormatAsYouTypeApplyTables <> wanted Then Options.AutoFormatAsYouTypeApplyTables = wanted
         Case "AutoFormatAsYouTypeFormatListItemBeginning": If Options.AutoFormatAsYouTypeFormatListItemBeginning <> wanted Then Options.AutoFormatAsYouTypeFormatListItemBeginning = wanted
         Case "AutoFormatAsYouTypeReplaceFractions": If Options.AutoFormatAsYouTypeReplaceFractions <> wanted Then Options.AutoFormatAsYouTypeReplaceFractions = wanted
+        Case "AutoFormatAsYouTypeReplaceHyperlinks": If Options.AutoFormatAsYouTypeReplaceHyperlinks <> wanted Then Options.AutoFormatAsYouTypeReplaceHyperlinks = wanted
         Case "AutoFormatAsYouTypeReplaceOrdinals": If Options.AutoFormatAsYouTypeReplaceOrdinals <> wanted Then Options.AutoFormatAsYouTypeReplaceOrdinals = wanted
+        Case "AutoFormatAsYouTypeReplaceQuotes": If Options.AutoFormatAsYouTypeReplaceQuotes <> wanted Then Options.AutoFormatAsYouTypeReplaceQuotes = wanted
         Case "AutoFormatAsYouTypeReplaceSymbols": If Options.AutoFormatAsYouTypeReplaceSymbols <> wanted Then Options.AutoFormatAsYouTypeReplaceSymbols = wanted
         Case "AutoFormatPlainTextWordMail": If Options.AutoFormatPlainTextWordMail <> wanted Then Options.AutoFormatPlainTextWordMail = wanted
         Case "AutoFormatPreserveStyles": If Options.AutoFormatPreserveStyles <> wanted Then Options.AutoFormatPreserveStyles = wanted
         Case "AutoFormatReplaceFractions": If Options.AutoFormatReplaceFractions <> wanted Then Options.AutoFormatReplaceFractions = wanted
+        Case "AutoFormatReplaceHyperlinks": If Options.AutoFormatReplaceHyperlinks <> wanted Then Options.AutoFormatReplaceHyperlinks = wanted
         Case "AutoFormatReplaceOrdinals": If Options.AutoFormatReplaceOrdinals <> wanted Then Options.AutoFormatReplaceOrdinals = wanted
+        Case "AutoFormatReplaceQuotes": If Options.AutoFormatReplaceQuotes <> wanted Then Options.AutoFormatReplaceQuotes = wanted
         Case "AutoFormatReplaceSymbols": If Options.AutoFormatReplaceSymbols <> wanted Then Options.AutoFormatReplaceSymbols = wanted
         Case "CheckGrammarAsYouType": If Options.CheckGrammarAsYouType <> wanted Then Options.CheckGrammarAsYouType = wanted
         Case "ContextualSpeller": If Options.ContextualSpeller <> wanted Then Options.ContextualSpeller = wanted
@@ -18966,6 +19024,7 @@ Sub Sh_Save_Transcriber_Settings()
 '
 ' Author: Jerry Whittaker -  jerry@thewhittakers.org
 '
+' Version: 3.1  Date: 8/21/2026 - 31 settings: smart quotes and hyperlinks are book settings again
 ' Version: 3.0  Date: 8/20/2026 - walks Sh_Tracked_Settings: 27 settings instead of 6, and writes
 '                                 the store's version stamp. Only writes a value that has actually
 '                                 changed, because this now runs on every ordinary document open
@@ -18999,7 +19058,7 @@ Sub Sh_Save_Transcriber_Settings()
     For i = LBound(names) To UBound(names)
         nm = names(i)
         live = Sh_Bool_To_Store(Sh_Setting_Live(nm))
-        ' Written only when it differs. Twenty-seven unconditional writes on every letter she
+        ' Written only when it differs. Thirty-one unconditional writes on every letter she
         ' opens is a great deal of file work for nothing.
         If Sh_Setting_Read(VT_STORE_MINE, nm, "") <> live Then
             Sh_Setting_Write VT_STORE_MINE, nm, live
@@ -19028,6 +19087,17 @@ End Sub  '*** end of Sh_Save_Transcriber_Settings ***
 ' the next return to an ordinary document reads no book record and treats the live values as hers.
 ' That is the safe way round: it can lose a restore, never her preferences.
 '
+' "The end" means the END, and getting that wrong was the first fault this piece had. Both book
+' configurations write a handful of spelling and grammar settings BELOW the line that sets
+' Sh_ConfiguredAs, deliberately, so that a sub which raises part way through does not leave them
+' switched off while the ledger still believes the ordinary configuration is in force. The call
+' first went in above those writes, which recorded her values as the book's for two settings in
+' large print and six in braille. The next ordinary document then read live against the record,
+' found them different, and wrote the BOOK's switched-off values into her preferences as though
+' she had chosen them - the 8/18/2026 fault exactly, rebuilt by the thing meant to prevent it.
+'
+' Version: 1.1  Date: 8/20/2026 - moved below the trailing spelling and grammar writes in both
+'                                 book configurations. See above; found before 3.0.214 was tested
 ' Version: 1.0  Date: 8/20/2026
 Sub Sh_Note_Book_Settings()
     Dim names As Variant
@@ -19085,6 +19155,7 @@ Sub Sh_Restore_Transcriber_Settings()
 '
 ' Author: Jerry Whittaker -  jerry@thewhittakers.org
 '
+' Version: 3.1  Date: 8/21/2026 - 31 settings: smart quotes and hyperlinks are book settings again
 ' Version: 3.0  Date: 8/20/2026 - learns what she changed inside a book, and covers all 27 tracked
 '                                 settings rather than 6. Piece 4 of the automatic-configuration plan
 ' Version: 2.0  Date: 8/18/2026 - reads the settings file rather than module variables
