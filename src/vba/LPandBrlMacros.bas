@@ -823,9 +823,10 @@ Private Const VT_STORE_BOOK As String = "BookApplied"
 ' half-read. Bump it whenever Sh_Tracked_Settings changes. "1" was the six spelling and grammar
 ' settings of 8/18/2026; "2" the twenty-seven of 8/20/2026; "3" the thirty-one of 8/21/2026,
 ' when smart quotes and hyperlinks came back as book settings; "4" the thirty-four of 8/21/2026,
-' when the three AutoFormat As You Type boxes large print had never written were added.
+' when the three AutoFormat As You Type boxes large print had never written were added; "5" the
+' thirty-six of 8/21/2026, adding first-indents and the spelling-checker suggestions setting.
 Private Const VT_STORE_STAMP As String = "StoreVersion"
-Private Const VT_STORE_STAMP_NOW As String = "4"
+Private Const VT_STORE_STAMP_NOW As String = "5"
 
 ' The large print template's file name, and as of 8/20/2026 the ONE fact that decides whether a
 ' document is a large print document - see Lp_Is_The_Attached_Template_LP. Compared by NAME and
@@ -18485,8 +18486,15 @@ Sub MS_Set_Word_Config_For_Large_Print()
         ' takes the transcriber's body size away and replaces it with the style's own.
         If .AutoFormatAsYouTypeApplyHeadings <> False Then .AutoFormatAsYouTypeApplyHeadings = False
 
-        If .AutoFormatAsYouTypeReplaceSymbols <> False Then .AutoFormatAsYouTypeReplaceSymbols = False
-        If .AutoFormatAsYouTypeReplaceOrdinals <> False Then .AutoFormatAsYouTypeReplaceOrdinals = False
+        ' "Hyphens (--) with dash", as you type. ON from 8/21/2026 - Jerry, 3.0.217. Note the
+        ' name: there is no Hyphens property, and this is the box Word used to label "Symbol
+        ' characters (--) with symbols". ReplaceSymbols is the only candidate in the object
+        ' model - AutoFormatAsYouTypeReplaceFarEastDashes is the East Asian one, not this.
+        If .AutoFormatAsYouTypeReplaceSymbols <> True Then .AutoFormatAsYouTypeReplaceSymbols = True
+        ' "Ordinals (1st) with superscript", as you type. ON from 8/21/2026 - Jerry, 3.0.217.
+        ' Deliberately NOT matched on the on-demand tab, which keeps AutoFormatReplaceOrdinals
+        ' False: he asked for this tab by name and only this one.
+        If .AutoFormatAsYouTypeReplaceOrdinals <> True Then .AutoFormatAsYouTypeReplaceOrdinals = True
         If .AutoFormatAsYouTypeReplaceFractions <> False Then .AutoFormatAsYouTypeReplaceFractions = False
 
         ' The box the dialog now calls "Markdown for heading, bold, italic and strikethrough".
@@ -18498,6 +18506,13 @@ Sub MS_Set_Word_Config_For_Large_Print()
         If .AutoFormatAsYouTypeReplacePlainTextEmphasis <> False Then .AutoFormatAsYouTypeReplacePlainTextEmphasis = False
 
         If .AutoFormatAsYouTypeFormatListItemBeginning <> False Then .AutoFormatAsYouTypeFormatListItemBeginning = False
+
+        ' "Set left- and first-indent with tabs and backspaces". ON from 8/21/2026 - Jerry, 3.0.217.
+        ' This one was dropped from all three configurations on 8/20/2026 as a setting no book had
+        ' ever varied, and MS_Set_Word_Config_For_New_Install still says so. That note governs the
+        ' ORDINARY configuration and still holds: a fixed write there cannot be told from her own
+        ' choice. Here it is a BOOK setting, which is a different thing, and it is tracked.
+        If .AutoFormatAsYouTypeApplyFirstIndents <> True Then .AutoFormatAsYouTypeApplyFirstIndents = True
 
         ' "Define styles based on your formatting" - never written either, same 8/21/2026 report.
         ' The worst of the three for large print: it lets Word REDEFINE a style out from under the
@@ -18517,6 +18532,10 @@ Sub MS_Set_Word_Config_For_Large_Print()
     With AutoCorrect
         If .CorrectSentenceCaps <> False Then .CorrectSentenceCaps = False
         If .CorrectTableCells <> False Then .CorrectTableCells = False
+
+        ' "Automatically use suggestions from the spelling checker". ON from 8/21/2026 - Jerry,
+        ' 3.0.217. First time anything in the project has written it, so it is new to the ledger.
+        If .ReplaceTextFromSpellingChecker <> True Then .ReplaceTextFromSpellingChecker = True
     End With
 
     With Options
@@ -18524,14 +18543,18 @@ Sub MS_Set_Word_Config_For_Large_Print()
         If .AutoFormatApplyLists <> False Then .AutoFormatApplyLists = False
         If .AutoFormatApplyBulletedLists <> False Then .AutoFormatApplyBulletedLists = False
         If .AutoFormatApplyOtherParas <> False Then .AutoFormatApplyOtherParas = False
-        If .AutoFormatReplaceSymbols <> False Then .AutoFormatReplaceSymbols = False
+        ' "Hyphens (--) with dash", on demand - the other half of the as-you-type box above.
+        If .AutoFormatReplaceSymbols <> True Then .AutoFormatReplaceSymbols = True
         If .AutoFormatReplaceOrdinals <> False Then .AutoFormatReplaceOrdinals = False
         If .AutoFormatReplaceFractions <> False Then .AutoFormatReplaceFractions = False
         If .AutoFormatPreserveStyles <> True Then .AutoFormatPreserveStyles = True
         If .AutoFormatPlainTextWordMail <> False Then .AutoFormatPlainTextWordMail = False
-        ' The on-demand half of the same pair - see the note above.
+        ' The on-demand half of the same pair - see the note above. Smart quotes only now:
+        ' "Internet and network paths with hyperlinks" is OFF here from 8/21/2026 (Jerry, 3.0.217),
+        ' which reverses half of what went in earlier the same day. The AS-YOU-TYPE hyperlink box
+        ' stays ON - he named this tab and only this tab, so the two halves differ on purpose.
         If .AutoFormatReplaceQuotes <> True Then .AutoFormatReplaceQuotes = True
-        If .AutoFormatReplaceHyperlinks <> True Then .AutoFormatReplaceHyperlinks = True
+        If .AutoFormatReplaceHyperlinks <> False Then .AutoFormatReplaceHyperlinks = False
     End With
 
     If Not Sh_Config_Skip_Display Then   ' the transcriber's screen is theirs - see Sh_Config_Skip_Display
@@ -18687,12 +18710,21 @@ Sub MS_Set_Word_Config_For_Braille()
         ' left Word's own value standing in a book, and a book needs these on. They are in
         ' Sh_Tracked_Settings, so her own value comes back in her letters.
         If .AutoFormatAsYouTypeReplaceQuotes <> True Then .AutoFormatAsYouTypeReplaceQuotes = True
-        If .AutoFormatAsYouTypeReplaceHyperlinks <> True Then .AutoFormatAsYouTypeReplaceHyperlinks = True
+        ' "Internet and network paths with hyperlinks" is OFF in braille from 8/21/2026 - Jerry,
+        ' 3.0.217. This reverses half of the smart-quote work earlier the same day, which put both
+        ' quotes and hyperlinks back as book settings. Quotes stay on; hyperlinks do not. Braille
+        ' turns it off on BOTH tabs, which is the difference from large print - there he asked for
+        ' the on-demand tab only and the as-you-type box stays on.
+        If .AutoFormatAsYouTypeReplaceHyperlinks <> False Then .AutoFormatAsYouTypeReplaceHyperlinks = False
     End With
     
     With AutoCorrect
         If .CorrectSentenceCaps <> False Then .CorrectSentenceCaps = False
         If .CorrectTableCells <> False Then .CorrectTableCells = False
+
+        ' "Automatically use suggestions from the spelling checker". ON from 8/21/2026 - Jerry,
+        ' 3.0.217, the same call he made for large print. Tracked since that change.
+        If .ReplaceTextFromSpellingChecker <> True Then .ReplaceTextFromSpellingChecker = True
     End With
 
     With Options
@@ -18703,11 +18735,15 @@ Sub MS_Set_Word_Config_For_Braille()
         If .AutoFormatReplaceSymbols <> True Then .AutoFormatReplaceSymbols = True
         If .AutoFormatReplaceOrdinals <> True Then .AutoFormatReplaceOrdinals = True
         If .AutoFormatReplaceFractions <> True Then .AutoFormatReplaceFractions = True
-        If .AutoFormatPreserveStyles <> False Then .AutoFormatPreserveStyles = False
+        ' The "Styles" box in the AutoFormat tab's Preserve group. ON from 8/21/2026 - Jerry,
+        ' 3.0.217. Large print has had this True throughout; braille forced it False and now
+        ' agrees with it.
+        If .AutoFormatPreserveStyles <> True Then .AutoFormatPreserveStyles = True
         If .AutoFormatPlainTextWordMail <> False Then .AutoFormatPlainTextWordMail = False
         ' The on-demand half of the same pair - see the note above.
         If .AutoFormatReplaceQuotes <> True Then .AutoFormatReplaceQuotes = True
-        If .AutoFormatReplaceHyperlinks <> True Then .AutoFormatReplaceHyperlinks = True
+        ' The on-demand half - see the note on the as-you-type box above.
+        If .AutoFormatReplaceHyperlinks <> False Then .AutoFormatReplaceHyperlinks = False
     End With
     
     ' add the compact fractions to autocorrect - the list lives in Sh_Add_Compact_Fractions,
@@ -18928,6 +18964,9 @@ End Function
 ' needs them on. Back in the two book configurations only - never in the ordinary one, which is
 ' the difference between a book setting and a preference imposed on her Word.
 '
+' Version: 1.3  Date: 8/21/2026 - AutoFormatAsYouTypeApplyFirstIndents and the AutoCorrect setting
+'                                 ReplaceTextFromSpellingChecker, both written for the first time by
+'                                 large print (Jerry, 3.0.217). 34 -> 36
 ' Version: 1.2  Date: 8/21/2026 - the three AutoFormat As You Type settings large print had never
 '                                 written: ApplyHeadings, DefineStyles and ReplacePlainTextEmphasis
 '                                 (the "Markdown" box). 31 -> 34. Braille does not write these three;
@@ -18937,23 +18976,23 @@ End Function
 ' Version: 1.0  Date: 8/20/2026
 Private Function Sh_Tracked_Settings() As Variant
     ' Built with Split rather than Array(...) and a line continuation per name: VBA allows at
-    ' most 25 continuations in one statement and there are 34 names here, which does not fail
+    ' most 25 continuations in one statement and there are 36 names here, which does not fail
     ' at the line - it fails the whole module at import, with a COM error from the build script
     ' that says nothing about continuations. 8/20/2026, and it cost a build to find.
     Dim nm As String
 
     nm = "AutoFormatApplyBulletedLists,AutoFormatApplyHeadings,AutoFormatApplyLists,"
     nm = nm & "AutoFormatApplyOtherParas,AutoFormatAsYouTypeApplyBorders,AutoFormatAsYouTypeApplyBulletedLists,"
-    nm = nm & "AutoFormatAsYouTypeApplyHeadings,AutoFormatAsYouTypeApplyNumberedLists,AutoFormatAsYouTypeApplyTables,"
-    nm = nm & "AutoFormatAsYouTypeDefineStyles,AutoFormatAsYouTypeFormatListItemBeginning,AutoFormatAsYouTypeReplaceFractions,"
-    nm = nm & "AutoFormatAsYouTypeReplaceHyperlinks,AutoFormatAsYouTypeReplaceOrdinals,AutoFormatAsYouTypeReplacePlainTextEmphasis,"
-    nm = nm & "AutoFormatAsYouTypeReplaceQuotes,AutoFormatAsYouTypeReplaceSymbols,AutoFormatPlainTextWordMail,"
-    nm = nm & "AutoFormatPreserveStyles,AutoFormatReplaceFractions,AutoFormatReplaceHyperlinks,"
-    nm = nm & "AutoFormatReplaceOrdinals,AutoFormatReplaceQuotes,AutoFormatReplaceSymbols,"
-    nm = nm & "CheckGrammarAsYouType,ContextualSpeller,CorrectSentenceCaps,"
-    nm = nm & "CorrectTableCells,IgnoreMixedDigits,IgnoreUppercase,"
-    nm = nm & "LabelSmartTags,RestrictLinkedStyles,ShowStylePreviews,"
-    nm = nm & "TabIndentKey"
+    nm = nm & "AutoFormatAsYouTypeApplyFirstIndents,AutoFormatAsYouTypeApplyHeadings,AutoFormatAsYouTypeApplyNumberedLists,"
+    nm = nm & "AutoFormatAsYouTypeApplyTables,AutoFormatAsYouTypeDefineStyles,AutoFormatAsYouTypeFormatListItemBeginning,"
+    nm = nm & "AutoFormatAsYouTypeReplaceFractions,AutoFormatAsYouTypeReplaceHyperlinks,AutoFormatAsYouTypeReplaceOrdinals,"
+    nm = nm & "AutoFormatAsYouTypeReplacePlainTextEmphasis,AutoFormatAsYouTypeReplaceQuotes,AutoFormatAsYouTypeReplaceSymbols,"
+    nm = nm & "AutoFormatPlainTextWordMail,AutoFormatPreserveStyles,AutoFormatReplaceFractions,"
+    nm = nm & "AutoFormatReplaceHyperlinks,AutoFormatReplaceOrdinals,AutoFormatReplaceQuotes,"
+    nm = nm & "AutoFormatReplaceSymbols,CheckGrammarAsYouType,ContextualSpeller,"
+    nm = nm & "CorrectSentenceCaps,CorrectTableCells,IgnoreMixedDigits,"
+    nm = nm & "IgnoreUppercase,LabelSmartTags,ReplaceTextFromSpellingChecker,"
+    nm = nm & "RestrictLinkedStyles,ShowStylePreviews,TabIndentKey"
 
     Sh_Tracked_Settings = Split(nm, ",")
 End Function  '*** end of Sh_Tracked_Settings ***
@@ -18972,6 +19011,7 @@ Private Function Sh_Setting_Live(ByVal nm As String) As Boolean
         Case "AutoFormatApplyOtherParas": Sh_Setting_Live = Options.AutoFormatApplyOtherParas
         Case "AutoFormatAsYouTypeApplyBorders": Sh_Setting_Live = Options.AutoFormatAsYouTypeApplyBorders
         Case "AutoFormatAsYouTypeApplyBulletedLists": Sh_Setting_Live = Options.AutoFormatAsYouTypeApplyBulletedLists
+        Case "AutoFormatAsYouTypeApplyFirstIndents": Sh_Setting_Live = Options.AutoFormatAsYouTypeApplyFirstIndents
         Case "AutoFormatAsYouTypeApplyHeadings": Sh_Setting_Live = Options.AutoFormatAsYouTypeApplyHeadings
         Case "AutoFormatAsYouTypeApplyNumberedLists": Sh_Setting_Live = Options.AutoFormatAsYouTypeApplyNumberedLists
         Case "AutoFormatAsYouTypeApplyTables": Sh_Setting_Live = Options.AutoFormatAsYouTypeApplyTables
@@ -18997,6 +19037,7 @@ Private Function Sh_Setting_Live(ByVal nm As String) As Boolean
         Case "IgnoreMixedDigits": Sh_Setting_Live = Options.IgnoreMixedDigits
         Case "IgnoreUppercase": Sh_Setting_Live = Options.IgnoreUppercase
         Case "LabelSmartTags": Sh_Setting_Live = Options.LabelSmartTags
+        Case "ReplaceTextFromSpellingChecker": Sh_Setting_Live = AutoCorrect.ReplaceTextFromSpellingChecker
         Case "RestrictLinkedStyles": Sh_Setting_Live = Application.RestrictLinkedStyles
         Case "ShowStylePreviews": Sh_Setting_Live = Application.ShowStylePreviews
         Case "TabIndentKey": Sh_Setting_Live = Options.TabIndentKey
@@ -19019,6 +19060,7 @@ Private Sub Sh_Setting_Put(ByVal nm As String, ByVal wanted As Boolean)
         Case "AutoFormatApplyOtherParas": If Options.AutoFormatApplyOtherParas <> wanted Then Options.AutoFormatApplyOtherParas = wanted
         Case "AutoFormatAsYouTypeApplyBorders": If Options.AutoFormatAsYouTypeApplyBorders <> wanted Then Options.AutoFormatAsYouTypeApplyBorders = wanted
         Case "AutoFormatAsYouTypeApplyBulletedLists": If Options.AutoFormatAsYouTypeApplyBulletedLists <> wanted Then Options.AutoFormatAsYouTypeApplyBulletedLists = wanted
+        Case "AutoFormatAsYouTypeApplyFirstIndents": If Options.AutoFormatAsYouTypeApplyFirstIndents <> wanted Then Options.AutoFormatAsYouTypeApplyFirstIndents = wanted
         Case "AutoFormatAsYouTypeApplyHeadings": If Options.AutoFormatAsYouTypeApplyHeadings <> wanted Then Options.AutoFormatAsYouTypeApplyHeadings = wanted
         Case "AutoFormatAsYouTypeApplyNumberedLists": If Options.AutoFormatAsYouTypeApplyNumberedLists <> wanted Then Options.AutoFormatAsYouTypeApplyNumberedLists = wanted
         Case "AutoFormatAsYouTypeApplyTables": If Options.AutoFormatAsYouTypeApplyTables <> wanted Then Options.AutoFormatAsYouTypeApplyTables = wanted
@@ -19044,6 +19086,7 @@ Private Sub Sh_Setting_Put(ByVal nm As String, ByVal wanted As Boolean)
         Case "IgnoreMixedDigits": If Options.IgnoreMixedDigits <> wanted Then Options.IgnoreMixedDigits = wanted
         Case "IgnoreUppercase": If Options.IgnoreUppercase <> wanted Then Options.IgnoreUppercase = wanted
         Case "LabelSmartTags": If Options.LabelSmartTags <> wanted Then Options.LabelSmartTags = wanted
+        Case "ReplaceTextFromSpellingChecker": If AutoCorrect.ReplaceTextFromSpellingChecker <> wanted Then AutoCorrect.ReplaceTextFromSpellingChecker = wanted
         Case "RestrictLinkedStyles": If Application.RestrictLinkedStyles <> wanted Then Application.RestrictLinkedStyles = wanted
         Case "ShowStylePreviews": If Application.ShowStylePreviews <> wanted Then Application.ShowStylePreviews = wanted
         Case "TabIndentKey": If Options.TabIndentKey <> wanted Then Options.TabIndentKey = wanted
