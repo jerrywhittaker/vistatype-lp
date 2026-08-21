@@ -245,7 +245,8 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - BRL - 8/18/2026 - and it is not a ribbon button or a toolbar id, so nothing in the field references it. It still runs LAST,
 '           - BRL - 8/18/2026 - after the optional cleanups, for the reason it always did: those passes rewrite text, so a font set any
 '           - BRL - 8/18/2026 - earlier is not the font the transcriber ends up reading.
-' Notes:    - Dx - 8/18/2026 - braille switches OFF "Set left- and first-indent with tabs and backspaces" (Options.TabIndentKey).
+' Notes:    - Dx - 8/21/2026 - both books now switch ON "Set left- and first-indent with tabs and backspaces" (Options.TabIndentKey) - Jerry, 3.0.220. Braille switched it OFF from 8/18/2026 until then; large print never wrote it, and inherited braille's OFF because it is one global Word setting.
+' Notes:    - Dx - 8/18/2026 - braille switched OFF "Set left- and first-indent with tabs and backspaces" (Options.TabIndentKey).
 '           - Dx - 8/18/2026 - Jerry, 8/18/2026. It had been one of the fifteen removed from all three configurations earlier the same
 '           - Dx - 8/18/2026 - day, on the measurement that all three wrote it True - which was correct at the time and is now wrong.
 '           - Dx - 8/18/2026 - It comes back as a SWITCHED setting, not a forced one: noted while the ordinary configuration is in force
@@ -824,9 +825,11 @@ Private Const VT_STORE_BOOK As String = "BookApplied"
 ' settings of 8/18/2026; "2" the twenty-seven of 8/20/2026; "3" the thirty-one of 8/21/2026,
 ' when smart quotes and hyperlinks came back as book settings; "4" the thirty-four of 8/21/2026,
 ' when the three AutoFormat As You Type boxes large print had never written were added; "5" the
-' thirty-six of 8/21/2026, adding first-indents and the spelling-checker suggestions setting.
+' thirty-six of 8/21/2026, adding first-indents and the spelling-checker suggestions setting; "6"
+' the thirty-five of 8/21/2026, when first-indents came back out as the wrong property; "7" the
+' thirty-six of 8/21/2026, adding CheckSpellingAsYouType.
 Private Const VT_STORE_STAMP As String = "StoreVersion"
-Private Const VT_STORE_STAMP_NOW As String = "5"
+Private Const VT_STORE_STAMP_NOW As String = "7"
 
 ' The large print template's file name, and as of 8/20/2026 the ONE fact that decides whether a
 ' document is a large print document - see Lp_Is_The_Attached_Template_LP. Compared by NAME and
@@ -18507,12 +18510,6 @@ Sub MS_Set_Word_Config_For_Large_Print()
 
         If .AutoFormatAsYouTypeFormatListItemBeginning <> False Then .AutoFormatAsYouTypeFormatListItemBeginning = False
 
-        ' "Set left- and first-indent with tabs and backspaces". ON from 8/21/2026 - Jerry, 3.0.217.
-        ' This one was dropped from all three configurations on 8/20/2026 as a setting no book had
-        ' ever varied, and MS_Set_Word_Config_For_New_Install still says so. That note governs the
-        ' ORDINARY configuration and still holds: a fixed write there cannot be told from her own
-        ' choice. Here it is a BOOK setting, which is a different thing, and it is tracked.
-        If .AutoFormatAsYouTypeApplyFirstIndents <> True Then .AutoFormatAsYouTypeApplyFirstIndents = True
 
         ' "Define styles based on your formatting" - never written either, same 8/21/2026 report.
         ' The worst of the three for large print: it lets Word REDEFINE a style out from under the
@@ -18529,12 +18526,19 @@ Sub MS_Set_Word_Config_For_Large_Print()
         If .AutoFormatAsYouTypeReplaceHyperlinks <> True Then .AutoFormatAsYouTypeReplaceHyperlinks = True
     End With
     
+    ' Spell-check-as-you-type, ON - Jerry, 3.0.220. It is here for its own sake AND because the
+    ' AutoCorrect setting below is GATED on it: while this is False, Word greys the suggestions
+    ' box out in the dialog and silently refuses the assignment, raising no error and leaving the
+    ' value False. That is why 3.0.218 and 3.0.219 appeared to write it and did nothing. Proved on
+    ' the build box 8/21/2026: with this True the very next assignment sticks. MUST STAY ABOVE IT.
+    If Options.CheckSpellingAsYouType <> True Then Options.CheckSpellingAsYouType = True
+
     With AutoCorrect
         If .CorrectSentenceCaps <> False Then .CorrectSentenceCaps = False
         If .CorrectTableCells <> False Then .CorrectTableCells = False
 
-        ' "Automatically use suggestions from the spelling checker". ON from 8/21/2026 - Jerry,
-        ' 3.0.217. First time anything in the project has written it, so it is new to the ledger.
+        ' The suggestions-from-the-spelling-checker box. GATED on Options.CheckSpellingAsYouType,
+        ' set True just above - see the note there. Do not move this above it.
         If .ReplaceTextFromSpellingChecker <> True Then .ReplaceTextFromSpellingChecker = True
     End With
 
@@ -18640,6 +18644,13 @@ Sub MS_Set_Word_Config_For_Large_Print()
     If Options.LabelSmartTags <> False Then Options.LabelSmartTags = False
     If Options.IgnoreUppercase <> False Then Options.IgnoreUppercase = False
 
+    ' "Set left- and first-indent with tabs and backspaces" - ON from 8/21/2026, Jerry, 3.0.220.
+    ' Large print had never written this; braille switched it OFF, and because it is one global
+    ' Word setting rather than a per-document one, a braille session left it off underneath large
+    ' print too. Sits with the two writes above, below the Sh_ConfiguredAs line, for the same
+    ' reason they do. See the braille sub for how this checkbox was identified.
+    If Options.TabIndentKey <> True Then Options.TabIndentKey = True
+
     ' Write down what this configuration has just applied, so that returning to an ordinary
     ' document can tell a setting SHE changed from one this sub set. THE VERY LAST THING THE SUB
     ' DOES, below the two writes above and not above them - see Sh_Note_Book_Settings 1.1.
@@ -18704,26 +18715,42 @@ Sub MS_Set_Word_Config_For_Braille()
         If .AutoFormatAsYouTypeReplaceFractions <> True Then .AutoFormatAsYouTypeReplaceFractions = True
         If .AutoFormatAsYouTypeFormatListItemBeginning <> False Then .AutoFormatAsYouTypeFormatListItemBeginning = False
 
+
+        ' The "Markdown for heading, bold, italic and strikethrough" box, off - and KNOWN NOT TO
+        ' WORK YET. Written here only so the two books stay in step and there is one place to fix.
+        ' 3.0.217 shipped this same write for large print; Jerry installed it and the box was still
+        ' checked, so ReplacePlainTextEmphasis is NOT what backs that checkbox, and Word exposes no
+        ' property matching Markdown at all. Whatever this property really does control should be
+        ' off in a book anyway, so it is harmless where it stands. See the note in large print.
+        If .AutoFormatAsYouTypeReplacePlainTextEmphasis <> False Then .AutoFormatAsYouTypeReplacePlainTextEmphasis = False
+
         ' Smart quotes and hyperlinks, back as BOOK settings on 8/21/2026 - Jerry. Both books
         ' forced them on until 8/18/2026, when they were dropped from all three configurations
         ' as "identical everywhere". Identical is not the same as unimportant: dropping them
         ' left Word's own value standing in a book, and a book needs these on. They are in
         ' Sh_Tracked_Settings, so her own value comes back in her letters.
         If .AutoFormatAsYouTypeReplaceQuotes <> True Then .AutoFormatAsYouTypeReplaceQuotes = True
-        ' "Internet and network paths with hyperlinks" is OFF in braille from 8/21/2026 - Jerry,
-        ' 3.0.217. This reverses half of the smart-quote work earlier the same day, which put both
-        ' quotes and hyperlinks back as book settings. Quotes stay on; hyperlinks do not. Braille
-        ' turns it off on BOTH tabs, which is the difference from large print - there he asked for
-        ' the on-demand tab only and the as-you-type box stays on.
-        If .AutoFormatAsYouTypeReplaceHyperlinks <> False Then .AutoFormatAsYouTypeReplaceHyperlinks = False
+        ' "Internet and network paths with hyperlinks", ON in braille. This box has now been
+        ' turned off and on again within one day: off in 3.0.218 at Jerry's request, back on in
+        ' 3.0.219 once he saw it in the tab. ON is where it rests. Large print is NOT the same -
+        ' there the as-you-type box is on and the on-demand one off, which he has left alone
+        ' through both rounds, so the two books genuinely differ here.
+        If .AutoFormatAsYouTypeReplaceHyperlinks <> True Then .AutoFormatAsYouTypeReplaceHyperlinks = True
     End With
     
+    ' Spell-check-as-you-type, ON - Jerry, 3.0.220. It is here for its own sake AND because the
+    ' AutoCorrect setting below is GATED on it: while this is False, Word greys the suggestions
+    ' box out in the dialog and silently refuses the assignment, raising no error and leaving the
+    ' value False. That is why 3.0.218 and 3.0.219 appeared to write it and did nothing. Proved on
+    ' the build box 8/21/2026: with this True the very next assignment sticks. MUST STAY ABOVE IT.
+    If Options.CheckSpellingAsYouType <> True Then Options.CheckSpellingAsYouType = True
+
     With AutoCorrect
         If .CorrectSentenceCaps <> False Then .CorrectSentenceCaps = False
         If .CorrectTableCells <> False Then .CorrectTableCells = False
 
-        ' "Automatically use suggestions from the spelling checker". ON from 8/21/2026 - Jerry,
-        ' 3.0.217, the same call he made for large print. Tracked since that change.
+        ' The suggestions-from-the-spelling-checker box. GATED on Options.CheckSpellingAsYouType,
+        ' set True just above - see the note there. Do not move this above it.
         If .ReplaceTextFromSpellingChecker <> True Then .ReplaceTextFromSpellingChecker = True
     End With
 
@@ -18743,7 +18770,7 @@ Sub MS_Set_Word_Config_For_Braille()
         ' The on-demand half of the same pair - see the note above.
         If .AutoFormatReplaceQuotes <> True Then .AutoFormatReplaceQuotes = True
         ' The on-demand half - see the note on the as-you-type box above.
-        If .AutoFormatReplaceHyperlinks <> False Then .AutoFormatReplaceHyperlinks = False
+        If .AutoFormatReplaceHyperlinks <> True Then .AutoFormatReplaceHyperlinks = True
     End With
     
     ' add the compact fractions to autocorrect - the list lives in Sh_Add_Compact_Fractions,
@@ -18776,7 +18803,13 @@ Sub MS_Set_Word_Config_For_Braille()
     If Options.LabelSmartTags <> False Then Options.LabelSmartTags = False
     If Options.IgnoreUppercase <> False Then Options.IgnoreUppercase = False
     ' "Set left- and first-indent with tabs and backspaces" - off for braille. Jerry, 8/18/2026.
-    If Options.TabIndentKey <> False Then Options.TabIndentKey = False
+    ' "Set left- and first-indent with tabs and backspaces" - ON from 8/21/2026, Jerry, 3.0.220.
+    ' Braille had switched it off since 8/18/2026. THIS is that checkbox: proved on the build box
+    ' by parking the add-in, ticking the box by hand and reading back - TabIndentKey went False to
+    ' True and nothing else moved. 3.0.218 and 3.0.219 aimed at AutoFormatAsYouTypeApplyFirstIndents
+    ' instead, which held True the whole time while the box sat unticked; that write is gone from
+    ' both books. The name at the top of this module said TabIndentKey all along.
+    If Options.TabIndentKey <> True Then Options.TabIndentKey = True
 
     ' Write down what this configuration has just applied, so that returning to an ordinary
     ' document can tell a setting SHE changed from one this sub set. THE VERY LAST THING THE SUB
@@ -18964,6 +18997,9 @@ End Function
 ' needs them on. Back in the two book configurations only - never in the ordinary one, which is
 ' the difference between a book setting and a preference imposed on her Word.
 '
+' Version: 1.4  Date: 8/21/2026 - AutoFormatAsYouTypeApplyFirstIndents comes back OUT: it is not the
+'                                 checkbox anybody thought it was (see MS_Set_Word_Config_For_Braille),
+'                                 nothing writes it again, and it is hers. 36 -> 35
 ' Version: 1.3  Date: 8/21/2026 - AutoFormatAsYouTypeApplyFirstIndents and the AutoCorrect setting
 '                                 ReplaceTextFromSpellingChecker, both written for the first time by
 '                                 large print (Jerry, 3.0.217). 34 -> 36
@@ -18983,13 +19019,13 @@ Private Function Sh_Tracked_Settings() As Variant
 
     nm = "AutoFormatApplyBulletedLists,AutoFormatApplyHeadings,AutoFormatApplyLists,"
     nm = nm & "AutoFormatApplyOtherParas,AutoFormatAsYouTypeApplyBorders,AutoFormatAsYouTypeApplyBulletedLists,"
-    nm = nm & "AutoFormatAsYouTypeApplyFirstIndents,AutoFormatAsYouTypeApplyHeadings,AutoFormatAsYouTypeApplyNumberedLists,"
-    nm = nm & "AutoFormatAsYouTypeApplyTables,AutoFormatAsYouTypeDefineStyles,AutoFormatAsYouTypeFormatListItemBeginning,"
-    nm = nm & "AutoFormatAsYouTypeReplaceFractions,AutoFormatAsYouTypeReplaceHyperlinks,AutoFormatAsYouTypeReplaceOrdinals,"
-    nm = nm & "AutoFormatAsYouTypeReplacePlainTextEmphasis,AutoFormatAsYouTypeReplaceQuotes,AutoFormatAsYouTypeReplaceSymbols,"
-    nm = nm & "AutoFormatPlainTextWordMail,AutoFormatPreserveStyles,AutoFormatReplaceFractions,"
-    nm = nm & "AutoFormatReplaceHyperlinks,AutoFormatReplaceOrdinals,AutoFormatReplaceQuotes,"
-    nm = nm & "AutoFormatReplaceSymbols,CheckGrammarAsYouType,ContextualSpeller,"
+    nm = nm & "AutoFormatAsYouTypeApplyHeadings,AutoFormatAsYouTypeApplyNumberedLists,AutoFormatAsYouTypeApplyTables,"
+    nm = nm & "AutoFormatAsYouTypeDefineStyles,AutoFormatAsYouTypeFormatListItemBeginning,AutoFormatAsYouTypeReplaceFractions,"
+    nm = nm & "AutoFormatAsYouTypeReplaceHyperlinks,AutoFormatAsYouTypeReplaceOrdinals,AutoFormatAsYouTypeReplacePlainTextEmphasis,"
+    nm = nm & "AutoFormatAsYouTypeReplaceQuotes,AutoFormatAsYouTypeReplaceSymbols,AutoFormatPlainTextWordMail,"
+    nm = nm & "AutoFormatPreserveStyles,AutoFormatReplaceFractions,AutoFormatReplaceHyperlinks,"
+    nm = nm & "AutoFormatReplaceOrdinals,AutoFormatReplaceQuotes,AutoFormatReplaceSymbols,"
+    nm = nm & "CheckGrammarAsYouType,CheckSpellingAsYouType,ContextualSpeller,"
     nm = nm & "CorrectSentenceCaps,CorrectTableCells,IgnoreMixedDigits,"
     nm = nm & "IgnoreUppercase,LabelSmartTags,ReplaceTextFromSpellingChecker,"
     nm = nm & "RestrictLinkedStyles,ShowStylePreviews,TabIndentKey"
@@ -19011,7 +19047,6 @@ Private Function Sh_Setting_Live(ByVal nm As String) As Boolean
         Case "AutoFormatApplyOtherParas": Sh_Setting_Live = Options.AutoFormatApplyOtherParas
         Case "AutoFormatAsYouTypeApplyBorders": Sh_Setting_Live = Options.AutoFormatAsYouTypeApplyBorders
         Case "AutoFormatAsYouTypeApplyBulletedLists": Sh_Setting_Live = Options.AutoFormatAsYouTypeApplyBulletedLists
-        Case "AutoFormatAsYouTypeApplyFirstIndents": Sh_Setting_Live = Options.AutoFormatAsYouTypeApplyFirstIndents
         Case "AutoFormatAsYouTypeApplyHeadings": Sh_Setting_Live = Options.AutoFormatAsYouTypeApplyHeadings
         Case "AutoFormatAsYouTypeApplyNumberedLists": Sh_Setting_Live = Options.AutoFormatAsYouTypeApplyNumberedLists
         Case "AutoFormatAsYouTypeApplyTables": Sh_Setting_Live = Options.AutoFormatAsYouTypeApplyTables
@@ -19031,6 +19066,7 @@ Private Function Sh_Setting_Live(ByVal nm As String) As Boolean
         Case "AutoFormatReplaceQuotes": Sh_Setting_Live = Options.AutoFormatReplaceQuotes
         Case "AutoFormatReplaceSymbols": Sh_Setting_Live = Options.AutoFormatReplaceSymbols
         Case "CheckGrammarAsYouType": Sh_Setting_Live = Options.CheckGrammarAsYouType
+        Case "CheckSpellingAsYouType": Sh_Setting_Live = Options.CheckSpellingAsYouType
         Case "ContextualSpeller": Sh_Setting_Live = Options.ContextualSpeller
         Case "CorrectSentenceCaps": Sh_Setting_Live = AutoCorrect.CorrectSentenceCaps
         Case "CorrectTableCells": Sh_Setting_Live = AutoCorrect.CorrectTableCells
@@ -19060,7 +19096,6 @@ Private Sub Sh_Setting_Put(ByVal nm As String, ByVal wanted As Boolean)
         Case "AutoFormatApplyOtherParas": If Options.AutoFormatApplyOtherParas <> wanted Then Options.AutoFormatApplyOtherParas = wanted
         Case "AutoFormatAsYouTypeApplyBorders": If Options.AutoFormatAsYouTypeApplyBorders <> wanted Then Options.AutoFormatAsYouTypeApplyBorders = wanted
         Case "AutoFormatAsYouTypeApplyBulletedLists": If Options.AutoFormatAsYouTypeApplyBulletedLists <> wanted Then Options.AutoFormatAsYouTypeApplyBulletedLists = wanted
-        Case "AutoFormatAsYouTypeApplyFirstIndents": If Options.AutoFormatAsYouTypeApplyFirstIndents <> wanted Then Options.AutoFormatAsYouTypeApplyFirstIndents = wanted
         Case "AutoFormatAsYouTypeApplyHeadings": If Options.AutoFormatAsYouTypeApplyHeadings <> wanted Then Options.AutoFormatAsYouTypeApplyHeadings = wanted
         Case "AutoFormatAsYouTypeApplyNumberedLists": If Options.AutoFormatAsYouTypeApplyNumberedLists <> wanted Then Options.AutoFormatAsYouTypeApplyNumberedLists = wanted
         Case "AutoFormatAsYouTypeApplyTables": If Options.AutoFormatAsYouTypeApplyTables <> wanted Then Options.AutoFormatAsYouTypeApplyTables = wanted
@@ -19080,6 +19115,7 @@ Private Sub Sh_Setting_Put(ByVal nm As String, ByVal wanted As Boolean)
         Case "AutoFormatReplaceQuotes": If Options.AutoFormatReplaceQuotes <> wanted Then Options.AutoFormatReplaceQuotes = wanted
         Case "AutoFormatReplaceSymbols": If Options.AutoFormatReplaceSymbols <> wanted Then Options.AutoFormatReplaceSymbols = wanted
         Case "CheckGrammarAsYouType": If Options.CheckGrammarAsYouType <> wanted Then Options.CheckGrammarAsYouType = wanted
+        Case "CheckSpellingAsYouType": If Options.CheckSpellingAsYouType <> wanted Then Options.CheckSpellingAsYouType = wanted
         Case "ContextualSpeller": If Options.ContextualSpeller <> wanted Then Options.ContextualSpeller = wanted
         Case "CorrectSentenceCaps": If AutoCorrect.CorrectSentenceCaps <> wanted Then AutoCorrect.CorrectSentenceCaps = wanted
         Case "CorrectTableCells": If AutoCorrect.CorrectTableCells <> wanted Then AutoCorrect.CorrectTableCells = wanted
