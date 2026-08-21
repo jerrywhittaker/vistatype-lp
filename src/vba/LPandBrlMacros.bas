@@ -822,9 +822,10 @@ Private Const VT_STORE_BOOK As String = "BookApplied"
 ' The shape of the store, so a file written by an older build is thrown away whole rather than
 ' half-read. Bump it whenever Sh_Tracked_Settings changes. "1" was the six spelling and grammar
 ' settings of 8/18/2026; "2" the twenty-seven of 8/20/2026; "3" the thirty-one of 8/21/2026,
-' when smart quotes and hyperlinks came back as book settings.
+' when smart quotes and hyperlinks came back as book settings; "4" the thirty-four of 8/21/2026,
+' when the three AutoFormat As You Type boxes large print had never written were added.
 Private Const VT_STORE_STAMP As String = "StoreVersion"
-Private Const VT_STORE_STAMP_NOW As String = "3"
+Private Const VT_STORE_STAMP_NOW As String = "4"
 
 ' The large print template's file name, and as of 8/20/2026 the ONE fact that decides whether a
 ' document is a large print document - see Lp_Is_The_Attached_Template_LP. Compared by NAME and
@@ -18359,7 +18360,7 @@ Sub MS_Set_Word_Config_For_New_Install()
     ' Nothing had failed to save. This sub was rewriting them.
     '
     ' What puts them back now is Sh_Restore_Transcriber_Settings, one call below, working from the
-    ' ledger - HER values, not Word's factory ones, and covering thirty-one settings rather than
+    ' ledger - HER values, not Word's factory ones, and covering thirty-four settings rather than
     ' the twenty that were written here. Do not add a fixed write back into this sub: a value
     ' written here cannot be told from a value she chose.
     '
@@ -18432,6 +18433,12 @@ Sub MS_Set_Word_Config_For_Large_Print()
     '
     ' Author: Jerry Whittaker -  jerry@thewhittakers.org
     '
+    ' Version: 2.6  Date: 8/21/2026 - the three AutoFormat As You Type boxes this sub had never written are
+    '                                 written now, all False: built-in heading styles, the Markdown box
+    '                                 (AutoFormatAsYouTypeReplacePlainTextEmphasis) and define-styles-from-
+    '                                 formatting. Jerry found all three checked in a large print document
+    '                                 testing 3.0.216. The on-demand AutoFormat half had been correct all
+    '                                 along, which is why this went unnoticed. Tracked too - 31 -> 34
     ' Version: 2.5  Date: 8/21/2026 - smart quotes and hyperlinks are written again, both forms, and
     '                                 Sh_Note_Book_Settings moved below the trailing writes (Jerry, 3.0.215)
     ' Version: 2.4  Date: 8/20/2026 - records what it applied, for the ledger - Sh_Note_Book_Settings
@@ -18469,10 +18476,34 @@ Sub MS_Set_Word_Config_For_Large_Print()
         If .AutoFormatAsYouTypeApplyBulletedLists <> False Then .AutoFormatAsYouTypeApplyBulletedLists = False
         If .AutoFormatAsYouTypeApplyNumberedLists <> False Then .AutoFormatAsYouTypeApplyNumberedLists = False
         If .AutoFormatAsYouTypeApplyTables <> False Then .AutoFormatAsYouTypeApplyTables = False
+
+        ' Built-in Heading styles, as you type. Jerry, 8/21/2026, testing 3.0.216: this box was
+        ' checked in a large print document and should not be. It had never been written by
+        ' anything - the on-demand half (AutoFormatApplyHeadings, below) was there from the start
+        ' and the as-you-type half was simply missed, so Word's own True stood in a book. Typing
+        ' a short line and pressing Enter twice silently applies Heading 1, which in large print
+        ' takes the transcriber's body size away and replaces it with the style's own.
+        If .AutoFormatAsYouTypeApplyHeadings <> False Then .AutoFormatAsYouTypeApplyHeadings = False
+
         If .AutoFormatAsYouTypeReplaceSymbols <> False Then .AutoFormatAsYouTypeReplaceSymbols = False
         If .AutoFormatAsYouTypeReplaceOrdinals <> False Then .AutoFormatAsYouTypeReplaceOrdinals = False
         If .AutoFormatAsYouTypeReplaceFractions <> False Then .AutoFormatAsYouTypeReplaceFractions = False
+
+        ' The box the dialog now calls "Markdown for heading, bold, italic and strikethrough".
+        ' There is no property of that name: Word relabelled the old "*Bold* and _italic_ with
+        ' real formatting" checkbox when it widened the feature, and this is still what backs it.
+        ' Confirmed against the 22 AutoFormatAsYouType properties Word 16.0 exposes - none of them
+        ' mentions Markdown. Off in a book for the same reason as the heading styles: it rewrites
+        ' the transcriber's formatting from punctuation she may have typed deliberately.
+        If .AutoFormatAsYouTypeReplacePlainTextEmphasis <> False Then .AutoFormatAsYouTypeReplacePlainTextEmphasis = False
+
         If .AutoFormatAsYouTypeFormatListItemBeginning <> False Then .AutoFormatAsYouTypeFormatListItemBeginning = False
+
+        ' "Define styles based on your formatting" - never written either, same 8/21/2026 report.
+        ' The worst of the three for large print: it lets Word REDEFINE a style out from under the
+        ' template because of something typed in one paragraph, which is exactly what attaching an
+        ' LP template is meant to prevent.
+        If .AutoFormatAsYouTypeDefineStyles <> False Then .AutoFormatAsYouTypeDefineStyles = False
 
         ' Smart quotes and hyperlinks, back as BOOK settings on 8/21/2026 - Jerry. Both books
         ' forced them on until 8/18/2026, when they were dropped from all three configurations
@@ -18897,19 +18928,25 @@ End Function
 ' needs them on. Back in the two book configurations only - never in the ordinary one, which is
 ' the difference between a book setting and a preference imposed on her Word.
 '
+' Version: 1.2  Date: 8/21/2026 - the three AutoFormat As You Type settings large print had never
+'                                 written: ApplyHeadings, DefineStyles and ReplacePlainTextEmphasis
+'                                 (the "Markdown" box). 31 -> 34. Braille does not write these three;
+'                                 they are tracked so large print cannot keep her value once it has
+'                                 taken it, exactly as with smart quotes below.
 ' Version: 1.1  Date: 8/21/2026 - the four smart-quote and hyperlink settings, 27 -> 31
 ' Version: 1.0  Date: 8/20/2026
 Private Function Sh_Tracked_Settings() As Variant
     ' Built with Split rather than Array(...) and a line continuation per name: VBA allows at
-    ' most 25 continuations in one statement and there are 27 names here, which does not fail
+    ' most 25 continuations in one statement and there are 34 names here, which does not fail
     ' at the line - it fails the whole module at import, with a COM error from the build script
     ' that says nothing about continuations. 8/20/2026, and it cost a build to find.
     Dim nm As String
 
     nm = "AutoFormatApplyBulletedLists,AutoFormatApplyHeadings,AutoFormatApplyLists,"
     nm = nm & "AutoFormatApplyOtherParas,AutoFormatAsYouTypeApplyBorders,AutoFormatAsYouTypeApplyBulletedLists,"
-    nm = nm & "AutoFormatAsYouTypeApplyNumberedLists,AutoFormatAsYouTypeApplyTables,AutoFormatAsYouTypeFormatListItemBeginning,"
-    nm = nm & "AutoFormatAsYouTypeReplaceFractions,AutoFormatAsYouTypeReplaceHyperlinks,AutoFormatAsYouTypeReplaceOrdinals,"
+    nm = nm & "AutoFormatAsYouTypeApplyHeadings,AutoFormatAsYouTypeApplyNumberedLists,AutoFormatAsYouTypeApplyTables,"
+    nm = nm & "AutoFormatAsYouTypeDefineStyles,AutoFormatAsYouTypeFormatListItemBeginning,AutoFormatAsYouTypeReplaceFractions,"
+    nm = nm & "AutoFormatAsYouTypeReplaceHyperlinks,AutoFormatAsYouTypeReplaceOrdinals,AutoFormatAsYouTypeReplacePlainTextEmphasis,"
     nm = nm & "AutoFormatAsYouTypeReplaceQuotes,AutoFormatAsYouTypeReplaceSymbols,AutoFormatPlainTextWordMail,"
     nm = nm & "AutoFormatPreserveStyles,AutoFormatReplaceFractions,AutoFormatReplaceHyperlinks,"
     nm = nm & "AutoFormatReplaceOrdinals,AutoFormatReplaceQuotes,AutoFormatReplaceSymbols,"
@@ -18935,12 +18972,15 @@ Private Function Sh_Setting_Live(ByVal nm As String) As Boolean
         Case "AutoFormatApplyOtherParas": Sh_Setting_Live = Options.AutoFormatApplyOtherParas
         Case "AutoFormatAsYouTypeApplyBorders": Sh_Setting_Live = Options.AutoFormatAsYouTypeApplyBorders
         Case "AutoFormatAsYouTypeApplyBulletedLists": Sh_Setting_Live = Options.AutoFormatAsYouTypeApplyBulletedLists
+        Case "AutoFormatAsYouTypeApplyHeadings": Sh_Setting_Live = Options.AutoFormatAsYouTypeApplyHeadings
         Case "AutoFormatAsYouTypeApplyNumberedLists": Sh_Setting_Live = Options.AutoFormatAsYouTypeApplyNumberedLists
         Case "AutoFormatAsYouTypeApplyTables": Sh_Setting_Live = Options.AutoFormatAsYouTypeApplyTables
+        Case "AutoFormatAsYouTypeDefineStyles": Sh_Setting_Live = Options.AutoFormatAsYouTypeDefineStyles
         Case "AutoFormatAsYouTypeFormatListItemBeginning": Sh_Setting_Live = Options.AutoFormatAsYouTypeFormatListItemBeginning
         Case "AutoFormatAsYouTypeReplaceFractions": Sh_Setting_Live = Options.AutoFormatAsYouTypeReplaceFractions
         Case "AutoFormatAsYouTypeReplaceHyperlinks": Sh_Setting_Live = Options.AutoFormatAsYouTypeReplaceHyperlinks
         Case "AutoFormatAsYouTypeReplaceOrdinals": Sh_Setting_Live = Options.AutoFormatAsYouTypeReplaceOrdinals
+        Case "AutoFormatAsYouTypeReplacePlainTextEmphasis": Sh_Setting_Live = Options.AutoFormatAsYouTypeReplacePlainTextEmphasis
         Case "AutoFormatAsYouTypeReplaceQuotes": Sh_Setting_Live = Options.AutoFormatAsYouTypeReplaceQuotes
         Case "AutoFormatAsYouTypeReplaceSymbols": Sh_Setting_Live = Options.AutoFormatAsYouTypeReplaceSymbols
         Case "AutoFormatPlainTextWordMail": Sh_Setting_Live = Options.AutoFormatPlainTextWordMail
@@ -18979,12 +19019,15 @@ Private Sub Sh_Setting_Put(ByVal nm As String, ByVal wanted As Boolean)
         Case "AutoFormatApplyOtherParas": If Options.AutoFormatApplyOtherParas <> wanted Then Options.AutoFormatApplyOtherParas = wanted
         Case "AutoFormatAsYouTypeApplyBorders": If Options.AutoFormatAsYouTypeApplyBorders <> wanted Then Options.AutoFormatAsYouTypeApplyBorders = wanted
         Case "AutoFormatAsYouTypeApplyBulletedLists": If Options.AutoFormatAsYouTypeApplyBulletedLists <> wanted Then Options.AutoFormatAsYouTypeApplyBulletedLists = wanted
+        Case "AutoFormatAsYouTypeApplyHeadings": If Options.AutoFormatAsYouTypeApplyHeadings <> wanted Then Options.AutoFormatAsYouTypeApplyHeadings = wanted
         Case "AutoFormatAsYouTypeApplyNumberedLists": If Options.AutoFormatAsYouTypeApplyNumberedLists <> wanted Then Options.AutoFormatAsYouTypeApplyNumberedLists = wanted
         Case "AutoFormatAsYouTypeApplyTables": If Options.AutoFormatAsYouTypeApplyTables <> wanted Then Options.AutoFormatAsYouTypeApplyTables = wanted
+        Case "AutoFormatAsYouTypeDefineStyles": If Options.AutoFormatAsYouTypeDefineStyles <> wanted Then Options.AutoFormatAsYouTypeDefineStyles = wanted
         Case "AutoFormatAsYouTypeFormatListItemBeginning": If Options.AutoFormatAsYouTypeFormatListItemBeginning <> wanted Then Options.AutoFormatAsYouTypeFormatListItemBeginning = wanted
         Case "AutoFormatAsYouTypeReplaceFractions": If Options.AutoFormatAsYouTypeReplaceFractions <> wanted Then Options.AutoFormatAsYouTypeReplaceFractions = wanted
         Case "AutoFormatAsYouTypeReplaceHyperlinks": If Options.AutoFormatAsYouTypeReplaceHyperlinks <> wanted Then Options.AutoFormatAsYouTypeReplaceHyperlinks = wanted
         Case "AutoFormatAsYouTypeReplaceOrdinals": If Options.AutoFormatAsYouTypeReplaceOrdinals <> wanted Then Options.AutoFormatAsYouTypeReplaceOrdinals = wanted
+        Case "AutoFormatAsYouTypeReplacePlainTextEmphasis": If Options.AutoFormatAsYouTypeReplacePlainTextEmphasis <> wanted Then Options.AutoFormatAsYouTypeReplacePlainTextEmphasis = wanted
         Case "AutoFormatAsYouTypeReplaceQuotes": If Options.AutoFormatAsYouTypeReplaceQuotes <> wanted Then Options.AutoFormatAsYouTypeReplaceQuotes = wanted
         Case "AutoFormatAsYouTypeReplaceSymbols": If Options.AutoFormatAsYouTypeReplaceSymbols <> wanted Then Options.AutoFormatAsYouTypeReplaceSymbols = wanted
         Case "AutoFormatPlainTextWordMail": If Options.AutoFormatPlainTextWordMail <> wanted Then Options.AutoFormatPlainTextWordMail = wanted
@@ -19024,6 +19067,8 @@ Sub Sh_Save_Transcriber_Settings()
 '
 ' Author: Jerry Whittaker -  jerry@thewhittakers.org
 '
+' Version: 3.2  Date: 8/21/2026 - 34 settings: the three AutoFormat As You Type boxes large print
+'                                 had never written (Jerry, 3.0.216)
 ' Version: 3.1  Date: 8/21/2026 - 31 settings: smart quotes and hyperlinks are book settings again
 ' Version: 3.0  Date: 8/20/2026 - walks Sh_Tracked_Settings: 27 settings instead of 6, and writes
 '                                 the store's version stamp. Only writes a value that has actually
@@ -19155,6 +19200,8 @@ Sub Sh_Restore_Transcriber_Settings()
 '
 ' Author: Jerry Whittaker -  jerry@thewhittakers.org
 '
+' Version: 3.2  Date: 8/21/2026 - 34 settings: the three AutoFormat As You Type boxes large print
+'                                 had never written (Jerry, 3.0.216)
 ' Version: 3.1  Date: 8/21/2026 - 31 settings: smart quotes and hyperlinks are book settings again
 ' Version: 3.0  Date: 8/20/2026 - learns what she changed inside a book, and covers all 27 tracked
 '                                 settings rather than 6. Piece 4 of the automatic-configuration plan
