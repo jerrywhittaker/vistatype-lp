@@ -18,6 +18,42 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - MS - 8/20/2026 - PIECE 4 of the automatic-configuration plan, with the typing half of Piece 3 that depends on it.
+'           - MS - 8/20/2026 - The twenty Options and AutoCorrect writes in MS_Set_Word_Config_For_New_Install are GONE. They set
+'           - MS - 8/20/2026 - Word's factory value on every ordinary document open, which LOOKED like restoring her settings and
+'           - MS - 8/20/2026 - was overwriting them: Jerry, testing 3.0.210, cleared every box in AutoCorrect, AutoFormat and
+'           - MS - 8/20/2026 - AutoFormat As You Type, closed Word, came back and found them checked again. Nothing had failed to
+'           - MS - 8/20/2026 - save; that sub was rewriting them. AutoFormatAsYouTypeApplyFirstIndents went too - no book ever
+'           - MS - 8/20/2026 - touched it, so the write could only ever overwrite her own choice, the 8/18/2026 reasoning again.
+'           - MS - 8/20/2026 - What puts them back is the LEDGER, and it now covers TWENTY-SEVEN settings rather than six. The list
+'           - MS - 8/20/2026 - is not guesswork: Sh_Tracked_Settings is the union of what the two book configurations actually
+'           - MS - 8/20/2026 - write, read out of those subs. Twenty of them the ordinary configuration used to rewrite, which is
+'           - MS - 8/20/2026 - why nobody noticed; the other seven it never put back at all - the six spelling and grammar ones
+'           - MS - 8/20/2026 - found on 8/18, plus ShowStylePreviews and RestrictLinkedStyles, switched on by the books and off by
+'           - MS - 8/20/2026 - nothing since 2021. ADDING A SETTING TO EITHER BOOK CONFIGURATION MEANS ADDING IT TO THAT LIST.
+'           - MS - 8/20/2026 - Telling "she changed it" from "a book set it" is the point of the piece, and it is done with a
+'           - MS - 8/20/2026 - record rather than a guess. New Sh_Note_Book_Settings runs at the END of each book configuration
+'           - MS - 8/20/2026 - and writes what is live into a second section, [BookApplied]. Reading the live values at the end is
+'           - MS - 8/20/2026 - deliberate: every write in those subs is guarded with If <>, so a setting already holding the book's
+'           - MS - 8/20/2026 - value is never written, and recording what was INTENDED would have to know about writes that never
+'           - MS - 8/20/2026 - happened. Sh_Restore_Transcriber_Settings (3.0) then compares live against that record - anything
+'           - MS - 8/20/2026 - that no longer matches, she changed while working, and it becomes hers. Jerry, 8/20/2026: she does
+'           - MS - 8/20/2026 - far more in Word than large print and braille and does not stop being an ordinary user when she
+'           - MS - 8/20/2026 - opens a book, so a change made INSIDE one is a real preference and follows her out to her letters.
+'           - MS - 8/20/2026 - Three paths, in the order tested. Store written by an older build: throw it away whole rather than
+'           - MS - 8/20/2026 - half-read it, and clear the book half FIRST or the save declines and this path repeats for ever.
+'           - MS - 8/20/2026 - No book in force since we were last here: the live values ARE hers - this is what the old sub got
+'           - MS - 8/20/2026 - wrong, restoring over the top of a change she had just made in one letter and opened another.
+'           - MS - 8/20/2026 - A book in force: learn, restore, then clear the record so the next letter does not compare against
+'           - MS - 8/20/2026 - a book long gone.
+'           - MS - 8/20/2026 - The guard that makes it survive Word CLOSING is in Sh_Save_Transcriber_Settings: it declines while a
+'           - MS - 8/20/2026 - book record is outstanding. Quit Word inside a book and Word saves the BOOK's settings as its own and
+'           - MS - 8/20/2026 - loads them next session, where AutoExec runs before anything can be configured and would write them
+'           - MS - 8/20/2026 - straight into her preferences, losing the real ones for good. The book record outlives the session in
+'           - MS - 8/20/2026 - the same file, which is the only reason the question can be answered at all - and the first letter she
+'           - MS - 8/20/2026 - opens next session then learns and restores exactly as if she had never quit.
+'           - MS - 8/20/2026 - The store carries a version stamp now (VT_STORE_STAMP_NOW), so a file of the old six-setting shape is
+'           - MS - 8/20/2026 - discarded rather than half-read. Bump it whenever Sh_Tracked_Settings changes.
 ' Notes:    - Sh - 8/20/2026 - the Styles pane needs TWO handles written as well, for the same reason the navigation pane did, and
 '           - Sh - 8/20/2026 - it is worth writing the reason down once properly. Application.TaskPanes(wdTaskPaneFormatting) needs a
 '           - Sh - 8/20/2026 - DOCUMENT WINDOW to hang the pane on, and when Word is empty it quietly does nothing at all. Jerry,
@@ -762,6 +798,18 @@ Public Sh_LastDocEvent As String   ' diagnostic breadcrumb: last document event 
 Private Const VT_STORE_FOLDER As String = "VistaType LP Settings"
 Private Const VT_STORE_FILE As String = "VistaType.ini"
 Private Const VT_STORE_MINE As String = "TranscriberSettings"
+
+' The second half of the ledger: what the large print or braille configuration most recently
+' WROTE. It is what makes "she changed it" tellable from "a book set it" - on the way back to an
+' ordinary document, a tracked setting that no longer matches this is one she changed while
+' working, and that is a preference. See Sh_Restore_Transcriber_Settings.
+Private Const VT_STORE_BOOK As String = "BookApplied"
+
+' The shape of the store, so a file written by an older build is thrown away whole rather than
+' half-read. Bump it whenever Sh_Tracked_Settings changes. "1" was the six spelling and grammar
+' settings of 8/18/2026; "2" is the twenty-seven of 8/20/2026.
+Private Const VT_STORE_STAMP As String = "StoreVersion"
+Private Const VT_STORE_STAMP_NOW As String = "2"
 
 ' The large print template's file name, and as of 8/20/2026 the ONE fact that decides whether a
 ' document is a large print document - see Lp_Is_The_Attached_Template_LP. Compared by NAME and
@@ -18288,22 +18336,22 @@ Sub MS_Set_Word_Config_For_New_Install()
     
     ' Only write settings that differ from their target, so re-running this on every new
     ' document doesn't hand Word's (roaming) settings store a no-op "change" each time.
-    With Options
-        If .AutoFormatAsYouTypeApplyBorders <> True Then .AutoFormatAsYouTypeApplyBorders = True
-        If .AutoFormatAsYouTypeApplyBulletedLists <> True Then .AutoFormatAsYouTypeApplyBulletedLists = True
-        If .AutoFormatAsYouTypeApplyNumberedLists <> True Then .AutoFormatAsYouTypeApplyNumberedLists = True
-        If .AutoFormatAsYouTypeApplyTables <> True Then .AutoFormatAsYouTypeApplyTables = True
-        If .AutoFormatAsYouTypeReplaceSymbols <> True Then .AutoFormatAsYouTypeReplaceSymbols = True
-        If .AutoFormatAsYouTypeReplaceOrdinals <> True Then .AutoFormatAsYouTypeReplaceOrdinals = True
-        If .AutoFormatAsYouTypeReplaceFractions <> True Then .AutoFormatAsYouTypeReplaceFractions = True
-        If .AutoFormatAsYouTypeFormatListItemBeginning <> True Then .AutoFormatAsYouTypeFormatListItemBeginning = True
-        If .AutoFormatAsYouTypeApplyFirstIndents <> True Then .AutoFormatAsYouTypeApplyFirstIndents = True
-    End With
-
-    With AutoCorrect
-        If .CorrectSentenceCaps <> True Then .CorrectSentenceCaps = True
-        If .CorrectTableCells <> True Then .CorrectTableCells = True
-
+    ' 8/20/2026 - the twenty Options and AutoCorrect writes that stood here are GONE, and this is
+    ' the typing half of Piece 3 of the automatic-configuration plan. They set Word's factory
+    ' value for twenty settings on every ordinary document open, which LOOKED like restoring her
+    ' settings and was overwriting them: Jerry, testing 3.0.210, cleared every box in AutoCorrect,
+    ' AutoFormat and AutoFormat As You Type, closed Word, came back, and found them checked again.
+    ' Nothing had failed to save. This sub was rewriting them.
+    '
+    ' What puts them back now is Sh_Restore_Transcriber_Settings, one call below, working from the
+    ' ledger - HER values, not Word's factory ones, and covering twenty-seven settings rather than
+    ' the twenty that were written here. Do not add a fixed write back into this sub: a value
+    ' written here cannot be told from a value she chose.
+    '
+    ' AutoFormatAsYouTypeApplyFirstIndents went with them and is written by nothing now. No book
+    ' configuration ever touched it, so the only thing the write did was overwrite her own choice -
+    ' the same reasoning that removed fifteen settings from all three configurations on 8/18/2026.
+    '
         ' NOT WRITTEN HERE, DELIBERATELY - do not add them.
         '
         ' The four "AutoAdd" properties - FirstLetterAutoAdd, TwoInitialCapsAutoAdd,
@@ -18318,19 +18366,6 @@ Sub MS_Set_Word_Config_For_New_Install()
         ' the-language setting, which belongs to a multilingual transcriber's own setup and
         ' to no part of large print or braille. Leaving it in only the two books would have
         ' been worse than leaving it everywhere: one book opened and it was off for good.
-    End With
-
-    With Options
-        If .AutoFormatApplyHeadings <> True Then .AutoFormatApplyHeadings = True
-        If .AutoFormatApplyLists <> True Then .AutoFormatApplyLists = True
-        If .AutoFormatApplyBulletedLists <> True Then .AutoFormatApplyBulletedLists = True
-        If .AutoFormatApplyOtherParas <> True Then .AutoFormatApplyOtherParas = True
-        If .AutoFormatReplaceSymbols <> True Then .AutoFormatReplaceSymbols = True
-        If .AutoFormatReplaceOrdinals <> True Then .AutoFormatReplaceOrdinals = True
-        If .AutoFormatReplaceFractions <> True Then .AutoFormatReplaceFractions = True
-        If .AutoFormatPreserveStyles <> True Then .AutoFormatPreserveStyles = True
-        If .AutoFormatPlainTextWordMail <> True Then .AutoFormatPlainTextWordMail = True
-    End With
     
     ' What a plain letter looks like when it opens, decided by Jerry and the beta tester on
     ' 8/20/2026: no formatting marks, no Styles pane, no navigation pane, both rulers, print
@@ -18511,6 +18546,13 @@ Sub MS_Set_Word_Config_For_Large_Print()
     AutoCorrect.Entries("1/9").Delete
     AutoCorrect.Entries("1/10").Delete
 
+
+    ' Write down what this configuration has just applied, so that returning to an ordinary
+    ' document can tell a setting SHE changed from one this sub set. Last, after every write
+    ' above has run - see Sh_Note_Book_Settings for why reading the live values here is right and
+    ' recording the intended ones would not be.
+    Sh_Note_Book_Settings
+
     MS_Word_Config = "Word is configured for large print"
     Sh_ConfiguredAs = "LP"    ' see Sh_HandleDocumentActivated: record what is ACTUALLY in force
 
@@ -18611,6 +18653,13 @@ Sub MS_Set_Word_Config_For_Braille()
         Application.TaskPanes(wdTaskPaneFormatting).Visible = False 'turn off styles pane
         ActiveWindow.ActivePane.View.Type = wdNormalView
     End If
+
+
+    ' Write down what this configuration has just applied, so that returning to an ordinary
+    ' document can tell a setting SHE changed from one this sub set. Last, after every write
+    ' above has run - see Sh_Note_Book_Settings for why reading the live values here is right and
+    ' recording the intended ones would not be.
+    Sh_Note_Book_Settings
 
     MS_Word_Config = "Word is configured for braille"
     Sh_ConfiguredAs = "BRL"   ' see Sh_HandleDocumentActivated: record what is ACTUALLY in force
@@ -18786,70 +18835,313 @@ Private Function Sh_Store_To_Bool(ByVal held As String) As Boolean
     Sh_Store_To_Bool = (held = "1")
 End Function
 
+' EVERY setting a large print or braille configuration takes away from her, in one list, walked
+' by all three of the subs below - the save, the compare and the restore. Twenty-seven of them,
+' and the list is not guesswork: it is the union of what MS_Set_Word_Config_For_Large_Print and
+' MS_Set_Word_Config_For_Braille actually write, read out of those two subs on 8/20/2026.
+'
+' ADDING A SETTING TO EITHER BOOK CONFIGURATION MEANS ADDING IT HERE, and to both Select Cases
+' below, and bumping VT_STORE_STAMP_NOW. A setting a book writes and this list does not name is
+' one she never gets back - which is exactly the fault found on 8/18/2026, when one braille file
+' turned grammar checking off for every document she opened, that session and every session after.
+'
+' Twenty of these the ordinary configuration used to rewrite to Word's factory value, which is
+' why nobody noticed: it looked like restoring and was overwriting. The other seven it never put
+' back at all - the six spelling and grammar ones found on 8/18, plus ShowStylePreviews and
+' RestrictLinkedStyles, which the books switch on and nothing has ever switched off.
+'
+' Version: 1.0  Date: 8/20/2026
+Private Function Sh_Tracked_Settings() As Variant
+    ' Built with Split rather than Array(...) and a line continuation per name: VBA allows at
+    ' most 25 continuations in one statement and there are 27 names here, which does not fail
+    ' at the line - it fails the whole module at import, with a COM error from the build script
+    ' that says nothing about continuations. 8/20/2026, and it cost a build to find.
+    Dim nm As String
+
+    nm = "AutoFormatApplyBulletedLists,AutoFormatApplyHeadings,AutoFormatApplyLists,"
+    nm = nm & "AutoFormatApplyOtherParas,AutoFormatAsYouTypeApplyBorders,AutoFormatAsYouTypeApplyBulletedLists,"
+    nm = nm & "AutoFormatAsYouTypeApplyNumberedLists,AutoFormatAsYouTypeApplyTables,AutoFormatAsYouTypeFormatListItemBeginning,"
+    nm = nm & "AutoFormatAsYouTypeReplaceFractions,AutoFormatAsYouTypeReplaceOrdinals,AutoFormatAsYouTypeReplaceSymbols,"
+    nm = nm & "AutoFormatPlainTextWordMail,AutoFormatPreserveStyles,AutoFormatReplaceFractions,"
+    nm = nm & "AutoFormatReplaceOrdinals,AutoFormatReplaceSymbols,CheckGrammarAsYouType,"
+    nm = nm & "ContextualSpeller,CorrectSentenceCaps,CorrectTableCells,"
+    nm = nm & "IgnoreMixedDigits,IgnoreUppercase,LabelSmartTags,"
+    nm = nm & "RestrictLinkedStyles,ShowStylePreviews,TabIndentKey"
+
+    Sh_Tracked_Settings = Split(nm, ",")
+End Function  '*** end of Sh_Tracked_Settings ***
+
+' What one tracked setting is set to RIGHT NOW. The three owners - Options, AutoCorrect and
+' Application - are why this is a Select Case and not something cleverer: VBA cannot reach a
+' property by name without CallByName, which is slower and silently returns Empty on a typo.
+'
+' Version: 1.0  Date: 8/20/2026
+Private Function Sh_Setting_Live(ByVal nm As String) As Boolean
+    On Error Resume Next
+    Select Case nm
+        Case "AutoFormatApplyBulletedLists": Sh_Setting_Live = Options.AutoFormatApplyBulletedLists
+        Case "AutoFormatApplyHeadings": Sh_Setting_Live = Options.AutoFormatApplyHeadings
+        Case "AutoFormatApplyLists": Sh_Setting_Live = Options.AutoFormatApplyLists
+        Case "AutoFormatApplyOtherParas": Sh_Setting_Live = Options.AutoFormatApplyOtherParas
+        Case "AutoFormatAsYouTypeApplyBorders": Sh_Setting_Live = Options.AutoFormatAsYouTypeApplyBorders
+        Case "AutoFormatAsYouTypeApplyBulletedLists": Sh_Setting_Live = Options.AutoFormatAsYouTypeApplyBulletedLists
+        Case "AutoFormatAsYouTypeApplyNumberedLists": Sh_Setting_Live = Options.AutoFormatAsYouTypeApplyNumberedLists
+        Case "AutoFormatAsYouTypeApplyTables": Sh_Setting_Live = Options.AutoFormatAsYouTypeApplyTables
+        Case "AutoFormatAsYouTypeFormatListItemBeginning": Sh_Setting_Live = Options.AutoFormatAsYouTypeFormatListItemBeginning
+        Case "AutoFormatAsYouTypeReplaceFractions": Sh_Setting_Live = Options.AutoFormatAsYouTypeReplaceFractions
+        Case "AutoFormatAsYouTypeReplaceOrdinals": Sh_Setting_Live = Options.AutoFormatAsYouTypeReplaceOrdinals
+        Case "AutoFormatAsYouTypeReplaceSymbols": Sh_Setting_Live = Options.AutoFormatAsYouTypeReplaceSymbols
+        Case "AutoFormatPlainTextWordMail": Sh_Setting_Live = Options.AutoFormatPlainTextWordMail
+        Case "AutoFormatPreserveStyles": Sh_Setting_Live = Options.AutoFormatPreserveStyles
+        Case "AutoFormatReplaceFractions": Sh_Setting_Live = Options.AutoFormatReplaceFractions
+        Case "AutoFormatReplaceOrdinals": Sh_Setting_Live = Options.AutoFormatReplaceOrdinals
+        Case "AutoFormatReplaceSymbols": Sh_Setting_Live = Options.AutoFormatReplaceSymbols
+        Case "CheckGrammarAsYouType": Sh_Setting_Live = Options.CheckGrammarAsYouType
+        Case "ContextualSpeller": Sh_Setting_Live = Options.ContextualSpeller
+        Case "CorrectSentenceCaps": Sh_Setting_Live = AutoCorrect.CorrectSentenceCaps
+        Case "CorrectTableCells": Sh_Setting_Live = AutoCorrect.CorrectTableCells
+        Case "IgnoreMixedDigits": Sh_Setting_Live = Options.IgnoreMixedDigits
+        Case "IgnoreUppercase": Sh_Setting_Live = Options.IgnoreUppercase
+        Case "LabelSmartTags": Sh_Setting_Live = Options.LabelSmartTags
+        Case "RestrictLinkedStyles": Sh_Setting_Live = Application.RestrictLinkedStyles
+        Case "ShowStylePreviews": Sh_Setting_Live = Application.ShowStylePreviews
+        Case "TabIndentKey": Sh_Setting_Live = Options.TabIndentKey
+    End Select
+    Err.Clear
+End Function  '*** end of Sh_Setting_Live ***
+
+' Put one tracked setting back. Guarded, like every other write in the three configurations:
+' her value is usually already in force and Word does not need telling twice - needless writes to
+' Options and AutoCorrect are what brought on Office's "restart to apply your privacy settings"
+' notice on 7/18/2026.
+'
+' Version: 1.0  Date: 8/20/2026
+Private Sub Sh_Setting_Put(ByVal nm As String, ByVal wanted As Boolean)
+    On Error Resume Next
+    Select Case nm
+        Case "AutoFormatApplyBulletedLists": If Options.AutoFormatApplyBulletedLists <> wanted Then Options.AutoFormatApplyBulletedLists = wanted
+        Case "AutoFormatApplyHeadings": If Options.AutoFormatApplyHeadings <> wanted Then Options.AutoFormatApplyHeadings = wanted
+        Case "AutoFormatApplyLists": If Options.AutoFormatApplyLists <> wanted Then Options.AutoFormatApplyLists = wanted
+        Case "AutoFormatApplyOtherParas": If Options.AutoFormatApplyOtherParas <> wanted Then Options.AutoFormatApplyOtherParas = wanted
+        Case "AutoFormatAsYouTypeApplyBorders": If Options.AutoFormatAsYouTypeApplyBorders <> wanted Then Options.AutoFormatAsYouTypeApplyBorders = wanted
+        Case "AutoFormatAsYouTypeApplyBulletedLists": If Options.AutoFormatAsYouTypeApplyBulletedLists <> wanted Then Options.AutoFormatAsYouTypeApplyBulletedLists = wanted
+        Case "AutoFormatAsYouTypeApplyNumberedLists": If Options.AutoFormatAsYouTypeApplyNumberedLists <> wanted Then Options.AutoFormatAsYouTypeApplyNumberedLists = wanted
+        Case "AutoFormatAsYouTypeApplyTables": If Options.AutoFormatAsYouTypeApplyTables <> wanted Then Options.AutoFormatAsYouTypeApplyTables = wanted
+        Case "AutoFormatAsYouTypeFormatListItemBeginning": If Options.AutoFormatAsYouTypeFormatListItemBeginning <> wanted Then Options.AutoFormatAsYouTypeFormatListItemBeginning = wanted
+        Case "AutoFormatAsYouTypeReplaceFractions": If Options.AutoFormatAsYouTypeReplaceFractions <> wanted Then Options.AutoFormatAsYouTypeReplaceFractions = wanted
+        Case "AutoFormatAsYouTypeReplaceOrdinals": If Options.AutoFormatAsYouTypeReplaceOrdinals <> wanted Then Options.AutoFormatAsYouTypeReplaceOrdinals = wanted
+        Case "AutoFormatAsYouTypeReplaceSymbols": If Options.AutoFormatAsYouTypeReplaceSymbols <> wanted Then Options.AutoFormatAsYouTypeReplaceSymbols = wanted
+        Case "AutoFormatPlainTextWordMail": If Options.AutoFormatPlainTextWordMail <> wanted Then Options.AutoFormatPlainTextWordMail = wanted
+        Case "AutoFormatPreserveStyles": If Options.AutoFormatPreserveStyles <> wanted Then Options.AutoFormatPreserveStyles = wanted
+        Case "AutoFormatReplaceFractions": If Options.AutoFormatReplaceFractions <> wanted Then Options.AutoFormatReplaceFractions = wanted
+        Case "AutoFormatReplaceOrdinals": If Options.AutoFormatReplaceOrdinals <> wanted Then Options.AutoFormatReplaceOrdinals = wanted
+        Case "AutoFormatReplaceSymbols": If Options.AutoFormatReplaceSymbols <> wanted Then Options.AutoFormatReplaceSymbols = wanted
+        Case "CheckGrammarAsYouType": If Options.CheckGrammarAsYouType <> wanted Then Options.CheckGrammarAsYouType = wanted
+        Case "ContextualSpeller": If Options.ContextualSpeller <> wanted Then Options.ContextualSpeller = wanted
+        Case "CorrectSentenceCaps": If AutoCorrect.CorrectSentenceCaps <> wanted Then AutoCorrect.CorrectSentenceCaps = wanted
+        Case "CorrectTableCells": If AutoCorrect.CorrectTableCells <> wanted Then AutoCorrect.CorrectTableCells = wanted
+        Case "IgnoreMixedDigits": If Options.IgnoreMixedDigits <> wanted Then Options.IgnoreMixedDigits = wanted
+        Case "IgnoreUppercase": If Options.IgnoreUppercase <> wanted Then Options.IgnoreUppercase = wanted
+        Case "LabelSmartTags": If Options.LabelSmartTags <> wanted Then Options.LabelSmartTags = wanted
+        Case "RestrictLinkedStyles": If Application.RestrictLinkedStyles <> wanted Then Application.RestrictLinkedStyles = wanted
+        Case "ShowStylePreviews": If Application.ShowStylePreviews <> wanted Then Application.ShowStylePreviews = wanted
+        Case "TabIndentKey": If Options.TabIndentKey <> wanted Then Options.TabIndentKey = wanted
+    End Select
+    Err.Clear
+End Sub  '*** end of Sh_Setting_Put ***
+
 Sub Sh_Save_Transcriber_Settings()
 '
-' Note the settings a book or braille configuration is about to take away, while they are still
-' the transcriber's. See the note beside the declarations at the top of this module for why they
-' exist and why they are kept in a file.
+' Note the settings a book is about to take away, while they are still hers.
 '
-' Called from AutoExec (so the very first thing a session knows is what Word loaded from her own
-' settings) and from the top of the large print and braille configurations. From those two it
-' saves ONLY when the ordinary configuration is genuinely in force: called any other time the
-' live values are ones a book already imposed, and saving those would record VistaType's own
-' setting as the transcriber's choice. That is why the test is on Sh_ConfiguredAs and not on who
-' the caller is - about a dozen places run the configuration subs directly.
+' Called from AutoExec, so the very first thing a session knows is what Word loaded from her own
+' settings; from the top of the two book configurations, but ONLY when the ordinary configuration
+' is genuinely in force, because called any other time the live values are ones a book already
+' imposed and saving those would record VistaType's own setting as her choice; and from
+' Sh_Restore_Transcriber_Settings on the path where no book has run since we were last in an
+' ordinary document, which is how a change she makes in a LETTER becomes her preference.
+'
+' The test for that guard is on Sh_ConfiguredAs and not on who the caller is - about a dozen
+' places run the configuration subs directly.
 '
 ' Author: Jerry Whittaker -  jerry@thewhittakers.org
 '
+' Version: 3.0  Date: 8/20/2026 - walks Sh_Tracked_Settings: 27 settings instead of 6, and writes
+'                                 the store's version stamp. Only writes a value that has actually
+'                                 changed, because this now runs on every ordinary document open
 ' Version: 2.0  Date: 8/18/2026 - kept in the settings file instead of module variables, which
 '                                 VBA's End statement wiped
 ' Version: 1.0  Date: 8/18/2026
 '
+    Dim names As Variant
+    Dim i As Long
+    Dim nm As String
+    Dim live As String
+
     On Error Resume Next
-    Sh_Setting_Write VT_STORE_MINE, "CheckGrammarAsYouType", Sh_Bool_To_Store(Options.CheckGrammarAsYouType)
-    Sh_Setting_Write VT_STORE_MINE, "IgnoreMixedDigits", Sh_Bool_To_Store(Options.IgnoreMixedDigits)
-    Sh_Setting_Write VT_STORE_MINE, "ContextualSpeller", Sh_Bool_To_Store(Options.ContextualSpeller)
-    Sh_Setting_Write VT_STORE_MINE, "LabelSmartTags", Sh_Bool_To_Store(Options.LabelSmartTags)
-    Sh_Setting_Write VT_STORE_MINE, "IgnoreUppercase", Sh_Bool_To_Store(Options.IgnoreUppercase)
-    Sh_Setting_Write VT_STORE_MINE, "TabIndentKey", Sh_Bool_To_Store(Options.TabIndentKey)
+
+    ' A book's values are standing in Word right now, so nothing here is hers. This is the guard
+    ' that makes the ledger survive Word CLOSING: if she quits while working in a book, Word saves
+    ' the book's settings as its own and loads them again next session - and AutoExec, which runs
+    ' before anything can be configured, would otherwise write those straight into her
+    ' preferences and lose the real ones for good. The book record outlives the session in the
+    ' same file, which is what makes the question answerable at all.
+    '
+    ' It costs nothing on the paths that legitimately save: the two book configurations only call
+    ' this while the ordinary configuration is in force, and Sh_Restore_Transcriber_Settings only
+    ' calls it after establishing that no book record is outstanding.
+    If Sh_Setting_Read(VT_STORE_BOOK, "Saved", "") = "1" Then
+        Err.Clear
+        Exit Sub
+    End If
+
+    names = Sh_Tracked_Settings()
+    For i = LBound(names) To UBound(names)
+        nm = names(i)
+        live = Sh_Bool_To_Store(Sh_Setting_Live(nm))
+        ' Written only when it differs. Twenty-seven unconditional writes on every letter she
+        ' opens is a great deal of file work for nothing.
+        If Sh_Setting_Read(VT_STORE_MINE, nm, "") <> live Then
+            Sh_Setting_Write VT_STORE_MINE, nm, live
+        End If
+    Next i
+
+    Sh_Setting_Write VT_STORE_MINE, VT_STORE_STAMP, VT_STORE_STAMP_NOW
     ' Written LAST, so a half-finished save is never mistaken for a complete one.
     Sh_Setting_Write VT_STORE_MINE, "Saved", "1"
-    On Error GoTo 0
+
+    Err.Clear
 
 End Sub  '*** end of Sh_Save_Transcriber_Settings ***
 
+' Record what a book configuration just applied. Called at the END of
+' MS_Set_Word_Config_For_Large_Print and MS_Set_Word_Config_For_Braille, after every write in them
+' has run - which is deliberate and is the answer to a trap.
+'
+' Every write in those two subs is guarded with If <>, so a setting that already held the book's
+' value is never written at all. Recording what the sub INTENDED, write by write, would therefore
+' have to know about writes that did not happen. Reading the live values once at the end sidesteps
+' it completely: by then the live value IS what the book asked for, whether it was written or was
+' already there.
+'
+' Running at the end also means a configuration that raises part way through records nothing, so
+' the next return to an ordinary document reads no book record and treats the live values as hers.
+' That is the safe way round: it can lose a restore, never her preferences.
+'
+' Version: 1.0  Date: 8/20/2026
+Sub Sh_Note_Book_Settings()
+    Dim names As Variant
+    Dim i As Long
+    Dim nm As String
+
+    On Error Resume Next
+
+    names = Sh_Tracked_Settings()
+    For i = LBound(names) To UBound(names)
+        nm = names(i)
+        Sh_Setting_Write VT_STORE_BOOK, nm, Sh_Bool_To_Store(Sh_Setting_Live(nm))
+    Next i
+
+    ' Written LAST, and it is what Sh_Restore_Transcriber_Settings tests. A half-written record
+    ' is never read as a whole one.
+    Sh_Setting_Write VT_STORE_BOOK, "Saved", "1"
+
+    Err.Clear
+
+End Sub  '*** end of Sh_Note_Book_Settings ***
+
 Sub Sh_Restore_Transcriber_Settings()
 '
-' Put them back. Called by MS_Set_Word_Config_For_New_Install only - returning to an ordinary
-' document is the moment they become hers again.
+' Called by the ordinary configuration only - arriving at an ordinary document is the moment her
+' settings become hers again. Despite the name it does two jobs, and the first one is the reason
+' this piece exists at all.
 '
-' Guarded writes, like everything else in that sub: her value is usually already in force and
-' Word does not need telling twice.
+' LEARNING WHAT SHE CHANGED. Jerry, 8/20/2026: she does far more in Word than large print and
+' braille, and she does not stop being an ordinary user when she opens a book - so a setting she
+' changes while working IN a book is a real preference and has to follow her out to her letters.
+' Word gives us no way to be told about it, and live values alone cannot say whether a setting is
+' switched off because she switched it off or because large print did. So the book configurations
+' write down what they applied (Sh_Note_Book_Settings) and this compares against that record:
+' anything that no longer matches, she changed, and it becomes hers.
+'
+' No heuristics, and it degrades the safe way. A setting no book writes is not in the list at all
+' and is already hers; a book run that raised part way through wrote no record, and then the live
+' values are taken as hers, which can lose a restore but can never lose a preference.
+'
+' The three paths, in the order they are tested:
+'
+'   The store was written by an older build - a different shape, and half-reading it would put
+'   values in the wrong places. Throw it away, note what is in force now, and change nothing.
+'
+'   No book has been in force since we were last in an ordinary document. Then the live values
+'   ARE hers - this covers her changing something in one letter and opening another, which the
+'   old sub got wrong by restoring over the top of it. Note them, restore nothing.
+'
+'   A book has been in force. Learn, restore, and clear the record so the next ordinary document
+'   does not compare against a book that is long gone.
+'
+' Guarded writes throughout, like everything else in that sub: her value is usually already in
+' force and Word does not need telling twice.
 '
 ' Author: Jerry Whittaker -  jerry@thewhittakers.org
 '
+' Version: 3.0  Date: 8/20/2026 - learns what she changed inside a book, and covers all 27 tracked
+'                                 settings rather than 6. Piece 4 of the automatic-configuration plan
 ' Version: 2.0  Date: 8/18/2026 - reads the settings file rather than module variables
 ' Version: 1.0  Date: 8/18/2026
 '
-    Dim wanted As Boolean
-
-    ' Nothing noted yet - leave Word exactly as it is.
-    If Sh_Setting_Read(VT_STORE_MINE, "Saved", "") <> "1" Then Exit Sub
+    Dim names As Variant
+    Dim i As Long
+    Dim nm As String
+    Dim held As String
+    Dim bookHeld As String
+    Dim live As String
 
     On Error Resume Next
-    wanted = Sh_Store_To_Bool(Sh_Setting_Read(VT_STORE_MINE, "CheckGrammarAsYouType", "1"))
-    If Options.CheckGrammarAsYouType <> wanted Then Options.CheckGrammarAsYouType = wanted
-    wanted = Sh_Store_To_Bool(Sh_Setting_Read(VT_STORE_MINE, "IgnoreMixedDigits", "0"))
-    If Options.IgnoreMixedDigits <> wanted Then Options.IgnoreMixedDigits = wanted
-    wanted = Sh_Store_To_Bool(Sh_Setting_Read(VT_STORE_MINE, "ContextualSpeller", "1"))
-    If Options.ContextualSpeller <> wanted Then Options.ContextualSpeller = wanted
-    wanted = Sh_Store_To_Bool(Sh_Setting_Read(VT_STORE_MINE, "LabelSmartTags", "0"))
-    If Options.LabelSmartTags <> wanted Then Options.LabelSmartTags = wanted
-    wanted = Sh_Store_To_Bool(Sh_Setting_Read(VT_STORE_MINE, "IgnoreUppercase", "0"))
-    If Options.IgnoreUppercase <> wanted Then Options.IgnoreUppercase = wanted
-    wanted = Sh_Store_To_Bool(Sh_Setting_Read(VT_STORE_MINE, "TabIndentKey", "1"))
-    If Options.TabIndentKey <> wanted Then Options.TabIndentKey = wanted
-    On Error GoTo 0
+
+    ' A store from an older build. Do not half-read it. The book half is thrown away FIRST -
+    ' it is of the old shape too, and leaving it standing would make Sh_Save_Transcriber_Settings
+    ' decline (see its guard), so no new stamp would ever be written and every ordinary document
+    ' from then on would take this same path.
+    If Sh_Setting_Read(VT_STORE_MINE, VT_STORE_STAMP, "") <> VT_STORE_STAMP_NOW Then
+        Sh_Setting_Write VT_STORE_BOOK, "Saved", "0"
+        Sh_Save_Transcriber_Settings
+        Err.Clear
+        Exit Sub
+    End If
+
+    ' Nothing has taken anything away since we were last here, so there is nothing to give back
+    ' and what is in force is hers - including whatever she has just changed in a letter.
+    If Sh_Setting_Read(VT_STORE_BOOK, "Saved", "") <> "1" Then
+        Sh_Save_Transcriber_Settings
+        Err.Clear
+        Exit Sub
+    End If
+
+    names = Sh_Tracked_Settings()
+
+    ' 1. Learn. Anything that no longer matches what the book wrote, she changed while working.
+    For i = LBound(names) To UBound(names)
+        nm = names(i)
+        bookHeld = Sh_Setting_Read(VT_STORE_BOOK, nm, "")
+        If bookHeld <> "" Then
+            live = Sh_Bool_To_Store(Sh_Setting_Live(nm))
+            If live <> bookHeld Then Sh_Setting_Write VT_STORE_MINE, nm, live
+        End If
+    Next i
+
+    ' 2. Give them back. A setting with nothing stored is left alone rather than guessed at.
+    For i = LBound(names) To UBound(names)
+        nm = names(i)
+        held = Sh_Setting_Read(VT_STORE_MINE, nm, "")
+        If held <> "" Then Sh_Setting_Put nm, Sh_Store_To_Bool(held)
+    Next i
+
+    ' 3. The book record has been spent. Leave it marked as such - Sh_Setting_Write with an empty
+    ' string DELETES a key rather than emptying it, so "0" is written instead.
+    Sh_Setting_Write VT_STORE_BOOK, "Saved", "0"
+
+    Err.Clear
 
 End Sub  '*** end of Sh_Restore_Transcriber_Settings ***
 
