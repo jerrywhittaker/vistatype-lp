@@ -11,8 +11,11 @@ Pipeline, all of it repeatable from an upstream release:
               variable fonts poorly and will not give real Bold
   4. scale    unitsPerEm 1000 -> 960, an exact 25/24 enlargement, so nominal point
               sizes match the VistaType ruler (measured: 37.5pt matched the ruler's 36)
-  5. metrics  retune vertical metrics so Word's "Single" line spacing matches Tahoma
-  6. rename   per the OFL Reserved Font Name clause
+  5. symbols  fold in Noto Sans Math and Noto Sans Symbols, into EVERY face -- Word does
+              not fall back inside a family (tested: a bold character the Bold face lacked
+              came out of Cambria Math, another typeface at another size)
+  6. metrics  retune vertical metrics so Word's "Single" line spacing matches Tahoma
+  7. rename   per the OFL Reserved Font Name clause
 
 Output: TrueType (glyf) .ttf, fsType 0, ready for Word embedding.
 
@@ -28,6 +31,16 @@ try:
     from fontTools.pens.boundsPen import BoundsPen
 except ImportError:
     sys.exit("fontTools is required:  pip install fonttools")
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from merge_symbol_glyphs import merge_glyphs
+
+DONORS = {
+    "math":    ("https://raw.githubusercontent.com/google/fonts/main/ofl/notosansmath/"
+                "NotoSansMath-Regular.ttf"),
+    "symbols": ("https://raw.githubusercontent.com/google/fonts/main/ofl/notosanssymbols/"
+                "NotoSansSymbols%5Bwght%5D.ttf"),
+}
 
 SOURCES = {
     "roman":  ("https://raw.githubusercontent.com/google/fonts/main/ofl/notosans/"
@@ -58,10 +71,32 @@ REQUIRED = (
     "ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩαβγδεζηθικλμνξοπρσςτυφχψωάέήίόύώΐΰϊϋ"
     "ɞəɛɔɪʊʌæŋʃʒθðɑɒøœɜɐɘɵɤɯˈˌː"
     "!\"#$%&'()*+,-./:;<=>?@[]^_{|}~«»“”‘’–—…"
+    # Mathematics, logic and arrows. This is the third leg of the coverage test the installer's
+    # own note demands -- "Greek, the IPA, the math operators" -- and the one VistaTypeLP
+    # Legible failed. It is listed here so the BUILD fails on a face that cannot set it, rather
+    # than a transcriber finding out when Word substitutes at the wrong size.
+    "≤≥≠≈∞√∑∏∫∂∆∇∀∃∈∉⊂⊆∪∩±×÷←→↑↓⇌⇔"
+    "ℝℕℤℚℂℵℏℓ∅"          # letterlike: real numbers, aleph, Planck, empty set
+    "☉♀♂♁♃♄♭♮♯"           # astronomy and music, from Noto Sans Symbols
 )
 
 
 def log(msg): print(msg, flush=True)
+
+
+def fetch_donor(which: str, offline_dir: str | None, workdir: str) -> str:
+    """Noto Sans Math / Noto Sans Symbols, whose characters get folded into every face."""
+    name = f"NotoSans{which.capitalize()}-source.ttf"
+    if offline_dir:
+        local = os.path.join(offline_dir, name)
+        if not os.path.exists(local):
+            raise SystemExit(f"FAIL: --offline given but {local} is not there")
+        return local
+    dst = os.path.join(workdir, name)
+    if not os.path.exists(dst):
+        log(f"      fetching {which} donor")
+        urllib.request.urlretrieve(DONORS[which], dst)
+    return dst
 
 
 def fetch(which: str, offline_dir: str | None, workdir: str) -> str:
@@ -71,13 +106,13 @@ def fetch(which: str, offline_dir: str | None, workdir: str) -> str:
         local = os.path.join(offline_dir, name)
         if not os.path.exists(local):
             raise SystemExit(f"FAIL: --offline given but {local} is not there")
-        log(f"[1/6] using local source {local}")
+        log(f"[1/7] using local source {local}")
         return local
     dst = os.path.join(workdir, name)
     if os.path.exists(dst):
-        log(f"[1/6] reusing {name}")
+        log(f"[1/7] reusing {name}")
         return dst
-    log(f"[1/6] fetching {which} source")
+    log(f"[1/7] fetching {which} source")
     urllib.request.urlretrieve(SOURCES[which], dst)
     log(f"      {os.path.getsize(dst)//1024} KB")
     return dst
@@ -104,7 +139,7 @@ def slash_zero(font: TTFont) -> None:
         if 0x30 in t.cmap:
             t.cmap[0x30] = alt
             n += 1
-    log(f"[2/6] slashed zero: U+0030 -> {alt} in {n} cmap subtable(s)")
+    log(f"[2/7] slashed zero: U+0030 -> {alt} in {n} cmap subtable(s)")
 
 
 def ink_bounds(font: TTFont) -> tuple[int, int]:
@@ -151,7 +186,7 @@ def retune_metrics(font: TTFont) -> None:
 
     typo_em = (asc - desc) / upm
     win_em = (os2.usWinAscent + os2.usWinDescent) / upm
-    log(f"[5/6] vertical metrics: {before:.4f} em -> typo {typo_em:.4f} em / win {win_em:.4f} em"
+    log(f"[6/7] vertical metrics: {before:.4f} em -> typo {typo_em:.4f} em / win {win_em:.4f} em"
         f"  (Tahoma {TARGET_LINE_EM:.4f})")
     if hi > asc:
         log(f"      note: tallest ink {hi} exceeds ascender {asc} by {hi-asc} units "
@@ -226,7 +261,7 @@ def main() -> int:
         font = TTFont(sources[which])
         slash_zero(font)
 
-        log(f"[3/6] instancing {subfamily} (wght {wght}, wdth 100)")
+        log(f"[3/7] instancing {subfamily} (wght {wght}, wdth 100)")
         font = instancer.instantiateVariableFont(
             font, {"wght": wght, "wdth": 100}, inplace=False, updateFontNames=False)
 
@@ -235,8 +270,17 @@ def main() -> int:
             raise SystemExit(f"FAIL: upm {upm} will not scale exactly by "
                              f"{RULER_NUM}/{RULER_DEN}; refusing to round")
         font["head"].unitsPerEm = upm * RULER_DEN // RULER_NUM
-        log(f"[4/6] ruler scale: upm {upm} -> {font['head'].unitsPerEm} "
+        log(f"[4/7] ruler scale: upm {upm} -> {font['head'].unitsPerEm} "
             f"({RULER_NUM}/{RULER_DEN} = {RULER_NUM/RULER_DEN:.6f}x)")
+
+        # Every face gets the symbols, not just Regular. Word does NOT fall back inside a
+        # family: tested on vistabuild 8/22/2026 with a Regular that had U+2264 and a Bold that
+        # did not, and the bold one came out of CAMBRIA MATH -- another typeface at another
+        # size, which is the exact failure this whole font exists to prevent. A heading is bold.
+        for which, label in (("math", "Noto Sans Math"), ("symbols", "Noto Sans Symbols")):
+            rep = merge_glyphs(font, fetch_donor(which, a.offline, a.out), label)
+            log(f"[5/7] {label}: added {rep['added']} characters"
+                + (f", skipped {rep['skipped']}" if rep["skipped"] else ""))
 
         retune_metrics(font)
 
@@ -252,7 +296,7 @@ def main() -> int:
         out = os.path.join(a.out, f"{PSPREFIX}-{subfamily.replace(' ', '')}.ttf")
         font.save(out)
         font.close()
-        log(f"[6/6] wrote {out}  ({os.path.getsize(out)//1024} KB)")
+        log(f"[7/7] wrote {out}  ({os.path.getsize(out)//1024} KB)")
 
         if not a.no_verify:
             all_ok &= verify(out, subfamily, italic)
