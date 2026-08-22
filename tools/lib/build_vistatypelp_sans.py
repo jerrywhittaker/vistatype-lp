@@ -20,7 +20,7 @@ Usage:
     python3 build-vistatypelp-sans.py [--out DIR] [--offline SRC.ttf] [--no-verify]
 """
 from __future__ import annotations
-import argparse, os, sys, urllib.request
+import argparse, math, os, sys, urllib.request
 
 try:
     from fontTools.ttLib import TTFont
@@ -29,15 +29,26 @@ try:
 except ImportError:
     sys.exit("fontTools is required:  pip install fonttools")
 
-UPSTREAM = ("https://raw.githubusercontent.com/google/fonts/main/ofl/notosans/"
-            "NotoSans%5Bwdth%2Cwght%5D.ttf")
+SOURCES = {
+    "roman":  ("https://raw.githubusercontent.com/google/fonts/main/ofl/notosans/"
+               "NotoSans%5Bwdth%2Cwght%5D.ttf"),
+    "italic": ("https://raw.githubusercontent.com/google/fonts/main/ofl/notosans/"
+               "NotoSans-Italic%5Bwdth%2Cwght%5D.ttf"),
+}
 
 FAMILY   = "VistaTypeLP Sans"
 PSPREFIX = "VistaTypeLPSans"
 RULER_NUM, RULER_DEN = 25, 24          # 37.5pt measured == 36pt on the VistaType ruler
 TARGET_LINE_EM = 2472 / 2048           # Tahoma's "Single" line height, 1.20703 em
 
-INSTANCES = [("Regular", 400), ("Bold", 700)]
+# subfamily, weight, which source, is-italic.  All four so a book can be set properly:
+# Word fakes an italic it has not got, and a faked italic of a rescaled face is the wrong size.
+INSTANCES = [
+    ("Regular",     400, "roman",  False),
+    ("Bold",        700, "roman",  False),
+    ("Italic",      400, "italic", True),
+    ("Bold Italic", 700, "italic", True),
+]
 
 # Characters VistaTypeLP Sans must set. Drives the no-clipping check on win metrics.
 REQUIRED = (
@@ -53,13 +64,21 @@ REQUIRED = (
 def log(msg): print(msg, flush=True)
 
 
-def fetch(offline: str | None, workdir: str) -> str:
-    if offline:
-        log(f"[1/6] using local source {offline}")
-        return offline
-    dst = os.path.join(workdir, "NotoSans-upstream.ttf")
-    log(f"[1/6] fetching {UPSTREAM}")
-    urllib.request.urlretrieve(UPSTREAM, dst)
+def fetch(which: str, offline_dir: str | None, workdir: str) -> str:
+    """Return a path to the Noto Sans source for `which` ('roman' or 'italic')."""
+    name = "NotoSans-source.ttf" if which == "roman" else "NotoSans-Italic-source.ttf"
+    if offline_dir:
+        local = os.path.join(offline_dir, name)
+        if not os.path.exists(local):
+            raise SystemExit(f"FAIL: --offline given but {local} is not there")
+        log(f"[1/6] using local source {local}")
+        return local
+    dst = os.path.join(workdir, name)
+    if os.path.exists(dst):
+        log(f"[1/6] reusing {name}")
+        return dst
+    log(f"[1/6] fetching {which} source")
+    urllib.request.urlretrieve(SOURCES[which], dst)
     log(f"      {os.path.getsize(dst)//1024} KB")
     return dst
 
@@ -89,7 +108,11 @@ def slash_zero(font: TTFont) -> None:
 
 
 def ink_bounds(font: TTFont) -> tuple[int, int]:
-    """Highest and lowest ink across REQUIRED, in font units."""
+    """Highest and lowest ink across REQUIRED, in whole font units.
+
+    Rounded outwards. Italic outlines are slanted, so their bounds come back
+    fractional, and the OS/2 metrics these feed are unsigned 16-bit integers.
+    """
     gs, cm = font.getGlyphSet(), font.getBestCmap()
     hi, lo = 0, 0
     for ch in REQUIRED:
@@ -103,7 +126,7 @@ def ink_bounds(font: TTFont) -> tuple[int, int]:
             continue
         if bp.bounds:
             hi, lo = max(hi, bp.bounds[3]), min(lo, bp.bounds[1])
-    return hi, lo
+    return math.ceil(hi), math.floor(lo)
 
 
 def retune_metrics(font: TTFont) -> None:
@@ -137,7 +160,7 @@ def retune_metrics(font: TTFont) -> None:
 
 def rename(font: TTFont, subfamily: str) -> None:
     full = FAMILY if subfamily == "Regular" else f"{FAMILY} {subfamily}"
-    ps = f"{PSPREFIX}-{subfamily}"
+    ps = f"{PSPREFIX}-{subfamily.replace(' ', '')}"
     for rec in font["name"].names:
         if   rec.nameID == 1:  rec.string = FAMILY
         elif rec.nameID == 2:  rec.string = subfamily
@@ -148,7 +171,7 @@ def rename(font: TTFont, subfamily: str) -> None:
         elif rec.nameID == 17: rec.string = subfamily
 
 
-def verify(path: str, subfamily: str) -> bool:
+def verify(path: str, subfamily: str, italic: bool = False) -> bool:
     f = TTFont(path, lazy=True)
     upm = f["head"].unitsPerEm
     cm = f.getBestCmap()
@@ -172,6 +195,8 @@ def verify(path: str, subfamily: str) -> bool:
         ("line ~= Tahoma",               abs((hhea.ascent - hhea.descent + hhea.lineGap) / upm
                                              - TARGET_LINE_EM) < 0.005),
         ("win metrics cover ink",        os2.usWinAscent >= max(ink_bounds(f)[0], 0)),
+        ("italic bits agree",            bool(os2.fsSelection & 0x01) == italic
+                                         and bool(f["head"].macStyle & 2) == italic),
     ]
     ok = all(c[1] for c in checks)
     log(f"\n  verify {os.path.basename(path)} [{subfamily}]")
@@ -186,16 +211,19 @@ def verify(path: str, subfamily: str) -> bool:
 def main() -> int:
     ap = argparse.ArgumentParser(description="Build VistaTypeLP Sans from upstream Noto Sans.")
     ap.add_argument("--out", default="dist/fonts", help="output directory")
-    ap.add_argument("--offline", help="use this local Noto Sans variable TTF instead of fetching")
+    ap.add_argument("--offline", metavar="DIR",
+                    help="directory holding NotoSans-source.ttf and NotoSans-Italic-source.ttf "
+                         "instead of fetching them")
     ap.add_argument("--no-verify", action="store_true")
     a = ap.parse_args()
 
     os.makedirs(a.out, exist_ok=True)
-    src = fetch(a.offline, a.out)
+    sources = {w: fetch(w, a.offline, a.out) for w in sorted({i[2] for i in INSTANCES})}
 
     all_ok = True
-    for subfamily, wght in INSTANCES:
-        font = TTFont(src)
+    for subfamily, wght, which, italic in INSTANCES:
+        log(f"\n=== {FAMILY} {subfamily} ===")
+        font = TTFont(sources[which])
         slash_zero(font)
 
         log(f"[3/6] instancing {subfamily} (wght {wght}, wdth 100)")
@@ -212,19 +240,22 @@ def main() -> int:
 
         retune_metrics(font)
 
-        font["OS/2"].usWeightClass = wght
-        font["OS/2"].fsSelection = (font["OS/2"].fsSelection & ~0x60) | \
-                                   (0x20 if subfamily == "Bold" else 0x40)
-        font["head"].macStyle = 1 if subfamily == "Bold" else 0
+        bold = "Bold" in subfamily
+        os2 = font["OS/2"]
+        os2.usWeightClass = wght
+        # bits 0 italic, 5 bold, 6 regular - exactly one of bold/regular, italic independent
+        os2.fsSelection &= ~0x61
+        os2.fsSelection |= (0x20 if bold else 0x40) | (0x01 if italic else 0x00)
+        font["head"].macStyle = (1 if bold else 0) | (2 if italic else 0)
         rename(font, subfamily)
 
-        out = os.path.join(a.out, f"{PSPREFIX}-{subfamily}.ttf")
+        out = os.path.join(a.out, f"{PSPREFIX}-{subfamily.replace(' ', '')}.ttf")
         font.save(out)
         font.close()
         log(f"[6/6] wrote {out}  ({os.path.getsize(out)//1024} KB)")
 
         if not a.no_verify:
-            all_ok &= verify(out, subfamily)
+            all_ok &= verify(out, subfamily, italic)
 
     log("\nBUILD OK" if all_ok else "\nBUILD FAILED VERIFICATION")
     return 0 if all_ok else 1
