@@ -4,7 +4,7 @@ Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} LP_Attach_An_Lp_Template_Form
    ClientHeight    =   9132.001
    ClientLeft      =   120
    ClientTop       =   465
-   ClientWidth     =   12360
+   ClientWidth     =   12390
    OleObjectBlob   =   "LP_Attach_An_Lp_Template_Form.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
@@ -13,8 +13,6 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
-
-
 
 ' LP_Attach_An_Lp_Template_Form
 '
