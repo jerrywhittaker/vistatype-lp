@@ -14,6 +14,13 @@ driven over SSH — see **`DEVELOPMENT.md`** for the full workflow. `src/` is au
 
 ## How to talk to Jerry
 
+> **These rules are now system-wide as well, in `~/.claude/CLAUDE.md`** (Todd, 8/22/2026), so
+> they apply in every project and in ones that do not exist yet. They were only here until then,
+> which meant a session started outside this folder ran without them — and one did, on
+> 8/22/2026. What follows is kept because it is more specific: the Word and VBA vocabulary below
+> is this project's, and the examples are drawn from it. If the two ever disagree, this file wins
+> for this project — but they should not, so change both.
+
 **Plain English. Always.** This governs every reply, not just the git parts.
 
 Jerry is a capable programmer — he wrote this entire ~16,500-line system himself over
