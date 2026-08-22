@@ -18517,13 +18517,18 @@ Sub MS_Set_Word_Config_For_Large_Print()
         ' LP template is meant to prevent.
         If .AutoFormatAsYouTypeDefineStyles <> False Then .AutoFormatAsYouTypeDefineStyles = False
 
-        ' Smart quotes and hyperlinks, back as BOOK settings on 8/21/2026 - Jerry. Both books
-        ' forced them on until 8/18/2026, when they were dropped from all three configurations
-        ' as "identical everywhere". Identical is not the same as unimportant: dropping them
-        ' left Word's own value standing in a book, and a book needs these on. They are in
-        ' Sh_Tracked_Settings, so her own value comes back in her letters.
+        ' Smart quotes, ON as a BOOK setting since 8/21/2026 - Jerry. Both books forced them on
+        ' until 8/18/2026, when they were dropped from all three configurations as "identical
+        ' everywhere". Identical is not the same as unimportant: dropping them left Word's own
+        ' value standing in a book, and a book needs these on. In Sh_Tracked_Settings, so her own
+        ' value comes back in her letters.
         If .AutoFormatAsYouTypeReplaceQuotes <> True Then .AutoFormatAsYouTypeReplaceQuotes = True
-        If .AutoFormatAsYouTypeReplaceHyperlinks <> True Then .AutoFormatAsYouTypeReplaceHyperlinks = True
+
+        ' Hyperlinks, OFF as you type from 3.0.221 - Jerry. Large print is now off on BOTH tabs,
+        ' having gone off on the on-demand tab first and had this half left on because he named
+        ' that tab alone. Braille is the opposite and is on for both, decided separately the same
+        ' day; the two books genuinely differ here and neither should be aligned to the other.
+        If .AutoFormatAsYouTypeReplaceHyperlinks <> False Then .AutoFormatAsYouTypeReplaceHyperlinks = False
     End With
     
     ' Spell-check-as-you-type, ON - Jerry, 3.0.220. It is here for its own sake AND because the
