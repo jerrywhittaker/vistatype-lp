@@ -827,9 +827,11 @@ Private Const VT_STORE_BOOK As String = "BookApplied"
 ' when the three AutoFormat As You Type boxes large print had never written were added; "5" the
 ' thirty-six of 8/21/2026, adding first-indents and the spelling-checker suggestions setting; "6"
 ' the thirty-five of 8/21/2026, when first-indents came back out as the wrong property; "7" the
-' thirty-six of 8/21/2026, adding CheckSpellingAsYouType.
+' thirty-six of 8/21/2026, adding CheckSpellingAsYouType; "8" the thirty-four of 8/22/2026,
+' when the two spelling-checker settings left the ledger - the ordinary configuration forces
+' them now as well, so there is no value of hers left to give back.
 Private Const VT_STORE_STAMP As String = "StoreVersion"
-Private Const VT_STORE_STAMP_NOW As String = "7"
+Private Const VT_STORE_STAMP_NOW As String = "8"
 
 ' The large print template's file name, and as of 8/20/2026 the ONE fact that decides whether a
 ' document is a large print document - see Lp_Is_The_Attached_Template_LP. Compared by NAME and
@@ -18310,6 +18312,10 @@ Sub MS_Set_Word_Config_For_New_Install()
     '
     ' Author: Jerry Whittaker -  jerry@thewhittakers.org
     '
+    ' Version: 2.7  Date: 8/22/2026 - ticks "Automatically use suggestions from the spelling checker" here
+    '                                 too, with the spell-check-as-you-type gate it gets nowhere without
+    '                                 (Jerry, 3.0.222). Both settings leave the ledger with it: forced in
+    '                                 all three configurations, they are not hers to give back any more
     ' Version: 2.6  Date: 8/20/2026 - the SCREEN half of Piece 3 of the automatic-configuration plan. Formatting
     '                                 marks off rather than on, the navigation pane closed, and the three Styles
     '                                 pane settings saved inside her file no longer written at all. The twenty
@@ -18366,7 +18372,10 @@ Sub MS_Set_Word_Config_For_New_Install()
     ' What puts them back now is Sh_Restore_Transcriber_Settings, one call below, working from the
     ' ledger - HER values, not Word's factory ones, and covering thirty-four settings rather than
     ' the twenty that were written here. Do not add a fixed write back into this sub: a value
-    ' written here cannot be told from a value she chose.
+    ' written here cannot be told from a value she chose. The ONE exception is the pair of
+    ' spelling-checker writes further down, and it is only an exception because those two stopped
+    ' being preferences: all three configurations force them from 3.0.222, so there is no value of
+    ' hers to tell apart, and both names left Sh_Tracked_Settings on 8/22/2026 to say so.
     '
     ' AutoFormatAsYouTypeApplyFirstIndents went with them and is written by nothing now. No book
     ' configuration ever touched it, so the only thing the write did was overwrite her own choice -
@@ -18415,6 +18424,25 @@ Sub MS_Set_Word_Config_For_New_Install()
     ' The settings braille and large print switch off - five spelling and grammar ones, and the
     ' tab-indent key. Nothing put them back before 8/18/2026 - see the top of this module.
     Sh_Restore_Transcriber_Settings
+
+    ' Spell-check-as-you-type and the suggestions-from-the-spelling-checker box, both ON - Jerry,
+    ' 3.0.222. He asked for the AutoCorrect box ticked in the ordinary configuration; the first
+    ' line is what makes the second one possible. ReplaceTextFromSpellingChecker is GATED on
+    ' CheckSpellingAsYouType: while that is False, Word greys the box out in the dialog and
+    ' refuses the assignment silently - no error raised, the value simply stays False. That is
+    ' what made 3.0.218 and 3.0.219 look as though they wrote it. MUST STAY ABOVE IT.
+    '
+    ' Both books have done this same pair since 3.0.220, so from here all three configurations
+    ' agree and the box is ticked wherever she is working. The cost, accepted by Jerry on
+    ' 8/22/2026: red squiggles in her ordinary letters as well as in her books, and her own choice
+    ' on spell-check-as-you-type overridden rather than handed back.
+    '
+    ' BELOW Sh_Restore_Transcriber_Settings on purpose - run above it, the restore would put her
+    ' stored value straight back over the top of both. And both names came OUT of the ledger the
+    ' same day: a setting all three configurations force is no longer a preference, and left in
+    ' the list the save would have written this True back as though she had chosen it.
+    If Options.CheckSpellingAsYouType <> True Then Options.CheckSpellingAsYouType = True
+    If AutoCorrect.ReplaceTextFromSpellingChecker <> True Then AutoCorrect.ReplaceTextFromSpellingChecker = True
 
     ' The compact fractions. Until 8/18/2026 this sub DELETED all eighteen. Be clear about what
     ' that did and did not cost: Word itself does only three - one half, one quarter and three
@@ -18980,7 +19008,7 @@ Private Function Sh_Store_To_Bool(ByVal held As String) As Boolean
 End Function
 
 ' EVERY setting a large print or braille configuration takes away from her, in one list, walked
-' by all three of the subs below - the save, the compare and the restore. Thirty-one of them,
+' by all three of the subs below - the save, the compare and the restore. Thirty-four of them,
 ' and the list is not guesswork: it is the union of what MS_Set_Word_Config_For_Large_Print and
 ' MS_Set_Word_Config_For_Braille actually write, read out of those two subs on 8/20/2026, plus
 ' the four smart-quote and hyperlink settings the books took back on 8/21/2026.
@@ -19002,6 +19030,9 @@ End Function
 ' needs them on. Back in the two book configurations only - never in the ordinary one, which is
 ' the difference between a book setting and a preference imposed on her Word.
 '
+' Version: 1.5  Date: 8/22/2026 - CheckSpellingAsYouType and ReplaceTextFromSpellingChecker come OUT:
+'                                 the ordinary configuration forces both from 3.0.222, so no configuration
+'                                 leaves her a value to be given back. 36 -> 34
 ' Version: 1.4  Date: 8/21/2026 - AutoFormatAsYouTypeApplyFirstIndents comes back OUT: it is not the
 '                                 checkbox anybody thought it was (see MS_Set_Word_Config_For_Braille),
 '                                 nothing writes it again, and it is hers. 36 -> 35
@@ -19017,7 +19048,7 @@ End Function
 ' Version: 1.0  Date: 8/20/2026
 Private Function Sh_Tracked_Settings() As Variant
     ' Built with Split rather than Array(...) and a line continuation per name: VBA allows at
-    ' most 25 continuations in one statement and there are 36 names here, which does not fail
+    ' most 25 continuations in one statement and there are 34 names here, which does not fail
     ' at the line - it fails the whole module at import, with a COM error from the build script
     ' that says nothing about continuations. 8/20/2026, and it cost a build to find.
     Dim nm As String
@@ -19030,9 +19061,9 @@ Private Function Sh_Tracked_Settings() As Variant
     nm = nm & "AutoFormatAsYouTypeReplaceQuotes,AutoFormatAsYouTypeReplaceSymbols,AutoFormatPlainTextWordMail,"
     nm = nm & "AutoFormatPreserveStyles,AutoFormatReplaceFractions,AutoFormatReplaceHyperlinks,"
     nm = nm & "AutoFormatReplaceOrdinals,AutoFormatReplaceQuotes,AutoFormatReplaceSymbols,"
-    nm = nm & "CheckGrammarAsYouType,CheckSpellingAsYouType,ContextualSpeller,"
+    nm = nm & "CheckGrammarAsYouType,ContextualSpeller,"
     nm = nm & "CorrectSentenceCaps,CorrectTableCells,IgnoreMixedDigits,"
-    nm = nm & "IgnoreUppercase,LabelSmartTags,ReplaceTextFromSpellingChecker,"
+    nm = nm & "IgnoreUppercase,LabelSmartTags,"
     nm = nm & "RestrictLinkedStyles,ShowStylePreviews,TabIndentKey"
 
     Sh_Tracked_Settings = Split(nm, ",")
@@ -19071,14 +19102,12 @@ Private Function Sh_Setting_Live(ByVal nm As String) As Boolean
         Case "AutoFormatReplaceQuotes": Sh_Setting_Live = Options.AutoFormatReplaceQuotes
         Case "AutoFormatReplaceSymbols": Sh_Setting_Live = Options.AutoFormatReplaceSymbols
         Case "CheckGrammarAsYouType": Sh_Setting_Live = Options.CheckGrammarAsYouType
-        Case "CheckSpellingAsYouType": Sh_Setting_Live = Options.CheckSpellingAsYouType
         Case "ContextualSpeller": Sh_Setting_Live = Options.ContextualSpeller
         Case "CorrectSentenceCaps": Sh_Setting_Live = AutoCorrect.CorrectSentenceCaps
         Case "CorrectTableCells": Sh_Setting_Live = AutoCorrect.CorrectTableCells
         Case "IgnoreMixedDigits": Sh_Setting_Live = Options.IgnoreMixedDigits
         Case "IgnoreUppercase": Sh_Setting_Live = Options.IgnoreUppercase
         Case "LabelSmartTags": Sh_Setting_Live = Options.LabelSmartTags
-        Case "ReplaceTextFromSpellingChecker": Sh_Setting_Live = AutoCorrect.ReplaceTextFromSpellingChecker
         Case "RestrictLinkedStyles": Sh_Setting_Live = Application.RestrictLinkedStyles
         Case "ShowStylePreviews": Sh_Setting_Live = Application.ShowStylePreviews
         Case "TabIndentKey": Sh_Setting_Live = Options.TabIndentKey
@@ -19120,14 +19149,12 @@ Private Sub Sh_Setting_Put(ByVal nm As String, ByVal wanted As Boolean)
         Case "AutoFormatReplaceQuotes": If Options.AutoFormatReplaceQuotes <> wanted Then Options.AutoFormatReplaceQuotes = wanted
         Case "AutoFormatReplaceSymbols": If Options.AutoFormatReplaceSymbols <> wanted Then Options.AutoFormatReplaceSymbols = wanted
         Case "CheckGrammarAsYouType": If Options.CheckGrammarAsYouType <> wanted Then Options.CheckGrammarAsYouType = wanted
-        Case "CheckSpellingAsYouType": If Options.CheckSpellingAsYouType <> wanted Then Options.CheckSpellingAsYouType = wanted
         Case "ContextualSpeller": If Options.ContextualSpeller <> wanted Then Options.ContextualSpeller = wanted
         Case "CorrectSentenceCaps": If AutoCorrect.CorrectSentenceCaps <> wanted Then AutoCorrect.CorrectSentenceCaps = wanted
         Case "CorrectTableCells": If AutoCorrect.CorrectTableCells <> wanted Then AutoCorrect.CorrectTableCells = wanted
         Case "IgnoreMixedDigits": If Options.IgnoreMixedDigits <> wanted Then Options.IgnoreMixedDigits = wanted
         Case "IgnoreUppercase": If Options.IgnoreUppercase <> wanted Then Options.IgnoreUppercase = wanted
         Case "LabelSmartTags": If Options.LabelSmartTags <> wanted Then Options.LabelSmartTags = wanted
-        Case "ReplaceTextFromSpellingChecker": If AutoCorrect.ReplaceTextFromSpellingChecker <> wanted Then AutoCorrect.ReplaceTextFromSpellingChecker = wanted
         Case "RestrictLinkedStyles": If Application.RestrictLinkedStyles <> wanted Then Application.RestrictLinkedStyles = wanted
         Case "ShowStylePreviews": If Application.ShowStylePreviews <> wanted Then Application.ShowStylePreviews = wanted
         Case "TabIndentKey": If Options.TabIndentKey <> wanted Then Options.TabIndentKey = wanted
@@ -19151,6 +19178,8 @@ Sub Sh_Save_Transcriber_Settings()
 '
 ' Author: Jerry Whittaker -  jerry@thewhittakers.org
 '
+' Version: 3.3  Date: 8/22/2026 - 34 settings: the two spelling-checker ones are gone, forced by all
+'                                 three configurations from 3.0.222 rather than restored
 ' Version: 3.2  Date: 8/21/2026 - 34 settings: the three AutoFormat As You Type boxes large print
 '                                 had never written (Jerry, 3.0.216)
 ' Version: 3.1  Date: 8/21/2026 - 31 settings: smart quotes and hyperlinks are book settings again
@@ -19284,6 +19313,8 @@ Sub Sh_Restore_Transcriber_Settings()
 '
 ' Author: Jerry Whittaker -  jerry@thewhittakers.org
 '
+' Version: 3.3  Date: 8/22/2026 - 34 settings: the two spelling-checker ones are gone, forced by all
+'                                 three configurations from 3.0.222 rather than restored
 ' Version: 3.2  Date: 8/21/2026 - 34 settings: the three AutoFormat As You Type boxes large print
 '                                 had never written (Jerry, 3.0.216)
 ' Version: 3.1  Date: 8/21/2026 - 31 settings: smart quotes and hyperlinks are book settings again
