@@ -4,7 +4,7 @@ Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} LP_Attach_An_Lp_Template_Form
    ClientHeight    =   9132.001
    ClientLeft      =   120
    ClientTop       =   465
-   ClientWidth     =   12390
+   ClientWidth     =   12360
    OleObjectBlob   =   "LP_Attach_An_Lp_Template_Form.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
@@ -18,6 +18,15 @@ Attribute VB_Exposed = False
 
 ' LP_Attach_An_Lp_Template_Form
 '
+' Version: 6.2  Date: 8/22/2026 - the Typeface choice is BACK, with a face that fixes what killed
+'                                the last one. FontChoiceFrame / FontTahoma / FontSans, and the
+'                                bundled face is VistaTypeLP Sans: Greek complete, the phonetic
+'                                characters including U+025E, and a slashed zero. It is the
+'                                default for a new book, grayed out and labelled when it is not
+'                                installed. A book already set in the dropped VistaTypeLP Legible
+'                                still keeps it - that test runs FIRST in AttachOkay_Click and
+'                                outranks these buttons, and Initialize grays the box out and
+'                                says so, rather than showing a choice that would be ignored
 ' Version: 6.1  Date: 8/20/2026 - the Typeface choice is GONE, and so is the typeface. Jerry
 '                                dropped the bundled VistaTypeLP Legible from the product: its
 '                                character set is Latin, and Latin proper, mathematics, the IPA
@@ -157,6 +166,14 @@ Private Sub userform_terminate() 'red X was clicked
     Unload Me
 End Sub
 
+Private Sub FontTahoma_Click()
+        Lp_Base_Font_Name = LP_FONT_TAHOMA
+End Sub
+
+Private Sub FontSans_Click()
+        Lp_Base_Font_Name = LP_FONT_SANS
+End Sub
+
 Private Sub AttachOkay_Click()
     
     ' ** Validate Custom Settings **
@@ -278,8 +295,15 @@ Private Sub AttachOkay_Click()
     ' tokens and its pattern is case-sensitive, so LP_FONT_LEGACY_LEGIBLE is invisible to it,
     ' while an Lp_-prefixed constant would be read as a call to a macro that does not exist and
     ' would fail the build. That is why they were declared uppercase in the first place.
+    ' The legacy test stays FIRST, and deliberately outranks the buttons. A book already set in
+    ' the dropped VistaTypeLP Legible keeps it whatever this dialog shows: rewriting one moves
+    ' every page break in a book that may already be in a reader's hands, and nothing on screen
+    ' afterwards would say why the pages changed. UserForm_Initialize grays the choice out and
+    ' says so on the box, so no one is picking a face here that is then ignored.
     If UCase(Lp_Doc_Font_At_Open) = UCase(LP_FONT_LEGACY_LEGIBLE) Then
         Lp_Base_Font_Name = Lp_Doc_Font_At_Open
+    ElseIf FontSans.Value = True Then
+        Lp_Base_Font_Name = LP_FONT_SANS
     Else
         Lp_Base_Font_Name = LP_FONT_TAHOMA
     End If
@@ -901,6 +925,25 @@ Private Sub UserForm_Initialize()
     '
     ' Only asked of a document that is already large print. On anything else the Normal style is
     ' whatever Word or the original author left behind, and attaching is meant to replace it.
+    ' VistaTypeLP Sans is the default for a NEW book (Jerry, 8/22/2026), but only when it is
+    ' actually on this machine. A font Word cannot find is substituted SILENTLY, and the
+    ' substitute has different metrics - so a book that reads 18 point on screen prints at some
+    ' other size, which is the exact fault the rescaled face exists to cure. Better to gray the
+    ' choice out and say why on the button itself, which needs no extra room on a form that has
+    ' none.
+    If Sh_Is_Font_Installed(LP_FONT_SANS) Then
+        FontSans.Enabled = True
+        FontSans.Value = True
+        Lp_Base_Font_Name = LP_FONT_SANS
+    Else
+        FontSans.Enabled = False
+        FontTahoma.Value = True
+        Lp_Base_Font_Name = LP_FONT_TAHOMA
+        ' Appended, not replaced, so the button keeps whatever wording it was given in the
+        ' designer. Word only rebuilds its font list at startup, hence the second half.
+        FontSans.Caption = FontSans.Caption & "  --  NOT INSTALLED (or Word needs restarting)"
+    End If
+
     Lp_Doc_Font_At_Open = ""
     On Error Resume Next
     ' The LOOSER test - 8/20/2026. A book set in the dropped VistaTypeLP Legible is exactly the
@@ -910,6 +953,22 @@ Private Sub UserForm_Initialize()
         Lp_Doc_Font_At_Open = ActiveDocument.Styles(wdStyleNormal).Font.Name
     End If
     On Error GoTo 0
+
+    ' An EXISTING book shows the face it is already set in, so the dialog never offers to change
+    ' something silently.
+    If UCase(Lp_Doc_Font_At_Open) = UCase(LP_FONT_TAHOMA) Then
+        FontTahoma.Value = True
+        Lp_Base_Font_Name = LP_FONT_TAHOMA
+    ElseIf UCase(Lp_Doc_Font_At_Open) = UCase(LP_FONT_SANS) And FontSans.Enabled = True Then
+        FontSans.Value = True
+        Lp_Base_Font_Name = LP_FONT_SANS
+    ElseIf UCase(Lp_Doc_Font_At_Open) = UCase(LP_FONT_LEGACY_LEGIBLE) Then
+        ' The book keeps the dropped face - AttachOkay_Click enforces that regardless of what is
+        ' selected here. Say so instead of showing a choice that will be ignored.
+        FontTahoma.Enabled = False
+        FontSans.Enabled = False
+        FontChoiceFrame.Caption = "Font Choice  --  this book keeps VistaTypeLP Legible"
+    End If
     ' ***** end Typeface *****
 
     ' From: https://www.thespreadsheetguru.com/the-code-vault/launch-vba-userforms-in-correct-window-with-dual-monitors
