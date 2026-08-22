@@ -749,6 +749,34 @@ Public Const LP_FONT_TAHOMA As String = "Tahoma"
 ' back.
 Public Const LP_FONT_LEGACY_LEGIBLE As String = "VistaTypeLP Legible"
 
+' The bundled typeface from 8/22/2026, and the answer to why the last one was dropped. It is
+' Noto Sans, rescaled the same way Legible was so that a point size set in Word matches the
+' printed letter size - Jerry measured 37.5 point against the ruler's 36, and 37.5/36 is exactly
+' 25/24, so the face is built at 960 units per em instead of 1000 and nothing is rounded.
+'
+' What it fixes is the coverage that killed Legible. Greek is complete, all 49 letters including
+' the accented ones, so the Greek running through medical transcription sets at the size the
+' reader asked for instead of being substituted silently out of some other face. U+025E and the
+' rest of the phonetic characters are there. So is a SLASHED ZERO, which no face we have shipped
+' before had: Word cannot switch a slashed zero on - its Advanced font tab offers ligatures,
+' number spacing, number forms and stylistic sets and nothing else - so the build makes the
+' slashed shape the ordinary zero in the character map, where no setting can reach it.
+'
+' Four faces ship, not two. Word does not decline to italicize a face it has no italic for, it
+' slants the upright one, and a slanted copy of a rescaled face is no longer the size the ruler
+' says - so the emphasized words in a book would print at the wrong size, which is the exact
+' fault the rescaling exists to prevent.
+'
+' Its line height was retuned to Tahoma's on the way through. Left alone, Noto answers 1.582
+' times the point size when Word asks how tall a line is, against Tahoma's 1.207 - a quarter
+' fewer lines on a page and about a third more paper, with Single spacing selected and nothing
+' on screen to explain it. Measured in Word afterwards, both faces now give 21.76pt at 18 point,
+' 28.96 at 24 and 43.51 at 36.
+'
+' Built by tools/lib/build_vistatypelp_sans.py from the Google release of Noto Sans, under the
+' SIL Open Font License. Renamed because the OFL requires it.
+Public Const LP_FONT_SANS As String = "VistaTypeLP Sans"
+
 ' Punctuation that must sit hard against a fill-in line: "____." never "____ ." So no space is
 ' put after the fill when one of these follows, and a fill to the right margin stops one
 ' character short to leave the punctuation somewhere to stand (Jerry, 8/10/2026).
@@ -1708,12 +1736,26 @@ Function Lp_Indent_Factor_For_Font(ByVal fontName As String) As Double
 ' so Lp_Normalize_Styles can still be run on one, and it should still get the hang that face
 ' needs rather than Tahoma's.
 '
+' 0.862 is VistaTypeLP Sans, measured the same way on 8/22/2026: 376 units on a 960-unit em
+' against Tahoma's 931 on 2048, which is 391.7 against 454.6 per 1000. Note it goes the OTHER
+' WAY from Legible - Noto's bullet is NARROWER than Tahoma's, where Atkinson's was wider - so
+' this face SHRINKS the hang rather than growing it, an 18 point one from -0.34" to -0.293".
+' That is worth an eye on a real bulleted list, because it is the first face here to move the
+' number down.
+'
+' It is deliberately not derived from how wide the face sets overall. VistaTypeLP Sans runs
+' about 8% wider than Tahoma in running text, so a general width ratio would say 1.08 and be
+' wrong by a quarter of an inch on every bullet. The bullet's own advance is what the hang has
+' to clear, and that is what both numbers here measure.
+'
 ' A face this function does not know returns 1, i.e. Tahoma's numbers unchanged - the safe
 ' answer, since those are the ones that have been in the field for years.
 
     Select Case UCase(Trim(fontName))
         Case UCase(LP_FONT_LEGACY_LEGIBLE)
             Lp_Indent_Factor_For_Font = 1.054
+        Case UCase(LP_FONT_SANS)
+            Lp_Indent_Factor_For_Font = 0.862
         Case Else
             Lp_Indent_Factor_For_Font = 1#
     End Select
