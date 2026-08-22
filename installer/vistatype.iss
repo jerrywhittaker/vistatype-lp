@@ -47,7 +47,7 @@
 ; The literal here is the fallback for building this script by hand, and is kept in step
 ; with the Makefile by "make bump".
 #ifndef AppVer
-  #define AppVer      "3.0.222"
+  #define AppVer      "3.0.224"
 #endif
 #define DotmName    "LPandBRL.dotm"
 #define DotxName    "LargePrintTemplate.dotx"
@@ -59,22 +59,45 @@
 ; because it appears on the welcome page AND in Programs & Features; releases are published
 ; here, so this is the address to give anyone asking for an update.
 #define RepoUrl     "https://github.com/jerrywhittaker/vistatype-lp"
-; A #define FontFamily "VistaTypeLP Legible" stood here until 8/20/2026. The bundled typeface
-; is gone from the product -- see the [Code] procedure RemoveLegacyLegibleFont, which takes the
-; font back OFF a machine that has it.
+; A #define FontFamily "VistaTypeLP Legible" stood here until 8/20/2026, and a bundled typeface
+; is back from 8/22/2026 -- a different one, which is the point. VistaTypeLP Legible was dropped
+; for coverage: no Greek, no IPA, not enough mathematics, and a character the face has not got is
+; substituted SILENTLY at another size. VistaTypeLP Sans is Noto Sans given the same ruler
+; rescaling, and it carries Greek complete, the phonetic characters, and a slashed zero.
 ;
-; The per-user Fonts folder, written out rather than using Inno's {autofonts}. Every reference to
-; the dropped typeface is now a REMOVAL, and a removal must be able to run on any Windows the
-; add-in itself supports. {autofonts} resolves to {userfonts}, which Inno documents as Windows 10
-; version 1803 and later; the four [Files] lines that used it therefore carried
-; MinVersion: 10.0.17134, and the comment there said the version guard and the add-in's own font
-; check were ONE mitigation that must not be separated. Both halves are gone now, so rather than
-; re-create a version guard for a delete that is harmless anywhere, this names the folder
-; outright. On a Windows too old to have per-user fonts it simply does not exist, and deleting
-; from a folder that is not there is a no-op -- which is exactly the wanted behavior, and it
-; cannot raise at ssPostInstall on an install that has already put LPandBRL.dotm in STARTUP.
+; The two do NOT collide, and that was checked rather than assumed. RemoveLegacyLegibleFont below
+; still retires the old face on any machine that has it, and it matches on two things: the four
+; old filenames in the value's data, and the literal 'vistatypelp legible' in the value's name.
+; Neither can reach VistaTypeLPSans-*.ttf or "VistaTypeLP Sans (TrueType)". So an install that
+; ships the new face and retires the old one in the same run is safe in either order.
+#define FontFamily  "VistaTypeLP Sans"
+;
+; The OFL text goes in a folder of its OWN, and deliberately NOT the one the legacy license used.
+; RemoveLegacyLegibleFont DelTrees "{userappdata}\VistaType LP Fonts" outright once the old face
+; is gone -- so putting this license there would have it deleted on the first machine that still
+; had Legible on it, leaving a font on disk with no license beside it. That is condition 2 of the
+; OFL, and the breach would be invisible. A separate folder costs nothing and cannot be caught by
+; that DelTree.
+;
+; It needs its own folder rather than {userappdata}\VistaType LP for the same reason the legacy
+; one did: the fonts install uninsneveruninstall and stay behind, so their license has to outlive
+; an uninstall too, and the VistaType LP folder is removed with everything else in it.
+#define FontLicenseDir "{userappdata}\VistaType LP Sans Fonts"
+;
+; The per-user Fonts folder for the REMOVAL of the dropped typeface, written out rather than
+; using Inno's {autofonts}. A removal must be able to run on any Windows the add-in supports,
+; and {autofonts} resolves to {userfonts}, which Inno documents as Windows 10 version 1803 and
+; later. Naming the folder outright means that on a Windows too old to have one it simply does
+; not exist, deleting from a folder that is not there is a no-op, and nothing can raise at
+; ssPostInstall on an install that has already put LPandBRL.dotm in STARTUP.
+;
+; The INSTALL of the current face does use {autofonts}, with MinVersion: 10.0.17134 -- see the
+; [Files] note. There the version guard and the add-in's own Sh_Is_Font_Installed check are ONE
+; mitigation and must not be separated: below 1803 the font does not install, and the add-in
+; grays the Typeface choice out and says so rather than offering a face Word cannot find.
 #define UserFontsDir "{localappdata}\Microsoft\Windows\Fonts"
-; Directory holding the three shipping files (staged by `make installer`).
+; Directory holding the shipping files -- add-in, template, GPL, four font faces and their
+; three OFL texts (staged by `make installer`).
 #ifndef SrcDir
   #define SrcDir "..\dist"
 #endif
@@ -172,7 +195,7 @@ VersionInfoOriginalFileName={#OutputBase}.exe
 [Messages]
 WelcomeLabel1=VistaType LP and Braille Macros
 
-WelcomeLabel2=Version {#AppVer}%n%nJerry Whittaker's tools for transcribers are VBA add-ins for Microsoft Word: large print for readers with low vision, and tools for formatting braille source files for the Duxbury Braille Translator.%n%nPlease close Word and Outlook before continuing.%n%nLatest version and guides:%n{#RepoUrl}
+WelcomeLabel2=Version {#AppVer}%n%nJerry Whittaker's tools for transcribers are VBA add-ins for Microsoft Word: large print for readers with low vision, and tools for formatting braille source files for the Duxbury Braille Translator.%n%nAlso installs the {#FontFamily} typeface, which carries its own separate license.%n%nPlease close Word and Outlook before continuing.%n%nLatest version and guides:%n{#RepoUrl}
 ; Roughly 12 rendered lines against a label that shows about 13-15. It is at the ceiling, so
 ; anything added here must have something else taken out, and it must be LOOKED AT on the VM.
 ; Overflow is silently clipped from the bottom - no compile warning - and the bottom is where
@@ -222,7 +245,43 @@ Source: "branding\vistatype.ico";    DestDir: "{userappdata}\VistaType LP"; Flag
 Source: "branding\welcome-wordmark-*.bmp";                                 Flags: dontcopy
 
 ; ---------------------------------------------------------------------------------------
-;  The bundled typeface -- REMOVED 8/20/2026
+;  The bundled typeface -- VistaTypeLP Sans, from 8/22/2026
+; ---------------------------------------------------------------------------------------
+;  Four faces, not one. Word does NOT fall back inside a font family: tested on the build box
+;  with a two-face family whose Regular carried U+2264 and whose Bold did not, and the bold one
+;  came out of CAMBRIA MATH -- another typeface at another size, silently. Headings are bold, so
+;  one face would put the old fault straight back into every heading with a symbol in it.
+;
+;  MinVersion 10.0.17134 is {autofonts}: Inno documents the per-user Fonts folder as Windows 10
+;  version 1803 and later. On anything older these four lines simply do not run, and the face is
+;  then not installed -- which the add-in HANDLES rather than ignores: UserForm_Initialize calls
+;  Sh_Is_Font_Installed, grays the Typeface choice out and says so on the button. The version
+;  guard and that check are ONE mitigation and must not be separated.
+;
+;  uninsneveruninstall, and this time it means it. Every book set in the face embeds its own
+;  copy (Lp_Attach_The_Template sets EmbedTrueTypeFonts with SaveSubsetFonts False), but the
+;  books on a machine are not ours to reason about at uninstall time, and a font that leaves
+;  takes every unembedded document with it.
+Source: "{#SrcDir}\VistaTypeLPSans-Regular.ttf";    DestDir: "{autofonts}"; FontInstall: "{#FontFamily}";             Flags: uninsneveruninstall; MinVersion: 10.0.17134
+Source: "{#SrcDir}\VistaTypeLPSans-Bold.ttf";       DestDir: "{autofonts}"; FontInstall: "{#FontFamily} Bold";        Flags: uninsneveruninstall; MinVersion: 10.0.17134
+Source: "{#SrcDir}\VistaTypeLPSans-Italic.ttf";     DestDir: "{autofonts}"; FontInstall: "{#FontFamily} Italic";      Flags: uninsneveruninstall; MinVersion: 10.0.17134
+Source: "{#SrcDir}\VistaTypeLPSans-BoldItalic.ttf"; DestDir: "{autofonts}"; FontInstall: "{#FontFamily} Bold Italic"; Flags: uninsneveruninstall; MinVersion: 10.0.17134
+
+;  Three licenses, because the face is three fonts. It is Noto Sans with Noto Sans Math and Noto
+;  Sans Symbols folded into it, each under its own SIL Open Font License, and condition 2 wants
+;  each one's text on disk beside the font. They install uninsneveruninstall for the same reason
+;  the faces do -- a license may not leave while the font it covers is still there.
+;
+;  NOT into {userappdata}\VistaType LP Fonts, which is the legacy folder RemoveLegacyLegibleFont
+;  DelTrees outright. Putting them there would delete them on the first machine that still had
+;  VistaTypeLP Legible on it, leaving four fonts on disk with no license beside them -- a breach
+;  that would be completely invisible. See the #define near the top.
+Source: "{#SrcDir}\OFL.txt";                 DestDir: "{#FontLicenseDir}"; Flags: uninsneveruninstall
+Source: "{#SrcDir}\OFL-NotoSansMath.txt";    DestDir: "{#FontLicenseDir}"; Flags: uninsneveruninstall
+Source: "{#SrcDir}\OFL-NotoSansSymbols.txt"; DestDir: "{#FontLicenseDir}"; Flags: uninsneveruninstall
+
+; ---------------------------------------------------------------------------------------
+;  The PREVIOUS bundled typeface -- REMOVED 8/20/2026, and still being removed
 ; ---------------------------------------------------------------------------------------
 ;  Four VistaTypeLPLegible-*.ttf files installed to {autofonts} here, with their SIL Open Font
 ;  License to {userappdata}\VistaType LP Fonts, from 3.0.101 (8/8/2026) to 3.0.196 (8/20/2026).
@@ -242,6 +301,15 @@ Source: "branding\welcome-wordmark-*.bmp";                                 Flags
 ;  If a bundled typeface is ever considered again, the test to apply first is character
 ;  COVERAGE, before metrics, before legibility: Greek, the IPA, and the mathematical operators.
 ;  A face that fails it fails silently, which is why this one shipped at all.
+;
+;  That test was applied to VistaTypeLP Sans on 8/22/2026 and it FAILED the third leg on the
+;  first attempt -- Greek and the IPA complete, but 3 of 15 common math characters, no arrows,
+;  and none of the operators. Google's Noto Sans comes from the latin-greek-cyrillic project and
+;  is scoped to those; mathematics lives in Noto Sans Math, a separate face. That is why the
+;  build folds Noto Sans Math and Noto Sans Symbols in, and why the required-character list in
+;  tools/lib/build_vistatypelp_sans.py now carries the operators, the arrows and the letterlike
+;  symbols: so the BUILD fails on a face that cannot set them, instead of this note being
+;  something someone has to remember to act on. It nearly was not acted on this time.
 
 [Tasks]
 ; Deliberately [Tasks] and not [Components]: components choose which FILES get installed,

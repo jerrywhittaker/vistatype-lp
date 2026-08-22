@@ -35,7 +35,7 @@ DOTM      := LPandBRL.dotm
 DOTX      := LargePrintTemplate.dotx
 RIBBON    := Word.officeUI
 PROJNAME  := LPandBRL
-APPVER    := 3.0.223
+APPVER    := 3.0.224
 SETUP_EXE := VistaType LP and Braille Macros Setup $(APPVER).exe
 VERDATE   := $(shell date +%-m/%-d/%Y)
 
@@ -44,7 +44,16 @@ VERDATE   := $(shell date +%-m/%-d/%Y)
 # `make fonts` target rescaled them from assets/fonts/. All of it went on 8/20/2026 - the face
 # has no Greek, no IPA and not enough mathematics, and a character it has not got is filled in
 # silently from somewhere else at some other size. See installer/vistatype.iss.
-SHIPFILES := $(DOTM) $(DOTX) LICENSE.txt
+# The bundled typeface. Four faces because Word does not fall back inside a family - a bold
+# character the Bold face lacks comes out of another typeface at another size - and three
+# licenses because the face is Noto Sans with Noto Sans Math and Noto Sans Symbols folded in,
+# and condition 2 of the OFL wants each one's text beside the font on disk.
+FONTDIR   := assets/fonts/vistatypelp-sans
+FONTFILES := VistaTypeLPSans-Regular.ttf VistaTypeLPSans-Bold.ttf \
+             VistaTypeLPSans-Italic.ttf VistaTypeLPSans-BoldItalic.ttf \
+             OFL.txt OFL-NotoSansMath.txt OFL-NotoSansSymbols.txt
+
+SHIPFILES := $(DOTM) $(DOTX) LICENSE.txt $(FONTFILES)
 
 SSH := ssh $(WIN_HOST)
 WSCRIPTS := $(WIN_DIR)/tools/windows
@@ -182,7 +191,21 @@ deploy:
 # embedded in the .dotm now, so only those two files ship (no Word.officeUI). Add the license.
 stage: build
 	cp LICENSE dist/LICENSE.txt
-	@echo "Staged dist/$(DOTM) + dist/$(DOTX) + LICENSE.txt for packaging."
+	@# The faces are BUILT by `make fonts` and tracked under assets/, not rebuilt here - the
+	@# build reaches the network for the Noto releases, and a release must not depend on that.
+	@for f in $(FONTFILES); do \
+	  test -f "$(FONTDIR)/$$f" || { echo "MISSING $(FONTDIR)/$$f - run 'make fonts'"; exit 1; }; \
+	  cp "$(FONTDIR)/$$f" dist/; \
+	done
+	@echo "Staged dist/$(DOTM) + dist/$(DOTX) + LICENSE.txt + 4 font faces for packaging."
+
+# --- rebuild the bundled typeface from the Noto releases -------------------------------
+# Reaches the network, so it is deliberately NOT part of `make installer`. Run it when a new
+# Noto release is worth picking up; the built faces are tracked under assets/ and it is those
+# that ship. Twelve checks run at the end and it refuses to claim success if any fail.
+fonts:
+	python3 tools/lib/build_vistatypelp_sans.py --out $(FONTDIR)
+	@echo "Rebuilt $(FONTDIR). Commit the faces if they changed."
 
 # --- compile the Inno Setup installer on the Windows box ---
 # The finished Setup.exe is copied both back to local dist/ and into "VT Installer" on the
