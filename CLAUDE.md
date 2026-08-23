@@ -307,7 +307,18 @@ assets/branding/  vistatype-icon.png + vistatype-wordmark.png — Jerry's artwor
                 deleted one really goes, whereas assets/ is never wiped there. README.md records
                 what is made, the four constants that move the welcome panel about, and why the
                 installer has an icon at all.
-installer/      Like src/ and tools/, this folder is WIPED on the build box before each copy, so a
+installer/      vistatype.iss is the product installer. vistatype-font-only.iss beside it is a
+                STANDALONE installer for the typeface and nothing else, built by hand with
+                `make font-installer` when a tester needs the font without the add-in (added
+                8/23/2026). It needs NO administrative rights - PrivilegesRequired=lowest, so
+                {autofonts} is the user's own Fonts folder - and it has its own AppId, which must
+                stay different from the product's or installing either would look like an upgrade
+                of the other. Unlike the product installer, ITS uninstaller does take the font
+                away. `make font-installer` also builds a .zip of the four faces, the three OFL
+                texts and an instruction sheet (tools/lib/build_font_zip.py): an unsigned .exe can
+                never promise not to be eaten by antivirus, and a font installed by right-click
+                has no program in it to judge.
+                Like src/ and tools/, this folder is WIPED on the build box before each copy, so a
                 file deleted here is really gone from the next Setup.exe. scp only adds and
                 overwrites; see the note on push-src above for what that cost when it bit.
                 Inno Setup installer (vistatype.iss) + scripts/ (QAT merge/remove) + qat-template.officeUI
@@ -339,7 +350,8 @@ reference/      generated read aids (gitignored mirror + interim form-code dump)
                 a hotfix reached dev). All four are READ-ONLY and report; none edits or pushes.
                 They complement tools/lib's guards rather than repeat them — each file says
                 what the guards already cover.
-Makefile        pull / build / ribbon / qat / read / try / deploy / branding / stage / installer / scan
+Makefile        pull / build / ribbon / qat / read / try / deploy / branding / stage / installer /
+                font-installer / scan
                 (`make fonts` went with the bundled typeface on 8/20/2026)
                 (`make try` bumps, builds, and puts the new .dotm straight into Word's STARTUP
                  folder on the build box - no installer, no wizard. Added 8/23/2026 at Jerry's

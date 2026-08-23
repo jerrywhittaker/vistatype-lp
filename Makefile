@@ -26,6 +26,10 @@
 #   make stage   Copy the license into dist/ alongside the built shipping files.
 #   make installer  Compile the Inno Setup installer on the Windows box; copies the
 #                Setup.exe back to dist/. Ships the .dotm, the .dotx and the GPL.
+#   make font-installer  Build the standalone typeface installer (and a .zip of the fonts for
+#                anyone whose antivirus eats unsigned installers), and put both on the build
+#                box Desktop. Not part of `make installer`; build it when a tester needs the
+#                font on its own. See installer/vistatype-font-only.iss.
 #   make scan    Upload the newest dist/ Setup.exe to VirusTotal and report which of its
 #                ~70 engines flag it, and as what. Fails if Microsoft flags it (that is
 #                Defender, which is what a transcriber has) or if more than 3 do. Needs
@@ -39,7 +43,7 @@ DOTM      := LPandBRL.dotm
 DOTX      := LargePrintTemplate.dotx
 RIBBON    := Word.officeUI
 PROJNAME  := LPandBRL
-APPVER    := 3.0.244
+APPVER    := 3.0.245
 SETUP_EXE := VistaType LP and Braille Macros Setup $(APPVER).exe
 VERDATE   := $(shell date +%-m/%-d/%Y)
 
@@ -223,6 +227,42 @@ try-build: check-config build
 	@echo "$(DOTM) $(APPVER) is now in Word's STARTUP folder on $(WIN_HOST). Open Word there and test."
 	@python3 tools/lib/check_try_scope.py
 
+# --- the typeface on its own, for someone who needs the font and not the add-in ---
+#
+# Two things are produced, on purpose. The Setup.exe is what was asked for; the .zip is the answer
+# to "it must not trip antivirus", which an UNSIGNED .exe can never actually promise - every build
+# of the main installer was deleted on sight for two days in August 2026 by a machine-learning
+# guess. A .zip of four font files has no program in it to judge, and Windows installs a font from
+# right-click > Install for the current user, with no administrator rights.
+#
+# Neither needs `make build`: no add-in is involved. The four faces and three licenses come
+# straight from assets/, which is the source of truth for them.
+FONT_SETUP := VistaTypeLP-Sans-Font-Setup-1.0
+FONT_ZIP   := VistaTypeLP-Sans-Fonts.zip
+FONT_DESK  := VistaTypeLP Sans Font
+
+font-installer: check-config check-branding
+	mkdir -p dist
+	@for f in $(FONTFILES); do \
+	  test -f "$(FONTDIR)/$$f" || { echo "MISSING $(FONTDIR)/$$f"; exit 1; }; \
+	  cp "$(FONTDIR)/$$f" dist/; \
+	done
+	python3 tools/lib/build_font_zip.py "dist/$(FONT_ZIP)"
+	$(SSH) "if not exist \"$(WIN_DIR)\\dist\" mkdir \"$(WIN_DIR)\\dist\""
+	@# Wiped and re-copied for the same reason installer-build does it: scp only adds and
+	@# overwrites, so a file deleted here would linger there and keep being compiled in.
+	$(SSH) '$(WIN_PWSH) -NoProfile -Command "Remove-Item -Recurse -Force \"$(WIN_DIR)/installer\" -ErrorAction SilentlyContinue; exit 0"'
+	scp -q -r installer "$(WIN_HOST):$(WIN_DIR)/"
+	scp -q $(addprefix dist/,$(FONTFILES)) "$(WIN_HOST):$(WIN_DIR)/dist/"
+	$(SSH) '$(WIN_ISCC) "/DSrcDir=$(WIN_DIR)/dist" "$(WIN_DIR)/installer/vistatype-font-only.iss"'
+	scp -q "$(WIN_HOST):$(WIN_DIR)/dist/$(FONT_SETUP).exe" "dist/$(FONT_SETUP).exe"
+	scp -q "dist/$(FONT_ZIP)" "$(WIN_HOST):$(WIN_DIR)/dist/$(FONT_ZIP)"
+	$(SSH) '$(WIN_PWSH) -NoProfile -Command "$$d = Join-Path ([Environment]::GetFolderPath(\"Desktop\")) \"$(FONT_DESK)\"; if (-not (Test-Path $$d)) { New-Item -ItemType Directory -Force -Path $$d | Out-Null }; Copy-Item \"$(WIN_DIR)/dist/$(FONT_SETUP).exe\" $$d -Force; Copy-Item \"$(WIN_DIR)/dist/$(FONT_ZIP)\" $$d -Force"'
+	@echo ""
+	@echo "Put both in the \"$(FONT_DESK)\" folder on the $(WIN_HOST) Desktop:"
+	@echo "  $(FONT_SETUP).exe   - the installer (UNSIGNED: antivirus can still object)"
+	@echo "  $(FONT_ZIP)         - the fonts to install by right-click (nothing to flag)"
+
 deploy:
 	@test -f dist/$(DOTM) || { echo "ERROR: run 'make build' first."; exit 1; }
 	cp dist/$(DOTM) $(DOTM)
@@ -327,4 +367,4 @@ scan:
 clean:
 	rm -rf dist build
 
-.PHONY: help check-config push-src pull build ribbon qat check-qat check-tabs check-frm-eol check-vba-lines read try try-build deploy stage branding check-branding bump installer installer-build scan clean
+.PHONY: help check-config push-src pull build ribbon qat check-qat check-tabs check-frm-eol check-vba-lines read try try-build deploy stage branding check-branding bump font-installer installer installer-build scan clean

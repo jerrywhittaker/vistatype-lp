@@ -133,10 +133,15 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - Sh - 8/23/2026 - ALT+C PRESSES CLOSE on both "What do I do here?" dialogs (Jerry). Set in code rather
 '           - Sh - 8/23/2026 - than in the binary layout file on purpose: a keyboard rule that cannot be read in the
 '           - Sh - 8/23/2026 - source is a keyboard rule nobody maintains.
-'           - Sh - 8/23/2026 - NONE OF THE F6 BEHAVIOR COULD BE TESTED HERE. A UserForm cannot be exercised without a
-'           - Sh - 8/23/2026 - screen and a key binding needs a keyboard; what was proved is that all four forms
-'           - Sh - 8/23/2026 - import into Word cleanly, carry the controls and captions they should, and are Tahoma
-'           - Sh - 8/23/2026 - 10 or better. The rest needs Jerry.
+'           - Sh - 8/23/2026 - NONE OF THE F6 BEHAVIOR COULD BE TESTED FROM THE LINUX SIDE. A UserForm cannot be
+'           - Sh - 8/23/2026 - exercised without a screen and a key binding needs a keyboard; what was proved here
+'           - Sh - 8/23/2026 - was that all four forms import into Word cleanly, carry the controls and captions they
+'           - Sh - 8/23/2026 - should, and are Tahoma 10 or better.
+'           - Sh - 8/23/2026 - JERRY CONFIRMED THE WHOLE LOOP WORKS on 3.0.245, 8/23/2026 - which settles the two
+'           - Sh - 8/23/2026 - questions everything else hung on: CustomizationContext = ThisDocument DOES take
+'           - Sh - 8/23/2026 - effect from a .bas in a template loaded from STARTUP, and a KeyBindings command named
+'           - Sh - 8/23/2026 - in full (LPandBRL.ShNonModalMessage.Sh_PgVal_ToggleFocus) resolves when the key is
+'           - Sh - 8/23/2026 - pressed. Anything built on those two later can rely on them.
 '
 ' Notes:    - LP - 8/23/2026 - A FILL-IN LINE'S UNDERSCORES ARE TYPED IN TAHOMA (Jerry), whatever face the book
 '           - LP - 8/23/2026 - is set in. In VistaTypeLP Sans an underscore does not reach the edges of the space it
