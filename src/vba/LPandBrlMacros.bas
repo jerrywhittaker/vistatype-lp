@@ -18,6 +18,122 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - MS - 8/22/2026 - THE STARTING LIST REVISED after Jerry read all three tabs in 3.0.230. FIVE values move, all
+'           - MS - 8/22/2026 - of them 0 -> 1, and the list keeps the same thirty-four boxes: on the ON-DEMAND AutoFormat
+'           - MS - 8/22/2026 - tab, Built-in Heading styles, Lists, Automatic bulleted lists and Other paragraphs; and on
+'           - MS - 8/22/2026 - AutoFormat As You Type, "Define styles based on your formatting". Thirty-one ticked now, and
+'           - MS - 8/22/2026 - the only three left blank are the two *bold*/_italic_ boxes and Plain text WordMail.
+'           - MS - 8/22/2026 - LARGE PRINT AND BRAILLE ARE UNTOUCHED - Jerry scoped this to the default configuration, in
+'           - MS - 8/22/2026 - those words. Both books already write all five False, so nothing follows her into a book.
+'           - MS - 8/22/2026 - Define-styles is the one that would have, and braille's floor under it went in EARLIER TODAY
+'           - MS - 8/22/2026 - for a case that was then hypothetical: the list had it unticked. It is ticked now, so that
+'           - MS - 8/22/2026 - write is load-bearing rather than defensive. Do not remove it.
+'           - MS - 8/22/2026 - Store stamp 12 -> 13. The list did not change SHAPE, so nothing about the ledger moves - but
+'           - MS - 8/22/2026 - a machine that already took the old starting values would never see the new ones without it.
+'           - MS - 8/22/2026 - ONE THING JERRY WROTE THAT IS NOT ACTED ON, deliberately: he glossed "Automatically use
+'           - MS - 8/22/2026 - suggestions from the spelling checker" as CorrectKeyboardSetting. That box is
+'           - MS - 8/22/2026 - AutoCorrect.ReplaceTextFromSpellingChecker, which is on the list and ticked. CorrectKeyboard-
+'           - MS - 8/22/2026 - Setting is the unrelated keyboard-follows-the-language setting, written by nothing here since
+'           - MS - 8/22/2026 - 8/18/2026 because it belongs to a multilingual transcriber's own setup. The LABEL was
+'           - MS - 8/22/2026 - followed, not the property name. Ask before writing CorrectKeyboardSetting anywhere.
+'
+' Notes:    - MS - 8/22/2026 - THE AUTOCORRECT TAB ITSELF, given by Jerry later the same day, and it completes the dialog:
+'           - MS - 8/22/2026 - all three tabs are now stated. ALL EIGHT of its boxes are ticked for an ordinary document.
+'           - MS - 8/22/2026 - Both books tick all eight EXCEPT "Capitalize first letter of sentences" and "Capitalize first
+'           - MS - 8/22/2026 - letter of table cells", which they switch off - a transcriber is typing text already
+'           - MS - 8/22/2026 - capitalized as the print book has it, and Word's guess overwrites what the page says.
+'           - MS - 8/22/2026 - FIVE of the eight are the ones dropped from all three configurations on 8/18/2026 as
+'           - MS - 8/22/2026 - "identical everywhere": DisplayAutoCorrectOptions, CorrectInitialCaps, CorrectDays,
+'           - MS - 8/22/2026 - CorrectCapsLock and ReplaceText - the master switch. They come back in the two BOOKS only,
+'           - MS - 8/22/2026 - which is exactly the correction smart quotes got on 8/21/2026, for the same reason:
+'           - MS - 8/22/2026 - identical is not the same as unimportant, and dropping them left WORD's value standing
+'           - MS - 8/22/2026 - inside a book. Sh_Tracked_Settings 37 -> 42, store stamp 11 -> 12.
+'           - MS - 8/22/2026 - JERRY SETTLED THE BEHAVIOR QUESTION HIMSELF and it is worth recording, because his message
+'           - MS - 8/22/2026 - could be read two ways - "changes should be saved just like AutoFormat" against "protected
+'           - MS - 8/22/2026 - ... restored to these settings with a new Word session". Asked directly whether a box she
+'           - MS - 8/22/2026 - unticks in a letter is ticked again tomorrow, the answer was NO: her change holds. So the
+'           - MS - 8/22/2026 - AutoCorrect tab is not special. It goes through the same one-time starting list as the other
+'           - MS - 8/22/2026 - two tabs and NOTHING is re-asserted per session. Do not build a session-scoped reset.
+'           - MS - 8/22/2026 - ONE GATE IS ASSUMED AND NOT MEASURED, unlike CheckSpellingAsYouType: "Replace text as you
+'           - MS - 8/22/2026 - type" is the master switch and the suggestions box sits under it in the dialog, so it very
+'           - MS - 8/22/2026 - likely greys the same way. ReplaceText is written first in both books and lands first in the
+'           - MS - 8/22/2026 - alphabetical restore anyway, so the order is safe either way - but measure it before
+'           - MS - 8/22/2026 - relying on it. The method is in the settings-ledger notes: park the add-in, toggle by hand.
+'
+' Notes:    - MS - 8/22/2026 - A STARTING POINT FOR THE TWO AUTOCORRECT TABS, and it is not a forced setting. Jerry gave the
+'           - MS - 8/22/2026 - full list of which boxes should be ticked on AutoFormat As You Type and on AutoFormat, and
+'           - MS - 8/22/2026 - said in the same breath: "The checks are not permanent. Changes to any of the checks should be
+'           - MS - 8/22/2026 - saved at the close of the Word session and should be restored whenever a letter (default)
+'           - MS - 8/22/2026 - document is opened or created." Both halves are built.
+'           - MS - 8/22/2026 - The list is in Sh_Seed_Default_Settings - 26 boxes, 18 ticked and 8 unticked - called from
+'           - MS - 8/22/2026 - AutoExec and ONLY from there. It writes at most ONCE per machine: it declines the moment the
+'           - MS - 8/22/2026 - ledger holds a record of this build's shape, and the save on the very next line of AutoExec
+'           - MS - 8/22/2026 - puts one there. From that session on, every one of those boxes is HERS - saved when the
+'           - MS - 8/22/2026 - session ends, given back on every letter, exactly as the thirty-seven tracked settings
+'           - MS - 8/22/2026 - already were.
+'           - MS - 8/22/2026 - IT DOES NOT REOPEN THE QUESTION BELOW. MS_Set_Word_Config_For_New_Install still writes no
+'           - MS - 8/22/2026 - fixed setting at all. The objection to a fixed write THERE was that it is rewritten on every
+'           - MS - 8/22/2026 - letter she opens and so cannot be told from a value she chose. A seed that writes once and
+'           - MS - 8/22/2026 - is then recorded as hers does not have that property. Do not move it into that sub.
+'           - MS - 8/22/2026 - Two consequences worth knowing. Sh_Tracked_Settings gains AutoFormatReplacePlainTextEmphasis
+'           - MS - 8/22/2026 - (36 -> 37) - no book writes it, but the starting list states it, so Jerry's rule has to reach
+'           - MS - 8/22/2026 - it. And the store stamp goes 10 -> 11, which is what makes the list reach a machine that
+'           - MS - 8/22/2026 - already has a ledger: on every existing install, this one build resets those two tabs to
+'           - MS - 8/22/2026 - Jerry's list, once, and anything set since is lost. That is the cost of shipping a starting
+'           - MS - 8/22/2026 - point to machines that already started.
+'           - MS - 8/22/2026 - "Set left- and first-indent with tabs and backspaces" is TabIndentKey on that list, not
+'           - MS - 8/22/2026 - AutoFormatAsYouTypeApplyFirstIndents. That was proved on the build box on 8/21/2026 and had
+'           - MS - 8/22/2026 - already cost two builds; see MS_Set_Word_Config_For_Braille.
+'           - MS - 8/22/2026 - BRAILLE NOW SWITCHES "Built-in Heading styles" OFF, which it had never written. Until the
+'           - MS - 8/22/2026 - starting list existed that did not matter - Word's own value is unchecked. With the box
+'           - MS - 8/22/2026 - ticked for her letters it would have stayed ticked inside a DBT source file, where typing a
+'           - MS - 8/22/2026 - short line and pressing Enter twice makes Word apply Heading 1 silently, and the STYLE is
+'           - MS - 8/22/2026 - what decides the braille format. Large print has written it False since 8/21/2026; this is
+'           - MS - 8/22/2026 - the same write, and it puts braille back to how it behaved before the list.
+'           - MS - 8/22/2026 - "Define styles based on your formatting" goes into braille for the same reason and was found
+'           - MS - 8/22/2026 - the same way. It is seeded UNTICKED, so it is harmless the day the list runs - but the list
+'           - MS - 8/22/2026 - is a starting point, not a setting, so she can tick it in a letter and the ledger will hand
+'           - MS - 8/22/2026 - that tick back for ever. With no write in braille it would then stand inside a DBT source
+'           - MS - 8/22/2026 - file. Large print has written it False since 8/21/2026. Both books now write both boxes.
+'           - MS - 8/22/2026 - AutoFormatReplacePlainTextEmphasis is the one box on the list that NEITHER book writes, and
+'           - MS - 8/22/2026 - it is left that way deliberately: it is on the ON-DEMAND tab, so it can only act when
+'           - MS - 8/22/2026 - somebody runs the AutoFormat command on purpose, never while she types. Jerry's call if it
+'           - MS - 8/22/2026 - should have a floor in a book too.
+'
+' Notes:    - MS - 8/22/2026 - JERRY'S RULE, and it settles a question that has been reopened four times this week:
+'           - MS - 8/22/2026 - THE ORDINARY CONFIGURATION WRITES NO FIXED SETTING AT ALL. Whatever is ticked and unticked in
+'           - MS - 8/22/2026 - the AutoCorrect tabs when a session ends is what comes back for the next document that is
+'           - MS - 8/22/2026 - neither braille nor large print. MS_Set_Word_Config_For_New_Install RESTORES; it decides
+'           - MS - 8/22/2026 - nothing.
+'           - MS - 8/22/2026 - Four writes go, and the whole idea of an "exception" goes with them: the spelling-checker
+'           - MS - 8/22/2026 - pair forced in 3.0.222 (CheckSpellingAsYouType, ReplaceTextFromSpellingChecker) and the two
+'           - MS - 8/22/2026 - hyperlink boxes written the same day for 3.0.225 and never built. All four go BACK into
+'           - MS - 8/22/2026 - Sh_Tracked_Settings, 32 -> 36, store stamp 9 -> 10 - a setting the ordinary configuration
+'           - MS - 8/22/2026 - leaves alone is hers again, and there is a value to give back. Both books write all four,
+'           - MS - 8/22/2026 - which is what makes them book settings.
+'           - MS - 8/22/2026 - The argument that took the four OUT was sound and is not the thing that was wrong: a setting
+'           - MS - 8/22/2026 - all three configurations force cannot be told from one she chose, so it must leave the ledger
+'           - MS - 8/22/2026 - or the next save records VistaType's own value as her preference. That still holds. What was
+'           - MS - 8/22/2026 - wrong was forcing them in the ordinary configuration in the first place. Keep the argument;
+'           - MS - 8/22/2026 - never use it again to justify a fixed write there.
+'           - MS - 8/22/2026 - Braille and large print are UNCHANGED - hyperlinks on in braille, off in large print, and the
+'           - MS - 8/22/2026 - spelling and grammar settings both books switch off. Those decide what the reader and the
+'           - MS - 8/22/2026 - translator receive; they are not preferences, and the ledger exists to give them back.
+'           - MS - 8/22/2026 - THE SPELLING-CHECKER GATE, MEASURED on the build box 8/22/2026 rather than assumed, because
+'           - MS - 8/22/2026 - the assumption was wrong in a way that made this look dangerous when it is not.
+'           - MS - 8/22/2026 - AutoCorrect.ReplaceTextFromSpellingChecker is gated on Options.CheckSpellingAsYouType, and the
+'           - MS - 8/22/2026 - gate is ASYMMETRIC. With the gate False: READING the box returns its UNDERLYING value, not
+'           - MS - 8/22/2026 - False; writing it FALSE works and sticks; writing it TRUE is ignored silently, no error. So
+'           - MS - 8/22/2026 - the gate only blocks turning the box ON, which is exactly why 3.0.218 and 3.0.219 appeared
+'           - MS - 8/22/2026 - to write it and did nothing - both were writing True with the gate down.
+'           - MS - 8/22/2026 - What that means for Sh_Restore_Transcriber_Settings, which walks the list in order: a
+'           - MS - 8/22/2026 - transcriber who works with spell-check-as-you-type OFF is restored correctly. The gate goes
+'           - MS - 8/22/2026 - down first (alphabetically "C" before "R"), and the box is then written False, which the gate
+'           - MS - 8/22/2026 - permits. The one pair the order cannot serve is a stored gate of False with a stored box of
+'           - MS - 8/22/2026 - True: the True write is refused and whatever stands is left. It lands right anyway, because
+'           - MS - 8/22/2026 - both books leave the box True, and it is invisible either way - Word greys the box out while
+'           - MS - 8/22/2026 - the gate is down. Do not reorder the list to chase it; a reverse order would break the
+'           - MS - 8/22/2026 - common case to fix an invisible one.
 ' Notes:    - MS - 8/21/2026 - Two faults in Piece 4, both found by Jerry testing 3.0.214 and 3.0.215, and neither of them
 '           - MS - 8/21/2026 - in the machinery itself. FIRST: Sh_Note_Book_Settings was called ABOVE the spelling and grammar
 '           - MS - 8/21/2026 - writes that both books deliberately keep at the very bottom, so it recorded HER values as the
@@ -857,9 +973,25 @@ Private Const VT_STORE_BOOK As String = "BookApplied"
 ' the thirty-five of 8/21/2026, when first-indents came back out as the wrong property; "7" the
 ' thirty-six of 8/21/2026, adding CheckSpellingAsYouType; "8" the thirty-four of 8/22/2026,
 ' when the two spelling-checker settings left the ledger - the ordinary configuration forces
-' them now as well, so there is no value of hers left to give back.
+' them now as well, so there is no value of hers left to give back; "9" the thirty-two of
+' 8/22/2026, when the two hyperlink settings left it for exactly the same reason; "10" the
+' THIRTY-SIX of 8/22/2026, when all four came straight back - Jerry's rule that the ordinary
+' configuration writes no fixed setting at all took away the reason they had left; "11" the
+' THIRTY-SEVEN of 8/22/2026, adding AutoFormatReplacePlainTextEmphasis with the starting values
+' of Sh_Seed_Default_Settings; "12" the FORTY-TWO of 8/22/2026, when the AutoCorrect tab itself
+' joined - both books write all eight of its boxes and the starting list states all eight; "13" the
+' same forty-two on 8/22/2026 with FIVE of the starting VALUES changed - the four AutoFormat Apply
+' boxes and as-you-type define-styles, all 0 -> 1 (Jerry, testing 3.0.230). The list did not change
+' shape, but a machine that already took the old starting values has to be handed the new ones.
+'
+' Bumping it is also what makes a NEW STARTING LIST reach a machine that already has a ledger.
+' Sh_Seed_Default_Settings declines while the store is of this build's shape, so without the bump
+' Jerry's own PC would install this build and see nothing change. That is deliberate and it has a
+' price, which is worth stating plainly: on every machine that already runs VistaType LP, this
+' one build resets the two AutoCorrect tabs to Jerry's list. Everything she has set since is
+' gone, once. Do not bump this to make an unrelated change ship.
 Private Const VT_STORE_STAMP As String = "StoreVersion"
-Private Const VT_STORE_STAMP_NOW As String = "8"
+Private Const VT_STORE_STAMP_NOW As String = "13"
 
 ' The large print template's file name, and as of 8/20/2026 the ONE fact that decides whether a
 ' document is a large print document - see Lp_Is_The_Attached_Template_LP. Compared by NAME and
@@ -935,7 +1067,13 @@ Sub AutoExec()
     ' Runs once when Word starts (fires even from a STARTUP global template, unlike AutoOpen).
     On Error Resume Next
 
-    ' FIRST, before a document can be configured: note the settings a book would take away while
+    ' FIRST OF ALL, and only ever once per machine: put Jerry's starting values on the two
+    ' AutoCorrect tabs, on a machine where VistaType LP has nothing recorded for her yet. It has
+    ' to run ABOVE the save on the next line - that save is what makes these values hers, and
+    ' from then on the seed declines and never writes again. See Sh_Seed_Default_Settings.
+    Sh_Seed_Default_Settings
+
+    ' THEN, before a document can be configured: note the settings a book would take away while
     ' they are still the transcriber's own. See the declarations at the top of this module.
     Sh_Save_Transcriber_Settings
 
@@ -18354,10 +18492,17 @@ Sub MS_Set_Word_Config_For_New_Install()
     '
     ' Author: Jerry Whittaker -  jerry@thewhittakers.org
     '
-    ' Version: 2.7  Date: 8/22/2026 - ticks "Automatically use suggestions from the spelling checker" here
+    ' Version: 2.9  Date: 8/22/2026 - writes NO fixed setting at all, which is Jerry's rule for the ordinary
+    '                                 configuration. The four that stood here come out - the spelling-checker
+    '                                 pair of 2.7 and the hyperlink pair of 2.8, which was never built - and
+    '                                 all four go back into Sh_Tracked_Settings, 32 -> 36. This sub now only
+    '                                 restores. Whatever she left ticked comes back
+    ' Version: 2.8  Date: 8/22/2026 - ticked "Internet and network paths with hyperlinks" on BOTH tabs
+    '                                 (Jerry, testing 3.0.224). REVERSED by 2.9 the same day, before any
+    '                                 build carried it
+    ' Version: 2.7  Date: 8/22/2026 - ticked "Automatically use suggestions from the spelling checker" here
     '                                 too, with the spell-check-as-you-type gate it gets nowhere without
-    '                                 (Jerry, 3.0.222). Both settings leave the ledger with it: forced in
-    '                                 all three configurations, they are not hers to give back any more
+    '                                 (Jerry, 3.0.222). Shipped in 3.0.222-3.0.224; REVERSED by 2.9
     ' Version: 2.6  Date: 8/20/2026 - the SCREEN half of Piece 3 of the automatic-configuration plan. Formatting
     '                                 marks off rather than on, the navigation pane closed, and the three Styles
     '                                 pane settings saved inside her file no longer written at all. The twenty
@@ -18412,12 +18557,12 @@ Sub MS_Set_Word_Config_For_New_Install()
     ' Nothing had failed to save. This sub was rewriting them.
     '
     ' What puts them back now is Sh_Restore_Transcriber_Settings, one call below, working from the
-    ' ledger - HER values, not Word's factory ones, and covering thirty-four settings rather than
+    ' ledger - HER values, not Word's factory ones, and covering forty-two settings rather than
     ' the twenty that were written here. Do not add a fixed write back into this sub: a value
-    ' written here cannot be told from a value she chose. The ONE exception is the pair of
-    ' spelling-checker writes further down, and it is only an exception because those two stopped
-    ' being preferences: all three configurations force them from 3.0.222, so there is no value of
-    ' hers to tell apart, and both names left Sh_Tracked_Settings on 8/22/2026 to say so.
+    ' written here cannot be told from a value she chose. There are NO exceptions, and there were
+    ' two for one day - see the note where they stood, further down. Jerry's rule, 8/22/2026: the
+    ' ordinary configuration decides nothing. Anything added here would be indistinguishable from
+    ' her own choice, which is the whole fault this piece was built to end.
     '
     ' AutoFormatAsYouTypeApplyFirstIndents went with them and is written by nothing now. No book
     ' configuration ever touched it, so the only thing the write did was overwrite her own choice -
@@ -18463,40 +18608,50 @@ Sub MS_Set_Word_Config_For_New_Install()
     MS_Word_Config = "Word is configured with default settings"
     Sh_ConfiguredAs = "DEF"   ' see Sh_HandleDocumentActivated: record what is ACTUALLY in force
 
-    ' The settings braille and large print switch off - five spelling and grammar ones, and the
-    ' tab-indent key. Nothing put them back before 8/18/2026 - see the top of this module.
+    ' Every setting braille or large print takes away, put back to HER value - all forty-two
+    ' of them, walked from Sh_Tracked_Settings. Nothing put any of them back before 8/18/2026, when
+    ' this covered six - see the top of this module. From 8/22/2026 this is the ONLY thing in this
+    ' sub that touches the AutoCorrect tabs.
     Sh_Restore_Transcriber_Settings
 
-    ' Spell-check-as-you-type and the suggestions-from-the-spelling-checker box, both ON - Jerry,
-    ' 3.0.222. He asked for the AutoCorrect box ticked in the ordinary configuration; the first
-    ' line is what makes the second one possible. ReplaceTextFromSpellingChecker is GATED on
-    ' CheckSpellingAsYouType: while that is False, Word greys the box out in the dialog and
-    ' refuses the assignment silently - no error raised, the value simply stays False. That is
-    ' what made 3.0.218 and 3.0.219 look as though they wrote it. MUST STAY ABOVE IT.
+    ' NOTHING IS FORCED HERE, and that is the rule - Jerry, 8/22/2026. Four writes stood in this
+    ' space for one day and both pairs are gone: spell-check-as-you-type with the
+    ' suggestions-from-the-spelling-checker box (3.0.222, which shipped in three test builds), and
+    ' the two "Internet and network paths with hyperlinks" boxes (written for 3.0.225, never
+    ' built). All four names went back into Sh_Tracked_Settings with them.
     '
-    ' Both books have done this same pair since 3.0.220, so from here all three configurations
-    ' agree and the box is ticked wherever she is working. The cost, accepted by Jerry on
-    ' 8/22/2026: red squiggles in her ordinary letters as well as in her books, and her own choice
-    ' on spell-check-as-you-type overridden rather than handed back.
+    ' Both pairs were argued for the same way, and the argument was not wrong - it was answering
+    ' the wrong question. It ran: all three configurations force this, so it is not a preference
+    ' any more, so its name must leave Sh_Tracked_Settings or the next save will read VistaType's
+    ' own True off Word and write it down as her choice. That is true, and unavoidable, ONCE the
+    ' ordinary configuration forces it. The answer is not to take the name out of the ledger. It
+    ' is not to force it here.
     '
-    ' BELOW Sh_Restore_Transcriber_Settings on purpose - run above it, the restore would put her
-    ' stored value straight back over the top of both. And both names came OUT of the ledger the
-    ' same day: a setting all three configurations force is no longer a preference, and left in
-    ' the list the save would have written this True back as though she had chosen it.
-    If Options.CheckSpellingAsYouType <> True Then Options.CheckSpellingAsYouType = True
-    If AutoCorrect.ReplaceTextFromSpellingChecker <> True Then AutoCorrect.ReplaceTextFromSpellingChecker = True
+    ' What she has left ticked and unticked when a session ends is what comes back for the next
+    ' document that is neither braille nor large print. Sh_Restore_Transcriber_Settings, above, is
+    ' the only thing in this sub that touches the AutoCorrect tabs at all.
+    '
+    ' 8/22/2026 - THE ONE PLACE VISTATYPE LP STATES A VALUE FOR THOSE TABS IS NOT HERE. Jerry gave
+    ' a full list of which boxes should be ticked on both tabs that day, and it is in
+    ' Sh_Seed_Default_Settings, called from AutoExec. It is a STARTING POINT, not a forced setting:
+    ' it writes at most once per machine, the save on the line after it records what it wrote as
+    ' hers, and it then declines for ever. That is why it does not belong in this sub and why the
+    ' rule above is untouched - a value written HERE would be rewritten on every letter she opens,
+    ' and that is the thing that cannot be told from her own choice.
 
     ' The compact fractions. Until 8/18/2026 this sub DELETED all eighteen. Be clear about what
     ' that did and did not cost: Word itself does only three - one half, one quarter and three
-    ' quarters - and it does them through AutoFormatAsYouTypeReplaceFractions above, not through
+    ' quarters - and it does them through AutoFormatAsYouTypeReplaceFractions, which this sub no
+    ' longer writes at all (it is hers, and in the ledger), not through
     ' an AutoCorrect entry, so those three went on working. The other fifteen (1/3, 2/3, 1/5 and
     ' the rest) exist ONLY as the entries the braille configuration adds, and these deletes were
     ' written the same day, 10/19/2021, to take them straight back out again.
     ' Jerry, 8/18/2026: an ordinary document should have all eighteen, so the same list the
     ' braille configuration uses is added here instead. They then STAY in the transcriber's own
     ' AutoCorrect list. Large print still deletes them - a large print book keeps 1/2 as typed.
-    ' Runs LAST, and below the two lines above on purpose: if it ever raised, Sh_Apply_Word_Config's
-    ' handler would blank Sh_ConfiguredAs and Doc Info would report the previous document's setup.
+    ' Runs LAST, below Sh_Restore_Transcriber_Settings, on purpose: if it ever raised,
+    ' Sh_Apply_Word_Config's handler would blank Sh_ConfiguredAs and Doc Info would report the
+    ' previous document's setup.
     Sh_Add_Compact_Fractions
 
 End Sub '*** end of MS_Set_Word_Config_For_New_Install ***
@@ -18507,6 +18662,11 @@ Sub MS_Set_Word_Config_For_Large_Print()
     '
     ' Author: Jerry Whittaker -  jerry@thewhittakers.org
     '
+    ' Version: 2.7  Date: 8/22/2026 - THE WHOLE AUTOCORRECT TAB, all eight boxes (Jerry). Five of them were
+    '                                  dropped from all three configurations on 8/18/2026 as "identical
+    '                                  everywhere" and come back in the two books only - the same correction
+    '                                  smart quotes got on 8/21. CorrectSentenceCaps and CorrectTableCells
+    '                                  stay OFF; the other six are on. Ledger 37 -> 42, store stamp 11 -> 12
     ' Version: 2.6  Date: 8/21/2026 - the three AutoFormat As You Type boxes this sub had never written are
     '                                 written now, all False: built-in heading styles, the Markdown box
     '                                 (AutoFormatAsYouTypeReplacePlainTextEmphasis) and define-styles-from-
@@ -18608,9 +18768,31 @@ Sub MS_Set_Word_Config_For_Large_Print()
     ' the build box 8/21/2026: with this True the very next assignment sticks. MUST STAY ABOVE IT.
     If Options.CheckSpellingAsYouType <> True Then Options.CheckSpellingAsYouType = True
 
+    ' THE WHOLE AUTOCORRECT TAB, decided by a book and not left to her - Jerry, 8/22/2026: every
+    ' box on it is ticked in braille and in large print EXCEPT the two capitalization ones below.
+    ' Five of these eight were dropped from all three configurations on 8/18/2026 as "identical
+    ' everywhere"; they come back here only, which is the same correction smart quotes got on
+    ' 8/21/2026. Identical is not the same as unimportant - dropping them left WORD's value
+    ' standing inside a book. All eight are in Sh_Tracked_Settings, so her own value comes back
+    ' in her letters.
     With AutoCorrect
+        ' The two exceptions, off. A transcriber types text that is already capitalized as the
+        ' print book has it, and Word's guess at a sentence or a table cell overwrites what the
+        ' page actually says.
         If .CorrectSentenceCaps <> False Then .CorrectSentenceCaps = False
         If .CorrectTableCells <> False Then .CorrectTableCells = False
+
+        If .DisplayAutoCorrectOptions <> True Then .DisplayAutoCorrectOptions = True
+        If .CorrectInitialCaps <> True Then .CorrectInitialCaps = True
+        If .CorrectDays <> True Then .CorrectDays = True
+        If .CorrectCapsLock <> True Then .CorrectCapsLock = True
+
+        ' "Replace text as you type" - the master switch for the whole tab, and it must stay ABOVE
+        ' the suggestions box below it. In Word's dialog that box is a sub-item of this one, so
+        ' this being False is very likely to grey it out the same way CheckSpellingAsYouType does.
+        ' UNLIKE that gate, this one has NOT been measured on the build box - the order is put in
+        ' the safe place rather than proved. Measure it before relying on it.
+        If .ReplaceText <> True Then .ReplaceText = True
 
         ' The suggestions-from-the-spelling-checker box. GATED on Options.CheckSpellingAsYouType,
         ' set True just above - see the note there. Do not move this above it.
@@ -18739,6 +18921,12 @@ Sub MS_Set_Word_Config_For_Braille()
     '
     ' Author: Jerry Whittaker -  jerry@thewhittakers.org
     '
+    ' Version: 2.6  Date: 8/22/2026 - THE WHOLE AUTOCORRECT TAB, all eight boxes, exactly as large print -
+    '                                  see its 2.7 note. And the two AutoFormat As You Type boxes braille had
+    '                                  never written, both False: built-in heading styles and define-styles-
+    '                                  from-formatting. Braille had no floor under either, and the starting
+    '                                  list is what made that reachable - a style Word applies by guesswork
+    '                                  is what Duxbury is then given
     ' Version: 2.5  Date: 8/21/2026 - smart quotes and hyperlinks are written again, both forms, and
     '                                 Sh_Note_Book_Settings moved below the trailing writes (Jerry, 3.0.215)
     ' Version: 2.4  Date: 8/20/2026 - records what it applied, for the ledger - Sh_Note_Book_Settings
@@ -18785,6 +18973,28 @@ Sub MS_Set_Word_Config_For_Braille()
         If .AutoFormatAsYouTypeApplyBulletedLists <> False Then .AutoFormatAsYouTypeApplyBulletedLists = False
         If .AutoFormatAsYouTypeApplyNumberedLists <> False Then .AutoFormatAsYouTypeApplyNumberedLists = False
         If .AutoFormatAsYouTypeApplyTables <> False Then .AutoFormatAsYouTypeApplyTables = False
+        ' "Built-in Heading styles", off. Written here from 8/22/2026 - braille had never written
+        ' it, and until that day it did not matter because Word's own value is unchecked. The
+        ' starting list (Sh_Seed_Default_Settings) ticks it for her letters, which would have left
+        ' it ON inside a DBT source file: type a short line, press Enter twice, and Word silently
+        ' applies Heading 1. In a DBT source the STYLE is the whole instruction to Duxbury, so a
+        ' paragraph that quietly became a heading is translated as one, with nothing on screen to
+        ' say why - it just looks slightly bigger. What it comes out AS under BANA is beside the
+        ' point: a style applied by guesswork is wrong whatever it translates to.
+        ' It takes away no way of applying a heading ON PURPOSE - the style gallery, the style
+        ' box, Ctrl+Alt+1/2/3 and any macro that assigns the style are all untouched by this
+        ' option. Large print has written it False since 8/21/2026; this is the same write.
+        If .AutoFormatAsYouTypeApplyHeadings <> False Then .AutoFormatAsYouTypeApplyHeadings = False
+
+        ' "Define styles based on your formatting", off - and braille had never written this one
+        ' either. Same hole as the line above and found the same way, 8/22/2026. It is seeded
+        ' UNTICKED, so it is harmless on the day the starting list runs; the trouble is that the
+        ' list is a starting point and not a setting, so she can tick it in a letter and the
+        ' ledger will hand that tick back to her for ever. With no write here it would then stand
+        ' inside a DBT source file, where Word would begin redefining styles from whatever direct
+        ' formatting she applied in one paragraph - and the style is what Duxbury is given.
+        ' Large print calls this the worst of the three; it is at least as bad here.
+        If .AutoFormatAsYouTypeDefineStyles <> False Then .AutoFormatAsYouTypeDefineStyles = False
         If .AutoFormatAsYouTypeReplaceSymbols <> True Then .AutoFormatAsYouTypeReplaceSymbols = True
         If .AutoFormatAsYouTypeReplaceOrdinals <> True Then .AutoFormatAsYouTypeReplaceOrdinals = True
         If .AutoFormatAsYouTypeReplaceFractions <> True Then .AutoFormatAsYouTypeReplaceFractions = True
@@ -18802,8 +19012,10 @@ Sub MS_Set_Word_Config_For_Braille()
         ' Smart quotes and hyperlinks, back as BOOK settings on 8/21/2026 - Jerry. Both books
         ' forced them on until 8/18/2026, when they were dropped from all three configurations
         ' as "identical everywhere". Identical is not the same as unimportant: dropping them
-        ' left Word's own value standing in a book, and a book needs these on. They are in
-        ' Sh_Tracked_Settings, so her own value comes back in her letters.
+        ' left Word's own value standing in a book, and a book needs these on. Both are in
+        ' Sh_Tracked_Settings, so her own value comes back in her letters. The hyperlink write
+        ' below spent one day off that list, on 8/22/2026, while the ordinary configuration was
+        ' ticking the box too; it went back on the same day when that write was taken out.
         If .AutoFormatAsYouTypeReplaceQuotes <> True Then .AutoFormatAsYouTypeReplaceQuotes = True
         ' "Internet and network paths with hyperlinks", ON in braille. This box has now been
         ' turned off and on again within one day: off in 3.0.218 at Jerry's request, back on in
@@ -18820,9 +19032,31 @@ Sub MS_Set_Word_Config_For_Braille()
     ' the build box 8/21/2026: with this True the very next assignment sticks. MUST STAY ABOVE IT.
     If Options.CheckSpellingAsYouType <> True Then Options.CheckSpellingAsYouType = True
 
+    ' THE WHOLE AUTOCORRECT TAB, decided by a book and not left to her - Jerry, 8/22/2026: every
+    ' box on it is ticked in braille and in large print EXCEPT the two capitalization ones below.
+    ' Five of these eight were dropped from all three configurations on 8/18/2026 as "identical
+    ' everywhere"; they come back here only, which is the same correction smart quotes got on
+    ' 8/21/2026. Identical is not the same as unimportant - dropping them left WORD's value
+    ' standing inside a book. All eight are in Sh_Tracked_Settings, so her own value comes back
+    ' in her letters.
     With AutoCorrect
+        ' The two exceptions, off. A transcriber types text that is already capitalized as the
+        ' print book has it, and Word's guess at a sentence or a table cell overwrites what the
+        ' page actually says.
         If .CorrectSentenceCaps <> False Then .CorrectSentenceCaps = False
         If .CorrectTableCells <> False Then .CorrectTableCells = False
+
+        If .DisplayAutoCorrectOptions <> True Then .DisplayAutoCorrectOptions = True
+        If .CorrectInitialCaps <> True Then .CorrectInitialCaps = True
+        If .CorrectDays <> True Then .CorrectDays = True
+        If .CorrectCapsLock <> True Then .CorrectCapsLock = True
+
+        ' "Replace text as you type" - the master switch for the whole tab, and it must stay ABOVE
+        ' the suggestions box below it. In Word's dialog that box is a sub-item of this one, so
+        ' this being False is very likely to grey it out the same way CheckSpellingAsYouType does.
+        ' UNLIKE that gate, this one has NOT been measured on the build box - the order is put in
+        ' the safe place rather than proved. Measure it before relying on it.
+        If .ReplaceText <> True Then .ReplaceText = True
 
         ' The suggestions-from-the-spelling-checker box. GATED on Options.CheckSpellingAsYouType,
         ' set True just above - see the note there. Do not move this above it.
@@ -19050,10 +19284,12 @@ Private Function Sh_Store_To_Bool(ByVal held As String) As Boolean
 End Function
 
 ' EVERY setting a large print or braille configuration takes away from her, in one list, walked
-' by all three of the subs below - the save, the compare and the restore. Thirty-four of them,
+' by all three of the subs below - the save, the compare and the restore. Forty-two of them,
 ' and the list is not guesswork: it is the union of what MS_Set_Word_Config_For_Large_Print and
 ' MS_Set_Word_Config_For_Braille actually write, read out of those two subs on 8/20/2026, plus
-' the four smart-quote and hyperlink settings the books took back on 8/21/2026.
+' the smart-quote settings the books took back on 8/21/2026. Nothing is subtracted: under Jerry's
+' rule of 8/22/2026 the ordinary configuration decides nothing, so every setting either book
+' writes has a value of hers to give back. See the membership test further down.
 '
 ' ADDING A SETTING TO EITHER BOOK CONFIGURATION MEANS ADDING IT HERE, and to both Select Cases
 ' below, and bumping VT_STORE_STAMP_NOW. A setting a book writes and this list does not name is
@@ -19065,16 +19301,38 @@ End Function
 ' at all - the six spelling and grammar ones found on 8/18, plus ShowStylePreviews and
 ' RestrictLinkedStyles, which the books switch on and nothing has ever switched off.
 '
-' The last four are smart quotes and hyperlinks, in both their as-you-type and on-demand forms.
-' Both books forced them on until 8/18/2026, when they went with the fifteen settings that were
-' identical in all three configurations. Jerry, 8/21/2026, testing 3.0.215: identical is not the
-' same as unimportant. Dropping them left WORD's value standing inside a book, where the work
-' needs them on. Back in the two book configurations only - never in the ordinary one, which is
-' the difference between a book setting and a preference imposed on her Word.
+' Smart quotes are in it in both their as-you-type and on-demand forms. Both books forced them on
+' until 8/18/2026, when they went with the fifteen settings that were identical in all three
+' configurations. Jerry, 8/21/2026, testing 3.0.215: identical is not the same as unimportant.
+' Dropping them left WORD's value standing inside a book, where the work needs them on. Back in
+' the two book configurations only - never in the ordinary one, which is the difference between a
+' book setting and a preference imposed on her Word.
 '
+' The test for membership, and it went wrong twice on 8/22/2026 before it was stated plainly: a
+' setting belongs here while at least one of the three configurations leaves it alone. Under
+' Jerry's rule the ordinary configuration leaves EVERYTHING alone, so the test reduces to "does
+' either book write it", and the answer for forty-one of the forty-two is yes.
+'
+' AutoFormatReplacePlainTextEmphasis is the one exception, added 8/22/2026.
+' Neither book writes it. It is here because Sh_Seed_Default_Settings gives it a starting value,
+' and Jerry's instruction the same day was that a change to ANY of the boxes he listed is saved
+' and given back. A setting nothing takes away needs no restoring, so this costs one read and one
+' write per save and buys the promise being uniform across his whole list. The membership test is
+' therefore: does any configuration write it, OR does the starting list state it.
+'
+' Version: 1.8  Date: 8/22/2026 - AutoFormatReplacePlainTextEmphasis, 36 -> 37. Nothing takes it away;
+'                                 it is here because the starting list states it and Jerry's rule
+'                                 covers every box on that list
+' Version: 1.7  Date: 8/22/2026 - all four names come straight back, 32 -> 36. The ordinary configuration
+'                                 stopped forcing them (Jerry's rule: it writes no fixed setting at all),
+'                                 so each of the four has a value of hers to give back again. 1.5 and 1.6
+'                                 were correct about the consequence and wrong about the cause
+' Version: 1.6  Date: 8/22/2026 - AutoFormatAsYouTypeReplaceHyperlinks and AutoFormatReplaceHyperlinks
+'                                 come OUT: the ordinary configuration forces both ON from 3.0.225, so
+'                                 all three configurations decide them. 34 -> 32. REVERSED by 1.7
 ' Version: 1.5  Date: 8/22/2026 - CheckSpellingAsYouType and ReplaceTextFromSpellingChecker come OUT:
 '                                 the ordinary configuration forces both from 3.0.222, so no configuration
-'                                 leaves her a value to be given back. 36 -> 34
+'                                 leaves her a value to be given back. 36 -> 34. REVERSED by 1.7
 ' Version: 1.4  Date: 8/21/2026 - AutoFormatAsYouTypeApplyFirstIndents comes back OUT: it is not the
 '                                 checkbox anybody thought it was (see MS_Set_Word_Config_For_Braille),
 '                                 nothing writes it again, and it is hers. 36 -> 35
@@ -19089,8 +19347,17 @@ End Function
 ' Version: 1.1  Date: 8/21/2026 - the four smart-quote and hyperlink settings, 27 -> 31
 ' Version: 1.0  Date: 8/20/2026
 Private Function Sh_Tracked_Settings() As Variant
+    ' ALPHABETICAL, AND IT HAS TO STAY THAT WAY. Sh_Restore_Transcriber_Settings walks this list in
+    ' order, and one pair here is ordered: AutoCorrect.ReplaceTextFromSpellingChecker is gated on
+    ' Options.CheckSpellingAsYouType, "C" before "R". The gate's behavior was MEASURED on the build
+    ' box on 8/22/2026 - see the module header for the full result. The short of it: with the gate
+    ' down, the box READS its underlying value and can still be written FALSE; only writing it TRUE
+    ' is refused, silently. Restoring the gate first is therefore right for the case that matters,
+    ' a transcriber who keeps spell-check-as-you-type off. Reversing the order would break her to
+    ' fix a pair that is invisible in the dialog anyway.
+    '
     ' Built with Split rather than Array(...) and a line continuation per name: VBA allows at
-    ' most 25 continuations in one statement and there are 34 names here, which does not fail
+    ' most 25 continuations in one statement and there are 42 names here, which does not fail
     ' at the line - it fails the whole module at import, with a COM error from the build script
     ' that says nothing about continuations. 8/20/2026, and it cost a build to find.
     Dim nm As String
@@ -19102,10 +19369,12 @@ Private Function Sh_Tracked_Settings() As Variant
     nm = nm & "AutoFormatAsYouTypeReplaceHyperlinks,AutoFormatAsYouTypeReplaceOrdinals,AutoFormatAsYouTypeReplacePlainTextEmphasis,"
     nm = nm & "AutoFormatAsYouTypeReplaceQuotes,AutoFormatAsYouTypeReplaceSymbols,AutoFormatPlainTextWordMail,"
     nm = nm & "AutoFormatPreserveStyles,AutoFormatReplaceFractions,AutoFormatReplaceHyperlinks,"
-    nm = nm & "AutoFormatReplaceOrdinals,AutoFormatReplaceQuotes,AutoFormatReplaceSymbols,"
-    nm = nm & "CheckGrammarAsYouType,ContextualSpeller,"
-    nm = nm & "CorrectSentenceCaps,CorrectTableCells,IgnoreMixedDigits,"
-    nm = nm & "IgnoreUppercase,LabelSmartTags,"
+    nm = nm & "AutoFormatReplaceOrdinals,AutoFormatReplacePlainTextEmphasis,AutoFormatReplaceQuotes,"
+    nm = nm & "AutoFormatReplaceSymbols,CheckGrammarAsYouType,CheckSpellingAsYouType,"
+    nm = nm & "ContextualSpeller,CorrectCapsLock,CorrectDays,"
+    nm = nm & "CorrectInitialCaps,CorrectSentenceCaps,CorrectTableCells,"
+    nm = nm & "DisplayAutoCorrectOptions,IgnoreMixedDigits,IgnoreUppercase,"
+    nm = nm & "LabelSmartTags,ReplaceText,ReplaceTextFromSpellingChecker,"
     nm = nm & "RestrictLinkedStyles,ShowStylePreviews,TabIndentKey"
 
     Sh_Tracked_Settings = Split(nm, ",")
@@ -19115,6 +19384,12 @@ End Function  '*** end of Sh_Tracked_Settings ***
 ' Application - are why this is a Select Case and not something cleverer: VBA cannot reach a
 ' property by name without CallByName, which is slower and silently returns Empty on a typo.
 '
+' Version: 1.1  Date: 8/22/2026 - the five AutoCorrect tab names, 37 -> 42. NOTE the one that nearly shipped:
+'                                 "Correct TWo INitial CApitals" is AutoCorrect.CorrectInitialCaps. There is
+'                                 no TwoInitialCapitals property of any kind, and an invented name here is
+'                                 resolved at COMPILE time, so it builds green and reaches the transcriber as
+'                                 "Compile error in hidden module" at Word startup, with both tabs dead.
+'                                 All 42 names were then read back off a live Word on the build box
 ' Version: 1.0  Date: 8/20/2026
 Private Function Sh_Setting_Live(ByVal nm As String) As Boolean
     On Error Resume Next
@@ -19141,15 +19416,23 @@ Private Function Sh_Setting_Live(ByVal nm As String) As Boolean
         Case "AutoFormatReplaceFractions": Sh_Setting_Live = Options.AutoFormatReplaceFractions
         Case "AutoFormatReplaceHyperlinks": Sh_Setting_Live = Options.AutoFormatReplaceHyperlinks
         Case "AutoFormatReplaceOrdinals": Sh_Setting_Live = Options.AutoFormatReplaceOrdinals
+        Case "AutoFormatReplacePlainTextEmphasis": Sh_Setting_Live = Options.AutoFormatReplacePlainTextEmphasis
         Case "AutoFormatReplaceQuotes": Sh_Setting_Live = Options.AutoFormatReplaceQuotes
         Case "AutoFormatReplaceSymbols": Sh_Setting_Live = Options.AutoFormatReplaceSymbols
         Case "CheckGrammarAsYouType": Sh_Setting_Live = Options.CheckGrammarAsYouType
+        Case "CheckSpellingAsYouType": Sh_Setting_Live = Options.CheckSpellingAsYouType
         Case "ContextualSpeller": Sh_Setting_Live = Options.ContextualSpeller
+        Case "CorrectCapsLock": Sh_Setting_Live = AutoCorrect.CorrectCapsLock
+        Case "CorrectDays": Sh_Setting_Live = AutoCorrect.CorrectDays
+        Case "CorrectInitialCaps": Sh_Setting_Live = AutoCorrect.CorrectInitialCaps
         Case "CorrectSentenceCaps": Sh_Setting_Live = AutoCorrect.CorrectSentenceCaps
         Case "CorrectTableCells": Sh_Setting_Live = AutoCorrect.CorrectTableCells
+        Case "DisplayAutoCorrectOptions": Sh_Setting_Live = AutoCorrect.DisplayAutoCorrectOptions
         Case "IgnoreMixedDigits": Sh_Setting_Live = Options.IgnoreMixedDigits
         Case "IgnoreUppercase": Sh_Setting_Live = Options.IgnoreUppercase
         Case "LabelSmartTags": Sh_Setting_Live = Options.LabelSmartTags
+        Case "ReplaceText": Sh_Setting_Live = AutoCorrect.ReplaceText
+        Case "ReplaceTextFromSpellingChecker": Sh_Setting_Live = AutoCorrect.ReplaceTextFromSpellingChecker
         Case "RestrictLinkedStyles": Sh_Setting_Live = Application.RestrictLinkedStyles
         Case "ShowStylePreviews": Sh_Setting_Live = Application.ShowStylePreviews
         Case "TabIndentKey": Sh_Setting_Live = Options.TabIndentKey
@@ -19162,6 +19445,7 @@ End Function  '*** end of Sh_Setting_Live ***
 ' Options and AutoCorrect are what brought on Office's "restart to apply your privacy settings"
 ' notice on 7/18/2026.
 '
+' Version: 1.1  Date: 8/22/2026 - the five AutoCorrect tab names, 37 -> 42. See the note on Sh_Setting_Live
 ' Version: 1.0  Date: 8/20/2026
 Private Sub Sh_Setting_Put(ByVal nm As String, ByVal wanted As Boolean)
     On Error Resume Next
@@ -19188,21 +19472,194 @@ Private Sub Sh_Setting_Put(ByVal nm As String, ByVal wanted As Boolean)
         Case "AutoFormatReplaceFractions": If Options.AutoFormatReplaceFractions <> wanted Then Options.AutoFormatReplaceFractions = wanted
         Case "AutoFormatReplaceHyperlinks": If Options.AutoFormatReplaceHyperlinks <> wanted Then Options.AutoFormatReplaceHyperlinks = wanted
         Case "AutoFormatReplaceOrdinals": If Options.AutoFormatReplaceOrdinals <> wanted Then Options.AutoFormatReplaceOrdinals = wanted
+        Case "AutoFormatReplacePlainTextEmphasis": If Options.AutoFormatReplacePlainTextEmphasis <> wanted Then Options.AutoFormatReplacePlainTextEmphasis = wanted
         Case "AutoFormatReplaceQuotes": If Options.AutoFormatReplaceQuotes <> wanted Then Options.AutoFormatReplaceQuotes = wanted
         Case "AutoFormatReplaceSymbols": If Options.AutoFormatReplaceSymbols <> wanted Then Options.AutoFormatReplaceSymbols = wanted
         Case "CheckGrammarAsYouType": If Options.CheckGrammarAsYouType <> wanted Then Options.CheckGrammarAsYouType = wanted
+        ' The GATE for ReplaceTextFromSpellingChecker below, and it only blocks turning that box ON -
+        ' measured 8/22/2026, see the module header. Restored first, alphabetically.
+        Case "CheckSpellingAsYouType": If Options.CheckSpellingAsYouType <> wanted Then Options.CheckSpellingAsYouType = wanted
         Case "ContextualSpeller": If Options.ContextualSpeller <> wanted Then Options.ContextualSpeller = wanted
+        Case "CorrectCapsLock": If AutoCorrect.CorrectCapsLock <> wanted Then AutoCorrect.CorrectCapsLock = wanted
+        Case "CorrectDays": If AutoCorrect.CorrectDays <> wanted Then AutoCorrect.CorrectDays = wanted
+        Case "CorrectInitialCaps": If AutoCorrect.CorrectInitialCaps <> wanted Then AutoCorrect.CorrectInitialCaps = wanted
         Case "CorrectSentenceCaps": If AutoCorrect.CorrectSentenceCaps <> wanted Then AutoCorrect.CorrectSentenceCaps = wanted
         Case "CorrectTableCells": If AutoCorrect.CorrectTableCells <> wanted Then AutoCorrect.CorrectTableCells = wanted
+        Case "DisplayAutoCorrectOptions": If AutoCorrect.DisplayAutoCorrectOptions <> wanted Then AutoCorrect.DisplayAutoCorrectOptions = wanted
         Case "IgnoreMixedDigits": If Options.IgnoreMixedDigits <> wanted Then Options.IgnoreMixedDigits = wanted
         Case "IgnoreUppercase": If Options.IgnoreUppercase <> wanted Then Options.IgnoreUppercase = wanted
         Case "LabelSmartTags": If Options.LabelSmartTags <> wanted Then Options.LabelSmartTags = wanted
+        ' Gated on CheckSpellingAsYouType above, which by then holds HER value. Measured 8/22/2026:
+        ' with the gate down this write still succeeds when wanted is False, and is ignored - no
+        ' error - when wanted is True. So the common restore is exact, and the one case it cannot
+        ' reach (stored gate False with stored box True) is greyed out in the dialog regardless.
+        Case "ReplaceText": If AutoCorrect.ReplaceText <> wanted Then AutoCorrect.ReplaceText = wanted
+        Case "ReplaceTextFromSpellingChecker": If AutoCorrect.ReplaceTextFromSpellingChecker <> wanted Then AutoCorrect.ReplaceTextFromSpellingChecker = wanted
         Case "RestrictLinkedStyles": If Application.RestrictLinkedStyles <> wanted Then Application.RestrictLinkedStyles = wanted
         Case "ShowStylePreviews": If Application.ShowStylePreviews <> wanted Then Application.ShowStylePreviews = wanted
         Case "TabIndentKey": If Options.TabIndentKey <> wanted Then Options.TabIndentKey = wanted
     End Select
     Err.Clear
 End Sub  '*** end of Sh_Setting_Put ***
+
+' THE STARTING POINT - what all three AutoCorrect dialog tabs read on a machine where VistaType LP
+' has nothing recorded for the transcriber yet. Jerry's list, 8/22/2026: AutoFormat As You Type and
+' AutoFormat first, the AutoCorrect tab itself added later the same day.
+'
+' Jerry settled the AutoCorrect tab's behavior explicitly when he gave it, and the answer is that it
+' is not special: "changes to this should be saved just like the AutoFormat and AutoFormat As You
+' Type are stored." Untick a box in a letter, close Word, come back tomorrow, and it is still
+' unticked. So all three tabs run through this one sub and nothing is re-asserted per session.
+'
+' THESE CHECKS ARE NOT PERMANENT, and that distinction is the whole design. This list is written
+' ONCE - on a machine with no ledger, or one whose ledger this build cannot read - and never
+' again. From that moment every one of these boxes is HERS: what she leaves ticked when a session
+' ends is saved, and it is given back whenever a letter is opened or created. Jerry, 8/22/2026:
+' "The checks are not permanent. Changes to any of the checks should be saved at the close of the
+' Word session and should be restored whenever a letter (default) document is opened or created."
+'
+' ONCE PER MACHINE IS ENFORCED HERE, not inherited. This sub writes its own record and its own
+' stamp, and it declines the moment it can read that record back. It does not rely on
+' Sh_Save_Transcriber_Settings for either, because that save declines while a book record is
+' outstanding - so on the morning after she quit Word inside a braille file it would not have run,
+' the stamp would not have moved, and this list would have been written over her work again the
+' next day and the day after. Found in review, 8/22/2026, before any build carried it.
+'
+' AND IF THE STORE CANNOT BE WRITTEN, NOTHING IS WRITTEN AT ALL - see the read-back test below.
+' VistaType LP does not impose a starting point it has no way to hand over.
+'
+' IT DOES NOT BREAK JERRY'S RULE OF THE SAME DAY that the ordinary configuration decides nothing.
+' MS_Set_Word_Config_For_New_Install still writes no fixed setting at all - read the long note in
+' it. The objection there was that a value written on every ordinary document open cannot be told
+' from a value she chose. A one-time seed does not raise it: this runs from AutoExec, at most once
+' per machine, and Sh_Save_Transcriber_Settings on the very next line records what it wrote as HER
+' value. After that first session there is no value written here left to confuse with hers.
+'
+' EIGHT TRACKED SETTINGS ARE DELIBERATELY ABSENT: the six spelling and grammar ones that live on
+' Word's PROOFING page rather than in this dialog - CheckGrammarAsYouType, CheckSpellingAsYouType,
+' ContextualSpeller, IgnoreMixedDigits, IgnoreUppercase and LabelSmartTags - plus
+' RestrictLinkedStyles and ShowStylePreviews. Jerry's list covers the three AutoCorrect dialog tabs
+' and says nothing about those, and a setting nobody has stated a starting value for is left
+' exactly as Word has it. Do not fill them in to make the list look complete.
+'
+' Version: 1.0  Date: 8/22/2026
+'
+Private Sub Sh_Seed_Default_Settings()
+    Dim nm As String
+    Dim pairs As Variant
+    Dim one As String
+    Dim cut As Long
+    Dim i As Long
+
+    On Error Resume Next
+
+    ' A ledger of this build's shape already exists, so these boxes are hers and this list is
+    ' long spent. The STAMP is half the test on purpose: a store this build cannot read is thrown
+    ' away whole by Sh_Restore_Transcriber_Settings, and a machine with nothing left to give back
+    ' should start from Jerry's list rather than from whatever Word happens to be holding.
+    If Sh_Setting_Read(VT_STORE_MINE, "Saved", "") = "1" And _
+       Sh_Setting_Read(VT_STORE_MINE, VT_STORE_STAMP, "") = VT_STORE_STAMP_NOW Then
+        Err.Clear
+        Exit Sub
+    End If
+
+    ' "=1" ticked, "=0" unticked, written in the order the two dialog tabs list them so that the
+    ' list can be read straight off Jerry's own. Thirty-four boxes: thirty-one ticked, three not.
+    ' Split over a built-up string rather than Array(...) to match Sh_Tracked_Settings, which has
+    ' to be built that way - VBA allows at most 25 line continuations in one statement.
+
+    ' AutoFormat As You Type - Replace as you type
+    nm = "AutoFormatAsYouTypeReplaceQuotes=1,AutoFormatAsYouTypeReplaceOrdinals=1,"
+    nm = nm & "AutoFormatAsYouTypeReplaceFractions=1,AutoFormatAsYouTypeReplaceSymbols=1,"
+    nm = nm & "AutoFormatAsYouTypeReplacePlainTextEmphasis=0,AutoFormatAsYouTypeReplaceHyperlinks=1,"
+    ' AutoFormat As You Type - Apply as you type
+    nm = nm & "AutoFormatAsYouTypeApplyBulletedLists=1,AutoFormatAsYouTypeApplyNumberedLists=1,"
+    nm = nm & "AutoFormatAsYouTypeApplyBorders=1,AutoFormatAsYouTypeApplyTables=1,"
+    nm = nm & "AutoFormatAsYouTypeApplyHeadings=1,"
+    ' AutoFormat As You Type - Automatically as you type. TabIndentKey is "Set left- and
+    ' first-indent with tabs and backspaces", PROVED on the build box 8/21/2026 by parking the
+    ' add-in and ticking the box by hand - it is NOT AutoFormatAsYouTypeApplyFirstIndents, which
+    ' held True the whole time the box sat unticked and cost two builds to find.
+    nm = nm & "AutoFormatAsYouTypeFormatListItemBeginning=1,TabIndentKey=1,"
+    ' "Define styles based on your formatting", TICKED from 8/22/2026 (Jerry, testing 3.0.230) - it
+    ' was unticked in the first version of this list the same day. This is the box both books now
+    ' have a floor under: large print has written it False since 8/21/2026 and braille since earlier
+    ' today. Without braille's write this tick would follow her into a DBT source file, where Word
+    ' would redefine styles from her direct formatting and the style is the whole instruction to
+    ' Duxbury. DO NOT REMOVE EITHER BOOK'S WRITE while this stands at 1.
+    nm = nm & "AutoFormatAsYouTypeDefineStyles=1,"
+    ' AutoFormat - Apply. All four TICKED from 8/22/2026 (Jerry, testing 3.0.230); all four were
+    ' unticked in the first version of this list the same day. Nothing on the ON-DEMAND tab acts
+    ' while she types - it is what the AutoFormat command does when she chooses to run it.
+    nm = nm & "AutoFormatApplyHeadings=1,AutoFormatApplyBulletedLists=1,AutoFormatApplyLists=1,"
+    nm = nm & "AutoFormatApplyOtherParas=1,"
+    ' AutoFormat - Replace
+    nm = nm & "AutoFormatReplaceQuotes=1,AutoFormatReplaceOrdinals=1,AutoFormatReplaceFractions=1,"
+    nm = nm & "AutoFormatReplaceSymbols=1,AutoFormatReplacePlainTextEmphasis=0,"
+    nm = nm & "AutoFormatReplaceHyperlinks=1,"
+    ' AutoFormat - Preserve, and Always AutoFormat
+    nm = nm & "AutoFormatPreserveStyles=1,AutoFormatPlainTextWordMail=0,"
+    ' The AutoCorrect tab, added 8/22/2026 - EVERY box on it, all eight ticked. Jerry gave the
+    ' list and settled how it should behave in the same breath: exactly like the other two tabs.
+    ' A starting point written once, and from then on a change she makes holds for ever. The two
+    ' capitalization boxes are ticked HERE and switched off inside both books, which is the whole
+    ' shape of a book setting - see the AutoCorrect block in either configuration.
+    nm = nm & "DisplayAutoCorrectOptions=1,CorrectInitialCaps=1,CorrectSentenceCaps=1,"
+    nm = nm & "CorrectTableCells=1,CorrectDays=1,CorrectCapsLock=1,"
+    ' ReplaceText is the master switch and is written BEFORE the suggestions box that sits under
+    ' it in the dialog. Sh_Setting_Put is called in list order here and the restore walks
+    ' Sh_Tracked_Settings alphabetically, where "ReplaceText" also lands first - so both paths
+    ' get the order right. See the note in the book configurations: that gate is NOT measured.
+    nm = nm & "ReplaceText=1,ReplaceTextFromSpellingChecker=1"
+
+    pairs = Split(nm, ",")
+
+    ' THE LEDGER FIRST, WORD SECOND, and the order is the whole of two faults found in review.
+    '
+    ' It records ITSELF as spent rather than leaving that to Sh_Save_Transcriber_Settings on the
+    ' next line of AutoExec. That save declines whenever a book record is outstanding - which is
+    ' the case on every morning after she quit Word inside a braille file - so it would not have
+    ' written the stamp, and this sub would have run AGAIN the next day, and the day after,
+    ' overwriting whatever she changed in between. For a transcriber who works only in books for
+    ' a week that is the exact opposite of "the checks are not permanent".
+    '
+    ' Thirty-four of the forty-two tracked names are written, and the other eight deliberately
+    ' are not - Sh_Restore_Transcriber_Settings leaves a setting with nothing stored alone rather
+    ' than guessing at it, which is what "Jerry's list says nothing about the spelling and grammar
+    ' side" has to mean in the file.
+    For i = LBound(pairs) To UBound(pairs)
+        one = pairs(i)
+        cut = InStr(one, "=")
+        If cut > 1 Then Sh_Setting_Write VT_STORE_MINE, Left$(one, cut - 1), Mid$(one, cut + 1)
+    Next i
+    Sh_Setting_Write VT_STORE_MINE, VT_STORE_STAMP, VT_STORE_STAMP_NOW
+    ' Written LAST, so a half-finished seed is never mistaken for a complete one - the same
+    ' convention as Sh_Save_Transcriber_Settings.
+    Sh_Setting_Write VT_STORE_MINE, "Saved", "1"
+
+    ' AND ONLY IF IT CAN BE READ BACK. Sh_Settings_File returns "" when %AppData% cannot be read
+    ' or the folder cannot be made, and every read then returns its default - so the test at the
+    ' top of this sub could never be satisfied and the list would be written onto her two tabs at
+    ' every Word start, for ever. Before there was a starting list that failure was harmless:
+    ' nothing was restored and Word simply kept her values. Now it would be destructive, so the
+    ' rule is that VistaType LP does not impose a starting point it has no way to hand over.
+    If Sh_Setting_Read(VT_STORE_MINE, "Saved", "") <> "1" Then
+        Err.Clear
+        Exit Sub
+    End If
+
+    ' Now Word. Guarded write by write inside Sh_Setting_Put, so a machine that already agrees
+    ' with the list writes nothing at all.
+    For i = LBound(pairs) To UBound(pairs)
+        one = pairs(i)
+        cut = InStr(one, "=")
+        If cut > 1 Then Sh_Setting_Put Left$(one, cut - 1), (Mid$(one, cut + 1) = "1")
+    Next i
+
+    Err.Clear
+
+End Sub  '*** end of Sh_Seed_Default_Settings ***
+
 
 Sub Sh_Save_Transcriber_Settings()
 '
@@ -19220,8 +19677,17 @@ Sub Sh_Save_Transcriber_Settings()
 '
 ' Author: Jerry Whittaker -  jerry@thewhittakers.org
 '
+' Version: 3.7  Date: 8/22/2026 - 42 settings: the whole AutoCorrect tab. Five of the eight were dropped from
+'                                 all three configurations on 8/18/2026 and are book settings again
+' Version: 3.6  Date: 8/22/2026 - 37 settings: AutoFormatReplacePlainTextEmphasis, which no book writes -
+'                                 it is on the starting list, so Jerry's "changes to any of the checks are
+'                                 saved and restored" has to reach it
+' Version: 3.5  Date: 8/22/2026 - 36 settings: all four names are back. The ordinary configuration
+'                                 forces nothing now (Jerry's rule), so each has a value of hers again
+' Version: 3.4  Date: 8/22/2026 - 32 settings: the two hyperlink ones are gone as well, forced ON by
+'                                 the ordinary configuration from 3.0.225. REVERSED by 3.5
 ' Version: 3.3  Date: 8/22/2026 - 34 settings: the two spelling-checker ones are gone, forced by all
-'                                 three configurations from 3.0.222 rather than restored
+'                                 three configurations from 3.0.222 rather than restored. REVERSED by 3.5
 ' Version: 3.2  Date: 8/21/2026 - 34 settings: the three AutoFormat As You Type boxes large print
 '                                 had never written (Jerry, 3.0.216)
 ' Version: 3.1  Date: 8/21/2026 - 31 settings: smart quotes and hyperlinks are book settings again
@@ -19258,7 +19724,7 @@ Sub Sh_Save_Transcriber_Settings()
     For i = LBound(names) To UBound(names)
         nm = names(i)
         live = Sh_Bool_To_Store(Sh_Setting_Live(nm))
-        ' Written only when it differs. Thirty-one unconditional writes on every letter she
+        ' Written only when it differs. Forty-two unconditional writes on every letter she
         ' opens is a great deal of file work for nothing.
         If Sh_Setting_Read(VT_STORE_MINE, nm, "") <> live Then
             Sh_Setting_Write VT_STORE_MINE, nm, live
@@ -19355,8 +19821,17 @@ Sub Sh_Restore_Transcriber_Settings()
 '
 ' Author: Jerry Whittaker -  jerry@thewhittakers.org
 '
+' Version: 3.7  Date: 8/22/2026 - 42 settings: the whole AutoCorrect tab. Five of the eight were dropped from
+'                                 all three configurations on 8/18/2026 and are book settings again
+' Version: 3.6  Date: 8/22/2026 - 37 settings: AutoFormatReplacePlainTextEmphasis, which no book writes -
+'                                 it is on the starting list, so Jerry's "changes to any of the checks are
+'                                 saved and restored" has to reach it
+' Version: 3.5  Date: 8/22/2026 - 36 settings: all four names are back. The ordinary configuration
+'                                 forces nothing now (Jerry's rule), so each has a value of hers again
+' Version: 3.4  Date: 8/22/2026 - 32 settings: the two hyperlink ones are gone as well, forced ON by
+'                                 the ordinary configuration from 3.0.225. REVERSED by 3.5
 ' Version: 3.3  Date: 8/22/2026 - 34 settings: the two spelling-checker ones are gone, forced by all
-'                                 three configurations from 3.0.222 rather than restored
+'                                 three configurations from 3.0.222 rather than restored. REVERSED by 3.5
 ' Version: 3.2  Date: 8/21/2026 - 34 settings: the three AutoFormat As You Type boxes large print
 '                                 had never written (Jerry, 3.0.216)
 ' Version: 3.1  Date: 8/21/2026 - 31 settings: smart quotes and hyperlinks are book settings again
@@ -19378,6 +19853,21 @@ Sub Sh_Restore_Transcriber_Settings()
     ' it is of the old shape too, and leaving it standing would make Sh_Save_Transcriber_Settings
     ' decline (see its guard), so no new stamp would ever be written and every ordinary document
     ' from then on would take this same path.
+    '
+    ' KNOWN HOLE, named 8/22/2026 and not fixed, because the honest fix is a different store and
+    ' this is the wrong week for it. Throwing the book half away is what makes this path unable to
+    ' tell a book's value from hers - and this is the ONE path that can be reached with a book
+    ' record outstanding, because AutoExec's save declines in exactly that case and so never
+    ' bumps the stamp. Sequence: she quits Word inside a braille file, upgrades to a build with a
+    ' new stamp, starts Word, opens a letter. Live IS braille's values, and they are written down
+    ' as her preferences for good.
+    '
+    ' It is the "last session ended in a book" limit documented at the top of this module,
+    ' reached by a second route - and it defeats the cross-session guard that was built to close
+    ' the first one. The real answer is that the stamp should not throw the store away at all:
+    ' the file is keyed by SETTING NAME, not by position, so a store written by any build is
+    ' readable name by name. The stamp is guarding against a shape change that has never
+    ' happened. Reading it name-wise would make this path unnecessary. Jerry's call to make.
     If Sh_Setting_Read(VT_STORE_MINE, VT_STORE_STAMP, "") <> VT_STORE_STAMP_NOW Then
         Sh_Setting_Write VT_STORE_BOOK, "Saved", "0"
         Sh_Save_Transcriber_Settings

@@ -3,6 +3,19 @@
 A plan. Written 8/17/2026, revised the same day after Jerry's proposal of a saved-configuration
 library.
 
+**Status, 8/22/2026 — the rule that governs all of this, stated by Jerry and now the thing to
+check any future change against: THE ORDINARY CONFIGURATION WRITES NO FIXED SETTING AT ALL.** It
+restores and it decides nothing. Four settings were forced there for one day — spell-check-as-you-
+type and the suggestions-from-the-spelling-checker box (3.0.222, which shipped in three test
+builds), and the two "Internet and network paths with hyperlinks" boxes (written for 3.0.225, never
+built) — and all four are out again, with their names back in the ledger. Each was argued for the
+same way: *all three configurations force this, so it is not a preference any more, so its name must
+leave the tracked list or the next save will record VistaType's own value as her choice.* That
+reasoning is correct and it is not what went wrong. The mistake was forcing the setting in the
+ordinary configuration in the first place; once that is done, taking the name out of the ledger is
+the only consistent thing left to do. Keep the reasoning. Never use it to justify a fixed write
+there. The ledger is thirty-six settings, store stamp "10".
+
 **Status, 8/18/2026 — Piece 1 is built, and so is the spelling-and-grammar half of the fault
 found while measuring.** The fifteen settings all three configurations wrote identically are
 deleted from all three, so they are the transcriber's now in every kind of document. The five
@@ -107,22 +120,47 @@ letter and it changes each time, without asking you and without moving anything 
 Until now, "puts them back" meant putting back **VistaType's** idea of a normal setup, which quietly
 overwrote yours. From this version it means putting back **yours**.
 
-**Fifteen settings are no longer touched at all.** They were being set the same way for braille,
-large print and ordinary documents alike — so VistaType was never switching them, only overriding
-you. Among them:
+**The rule, in one sentence** (Jerry, 8/22/2026): in a document that is neither braille nor large
+print, VistaType decides nothing. Whatever you have ticked and unticked in the AutoCorrect tabs when
+you close Word is what you get back the next time you open an ordinary document. There is no
+setting that is an exception to this, and there is not meant to be one.
 
-- **Replace text as you type** — the master AutoCorrect switch
-- Correct TWo INitial CApitals
-- Capitalize names of days
-- Correct accidental use of the cAPS LOCK key
-- Straight quotes with smart quotes
-- Internet paths with hyperlinks
-- Automatically use suggestions from the spelling checker
-- Show AutoCorrect Options buttons
-- Set left- and first-indent with tabs
+**One thing happens before that rule can start: a starting point.** VistaType LP has to have
+something to remember, and on a machine it has never looked at there is nothing. So the very first
+time Word starts on this build, VistaType LP sets all three tabs of the AutoCorrect dialog to the
+list below — once — and then never sets them again. From that moment they are yours: change any of them and the change is saved
+when you close Word and put back the next time you open or create an ordinary document.
 
-Change any of those and VistaType will never change it back, in any document, in any session. They
-are yours.
+The list is in **Where VistaType LP starts you off** further down. It is worth a minute's read,
+because on a machine that already runs VistaType LP this one update resets all three tabs to it and
+anything you had set there is gone.
+
+**Seven settings are no longer touched at all.** They were being set the same way for braille,
+large print and ordinary documents alike — so VistaType LP was never switching them, only
+overriding you. Change any of those and VistaType LP will never change it back, in any document, in
+any session. They are yours.
+
+**Five that were on that list came back on 8/22/2026, and only inside a book.** They are the whole
+AutoCorrect tab except the two capitalization boxes: **Replace text as you type** (the master
+switch), Correct TWo INitial CApitals, Capitalize names of days, Correct accidental use of the
+cAPS LOCK key, and Show AutoCorrect Options buttons. Dropping them in August left *Word's* value
+standing inside a braille file or a large print book, which is not the same thing as leaving them
+to you — it is leaving them to Word. In your own documents they are still whatever you set.
+
+**Three settings have moved off that list into the group below, and it is fair to say so plainly.**
+They are not settings VistaType decides for you. They are settings a book has to have set a
+particular way, so VistaType changes them inside a book and gives your own choice back when you
+return to an ordinary document.
+
+- **Straight quotes with smart quotes** — a book needs these on. Yours in your letters; not yours
+  inside a book.
+- **Internet and network paths with hyperlinks**, on both the AutoFormat As You Type tab and the
+  AutoFormat tab — on in a braille file, off in a large print book. A link in a large print book is
+  a color change and an underline the reader did not ask for, and in braille source it is markup the
+  translator has to strip. In your own documents it is whatever you set it to.
+- **Automatically use suggestions from the spelling checker** — on in both kinds of book.
+  Spell-check-as-you-type is switched on with it there, because Word refuses the first setting
+  without the second. Both come back to your own settings in an ordinary document.
 
 **The rest are remembered.** For the settings VistaType does have to switch — capitalizing the first
 letter of a sentence or a table cell, and the AutoFormat As You Type items for fractions, ordinals,
@@ -151,17 +189,99 @@ These are a convenience, not something you need. Your settings are already remem
 
 **What a saved set covers:** the settings that are yours. Braille files and large print books keep
 their own typing behavior whichever set you have loaded, because those settings decide what the
-braille translator and the printed page receive, not what you prefer. The fifteen settings listed
+braille translator and the printed page receive, not what you prefer. The twelve settings listed
 above are yours everywhere already, so a saved set carries those into every document type too.
+
+### If you tested 3.0.222, 3.0.223 or 3.0.224
+
+Those three builds forced spell-check-as-you-type and "automatically use suggestions from the
+spelling checker" on, so Word has been carrying VistaType's value for both rather than yours. When
+you first start Word on this build, that is what gets written down as your preference.
+
+**Untick them once in an ordinary document and it holds from then on.** Nothing else is affected,
+and you do not need to do anything at all if you wanted them on anyway.
+
+### Where VistaType LP starts you off
+
+This is the list VistaType writes **once**, the first time Word starts on this build, and never
+writes again. Jerry set it on 8/22/2026.
+
+On the **AutoFormat As You Type** tab, these are ticked:
+
+- "Straight quotes" with "smart quotes"
+- Ordinals (1st) with superscript
+- Fractions (1/2) with fraction character (½)
+- Hyphens (--) with dash (—)
+- Internet and network paths with hyperlinks
+- Automatic bulleted lists
+- Automatic numbered lists
+- Border lines
+- Tables
+- Built-in Heading styles
+- Format beginning of list item like the one before it
+- Set left- and first-indent with tabs and backspaces
+- Define styles based on your formatting
+
+The only box left blank on that tab is \*Bold\* and \_italic\_ with real formatting.
+
+On the **AutoFormat** tab, these are ticked:
+
+- Built-in Heading styles
+- Lists
+- Automatic bulleted lists
+- Other paragraphs
+- "Straight quotes" with "smart quotes"
+- Ordinals (1st) with superscript
+- Fractions (1/2) with fraction character (½)
+- Hyphens (--) with dash (—)
+- Internet and network paths with hyperlinks
+- Styles
+
+The two left blank are \*Bold\* and \_italic\_ with real formatting, and Plain text WordMail
+documents. Nothing on this tab acts while you type — it is what the AutoFormat command does when
+you choose to run it.
+
+On the **AutoCorrect** tab, **every** box is ticked:
+
+- Show AutoCorrect Options buttons
+- Correct TWo INitial CApitals
+- Capitalize first letter of sentences
+- Capitalize first letter of table cells
+- Capitalize names of days
+- Correct accidental usage of cAPS LOCK key
+- Replace text as you type
+- Automatically use suggestions from the spelling checker
+
+**Inside a braille file or a large print book, all eight are ticked except the two capitalization
+ones** — "Capitalize first letter of sentences" and "Capitalize first letter of table cells" are
+switched off there. You are typing text already capitalized as the print book has it, and Word's
+guess overwrites what the page actually says. Your own choice comes back the moment you return to
+an ordinary document.
+
+**The AutoCorrect tab is not a special case.** Untick one of its boxes in a letter, close Word, come
+back tomorrow, and it is still unticked — exactly like the other two tabs. Jerry, 8/22/2026.
+
+**Nothing on the spelling and grammar side is on this list.** Those live on Word's Proofing page
+rather than in this dialog, and are left exactly as Word has them, because Jerry's list does not
+cover them.
+
+**Two of these boxes are overridden inside a book, and braille had no floor under either until
+8/22/2026.** "Built-in Heading styles" and "Define styles based on your formatting" are both
+switched off in braille source files now, as they already were in large print. Both are ticked for
+your own letters, so those two writes are what stop the tick following you into a book. In a DBT source the
+paragraph style is the whole instruction to Duxbury, so a style Word applies by guesswork — after a
+short line followed by two Enters, say — is wrong whatever it translates to. Neither write takes
+away any way of applying a style on purpose: the style gallery, the style box, Ctrl+Alt+1/2/3 and
+every macro that assigns a style are untouched.
 
 ### One thing to expect the first time
 
-VistaType has to learn your settings from somewhere, and the only honest place to start is what is in
-force the first time it looks. On a machine where the old behavior has been running, that will be
-VistaType's own defaults rather than your preferences.
+**On a machine that has been running VistaType LP already, this update resets all three tabs to the
+list above, once.** Anything you had set there is lost — that is the cost of shipping a starting
+point to a machine that already started.
 
-**So the first time after updating, set the AutoCorrect options the way you want them once more.**
-From then on they hold — across documents, across sessions, and across braille and large print work.
+**So the first time after updating, look at all three tabs and set anything you disagree with.** From
+then on it holds — across documents, across sessions, and across braille and large print work.
 This is also a good moment to use **Save My Settings**, so you have a way back.
 
 ### If you ever want to see what is in force
@@ -426,12 +546,27 @@ value overriding her choice and repeats the original mistake.
    document is activated. Then delete it.
 10. **Reset.** Run Reset Word's Settings and confirm it says what it did, and that the following
     document switch still behaves.
+11. **The starting list, on a machine that has run VistaType before.** Untick several boxes on both
+    AutoCorrect tabs, close Word, install this build, start Word. Both tabs read Jerry's list.
+12. **The starting list is written once and not again.** Straight after test 11, untick two of them,
+    close Word, start Word, open an ordinary document. They are still unticked — the list must not
+    come back.
 
 ### Traps
 
-- **The first run after updating cannot know her preferences.** It stores what is in force, which on
-  an existing install is the add-in's own defaults. She sets them once more and they hold. Say so in
-  the release note; it is the one part of this that needs explaining to a person.
+- **The first run after updating cannot know her preferences.** From 8/22/2026 it writes Jerry's
+  starting list onto the two AutoCorrect tabs instead of storing whatever happens to be in force —
+  `Sh_Seed_Default_Settings`, called from `AutoExec` and nowhere else. It writes at most once per
+  machine: it declines the moment the ledger holds a record of this build's shape, and the save on
+  the next line of `AutoExec` puts one there. She sets anything she disagrees with once and it
+  holds. Say so in the release note; it is the one part of this that needs explaining to a person.
+- **The starting list is not a forced setting, and it must never become one.** Do not move it into
+  `MS_Set_Word_Config_For_New_Install`. The objection to a fixed write there stands and is specific:
+  a value rewritten on every letter she opens cannot be told from a value she chose. A seed that
+  writes once and is then recorded as hers does not have that property.
+- **Bumping `VT_STORE_STAMP_NOW` is what makes a new starting list reach an existing machine**, and
+  it costs her whatever she had set on those two tabs. Bump it when the list or `Sh_Tracked_Settings`
+  changes, never to make an unrelated change ship.
 - **Never save while a macro is running.** The guard exists in `Sh_HandleDocumentActivated`, but the
   save sits inside the LP and braille subs, which macros call directly — so the save must test that
   the ordinary configuration is genuinely in force rather than assume its caller is a transcriber.
