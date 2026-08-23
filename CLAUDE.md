@@ -203,6 +203,17 @@ tools/windows/  Export-Vba.ps1 / Import-Vba.ps1 / New-UserForm.ps1 — run in Wo
                 (Import-Vba.ps1 clears stale hidden `~$*` Word lock files first — a leftover
                  one makes Word raise an invisible "File In Use" dialog and the build hangs
                  forever with no error; see DEVELOPMENT.md "Gotchas baked into the tooling")
+                Add-FormControl.ps1 — puts ONE control ON to an existing UserForm and rewrites the
+                 .frm/.frx pair, headlessly. The counterpart to Remove-FormControls.ps1 and the only
+                 way to write a control into a binary .frx from Linux. ADD THE CONTROL FIRST, THEN
+                 THE CODE THAT NAMES IT - the opposite order from removal, and for the same reason:
+                 code naming a control that is not there reaches the transcriber as run-time error
+                 424 when the dialog opens. Applies Jerry's form conventions to what it adds
+                 (Tahoma 10, a ControlTipText and the O/C accelerators on a button). Two traps it
+                 shares with New-UserForm.ps1: the Designer does not expose the FORM's own Width and
+                 Height to PowerShell at all - they live on the component, through
+                 Properties.Item, and must be handed over as STRINGS - and a control's font can only
+                 be set from VBA. Added 8/23/2026 for the KeyHelp lines on the $pg validation menus
                 Remove-FormControls.ps1 — takes named controls OFF a UserForm and rewrites the
                  .frm/.frx pair, headlessly, in a throwaway blank document. A control lives in the
                  BINARY .frx, so deleting its lines from the .frm leaves it on the form, still

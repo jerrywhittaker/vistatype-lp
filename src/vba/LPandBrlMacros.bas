@@ -18,6 +18,63 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Sh - 8/23/2026 - AN F6 / SHIFT+F6 LOOP THROUGH THE $pg VALIDATION MENUS (Jerry), for transcribers who
+'           - Sh - 8/23/2026 - are blind or have low vision. A modeless UserForm beside a document is easy to reach with
+'           - Sh - 8/23/2026 - a mouse and impossible to reach from the keyboard - Word's own F6 walks Word's panes and
+'           - Sh - 8/23/2026 - knows nothing about a UserForm. THE LOOP HAS TWO HALVES AND NEITHER CAN DO THE OTHER'S
+'           - Sh - 8/23/2026 - JOB: document to menu is a Word KEY BINDING, because Word only sees the key while Word
+'           - Sh - 8/23/2026 - has the focus; menu to document is the forms' own KeyDown handlers, because while the
+'           - Sh - 8/23/2026 - form has the focus Word never sees the key at all. F6 and Shift+F6 do the same thing -
+'           - Sh - 8/23/2026 - two stops in a loop means forwards and backwards are the same move - and both are bound
+'           - Sh - 8/23/2026 - because a screen-reader user reaches for either. All of it is in ShNonModalMessage,
+'           - Sh - 8/23/2026 - above Sh_PgVal_BindKeys.
+'           - Sh - 8/23/2026 - THE BINDING IS IN FORCE ONLY WHILE A VALIDATION IS RUNNING. F6 is Word's own "next
+'           - Sh - 8/23/2026 - pane" key and she is entitled to have it back: Sh_PgVal_Done removes it, the bound
+'           - Sh - 8/23/2026 - macro removes it itself if it ever fires with no menu on screen, and it lives in the
+'           - Sh - 8/23/2026 - add-in's template in MEMORY ONLY - ThisDocument.Saved is put back to True after every
+'           - Sh - 8/23/2026 - change, so Word never asks the transcriber whether to save LPandBRL.dotm.
+'           - Sh - 8/23/2026 - Sh_Valid_Ref_Pg_No_4_Form was titled "UserForm1" and is now "Delete/change/add $pg" -
+'           - Sh - 8/23/2026 - which it needed anyway, since a form's window is found by its title.
+'           - Sh - 8/23/2026 - Both menus gained a KeyHelp line saying so, in Tahoma 10, and both now sit ABOVE the
+'           - Sh - 8/23/2026 - page rather than on top of it (Jerry: the box should not cover any of the document);
+'           - Sh - 8/23/2026 - they stop at the top of the Word window rather than going off the screen. The two
+'           - Sh - 8/23/2026 - "What do I do here?" dialogs carry the instruction as their FIRST line, because a
+'           - Sh - 8/23/2026 - screen reader reads from the top, and their Directions label now grows to fit its own
+'           - Sh - 8/23/2026 - text - a Label clips silently, and two more lines went into both.
+'           - Sh - 8/23/2026 - NEW tools/windows/Add-FormControl.ps1 put the KeyHelp labels on, headlessly: the
+'           - Sh - 8/23/2026 - counterpart to Remove-FormControls.ps1, and the only way to write a control into a
+'           - Sh - 8/23/2026 - binary .frx from this side.
+'           - Sh - 8/23/2026 - FOUND IN REVIEW BEFORE ANY BUILD CARRIED IT, and every one of these would have shipped
+'           - Sh - 8/23/2026 - silently: the title-bar X on a menu unloaded it behind the feature's back, leaving F6
+'           - Sh - 8/23/2026 - assigned with no menu to go to - the X now means "Done - Exit validation"; the bound
+'           - Sh - 8/23/2026 - macro was named without its project and module, which is resolved when the key is
+'           - Sh - 8/23/2026 - PRESSED and would have given her "the macro cannot be found" instead of a menu;
+'           - Sh - 8/23/2026 - CustomizationContext was left pointing at VistaType's add-in, so the next thing to add
+'           - Sh - 8/23/2026 - a key assignment anywhere in Word would have written it in here; Sh_PgVal_FocusMenu
+'           - Sh - 8/23/2026 - read a form's Caption to find its window, which CREATES the form, and hid-and-reshowed
+'           - Sh - 8/23/2026 - it as a fallback, which would have put a $pg menu over an unrelated document - it now
+'           - Sh - 8/23/2026 - uses constant titles and does nothing at all when there is no window; and F6 out of a
+'           - Sh - 8/23/2026 - menu whose document had been closed did nothing and said nothing, which is the wrong
+'           - Sh - 8/23/2026 - answer for the one transcriber who cannot reach for the mouse.
+'           - Sh - 8/23/2026 - THE MENUS NO LONGER CLIMB ONTO THE RIBBON. Stepping up by the form's own height lands
+'           - Sh - 8/23/2026 - on the tab row and the Quick Access Toolbar at the 150-200% zoom large print is worked
+'           - Sh - 8/23/2026 - at, and the directions tell her to press a ribbon button. When there is not room above
+'           - Sh - 8/23/2026 - the page the menu goes back where it always was, on the page's top edge.
+'           - Sh - 8/23/2026 - THE F6 LINE IS IN EVERY MENU BUTTON'S HOVER TEXT AS WELL (Jerry). A Label is the one
+'           - Sh - 8/23/2026 - control a screen reader does not announce - it reads the window title and whatever has
+'           - Sh - 8/23/2026 - the focus - so on the form alone the instruction would have reached the low-vision
+'           - Sh - 8/23/2026 - transcriber and missed the blind one. Hover text IS announced, and F6 puts the keyboard
+'           - Sh - 8/23/2026 - on a button. It stays on the form as well. NOT on the two "What do I do here?" dialogs'
+'           - Sh - 8/23/2026 - Close buttons: those dialogs are MODAL, so F6 does nothing while one is open and a tip
+'           - Sh - 8/23/2026 - promising otherwise would be a lie.
+'           - Sh - 8/23/2026 - ALT+C PRESSES CLOSE on both "What do I do here?" dialogs (Jerry). Set in code rather
+'           - Sh - 8/23/2026 - than in the binary layout file on purpose: a keyboard rule that cannot be read in the
+'           - Sh - 8/23/2026 - source is a keyboard rule nobody maintains.
+'           - Sh - 8/23/2026 - NONE OF THE F6 BEHAVIOR COULD BE TESTED HERE. A UserForm cannot be exercised without a
+'           - Sh - 8/23/2026 - screen and a key binding needs a keyboard; what was proved is that all four forms
+'           - Sh - 8/23/2026 - import into Word cleanly, carry the controls and captions they should, and are Tahoma
+'           - Sh - 8/23/2026 - 10 or better. The rest needs Jerry.
+'
 ' Notes:    - LP - 8/23/2026 - A FILL-IN LINE'S UNDERSCORES ARE TYPED IN TAHOMA (Jerry), whatever face the book
 '           - LP - 8/23/2026 - is set in. In VistaTypeLP Sans an underscore does not reach the edges of the space it
 '           - LP - 8/23/2026 - sits in, so a row of them draws with holes in it instead of one unbroken rule.

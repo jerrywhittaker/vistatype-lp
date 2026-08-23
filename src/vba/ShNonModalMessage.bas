@@ -11,6 +11,29 @@ Private Sh_PgVal_SourceDoc As Document      ' the document being validated
 Private Sh_PgVal_LastParaStart As Long      ' character start of the tag last worked from
 Private Sh_PgVal_TitleText As String        ' "VistaType LP" or "Braille Macros"
 
+' Which menu is on screen: 0 none, 2 Sh_Valid_Ref_Pg_No_2_Form (the tag list), 4
+' Sh_Valid_Ref_Pg_No_4_Form (the document being validated). Tracked rather than asked, because
+' READING .Visible ON AN UNLOADED FORM LOADS IT - touching any member of a UserForm's default
+' instance creates it and runs its UserForm_Initialize there and then. Asking "is the menu up?"
+' would therefore put one up. 8/23/2026.
+Private Sh_PgVal_MenuIsOn As Long
+
+' The two menus' window titles, written out here rather than read off the forms. Reading
+' Sh_Valid_Ref_Pg_No_4_Form.Caption would CREATE the form if it were not loaded - the same trap as
+' .Visible above - and the one moment that matters is exactly the moment it might not be loaded.
+' These must match the Caption in each form's designer header, and they are also what the
+' transcriber sees in the title bar. 8/23/2026.
+Private Const SH_PGVAL_TITLE_LIST As String = "Validate $pg Tags"
+Private Const SH_PGVAL_TITLE_DOC As String = "Delete/change/add $pg"
+
+' The macro is named in FULL - project, module, procedure - the same shape src/keymap uses, and
+' for the same reason: a bare name is resolved when the key is PRESSED, against whatever projects
+' are loaded then, and if it does not resolve the transcriber gets Word's "the macro cannot be
+' found or has been disabled" instead of a menu. Note the module is ShNonModalMessage, not
+' LPandBrlMacros - the natural mistake, since every other key assignment in this project points at
+' LPandBrlMacros.
+Private Const SH_PGVAL_KEY_MACRO As String = "LPandBRL.ShNonModalMessage.Sh_PgVal_ToggleFocus"
+
 ' The document the please-wait box was opened over, so focus can be handed back to it.
 Private Sh_PleaseWait_Doc As Document
 
@@ -18,16 +41,24 @@ Private Sh_PleaseWait_Doc As Document
 ' through the object model is NOT enough: a modeless UserForm keeps the keyboard focus, so
 ' Word draws no caret and the arrow keys walk the form's buttons instead of the text
 ' (Jerry, 7/27/2026). Window.Hwnd is available here - verified on Word 16.0 build 20131.
+' Sh_FindWindowApi is the other direction, added 8/23/2026 for the F6 loop: it turns a modeless
+' UserForm's title into its window handle so the keyboard can be handed TO it. A modeless VBA
+' UserForm's window class is "ThunderDFrame" (a modal one is ThunderXFrame), and the title is the
+' form's Caption - which is one reason Sh_Valid_Ref_Pg_No_4_Form could not stay called "UserForm1".
 #If VBA7 Then
     Private Declare PtrSafe Function Sh_SetFocusApi Lib "user32" Alias "SetFocus" _
         (ByVal hwnd As LongPtr) As LongPtr
     Private Declare PtrSafe Function Sh_SetForegroundWindowApi Lib "user32" Alias "SetForegroundWindow" _
         (ByVal hwnd As LongPtr) As Long
+    Private Declare PtrSafe Function Sh_FindWindowApi Lib "user32" Alias "FindWindowA" _
+        (ByVal lpClassName As String, ByVal lpWindowName As String) As LongPtr
 #Else
     Private Declare Function Sh_SetFocusApi Lib "user32" Alias "SetFocus" _
         (ByVal hwnd As Long) As Long
     Private Declare Function Sh_SetForegroundWindowApi Lib "user32" Alias "SetForegroundWindow" _
         (ByVal hwnd As Long) As Long
+    Private Declare Function Sh_FindWindowApi Lib "user32" Alias "FindWindowA" _
+        (ByVal lpClassName As String, ByVal lpWindowName As String) As Long
 #End If
 
 ' Show/hide a command bar by name, tolerating bars that don't exist in this Word version
@@ -188,6 +219,7 @@ Public Sub Sh_PgVal_Start(ByVal SourceDoc As Document, ByVal TempDoc As Document
     Set Sh_PgVal_TempDoc = TempDoc
     Sh_PgVal_TitleText = TitleText
     Sh_PgVal_LastParaStart = -1
+    Sh_PgVal_BindKeys
     Sh_PgVal_SwapToTempForm
     Sh_PgVal_CursorToTopOfList
 End Sub
@@ -266,6 +298,10 @@ End Sub
 Public Sub Sh_PgVal_Done()
     On Error Resume Next
 
+    'F6 belongs to Word again the moment the validation is over - see Sh_PgVal_BindKeys.
+    Sh_PgVal_MenuIsOn = 0
+    Sh_PgVal_UnbindKeys
+
     'Hide before unloading: these run from a button on one of the forms being closed.
     Sh_Valid_Ref_Pg_No_2_Form.Hide
     Sh_Valid_Ref_Pg_No_4_Form.Hide
@@ -293,6 +329,182 @@ Public Sub Sh_PgVal_Done()
     Sh_PgVal_LastParaStart = -1
 End Sub
 
+' --- F6 and Shift+F6: moving between the document and the menu ----------------------------
+'
+' Jerry, 8/23/2026, and it is for transcribers who are blind or have low vision - several of
+' the people using this are. A modeless UserForm beside a document is easy to reach with a
+' mouse and impossible to reach from the keyboard: Word's own F6 walks Word's panes and knows
+' nothing about a UserForm.
+'
+' SO THE LOOP HAS TWO HALVES, AND NEITHER CAN DO THE OTHER'S JOB:
+'
+'   document -> menu   a Word key binding. Word only ever sees the keystroke while WORD has
+'                      the focus, which is exactly when this direction is wanted.
+'   menu -> document   the forms' own KeyDown handlers, calling Sh_PgVal_KeyToDocument below.
+'                      While the form has the focus Word never sees the key at all, so no key
+'                      binding could ever fire. This is why the handlers are on the buttons.
+'
+' F6 and Shift+F6 do the SAME thing, and that is not laziness: the loop has two stops, so
+' forwards and backwards are the same move. Both are bound because a screen-reader user reaches
+' for either out of habit.
+'
+' THE BINDING IS ONLY IN FORCE WHILE A VALIDATION IS RUNNING, because F6 is Word's own "next
+' pane" key and she is entitled to have it back. Three separate things see to that: Sh_PgVal_Done
+' removes it; Sh_PgVal_ToggleFocus removes it itself if it ever fires with no menu on screen; and
+' it is written into the ADD-IN's own template in memory only - never saved - so closing Word
+' forgets it whatever happened in between.
+'
+' ThisDocument.Saved is put back to True after every change. Adding a key binding marks the
+' template dirty, and a dirty global template makes Word ask "do you want to save changes to
+' LPandBRL.dotm?" on the way out - a question no transcriber should ever be asked.
+'
+' Version: 1.0  Date: 8/23/2026
+' Version: 1.1  Date: 8/23/2026 - the macro name is qualified, and CustomizationContext is put back
+' Version: 1.0  Date: 8/23/2026
+Private Sub Sh_PgVal_BindKeys()
+    Dim ctxWas As Object
+
+    On Error Resume Next
+    ' CustomizationContext is APPLICATION state and outlives this macro, like ScreenUpdating. Left
+    ' pointing at VistaType's add-in, the next thing that adds a key assignment or a toolbar
+    ' customization without setting it - Word's own, another add-in, one of her own macros - would
+    ' write it in here instead of into Normal.
+    Set ctxWas = CustomizationContext
+
+    CustomizationContext = ThisDocument
+    KeyBindings.Add KeyCode:=BuildKeyCode(wdKeyF6), _
+                    KeyCategory:=wdKeyCategoryMacro, Command:=SH_PGVAL_KEY_MACRO
+    KeyBindings.Add KeyCode:=BuildKeyCode(wdKeyShift, wdKeyF6), _
+                    KeyCategory:=wdKeyCategoryMacro, Command:=SH_PGVAL_KEY_MACRO
+    ThisDocument.Saved = True
+
+    If Not ctxWas Is Nothing Then CustomizationContext = ctxWas
+    Err.Clear
+End Sub
+
+' Version: 1.1  Date: 8/23/2026 - CustomizationContext is put back; matches on the qualified name
+' Version: 1.0  Date: 8/23/2026
+Private Sub Sh_PgVal_UnbindKeys()
+    Dim i As Long
+    Dim ctxWas As Object
+
+    On Error Resume Next
+    Set ctxWas = CustomizationContext
+    CustomizationContext = ThisDocument
+
+    ' Backwards. Clearing a binding takes it out of the collection and moves everything above it
+    ' down, so a forward loop would step over the second one.
+    '
+    ' InStr rather than "=" so a binding written by an older build - which named the macro without
+    ' its project and module - is still recognized and cleared. That build never shipped, but the
+    ' rule holds generally: this has to be able to clean up after itself.
+    For i = KeyBindings.count To 1 Step -1
+        If InStr(1, KeyBindings(i).Command, "Sh_PgVal_ToggleFocus", vbTextCompare) > 0 Then
+            KeyBindings(i).Clear
+        End If
+    Next i
+
+    ThisDocument.Saved = True
+    If Not ctxWas Is Nothing Then CustomizationContext = ctxWas
+    Err.Clear
+End Sub
+
+' What F6 and Shift+F6 run while a validation is going on. Word has the focus - that is the only
+' way this can have been reached - so the move is always "to the menu".
+'
+' Version: 1.0  Date: 8/23/2026
+Public Sub Sh_PgVal_ToggleFocus()
+    On Error Resume Next
+
+    If Sh_PgVal_MenuIsOn = 0 Then
+        ' No menu on screen, so this key is not ours. Hand F6 back to Word and do nothing else.
+        ' This is the safety net: if a validation ever ends without Sh_PgVal_Done running, the
+        ' very first F6 afterwards undoes the binding.
+        Sh_PgVal_UnbindKeys
+        Exit Sub
+    End If
+
+    Sh_PgVal_FocusMenu
+End Sub
+
+' The other half, called from every button's KeyDown on both menus. Puts the keyboard back in
+' whichever document the menu on screen belongs to.
+'
+' Version: 1.0  Date: 8/23/2026
+Public Sub Sh_PgVal_KeyToDocument()
+    On Error Resume Next
+
+    ' If the document this menu belongs to has been closed, Sh_PgVal_FocusDocument gives up
+    ' quietly - and quietly is the wrong answer for the one transcriber who cannot reach for the
+    ' mouse instead. Sh_PgVal_Ready says what happened and ends the validation tidily.
+    If Sh_PgVal_MenuIsOn = 2 Then
+        If Sh_PgVal_DocIsOpen(Sh_PgVal_TempDoc) Then
+            Sh_PgVal_FocusDocument Sh_PgVal_TempDoc
+        Else
+            Sh_PgVal_Ready
+        End If
+    ElseIf Sh_PgVal_MenuIsOn = 4 Then
+        If Sh_PgVal_DocIsOpen(Sh_PgVal_SourceDoc) Then
+            Sh_PgVal_FocusDocument Sh_PgVal_SourceDoc
+        Else
+            Sh_PgVal_Ready
+        End If
+    End If
+End Sub
+
+' Hand the keyboard to the menu that is up.
+'
+' Two ways of doing it, because the first one is better and the second one always works. Windows
+' can be told to raise the form's own window, which needs its handle - a modeless UserForm is a
+' "ThunderDFrame" window titled with the form's Caption. Failing that, hiding and re-showing a
+' modeless form takes the focus by itself, which is the very behaviour complained about in
+' Sh_PgVal_FocusDocument above; here it is what we want. It flickers, which is why it is second.
+'
+' Then the keyboard is put on the first button, so that a screen reader has something to announce
+' and Tab walks the menu from a known place.
+' Version: 1.1  Date: 8/23/2026 - the window is found by a CONSTANT title, and there is no
+'                                 hide-and-show fallback. Both changes are the same fix: nothing
+'                                 here may touch a form, because touching one CREATES it
+' Version: 1.0  Date: 8/23/2026
+Private Sub Sh_PgVal_FocusMenu()
+    #If VBA7 Then
+        Dim h As LongPtr
+    #Else
+        Dim h As Long
+    #End If
+
+    On Error Resume Next
+
+    If Sh_PgVal_MenuIsOn = 2 Then
+        h = Sh_FindWindowApi("ThunderDFrame", SH_PGVAL_TITLE_LIST)
+    ElseIf Sh_PgVal_MenuIsOn = 4 Then
+        h = Sh_FindWindowApi("ThunderDFrame", SH_PGVAL_TITLE_DOC)
+    End If
+
+    ' No window means no menu, whatever Sh_PgVal_MenuIsOn believes. DO NOTHING - and in
+    ' particular do not put the form back up. An earlier version hid and re-showed it here as a
+    ' fallback, which would have re-created a $pg menu over whatever unrelated document the
+    ' transcriber had moved on to.
+    If h = 0 Then
+        Sh_PgVal_MenuIsOn = 0
+        Sh_PgVal_UnbindKeys
+        Exit Sub
+    End If
+
+    Sh_SetForegroundWindowApi h
+    Sh_SetFocusApi h
+
+    ' And the keyboard onto the first button, so a screen reader has something to announce and Tab
+    ' walks the menu from a known place. Safe to touch the form by now: its window exists.
+    If Sh_PgVal_MenuIsOn = 2 Then
+        Sh_Valid_Ref_Pg_No_2_Form.LocateInDocButton.SetFocus
+    Else
+        Sh_Valid_Ref_Pg_No_4_Form.LocateInDocButton.SetFocus
+    End If
+
+    Err.Clear
+End Sub
+
 ' --- helpers ------------------------------------------------------------------------------
 
 ' Unload before Show so UserForm_Initialize re-runs: it positions the form over the ACTIVE
@@ -303,6 +515,7 @@ Private Sub Sh_PgVal_SwapToTempForm()
     Unload Sh_Valid_Ref_Pg_No_2_Form
     Sh_Valid_Ref_Pg_No_2_Form.Show vbModeless
     Sh_Valid_Ref_Pg_No_4_Form.Hide
+    Sh_PgVal_MenuIsOn = 2
     Sh_PgVal_FocusDocument Sh_PgVal_TempDoc
 End Sub
 
@@ -311,6 +524,7 @@ Private Sub Sh_PgVal_SwapToSourceForm()
     Unload Sh_Valid_Ref_Pg_No_4_Form
     Sh_Valid_Ref_Pg_No_4_Form.Show vbModeless
     Sh_Valid_Ref_Pg_No_2_Form.Hide
+    Sh_PgVal_MenuIsOn = 4
     Sh_PgVal_FocusDocument Sh_PgVal_SourceDoc
 End Sub
 
