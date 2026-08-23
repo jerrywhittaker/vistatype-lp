@@ -18,6 +18,69 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Sh - 8/23/2026 - THE VALIDATION LIST SHOWS 23 CHARACTERS AND THEN "..." (Jerry). A tag on a paragraph of
+'           - Sh - 8/23/2026 - its own is five or six characters and comes through whole; a tag on a paragraph that
+'           - Sh - 8/23/2026 - carries a heading as well used to drag the whole heading in, and the list is meant to be
+'           - Sh - 8/23/2026 - read as a column of page numbers. The kept part keeps its formatting, the red tag
+'           - Sh - 8/23/2026 - included, and the cut backs up over trailing spaces so a line does not read
+'           - Sh - 8/23/2026 - "$pg12 Chapter   ...".
+'           - Sh - 8/23/2026 - THE ELLIPSIS IS DISPLAY ONLY AND IS STRIPPED BEFORE LOCATE SEARCHES. Locate hunts the
+'           - Sh - 8/23/2026 - book for the text of the line the cursor is on; with "..." on the end it would find
+'           - Sh - 8/23/2026 - nothing, and every long line would come back "in the list but not found in the
+'           - Sh - 8/23/2026 - document". Sh_PgVal_TextOfCurrentTag takes it off again, leaving a PREFIX of the real
+'           - Sh - 8/23/2026 - paragraph, which is all Find needs. The two halves are commented at each other.
+'           - Sh - 8/23/2026 - Measured on the build box: 23-character cut, spaces backed over, red kept, and all four
+'           - Sh - 8/23/2026 - test lines - cut and uncut - still Locate to the right paragraph in the source.
+'           - Sh - 8/23/2026 - ONE THING TO KNOW: two tagged paragraphs identical in their first 23 characters cannot
+'           - Sh - 8/23/2026 - be told apart, and Locate lands on the first. Page numbers differ within the first few
+'           - Sh - 8/23/2026 - characters, so it takes an odd document to see it - but it is likelier than it was.
+'
+' Notes:    - Sh - 8/23/2026 - A $pg TAG IS NEVER BOLD NOW (Jerry): a document whose own formatting made the
+'           - Sh - 8/23/2026 - page-number paragraph bold gave a bold $pg when AutoTag Ref Pages tagged it. Setting the
+'           - Sh - 8/23/2026 - paragraph's style to Normal never cured that - DIRECT bold survives a style change, which
+'           - Sh - 8/23/2026 - is what direct formatting is for - so the tag is told outright, .Bold = False on the
+'           - Sh - 8/23/2026 - replacement font of the pass that already colors it red.
+'           - Sh - 8/23/2026 - IT REACHES THE THREE CHARACTERS OF THE TAG AND NOTHING ELSE. Replacement.Font applies to
+'           - Sh - 8/23/2026 - the replaced text, so the page number beside it keeps whatever weight the book gave it
+'           - Sh - 8/23/2026 - and so does every other word on the line. Jerry's instruction was to fix the $pg without
+'           - Sh - 8/23/2026 - changing the document's formatting, and that is the difference.
+'           - Sh - 8/23/2026 - THREE PASSES HAD TO BE TOLD, because there are three copies of it:
+'           - Sh - 8/23/2026 - Sh_Color_Dollar_PG_Red 1.4 (large print, and what Lp_AutoTag_Page_Numbers calls),
+'           - Sh - 8/23/2026 - Dx_Color_Dollar_PG_Red 1.1 (braille, no Normal style - see the note on it), and a third
+'           - Sh - 8/23/2026 - written out inside Dx_AutoTag_Page_Numbers itself. They are left separate because each
+'           - Sh - 8/23/2026 - ends differently; a fault fixed in one is still in the other two, which is worth
+'           - Sh - 8/23/2026 - knowing before the next one.
+'           - Sh - 8/23/2026 - Measured on the build box: a fully bold "$pg12" paragraph came out with $pg red and not
+'           - Sh - 8/23/2026 - bold, "12" still bold, and a bold heading with no tag in it untouched character for
+'           - Sh - 8/23/2026 - character.
+'
+' Notes:    - Sh - 8/23/2026 - THE FIND AND REPLACE DIALOG NO LONGER FLASHES when the $pg validation list is built
+'           - Sh - 8/23/2026 - (Jerry). It flashed because it was really being opened: Sh_Validation_Choices_Form drove
+'           - Sh - 8/23/2026 - it with SendKeys - Ctrl+H, Alt+D, Alt+I, M, Esc - to reach "Find In > Main Document",
+'           - Sh - 8/23/2026 - which selects every $pg paragraph at once so one Copy takes the lot. ScreenUpdating
+'           - Sh - 8/23/2026 - CANNOT HIDE A DIALOG - it stops the document repainting and nothing else - so the
+'           - Sh - 8/23/2026 - mechanism had to change rather than be patched. Sh_Copy_Ref_Pg_Tags_To_Temp_File 1.4 now
+'           - Sh - 8/23/2026 - finds the tags on a RANGE and copies them one at a time through new
+'           - Sh - 8/23/2026 - Sh_PgVal_Copy_Tags_Into, keeping the same Find pattern character for character so the
+'           - Sh - 8/23/2026 - list holds exactly what it always did.
+'           - Sh - 8/23/2026 - THREE THINGS WENT WITH THE SendKeys. The one-second Application.OnTime, which was never
+'           - Sh - 8/23/2026 - a courtesy pause - it was the only way to wait for keystrokes SendKeys hands to Windows
+'           - Sh - 8/23/2026 - and cannot follow. The CLIPBOARD, which the transcriber gets to keep now. And the Find
+'           - Sh - 8/23/2026 - All MULTIPLE SELECTION that outlived the validation and killed the next macro to touch
+'           - Sh - 8/23/2026 - Selection with run-time error 4605 (8/5/2026, AutoTag). Sh_Clear_Multi_Selection STAYS:
+'           - Sh - 8/23/2026 - both AutoTag macros call it, and a transcriber can still make such a selection by hand.
+'           - Sh - 8/23/2026 - A document with no tags in it now says so - dialog 239 - instead of opening a validation
+'           - Sh - 8/23/2026 - over an empty list, which is what a Copy with nothing found used to produce.
+'           - Sh - 8/23/2026 - The OTHER validation route, the Navigation pane one, still uses SendKeys and is left
+'           - Sh - 8/23/2026 - alone - what it opens is the Navigation pane, which is meant to be seen.
+'           - Sh - 8/23/2026 - Tested on the build box: 4 tagged paragraphs out of 7, the red on the tags intact, the
+'           - Sh - 8/23/2026 - source document unchanged, and Selection left as a plain insertion point.
+'
+' Notes:    - Sh - 8/23/2026 - STYLES PANE: RECOMMENDED moved to the RIGHT of the separator on the Quick Access
+'           - Sh - 8/23/2026 - Toolbar, beside Reset Word Configuration (Jerry). installer/qat-template.officeUI is
+'           - Sh - 8/23/2026 - hand-maintained; the id is unchanged, so toolbars already installed in the field are
+'           - Sh - 8/23/2026 - not affected - only what a new install lays down.
+'
 ' Notes:    - Sh - 8/23/2026 - AN F6 / SHIFT+F6 LOOP THROUGH THE $pg VALIDATION MENUS (Jerry), for transcribers who
 '           - Sh - 8/23/2026 - are blind or have low vision. A modeless UserForm beside a document is easy to reach with
 '           - Sh - 8/23/2026 - a mouse and impossible to reach from the keyboard - Word's own F6 walks Word's panes and
@@ -1032,6 +1095,16 @@ Public Sh_GP_Counter_1 As Integer
 '
 ' Not the general-purpose Sh_GP_ variables above, which macros use for their own work and never
 ' clear; a macro showing a message while holding something in Sh_GP_String_1 is ordinary.
+' How much of a tagged line the $pg validation list shows. Jerry, 8/23/2026: 23 characters and
+' then "...", so the list stays a column of page numbers rather than a column of headings.
+'
+' THE ELLIPSIS IS DISPLAY ONLY AND MUST BE STRIPPED BEFORE SEARCHING. Sh_PgVal_TextOfCurrentTag
+' takes the line the cursor is on and Locate hunts for that text in the book - with "..." on the
+' end it would never be found, because the book does not contain it. Both halves are here so they
+' cannot drift apart.
+Public Const SH_PGVAL_LINE_MAX As Long = 23
+Public Const SH_PGVAL_ELLIPSIS As String = "..."
+
 Public Sh_Msg_Body As String            ' the message
 Public Sh_Msg_Title As String           ' the title bar, which carries the dialog number
 Public Sh_Msg_Offer_Cancel As Boolean   ' True shows the Cancel button beside Okay
@@ -3357,6 +3430,7 @@ End Sub '***** end of Dx_Fix_Common_File_Errors Macro *****
 
 Sub Dx_Color_Dollar_PG_Red()
 '
+' Version: 1.1  Date: 8/23/2026 - the tag is set NOT BOLD as well (Jerry)
 ' Version: 1.0  Date: 8/5/2026
 '
 ' Author: Jerry Whittaker - jerry@thewhittakers.org
@@ -3376,6 +3450,16 @@ Sub Dx_Color_Dollar_PG_Red()
     Selection.Find.Replacement.ClearFormatting
     With Selection.Find.Replacement.Font
         .Color = wdColorRed
+        ' AND NOT BOLD. Jerry, 8/23/2026: a document whose formatting makes the page-number paragraph
+        ' bold gave a bold $pg when AutoTag Ref Pages tagged it. Setting the style to Normal does not
+        ' cure that - DIRECT bold survives a style change, which is the whole point of direct
+        ' formatting - so the tag has to be told outright.
+        '
+        ' This reaches the THREE CHARACTERS OF THE TAG AND NOTHING ELSE. Replacement.Font applies to
+        ' the replaced text; the page number beside it keeps whatever weight the book gave it, and so
+        ' does every other word on the line. Jerry's instruction was to fix the $pg without changing
+        ' the document's formatting, and that is the difference.
+        .Bold = False
     End With
     With Selection.Find
         .Text = "$pg"
@@ -4586,6 +4670,22 @@ LoopEnd:
     Selection.Find.Replacement.ClearFormatting
     With Selection.Find.Replacement.Font
         .Color = wdColorRed
+        ' AND NOT BOLD. Jerry, 8/23/2026: a document whose formatting makes the page-number paragraph
+        ' bold gave a bold $pg when AutoTag Ref Pages tagged it. Setting the style to Normal does not
+        ' cure that - DIRECT bold survives a style change, which is the whole point of direct
+        ' formatting - so the tag has to be told outright.
+        '
+        ' This reaches the THREE CHARACTERS OF THE TAG AND NOTHING ELSE. Replacement.Font applies to
+        ' the replaced text; the page number beside it keeps whatever weight the book gave it, and so
+        ' does every other word on the line. Jerry's instruction was to fix the $pg without changing
+        ' the document's formatting, and that is the difference.
+        '
+        ' THIS PASS IS A THIRD COPY of the one in Dx_Color_Dollar_PG_Red, which is itself a copy
+        ' of Sh_Color_Dollar_PG_Red without the Normal style. All three had to be told, and a
+        ' fault fixed in one of them is still in the other two. They are left separate because
+        ' each ends differently - this one restores the DBT code colors and puts screen updating
+        ' back, and folding them together is a bigger change than Jerry asked for.
+        .Bold = False
     End With
     With Selection.Find
         .Text = "$pg"
@@ -17041,6 +17141,7 @@ Sub Sh_Remove_Hyperlinks(Optional ByVal target As Range)
 
 Sub Sh_Color_Dollar_PG_Red()
 '
+' Version: 1.4 Date: 8/23/2026 - the tag is set NOT BOLD as well (Jerry). Three characters only
 ' Version: 1.3 Date: 7/5/2026 - added normal style to F&R
 ' Version: 1.3 Date: 2/8/2017
 '
@@ -17052,6 +17153,17 @@ Sub Sh_Color_Dollar_PG_Red()
     ' Apply Normal style + red color to replacement text
     Selection.Find.Replacement.Style = ActiveDocument.Styles("Normal")
     Selection.Find.Replacement.Font.Color = wdColorRed
+
+    ' AND NOT BOLD. Jerry, 8/23/2026: a document whose formatting makes the page-number paragraph
+    ' bold gave a bold $pg when AutoTag Ref Pages tagged it. Setting the style to Normal does not
+    ' cure that - DIRECT bold survives a style change, which is the whole point of direct
+    ' formatting - so the tag has to be told outright.
+    '
+    ' This reaches the THREE CHARACTERS OF THE TAG AND NOTHING ELSE. Replacement.Font applies to
+    ' the replaced text; the page number beside it keeps whatever weight the book gave it, and so
+    ' does every other word on the line. Jerry's instruction was to fix the $pg without changing
+    ' the document's formatting, and that is the difference.
+    Selection.Find.Replacement.Font.Bold = False
     
     With Selection.Find
         .Text = "$pg"
@@ -22165,19 +22277,45 @@ Sub Sh_Clear_Multi_Selection()
 
 End Sub   '*** end of Sh_Clear_Multi_Selection macro ***
 
-Sub Sh_Copy_Ref_Pg_Tags_To_Temp_File()
-
-' this macro copies the tagged $pg paragraphs to a temporary document
+' Every tagged paragraph in a document, copied into a temporary one, in the order they appear.
 '
-' Version: 1.2  Date: 11/10/2025 - added "DoEvents" before and after "Selection.Paste" to avoid crash when MathType MathPage.wll is corrupt
-' Version: 1.1  Date: 2/18/2024 - code to set word configuration added
+' HOW IT USED TO BE DONE, AND WHY IT IS NOT DONE THAT WAY ANY MORE. The list was built by
+' SendKeys-ing the real Find and Replace dialog - Ctrl+H, Alt+D, Alt+I, M - to reach "Find In >
+' Main Document", which selects every matching paragraph at once so one Copy takes the lot. It is
+' the only way to build a discontiguous selection at all; the object model cannot. It cost three
+' things:
+'
+'   * THE DIALOG FLASHED ON SCREEN. Jerry, 8/23/2026. ScreenUpdating cannot hide a dialog - it
+'     stops the DOCUMENT repainting and nothing else - so there was no way to fix that while the
+'     dialog was still being opened. This is why the mechanism changed rather than being patched.
+'   * SendKeys types into whatever has the focus, whenever Windows gets round to delivering it.
+'     That is why the old code handed off through Application.OnTime a second later: it had to
+'     wait for keystrokes it could not track.
+'   * It left a Find All MULTIPLE SELECTION behind, and the next macro to touch Selection died
+'     with run-time error 4605 - AutoTag, in Jerry's case, 8/5/2026. Sh_Clear_Multi_Selection was
+'     written for that; it stays, because AutoTag calls it too and a user can still make one by
+'     hand.
+'
+' Now the paragraphs are found on a RANGE and copied one at a time, which no one can see, needs no
+' pause, leaves no selection - and never touches the clipboard, so whatever the transcriber had
+' copied is still there when she finishes.
+'
+' Version: 1.4  Date: 8/23/2026 - built on a range instead of by SendKeys-ing Find and Replace
+'                                 (Jerry: the dialog flashed). No clipboard, no OnTime, no
+'                                 leftover multiple selection, and it says so when there is
+'                                 nothing tagged
 ' Version: 1.3  Date: 7/27/2026 - hands off to the modeless validation helper instead of
 '                                 telling the user to Alt+Tab (see ShNonModalMessage)
+' Version: 1.2  Date: 11/10/2025 - added "DoEvents" before and after "Selection.Paste" to avoid crash when MathType MathPage.wll is corrupt
+' Version: 1.1  Date: 2/18/2024 - code to set word configuration added
 ' Version: 1.0  Date: 2/16/2024
+'
+Sub Sh_Copy_Ref_Pg_Tags_To_Temp_File()
 
     Dim MsgBoxLabel As String
     Dim tmpDoc As Document
     Dim srcDoc As Document
+    Dim tagCount As Long
 
     'The document being validated, captured before Documents.Add makes the list active.
     Set srcDoc = ActiveDocument
@@ -22187,8 +22325,6 @@ Sub Sh_Copy_Ref_Pg_Tags_To_Temp_File()
     Else
         MsgBoxLabel = "VistaType"
     End If
-    
-    Selection.Copy
 
     Set tmpDoc = Documents.Add
     
@@ -22213,9 +22349,23 @@ Sub Sh_Copy_Ref_Pg_Tags_To_Temp_File()
         .RightMargin = InchesToPoints(0.5)
     End With
 
-    DoEvents
-    Selection.Paste
-    DoEvents
+    tagCount = Sh_PgVal_Copy_Tags_Into(srcDoc, tmpDoc)
+
+    ' Nothing tagged. Say so and take the empty list away again, rather than opening a validation
+    ' over a blank document - which is what the old route did, silently, because a Copy with
+    ' nothing found pasted whatever happened to be on the clipboard.
+    If tagCount = 0 Then
+        On Error Resume Next
+        tmpDoc.Close SaveChanges:=wdDoNotSaveChanges
+        srcDoc.Activate
+        On Error GoTo 0
+        Sh_Say "No $pg tags were found in this document, so there is nothing to validate." _
+             & vbCr & vbCr _
+             & "If you expected tags here, they may not have been placed yet - Auto Tag Ref Pages " _
+             & "and Manual Tag Ref Page are on the Reference Page Numbers group of the ribbon.", _
+               "VistaType LP (239)"
+        Exit Sub
+    End If
 
     Selection.WholeStory
     Selection.Font.Name = "Tahoma"
@@ -22228,6 +22378,93 @@ Sub Sh_Copy_Ref_Pg_Tags_To_Temp_File()
     Sh_PgVal_Start srcDoc, tmpDoc, MsgBoxLabel
 
 End Sub   '*** end of Sh_Copy_Ref_Pg_Tags_To_Temp_File macro ***
+
+' Copies every "$pg...paragraph mark" run out of one document and into the end of another, keeping
+' its formatting - the red on the tags among it - and answers how many it moved.
+'
+' A LONG LINE IS CUT AT 23 CHARACTERS AND GIVEN AN ELLIPSIS (Jerry, 8/23/2026). A tag on a
+' paragraph of its own is five or six characters and comes through whole; a tag on a paragraph
+' that carries a heading as well used to drag the whole heading into the list, and the list is
+' meant to be read as a column of page numbers. The cut keeps the formatting of what it keeps.
+'
+' What is cut is only what is SHOWN. Sh_PgVal_TextOfCurrentTag strips the ellipsis again before
+' Locate searches the book, so the two still find each other - see the note on SH_PGVAL_ELLIPSIS.
+'
+' THE FIND SETTINGS ARE THE OLD ONES, character for character: "$pg*^013" with wildcards on. That
+' is deliberate. The mechanism changed; what counts as a tag did not, and a list that suddenly
+' held more or fewer lines than it used to would be a change nobody asked for.
+'
+' The search range is reset explicitly after every hit rather than relying on what Find leaves
+' behind, and the loop has a backstop. A Find loop that stops moving forward does not error - it
+' runs for ever, and Word stops answering.
+'
+' Version: 1.1  Date: 8/23/2026 - a line longer than 23 characters is cut and given an ellipsis
+' Version: 1.0  Date: 8/23/2026
+'
+Private Function Sh_PgVal_Copy_Tags_Into(ByVal srcDoc As Document, ByVal tmpDoc As Document) As Long
+    Dim findRng As Range
+    Dim outRng As Range
+    Dim moved As Long
+    Dim lineLen As Long
+    Dim cut As Long
+    Dim lineTxt As String
+
+    Set findRng = srcDoc.Content
+    Set outRng = tmpDoc.Content
+    outRng.Collapse Direction:=wdCollapseEnd
+
+    With findRng.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
+        .Text = "$pg*^013"
+        .Replacement.Text = ""
+        .Forward = True
+        .Wrap = wdFindStop
+        .Format = False
+        .MatchCase = False
+        .MatchWholeWord = False
+        .MatchWildcards = True
+        .MatchSoundsLike = False
+        .MatchAllWordForms = False
+
+        Do While .Execute
+            ' The found range ends WITH the paragraph mark, because the pattern does. The text of
+            ' the line is therefore one character shorter than the range.
+            lineLen = findRng.End - findRng.Start - 1
+            cut = SH_PGVAL_LINE_MAX
+
+            If lineLen <= cut Then
+                outRng.FormattedText = findRng.FormattedText
+                outRng.Collapse Direction:=wdCollapseEnd
+            Else
+                ' Do not cut in the middle of a run of spaces - "$pg12 Chapter ..." reads better
+                ' than "$pg12 Chapter   ...". Back up over them, never past the first character.
+                lineTxt = srcDoc.Range(findRng.start, findRng.start + cut).Text
+                Do While cut > 1
+                    If Mid$(lineTxt, cut, 1) <> " " Then Exit Do
+                    cut = cut - 1
+                Loop
+
+                ' The kept part with its formatting - the red on the tag among it - then the
+                ' ellipsis and a paragraph mark of its own, because the mark was cut off with the
+                ' rest of the line.
+                outRng.FormattedText = srcDoc.Range(findRng.start, findRng.start + cut).FormattedText
+                outRng.Collapse Direction:=wdCollapseEnd
+                outRng.InsertAfter SH_PGVAL_ELLIPSIS & vbCr
+                outRng.Collapse Direction:=wdCollapseEnd
+            End If
+
+            moved = moved + 1
+            If moved > 20000 Then Exit Do
+
+            ' Carry on from the end of what was just found, out to the end of the document.
+            If findRng.End >= srcDoc.Content.End Then Exit Do
+            findRng.SetRange findRng.End, srcDoc.Content.End
+        Loop
+    End With
+
+    Sh_PgVal_Copy_Tags_Into = moved
+End Function   '*** end of Sh_PgVal_Copy_Tags_Into ***
 
 Sub Sh_ReplaceNonBreakingSpacesWithNormalSpace()
     '

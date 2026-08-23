@@ -13,6 +13,8 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
+' Version: 1.3  Date: 8/23/2026 - the temp-file route no longer drives Find and Replace with
+'                                 SendKeys, so the dialog cannot flash on screen (Jerry)
 ' Version: 1.2  Date: 2/12/2024 - added code to place reference page tags in 3 column temp doc
 ' Version: 1.1  Date: 2/14/2021 - fixed problem with info display page
 ' Version: 1.0  Date: 9/26/2018
@@ -36,32 +38,24 @@ Private Sub NavigationButton_Click()
     Unload Me
 End Sub
 
+' NO SendKeys AND NO PAUSE ANY MORE. Jerry, 8/23/2026: the Find and Replace dialog flashed on
+' screen. It flashed because it was really being opened - this used to type Ctrl+H, Alt+D, Alt+I,
+' M, Esc into it to reach "Find In > Main Document", which selects every $pg paragraph at once so
+' that one Copy takes the lot. ScreenUpdating cannot hide a dialog; it stops the DOCUMENT
+' repainting and nothing else. So the dialog had to go, not be hidden.
+'
+' The one-second Application.OnTime went with it. That was not a courtesy pause - it was the only
+' way to wait for keystrokes SendKeys hands to Windows and cannot follow. The list is now built on
+' a range inside Sh_Copy_Ref_Pg_Tags_To_Temp_File, so it can simply be called.
+'
+' Version: 1.0  Date: 8/23/2026
 Private Sub TempFileButton_Click()
 
     Sh_Validation_Choices_Form.Hide
     Sh_SetBarVisible "Navigation", False
-    Application.ScreenUpdating = False    ' Turn screen updating off
-    Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
 
-    With Selection.Find
-    .Text = "$pg*^013"
-    .Replacement.Text = ""
-    .Forward = True
-    .Wrap = wdFindContinue
-    .MatchWildcards = True
-    End With
+    Application.Run MacroName:="Sh_Copy_Ref_Pg_Tags_To_Temp_File"
 
-    SendKeys "^h"      '  Ctrl+h - open find and replace dialog
-    SendKeys "%d"      ' Alt+d - move to find tab
-    SendKeys "%i"       ' Alt+i - Find In
-    SendKeys "m"         ' Main Document
-    SendKeys "{Esc}"    ' close find and replace dialog box
-
-    Application.ScreenUpdating = True    ' Turn screen updating on
-    
-    ' pause for 1 second then run the "Sh_Copy_Ref_Pg_Tags_To_Temp_File" macro
-    Application.OnTime When:=Now + TimeValue("00:00:01"), Name:="Sh_Copy_Ref_Pg_Tags_To_Temp_File"
-    
     Unload Sh_Validation_Choices_Form
 
 End Sub

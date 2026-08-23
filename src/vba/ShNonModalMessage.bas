@@ -588,7 +588,18 @@ Private Function Sh_PgVal_TextOfCurrentTag() As String
     s = Selection.Paragraphs(1).Range.Text
     s = Replace(s, Chr(13), "")
     s = Replace(s, Chr(7), "")
-    Sh_PgVal_TextOfCurrentTag = Trim$(s)
+    s = Trim$(s)
+
+    ' AND THE ELLIPSIS OFF THE END. From 8/23/2026 a line longer than 23 characters is shown cut
+    ' short with "..." on it - see Sh_PgVal_Copy_Tags_Into. That is display only: the book does not
+    ' contain the ellipsis, so searching for it would find nothing and every long line would come
+    ' back "in the list but not found in the document". What is left is a PREFIX of the real
+    ' paragraph, which is all Find needs.
+    If Right$(s, Len(SH_PGVAL_ELLIPSIS)) = SH_PGVAL_ELLIPSIS Then
+        s = RTrim$(Left$(s, Len(s) - Len(SH_PGVAL_ELLIPSIS)))
+    End If
+
+    Sh_PgVal_TextOfCurrentTag = s
 End Function
 
 Private Function Sh_PgVal_FindInSource(ByVal TagText As String) As Range
