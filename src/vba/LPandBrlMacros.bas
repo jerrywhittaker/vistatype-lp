@@ -18,6 +18,97 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - LP - 8/23/2026 - A FILL-IN LINE'S UNDERSCORES ARE TYPED IN TAHOMA (Jerry), whatever face the book
+'           - LP - 8/23/2026 - is set in. In VistaTypeLP Sans an underscore does not reach the edges of the space it
+'           - LP - 8/23/2026 - sits in, so a row of them draws with holes in it instead of one unbroken rule.
+'           - LP - 8/23/2026 - Tahoma's joins. ONLY the underscores change face - the words either side of the fill
+'           - LP - 8/23/2026 - do not, and nothing already in a document is touched.
+'           - LP - 8/23/2026 - PUTTING THE FACE BACK IS THE HALF THAT CAN BITE, and it is the same trap the
+'           - LP - 8/23/2026 - underline had in August: the face standing at the insertion point is the face the
+'           - LP - 8/23/2026 - transcriber's next keystroke comes out in. So it goes back at every point the
+'           - LP - 8/23/2026 - underline does, including as the very last statement of both macros, after every
+'           - LP - 8/23/2026 - peek that moves the cursor. New Lp_Fill_Face_To_Restore decides what "back" is: the
+'           - LP - 8/23/2026 - face at the cursor, or the book's base face off Normal when the cursor is already in
+'           - LP - 8/23/2026 - Tahoma - which is what clicking into an OLD fill to replace it looks like.
+'           - LP - 8/23/2026 - COUNTED FILL-IN LINES GO IN WITH ONE TypeText (Jerry) instead of one call per
+'           - LP - 8/23/2026 - underscore: 14 ms down to 2 for a 72-character line, and one undo step instead of
+'           - LP - 8/23/2026 - twenty-one. He asked first whether the CLIPBOARD would be faster - one underlined
+'           - LP - 8/23/2026 - Tahoma underscore copied and pasted over and over. Measured on the build box over
+'           - LP - 8/23/2026 - 100 runs: 68 ms, FIVE TIMES SLOWER than the loop it would have replaced, and it
+'           - LP - 8/23/2026 - would spend the transcriber's own clipboard, which cannot be put back. Numbers are
+'           - LP - 8/23/2026 - in the sub. Fill To Right Margin cannot use it: it has no count, it types until
+'           - LP - 8/23/2026 - Word's own wrapping moves the cursor to the next line, and that is what makes it
+'           - LP - 8/23/2026 - right at any point size, margin and gutter.
+'           - LP - 8/23/2026 - Lp_Type_Fill_In_Line_To_Margin 2.4 and Lp_Type_Counted_Fill_In_Lines 1.9. Both now
+'           - LP - 8/23/2026 - have a handler as well: without one a failure left her typing underlined AND in
+'           - LP - 8/23/2026 - Tahoma, and Lp_Type_Fill_In_Line's dangling On Error Resume Next swallows the error
+'           - LP - 8/23/2026 - so nothing would have said why.
+'           - LP - 8/23/2026 - ATTACHING THE TEMPLATE TAKES THE TAHOMA OFF AGAIN, which would have made the whole
+'           - LP - 8/23/2026 - thing useless: Sh_Set_Whole_Document_Font lays one face over every character as
+'           - LP - 8/23/2026 - direct formatting, so re-attaching to change the point size returned every fill-in
+'           - LP - 8/23/2026 - line in the book to holes. New Lp_Tahoma_The_Fill_Ins puts them back and the attach
+'           - LP - 8/23/2026 - calls it. A fill-in line is an UNDERLINED underscore; a plain one is somebody's text.
+'           - LP - 8/23/2026 - WHY TAHOMA WORKS IS NOT WHAT IT LOOKS LIKE. Measured 8/23/2026: the template's Normal
+'           - LP - 8/23/2026 - carries 1 POINT OF EXPANDED LETTER SPACING (headings 2, No Spacing and Macro Text
+'           - LP - 8/23/2026 - 2.5), so underscores are a point apart in ANY face - no underscore glyph comes near
+'           - LP - 8/23/2026 - closing that. What closes it is Word's UNDERLINE, drawn unbroken across the run. In
+'           - LP - 8/23/2026 - Tahoma the underline and the underscore are the same bar (-170 to -300 of a 2048 em)
+'           - LP - 8/23/2026 - and the line reads solid; in Sans the underline is thinner and sits inside the
+'           - LP - 8/23/2026 - underscore (-100..-150 against -90..-154 of a 960 em), leaving a 0.19pt sliver at
+'           - LP - 8/23/2026 - 18 point unpainted between one underscore and the next. THAT is the holes. See
+'           - LP - 8/23/2026 - Lp_Fill_Face_To_Restore for the numbers and for the two other ways it could be cured.
+'           - LP - 8/23/2026 - THE OTHER TWO LARGE PRINT PASSES THAT MAKE FILL-IN LINES DO IT TOO (Jerry, asked for
+'           - LP - 8/23/2026 - after the first round): Lp_Format_Exercise_Lv_1_and_Lv_2 1.7 calls
+'           - LP - 8/23/2026 - Lp_Tahoma_The_Fill_Ins on the scratch document after it has taken the underline off
+'           - LP - 8/23/2026 - the spaces - it collapses and REBUILDS any fills it finds, so without it running
+'           - LP - 8/23/2026 - Format Exercise over hand-typed ones handed them back holey - and
+'           - LP - 8/23/2026 - Lp_Replace_Underline_Tab_With_Underlined_Underscore 1.1, which runs inside the
+'           - LP - 8/23/2026 - ordinary file-fix pass on Abbyy scans, names the face on its replacement, which is
+'           - LP - 8/23/2026 - one underscore and nothing else. Dx_Tabs_To_Fill_Ins is deliberately LEFT: braille
+'           - LP - 8/23/2026 - files are Times New Roman and the reader gets dots.
+'           - LP - 8/23/2026 - AND THE ATTACH'S REPAIR SKIPS A LEGACY VISTATYPELP LEGIBLE BOOK. Those books are
+'           - LP - 8/23/2026 - protected all through the attach so that re-attaching cannot move a page break in a
+'           - LP - 8/23/2026 - book already in a reader's hands, and Tahoma's underscore is not Legible's width -
+'           - LP - 8/23/2026 - a fill that only just fitted would wrap and take the page with it. Their fills stay
+'           - LP - 8/23/2026 - Legible, exactly as they were. Found in review AFTER 3.0.238 was built, so that
+'           - LP - 8/23/2026 - installer has the fault; it shows only on a Legible book, of which Jerry and two
+'           - LP - 8/23/2026 - testers have the only copies. Format Exercise is NOT guarded the same way - it
+'           - LP - 8/23/2026 - reflows what it touches by design, so a fill changing width there is not a surprise.
+'
+' Notes:    - Sh - 8/23/2026 - HOW VISTATYPE LP SAYS THINGS, and it is now a rule (Jerry): the message in any
+'           - Sh - 8/23/2026 - dialog is at least 10 point Tahoma, an OK button is captioned "Okay", and Okay and
+'           - Sh - 8/23/2026 - Cancel answer to Alt+O and Alt+C. A MsgBox can do NONE of the three - its font is
+'           - Sh - 8/23/2026 - whatever Windows draws a message box in, "OK" is not changeable, and it has no
+'           - Sh - 8/23/2026 - accelerators - so a message is a UserForm from here on. New Sh_Message_Form (48 forms
+'           - Sh - 8/23/2026 - -> 49), reached through new Sh_Say and Sh_Ask, and nothing else touches the form.
+'           - Sh - 8/23/2026 - The form re-heights itself to the message; the title bar still carries the dialog
+'           - Sh - 8/23/2026 - number, which is how a transcriber names what she saw. WHAT IS LOST is MsgBox's
+'           - Sh - 8/23/2026 - information / warning / question ICON and the warning sound. Nothing else.
+'           - Sh - 8/23/2026 - THE FIVE MESSAGES OF THE TWO NEWEST TOOLBAR BUTTONS ARE CONVERTED and NOTHING ELSE
+'           - Sh - 8/23/2026 - IS: 85 MsgBox calls remain here, 48 in the forms, 20 in the three smaller modules.
+'           - Sh - 8/23/2026 - They convert a feature at a time.
+'           - Sh - 8/23/2026 - tools/windows/New-UserForm.ps1 now builds the shape (-MessageDialog) and puts the
+'           - Sh - 8/23/2026 - accelerators on, so a form made with it is already right.
+'           - Sh - 8/23/2026 - THE HOVER TEXT ON A TOOLBAR BUTTON CANNOT BE MADE 10 POINT TAHOMA. Word draws it
+'           - Sh - 8/23/2026 - itself in the Office UI font, customUI has no font attribute of any kind, and no VBA
+'           - Sh - 8/23/2026 - callback reaches it - getSupertip supplies the WORDS and nothing else. The same is
+'           - Sh - 8/23/2026 - true of ControlTipText on a form. Windows' own text size is the only thing that
+'           - Sh - 8/23/2026 - changes either, and it changes them everywhere.
+'
+' Notes:    - Sh - 8/23/2026 - STYLES PANE: RECOMMENDED ticks SHOW PREVIEW and DISABLE LINKED STYLES as well
+'           - Sh - 8/23/2026 - (Jerry) - the two boxes at the foot of the pane, five things set now rather than
+'           - Sh - 8/23/2026 - three. Both are Word-wide, which is why they were left alone before. Three things make
+'           - Sh - 8/23/2026 - them safe: the button is large print only; both are exactly what
+'           - Sh - 8/23/2026 - MS_Set_Word_Config_For_Large_Print already writes when the document is opened, so this
+'           - Sh - 8/23/2026 - re-asserts that document's own configuration rather than imposing anything; and both
+'           - Sh - 8/23/2026 - are in Sh_Tracked_Settings, so her own values come back in an ordinary document.
+'           - Sh - 8/23/2026 - THE TWO ARE WRITTEN ONLY WHEN Sh_ConfiguredAs = "LP", not merely when the large print
+'           - Sh - 8/23/2026 - template is attached. Those disagree after a configuration that RAISED - swallowed,
+'           - Sh - 8/23/2026 - Sh_ConfiguredAs blanked, no book record written - and in that window anything live
+'           - Sh - 8/23/2026 - becomes her saved preference the next time she opens a letter. Found in review before
+'           - Sh - 8/23/2026 - it shipped; it is the 8/18/2026 fault in a new costume. Missing the two ticks costs
+'           - Sh - 8/23/2026 - nothing - press the button again.
+'
 ' Notes:    - MS - 8/23/2026 - THE RESET BUTTON'S HOVER TEXT NAMES THE DOCUMENT (Jerry): "...back to VistaType LP's
 '           - MS - 8/23/2026 - starting point for a large print book." It is therefore a getSupertip CALLBACK,
 '           - MS - 8/23/2026 - RibbonCallbacks.VtResetSupertip, not fixed text in customUI14.xml - fixed text cannot
@@ -873,6 +964,21 @@ Public Sh_GP_String_1 As String
 Public Sh_GP_String_2 As String   ' the conversion's image choice, "KEEP" or "OMIT"
 Public Sh_GP_Boolean_1 As Boolean
 Public Sh_GP_Counter_1 As Integer
+
+' What the shared message dialog is about to say, and what was pressed. Sh_Say and Sh_Ask write
+' these, Sh_Message_Form reads them, and the answer comes back the same way.
+'
+' OUTSIDE the form rather than properties of it, and that is not a style choice: touching any
+' member of a UserForm's default instance is what creates the form, and creating it runs
+' UserForm_Initialize on that very line - before a second line could set anything else. A
+' variable out here is set while the form does not yet exist. 8/23/2026.
+'
+' Not the general-purpose Sh_GP_ variables above, which macros use for their own work and never
+' clear; a macro showing a message while holding something in Sh_GP_String_1 is ordinary.
+Public Sh_Msg_Body As String            ' the message
+Public Sh_Msg_Title As String           ' the title bar, which carries the dialog number
+Public Sh_Msg_Offer_Cancel As Boolean   ' True shows the Cancel button beside Okay
+Public Sh_Msg_Answer As Boolean         ' True when Okay was pressed
 
 ' Where the user's cursor was when a macro started, so the macro can put them back.
 ' A character offset, NOT a bookmark: the TempPlaceholder bookmark cannot survive the
@@ -12081,6 +12187,9 @@ Sub Lp_Format_Exercise_Lv_1_and_Lv_2()
 '
 ' Author: Jerry Whittaker - jerry@thewhittakers.org
 '
+' Version: 1.7  Date: 8/23/2026 - the fill-in lines it builds are TAHOMA, like every other fill-in
+'                                 line (Jerry). It rebuilds any it finds, so without this it handed
+'                                 hand-typed ones back holey
 ' Version: 1.6  Date: 7/26/2026 - returns the user to where the cursor was when the macro started
 ' Version: 1.4  Date: 3/20/2021 - added remove multiple spaces
 ' Version: 1.4  Date: 1/24/2021 - ajusted formatting
@@ -12449,6 +12558,35 @@ Sub Lp_Format_Exercise_Lv_1_and_Lv_2()
         .MatchAllWordForms = False
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
+
+    '*****************************************************
+    ' and the fill-ins into Tahoma
+    '*****************************************************
+    ' Jerry, 8/23/2026. The same face every other fill-in line is in - see Lp_Fill_Face_To_Restore
+    ' for why Tahoma. It matters more here than anywhere: this macro COLLAPSES existing fill-in
+    ' lines to a single underscore near the top and rebuilds them from tabs down here, so without
+    ' this line, running Format Exercise over a passage containing hand-typed Tahoma fills would
+    ' quietly hand them back holey.
+    '
+    ' AFTER the pass above, not built into it. The tab becomes " ________ " with the underline on
+    ' the spaces as well, and that pass is what takes it off them; asking for Tahoma up there would
+    ' name the face on those two spaces too, and a space in the wrong face is a space of the wrong
+    ' width. Lp_Tahoma_The_Fill_Ins only touches an underscore that is underlined.
+    '
+    ' ActiveDocument is normally the scratch document these passes all run in, so this reaches
+    ' what the transcriber selected and nothing else in her book, and it travels home with the
+    ' paste-back. NORMALLY, not always: Lp_Copy_To_Temp_Doc gives up with a message and a plain
+    ' Exit Sub when LargePrintTemplate.dotx is not in this machine's Templates folder, and every
+    ' pass in this macro then runs on the book itself. That is pre-existing and already far worse
+    ' than one face - the passes above rewrite the whole book with wdFindContinue - but the claim
+    ' is stated accurately here rather than assumed.
+    '
+    ' The measured part: a RANGE find changes nothing about the selection. Checked on the build
+    ' box 8/23/2026 from an insertion point and from a WholeStory selection - Type, Start and End
+    ' all identical before and after. That matters because Lp_Fix_Para_Space_Errors and
+    ' Sh_Remove_Multi_Spaces, three lines further on, narrow themselves to the selection when
+    ' there is one.
+    Lp_Tahoma_The_Fill_Ins ActiveDocument
 
     '*****************************************************
     ' remove spaces before commas
@@ -13508,10 +13646,118 @@ Public Function Lp_Nothing_Follows_On_Line() As Boolean
     End Select
 End Function
 
+' THE UNDERSCORES IN A FILL-IN LINE ARE TYPED IN TAHOMA, whatever face the book is set in.
+' Jerry, 8/23/2026: in VistaTypeLP Sans a row of them draws with little holes in it instead of
+' one unbroken rule. ONLY the underscores change face. The words on either side of the fill do
+' not, and nothing already in the document is touched.
+'
+' WHY IT WORKS, measured 8/23/2026 rather than assumed, because the obvious explanation is wrong
+' and would have sent the next person after the wrong thing:
+'
+'   * The large print template's Normal carries 1 point of EXPANDED LETTER SPACING (w:spacing 20;
+'     the heading styles carry 2, No Spacing and Macro Text 2.5). So consecutive underscores are
+'     a point apart in ANY face - Tahoma's underscore glyph overhangs its own width by 0.28 point
+'     at 18 point and Sans's by 0.08, and neither is anywhere near closing a 1 point gap.
+'   * What closes it is the UNDERLINE, which Word draws as one unbroken stroke across the whole
+'     run, letter spacing included. The underline's height and thickness come from the run's font.
+'   * In TAHOMA the underscore and the underline are the same bar: both sit at -170 to -300 of a
+'     2048 em. The stroke fills the gaps exactly and the line reads solid.
+'   * In VISTATYPELP SANS they do not line up. The underscore spans -90 to -154 of a 960 em; the
+'     underline is thinner (50 against 64) and sits at -100 to -150, INSIDE it. So between one
+'     underscore and the next, a sliver at the top of the bar - about 0.19 point at 18 point - and
+'     a thinner one at the bottom are not painted. That is what the eye reads as holes.
+'
+' Two consequences worth knowing. Setting .Spacing = 0 on the run would also close it, in any
+' face, by removing the gaps altogether - it would make a counted fill shorter on the page, so it
+' is not done here. And the face could be fixed at its source instead: VistaTypeLP Sans is built
+' by tools/lib/build_vistatypelp_sans.py, and its underline position and thickness could be made
+' to match its own underscore. Neither would help a book already produced.
+'
+' This function answers the other half of it: what to put BACK when the fill is finished. Getting
+' that wrong is not cosmetic - the face standing at the insertion point is the face the
+' transcriber's next keystroke comes out in. It is the same trap the underline had, and it cost
+' three fixes in August before the rule was written down: turn it back at the very end, after
+' every peek that moves the cursor.
+'
+' The answer is the face at the cursor, EXCEPT when that is already Tahoma. Tahoma at the cursor
+' cannot be told apart from Tahoma left there by an earlier fill-in line - and clicking into an
+' old fill to replace it lands in exactly that state - so the book's own base face is used
+' instead, read off Normal, which is where Lp_Base_Font_Name reads it from too. In a book set in
+' Tahoma both answers are the same. The one case it gets wrong is a fill typed inside genuinely
+' Tahoma text in a book set in something else, and the cost there is one space in the wrong face.
+'
+' Version: 1.0  Date: 8/23/2026
+Private Function Lp_Fill_Face_To_Restore() As String
+    Dim nm As String
+
+    On Error Resume Next
+    nm = Selection.Font.Name    ' empty when what is selected spans more than one face
+    If StrComp(nm, LP_FONT_TAHOMA, vbTextCompare) = 0 Then nm = ""
+    If nm = "" Then nm = ActiveDocument.Styles(wdStyleNormal).Font.Name
+    If nm = "" Then nm = LP_FONT_TAHOMA
+    Err.Clear
+    On Error GoTo 0
+
+    Lp_Fill_Face_To_Restore = nm
+End Function   '*** end of Lp_Fill_Face_To_Restore ***
+
+' Puts Tahoma back onto every fill-in line in a document.
+'
+' IT EXISTS BECAUSE ATTACHING THE TEMPLATE TAKES IT OFF AGAIN. Lp_Attach_The_Template finishes
+' with Sh_Set_Whole_Document_Font, which lays one face over every character in the document as
+' DIRECT formatting - that is what makes a messy imported file conform, and it is not optional.
+' The Tahoma on a fill-in line is direct formatting too, so it goes with everything else. Without
+' this pass a transcriber who typed forty fill-in lines and then re-attached to change the point
+' size from 18 to 24 - the ordinary way to do that here - would get forty holey lines back, with
+' nothing said and no repair but clicking into each one. Found in review, 8/23/2026, before any
+' build carried it.
+'
+' A FILL-IN LINE IS AN UNDERLINED UNDERSCORE, and that is the whole test. An underscore that is
+' not underlined is somebody's text and is left alone. The replacement is "^&" - the found text
+' put back unchanged - so only the face is written; the underline, the size and the color are the
+' found text's own.
+'
+' Main text story only, tables included. A fill-in line in a header or a text box is not something
+' this product makes.
+'
+' Version: 1.0  Date: 8/23/2026
+'
+Public Sub Lp_Tahoma_The_Fill_Ins(ByVal targetDoc As Document)
+    Dim rng As Range
+
+    On Error Resume Next
+    Set rng = targetDoc.Content
+    With rng.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
+        .Text = "_"
+        .Font.Underline = wdUnderlineSingle
+        .Replacement.Text = "^&"
+        .Replacement.Font.Name = LP_FONT_TAHOMA
+        .Forward = True
+        .Wrap = wdFindStop
+        .Format = True
+        .MatchCase = False
+        .MatchWholeWord = False
+        .MatchWildcards = False
+        .MatchSoundsLike = False
+        .MatchAllWordForms = False
+        .Execute Replace:=wdReplaceAll
+    End With
+    Err.Clear
+    On Error GoTo 0
+End Sub   '*** end of Lp_Tahoma_The_Fill_Ins ***
+
 Sub Lp_Type_Fill_In_Line_To_Margin()
 
     ' Called from: Lp_Type_Fill_In_Form
     '
+    ' Version 2.4  Date: 8/23/2026 - a handler, so a failure cannot leave her typing underlined
+    '                                Tahoma; and the underscore that pushes onto the next line
+    '                                states its own formatting instead of inheriting it
+    ' Version 2.3  Date: 8/23/2026 - the underscores are typed in TAHOMA and the face is put back
+    '                                afterwards. VistaTypeLP Sans draws a row of them with holes in
+    '                                it (Jerry). See Lp_Fill_Face_To_Restore
     ' Version 2.2  Date: 8/10/2026 - proved WHY the last line has to be one underscore shorter when
     '                                punctuation follows: the two are one unbreakable word, so if they
     '                                do not fit Word moves the whole fill to the next line rather than
@@ -13564,9 +13810,16 @@ Sub Lp_Type_Fill_In_Line_To_Margin()
     Dim punctFollows As Boolean
     Dim splitPos As Long
     Dim endPos As Long
+    Dim fillBackTo As String
     
     NoOfXtraLinesWanted = Lp_GP_Counter_1
     LineCounter = 0
+
+    ' Read BEFORE anything is typed or deleted - see Lp_Fill_Face_To_Restore.
+    fillBackTo = Lp_Fill_Face_To_Restore()
+
+    ' Everything from here goes to Fill_Tidy_Up if it raises - see the note down there.
+    On Error GoTo Fill_Tidy_Up
     
     CurrentPageNumber = Selection.Information(wdActiveEndPageNumber)
 
@@ -13628,6 +13881,7 @@ Sub Lp_Type_Fill_In_Line_To_Margin()
         
         With Selection.Font
             .Underline = wdUnderlineSingle  ' turn underline on
+            .Name = LP_FONT_TAHOMA          ' the underscores only - see Lp_Fill_Face_To_Restore
         End With
         
         Do While CurrentLine = StartLine
@@ -13669,6 +13923,7 @@ Sub Lp_Type_Fill_In_Line_To_Margin()
             
             With Selection.Font
                     .Underline = wdUnderlineSingle  ' turn underline on
+                    .Name = LP_FONT_TAHOMA          ' the underscores only
             End With
             
             Do While CurrentLine = StartLine
@@ -13690,10 +13945,21 @@ Sub Lp_Type_Fill_In_Line_To_Margin()
                     ' of this loop switches underlining back on for the next line.
                     With Selection.Font
                         .Underline = wdUnderlineNone
+                        .Name = fillBackTo           ' the break is layout, not part of the fill
                     End With
                     Selection.TypeText Text:=Chr(11) ' manual line break
                     Stubline = False
                 Else
+                    ' Stated, not inherited. This underscore takes its formatting from whatever
+                    ' stands before the cursor, and after the backspace above that is normally the
+                    ' previous underscore - underlined, Tahoma, right. But when the line took
+                    ' exactly ONE underscore, the backspace removed it and what is left in front
+                    ' is the leading space: the book's face, not underlined. That one came out
+                    ' un-underlined in the wrong face, and it did so before this change too.
+                    With Selection.Font
+                        .Underline = wdUnderlineSingle
+                        .Name = LP_FONT_TAHOMA
+                    End With
                     Selection.TypeText Text:=Chr(95) ' an underscore
                 End If
             End If
@@ -13702,6 +13968,7 @@ Sub Lp_Type_Fill_In_Line_To_Margin()
 
     With Selection.Font
         .Underline = wdUnderlineNone  ' turn underline off
+        .Name = fillBackTo            ' and the book's own face back
     End With
 
     ' One underscore back when punctuation follows, and it has to happen HERE, while the sentence
@@ -13734,10 +14001,12 @@ Sub Lp_Type_Fill_In_Line_To_Margin()
     ' And a space after the fill when text follows it. Underlining is turned off HERE, after the
     ' peek inside Lp_Nothing_Follows_On_Line, not before it: moving the cursor to look at the next
     ' character throws the pending formatting away and takes it from what is beside it, which is
-    ' an underscore, and underlined.
+    ' an underscore, and underlined. The face is put back here for the same reason - the peek
+    ' picks Tahoma up off the underscore beside it.
     If Lp_Space_Wanted_After_Fill() Then
         With Selection.Font
             .Underline = wdUnderlineNone
+            .Name = fillBackTo
         End With
         If Selection.Font.Bold = True Then
             Selection.Font.Bold = wdToggle  ' turn off bold
@@ -13745,11 +14014,34 @@ Sub Lp_Type_Fill_In_Line_To_Margin()
         Selection.TypeText Text:=" "  ' non underlined space
     End If
 
-    ' Underlining OFF as the very last thing, whatever route got here. Every peek at a
-    ' neighbouring character moves the cursor, and moving it takes the pending formatting from
-    ' what is beside it - an underscore, underlined. Turning it off any earlier means the
-    ' transcriber's next keystroke comes out underlined (Jerry, 8/10/2026).
+    ' Underlining OFF and the face back as the very last thing, whatever route got here. Every
+    ' peek at a neighbouring character moves the cursor, and moving it takes the pending formatting
+    ' from what is beside it - an underscore, underlined, and now in Tahoma as well. Doing either
+    ' any earlier means the transcriber's next keystroke comes out underlined, or in the wrong
+    ' face (Jerry, 8/10/2026 for the underline; the face joined it 8/23/2026).
     Selection.Font.Underline = wdUnderlineNone
+    Selection.Font.Name = fillBackTo
+
+    Exit Sub
+
+Fill_Tidy_Up:
+    ' NEITHER MACRO HAD A HANDLER, and the aftermath of a failure is now worse than it was: an
+    ' error part way through used to leave the transcriber typing underlined, and would now leave
+    ' her typing underlined AND in Tahoma. Word says nothing either - Lp_Type_Fill_In_Line, which
+    ' opens the dialog these are called from, switches On Error Resume Next on for its style
+    ' lookup and never switches it off, so an error unwinding out of the form is swallowed there.
+    ' She would see the dialog close, nothing appear, and everything she typed next come out wrong.
+    '
+    ' So: put the pen down, whatever happened. Formatting only - a run that stopped half way has
+    ' left underscores in the document and this does not try to guess which, and the temporary
+    ' paragraph mark Lp_Type_Fill_In_Line_To_Margin may have parked is left where it is rather
+    ' than removed from a position nothing can now be sure of.
+    '
+    ' fillBackTo is tested because a failure inside the very first statements would leave it empty,
+    ' and Font.Name = "" means "more than one face" to Word, not "no change".
+    On Error Resume Next
+    Selection.Font.Underline = wdUnderlineNone
+    If fillBackTo <> "" Then Selection.Font.Name = fillBackTo
 
 End Sub   '*** end of Lp_Type_Fill_In_Line_To_Margin macro ***
 
@@ -13758,6 +14050,14 @@ Sub Lp_Type_Counted_Fill_In_Lines()
 
     ' Called from: Lp_Type_Fill_In_Form
     '
+    ' Version 1.9:  Date: 8/23/2026 the underscores go in with ONE TypeText instead of one call
+    '                               each - 14 ms down to 2 for a long line, and one undo step
+    '                               instead of twenty-one (Jerry). Measured, see the note below
+    ' Version 1.8:  Date: 8/23/2026 a handler, so a failure cannot leave her typing underlined
+    '                               Tahoma. See Lp_Type_Fill_In_Line_To_Margin
+    ' Version 1.7:  Date: 8/23/2026 the underscores are typed in TAHOMA and the face is put back
+    '                               afterwards. VistaTypeLP Sans draws a row of them with holes in
+    '                               it (Jerry). See Lp_Fill_Face_To_Restore
     ' Version 1.6:  Date: 8/10/2026 the cursor sitting in a fill-in line now REPLACES it. See
     '                               Lp_Remove_Fill_In_Line_At_Cursor
     ' Version 1.5:  Date: 8/10/2026 never a space before a period, or before any of , ; : ! ? ) ] }
@@ -13784,10 +14084,22 @@ Sub Lp_Type_Counted_Fill_In_Lines()
     ' Author: Jerry Whittaker  jerry@thewhittakers.org
     
     Dim Chr_Cntr As Integer
-    Dim Loop_Cntr As Integer
+    Dim fillBackTo As String
 
     Chr_Cntr = Lp_GP_Counter_1
-    Loop_Cntr = 1
+
+    ' AT LEAST ONE, which is what the loop this replaced did. It typed an underscore before it
+    ' ever tested the count, so 0 - or a negative left in the general-purpose Lp_GP_Counter_1 by
+    ' something else - produced one underscore rather than none. The dialog cannot ask for 0 on
+    ' this path anyway: the twenty-one buttons hand over 1 to 21, and the 0-to-99 spinner belongs
+    ' to Fill To Right Margin. Kept so the conversion changes nothing at all.
+    If Chr_Cntr < 1 Then Chr_Cntr = 1
+
+    ' Read BEFORE anything is typed or deleted - see Lp_Fill_Face_To_Restore.
+    fillBackTo = Lp_Fill_Face_To_Restore()
+
+    ' Everything from here goes to Fill_Tidy_Up if it raises - see the note down there.
+    On Error GoTo Fill_Tidy_Up
 
     If Selection.Type = wdSelectionNormal Then
         Selection.Delete Unit:=wdCharacter, count:=1
@@ -13813,16 +14125,27 @@ Sub Lp_Type_Counted_Fill_In_Lines()
     
     With Selection.Font
         .Underline = wdUnderlineSingle  ' turn on underlineing
+        .Name = LP_FONT_TAHOMA          ' the underscores only - see Lp_Fill_Face_To_Restore
     End With
 
-    Do
-        Selection.TypeText Text:=Chr(95)    ' underscore
-        Loop_Cntr = Loop_Cntr + 1
-        If Loop_Cntr > Chr_Cntr Then Exit Do
-    Loop
+    ' THE WHOLE RUN IN ONE TypeText, not one call per underscore. Jerry's idea, 8/23/2026, and
+    ' his first version of it was to put one underlined Tahoma underscore on the clipboard and
+    ' paste it over and over. Measured on the build box, 72 underscores, averaged over 100 runs:
+    '
+    '     one TypeText per character (what stood here)   14 ms
+    '     the whole run in one TypeText                   2 ms
+    '     copy one underscore and paste it 72 times      68 ms
+    '     copy the whole run and paste it once            6 ms
+    '
+    ' So the clipboard is the slowest way to do it, not the fastest - every Paste drags the
+    ' character back through Word's clipboard machinery. It would also spend the transcriber's own
+    ' clipboard, which is not ours to spend and cannot be put back. The good half of the idea is
+    ' this line: build the run once. It is also ONE undo step instead of twenty-one.
+    Selection.TypeText Text:=String$(Chr_Cntr, Chr(95))
     
     With Selection.Font
         .Underline = wdUnderlineNone  ' turn off underlineing
+        .Name = fillBackTo            ' and the book's own face back
     End With
 
     ' A space after the line as well, when the transcriber has put the fill-in line in the middle
@@ -13831,10 +14154,12 @@ Sub Lp_Type_Counted_Fill_In_Lines()
     ' Underlining OFF after the peek inside Lp_Nothing_Follows_On_Line, not before it. Moving
     ' the cursor to look at the next character throws away the pending character formatting and
     ' picks it up afresh from what is beside it - which is an underscore, and underlined. The
-    ' space came out underlined for exactly that reason (Jerry, 8/9/2026).
+    ' space came out underlined for exactly that reason (Jerry, 8/9/2026). The face is put back
+    ' here for the same reason - the peek picks Tahoma up off the underscore beside it.
     If Lp_Space_Wanted_After_Fill() Then
         With Selection.Font
             .Underline = wdUnderlineNone
+            .Name = fillBackTo
         End With
         If Selection.Font.Bold = True Then
             Selection.Font.Bold = wdToggle  ' turn off bold
@@ -13842,10 +14167,24 @@ Sub Lp_Type_Counted_Fill_In_Lines()
         Selection.TypeText Text:=" "  ' non underlined space
     End If
 
-    ' Underlining OFF as the very last thing - see the same note in Lp_Type_Fill_In_Line_To_Margin.
+    ' Underlining OFF and the face back as the very last thing - see the same note in
+    ' Lp_Type_Fill_In_Line_To_Margin.
     Selection.Font.Underline = wdUnderlineNone
+    Selection.Font.Name = fillBackTo
 
     'Unload Lp_Type_Fill_In_Line_Form
+
+    Exit Sub
+
+Fill_Tidy_Up:
+    ' Put the pen down whatever happened - the same handler as Lp_Type_Fill_In_Line_To_Margin,
+    ' and the reasoning is written out in full there.
+    '
+    ' fillBackTo is tested because a failure inside the very first statements would leave it empty,
+    ' and Font.Name = "" means "more than one face" to Word, not "no change".
+    On Error Resume Next
+    Selection.Font.Underline = wdUnderlineNone
+    If fillBackTo <> "" Then Selection.Font.Name = fillBackTo
 
 End Sub   '*** end of Lp_Type_Counted_Fill_In_Lines macro ***
 
@@ -14849,6 +15188,22 @@ DoEvents
     ' imported document actually conform.
     Lp_Apply_Base_Font_To_Styles ActiveDocument, Lp_Base_Font_Name
     Sh_Set_Whole_Document_Font ActiveDocument, Lp_Base_Font_Name, CSng(Val(Lp_Base_Font_Size))
+
+    ' And the fill-in lines back into Tahoma, because the line above has just taken it off them.
+    ' See Lp_Tahoma_The_Fill_Ins - without this, re-attaching to change the point size undoes
+    ' every fill-in line in the book.
+    '
+    ' NOT IN A BOOK STILL SET IN VISTATYPELP LEGIBLE, the face dropped on 8/20/2026. Such a book
+    ' is protected right through the attach - AttachOkay_Click keeps its typeface on purpose, so
+    ' that re-attaching cannot move a page break in a book that may already be in a reader's
+    ' hands - and putting its fill-in lines into Tahoma is exactly that: the two faces do not give
+    ' an underscore the same width, so a fill that only just fitted would wrap and take the page
+    ' with it. Those books' fills were made in Legible and stay in Legible, which is precisely
+    ' where they were before any of this was written. Found in review, 8/23/2026, after 3.0.238
+    ' was built with the guard missing.
+    If StrComp(Lp_Base_Font_Name, LP_FONT_LEGACY_LEGIBLE, vbTextCompare) <> 0 Then
+        Lp_Tahoma_The_Fill_Ins ActiveDocument
+    End If
 
     ' Keep this. The old code got here through Selection.WholeStory, which left the selection
     ' spanning the document; Sh_Set_Whole_Document_Font does not touch the selection at all, and
@@ -18500,14 +18855,30 @@ End Sub   '*** end of Lp_TOC_CleanAndFormat_TOC ***
 
 Sub Lp_Replace_Underline_Tab_With_Underlined_Underscore()
 '
+' Version: 1.1  Date: 8/23/2026 - the underscore it makes is TAHOMA, like every other fill-in line
+'                                (Jerry). See Lp_Fill_Face_To_Restore for why Tahoma
 ' Version: 1.0  Date:3/10/2026
 '
 ' common in scans from AbbyyFineReader
+'
+' A fill-in line is a fill-in line however it got here, so the underscore this leaves behind is
+' Tahoma - the same as one typed by the Fill-In Line dialog. The replacement is exactly one
+' underscore and nothing else, so naming the face on it touches nothing but the fill.
+'
+' This runs inside Lp_Fix_Common_File_Errors, on a raw publisher file that may not have the large
+' print template attached yet. That is fine and needs no thought: attaching it later runs
+' Lp_Tahoma_The_Fill_Ins, which puts Tahoma back after the whole-document font sweep.
+'
+' It leaves the face standing in Word's find-and-replace settings, exactly as the underline above
+' it already does. Lp_Fix_Common_File_Errors finishes with MS_Clear_F_and_R_Params_and_Clipboard,
+' whose .Replacement.ClearFormatting takes both back off, so nothing reaches the transcriber's own
+' Find and Replace dialog.
 
     Selection.Find.ClearFormatting
     Selection.Find.Font.Underline = wdUnderlineSingle
     Selection.Find.Replacement.ClearFormatting
     Selection.Find.Replacement.Font.Underline = wdUnderlineSingle
+    Selection.Find.Replacement.Font.Name = LP_FONT_TAHOMA
     With Selection.Find
         .Text = "^t"
         .Replacement.Text = "_"
@@ -18626,6 +18997,8 @@ Sub MS_Reset_Word_Configuration()
 '
 ' Author: Jerry Whittaker -  jerry@thewhittakers.org
 '
+' Version: 1.1  Date: 8/23/2026 - all four of its messages go through Sh_Say and Sh_Ask, so they
+'                                 are 10 point Tahoma and the button says "Okay" (Jerry)
 ' Version: 1.0  Date: 8/23/2026
 '
     Dim pairs As Variant
@@ -18638,10 +19011,10 @@ Sub MS_Reset_Word_Configuration()
     ' A document has to be on screen: this sets up the one in front of her, and
     ' MS_Set_Word_Config_For_New_Install reaches for ActiveDocument on its very first line.
     If Documents.count = 0 Then
-        MsgBox "Open a document first." & vbCr & vbCr _
+        Sh_Say "Open a document first." & vbCr & vbCr _
              & "Reset Word Configuration sets Word up for the document you are looking at, so " _
              & "there has to be one on screen.", _
-               vbInformation, "VistaType LP (234)"
+               "VistaType LP (234)"
         Exit Sub
     End If
 
@@ -18651,7 +19024,7 @@ Sub MS_Reset_Word_Configuration()
     cfgType = Sh_Doc_Config_Type()
     whatItIs = Sh_Config_In_Words(cfgType)
 
-    If MsgBox("This document is " & whatItIs & "." & vbCr & vbCr _
+    If Not Sh_Ask("This document is " & whatItIs & "." & vbCr & vbCr _
             & "Reset Word Configuration puts Word's AutoCorrect settings back to VistaType LP's " _
             & "starting point." _
             & vbCr & vbCr _
@@ -18662,8 +19035,8 @@ Sub MS_Reset_Word_Configuration()
             & "Any changes you have made to those three tabs yourself will be lost. Nothing in " _
             & "the document itself is changed, and no panes, rulers or views are rearranged." _
             & vbCr & vbCr _
-            & "Choose OK to go ahead, or Cancel to leave everything as it is.", _
-              vbOKCancel + vbQuestion, "VistaType LP (235)") <> vbOK Then Exit Sub
+            & "Choose Okay to go ahead, or Cancel to leave everything as it is.", _
+              "VistaType LP (235)") Then Exit Sub
 
     On Error Resume Next
 
@@ -18724,14 +19097,14 @@ Sub MS_Reset_Word_Configuration()
     ' was ASKED for - would have announced "set up as a large print book" with nothing applied, and
     ' Doc Info would have said the opposite a minute later. Report what is actually in force.
     If Sh_ConfiguredAs = "" Then
-        MsgBox "Word's AutoCorrect settings have been put back to VistaType LP's starting point, " _
+        Sh_Say "Word's AutoCorrect settings have been put back to VistaType LP's starting point, " _
              & "and saved as yours. That part is done." & vbCr & vbCr _
              & "Setting THIS DOCUMENT up did not finish, so no configuration is in force for it " _
              & "right now." & vbCr & vbCr _
              & "Click into another document and back again, which makes VistaType LP look at it " _
              & "afresh. If it keeps happening, the document itself may be the problem - try it on " _
              & "a new blank document.", _
-               vbExclamation, "VistaType LP (237)"
+               "VistaType LP (237)"
         Exit Sub
     End If
 
@@ -18739,11 +19112,11 @@ Sub MS_Reset_Word_Configuration()
     ' attaching a template can change a document's type, and Sh_Apply_Word_Config is what settles it.
     whatItIs = Sh_Config_In_Words(Sh_ConfiguredAs)
 
-    MsgBox "Word's AutoCorrect settings have been put back to VistaType LP's starting point, and " _
+    Sh_Say "Word's AutoCorrect settings have been put back to VistaType LP's starting point, and " _
          & "saved as yours." & vbCr & vbCr _
          & "This document has been set up as " & whatItIs & "." & vbCr & vbCr _
          & "Doc Info, on either VistaType tab, will confirm which configuration is in force.", _
-           vbInformation, "VistaType LP (236)"
+           "VistaType LP (236)"
 
 End Sub '*** end of MS_Reset_Word_Configuration ***
 
@@ -20263,6 +20636,78 @@ End Sub   '*** end of MS_SafeClearClipboard ***
 ' \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \
 '-----------------------------------------------------------------------------------
 
+' HOW VISTATYPE LP SAYS THINGS, from 8/23/2026. Jerry's rule: a message is 10 point Tahoma, its
+' button says "Okay" rather than "OK", and Okay and Cancel answer to Alt+O and Alt+C.
+'
+' A MsgBox can do none of that. Its font is whichever one Windows draws a message box in, its
+' caption is "OK" and cannot be changed, and it has no accelerators. So a message is a UserForm
+' here - Sh_Message_Form - and these two subs are the whole of the interface to it.
+'
+'   Sh_Say  "text", "VistaType LP (nnn)"            tell her something. One Okay button.
+'   If Sh_Ask("text", "VistaType LP (nnn)") Then    ask. Okay and Cancel; True means Okay.
+'
+' The second argument is the title bar, and in this project that is where the dialog's own number
+' lives. Those numbers identify one dialog out of all of them when a transcriber reports what she
+' saw, so a new message takes the next unused number and an existing message keeps the one it has
+' always had. Written as nnn here on purpose: a real number in this comment is one more thing to
+' wade through when hunting for the next unused one.
+'
+' WHAT IS LOST AGAINST MsgBox, and it is a real loss worth knowing about: the information,
+' warning and question ICONS, and the sound the warning one made. A UserForm has neither.
+'
+' NOTHING ELSE HAS BEEN CONVERTED. Counted 8/23/2026: 85 MsgBox calls remain in this module, 48
+' more inside the forms, and 20 across the three smaller modules. These two subs exist so that
+' they can go a feature at a time, and so that nothing new has to use MsgBox again.
+'
+' Author: Jerry Whittaker -  jerry@thewhittakers.org
+'
+' Version: 1.0  Date: 8/23/2026
+'
+Public Sub Sh_Say(ByVal body As String, ByVal titleText As String)
+    Sh_Msg_Body = body
+    Sh_Msg_Title = titleText
+    Sh_Msg_Offer_Cancel = False
+    Sh_Msg_Answer = False
+
+    ' THE UNLOAD HAS TO HAPPEN EVEN IF THE SHOW RAISES, which is the whole reason for the trap.
+    ' There is one instance of this form and it is reused for every message; left half-loaded, the
+    ' NEXT message would inherit its buttons - a question shown with the Cancel button still
+    ' hidden from the message before it. Unloading is what puts the form back to what the layout
+    ' file says.
+    On Error Resume Next
+    Sh_Message_Form.Show
+    Unload Sh_Message_Form
+    Err.Clear
+    On Error GoTo 0
+End Sub   '*** end of Sh_Say ***
+
+' Ask, and answer True only for Okay. Cancel, Esc and the red X all come back False - the
+' cautious direction, and the one that matches what MsgBox ... vbOKCancel used to return.
+'
+' Author: Jerry Whittaker -  jerry@thewhittakers.org
+'
+' Version: 1.0  Date: 8/23/2026
+'
+Public Function Sh_Ask(ByVal body As String, ByVal titleText As String) As Boolean
+    Sh_Msg_Body = body
+    Sh_Msg_Title = titleText
+    Sh_Msg_Offer_Cancel = True
+    Sh_Msg_Answer = False
+
+    ' Trapped for the same reason as Sh_Say, and here it decides the answer as well: a question
+    ' that could not be put on screen comes back False, which is Cancel. Nothing goes ahead
+    ' because a dialog failed to appear.
+    On Error Resume Next
+    Sh_Message_Form.Show
+    Unload Sh_Message_Form
+    Err.Clear
+    On Error GoTo 0
+
+    ' Read AFTER the unload on purpose: Sh_Msg_Answer is a module variable out here, not a
+    ' property of the form, so unloading the form cannot take the answer with it.
+    Sh_Ask = Sh_Msg_Answer
+End Function   '*** end of Sh_Ask ***
+
 Sub Sh_Is_Doc_Open()
 '
 ' Check to see if a document is open
@@ -20438,13 +20883,29 @@ Sub Sh_Show_Recommended_Styles_Pane()
 ' button id renders blank on those machines with no error. The prefix is the cheaper wrong thing.
 ' Until this change the name was accurate: braille used the same pair.
 '
-' Sets ONLY the three things it advertises. It deliberately does not call
-' Lp_Turn_on_Styles_Pane, which also writes Application.RestrictLinkedStyles -- a Word-wide
-' setting that a toolbar button has no business changing behind the user's back.
+' FIVE THINGS, and two of them are new on 8/23/2026 (Jerry): the pane's own "Show Preview" and
+' "Disable Linked Styles" boxes are ticked as well. They are the two boxes at the foot of the
+' Styles pane, and a transcriber setting the pane back to VistaType LP's working state wants all
+' of it, not three fifths of it.
+'
+' Those two ARE Word-wide, and until this change that was the reason given for leaving them
+' alone. What makes them safe now is that the button is large print only. Both are exactly what
+' MS_Set_Word_Config_For_Large_Print already writes when a large print document is opened, so
+' pressing this re-asserts that document's own configuration rather than imposing anything new.
+' And both are in Sh_Tracked_Settings, so the transcriber's own values are handed back the moment
+' she is in an ordinary document again - see docs/User-Settings-And-Word-Configuration.md.
+'
+' It still does not call Lp_Turn_on_Styles_Pane. That sub writes RestrictLinkedStyles and nothing
+' else of use here, and it would put the sort and filter back in a second place.
 '
 ' Note the split: sort order and the show-filter are DOCUMENT properties, saved into the file
-' and carried with it. Whether the pane is open is a Word-wide setting.
+' and carried with it. Whether the pane is open, Show Preview and Disable Linked Styles are
+' Word-wide.
 '
+' Version: 1.2  Date: 8/23/2026 - ticks Show Preview and Disable Linked Styles as well (Jerry),
+'                                 but only while Sh_ConfiguredAs says the large print
+'                                 configuration really is in force; the message it declines with
+'                                 is now the shared dialog, in 10 point Tahoma with an Okay button
 ' Version: 1.1  Date: 8/23/2026 - large print documents only; anything else gets a message and is
 '                                 left alone (Jerry)
 ' Version: 1.0  Date: 8/2/2026
@@ -20456,17 +20917,37 @@ Sub Sh_Show_Recommended_Styles_Pane()
     ' see the note on it. Asked directly rather than through Sh_Doc_Config_Type, which would then
     ' go on to test for braille as well, and nothing here needs to know.
     If Lp_Is_The_Attached_Template_LP <> True Then
-        MsgBox "Styles Pane: Recommended is for large print documents only." & vbCr & vbCr _
+        Sh_Say "Styles Pane: Recommended is for large print documents only." & vbCr & vbCr _
              & "This document is " & Sh_Config_In_Words(Sh_Doc_Config_Type()) & "." & vbCr & vbCr _
              & "The recommended list is the large print template's own set of styles, so there is " _
              & "nothing here for it to show.", _
-               vbInformation, "VistaType LP (238)"
+               "VistaType LP (238)"
         Exit Sub
     End If
 
     Application.TaskPanes(wdTaskPaneFormatting).Visible = True
     ActiveDocument.StyleSortMethod = wdStyleSortRecommended
     ActiveDocument.FormattingShowFilter = wdShowFilterFormattingRecommended
+
+    ' The two boxes at the foot of the pane - but ONLY while the large print configuration is
+    ' really in force, and that is a different question from the one the guard above asks.
+    ' Lp_Is_The_Attached_Template_LP is a fact about the DOCUMENT; Sh_ConfiguredAs is what
+    ' actually took. They disagree in one case: a large print configuration that raised part way.
+    ' Sh_Apply_Word_Config swallows it and blanks Sh_ConfiguredAs, so Sh_Note_Book_Settings never
+    ' ran and there is NO BOOK RECORD - and with no book record, the next ordinary document she
+    ' clicks into writes whatever is live down as her own preference, for good. Setting these two
+    ' in that window would make them hers in every letter she ever opens. That is the 8/18/2026
+    ' fault, and it is worth two lines to stay out of it.
+    '
+    ' The cost of being wrong the other way is nothing: the pane opens, sorted and filtered, and
+    ' the two boxes are not ticked. She can press the button again once the document configures.
+    '
+    ' Guarded write by write as well, the rule everywhere in this project - a write Word does not
+    ' need is a write that can raise Office's "restart to apply your settings" notice.
+    If Sh_ConfiguredAs = "LP" Then
+        If Application.ShowStylePreviews <> True Then Application.ShowStylePreviews = True
+        If Application.RestrictLinkedStyles <> True Then Application.RestrictLinkedStyles = True
+    End If
 
 End Sub   '*** end of Sh_Show_Recommended_Styles_Pane macro ***
 

@@ -26,14 +26,22 @@ Usage:
         -Name Sh_My_Form -Caption "My Dialog" -OutDir "C:\build\vistatype\formout"
 
     Forms are created in Tahoma 10, and every CommandButton gets a ControlTipText of its
-    caption plus " Button" - both Jerry's rules from 8/7/2026. Keep them on anything added to
-    the .frm by hand afterwards.
+    caption plus " Button" - both Jerry's rules from 8/7/2026. An Okay button is captioned
+    "Okay", never "OK", and Okay and Cancel carry accelerators of O and C - Jerry's rule from
+    8/23/2026. Keep all of it on anything added to the .frm by hand afterwards.
 
     ... -InfoDialog        also lays in the read-only note shape: a locked, border-less
-                           text box named Info_Text filling the form, and an OK button named
+                           text box named Info_Text filling the form, and an Okay button named
                            Close_Me. That is the shape Sh_Prodnote_Info_Form uses -- the text
                            wraps, can be selected and copied, and grows a scroll bar instead
                            of clipping when Windows runs at a large display scale.
+
+    ... -MessageDialog     lays in the SHARED MESSAGE shape: the same read-only text box,
+                           named Msg_Text, with an Okay button and a Cancel button beside it.
+                           This is what Sh_Message_Form is built from, and it is the shape
+                           every message in VistaType LP is meant to take from 8/23/2026 -
+                           a MsgBox can be none of 10 point Tahoma, "Okay", or an accelerator.
+                           The caller hides the Cancel button when it has nothing to cancel.
 #>
 param(
     [Parameter(Mandatory=$true)][string]$Name,
@@ -43,7 +51,8 @@ param(
     # ("Unable to cast object of type 'System.Double' to type 'System.String'").
     [int]$Width      = 492,
     [int]$Height     = 400,
-    [switch]$InfoDialog
+    [switch]$InfoDialog,
+    [switch]$MessageDialog
 )
 $ErrorActionPreference = "Stop"
 
@@ -91,8 +100,12 @@ try {
         $pad       = 12
         $btnW      = 72
         $btnH      = 24
-        $insideW   = $Width  - 36        # the form's border eats a little of each dimension
-        $insideH   = $Height - 46
+        # What the form's border and title bar actually take, MEASURED on the build box 8/23/2026
+        # from an exported .frm: a form 480 x 300 reports a client area of 468 x 270.75. These
+        # read 36 and 46 until then, which left every control 24 points short of the right edge
+        # and 16 points short of the bottom - a dialog that looks shoved into its top left corner.
+        $insideW   = $Width  - 12
+        $insideH   = $Height - 30
         $textH     = $insideH - $btnH - ($pad * 3)
         # Precomputed, not written inline in the array below: PowerShell's comma binds TIGHTER
         # than arithmetic, so @('Width', $insideW - $x) parses as ('Width', $insideW) - $x and
@@ -118,12 +131,70 @@ try {
         $btn.Top     = $textH + ($pad * 2)
         $btn.Width   = $btnW
         $btn.Height  = $btnH
-        $btn.Caption = 'OK'
+        $btn.Caption     = 'Okay'         # "Okay", never "OK" - Jerry, 8/23/2026
+        $btn.Accelerator = 'O'            # Alt+O presses it
         $btn.Default = $true              # Enter closes it
         $btn.Cancel  = $true              # Esc closes it too
     }
 
-    # --- Jerry's form conventions, 8/7/2026: Tahoma 10, and a ControlTipText on every button.
+    if ($MessageDialog) {
+        # The shared message shape. Same read-only text box as -InfoDialog, plus the two
+        # buttons every VistaType message is allowed to end in.
+        #
+        # SIZES HERE ARE A STARTING POINT, NOT THE FINAL LAYOUT: Sh_Message_Form re-heights
+        # itself and moves its buttons in UserForm_Initialize, because one message is a line
+        # long and the next is a screen. What has to be right in the .frx is what cannot be
+        # set from code without ceremony - the names, the captions, the accelerators, the
+        # fonts, and Default/Cancel.
+        $pad     = 12
+        $btnW    = 72
+        $btnH    = 24
+        $gap     = 8
+        # Measured, not assumed - see the note in the -InfoDialog block above.
+        $insideW = $Width  - 12
+        $insideH = $Height - 30
+        $textH   = $insideH - $btnH - ($pad * 3)
+        # Precomputed for the same reason the -InfoDialog block precomputes: PowerShell's
+        # comma binds tighter than arithmetic inside an array literal.
+        $textW   = $insideW - ($pad * 2)
+        $cxLeft  = $insideW - $pad - $btnW
+        $okLeft  = $cxLeft - $gap - $btnW
+        $btnTop  = $textH + ($pad * 2)
+
+        $tb = $d.Controls.Add('Forms.TextBox.1', 'Msg_Text', $true)
+        # $tb.Font.Size here throws a null reference - the VBA block at the bottom does fonts.
+        foreach ($pair in @(
+            @('Left', $pad), @('Top', $pad),
+            @('Width', $textW), @('Height', $textH),
+            @('MultiLine', $true), @('WordWrap', $true),
+            @('ScrollBars', 2),                # fmScrollBarsVertical
+            @('Locked', $true), @('TabStop', $false),
+            @('SpecialEffect', 0),             # fmSpecialEffectFlat
+            @('BorderStyle', 0),               # fmBorderStyleNone
+            @('BackColor', -2147483633)        # &H8000000F, the system form face color
+        )) { $tb.($pair[0]) = $pair[1] }
+
+        $ok = $d.Controls.Add('Forms.CommandButton.1', 'Okay_Button', $true)
+        $ok.Left        = $okLeft
+        $ok.Top         = $btnTop
+        $ok.Width       = $btnW
+        $ok.Height      = $btnH
+        $ok.Caption     = 'Okay'
+        $ok.Accelerator = 'O'
+        $ok.Default     = $true            # Enter presses it
+
+        $cx = $d.Controls.Add('Forms.CommandButton.1', 'Cancel_Button', $true)
+        $cx.Left        = $cxLeft
+        $cx.Top         = $btnTop
+        $cx.Width       = $btnW
+        $cx.Height      = $btnH
+        $cx.Caption     = 'Cancel'
+        $cx.Accelerator = 'C'
+        $cx.Cancel      = $true            # Esc presses it
+    }
+
+    # --- Jerry's form conventions: Tahoma 10 and a ControlTipText on every button (8/7/2026),
+    # and an accelerator on Okay and Cancel (8/23/2026).
     #
     # Done LAST, so it catches every control however it was added, and done in VBA rather than
     # from PowerShell. Setting the font from PowerShell silently does nothing: "$d.Font.Size =
@@ -151,6 +222,10 @@ Sub Zz_Apply_Form_Conventions()
         ctl.Font.Size = 10
         If TypeName(ctl) = "CommandButton" Then
             ctl.ControlTipText = ctl.Caption & " Button"
+            ' The two accelerators Jerry fixed on 8/23/2026. Set here as well as where the
+            ' button is created, so a button added to this script later cannot miss them.
+            If ctl.Caption = "Okay" Then ctl.Accelerator = "O"
+            If ctl.Caption = "Cancel" Then ctl.Accelerator = "C"
         End If
     Next ctl
 End Sub
@@ -158,7 +233,7 @@ End Sub
     $doc.Activate()
     $word.Run('Zz_Apply_Form_Conventions') | Out-Null
     $proj.VBComponents.Remove($tidy)
-    Write-Host "applied Tahoma 10 and button tips"
+    Write-Host "applied Tahoma 10, button tips and Okay/Cancel accelerators"
 
     $comp.Export($target)
     Write-Host "created $Name -> $target (+ .frx)"

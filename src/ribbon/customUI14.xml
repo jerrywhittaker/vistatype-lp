@@ -98,7 +98,7 @@
         <button id="btn_Sh_Move_Paragraph_To_Next_Page" label="Move Paragraph to Next Page" imageMso="_3DPerspectiveDecrease" onAction="RibbonAction" tag="Sh_Move_Paragraph_To_Next_Page"/>
         <button id="btn_Sh_Keep_Lines_Of_Para_Together" label="Do Not Split Paragraph Across Pages" imageMso="Lock" onAction="RibbonAction" tag="Sh_Keep_Lines_Of_Para_Together"/>
         <button id="btn_Sh_Apply_Title_Case_Capitalization" label="Convert Paragraph to Title Case" imageMso="CharacterBorder" onAction="RibbonAction" tag="Sh_Apply_Title_Case_Capitalization"/>
-        <button id="btn_Sh_Show_Recommended_Styles_Pane" label="Styles Pane: Recommended" screentip="Styles Pane: Recommended" supertip="Large print documents only. Opens the Styles pane and sets it to the large print template's recommended styles, sorted as recommended." imageMso="QuickStylesGallery" onAction="RibbonAction" tag="Sh_Show_Recommended_Styles_Pane"/>
+        <button id="btn_Sh_Show_Recommended_Styles_Pane" label="Styles Pane: Recommended" screentip="Styles Pane: Recommended" supertip="Large print documents only. Opens the Styles pane, sets it to the large print template's recommended styles sorted as recommended, and ticks Show Preview and Disable Linked Styles." imageMso="QuickStylesGallery" onAction="RibbonAction" tag="Sh_Show_Recommended_Styles_Pane"/>
         <button id="btn_MS_Reset_Word_Configuration" label="Reset Word Configuration" screentip="Reset Word Configuration" getSupertip="VtResetSupertip" imageMso="TagMarkComplete" onAction="RibbonAction" tag="MS_Reset_Word_Configuration"/>
       </group>
     </tab>

@@ -105,7 +105,7 @@ sources) that ship or that Word loads.
 
 | Piece | What it is | Role |
 |------|-----------|------|
-| `LPandBRL.dotm` | Word add-in template (macro-enabled), built from `src/` | **The code.** The entire compiled VBA project — 236 subs/functions in `LPandBrlMacros`, plus 48 UserForms — and the embedded ribbon (below). Loaded from Word's `STARTUP` folder, so its macros are available to every document. Behavior is *authored* under `src/vba`/`src/forms`; this is where it *runs*. |
+| `LPandBRL.dotm` | Word add-in template (macro-enabled), built from `src/` | **The code.** The entire compiled VBA project — 236 subs/functions in `LPandBrlMacros`, plus 49 UserForms — and the embedded ribbon (below). Loaded from Word's `STARTUP` folder, so its macros are available to every document. Behavior is *authored* under `src/vba`/`src/forms`; this is where it *runs*. |
 | Embedded ribbon (`src/ribbon/customUI14.xml`) | Ribbon customization XML, embedded into `LPandBRL.dotm` at build time | **The UI.** Defines the custom ribbon tabs **"VistaType LP"** (large print) and **"Braille Macros"** (DBT/BANA). Every button's `tag` names a VBA sub, dispatched through one `RibbonAction` handler. Because it is *embedded* (not the old global `Word.officeUI`), it **merges** with the user's ribbon instead of replacing it. |
 | `LargePrintTemplate.dotx` | Word document template | **The style set.** The template *attached to a user's large-print document* (vs. `LPandBRL.dotm`, the global add-in loaded for every document). Supplies paragraph/character styles and page setup. The VBA references it by name in 7+ places, and treats a document as "large print" when this template is attached. |
 
@@ -195,7 +195,11 @@ tools/windows/  Export-Vba.ps1 / Import-Vba.ps1 / New-UserForm.ps1 — run in Wo
                  must never be used to seed one. Builds it in a throwaway blank document, so
                  nothing tracked is touched. Layout only — append the form's code to the .frm
                  as text afterwards, then run tools/lib/check_frm_eol.py. `-InfoDialog` lays in
-                 the read-only note shape used by Sh_Prodnote_Info_Form)
+                 the read-only note shape used by Sh_Prodnote_Info_Form; `-MessageDialog` lays in
+                 the shared message shape used by Sh_Message_Form — the same text box plus an
+                 Okay and a Cancel button, captioned and accelerated per *How VistaType LP says
+                 things* below. It applies Tahoma 10, the ControlTipText on every button and the
+                 O/C accelerators itself, so a form built with it is already right)
                 (Import-Vba.ps1 clears stale hidden `~$*` Word lock files first — a leftover
                  one makes Word raise an invisible "File In Use" dialog and the build hangs
                  forever with no error; see DEVELOPMENT.md "Gotchas baked into the tooling")
@@ -445,7 +449,8 @@ runs in Word (this drove the remote-build design; see DEVELOPMENT.md).
 - **`LpExportImportSelectedText` / `DxExportImportSelectedText`** — round-tripping selected
   text to/from separate files.
 - **`ShNonModalMessage`** — shared non-modal status messaging.
-- **48 UserForms** — dialogs, prefixed by domain (see below).
+- **49 UserForms** — dialogs, prefixed by domain (see below). `Sh_Message_Form` is the shared
+  message dialog every `Sh_Say` / `Sh_Ask` goes through — see *How VistaType LP says things*.
 
 The built add-in's **VBA project is named `LPandBRL`** (not `Normal`): it ships in Word's
 STARTUP folder loaded alongside the user's own `Normal.dotm`, and two loaded projects can't
@@ -464,6 +469,54 @@ Everything is namespaced by a short prefix — grep by it to find a feature area
 
 Each embedded-ribbon button's `tag` names one of these subs (e.g. `tag="Lp_File_Fix_Sequence"`
 → `Sub Lp_File_Fix_Sequence`), run by the shared `RibbonAction` dispatcher.
+
+### How VistaType LP says things — dialogs and messages
+
+Jerry's rule, 8/23/2026. It governs every new dialog and every message:
+
+- **The message is at least 10 point Tahoma.** That is the floor, not the target — a bigger
+  message is fine, a smaller one is not. The people using this software work on large print
+  and braille, and several of them have low vision themselves.
+- **The OK button is captioned `Okay`, never `OK`.**
+- **`Okay` has an accelerator of `O`; `Cancel` has `C`** — Alt+O and Alt+C press them.
+- Every CommandButton still gets a `ControlTipText` of its caption plus " Button", and a form
+  is still Tahoma 10 throughout (the 8/7/2026 rules; both stand).
+
+**A `MsgBox` can do none of the three**, so a message is a UserForm here. Its font is whichever
+one Windows draws a message box in, its button says `OK` and cannot be changed, and it has no
+accelerators. `Sh_Message_Form` is the one dialog every message goes through, reached by two
+subs in `LPandBrlMacros` and never touched directly:
+
+```vba
+Sh_Say "text", "VistaType LP (nnn)"             ' tell her. One Okay button.
+If Sh_Ask("text", "VistaType LP (nnn)") Then    ' ask. Okay and Cancel; True means Okay.
+```
+
+The second argument is the title bar, and that is where the dialog's own number lives. Those
+numbers identify one dialog out of all of them when a transcriber says what she saw, so a new
+message takes the next unused number and an existing one keeps the number it has always had.
+(Written `nnn` above on purpose — a real number in an example is one more hit to wade through
+when hunting for the next unused one.)
+
+Paragraph breaks are written `vbCr`, as everywhere else in this project. `Sh_Message_Form`
+turns them into `vbCrLf` on the way into the text box, because an MSForms text box is not a
+`MsgBox` and the one other form in this project that fills one uses `vbCrLf` throughout.
+
+What is lost against `MsgBox`: its information / warning / question **icon**, and the sound
+the warning one made. A UserForm has neither.
+
+**Not retrofitted.** The two newest toolbar buttons — Reset Word Configuration and Styles Pane:
+Recommended — were converted on 8/23/2026, five messages. Counted the same day, what is left:
+**85 `MsgBox` calls in `LPandBrlMacros`, 48 inside the forms, 20 in the three smaller modules.**
+They convert a feature at a time. Nothing new uses `MsgBox`.
+
+**Hover text cannot be made 10 point Tahoma, on a ribbon button or on a form.** Word draws a
+ribbon/QAT screentip and supertip itself in the Office UI font; customUI has no font attribute
+of any kind, and a `getSupertip` callback supplies the words and nothing else. `ControlTipText`
+on a UserForm control is a Windows tooltip and is the same. The only thing that changes either
+is the reader's own Windows text size (Settings → Accessibility → Text size), which changes it
+everywhere. Where hover text needs to be readable at 10 point or more, the answer is to put the
+words in the dialog, which VistaType LP does control.
 
 ### Editing convention
 
@@ -747,6 +800,33 @@ does not, tell Jerry before starting other work — an unfolded hotfix is a bug 
   finds, because an LP document whose Normal has drifted to Calibri is one attaching is meant to
   REPAIR. `EmbedTrueTypeFonts` and `Lp_Indent_Factor_For_Font`'s 1.054 case stay for those same
   books.
+  **A fill-in line's underscores are the one exception, from 8/23/2026 (Jerry):** they are typed
+  in Tahoma whatever face the book is set in, because in VistaTypeLP Sans a row of underscores
+  draws with holes in it rather than as one unbroken rule. Only the underscores change face, and
+  the macros put the book's own face back at the insertion point afterwards —
+  `Lp_Fill_Face_To_Restore` decides what "back" is. `Lp_Type_Fill_In_Line_To_Margin` and
+  `Lp_Type_Counted_Fill_In_Lines` only; the other underscore-producing passes
+  (`Lp_Format_Exercise_Lv_1_and_Lv_2`, `Lp_Replace_Underline_Tab_With_Underlined_Underscore`,
+  `Dx_Tabs_To_Fill_Ins`) were left alone and still make fills in the book's face.
+
+  **`Lp_Attach_The_Template` takes the Tahoma straight off again** — `Sh_Set_Whole_Document_Font`
+  lays one face over every character as direct formatting — so the attach calls
+  `Lp_Tahoma_The_Fill_Ins` to put it back. Without that, re-attaching to change the point size
+  returns every fill-in line in the book to holes. A fill-in line is an **underlined** underscore;
+  a plain one is somebody's text and is left alone. **It skips a legacy VistaTypeLP Legible
+  book** — that book is protected all through the attach so re-attaching cannot move a page break
+  in a book already in a reader's hands, and Tahoma's underscore is not Legible's width.
+
+  **Why Tahoma works is not what it looks like**, and the numbers are in the comment on
+  `Lp_Fill_Face_To_Restore`. Measured 8/23/2026: the template's `Normal` carries 1 point of
+  expanded letter spacing (headings 2, `No Spacing` and `MacroText` 2.5), so underscores are a
+  point apart in *any* face. What closes the gap is Word's **underline**, drawn unbroken across
+  the run — and in Tahoma the underline and the underscore are the same bar, while in
+  VistaTypeLP Sans the underline is thinner and sits inside the underscore, leaving a 0.19-point
+  sliver unpainted at 18 point. Two other cures exist and were not taken: `.Spacing = 0` on the
+  run (shortens a counted fill), and rebuilding the face with `tools/lib/build_vistatypelp_sans.py`
+  so its underline matches its own underscore (does nothing for books already produced).
+
   `LargePrintTemplate.dotx` is UNTOUCHED — its docDefaults name Tahoma, which is what makes all
   of the above work without a migration. `Lp_Apply_Base_Font_To_Styles` is still needed: it sets
   Normal plus the **13** styles that name a face of their own and so ignore Normal (the 12
