@@ -182,8 +182,17 @@ Three commands:
   description ("Agency style, no smart quotes"), and keeps them.
 - **Choose My Settings** — lists what you have saved, with the descriptions, and puts the one you
   pick into force. Also where you delete one you no longer want.
-- **Reset Word's Settings** — puts everything back the way VistaType expects, for when Word is
-  behaving oddly and you want a known starting point.
+- **Reset Word Configuration** — BUILT, 8/23/2026, on the Quick Access Toolbar rather
+  than waiting for the library. It puts all three AutoCorrect tabs back to the starting list,
+  saves that list as yours, and then sets the document on screen up for what it is — a large print
+  book, a braille file, or an ordinary document. It asks before it does anything, and it changes
+  nothing in the document and nothing on your screen. For when Word is behaving oddly and you want
+  a known starting point. The macro is `MS_Reset_Word_Configuration`; it and
+  `Sh_Seed_Default_Settings` read the same list, `Sh_Default_Settings_List`, so the two can never
+  drift. **They apply it in opposite orders on purpose** — the reset writes Word first because the
+  ordinary configuration it then runs would otherwise save the un-reset live values straight back
+  over it; the seed writes the file first because it must not touch Word at all unless the file
+  can be written. Do not make them match.
 
 These are a convenience, not something you need. Your settings are already remembered without them.
 

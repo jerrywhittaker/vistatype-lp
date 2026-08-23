@@ -18,6 +18,62 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - MS - 8/23/2026 - THE RESET BUTTON'S HOVER TEXT NAMES THE DOCUMENT (Jerry): "...back to VistaType LP's
+'           - MS - 8/23/2026 - starting point for a large print book." It is therefore a getSupertip CALLBACK,
+'           - MS - 8/23/2026 - RibbonCallbacks.VtResetSupertip, not fixed text in customUI14.xml - fixed text cannot
+'           - MS - 8/23/2026 - know what is on screen. Sh_Config_In_Words went Public for it; that one function is now
+'           - MS - 8/23/2026 - the only place the three phrases are written, and four callers read it.
+'           - MS - 8/23/2026 - Sh_APPLY_WORD_CONFIG asks Word to re-read the text (VtRefreshResetTip), and that is the
+'           - MS - 8/23/2026 - ONLY place it is asked from. It first sat in the one branch of Sh_HandleDocumentActivated
+'           - MS - 8/23/2026 - that applies a configuration, and that was wrong: Sh_Apply_Word_Config has SIX callers and
+'           - MS - 8/23/2026 - opening a large print document goes through Sh_HandleDocumentOpened instead. So the text
+'           - MS - 8/23/2026 - Word fetched once at load - no document open, Normal attached - just stood, and a large
+'           - MS - 8/23/2026 - print book read "an ordinary document". Jerry saw it in 3.0.236. ANYTHING THAT MUST FOLLOW
+'           - MS - 8/23/2026 - A CONFIGURATION CHANGE GOES IN Sh_Apply_Word_Config, not in one of its callers.
+'           - MS - 8/23/2026 - The wording is Jerry's, 8/23/2026: "a large print document" and "a braille document", not
+'           - MS - 8/23/2026 - "book" and "file".
+'           - MS - 8/23/2026 - IT DEGRADES TO STALE, NEVER TO BLANK. gRibbon goes Nothing after a VBA project reset and
+'           - MS - 8/23/2026 - stays Nothing until Word restarts, so the refresh can silently do nothing; and an error
+'           - MS - 8/23/2026 - raised INSIDE a ribbon callback fails silently and can stop Word calling back at all for
+'           - MS - 8/23/2026 - the rest of the session. So the callback traps everything and falls back to "for this
+'           - MS - 8/23/2026 - document", which is true of any of the three. An empty supertip reads as a broken button.
+'
+' Notes:    - Sh - 8/23/2026 - STYLES PANE: RECOMMENDED is LARGE PRINT ONLY (Jerry). Anything else gets a short message
+'           - Sh - 8/23/2026 - and nothing is touched. The recommended list is the large print template's own set of
+'           - Sh - 8/23/2026 - styles, so on a braille file or a letter the button was opening the pane and filtering it
+'           - Sh - 8/23/2026 - down to a recommendation that document does not have. The Sh_ prefix on
+'           - Sh - 8/23/2026 - Sh_Show_Recommended_Styles_Pane is now a MISNOMER and it stays: the sub is named in the
+'           - Sh - 8/23/2026 - tag of btn_Sh_Show_Recommended_Styles_Pane, which is on toolbars already installed in the
+'           - Sh - 8/23/2026 - field. Renaming the sub means renaming the button, and a renamed id draws blank on those
+'           - Sh - 8/23/2026 - machines with no error. The button also gained a hover note saying "Large print documents
+'           - Sh - 8/23/2026 - only", so the limit is visible before it is pressed rather than only after.
+'
+' Notes:    - MS - 8/23/2026 - RESET WORD CONFIGURATION, a macro and a Quick Access Toolbar button (Jerry). It is the
+'           - MS - 8/23/2026 - transcriber's way back when Word is behaving oddly: MS_Reset_Word_Configuration puts
+'           - MS - 8/23/2026 - Jerry's starting list onto all three AutoCorrect tabs, writes it into HER half of the
+'           - MS - 8/23/2026 - settings file so it is her preference from then on, and sets the document on screen up
+'           - MS - 8/23/2026 - for what it is. It asks first, naming the kind of document, and reports what actually
+'           - MS - 8/23/2026 - took force afterwards. Nothing in the document changes and no pane, ruler or view moves
+'           - MS - 8/23/2026 - (Sh_Apply_Word_Config is called with DisplayToo:=False).
+'           - MS - 8/23/2026 - ONE LIST, NOT TWO: the list came out of Sh_Seed_Default_Settings into
+'           - MS - 8/23/2026 - Sh_Default_Settings_List, which both subs read. THEY APPLY IT DIFFERENTLY ON PURPOSE and
+'           - MS - 8/23/2026 - must not be made to match - the reset changes Word even when the settings file cannot be
+'           - MS - 8/23/2026 - written, because she pressed a button and asked for it; the seed declines entirely rather
+'           - MS - 8/23/2026 - than impose a starting point it has no way to hand over.
+'           - MS - 8/23/2026 - THE ONE THING THAT WAS WRONG, found in review before any build carried it: clearing the
+'           - MS - 8/23/2026 - BOOK half of the ledger unconditionally. That record is the only thing stopping
+'           - MS - 8/23/2026 - Sh_Save_Transcriber_Settings writing a book's values down as her preferences, and the six
+'           - MS - 8/23/2026 - spelling and grammar settings a book switches off are NOT on Jerry's list, so the reset
+'           - MS - 8/23/2026 - does not put them back. Pressed inside a braille file, it left Word holding braille's
+'           - MS - 8/23/2026 - grammar-off values with the ledger saying no book was in force - and a book configuration
+'           - MS - 8/23/2026 - raising part way through (neither has a handler of its own) would then have made those
+'           - MS - 8/23/2026 - values hers for good. The 8/18/2026 fault rebuilt. It is now cleared only for an ORDINARY
+'           - MS - 8/23/2026 - document, which loses nothing: in a book, Sh_Note_Book_Settings rewrites the record a
+'           - MS - 8/23/2026 - moment later, and only the ordinary path ever reads it.
+'           - MS - 8/23/2026 - Ribbon button btn_MS_Reset_Word_Configuration, on the hidden QAT tab only - it is NOT on
+'           - MS - 8/23/2026 - either visible tab and not in the keymap, so a transcriber who declined the toolbar can
+'           - MS - 8/23/2026 - only reach it through Alt+F8. Eight QAT icons now, not seven.
+'
 ' Notes:    - MS - 8/22/2026 - THE STARTING LIST REVISED after Jerry read all three tabs in 3.0.230. FIVE values move, all
 '           - MS - 8/22/2026 - of them 0 -> 1, and the list keeps the same thirty-four boxes: on the ON-DEMAND AutoFormat
 '           - MS - 8/22/2026 - tab, Built-in Heading styles, Lists, Automatic bulleted lists and Other paragraphs; and on
@@ -1312,6 +1368,21 @@ Sub Sh_Apply_Word_Config(ByVal cfgType As String, Optional ByVal DisplayToo As B
     End Select
 
     Sh_Config_Skip_Display = False
+
+    ' The Reset Word Configuration hover text names the KIND of document on screen, so Word has to
+    ' be asked for it again whenever that can have changed.
+    '
+    ' IT GOES HERE AND NOWHERE ELSE, and that is the whole of a fault found on 8/23/2026 before
+    ' this shipped. It first sat in the one branch of Sh_HandleDocumentActivated that applies a
+    ' configuration - but this sub has SIX callers, and opening a large print document goes through
+    ' Sh_HandleDocumentOpened instead. So the text Word fetched once at load, with no document open
+    ' or Normal attached, simply stood: "an ordinary document", on a large print book. Jerry saw it
+    ' in 3.0.236. This sub is the one place all three configurations are applied from; put anything
+    ' that must follow a configuration change HERE.
+    '
+    ' Cheap enough to sit on this path: Sh_HandleDocumentActivated only reaches it when the
+    ' document's KIND changed, so clicking between two large print documents does not come here.
+    VtRefreshResetTip
     Exit Sub
 
 failed:
@@ -1326,6 +1397,10 @@ failed:
     ' Say nothing is in force rather than claim a configuration that never finished, so the next
     ' switch tries again instead of believing the job is done.
     Sh_ConfiguredAs = ""
+    ' On this path too: the hover text reads the DOCUMENT, not what is in force, so it is still
+    ' answerable after a configuration that raised - and leaving it stale here would be the same
+    ' fault in a rarer costume.
+    VtRefreshResetTip
 End Sub
 
 Sub AutoOpen()
@@ -18486,6 +18561,193 @@ End Sub   '*** end of Lp_Delete_Square_Bullet macro ***
 ' \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \
 '-----------------------------------------------------------------------------------
 
+' "LP" / "BRL" / anything else, in the words the transcriber is shown. One place, because it is
+' now said in four: MS_Reset_Word_Configuration before it acts and again after,
+' Sh_Show_Recommended_Styles_Pane when it declines, and the Quick Access Toolbar's own hover text
+' for Reset Word Configuration. They must not drift into different wordings for the same thing.
+'
+' PUBLIC because RibbonCallbacks.VtResetSupertip is in another module.
+'
+' Version: 1.2  Date: 8/23/2026 - Jerry's wording: "a large print document" / "a braille document",
+'                                 not "book" and "file"
+' Version: 1.1  Date: 8/23/2026 - Public, for the toolbar hover text
+' Version: 1.0  Date: 8/23/2026
+'
+Public Function Sh_Config_In_Words(ByVal cfgType As String) As String
+    Select Case cfgType
+        Case "LP":  Sh_Config_In_Words = "a large print document"
+        Case "BRL": Sh_Config_In_Words = "a braille document"
+        ' Plainly "an ordinary document", with no "not large print, not braille" tacked on: the
+        ' phrase has to read well in BOTH sentences it appears in, and "set up as an ordinary
+        ' document - not large print, not braille" is clumsy in the second. It is also the wording
+        ' docs/User-Settings-And-Word-Configuration.md already uses throughout.
+        Case Else:  Sh_Config_In_Words = "an ordinary document"
+    End Select
+End Function  '*** end of Sh_Config_In_Words ***
+
+
+Sub MS_Reset_Word_Configuration()
+'
+' MS_Reset_Word_Configuration Macro
+'
+' Put the three tabs of Word's AutoCorrect dialog back to Jerry's list, make that list her saved
+' setting again, and then set the document ACTUALLY ON SCREEN up the way its own kind of document
+' is meant to be set up. The transcriber's way back when Word is behaving oddly and she wants a
+' known starting point. On the Quick Access Toolbar as "Reset Word Configuration".
+'
+' WHAT IT DOES, and the ORDER IS NOT FREE:
+'
+'   1. Jerry's list onto Word - the same thirty-four boxes a brand-new machine is given.
+'   2. The same values into HER half of the settings file, so they are her preferences from now
+'      on and the next letter she opens hands them back instead of undoing this.
+'   3. The book half of the file marked spent. Whatever a braille file or a large print book most
+'      recently took away is gone, and nothing later compares against a book this reset has
+'      already written over.
+'   4. The configuration for the document on screen. In a letter that is Jerry's list, which step
+'      1 has already put there. In a braille file or a large print book it is that book's own
+'      settings ON TOP - so pressing this inside a book leaves the book correct, and leaves her
+'      letters set to the list underneath it.
+'
+' WHAT IS LOAD-BEARING IS THAT STEP 1 COMES BEFORE STEP 4. Step 4 runs
+' Sh_Restore_Transcriber_Settings for an ordinary document, and on the no-book-record path that sub
+' saves the LIVE values as hers. With step 1 already done, live IS the list and that save is
+' harmless. Reverse the two and it would save the un-reset values straight back, and the macro
+' would appear to do nothing. Steps 2 and 3 could sit either side of step 1 without harm; they are
+' written where they are so the sub reads in the order a person would describe it.
+'
+' THE REAL DIFFERENCE FROM Sh_Seed_Default_Settings, and why the two must not be made to match:
+' this sub changes Word even when the settings file cannot be written at all. She pressed a button
+' and asked for it, so it happens whether or not it can be remembered. The seed is the opposite -
+' it declines entirely rather than impose a starting point it has no way to hand over.
+'
+' IT DOES NOT TOUCH HER SCREEN. Sh_Apply_Word_Config is called with DisplayToo:=False, so no
+' pane opens or closes, no ruler appears, and the view is left alone. Jerry asked for the
+' AutoCorrect settings and the document, and nothing else.
+'
+' Author: Jerry Whittaker -  jerry@thewhittakers.org
+'
+' Version: 1.0  Date: 8/23/2026
+'
+    Dim pairs As Variant
+    Dim one As String
+    Dim cut As Long
+    Dim i As Long
+    Dim cfgType As String
+    Dim whatItIs As String
+
+    ' A document has to be on screen: this sets up the one in front of her, and
+    ' MS_Set_Word_Config_For_New_Install reaches for ActiveDocument on its very first line.
+    If Documents.count = 0 Then
+        MsgBox "Open a document first." & vbCr & vbCr _
+             & "Reset Word Configuration sets Word up for the document you are looking at, so " _
+             & "there has to be one on screen.", _
+               vbInformation, "VistaType LP (234)"
+        Exit Sub
+    End If
+
+    ' Worked out BEFORE the dialog, because the dialog names it - Jerry, 8/23/2026: she should be
+    ' told what she is about to configure, not just what will be done to it. Step 3 further down
+    ' needs it too. Sh_Doc_Config_Type has its own handler and falls back to "DEF".
+    cfgType = Sh_Doc_Config_Type()
+    whatItIs = Sh_Config_In_Words(cfgType)
+
+    If MsgBox("This document is " & whatItIs & "." & vbCr & vbCr _
+            & "Reset Word Configuration puts Word's AutoCorrect settings back to VistaType LP's " _
+            & "starting point." _
+            & vbCr & vbCr _
+            & "All three tabs of the AutoCorrect dialog - AutoCorrect, AutoFormat, and AutoFormat " _
+            & "As You Type - are set the way VistaType LP sets them on a new computer, and that " _
+            & "becomes your saved setting from then on." & vbCr & vbCr _
+            & "This document is then set up as " & whatItIs & "." & vbCr & vbCr _
+            & "Any changes you have made to those three tabs yourself will be lost. Nothing in " _
+            & "the document itself is changed, and no panes, rulers or views are rearranged." _
+            & vbCr & vbCr _
+            & "Choose OK to go ahead, or Cancel to leave everything as it is.", _
+              vbOKCancel + vbQuestion, "VistaType LP (235)") <> vbOK Then Exit Sub
+
+    On Error Resume Next
+
+    pairs = Sh_Default_Settings_List()
+
+    ' 1. WORD. Guarded write by write inside Sh_Setting_Put, so a setting that already agrees is
+    ' not written at all - the rule everywhere in this project, and what stopped Office's
+    ' "restart to apply your privacy settings" notice on 7/18/2026.
+    For i = LBound(pairs) To UBound(pairs)
+        one = pairs(i)
+        cut = InStr(one, "=")
+        If cut > 1 Then Sh_Setting_Put Left$(one, cut - 1), (Mid$(one, cut + 1) = "1")
+    Next i
+
+    ' 2. HER HALF OF THE FILE. Thirty-four of the forty-two tracked names; the other eight are
+    ' left exactly as they stand, because Jerry's list says nothing about them and a reset must
+    ' not invent a value for a setting nobody has stated one for.
+    For i = LBound(pairs) To UBound(pairs)
+        one = pairs(i)
+        cut = InStr(one, "=")
+        If cut > 1 Then Sh_Setting_Write VT_STORE_MINE, Left$(one, cut - 1), Mid$(one, cut + 1)
+    Next i
+    Sh_Setting_Write VT_STORE_MINE, VT_STORE_STAMP, VT_STORE_STAMP_NOW
+    ' Written LAST, following Sh_Save_Transcriber_Settings and Sh_Seed_Default_Settings. Be honest
+    ' about what that does and does not buy: On Error Resume Next is in force, so a write that
+    ' fails part way through the loop above does NOT stop this line running. The order is right and
+    ' costs nothing, but it is a convention here rather than a guarantee - in all three subs.
+    Sh_Setting_Write VT_STORE_MINE, "Saved", "1"
+
+    ' 3. THE BOOK HALF IS SPENT - BUT ONLY FOR AN ORDINARY DOCUMENT, and the condition is not
+    ' tidiness. That record is the one thing stopping Sh_Save_Transcriber_Settings recording a
+    ' book's values as her preferences, and the six spelling and grammar settings a book switches
+    ' off are NOT on Jerry's list, so step 1 does not put them back. Clearing it while a book is on
+    ' screen would leave Word holding braille's grammar-off values with the ledger saying no book
+    ' is in force. If step 4 then raised part way through - the book configurations have no handler
+    ' of their own - Sh_Note_Book_Settings would never run, and the next ordinary letter would
+    ' write those values down as hers for good. That is the 8/18/2026 fault exactly. Found in
+    ' review, 8/23/2026, before any build carried it.
+    '
+    ' Nothing is lost by skipping it in a book: step 4 rewrites the record a moment later through
+    ' Sh_Note_Book_Settings. Only the ordinary path ever reads it.
+    '
+    ' Sh_Setting_Write with an empty string DELETES a key rather than emptying it, so "0" is
+    ' written instead - the same as at the end of Sh_Restore_Transcriber_Settings.
+    If cfgType <> "LP" And cfgType <> "BRL" Then
+        Sh_Setting_Write VT_STORE_BOOK, "Saved", "0"
+    End If
+
+    Err.Clear
+    On Error GoTo 0
+
+    ' 4. THE DOCUMENT ON SCREEN. Sh_Apply_Word_Config has its own error handler and puts screen
+    ' updating back if a configuration raises part way through, so it is not wrapped here.
+    Sh_Apply_Word_Config cfgType, False
+
+    ' AND THEN TELL HER THE TRUTH ABOUT IT. Sh_Apply_Word_Config SWALLOWS a configuration that
+    ' raised: it blanks Sh_ConfiguredAs and returns normally. Reporting success off cfgType - what
+    ' was ASKED for - would have announced "set up as a large print book" with nothing applied, and
+    ' Doc Info would have said the opposite a minute later. Report what is actually in force.
+    If Sh_ConfiguredAs = "" Then
+        MsgBox "Word's AutoCorrect settings have been put back to VistaType LP's starting point, " _
+             & "and saved as yours. That part is done." & vbCr & vbCr _
+             & "Setting THIS DOCUMENT up did not finish, so no configuration is in force for it " _
+             & "right now." & vbCr & vbCr _
+             & "Click into another document and back again, which makes VistaType LP look at it " _
+             & "afresh. If it keeps happening, the document itself may be the problem - try it on " _
+             & "a new blank document.", _
+               vbExclamation, "VistaType LP (237)"
+        Exit Sub
+    End If
+
+    ' Re-read from what is ACTUALLY in force rather than reusing the value the dialog showed:
+    ' attaching a template can change a document's type, and Sh_Apply_Word_Config is what settles it.
+    whatItIs = Sh_Config_In_Words(Sh_ConfiguredAs)
+
+    MsgBox "Word's AutoCorrect settings have been put back to VistaType LP's starting point, and " _
+         & "saved as yours." & vbCr & vbCr _
+         & "This document has been set up as " & whatItIs & "." & vbCr & vbCr _
+         & "Doc Info, on either VistaType tab, will confirm which configuration is in force.", _
+           vbInformation, "VistaType LP (236)"
+
+End Sub '*** end of MS_Reset_Word_Configuration ***
+
+
 Sub MS_Set_Word_Config_For_New_Install()
     '
     ' MS_Set_Word_Config_For_New_Install Macro
@@ -19502,66 +19764,24 @@ Private Sub Sh_Setting_Put(ByVal nm As String, ByVal wanted As Boolean)
     Err.Clear
 End Sub  '*** end of Sh_Setting_Put ***
 
-' THE STARTING POINT - what all three AutoCorrect dialog tabs read on a machine where VistaType LP
-' has nothing recorded for the transcriber yet. Jerry's list, 8/22/2026: AutoFormat As You Type and
-' AutoFormat first, the AutoCorrect tab itself added later the same day.
+' JERRY'S LIST - what the three tabs of Word's AutoCorrect dialog should hold, as "name=1" for a
+' ticked box and "name=0" for a blank one. Thirty-four boxes, thirty-one of them ticked.
 '
-' Jerry settled the AutoCorrect tab's behavior explicitly when he gave it, and the answer is that it
-' is not special: "changes to this should be saved just like the AutoFormat and AutoFormat As You
-' Type are stored." Untick a box in a letter, close Word, come back tomorrow, and it is still
-' unticked. So all three tabs run through this one sub and nothing is re-asserted per session.
+' ONE LIST, NOT SEVERAL, and that is why it is a function rather than two copies. Two subs read
+' it: Sh_Seed_Default_Settings, which lays it down once per machine, and
+' MS_Reset_Word_Configuration, which is the transcriber's way back to it when Word is behaving
+' oddly. They apply it in different orders - see each - but they must never disagree about what
+' it says.
 '
-' THESE CHECKS ARE NOT PERMANENT, and that distinction is the whole design. This list is written
-' ONCE - on a machine with no ledger, or one whose ledger this build cannot read - and never
-' again. From that moment every one of these boxes is HERS: what she leaves ticked when a session
-' ends is saved, and it is given back whenever a letter is opened or created. Jerry, 8/22/2026:
-' "The checks are not permanent. Changes to any of the checks should be saved at the close of the
-' Word session and should be restored whenever a letter (default) document is opened or created."
+' Adding a name here means adding it to Sh_Tracked_Settings, to BOTH Select Cases below, and
+' bumping VT_STORE_STAMP_NOW. Changing a VALUE here means bumping the stamp too, or a machine
+' that already took the old starting values is never handed the new ones.
 '
-' ONCE PER MACHINE IS ENFORCED HERE, not inherited. This sub writes its own record and its own
-' stamp, and it declines the moment it can read that record back. It does not rely on
-' Sh_Save_Transcriber_Settings for either, because that save declines while a book record is
-' outstanding - so on the morning after she quit Word inside a braille file it would not have run,
-' the stamp would not have moved, and this list would have been written over her work again the
-' next day and the day after. Found in review, 8/22/2026, before any build carried it.
+' Version: 1.0  Date: 8/23/2026 - lifted whole out of Sh_Seed_Default_Settings, unchanged, so that
+'                                 MS_Reset_Word_Configuration could read the same list
 '
-' AND IF THE STORE CANNOT BE WRITTEN, NOTHING IS WRITTEN AT ALL - see the read-back test below.
-' VistaType LP does not impose a starting point it has no way to hand over.
-'
-' IT DOES NOT BREAK JERRY'S RULE OF THE SAME DAY that the ordinary configuration decides nothing.
-' MS_Set_Word_Config_For_New_Install still writes no fixed setting at all - read the long note in
-' it. The objection there was that a value written on every ordinary document open cannot be told
-' from a value she chose. A one-time seed does not raise it: this runs from AutoExec, at most once
-' per machine, and Sh_Save_Transcriber_Settings on the very next line records what it wrote as HER
-' value. After that first session there is no value written here left to confuse with hers.
-'
-' EIGHT TRACKED SETTINGS ARE DELIBERATELY ABSENT: the six spelling and grammar ones that live on
-' Word's PROOFING page rather than in this dialog - CheckGrammarAsYouType, CheckSpellingAsYouType,
-' ContextualSpeller, IgnoreMixedDigits, IgnoreUppercase and LabelSmartTags - plus
-' RestrictLinkedStyles and ShowStylePreviews. Jerry's list covers the three AutoCorrect dialog tabs
-' and says nothing about those, and a setting nobody has stated a starting value for is left
-' exactly as Word has it. Do not fill them in to make the list look complete.
-'
-' Version: 1.0  Date: 8/22/2026
-'
-Private Sub Sh_Seed_Default_Settings()
+Private Function Sh_Default_Settings_List() As Variant
     Dim nm As String
-    Dim pairs As Variant
-    Dim one As String
-    Dim cut As Long
-    Dim i As Long
-
-    On Error Resume Next
-
-    ' A ledger of this build's shape already exists, so these boxes are hers and this list is
-    ' long spent. The STAMP is half the test on purpose: a store this build cannot read is thrown
-    ' away whole by Sh_Restore_Transcriber_Settings, and a machine with nothing left to give back
-    ' should start from Jerry's list rather than from whatever Word happens to be holding.
-    If Sh_Setting_Read(VT_STORE_MINE, "Saved", "") = "1" And _
-       Sh_Setting_Read(VT_STORE_MINE, VT_STORE_STAMP, "") = VT_STORE_STAMP_NOW Then
-        Err.Clear
-        Exit Sub
-    End If
 
     ' "=1" ticked, "=0" unticked, written in the order the two dialog tabs list them so that the
     ' list can be read straight off Jerry's own. Thirty-four boxes: thirty-one ticked, three not.
@@ -19612,7 +19832,76 @@ Private Sub Sh_Seed_Default_Settings()
     ' get the order right. See the note in the book configurations: that gate is NOT measured.
     nm = nm & "ReplaceText=1,ReplaceTextFromSpellingChecker=1"
 
-    pairs = Split(nm, ",")
+    Sh_Default_Settings_List = Split(nm, ",")
+
+End Function  '*** end of Sh_Default_Settings_List ***
+
+' THE STARTING POINT - what all three AutoCorrect dialog tabs read on a machine where VistaType LP
+' has nothing recorded for the transcriber yet. Jerry's list, 8/22/2026: AutoFormat As You Type and
+' AutoFormat first, the AutoCorrect tab itself added later the same day.
+'
+' Jerry settled the AutoCorrect tab's behavior explicitly when he gave it, and the answer is that it
+' is not special: "changes to this should be saved just like the AutoFormat and AutoFormat As You
+' Type are stored." Untick a box in a letter, close Word, come back tomorrow, and it is still
+' unticked. So all three tabs run through this one sub and nothing is re-asserted per session.
+'
+' THESE CHECKS ARE NOT PERMANENT, and that distinction is the whole design. This list is written
+' ONCE - on a machine with no ledger, or one whose ledger this build cannot read - and never
+' again. From that moment every one of these boxes is HERS: what she leaves ticked when a session
+' ends is saved, and it is given back whenever a letter is opened or created. Jerry, 8/22/2026:
+' "The checks are not permanent. Changes to any of the checks should be saved at the close of the
+' Word session and should be restored whenever a letter (default) document is opened or created."
+'
+' ONCE PER MACHINE IS ENFORCED HERE, not inherited. This sub writes its own record and its own
+' stamp, and it declines the moment it can read that record back. It does not rely on
+' Sh_Save_Transcriber_Settings for either, because that save declines while a book record is
+' outstanding - so on the morning after she quit Word inside a braille file it would not have run,
+' the stamp would not have moved, and this list would have been written over her work again the
+' next day and the day after. Found in review, 8/22/2026, before any build carried it.
+'
+' AND IF THE STORE CANNOT BE WRITTEN, NOTHING IS WRITTEN AT ALL - see the read-back test below.
+' VistaType LP does not impose a starting point it has no way to hand over.
+'
+' IT DOES NOT BREAK JERRY'S RULE OF THE SAME DAY that the ordinary configuration decides nothing.
+' MS_Set_Word_Config_For_New_Install still writes no fixed setting at all - read the long note in
+' it. The objection there was that a value written on every ordinary document open cannot be told
+' from a value she chose. A one-time seed does not raise it: this runs from AutoExec, at most once
+' per machine, and Sh_Save_Transcriber_Settings on the very next line records what it wrote as HER
+' value. After that first session there is no value written here left to confuse with hers.
+'
+' EIGHT TRACKED SETTINGS ARE DELIBERATELY ABSENT: the six spelling and grammar ones that live on
+' Word's PROOFING page rather than in this dialog - CheckGrammarAsYouType, CheckSpellingAsYouType,
+' ContextualSpeller, IgnoreMixedDigits, IgnoreUppercase and LabelSmartTags - plus
+' RestrictLinkedStyles and ShowStylePreviews. Jerry's list covers the three AutoCorrect dialog tabs
+' and says nothing about those, and a setting nobody has stated a starting value for is left
+' exactly as Word has it. Do not fill them in to make the list look complete.
+'
+' Version: 1.1  Date: 8/23/2026 - the list itself moved out to Sh_Default_Settings_List, unchanged, so
+'                                 that MS_Reset_Word_Configuration could read the same one. This sub
+'                                 keeps the decline test, the ledger-first order and the read-back test;
+'                                 all it lost is the thirty-four names
+' Version: 1.0  Date: 8/22/2026
+'
+Private Sub Sh_Seed_Default_Settings()
+    Dim pairs As Variant
+    Dim one As String
+    Dim cut As Long
+    Dim i As Long
+
+    On Error Resume Next
+
+    ' A ledger of this build's shape already exists, so these boxes are hers and this list is
+    ' long spent. The STAMP is half the test on purpose: a store this build cannot read is thrown
+    ' away whole by Sh_Restore_Transcriber_Settings, and a machine with nothing left to give back
+    ' should start from Jerry's list rather than from whatever Word happens to be holding.
+    If Sh_Setting_Read(VT_STORE_MINE, "Saved", "") = "1" And _
+       Sh_Setting_Read(VT_STORE_MINE, VT_STORE_STAMP, "") = VT_STORE_STAMP_NOW Then
+        Err.Clear
+        Exit Sub
+    End If
+
+
+    pairs = Sh_Default_Settings_List()
 
     ' THE LEDGER FIRST, WORD SECOND, and the order is the whole of two faults found in review.
     '
@@ -20136,8 +20425,18 @@ Sub Sh_Show_Recommended_Styles_Pane()
 '
 ' Lives on the Quick Access Toolbar. As of 8/2/2026 the macros no longer force these settings
 ' on the user -- only attaching the large print template does -- so this is the button that
-' puts them back on demand. Shared rather than Lp_: one toolbar serves both the large print
-' and the braille side, and braille uses the same pair.
+' puts them back on demand.
+'
+' LARGE PRINT DOCUMENTS ONLY from 8/23/2026 (Jerry). Anything else gets a short message and
+' nothing is changed. The recommended list is the large print template's own set of styles, so on
+' a braille file or an ordinary letter the button used to open the pane and filter it down to a
+' recommendation that document does not have.
+'
+' THE Sh_ PREFIX IS NOW A MISNOMER, AND IT STAYS. The sub is named in the tag of ribbon button
+' btn_Sh_Show_Recommended_Styles_Pane, which is on toolbars already installed in the field and is
+' append-only. Renaming the sub means renaming the button to match the convention, and a renamed
+' button id renders blank on those machines with no error. The prefix is the cheaper wrong thing.
+' Until this change the name was accurate: braille used the same pair.
 '
 ' Sets ONLY the three things it advertises. It deliberately does not call
 ' Lp_Turn_on_Styles_Pane, which also writes Application.RestrictLinkedStyles -- a Word-wide
@@ -20146,10 +20445,24 @@ Sub Sh_Show_Recommended_Styles_Pane()
 ' Note the split: sort order and the show-filter are DOCUMENT properties, saved into the file
 ' and carried with it. Whether the pane is open is a Word-wide setting.
 '
+' Version: 1.1  Date: 8/23/2026 - large print documents only; anything else gets a message and is
+'                                 left alone (Jerry)
 ' Version: 1.0  Date: 8/2/2026
 '
     ' The toolbar is clickable with no document open, and ActiveDocument would raise 4248.
     Application.Run MacroName:="Sh_Is_Doc_Open"
+
+    ' Lp_Is_The_Attached_Template_LP is THE fact that decides whether a document is large print -
+    ' see the note on it. Asked directly rather than through Sh_Doc_Config_Type, which would then
+    ' go on to test for braille as well, and nothing here needs to know.
+    If Lp_Is_The_Attached_Template_LP <> True Then
+        MsgBox "Styles Pane: Recommended is for large print documents only." & vbCr & vbCr _
+             & "This document is " & Sh_Config_In_Words(Sh_Doc_Config_Type()) & "." & vbCr & vbCr _
+             & "The recommended list is the large print template's own set of styles, so there is " _
+             & "nothing here for it to show.", _
+               vbInformation, "VistaType LP (238)"
+        Exit Sub
+    End If
 
     Application.TaskPanes(wdTaskPaneFormatting).Visible = True
     ActiveDocument.StyleSortMethod = wdStyleSortRecommended

@@ -89,6 +89,52 @@ Public Sub VtRefreshTabs()
     If Not gRibbon Is Nothing Then gRibbon.Invalidate
 End Sub
 
+' The hover text on the Quick Access Toolbar's Reset Word Configuration button. Jerry, 8/23/2026:
+' it names the KIND of document the reset would be applied to, so it is a getSupertip callback
+' rather than fixed text in customUI14.xml.
+'
+' AN ERROR RAISED INSIDE A RIBBON CALLBACK FAILS SILENTLY, and Word may then stop calling back for
+' the rest of the session - the same rule as VtTabVisible above. So this cannot be allowed to
+' raise, and it falls back to wording that is true of any document rather than to nothing: an
+' empty supertip would read as a broken button.
+'
+' Version: 1.0  Date: 8/23/2026
+Public Sub VtResetSupertip(ByVal control As IRibbonControl, ByRef returnedVal)
+    Const HEAD As String = "Put Word's AutoCorrect, AutoFormat and AutoFormat As You Type " & _
+                           "settings back to VistaType LP's starting point for "
+    Dim words As String
+
+    On Error Resume Next
+    words = Vt_This_Document_In_Words()
+    If Err.Number <> 0 Or Len(words) = 0 Then
+        words = "this document"
+        Err.Clear
+    End If
+    returnedVal = HEAD & words & "."
+End Sub
+
+' What kind of document is on screen, in the words the transcriber is shown - or "this document"
+' when there is none, or when anything at all goes wrong. Sh_Config_In_Words lives in
+' LPandBrlMacros and is the one place those three phrases are written.
+Private Function Vt_This_Document_In_Words() As String
+    Vt_This_Document_In_Words = "this document"
+    On Error Resume Next
+    If Documents.count = 0 Then Exit Function
+    Vt_This_Document_In_Words = Sh_Config_In_Words(Sh_Doc_Config_Type())
+End Function
+
+' Ask Word to re-read that hover text, because the document on screen has changed kind. Called
+' from Sh_HandleDocumentActivated. No-ops when the ribbon handle was lost, which is the normal
+' state after a VBA project reset until Word is restarted - the hover text then goes stale rather
+' than wrong, and the button itself still works.
+'
+' Version: 1.0  Date: 8/23/2026
+Public Sub VtRefreshResetTip()
+    On Error Resume Next
+    If Not gRibbon Is Nothing Then gRibbon.InvalidateControl "btn_MS_Reset_Word_Configuration"
+    Err.Clear
+End Sub
+
 ' Escape hatch for someone who deletes the VistaType tabs out of their own ribbon: clearing
 ' the flag brings the built-in ones straight back, with no reinstall and no Word restart.
 '
