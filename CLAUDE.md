@@ -292,6 +292,10 @@ tools/lib/      check_style_guards.py (refuses to build when an ActiveDocument.S
                 verdicts are cloud verdicts, so a clean line there is not proof — confirm with
                 MpCmdRun -DisableRemediation on the build box. Reads VT_API_KEY from the
                 gitignored build.config. Background: docs/Code-Signing.md);
+                check_try_scope.py (what `make try` cannot test — prints, after a try, which
+                changed files need a real installer instead. Ignores the version bump in
+                installer/vistatype.iss, which `make try` itself makes: a warning that fires
+                every time is a warning nobody reads);
                 extract_qat.py (obsolete/reference — QAT is now qat-template.officeUI)
                 (rescale_font.py stood here until 8/20/2026, when the bundled typeface was
                 dropped — see assets/fonts/ below)
@@ -335,8 +339,11 @@ reference/      generated read aids (gitignored mirror + interim form-code dump)
                 a hotfix reached dev). All four are READ-ONLY and report; none edits or pushes.
                 They complement tools/lib's guards rather than repeat them — each file says
                 what the guards already cover.
-Makefile        pull / build / ribbon / qat / read / deploy / branding / stage / installer / scan
+Makefile        pull / build / ribbon / qat / read / try / deploy / branding / stage / installer / scan
                 (`make fonts` went with the bundled typeface on 8/20/2026)
+                (`make try` bumps, builds, and puts the new .dotm straight into Word's STARTUP
+                 folder on the build box - no installer, no wizard. Added 8/23/2026 at Jerry's
+                 request to shorten the code-test loop; see *Testing a change* below)
                 (see DEVELOPMENT.md)
 ```
 
@@ -550,6 +557,37 @@ a working `3.0.X` number that has never been released; see *Version numbering* b
 `VistaType LP (NNN)` numbers in MsgBox titles
 are per-dialog IDs, *not* version numbers.) When changing behavior, follow the existing
 pattern: bump the per-sub version comment and add a dated line to the header changelog.
+
+### Testing a change — `make try` first, an installer when it matters
+
+Jerry's loop was: code, build the installer, run the wizard, test, repeat. From 8/23/2026 the
+short version is **`make try`** — it bumps, builds, and drops the new `LPandBRL.dotm` straight
+into Word's STARTUP folder on the build box. He closes Word, runs it, opens Word, tests. The
+`.dotm` is the *same file the installer packages*, so this is not a lesser test of the code.
+
+**It bumps, and that is not tidiness.** Every third number has meant "a build you can tell apart
+in the About box" since three builds shared `3.0.6` on 7/26/2026. Swapping `.dotm` files without
+bumping brings that straight back. So a `make try` takes a number too — that number simply never
+gets a `Setup.exe`, which is what a private build counter is for.
+
+**Word must be closed on the build box.** `make try` checks by process name and stops if it is
+not — a stray automation Word from a headless test run counts and is invisible on the desktop.
+
+**What `make try` cannot test, and these need `make installer`:**
+
+| Change | Why the `.dotm` does not carry it |
+|---|---|
+| `installer/**` | the toolbar, trusted locations, the license file, the artwork, uninstalling |
+| `src/ribbon/**` | the tabs *are* embedded, but on a machine the installer has set up, the copy in the user's own `Word.officeUI` is what shows and the embedded one is hidden (`VtTabVisible`) — so a tab change can look like it did nothing |
+| `src/keymap/**` | injected into `LargePrintTemplate.dotx`, which only the installer puts in place |
+| `*.dotx` | the large-print template: styles and page setup |
+| `assets/fonts/**` | installed and registered by the installer |
+
+`tools/lib/check_try_scope.py` prints exactly this after every `make try`, naming the changed
+files that need a real installer. **Claude's standing duty (Jerry, 8/23/2026): say so in the
+reply too.** He should never have to work out for himself that what he is about to test cannot
+be tested this way — and before anything is called done, and always before a release, he installs
+a real `Setup.exe`.
 
 ## Git workflow and releases
 

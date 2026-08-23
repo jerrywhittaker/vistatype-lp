@@ -15,6 +15,10 @@
 #                Runs as part of `make build`; a mismatch stops the build.
 #   make read    Refresh reference/ from LPandBRL.dotm using the Linux-only decompressor
 #                (read/diff aid; does NOT need Windows and is NOT import-ready).
+#   make try     Bump, build, and put the new add-in straight into Word's STARTUP folder on
+#                the build box - no installer, no wizard. The fastest loop for VBA and dialog
+#                work: change code, `make try`, open Word. Word must be CLOSED on the box.
+#                Says afterwards what it cannot test, and when a real installer is needed.
 #   make deploy  Promote dist/LPandBRL.dotm (embedded ribbon) to the repo root.
 #   make branding  Regenerate the installer's icon and wizard artwork (installer/branding/)
 #                from assets/branding/. Only needed after the artwork changes; `make installer`
@@ -35,7 +39,7 @@ DOTM      := LPandBRL.dotm
 DOTX      := LargePrintTemplate.dotx
 RIBBON    := Word.officeUI
 PROJNAME  := LPandBRL
-APPVER    := 3.0.242
+APPVER    := 3.0.244
 SETUP_EXE := VistaType LP and Braille Macros Setup $(APPVER).exe
 VERDATE   := $(shell date +%-m/%-d/%Y)
 
@@ -181,6 +185,44 @@ qat: check-qat
 read:
 	python3 tools/lib/decompress_vba.py
 
+# --- put the freshly built add-in straight into Word on the build box, no installer ---
+#
+# The loop this shortens is: change code, build an installer, run the wizard, test. The .dotm
+# copied here is the SAME FILE the installer packages, so this is not a lesser test of the code -
+# it is the same code, without the wizard. What it does not carry is everything the installer puts
+# somewhere ELSE, which check_try_scope.py reports at the end.
+#
+# IT BUMPS, and that is not tidiness. Every third number has meant "an installer you can install",
+# and the About box is how you tell one build from the next - three builds shared 3.0.6 on
+# 7/26/2026 and there was no way to know whether an install had taken. Swapping .dotm files
+# without bumping brings that straight back. So a `make try` takes a number too; that number
+# simply never gets a Setup.exe, which is what a private build counter is for.
+#
+# WORD MUST BE CLOSED ON THE BOX. Word holds the STARTUP .dotm open, so the copy would fail or,
+# worse, half-succeed. Checked rather than assumed, by process name - a stray automation Word from
+# a headless test run counts, and it is invisible on the desktop.
+# Two steps, and the split is load-bearing - `make installer` is built the same way and for the
+# same reason. Make expands $(APPVER) ONCE, when it reads this file, so a recipe that bumps and
+# then builds in the same run stamps the OLD number into the About dialogs and announces the old
+# number too. Caught by running it: the file said 3.0.243 and the build said 3.0.242. The sub-make
+# re-reads the Makefile and picks up what bump just wrote.
+try:
+	@$(MAKE) --no-print-directory bump
+	@$(MAKE) --no-print-directory try-build
+
+try-build: check-config build
+	@echo "--- checking Word is closed on $(WIN_HOST) ---"
+	$(SSH) '$(WIN_PWSH) -NoProfile -Command "$$w = @(Get-Process WINWORD -ErrorAction SilentlyContinue); if ($$w.Count -gt 0) { Write-Host \"ERROR: Word is running on the build box - close it and run make try again.\"; exit 1 }; exit 0"'
+	@# The Linux copy, not the box's: the ribbon is injected on THIS side after the build, so
+	@# $(WIN_DIR)/dist/$(DOTM) has no ribbon in it. Staged under a space-free name for the same
+	@# quoting reason as the Setup.exe. Stale ~$$ lock files need no sweep here - Import-Vba.ps1
+	@# has already cleared them during the build this target depends on.
+	scp -q dist/$(DOTM) "$(WIN_HOST):$(WIN_DIR)/dist/startup-staged.dotm"
+	$(SSH) '$(WIN_PWSH) -NoProfile -Command "Copy-Item \"$(WIN_DIR)/dist/startup-staged.dotm\" \"$$env:APPDATA\\Microsoft\\Word\\STARTUP\\$(DOTM)\" -Force; Remove-Item \"$(WIN_DIR)/dist/startup-staged.dotm\" -Force -ErrorAction SilentlyContinue"'
+	@echo ""
+	@echo "$(DOTM) $(APPVER) is now in Word's STARTUP folder on $(WIN_HOST). Open Word there and test."
+	@python3 tools/lib/check_try_scope.py
+
 deploy:
 	@test -f dist/$(DOTM) || { echo "ERROR: run 'make build' first."; exit 1; }
 	cp dist/$(DOTM) $(DOTM)
@@ -285,4 +327,4 @@ scan:
 clean:
 	rm -rf dist build
 
-.PHONY: help check-config push-src pull build ribbon qat check-qat check-tabs check-frm-eol check-vba-lines read deploy stage branding check-branding bump installer installer-build scan clean
+.PHONY: help check-config push-src pull build ribbon qat check-qat check-tabs check-frm-eol check-vba-lines read try try-build deploy stage branding check-branding bump installer installer-build scan clean
