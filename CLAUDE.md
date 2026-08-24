@@ -344,15 +344,19 @@ installer/      vistatype.iss is the product installer. From 8/24/2026 its [Code
                 user's machine with no warning.
 docs/           Daily-Workflow-and-Releases.md (Jerry's plain-language guide to dev/master, building, releasing, and what to ask Claude); Installation-Guide.md (end-user install); Build-VM-Setup.md (Hyper-V build/test box); Software-Agreement.md (GPLv3 About-dialog text); Code-Signing.md (why Defender deleted the unsigned Setup.exe on 8/13-14/2026, what in the installer scores against it, how to test with `make scan` and MpCmdRun, and the signing options — note Azure Artifact Signing does NOT sign VBA projects, and EV no longer skips SmartScreen. Jerry bought the Certum open source card on 8/17/2026; the last section is the step-by-step for the day it arrives, what the build box already has, and the five things the card-free rehearsal proved); VistaTypeLP-Sans.md (what the bundled typeface covers and does not - languages, mathematics, science, medicine - measured face by face against Tahoma, plus the width and pagination trade-off and the Insert Symbol subset-list defect: 16 OS/2 unicode-range flags are unset, hiding 43.5% of the characters from Word's own browser)
 reference/      generated read aids (gitignored mirror + interim form-code dump)
-                (assets/fonts/ was here. It held the bundled typeface, VistaTypeLP Legible,
-                shipped from 3.0.101 to 3.0.196 and DROPPED on 8/20/2026 along with
-                tools/lib/rescale_font.py, tools/windows/Check-Font.ps1 and `make fonts`. The
-                face has no Greek, no IPA and almost no mathematics, and Word substitutes a
-                missing character silently and at the wrong size — see Deployment locations and
-                Domain concepts above. The pristine Atkinson Hyperlegible download, the OFL text
-                and the whole licensing write-up are in git history if a bundled face is ever
-                wanted again; the Braille Institute's license PDF is still in
-                ~/reference/vistatype-lp/ and must never be committed.)
+assets/fonts/vistatypelp-sans/   the bundled typeface, VistaTypeLP Sans — four tracked .ttf faces
+                plus the THREE OFL texts it needs (Noto Sans, Noto Sans Math, Noto Sans Symbols).
+                Built by `make fonts` from the current Noto releases; the built faces are what
+                ship, so commit them when they change. Coverage, and what it will NOT set, is
+                docs/VistaTypeLP-Sans.md.
+                (This folder held a DIFFERENT face until 8/20/2026: VistaTypeLP Legible, shipped
+                from 3.0.101 to 3.0.196 and dropped because it has no Greek, no IPA and almost no
+                mathematics, and Word substitutes a missing character silently and at the wrong
+                size. VistaTypeLP Sans replaced it on 8/22/2026 and was checked for exactly that
+                first. tools/lib/rescale_font.py and tools/windows/Check-Font.ps1 went with the old
+                face and did not come back. The pristine Atkinson Hyperlegible download and the
+                licensing write-up are in git history; the Braille Institute's license PDF is still
+                in ~/reference/vistatype-lp/ and must never be committed.)
 .claude/agents/ four review helpers Claude hands work to, each with its own reading space so
                 the ~16,500-line engine does not crowd out the job in hand. vba-review (the
                 failure modes that ship silently — run before `make build`); braille-lp-review
@@ -363,9 +367,13 @@ reference/      generated read aids (gitignored mirror + interim form-code dump)
                 a hotfix reached dev). All four are READ-ONLY and report; none edits or pushes.
                 They complement tools/lib's guards rather than repeat them — each file says
                 what the guards already cover.
-Makefile        pull / build / ribbon / qat / read / try / deploy / branding / stage / installer /
-                font-installer / scan
-                (`make fonts` went with the bundled typeface on 8/20/2026)
+Makefile        pull / build / ribbon / qat / read / fonts / try / deploy / branding / stage /
+                installer / font-installer / scan
+                (`make fonts` rebuilds VistaTypeLP Sans from the current Noto Sans, Noto Sans Math
+                 and Noto Sans Symbols releases. It REACHES THE NETWORK, so it is deliberately not
+                 part of `make installer`; twelve checks run at the end and it refuses to claim
+                 success if any fail. The version that went with the dropped typeface on 8/20/2026
+                 came back on 8/22/2026 building the new one)
                 (`make try` bumps, builds, and puts the new .dotm straight into Word's STARTUP
                  folder on the build box - no installer, no wizard. Added 8/23/2026 at Jerry's
                  request to shorten the code-test loop; see *Testing a change* below)
@@ -862,18 +870,31 @@ does not, tell Jerry before starting other work — an unfolded hotfix is a bug 
 
 ## Domain concepts
 
-- **Typeface — Tahoma, and it is not a choice (8/20/2026)**: a large print book is set in Tahoma,
-  as it was for years. The bundled **VistaTypeLP Legible** was offered beside the point size from
-  3.0.101 to 3.0.196 and is gone; `FontChoiceFrame`/`FontTahoma`/`FontLegible` are off
-  `LP_Attach_An_Lp_Template_Form`. Nothing stores the face — like `Lp_Base_Font_Size` it is read
-  back off `Styles(wdStyleNormal).Font.Name` (`Lp_Base_Font_Name`).
-  **The one exception, and do not remove it:** a book ALREADY set in the dropped face keeps it.
-  `AttachOkay_Click` tests `Lp_Doc_Font_At_Open` against `LP_FONT_LEGACY_LEGIBLE` — the sole
-  surviving use of that name — so re-attaching cannot rewrite one of the books already produced
-  and move every page break. It names the face outright rather than carrying forward whatever it
-  finds, because an LP document whose Normal has drifted to Calibri is one attaching is meant to
-  REPAIR. `EmbedTrueTypeFonts` and `Lp_Indent_Factor_For_Font`'s 1.054 case stay for those same
-  books.
+- **Typeface — VistaTypeLP Sans or Tahoma, and it IS a choice again (8/22/2026, 3.0.224)**: the
+  choice is `FontChoiceFrame` on `LP_Attach_An_Lp_Template_Form`, carrying `FontSans` and
+  `FontTahoma`. Three constants name the faces: `LP_FONT_SANS` ("VistaTypeLP Sans"),
+  `LP_FONT_TAHOMA` ("Tahoma") and `LP_FONT_LEGACY_LEGIBLE` ("VistaTypeLP Legible").
+  `UserForm_Initialize` decides what is offered, in this order:
+    - **VistaTypeLP Sans is the default** when `Sh_Is_Font_Installed(LP_FONT_SANS)` says it is
+      there. When it is not, `FontSans` is DISABLED, Tahoma is selected, and the button's own
+      caption gains "-- NOT INSTALLED (or Word needs restarting)". The words go on the control
+      because hover text cannot be made 10 point — see *How VistaType LP says things*.
+    - **An existing LP book's own face wins over the default.** `Lp_Doc_Font_At_Open` is read off
+      `Styles(wdStyleNormal).Font.Name`, and Tahoma or Sans selects its own button.
+  Nothing stores the face — like `Lp_Base_Font_Size` it is read back off
+  `Styles(wdStyleNormal).Font.Name` (`Lp_Base_Font_Name`).
+  **A book already set in the DROPPED face keeps it, and do not remove that:** a legacy
+  VistaTypeLP Legible book disables BOTH buttons and captions the frame
+  "Font Choice  --  this book keeps VistaTypeLP Legible", and `AttachOkay_Click` carries
+  `Lp_Doc_Font_At_Open` forward — so re-attaching cannot rewrite one of the books already
+  produced and move every page break. The choice is grayed out and says so, rather than being
+  offered and then ignored. Everywhere else the face is named outright rather than carried
+  forward, because an LP document whose Normal has drifted to Calibri is one attaching is meant
+  to REPAIR. `LP_FONT_LEGACY_LEGIBLE` has FIVE live uses, not one: the constant, the two tests on
+  the form above, `Lp_Indent_Factor_For_Font`'s 1.054 case (VistaTypeLP Sans's is 0.862), and the
+  guard in `Lp_Attach_The_Template` that skips the `Lp_Tahoma_The_Fill_Ins` call on a legacy book.
+  The `FontLegible` CONTROL is gone from the form; only comments mention it. `EmbedTrueTypeFonts`
+  stays on for those same books, so they carry their own copy of a face nothing installs any more.
   **A fill-in line's underscores are the one exception, from 8/23/2026 (Jerry):** they are typed
   in Tahoma whatever face the book is set in, because in VistaTypeLP Sans a row of underscores
   draws with holes in it rather than as one unbroken rule. Only the underscores change face, and
