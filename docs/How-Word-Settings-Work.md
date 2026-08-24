@@ -58,11 +58,47 @@ for the kind of document it is. After that, the screen is yours.)
 So with a book and a letter open side by side, you can move between them all afternoon and each
 one behaves correctly. You will not notice it happening.
 
-### Which one is in force right now
+---
 
-**Doc Info** on either ribbon tab tells you. It has a line reading *"Word is configured for..."*
-— large print, braille, or default settings. If Word is ever behaving oddly, that line is the
-first thing to look at.
+## The two buttons on your toolbar
+
+Both live on the **Quick Access Toolbar** — the small row of icons at the very top of the Word
+window, above or below the ribbon. The installer puts them there whichever toolbar choice you
+made.
+
+| Button | What it does |
+|---|---|
+| **Document Settings** | Tells you what VistaType LP thinks the document in front of you is, and which settings are in force |
+| **Reset Word Configuration** | Puts all three AutoCorrect tabs back to VistaType LP's starting point, and sets the current document up again |
+
+### Document Settings
+
+This is the first thing to click whenever Word is behaving oddly. Among other things it has a
+line reading *"Word is configured for..."* — large print, braille, or default settings.
+
+If that line does not say what you expect, click into the document you actually want and look
+again. It follows whichever document window is on top.
+
+### Reset Word Configuration
+
+Use this when the settings have got into a state you do not like and you would rather start
+clean than hunt through three tabs of checkboxes.
+
+It works on the document you are looking at, **and you do not have to close it first.** It can
+be a braille file, a large print book, or an ordinary document — it is happy either way.
+
+It tells you what the document is and asks before it does anything, so you can change your mind.
+Choose Okay and it will:
+
+- set all three AutoCorrect tabs the way VistaType LP sets them on a brand new computer,
+- **save that as your setting from then on**, and
+- set the document in front of you up again for whatever it is.
+
+Two things it does **not** do: it does not change one word of your document, and it does not
+rearrange your panes, rulers or view.
+
+One thing to know before you click it: **any changes you have made to those three tabs yourself
+will be lost.** That is the point of it — but it is worth being sure that is what you want.
 
 ---
 
@@ -80,10 +116,10 @@ tabs across the top. Three of them matter here:
 Every checkbox on those three tabs is one VistaType LP looks after — **thirty-four of them** —
 along with eight more about spelling, grammar and the Styles pane. **Forty-two in all.**
 
-The **AutoFormat** command is the odd one out. It reformats a whole document in one go, and
-Word does not put it on the ribbon. If you let the installer put VistaType's Quick Access
-Toolbar in place, its button is on the small toolbar at the very top of the window. If you have
-never used it, you can ignore that tab entirely — nothing runs it on its own.
+The **AutoFormat** command is the odd one out. It reformats a whole document in one go, and Word
+does not put it on the ribbon. If you let the installer put VistaType's full Quick Access
+Toolbar in place, its button is up there too. If you have never used it, you can ignore that tab
+entirely — nothing runs it on its own.
 
 ---
 
@@ -97,8 +133,8 @@ afterward.**
 That is the whole idea. Everything else is detail.
 
 Think of a neighbor borrowing a chair. Before the chair leaves the room, someone notes where it
-was standing. When it comes back it goes to that exact spot — not to the middle of the room,
-and not wherever the neighbor happened to leave it.
+was standing. When it comes back it goes to that exact spot — not to the middle of the room, and
+not wherever the neighbor happened to leave it.
 
 ### When it writes yours down
 
@@ -112,31 +148,52 @@ and not wherever the neighbor happened to leave it.
 
 You do not have to do anything, nothing appears on screen, and it takes no noticeable time.
 
-### It learns from you
-
-Here is the part most people would not expect.
-
-You do far more in Word than braille and large print, and you do not stop being an ordinary
-Word user just because you have a book open. So if you change one of these settings **while you
-are working inside a book**, VistaType LP treats that as a real preference, and it follows you
-out to your letters.
-
-It can tell, because it also writes down what the book asked for. When you return to an
-ordinary document, anything that no longer matches what the book set must have been changed by
-you — so it becomes your setting from then on, everywhere.
-
-**You never have to say "save this".** Change a checkbox anywhere, in any document, and it is
-yours.
-
 ### What this replaced
 
 Until 2026, VistaType LP set a long list of these the same way for every kind of document. It
 was not switching them to suit your work — it was simply overwriting what you had chosen, and
 every time you opened a plain document your choices went back to VistaType's.
 
-**What protects you now is not that it leaves them alone.** Opening a book still changes most
-of those forty-two settings, because it has to. What protects you is that yours are written
-down first and handed back the moment you return to ordinary work.
+**What protects you now is not that it leaves them alone.** Opening a book still changes most of
+those forty-two settings, because it has to. What protects you is that yours are written down
+first and handed back the moment you return to ordinary work.
+
+---
+
+## Changing a setting yourself — and what happens to it
+
+This part surprises people, so it is worth reading twice.
+
+### In an ordinary document
+
+Change a checkbox in a letter and it is simply yours. VistaType LP notices, keeps it, and gives
+it back to you in every ordinary document from then on. You never have to save anything.
+
+### In a braille file or a large print book
+
+**Your change lasts only while that document is the one in force.**
+
+You can change a checkbox in a braille file and carry on working, and it stays changed for as
+long as you are in it. But:
+
+- Click into a different kind of document and back again, and the braille settings are put on
+  again — including the one you changed.
+- **Close the file and open it again, and it comes back with the braille settings.**
+- **Any new braille file, or any other braille file you open, starts with the braille settings.**
+
+The same is true of large print books.
+
+That is deliberate, and it is not VistaType LP being stubborn. Those settings decide what the
+Duxbury translator receives, and what a low-vision reader sees on the page. A braille file that
+kept whatever was last switched on would not be reliable, and neither would the book.
+
+**But the change is not wasted.** VistaType LP notices that you changed it, and takes it as a
+real preference — so it becomes your setting in your **ordinary** documents from then on. You do
+far more in Word than braille and large print, and you do not stop being an ordinary Word user
+just because you have a book open.
+
+**In one line:** a change you make in a book follows you out to your letters, but it does not
+stay in the book.
 
 ---
 
@@ -153,29 +210,25 @@ every one of them is about what the reader receives:
 And if you run the **AutoFormat** command on a whole document, `1st` is left alone in a large
 print book and raised to `1ˢᵗ` in a braille file.
 
-None of those are your preference to set, and that is not a slight. They decide what the
-Duxbury translator receives, and what a low-vision reader sees on the page. They belong to the
-reader, not to any of us.
-
 ---
 
 ## Spelling and grammar
 
 Braille files switch off **grammar checking as you type** and the **contextual spelling
-checker**, and tell Word to stop ignoring numbers mixed into words. That is correct: the
-grammar checker objects endlessly to braille formatting and would drive you to distraction.
+checker**, and tell Word to stop ignoring numbers mixed into words. That is correct: the grammar
+checker objects endlessly to braille formatting and would drive you to distraction.
 
 **What was wrong until 2026 is that nothing ever switched them back on.** Open one braille file
-and grammar checking was off — in that file, in your letters, for the rest of the day, and
-every day after, because Word remembers it. Nothing connected it to VistaType LP, and most
-people never worked out why their grammar checking had stopped.
+and grammar checking was off — in that file, in your letters, for the rest of the day, and every
+day after, because Word remembers it. Nothing connected it to VistaType LP, and most people
+never worked out why their grammar checking had stopped.
 
 Now VistaType LP notes how you have them set, and puts them back the moment you return to an
 ordinary document.
 
 Both books also switch on **"Set left- and first-indent with tabs and backspaces"**, so the Tab
 and Backspace keys set your indents while you work. If you prefer it off, switch it off in an
-ordinary document and that is what you will get back.
+ordinary document and that is what you will get back there.
 
 ---
 
@@ -200,8 +253,8 @@ Three things worth knowing about it:
 
 ## The first time, and what to expect
 
-VistaType LP has to learn your preferences from somewhere, and all it can do is look at how
-Word is set the first time it runs.
+VistaType LP has to learn your preferences from somewhere, and all it can do is look at how Word
+is set the first time it runs.
 
 So whatever your checkboxes happen to say at that moment is what it learns. If grammar checking
 was switched off that day, it will believe you want it off.
@@ -215,12 +268,16 @@ and they will keep coming back.
 ## Things you might notice, and what they mean
 
 **"A checkbox changed and I did not change it."**
-Look at which document is in front of you. In a book or a braille file some of them are
-supposed to be different. Click into an ordinary document and look again.
+Look at which document is in front of you. In a book or a braille file some of them are supposed
+to be different. Click into an ordinary document and look again.
+
+**"I changed a setting in my braille file and it went back."**
+That is right, and it is explained above. Braille files always start with the braille settings.
+Your change did follow you out to your ordinary documents, though.
 
 **"Fractions stopped working in my large print book."**
-Correct, and deliberate. A compact fraction is smaller than your base font size and cannot be
-in a large print document. Type `1/2` and leave it as `1/2`.
+Correct, and deliberate. A compact fraction is smaller than your base font size and cannot be in
+a large print document. Type `1/2` and leave it as `1/2`.
 
 **"I pasted a chapter into my large print book and there are ½ signs in it."**
 Pasting brings the characters with it. Run **Full File Cleanup → Fix Common File Errors** and
@@ -234,11 +291,14 @@ it does not, switch it on there once and it will stick.
 That is right. Braille needs it off; your letters need it on. It changes as you move between
 them.
 
-**"Doc Info says the wrong thing."**
+**"Document Settings says the wrong thing."**
 Click into the document you actually want, then check again — it follows whichever document
 window is on top. If it still looks wrong, close Word and reopen it.
 
-**"I want to start over."**
+**"I have made a mess of the checkboxes and want to start again."**
+Click **Reset Word Configuration** on the toolbar. See above for exactly what it does.
+
+**"I want to wipe everything VistaType LP has remembered."**
 Close Word. Delete the folder `%AppData%\VistaType LP Settings`. Open Word, open an ordinary
 document, and set your checkboxes the way you want them. VistaType LP learns them again from
 there.
@@ -250,16 +310,17 @@ there.
 **If you close Word while a book or a braille file is still open**, Word saves that document's
 settings as its own on the way out, and loads them again next time it starts.
 
-VistaType LP handles this in the ordinary case: it remembers between sessions that a book was
-in force, and does not mistake the book's settings for yours.
+VistaType LP handles this in the ordinary case: it remembers between sessions that a book was in
+force, and does not mistake the book's settings for yours.
 
 There is one narrow gap it cannot cover — closing Word inside a braille file **and then
-installing a new version of VistaType LP** before you next open an ordinary document. In that
-one sequence your settings can be replaced by the braille ones.
+installing a new version of VistaType LP** before you next open an ordinary document. In that one
+sequence your settings can be replaced by the braille ones.
 
 **Ten seconds avoids it entirely: before you close Word for the day, click into an ordinary
-document first.** That is the only thing on this page that asks anything of you, and it is a
-good habit regardless.
+document first.** That is the only thing on this page that asks anything of you, and it is a good
+habit regardless. If it does happen, **Reset Word Configuration** will put you back to a clean
+starting point.
 
 ---
 
@@ -270,7 +331,9 @@ good habit regardless.
   document you are looking at.
 - It writes your own settings down first, and gives them back the moment you return to an
   ordinary document.
-- Change a setting anywhere — even inside a book — and it becomes yours from then on.
-- The settings it switches while you are in a book belong to your reader, not to you.
+- A change you make inside a book follows you out to your letters — but it does not stay in the
+  book. Braille files and large print books always start with their own settings.
+- **Document Settings** on the toolbar tells you what is in force. **Reset Word Configuration**
+  puts everything back to a clean starting point.
 - Your settings live in a file that survives uninstalling and can move to a new computer.
 - Before closing Word, click into an ordinary document. That is the only habit worth forming.
