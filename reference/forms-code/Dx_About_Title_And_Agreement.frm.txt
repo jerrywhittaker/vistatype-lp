@@ -6,7 +6,7 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 Attribute VB_TemplateDerived = False
 Attribute VB_Customizable = False
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 
 ' Version: 1.3  Date: 12/10/2019 - added alternative short url
 ' Version: 1.2  Date: 3/17/2017

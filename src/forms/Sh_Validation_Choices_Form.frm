@@ -18,7 +18,7 @@ Attribute VB_Exposed = False
 ' Version: 1.2  Date: 2/12/2024 - added code to place reference page tags in 3 column temp doc
 ' Version: 1.1  Date: 2/14/2021 - fixed problem with info display page
 ' Version: 1.0  Date: 9/26/2018
-' Author: Jerry Whittaker  jerry@thewhittakers.org
+' Author: Jerry Whittaker  jerry@vistatypelp.org
 
 Private Sub CancelButton_Click()
     Unload Me

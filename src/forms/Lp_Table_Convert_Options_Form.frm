@@ -15,7 +15,7 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 ' Lp_Table_Convert_Options_Form
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
 ' Version: 1.9  Date: 7/24/2026 - no longer runs "MS_Set_Word_Config_For_Large_Print" on form open
 ' Version: 1.8  Date: 6/22/2026 - ajusted timing with "do events" to make sure that the original document is shown at the end of the rotation

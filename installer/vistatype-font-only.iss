@@ -54,7 +54,7 @@ AppId={{9E3B4C21-77A5-4F0E-9C2D-1B6A5F0E7D34}
 AppName={#FontFamily} font
 AppVersion={#FontVer}
 AppPublisher=Jerry Whittaker
-AppPublisherURL=mailto:jerry@thewhittakers.org
+AppPublisherURL=mailto:jerry@vistatypelp.org
 AppCopyright=VistaTypeLP Sans is built from Noto Sans and is licensed under the SIL Open Font License 1.1
 
 ; The font's own license, shown before it is installed. The OFL governs copying and modifying

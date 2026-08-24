@@ -19,7 +19,7 @@ Attribute VB_Exposed = False
 '
 ' Version: 1.0  Date: 8/5/2026
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
 ' Asked straight after the DAISY/NIMAS choice, by Sh_Convert_XML_File_To_Word_Document.
 ' Braille almost never wants the pictures; large print always does. Omitting them also skips

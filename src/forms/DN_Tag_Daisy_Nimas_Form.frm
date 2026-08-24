@@ -16,7 +16,7 @@ Attribute VB_Exposed = False
 
 ' DN_Tag_Daisy_Nimas_Form
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Version: 1.7  Date: 11/30/2023 - optomized - removed prodnote which deleted some NIMAS book pages
 ' Version: 1.6  Date: 3/24/2023 - isolated $pg+page number into its own paragraph

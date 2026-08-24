@@ -71,7 +71,7 @@ TO REMOVE IT LATER
 Settings > Personalization > Fonts, find VistaTypeLP Sans, and uninstall it. Windows
 will not let go of a font while it is in use, so close Word first.
 
-Jerry Whittaker - jerry@thewhittakers.org
+Jerry Whittaker - jerry@vistatypelp.org
 """
 
 

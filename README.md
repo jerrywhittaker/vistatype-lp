@@ -10,7 +10,7 @@ Macros** — with one-click tools for cleaning up source files, formatting refer
 numbers, converting lists and tables, handling images, tagging DAISY/NIMAS text, and more.
 
 - **Version:** 3.0
-- **Author:** Jerry Whittaker · jerry@thewhittakers.org
+- **Author:** Jerry Whittaker · jerry@vistatypelp.org
 - **License:** [GNU General Public License v3.0](LICENSE) · © 2015–2026 Jerry Whittaker
 
 ---

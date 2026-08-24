@@ -47,7 +47,7 @@
 ; The literal here is the fallback for building this script by hand, and is kept in step
 ; with the Makefile by "make bump".
 #ifndef AppVer
-  #define AppVer      "3.0.245"
+  #define AppVer      "3.0.246"
 #endif
 #define DotmName    "LPandBRL.dotm"
 #define DotxName    "LargePrintTemplate.dotx"
@@ -106,7 +106,7 @@
 AppName=VistaType LP + Braille Macros
 AppVersion={#AppVer}
 AppPublisher=Jerry Whittaker
-AppPublisherURL=mailto:jerry@thewhittakers.org
+AppPublisherURL=mailto:jerry@vistatypelp.org
 ; These two become the "Support" and "Update" links on the entry in Programs & Features, so a
 ; transcriber who has lost the download can find it from their own machine.
 AppSupportURL={#RepoUrl}
@@ -881,6 +881,133 @@ begin
 end;
 
 
+{ --- Take SUPERSEDED copies of VistaTypeLP Sans off the machine. -----------------------
+
+  A stray VistaTypeLPSans-*.ttf under a name that is not one of the four we install is a
+  loaded gun, and the reason is the family name inside it. Every one of them says
+  "VistaTypeLP Sans". Right-click one and choose Install -- which is exactly what a person
+  does with a stray .ttf found in their Fonts folder -- and Windows rewrites the
+  "VistaTypeLP Sans (TrueType)" registration to point at it. From that moment the family
+  Word offers is whatever that old file happened to hold.
+
+  Measured on the build box, 8/24/2026, on the two that were sitting there: 3,094 characters
+  against the shipping 6,450. Three of fourteen math operators. No arrows at all. And no
+  italic anywhere in the family, so Word slants the roman by machine and a slanted rescaled
+  face is the wrong size. That is the fault that got VistaTypeLP Legible dropped on
+  8/20/2026, wearing the right name.
+
+  WHERE THEY COME FROM. Not from this installer, as far as anything shows: it replaces all
+  four faces on every run, and it did so on a box where Windows had them locked -- a plain
+  copy over the top failed with a sharing violation and Setup replaced them anyway, with no
+  leftover. The path that does produce one is a HAND install, which is what the .zip built by
+  make font-installer tells a tester to do: right-click the .ttf and choose Install. Install
+  a font whose filename is already in the per-user Fonts folder and Windows keeps the old one
+  under a timestamped name. That mechanism was NOT reproduced here -- the shell Install verb
+  does nothing over SSH with no desktop, and the file is only locked after a sign-in -- so
+  read it as the likeliest source and not a proven one. The two files were real either way.
+
+  ORDER IS THE ONE THING THAT CAN GO WRONG, and it is why this runs at ssPostInstall. By the
+  time it does, the four FontInstall entries have already rewritten the four registrations to
+  the canonical paths. Run it first instead, on a machine whose family currently points at a
+  stray, and deleting that file would leave the typeface broken until the install caught up.
+
+  Unregister first, delete second -- the same order as RemoveLegacyLegibleFont and for the
+  same two reasons: unregistering can be what releases a file Windows is holding, and a
+  registration left pointing at a file that is gone is a broken entry in every font list.
+
+  Matched on the value's DATA rather than its name, again as above. The name is whatever the
+  font's own full name said when someone hand-installed it, and that is not ours to predict.
+
+  The four canonical filenames are a WHITELIST, and they are the guard. Anything this walk
+  can see other than those four is superseded by definition.
+
+  Per-user only. PrivilegesRequired is lowest, so HKLM and the machine-wide Fonts folder are
+  out of reach; a copy hand-installed "for all users" is beyond this and is left alone.
+
+  Nothing here is fatal and nothing is reported to the transcriber. A stray that survives one
+  more session is not worth a dialog on an install that otherwise worked. }
+procedure RemoveSupersededSansFaces();
+var
+  FontsKey, FontDir, Data, LowerData, LowerName: String;
+  Names, Strays: TArrayOfString;
+  FindRec: TFindRec;
+  I, J, N, Removed, Unregistered: Integer;
+  Canonical: Boolean;
+begin
+  FontDir  := ExpandConstant('{#UserFontsDir}');
+  FontsKey := 'Software\Microsoft\Windows NT\CurrentVersion\Fonts';
+
+  { Collected first and acted on second. Deleting inside a FindFirst/FindNext walk is how an
+    entry gets skipped. }
+  N := 0;
+  SetArrayLength(Strays, 0);
+  if FindFirst(FontDir + '\VistaTypeLPSans-*.ttf', FindRec) then
+  begin
+    try
+      repeat
+        if FindRec.Attributes and FILE_ATTRIBUTE_DIRECTORY = 0 then
+        begin
+          LowerName := Lowercase(FindRec.Name);
+          Canonical := (LowerName = 'vistatypelpsans-regular.ttf')    or
+                       (LowerName = 'vistatypelpsans-bold.ttf')       or
+                       (LowerName = 'vistatypelpsans-italic.ttf')     or
+                       (LowerName = 'vistatypelpsans-bolditalic.ttf');
+          if not Canonical then
+          begin
+            SetArrayLength(Strays, N + 1);
+            Strays[N] := FindRec.Name;
+            N := N + 1;
+          end;
+        end;
+      until not FindNext(FindRec);
+    finally
+      FindClose(FindRec);
+    end;
+  end;
+
+  if N = 0 then
+    Exit;
+
+  Unregistered := 0;
+  if RegGetValueNames(HKCU, FontsKey, Names) then
+  begin
+    for I := 0 to GetArrayLength(Names) - 1 do
+    begin
+      Data := '';
+      RegQueryStringValue(HKCU, FontsKey, Names[I], Data);
+      LowerData := Lowercase(Data);
+
+      for J := 0 to N - 1 do
+      begin
+        { A stray's filename carries the decoration, so it can never match the data of a
+          canonical registration -- the canonical path is the shorter string. }
+        if Pos(Lowercase(Strays[J]), LowerData) > 0 then
+        begin
+          if RegDeleteValue(HKCU, FontsKey, Names[I]) then
+          begin
+            Log('Unregistered superseded VistaTypeLP Sans copy: ' + Names[I] + ' = ' + Data);
+            Unregistered := Unregistered + 1;
+          end;
+          Break;
+        end;
+      end;
+    end;
+  end;
+
+  Removed := 0;
+  for J := 0 to N - 1 do
+  begin
+    if DeleteFile(FontDir + '\' + Strays[J]) then
+      Removed := Removed + 1
+    else
+      Log('Superseded VistaTypeLP Sans copy still in use, left for the next run: ' + Strays[J]);
+  end;
+
+  Log('Superseded VistaTypeLP Sans copies: ' + IntToStr(N) + ' found, ' + IntToStr(Removed)
+      + ' deleted, ' + IntToStr(Unregistered) + ' registry entries removed.');
+end;
+
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   Ver, Key, TL: String;
@@ -924,8 +1051,13 @@ begin
     end;
 
     { Last, and deliberately after everything that makes the add-in work: an upgrade must leave
-      a working VistaType LP behind even if the font clean-up hits something unexpected. }
+      a working VistaType LP behind even if the font clean-up hits something unexpected.
+
+      Both must also run AFTER the FontInstall entries in [Files] have rewritten the four
+      registrations to the canonical paths, which is exactly what ssPostInstall guarantees.
+      RemoveSupersededSansFaces says at length why that order is the thing that can go wrong. }
     RemoveLegacyLegibleFont();
+    RemoveSupersededSansFaces();
   end;
 end;
 
@@ -958,5 +1090,11 @@ begin
       install again, nothing would ever come back for them, and four orphaned files plus a license
       folder would outlive the product that put them there. }
     RemoveLegacyLegibleFont();
+
+    { RemoveSupersededSansFaces is deliberately NOT called here. The four current faces stay
+      at uninstall on purpose -- uninsneveruninstall, because a font that leaves takes every
+      unembedded document with it -- so there is no superseded/current split to reconcile, and
+      a sweep at this point would only be deciding what to delete from a Fonts folder we have
+      just promised to leave alone. }
   end;
 end;

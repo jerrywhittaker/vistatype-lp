@@ -34,7 +34,7 @@ form's binary layout — see **Implementation** below.
 >
 > By installing, running, or otherwise using this Software you acknowledge these terms.
 >
-> © 2015–2026 Jerry Whittaker · jerry@thewhittakers.org
+> © 2015–2026 Jerry Whittaker · jerry@vistatypelp.org
 
 ---
 
@@ -102,7 +102,7 @@ Private Sub UserForm_Initialize()
           & "https://www.gnu.org/licenses/." & vbCrLf & vbCrLf
     s = s & "By installing, running, or otherwise using this Software you acknowledge " _
           & "these terms." & vbCrLf & vbCrLf
-    s = s & Chr(169) & " 2015-2026 Jerry Whittaker  -  jerry@thewhittakers.org"
+    s = s & Chr(169) & " 2015-2026 Jerry Whittaker  -  jerry@vistatypelp.org"
 
     AgreementTextBox.Text = s
     AgreementTextBox.CurLine = 0   ' show the top, not the end

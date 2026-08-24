@@ -1,7 +1,7 @@
 Attribute VB_Name = "LPandBrlMacros"
 ' VistaType LP - Large Print Template and Macros and Macros for the BANA template of the Duxbury Braille Translator
 ' Copyright (C) 2015-2026 Jerry Whittaker
-' jerry@thewhittakers.org
+' jerry@vistatypelp.org
 '
 ' This program is free software: you can redistribute it and/or modify it under
 ' the terms of the GNU General Public License as published by the Free Software
@@ -1670,7 +1670,7 @@ Sub Sh_HandleDocumentOpened()
     ' Version 1.1  Date: 11/9/2020 - added "Application.Run MacroName:="Lp_Set_Display_For_Large_Print"
     ' Version 1.0  Date: 10/28/2020
     '
-    ' Author: Jerry Whittaker - jerry@thewhittakers.org
+    ' Author: Jerry Whittaker - jerry@vistatypelp.org
     '
     On Error GoTo eom
     ActiveDocument.ActiveWindow.View.ReadingLayout = False
@@ -1777,7 +1777,7 @@ Sub Sh_HandleDocumentClosing()
     ' Version 1.2  Date: 8/2/2026 - no longer hides the Styles pane. It is the user's now, and this fired on close ATTEMPTS - cancelling the "save your changes?" prompt left you in the document with the pane gone
     ' Version 1.1  Date:  12/16/2021 - set on error - crashes if image is selected when document is closed    Application.TaskPanes(wdTaskPaneFormatting).Visible = True
     ' Version 1.0  Date: 10/17/2020
-    ' Author: Jerry Whittaker - jerry@thewhittakers.org
+    ' Author: Jerry Whittaker - jerry@vistatypelp.org
     '
     ' Version 1.1 put an On Error here because this line "crashes if image is selected when
     ' document is closed", and the guard was lost with the Styles-pane line in 1.2 - the eom label
@@ -1841,7 +1841,7 @@ Sub Dx_Attach_BANA_Template()
 '  Version: 1.9  Date: 9/9/2018 - removed fix body text styles - wiped out auto numbers
 '  Version :1.8  Date: 1/10/2017
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 
     Dim su_Prev As Boolean
     su_Prev = Application.ScreenUpdating
@@ -1976,7 +1976,7 @@ Sub Dx_Set_Whole_Document_To_Times_New_Roman_14()
 ' Version: 2.0  Date: 8/18/2026 - Times New Roman 14 pt, was Courier New 12 pt (Jerry)
 ' Version: 1.0  Date: 8/5/2026
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
 ' Puts every character of the document into Times New Roman at 14 points, so the transcriber
 ' reads the whole file in one face and size however mixed the source was.
@@ -1997,7 +1997,7 @@ Sub Sh_Set_Whole_Document_Font(ByVal targetDoc As Document, ByVal fontName As St
 '
 ' Version: 1.0  Date: 8/5/2026
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
 ' Puts every character of a document into one face and size.
 '
@@ -2030,7 +2030,7 @@ Function Sh_Is_Font_Installed(ByVal fontName As String) As Boolean
 '
 ' Version: 1.0  Date: 8/8/2026
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
 ' True when Word can see the named font on this machine.
 '
@@ -2069,7 +2069,7 @@ Function Sh_Font_Status_Text(ByVal fontName As String, Optional ByVal targetDoc 
 '                                exactly as version 1.0 did
 ' Version: 1.0  Date: 8/8/2026
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
 ' One line for Sh_Doc_Info saying whether this document's typeface is actually on this machine.
 '
@@ -2109,7 +2109,7 @@ Sub Lp_Apply_Base_Font_To_Styles(ByVal targetDoc As Document, ByVal fontName As 
 '
 ' Version: 1.0  Date: 8/8/2026
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
 ' Puts the chosen typeface onto the document's STYLES. Sh_Set_Whole_Document_Font above lays the
 ' same face over the text as direct formatting; this is the other half, and both are needed.
@@ -2172,7 +2172,7 @@ Function Lp_Indent_Factor_For_Font(ByVal fontName As String) As Double
 '
 ' Version: 1.0  Date: 8/8/2026
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
 ' How much wider this face is than Tahoma, for the hanging indents on bulleted lists.
 '
@@ -2406,7 +2406,7 @@ Sub Dx_Fix_Para_Space_Errors()
 '
 ' Dx_Fix_Para_Space_Errors Macro
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Version: 2.0 Date: 8/12/2026 - no temporary document; every pass is scoped to a range. Also
 '                               gone: the Selection.MoveUp that stretched the selection up by a
@@ -2558,7 +2558,7 @@ Sub Dx_Format_Tagged_Page_Numbers()
 ' Version: 1.4  Date: 1/17/2019
 ' Version: 1.3  Date: 3/19/2017
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
     ' is the BANA Template Attached... if not terminate macro
     Application.Run MacroName:="Dx_Is_BANA_Template_Attached"
@@ -2904,7 +2904,7 @@ Sub Dx_Embed_Ref_Pg_No()
 ' Version 1.4: Date: 9/21/2018 - fixed Nemeth code error
 ' Version 1.3: Date: 3/19/2017
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
     ' is the BANA Template Attached... if not terminate macro
     Application.Run MacroName:="Dx_Is_BANA_Template_Attached"
@@ -2957,7 +2957,7 @@ Sub Dx_UnEmbed_Ref_Pg_No()
 ' Version: 1.7 Date: 9/9/2018 - Added BANA Macros label to msgbox
 ' Version: 1.6 Date: 3/19/2017
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
     ' is the BANA Template Attached... if not terminate macro
     Application.Run MacroName:="Dx_Is_BANA_Template_Attached"
@@ -3026,7 +3026,7 @@ Sub Dx_Is_BANA_Template_Attached()
 ' Version: 1.2  Date: 1/8/2016
 ' Version: 1.3  Date: 12/6/2018 - added check and fix for blocked files
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
 ' Description:  Call: Application.Run MacroName:="Dx_Is_BANA_Template_Attached"
 '                   Checks to see if a BANA Braille Template is attached
@@ -3064,7 +3064,7 @@ Sub Dx_Convert_Auto_List_To_Text(Optional ByVal target As Range)
     ' Original title "AutoListOff2"
     ' From: Computer Tools for Editors(and Proofreaders)by Paul Beverley, LCGI
     '        http://www.archivepub.co.uk/book.html
-    ' Initial version by Paul Beverley; modified by Jerry Whittaker - jerry@thewhittakers.org
+    ' Initial version by Paul Beverley; modified by Jerry Whittaker - jerry@vistatypelp.org
     '
     ' Changes auto-bulleted, auto-numbered and auto-outline listing to real bullets and numbers,
     ' and takes the tab out from behind the marker.
@@ -3181,7 +3181,7 @@ Sub Dx_Replace_Tabs_With_Single_Space()
 '
 ' Dx_Replace_Tabs_With_Single_Space Macro
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
 ' Runs of tabs become one space - but UNDERLINED tabs become underscores first, because a
 ' scanner turns a ruled fill-in line into an underlined tab and a braille transcriber needs the
@@ -3302,7 +3302,7 @@ Sub Dx_Fix_Common_File_Errors()
 ' Version: 2.2 Date: 9/14/2018  - Fix Body Text Styles positioned after conver autonumbers
 ' Version: 2.1 Date: 3/18/2017
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
 ' Calls a series or routines for global file cleanup
 '
@@ -3438,7 +3438,7 @@ Sub Dx_Color_Dollar_PG_Red()
 ' Version: 1.1  Date: 8/23/2026 - the tag is set NOT BOLD as well (Jerry)
 ' Version: 1.0  Date: 8/5/2026
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
 ' Colors every $pg tag red, and nothing else.
 '
@@ -3541,7 +3541,7 @@ Sub Dx_Fix_Body_Text_Styles()
 '
 ' Dx_Fix_Body_Text_Styles Macro
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Version Date: 8/24/2015
 '
@@ -3624,7 +3624,7 @@ Sub Dx_Manual_Tag_with_Dollar_pg()
 ' Version: 1.5  Date: 9/25/2018 - incorporated proper tagging of lower case roman in EBAE documents'
 ' Version: 1.4  Date: 5/4/2017
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
     Application.Run MacroName:="Sh_Is_Doc_Open"
     Application.Run MacroName:="Dx_Is_BANA_Template_Attached"
@@ -3678,7 +3678,7 @@ Sub Dx_Fix_En_Dash_Errors()
 '
 ' Dx_Fix_En_Dash_Errors Macro
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Version 1.1
 ' Date: 12/11/2015
@@ -3717,7 +3717,7 @@ Sub Dx_Add_Color_To_Foreign_Language_Words()
 ' Revisons:
 '       1.4 - now handles Spanish (Spain Modern Sort) and Spanish (Spain Traditional Sort)
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 ' Description: Examines the language setting of each word and changes
 '              them to the color styles used the BANA template
 '
@@ -3876,7 +3876,7 @@ Sub Dx_About()
 '
 ' Dx_About Macro
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '  Version: 1.3  Date 12/10/2019 - added code for alternative short URL in the user form code
 '  Version: 1.2  Date: 3/17/2017
 '
@@ -3920,7 +3920,7 @@ Sub Dx_Fix_Em_Dash_Space_Errors()
 '
 ' Removes leading and trailing spaces from em dashes for EBAE only
 '
-' Author: Jerry Whittaker  jerry@thewhittakers.org
+' Author: Jerry Whittaker  jerry@vistatypelp.org
 '
 ' version 1.3
 ' date: 3/18/2017
@@ -3962,8 +3962,8 @@ Sub Dx_Spelling_List()
 '
 ' Dx_Spelling_List Macro
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
-' jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
+' jerry@vistatypelp.org
 '
 ' Version 1.4:  Date: 6/18/2018
 ' Version 1.5:  Date: 11/16/2018
@@ -4001,7 +4001,7 @@ Sub Dx_AutoTag_Page_Numbers()
 ' Version: 2.1 Date: 9/21/2018 -  fixed problem where ref pg no is not found when it is the first para in the document
 ' Version: 2.0 Date: 2/8/2017
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
 ' Locates potential page numbers and tags with $pg
 ' Also locates continuation pages ##-## and enters the [[*lec*]][[*i*]] code
@@ -4779,7 +4779,7 @@ Function Dx_Merge_Adjacent_Pg_Numbers(ByVal targetDoc As Document) As Long
 ' Immediate window.
 '
 ' Version: 1.0  Date: 8/5/2026
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
     Dim runs As Collection          ' each item is itself a Collection of paragraph Ranges
     Dim thisRun As Collection
@@ -5017,7 +5017,7 @@ Sub Dx_Replace_Straight_Quotes_With_Smart_Quotes()
 '
 ' Version 1.4
 ' Date 12/11/2015
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Call: Application.Run MacroName:="Dx_Replace_Straight_Quotes_With_Smart_Quotes"
 '
@@ -5081,7 +5081,7 @@ Sub Dx_Format_Exercise_Lv_1_and_Lv_2()
 
 ' Dx_Format_Exercise_Lv_1_and_Lv_2 Macro
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
 ' Version: 1.8  Date: 7/26/2026 - returns the user to where the cursor was when the macro started
 ' Version: 1.6 Date: 8/21/2018 - Modifed to work with Nemeth
@@ -5860,7 +5860,7 @@ Sub Dx_Fix_Ellipsis_Errors()
 '
 ' Dx_Fix_Ellipsis_Errors() Macro
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Date: 12/2/2015
 ' Version: 1.0
@@ -6062,7 +6062,7 @@ Sub Dx_Is_Text_Selected()
 '
 ' Dx_Is_Text_Selected Macro
 
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Version 1.0
 ' Date: 2/13/2015
@@ -6080,7 +6080,7 @@ End Sub '***** End of Dx_Is_Text_Selected *************
 
 Sub Dx_Copy_To_Temp_Doc()
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Version: 1.3  Date: 3/19/2021 - added Dx_Attach_Same_BANA_Template to end of procedure
 ' Version: 1.2  Date: 9/9/2018
@@ -6100,7 +6100,7 @@ End Sub '***** end of Dx_Copy_To_Temp_Doc Macro *****
 
 Sub Dx_Copy_From_Temp_Doc()
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 ' Date: 9/9/2018
 ' Version: 1.5
 '
@@ -6119,7 +6119,7 @@ End Sub '***** end of Dx_Copy_From_Temp_Doc Macro *****
 Sub Dx_Attach_Same_BANA_Template()
 '
 ' Attaches the same BANA Template as the original DOC to the copied selection
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Version: 1.6  Date: 7/9/2021 - added existance check and message for attached BANA template
 ' Version: 1.5  Date: 10/17/2020 - improved attachment process
@@ -6280,7 +6280,7 @@ Sub Dx_Remove_Optional_Hyphens()
 '
 ' Dx_Remove_Optional_Hyphens Macro
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 ' Version 1.0
 ' Date: 1/15/2017
 '
@@ -6305,7 +6305,7 @@ Sub Dx_Remove_Page_Breaks()
 '
 ' Dx_Remove_Page_Breaks Macro
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 ' Version: 1.0 Date: 1/15/2017
 '
     Selection.Find.ClearFormatting
@@ -6329,7 +6329,7 @@ Sub Dx_Remove_Section_Breaks()
 '
 ' Dx_Remove_Section_Breaks Macro
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 ' Version: 1.0  Date: 1/15/2017
 '
     Selection.Find.ClearFormatting
@@ -6354,7 +6354,7 @@ Sub Dx_Remove_Column_Breaks()
 '
 ' Dx_Remove_Column_Breaks Macro
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 ' Version: 1.0 Date: 1/15/2017
 '
     Selection.Find.ClearFormatting
@@ -6379,7 +6379,7 @@ Sub Dx_Tabs_To_Fill_Ins()
 '
 ' Dx_Tabs_To_Fill_Ins macro
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Date: 1/9/2017 Version: 1.4
 '
@@ -6572,7 +6572,7 @@ Sub Dx_Delete_Images()
 '
 '   Dx_Delete_Images Macro
 '
-'   Jerry Whittaker - jerry@thewhittakers.org
+'   Jerry Whittaker - jerry@vistatypelp.org
 '
 '   Version: 1.6 Date: 2/20/2024 - added caution about deleteing images created by MathType
 '   Version: 1.5 Date: 9/26/2023 - turned screen off to prevent scrolling text on screen
@@ -6685,7 +6685,7 @@ Sub Dx_Type_Dashes()
 ' Dx_Type_Dashes Macro
 '
 ' Description: Types long, em, en, and minus dashes
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
 ' Version: 1.1  Date: 10/5/2018 - added check for attached template
 ' Version: 1.0  Date: 10/9/2016
@@ -6701,7 +6701,7 @@ Sub Dx_Set_DBT_Codes_Color_and_Style()
 ' Dx_Set_DBT_Codes_Color_and_Style Macro
 '
 ' Version: 1.1 Date: 3/14/2017
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 
     ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
     ' this pass can do nothing without it - no style means nothing is formatted with it.
@@ -6738,7 +6738,7 @@ Sub Dx_Fix_Primes()
     ' converts smart (curley) single and double quotes and
     '   single and double stright quotes to proper primes
     '
-    ' Author: Jerry Whittaker -  jerry@thewhittakers.org
+    ' Author: Jerry Whittaker -  jerry@vistatypelp.org
     '
     ' Version: 1.0Date: 11/13/2016
     '
@@ -6815,7 +6815,7 @@ Sub Dx_Set_Doc_Braille_Type_Variable()
 '
 ' Dx_Set_Doc_Braille_Type_Variable macro
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 ' Version 1.1 Date: 3/17/2017
 '
 ' Sets document variable "BrlType" which holds whether translation is UEB or EBAE / texbook or nemeth
@@ -6845,7 +6845,7 @@ Sub Dx_Remove_Keep_With_Next()
 ' Dx_Remove_Keep_With_Next Macro
 '
 ' removes the keep with next (paragraph) paramater from all paragraphs
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 ' Version: 1.0  Date: 3/13/2018
 '
     Selection.Find.ClearFormatting
@@ -6893,7 +6893,7 @@ Sub Dx_Fix_Abbyy_FineReader_Text_and_Headers()
 ' macro on earlier version of Abbyy may produce undesirable results.
 ' The macro should have no effect on any other documents.
 '
-' Author: Jerry Whittaker   jerry@thewhittakers.org
+' Author: Jerry Whittaker   jerry@vistatypelp.org
 ' Version: 1.5  Date: 7/9/2021 - modified attach code to check existance for currenly attached template and messag
 ' Version: 1.4  Date: 9/17/2019 - removed code that deleted color text
 ' Version: 1.3  Date: 9/5/2019 - removed end of macro message
@@ -6993,7 +6993,7 @@ Sub Dx_Ref_Pg_Number_Sequence_Menu()
 '
 ' presents menu to locate, tag, validate reference page numbers
 '
-' Author:   Jerry Whittaker     jerry@thewhittakers.org
+' Author:   Jerry Whittaker     jerry@vistatypelp.org
 '
 ' Version: 1.0  Date: 10/19/2018
 
@@ -7013,7 +7013,7 @@ Sub Dx_File_Fix_Sequence()
 ' presents menu to format all or selecte table(s)
 '
 ' Author:   Jerry Whittaker
-'           jerry@thewhittakers.org
+'           jerry@vistatypelp.org
 
 ' Version: 1.0  Date: 6/13/2018
 '
@@ -7107,7 +7107,7 @@ Sub Dx_Compress_Linear_Math()
         '  greater than or equal (underscrored greater than)
         '  less than or equal (underscored less than)
 '
-'  Author: Jerry Whittaker   jerry@thewhittakers.org
+'  Author: Jerry Whittaker   jerry@vistatypelp.org
 '
 '  Version: 1.1  Date: 4/7/2023 - added check for BANA template
 '  Version: 1.0  Date: 9/13/2019 - Modification from LP Version
@@ -7821,7 +7821,7 @@ End Function '*** end of Dx_Is_The_Attached_Template_BANA_Braille Function ***
 Sub Dx_Replace_Multiple_Para_Marks_With_Warning()
 '
 ' Version: 1.0   Date:  2/17/2024
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
     Application.Run MacroName:="Sh_Is_Doc_Open"
        
@@ -8041,7 +8041,7 @@ Sub Lp_Remove_Box_Bullets_Bullets_and_Numbers()
 '
 ' Lp_Remove_Box_Bullets_Bullets_and_Numbers Macro
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Turns automatic numbering and bullets into nothing, removes the box bullet and the tab behind
 ' it, drops hyperlinks, underlining and colored text.
@@ -8348,7 +8348,7 @@ End Sub   '*** end of Lp_Convert_Hyperliks_To_Text macro ***
 
 Sub Lp_Italics_To_Dashed_Underline()
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
 ' Version: 1.2  Date: 2/12/2024 - removed dashed underlines from spaces and punctuation marks -
 '                                 removed ".MatchWholeWord = True" replaces with ".MatchWholeWord = False"
@@ -8616,7 +8616,7 @@ Sub Lp_Fix_Hyphen_Errors()
 '
 ' Lp_Fix_Hyphen_Errors Macro
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
 ' Date: 5/31/2016
 '
@@ -8703,7 +8703,7 @@ Sub Lp_Fix_EnDash_Errors()
 '
 ' Lp_Fix_EnDash_Errors Macro - for large print file clean-up
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
 ' Date: 5/31/2016
 
@@ -8770,7 +8770,7 @@ Sub Lp_Fix_Normal_Styles()
 
 ' Lp_Fix_Normal_Styles Macro
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Version: 2.1  Date: 2/12/2024 - added many styles from "Normal" template
 ' Version: 2.0  Date: 8/27/2021 - added "Normal Indent" and "Normal Indent 2" to Normal
@@ -9302,7 +9302,7 @@ Sub Lp_Is_Text_Selected()
 '
 ' Lp_Is_Text_Selected Macro
 
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Version 1.0
 ' Date: 2/13/2015
@@ -9322,7 +9322,7 @@ Sub Lp_Set_Page_To_Black()
 '
 ' Lp_Set_Page_To_Black Macro
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Version: 1.2  Date - 12/3/2020 - removed old code used to determine black/white status
 ' Version: 1.1  Date: 9/26/2015
@@ -9438,7 +9438,7 @@ Sub Lp_Set_Page_To_White()
 '
 ' Lp_Set_Page_To_White Macro
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Version: 1.3  Date: 1/23/2024 - added changes to black words and paragraphs
 ' Version: 1.2  Date: 12/3/2020 - removed old code to check on current black/white setting
@@ -9555,7 +9555,7 @@ Sub Lp_Convert_Auto_List_To_Text(Optional ByVal target As Range)
     ' Original title "AutoListOff2"
     ' From: Computer Tools for Editors(and Proofreaders)by Paul Beverley, LCGI
     '        http://www.archivepub.co.uk/book.html
-    ' Modified by Jerry Whittaker - jerry@thewhittakers.org
+    ' Modified by Jerry Whittaker - jerry@vistatypelp.org
     '
     ' Changes auto-bulleted, auto-numbered and auto-outline listing to plain text, takes the tab
     ' out from behind the marker, closes up the space below list items, moves the list to the
@@ -9676,7 +9676,7 @@ Sub Lp_About()
 '
 ' Lp_About Macro
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Version: 1.3  Date 12/10/2019 - added code for alternative short URL in the user form code
 ' Version: 1.2  Date: 3/16/2016
@@ -9710,7 +9710,7 @@ Sub Lp_Format_Page_Numbers()
 ' version: 2.0  Date: 11/7/2023 - added tag count
 ' Version: 1.9  Date: 5/1/2023 - added call to Sh_Remove_Empty_Para_Before_Tables
 ' Version: 1.8  Date: 2/3/2018
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
     Application.Run MacroName:="Lp_Is_Lp_Template_Attached"
 
@@ -9954,7 +9954,7 @@ Function Lp_Merge_Adjacent_Pg_Tags(ByVal targetDoc As Document) As Long
 ' merged; nothing reads it, it is there so the work can be checked from the Immediate window.
 '
 ' Version: 1.0  Date: 8/2/2026
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
     Dim runs As Collection          ' each item is itself a Collection of paragraph Ranges
     Dim thisRun As Collection
@@ -10226,7 +10226,7 @@ Sub Lp_AutoTag_Page_Numbers()
 ' Version: 2.4  Date: 7/26/2026 - returns the user to where the cursor was when the macro started
 ' Version: 2.2  Date: 4/30/2023 - complete rewrite to eliminate false tagging
 '
-'  Author: Jerry Whittaker - jerry@thewhittakers.org
+'  Author: Jerry Whittaker - jerry@vistatypelp.org
 '
 ' Locates potential reference page numbers and tags with $pg
 '
@@ -10695,7 +10695,7 @@ Sub Lp_Manual_Tag_with_Dollar_pg()
 '
 ' Version: 1.5  Date: 3/16/2017
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
     Application.Run MacroName:="Sh_Is_Doc_Open"
 
@@ -10721,7 +10721,7 @@ End Sub  '***** end of Lp_Manual_Tag_with_Dollar_pg Macro *****
 
 Sub Sh_Kill_The_Hyperlinks()
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Strips hyperlinks from the selection if there is one, and from the whole document if not.
 ' Shared by both sides.
@@ -10811,7 +10811,7 @@ Sub Lp_Fix_Para_Space_Errors()
 '
 ' Lp_Fix_Para_Space_Errors Macro
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Version: 2.0 Date: 8/12/2026 - no temporary document; every pass is scoped to a range.
 '
@@ -10934,7 +10934,7 @@ Sub Lp_Fix_Em_Dash_Space_Errors()
 '
 ' Lp_Fix_Em_Dash_Space_Errors Macro
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Date: 5/31/2016
 ' Version: 1.1
@@ -10995,7 +10995,7 @@ End Sub '***** End of Lp_Fix_Em_Dash_Space_Errors Macro *****
 '
 Sub Sh_Remove_Multi_Spaces(Optional ByVal target As Range)
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Collapses runs of spaces to one, over the selection if there is one and the whole document if
 ' there is not. Shared by both sides.
@@ -11193,7 +11193,7 @@ Sub Lp_Toggle_Page_Color()
 ' Version: 1.3  Date: 10/18/2020 - added Lp_Set_Doc_Background_Form
 ' Version: 1.0   Date: 5/18/2016
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
     Application.Run MacroName:="Sh_Is_Doc_Open"
     Application.Run MacroName:="Lp_Is_Lp_Template_Attached"
@@ -11211,7 +11211,7 @@ Sub Lp_Selected_File_CleanUp()
 ' Version: 1.1  Date: 10/19/2018 - check for selected text before showing menu
 ' Version: 1.0  Date: 5/18/2016
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 
     Application.Run MacroName:="Sh_Is_Doc_Open"
     Lp_Selected_Cleanup_Form.Show
@@ -11661,7 +11661,7 @@ End Function   '*** end of Sh_Frame_In_Range ***
 
 Sub Sh_Replace_Manual_Line_Break(Optional ByVal answer As String)
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
 ' Turns manual line breaks into paragraph marks or spaces, over the selection if there is one and
 ' the whole document if not. Shared by both sides.
@@ -11755,7 +11755,7 @@ Sub Lp_Replace_Tabs_With_Single_Space()
 '
 ' Lp_Replace_Tabs_With_Single_Space Macro
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
 ' Runs of tabs become one space, over the selection if there is one and the whole document if
 ' there is not.
@@ -11818,7 +11818,7 @@ Sub Sh_Replace_Small_Caps_With_All_Caps()
 '
 ' Sh_Replace_Small_Caps_With_All_Caps Macro
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Small caps are a look, not letters - the text underneath is still lower case, and a screen
 ' reader or a braille translator reads it as lower case. This turns the look into real capitals.
@@ -11902,7 +11902,7 @@ Sub Lp_Replace_Section_Break_With_Page_Break()
 ' Version 1.3  Date: 1/8/2019
 ' Version 1.2  Date: 11/15/2018
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
     Application.Run MacroName:="Sh_Is_Doc_Open"
     Lp_Section_Brk_Caution.Show
@@ -11917,7 +11917,7 @@ Sub Lp_Replace_Multiple_Para_Marks_With_Warning()
 ' Version: 1.7  Date: 12/27/2018
 ' Version: 1.6  Date: 2/14/2018
 
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
 
     Application.Run MacroName:="Sh_Is_Doc_Open"
@@ -12065,7 +12065,7 @@ Function Sh_Close_And_Reopen(ByVal targetDoc As Document) As Document
 '                               screen updating off, and says so when the file comes back read-only
 ' Version: 1.0  Date: 8/20/2026
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
 ' Saves a document, closes it, and opens it again from disk. Returns the reopened Document, or
 ' NOTHING if it could not be reopened - the caller's old object variable is dead the moment the
@@ -12197,7 +12197,7 @@ Sub Sh_Tidy_Panes_After_Close()
 '                               Application.TaskPanes does nothing when Word has no document open
 ' Version: 1.0  Date: 8/20/2026
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
 ' Scheduled by Sh_HandleDocumentClosing one second after a close was ATTEMPTED, and the whole
 ' point of it is that by the time it runs the attempt has been settled. Word raises
@@ -12311,7 +12311,7 @@ Sub Lp_Type_Fill_In_Line()
 '
 ' Lp_Type_Fill_In_Line Macro
 '
-' Author: Jerry Whittaker jerry@thewhittakers.org
+' Author: Jerry Whittaker jerry@vistatypelp.org
 '
 ' Version: 1.5  Date: 7/11/2025 - bug fix for blank lines on page break
 ' Version: 1.4  Date: 11/7/2023 - added Application.Run MacroName:="Sh_Is_Doc_Open" and "Lp_Is_Lp_Template_Attached"
@@ -12347,7 +12347,7 @@ Sub Lp_Format_Exercise_Lv_1_and_Lv_2()
 
 ' Lp_Format_Exercise_Lv_1_and_Lv_2 Macro
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
 ' Version: 1.7  Date: 8/23/2026 - the fill-in lines it builds are TAHOMA, like every other fill-in
 '                                 line (Jerry). It rebuilds any it finds, so without this it handed
@@ -12822,7 +12822,7 @@ Sub Lp_Format_Exercise_Lv_1_and_Lv_2()
 End Sub  '***** end of Lp_Format_Exercise_Lv_1_and_Lv_2 Macro *****
 Sub Lp_Remove_Tabs_Before_and_After_Para_Marks()
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Date: 1/23/2017
 ' Version: 1.0
@@ -12867,7 +12867,7 @@ Sub Lp_Remove_Tabs_Before_and_After_Para_Marks()
 End Sub  '***** End of Lp_Remove_Tabs_Before_and_After_Para_Marks macro ********
 Sub Lp_Remove_Tab_Plus_Space_Combos()
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Date: 1/23/2017
 ' Version: 1.0
@@ -12907,7 +12907,7 @@ Sub Lp_Remove_Tab_Plus_Space_Combos()
 End Sub   '*** end of Lp_Remove_Tab_Plus_Space_Combos macro ***
 Sub Lp_Validate_Dollar_PG()
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Version: 1.6  Date: 11/7/2023 - added count of $pg
 ' Version: 1.5  Date: 1/3/2019 - removed requirment to have LP template attached
@@ -13468,7 +13468,7 @@ End Sub
 
 Sub Lp_Horz_List_To_Vertical()
     '
-    ' Author: Jerry Whittaker -  jerry@thewhittakers.org
+    ' Author: Jerry Whittaker -  jerry@vistatypelp.org
     '
     ' Version: 1.4: Date: 8/12/2026 - the temporary document is no longer shown, so no flashing
     ' Version: 1.3: Date: 8/11/2026 - now serves BOTH ribbon tabs; Dx_Horz_List_To_Vertical and its form are gone
@@ -13556,7 +13556,7 @@ Sub Lp_Fix_Abbyy_Text_and_Headers()
 ' This macro ONLY works with Abbyy FineReader documents saved as "Formatted Text".
 ' The macro should have no effect on any other documents.
 '
-' Author: Jerry Whittaker   jerry@thewhittakers.org
+' Author: Jerry Whittaker   jerry@vistatypelp.org
 '
 ' Version:  1.6  Date: 10/20/21 - removed destructive table style code
 ' Version:  1.5  Date: 7/9/2021 - added existance check and message for LargePrintTemplate.dotx
@@ -13614,7 +13614,7 @@ Sub Lp_File_Fix_Sequence()
 ' presents menu to format all or selecte table(s)
 '
 ' Author:   Jerry Whittaker
-'           jerry@thewhittakers.org
+'           jerry@vistatypelp.org
 '
 ' Version: 1.0  Date: 5/22/2018
 '
@@ -13957,7 +13957,7 @@ Sub Lp_Type_Fill_In_Line_To_Margin()
     ' Version 1.1: Date: 1/10/2019
     ' Version 1.0: Date: 1/3/2019
     '
-    ' Author: Jerry Whittaker  jerry@thewhittakers.org
+    ' Author: Jerry Whittaker  jerry@vistatypelp.org
 
     Dim CurrentLine As Integer
     Dim NextLine As Integer
@@ -14243,7 +14243,7 @@ Sub Lp_Type_Counted_Fill_In_Lines()
     ' Version 1.1:  Date: 1/10/2019
     ' Version 1.0:  Date: 12/13/2018
     '
-    ' Author: Jerry Whittaker  jerry@thewhittakers.org
+    ' Author: Jerry Whittaker  jerry@vistatypelp.org
     
     Dim Chr_Cntr As Integer
     Dim fillBackTo As String
@@ -14495,7 +14495,7 @@ Sub Lp_Compress_Linear_Math()
         '  slashed equal sign (not equal to)
         '  double tilda - approximately equal to
 '
-'  Author: Jerry Whittaker   jerry@thewhittakers.org
+'  Author: Jerry Whittaker   jerry@vistatypelp.org
 '
 '  Version: 1.5  Date:  12/2/2019 - and 'End' after user respons to yes/no question - added length check for expression
 '  Version: 1.4  Date:  10/7/2019 - Added code to bypass shortcut key when LP Template not attached.
@@ -14663,7 +14663,7 @@ Sub Lp_Add_Para_After_Image()
     ' place a para mark following each image - following text is sometime part of the image paragraph,
     '     fixes common problem with DAISY and NIMAS Files
     '
-    '  Author: Jerry Whittaker   jerry@thewhittakers.org
+    '  Author: Jerry Whittaker   jerry@vistatypelp.org
     '  Version: 1.3  Date: 8/5/2026 - does nothing once the LP template is attached (Jerry)
     '  Version: 1.2  Date: 1/22/2026 - full rewrite
     '  Version: 1.1  Date: 4/9/2024 - complete rewrite - Much faster
@@ -14789,7 +14789,7 @@ End Sub   '*** end of Lp_Get_Doc_Setup_Params macro ***
 
 Sub Lp_Check_Compatibility()
 
-    ' Author: Jerry Whittaker - jerry@thewhittakers.org
+    ' Author: Jerry Whittaker - jerry@vistatypelp.org
     '
     ' Version: 1.3  Date: 2/22/23 - changed message text
     ' Version: 1.2  Date: 10/7/2021 - Bug fix - exiting even if compatabilty error found
@@ -16831,7 +16831,7 @@ Sub Lp_Resize_Images()
     '
     ' Lp_Resize_Images Macro
     '
-    ' Author: Jerry Whittaker - jerry@thewhittakers.org
+    ' Author: Jerry Whittaker - jerry@vistatypelp.org
     '
     ' Version: 1.5  Date: 11/18/2020 - added unload of Lp_Resize_Images_Form
     ' Version: 1.3  Date: 2/11/2019 - complete rewirte - deletion of images from tables corrected
@@ -17073,7 +17073,7 @@ End Sub   '*** end of DN_Add_PgNo_Tags_To_DAISY_or_NIMAS macro ***
 
 Sub DN_Remove_Para_Formatting_From_Text_Files()
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 ' Version 1.1  Date: 4-9-15
 '
 ' Removes paragraph marks which often appear at the end of every line
@@ -17088,7 +17088,7 @@ End Sub '***** End of DN_Remove_Para_Formatting_From_Text_Files Macro *****
 
 Sub Sh_Remove_Hyperlinks(Optional ByVal target As Range)
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Strips the blue-and-underlined look, then deletes the links themselves.
 '
@@ -19169,7 +19169,7 @@ Sub MS_Reset_Word_Configuration()
 ' pane opens or closes, no ruler appears, and the view is left alone. Jerry asked for the
 ' AutoCorrect settings and the document, and nothing else.
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Version: 1.1  Date: 8/23/2026 - all four of its messages go through Sh_Say and Sh_Ask, so they
 '                                 are 10 point Tahoma and the button says "Okay" (Jerry)
@@ -19299,7 +19299,7 @@ Sub MS_Set_Word_Config_For_New_Install()
     '
     ' MS_Set_Word_Config_For_New_Install Macro
     '
-    ' Author: Jerry Whittaker -  jerry@thewhittakers.org
+    ' Author: Jerry Whittaker -  jerry@vistatypelp.org
     '
     ' Version: 2.9  Date: 8/22/2026 - writes NO fixed setting at all, which is Jerry's rule for the ordinary
     '                                 configuration. The four that stood here come out - the spelling-checker
@@ -19469,7 +19469,7 @@ Sub MS_Set_Word_Config_For_Large_Print()
     '
     ' MS_Set_Word_Config_For_Large_Print Macro
     '
-    ' Author: Jerry Whittaker -  jerry@thewhittakers.org
+    ' Author: Jerry Whittaker -  jerry@vistatypelp.org
     '
     ' Version: 2.7  Date: 8/22/2026 - THE WHOLE AUTOCORRECT TAB, all eight boxes (Jerry). Five of them were
     '                                  dropped from all three configurations on 8/18/2026 as "identical
@@ -19728,7 +19728,7 @@ End Sub  '*** end of macro MS_Set_Word_Config_For_Large_Print ***
 Sub MS_Set_Word_Config_For_Braille()
     
     '
-    ' Author: Jerry Whittaker -  jerry@thewhittakers.org
+    ' Author: Jerry Whittaker -  jerry@vistatypelp.org
     '
     ' Version: 2.6  Date: 8/22/2026 - THE WHOLE AUTOCORRECT TAB, all eight boxes, exactly as large print -
     '                                  see its 2.7 note. And the two AutoFormat As You Type boxes braille had
@@ -19957,7 +19957,7 @@ Sub Sh_Add_Compact_Fractions()
 ' store on each one is exactly the churn that brought on Office's "restart to apply your
 ' privacy settings" notice.
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Version: 1.0  Date: 8/18/2026
 '
@@ -19987,7 +19987,7 @@ Private Sub Sh_Add_One_Compact_Fraction(ByVal fractionTyped As String, ByVal fra
 ' One entry for Sh_Add_Compact_Fractions. Reading an entry that is not there raises an
 ' error, so the read is trapped and an absent entry simply reads as empty and gets added.
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Version: 1.0  Date: 8/18/2026
 '
@@ -20511,7 +20511,7 @@ Sub Sh_Save_Transcriber_Settings()
 ' The test for that guard is on Sh_ConfiguredAs and not on who the caller is - about a dozen
 ' places run the configuration subs directly.
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Version: 3.7  Date: 8/22/2026 - 42 settings: the whole AutoCorrect tab. Five of the eight were dropped from
 '                                 all three configurations on 8/18/2026 and are book settings again
@@ -20655,7 +20655,7 @@ Sub Sh_Restore_Transcriber_Settings()
 ' Guarded writes throughout, like everything else in that sub: her value is usually already in
 ' force and Word does not need telling twice.
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Version: 3.7  Date: 8/22/2026 - 42 settings: the whole AutoCorrect tab. Five of the eight were dropped from
 '                                 all three configurations on 8/18/2026 and are book settings again
@@ -20833,7 +20833,7 @@ End Sub   '*** end of MS_SafeClearClipboard ***
 ' more inside the forms, and 20 across the three smaller modules. These two subs exist so that
 ' they can go a feature at a time, and so that nothing new has to use MsgBox again.
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Version: 1.0  Date: 8/23/2026
 '
@@ -20858,7 +20858,7 @@ End Sub   '*** end of Sh_Say ***
 ' Ask, and answer True only for Okay. Cancel, Esc and the red X all come back False - the
 ' cautious direction, and the one that matches what MsgBox ... vbOKCancel used to return.
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Version: 1.0  Date: 8/23/2026
 '
@@ -20940,7 +20940,7 @@ Function Sh_Software_Agreement_Text() As String
     s = s & "By installing, running, or otherwise using this Software you acknowledge these " _
           & "terms." & vbCrLf & vbCrLf
 
-    s = s & ChrW(169) & " 2015-2026 Jerry Whittaker  -  jerry@thewhittakers.org"
+    s = s & ChrW(169) & " 2015-2026 Jerry Whittaker  -  jerry@vistatypelp.org"
 
     Sh_Software_Agreement_Text = s
 
@@ -21158,7 +21158,7 @@ Sub Sh_Para_Before_Dollar()
 ' DAISY files often do not have page number is in
 '  paragraphs of their own
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
     Dim su_Prev As Boolean
     su_Prev = Application.ScreenUpdating
@@ -21469,7 +21469,7 @@ Sub Sh_Text_Frame_Warning_To_Red(Optional ByVal target As Range)
 '
 ' Sh_Text_Frame_Warning_To_Red Macro
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Colors the markers Remove_Txt_Bxs_And_Frames leaves behind, so rescued text is easy to find.
 '
@@ -21519,7 +21519,7 @@ Sub Sh_Remove_Spaces_Before_Punctuation()
 ' Version 1.1 Date: 9/21/2019  added additional punctuation
 ' Version 1.0
 '
-' Author: Jerry Whittaker jerry@thewhittakers.org
+' Author: Jerry Whittaker jerry@vistatypelp.org
 '
 ' Date 11/2/16
 '
@@ -21828,7 +21828,7 @@ Sub Sh_Save_User_Position()
 '
 ' Version: 1.0  Date: 7/26/2026
 '
-' Author: Jerry Whittaker jerry@thewhittakers.org
+' Author: Jerry Whittaker jerry@vistatypelp.org
 '
     On Error Resume Next
 
@@ -21855,7 +21855,7 @@ Sub Sh_Set_Return_Position(ByVal NewPos As Long)
 '
 ' Version: 1.0  Date: 7/26/2026
 '
-' Author: Jerry Whittaker jerry@thewhittakers.org
+' Author: Jerry Whittaker jerry@vistatypelp.org
 '
     On Error Resume Next
 
@@ -21883,7 +21883,7 @@ Sub Sh_Return_User_To_Start_Position()
 ' Version: 1.1  Date: 7/26/2026 - added Application.ScreenRefresh; without it the insertion point moved but was never drawn, so the user saw no cursor
 ' Version: 1.0  Date: 7/26/2026
 '
-' Author: Jerry Whittaker jerry@thewhittakers.org
+' Author: Jerry Whittaker jerry@vistatypelp.org
 '
     Dim Return_Pos As Long
 
@@ -21920,7 +21920,7 @@ Sub Sh_Is_End_Paragraph_Mark_Included()
 '
 ' Validates existance of para mark at end of selected text
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 
 '
 ' Version: 1.1  Date: 12/18/20203 - fixed bug when only para marks are included
@@ -21969,7 +21969,7 @@ Sub Sh_Remove_DollarPG_For_Retag()
     '
     ' Application.Run MacroName:="Sh_Remove_DollarPG_For_Retag"
     '
-    ' Author: Jerry Whittaker - jerry@thewhittakers.org
+    ' Author: Jerry Whittaker - jerry@vistatypelp.org
 
     Dim strTemp As String
  
@@ -22029,7 +22029,7 @@ Sub Sh_Sort_Ascending()
 '
 ' Version: 1.0  Date: 9/27/2018
 '
-' Author: Jerry Whittaker  jerry@thewhittakers.org
+' Author: Jerry Whittaker  jerry@vistatypelp.org
 
     Selection.Sort ExcludeHeader:=False, FieldNumber:="Paragraphs", _
         SortFieldType:=wdSortFieldAlphanumeric, SortOrder:=wdSortOrderAscending, _
@@ -22097,7 +22097,7 @@ Sub Sh_Keep_Cursor_In_View()
 '
 ' Version: 1.0  Date: 7/27/2026
 '
-' Author: Jerry Whittaker jerry@thewhittakers.org
+' Author: Jerry Whittaker jerry@vistatypelp.org
 '
     On Error Resume Next
 
@@ -22250,7 +22250,7 @@ Sub Sh_Clear_Multi_Selection()
 '
 ' Version: 1.0  Date: 8/5/2026
 '
-' Author: Jerry Whittaker - jerry@thewhittakers.org
+' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
 ' Collapses the selection to ONE insertion point at its start.
 '

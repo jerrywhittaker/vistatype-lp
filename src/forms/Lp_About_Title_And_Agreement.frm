@@ -14,7 +14,7 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
-'Author: Jerry Whittaker -  jerry@thewhittakers.org
+'Author: Jerry Whittaker -  jerry@vistatypelp.org
  
 ' Version: 1.5  Date: 8/2/2026 - old permissive agreement replaced by the GPLv3 summary (Sh_Software_Agreement_Text) in a scrollable box, plus a View Full License button
 ' Version: 1.4  Date: 7/24/2026 - VersionLabel caption bumped 3.0.5 -> 3.0.6 (caption lives in the .frx)

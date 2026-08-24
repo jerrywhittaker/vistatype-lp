@@ -113,4 +113,4 @@ can't build (no Word), say so in your PR so a maintainer runs this pass.
 Open a **GitHub issue** with: what you did, what you expected, what happened, and your
 Word version. For large-print/braille output problems, a small sample document helps a lot.
 
-Questions or sensitive reports can also go to **jerry@thewhittakers.org**.
+Questions or sensitive reports can also go to **jerry@vistatypelp.org**.

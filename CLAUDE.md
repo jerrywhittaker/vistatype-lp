@@ -2,7 +2,7 @@
 
 A Microsoft Word add-in that helps transcribers produce **large-print** documents for
 visually impaired readers, and **braille** source files for the Duxbury Braille Translator
-(DBT) via its BANA template. Authored by Jerry Whittaker (jerry@thewhittakers.org),
+(DBT) via its BANA template. Authored by Jerry Whittaker (jerry@vistatypelp.org),
 copyright 2015–2026.
 
 The repo keeps the **text source of truth** under `src/` and treats the binary Office
@@ -307,7 +307,20 @@ assets/branding/  vistatype-icon.png + vistatype-wordmark.png — Jerry's artwor
                 deleted one really goes, whereas assets/ is never wiped there. README.md records
                 what is made, the four constants that move the welcome panel about, and why the
                 installer has an icon at all.
-installer/      vistatype.iss is the product installer. vistatype-font-only.iss beside it is a
+installer/      vistatype.iss is the product installer. From 8/24/2026 its [Code] carries a SECOND
+                font sweep beside RemoveLegacyLegibleFont: RemoveSupersededSansFaces deletes any
+                VistaTypeLPSans-*.ttf in the per-user Fonts folder that is not one of the four
+                canonical filenames. A stray one still says "VistaTypeLP Sans" inside, so
+                right-clicking it > Install repoints the family at it - measured on the build box,
+                one held 3,094 characters against the shipping 6,450, three of fourteen math
+                operators, no arrows, no italic. It runs at ssPostInstall ONLY, and the order is the
+                thing that can go wrong: the four FontInstall entries must have rewritten the
+                registrations to the canonical paths first, or deleting a stray the family currently
+                points at would break the typeface. Unregister first, delete second; match registry
+                values by DATA not name; the four filenames are the whitelist and the guard. NOT
+                called at uninstall - the faces stay there by design. The hand-install path in the
+                font .zip is the likeliest source of a stray; that mechanism was NOT reproduced
+                (the shell Install verb does nothing over SSH with no desktop), so it is inferred. vistatype-font-only.iss beside it is a
                 STANDALONE installer for the typeface and nothing else, built by hand with
                 `make font-installer` when a tester needs the font without the add-in (added
                 8/23/2026). It needs NO administrative rights - PrivilegesRequired=lowest, so

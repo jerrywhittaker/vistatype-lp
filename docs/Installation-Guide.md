@@ -263,7 +263,7 @@ ribbon; otherwise contact us (below) so we don’t remove your customizations. R
   block macros or require add-ins to be digitally signed, and these override the
   installer. Contact your IT department, or reach out for help below.
 
-**Need help?** Email **jerry@thewhittakers.org**.
+**Need help?** Email **jerry@vistatypelp.org**.
 
 ---
 

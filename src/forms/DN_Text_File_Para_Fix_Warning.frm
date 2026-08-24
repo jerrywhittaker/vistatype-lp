@@ -21,7 +21,7 @@ End Sub
 
 Private Sub ContinueButton_Click()
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Date: 2/3/2018
 ' Version: 1.3

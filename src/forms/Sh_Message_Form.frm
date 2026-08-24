@@ -35,7 +35,7 @@ Attribute VB_Exposed = False
 ' because a hidden form can still be asked what was pressed. The red X does the same through
 ' UserForm_QueryClose, which is why that handler cancels the close instead of allowing it.
 '
-' Author: Jerry Whittaker -  jerry@thewhittakers.org
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Version: 1.0  Date: 8/23/2026
 
