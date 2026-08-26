@@ -18,6 +18,23 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Sh - 8/26/2026 - BOTH AutoTag Ref Pages MACROS STOPPED SWALLOWING THEIR OWN ERRORS.
+'           - Sh - 8/26/2026 - Lp_AutoTag_Page_Numbers and Dx_AutoTag_Page_Numbers each set On Error
+'           - Sh - 8/26/2026 - Resume Next inside the roman-numeral loop - "prevents crash in a table",
+'           - Sh - 8/26/2026 - and right for the short block it was written for - and neither turned it
+'           - Sh - 8/26/2026 - off. It therefore covered the whole rest of each macro: 339 lines in the
+'           - Sh - 8/26/2026 - LP one, 96 in the braille one. That tail is where it was expensive. It
+'           - Sh - 8/26/2026 - holds the $pg colouring pass, the paragraph mark taken off the top of the
+'           - Sh - 8/26/2026 - file, the screen-updating restore, and the loop that counts the tags -
+'           - Sh - 8/26/2026 - and a count that FAILED reported "There are no tagged page numbers in
+'           - Sh - 8/26/2026 - this document", which reads as a correct answer rather than a fault.
+'           - Sh - 8/26/2026 - Ended after the LoopEnd: label in both, which is the only placing that
+'           - Sh - 8/26/2026 - runs on every path: there are GoTo LoopEnd jumps earlier in each loop
+'           - Sh - 8/26/2026 - that would skip an On Error GoTo 0 put at the end of the If block.
+'           - Sh - 8/26/2026 - EXPECT THINGS TO SPEAK UP that have been silent for years, in the pass
+'           - Sh - 8/26/2026 - that has cost Jerry a run before. That is the point, and it is now
+'           - Sh - 8/26/2026 - reported through Sh_Report_Error rather than lost.
+'
 ' Notes:    - Lp - 8/26/2026 - Lp_Attach_The_Template STOPPED SWALLOWING ITS OWN ERRORS. Version 1.8 put an
 '           - Lp - 8/26/2026 - On Error Resume Next around the line that sets portrait orientation on 10/24/2023,
 '           - Lp - 8/26/2026 - because it raises when the first item in the document is a drop cap. It never ended
@@ -4028,6 +4045,11 @@ End Sub   '***** End of Dx_Spelling_List Macro *****
 
 Sub Dx_AutoTag_Page_Numbers()
 '
+' Version: 2.9 Date: 8/26/2026 - ended the On Error Resume Next set inside the roman-numeral loop.
+'                                It was never turned off, so it stayed in force for the remaining 96
+'                                lines - the $pg colouring, the paragraph mark taken off the top of the
+'                                file, and the loop that counts the tags. A count that failed said
+'                                "There are no tagged page numbers in this document"
 ' Version: 2.8 Date: 8/5/2026 - consolidates back-to-back reference page numbers into one range, between the strip and the tagging
 ' Version: 2.7 Date: 8/5/2026 - the three passes that strip an EARLIER tagging no longer die with run-time error 5941 when the document has no RefPageNumber or RefPageNemeth style; same guard on the DBT code restore at the end
 ' Version: 2.6 Date: 8/2/2026 - the ten "^013(...)^013" passes now repeat until nothing is left to replace (Sh_Replace_All_Until_Done); a single Execute tagged only alternate numbers when two page numbers sat in consecutive paragraphs
@@ -4702,6 +4724,17 @@ Sub Dx_AutoTag_Page_Numbers()
             End If
         End If
 LoopEnd:
+    ' ENDS THE GUARD SET INSIDE THIS LOOP. The On Error Resume Next above carries the comment
+    ' "prevents crash in a table" and is meant for the roman-numeral test and the InsertBefore
+    ' beside it - one short block. It was never turned off, so it stayed in force for the whole
+    ' rest of this macro, where a silent failure is expensive: the $pg colouring pass, the
+    ' paragraph mark taken off the top of the file, the screen-updating restore and the loop
+    ' that counts the tags all ran with every error discarded. A count that failed reports
+    ' "There are no tagged page numbers in this document" and looks like a correct answer.
+    '
+    ' HERE, and not at the end of the If block above: there are GoTo LoopEnd jumps earlier in
+    ' the loop that would skip it. After the label it runs on every path out of every pass.
+    On Error GoTo 0
     Next
     '********** end tag roman numerals ***************
 '------------------------------------------------------------------------------------
@@ -10259,6 +10292,9 @@ End Function   '*** end of Lp_Is_Hyphen_Char function ***
 
 Sub Lp_AutoTag_Page_Numbers()
 '
+' Version: 2.6  Date: 8/26/2026 - ended the On Error Resume Next set inside the roman-numeral loop.
+'                                It was never turned off, so it stayed in force for the remaining 339
+'                                lines of this macro and every failure in them was discarded silently
 ' Version: 2.5  Date: 8/2/2026 - the twelve "^013(...)^013" passes now repeat until nothing is left to replace (Sh_Replace_All_Until_Done); a single Execute tagged only alternate numbers when two page numbers sat in consecutive paragraphs
 ' Version: 2.4  Date: 7/26/2026 - returns the user to where the cursor was when the macro started
 ' Version: 2.2  Date: 4/30/2023 - complete rewrite to eliminate false tagging
@@ -10391,6 +10427,17 @@ Sub Lp_AutoTag_Page_Numbers()
             End If
         End If
 LoopEnd:
+    ' ENDS THE GUARD SET INSIDE THIS LOOP. The On Error Resume Next above carries the comment
+    ' "prevents crash in a table" and is meant for the roman-numeral test and the InsertBefore
+    ' beside it - one short block. It was never turned off, so it stayed in force for the whole
+    ' rest of this macro, where a silent failure is expensive: the $pg colouring pass, the
+    ' paragraph mark taken off the top of the file, the screen-updating restore and the loop
+    ' that counts the tags all ran with every error discarded. A count that failed reports
+    ' "There are no tagged page numbers in this document" and looks like a correct answer.
+    '
+    ' HERE, and not at the end of the If block above: there are GoTo LoopEnd jumps earlier in
+    ' the loop that would skip it. After the label it runs on every path out of every pass.
+    On Error GoTo 0
     Next
     '*************** end tagging Tagging Roman Numerals ***********************
 
