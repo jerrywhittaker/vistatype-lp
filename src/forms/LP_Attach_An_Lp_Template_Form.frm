@@ -17,6 +17,13 @@ Attribute VB_Exposed = False
 
 ' LP_Attach_An_Lp_Template_Form
 '
+' Version: 6.5  Date: 8/26/2026 - took out the eighteen Hold_WidthValue = PPW / Hold_HeightValue
+'                                = PPH lines, two in each of the nine media buttons. They existed
+'                                so that the revert fired by clearing CustomizeCheckBox part-way
+'                                down a media button would hand back the width and height it had
+'                                just assigned - half of the 4.4 plaster. 6.3 moved that clearing
+'                                line to the front of every media button, after which nothing the
+'                                revert writes survives and these were dead. No behavior change
 ' Version: 6.4  Date: 8/26/2026 - a TABLET could reach Word with its width and height
 '                                transposed, which set every page of the book to the wrong size.
 '                                Both orientation handlers arranged the two size boxes by testing
@@ -113,6 +120,11 @@ Dim Hold_Orientation As String
 ' force when Customize was last ticked, which is a different thing entirely and is what made the
 ' two orientation handlers transpose a tablet's width and height. See them for the rest.
 Dim Media_Orientation As String
+' Written in ONE place - CustomizeCheckBox_Click, as Customize is ticked - and read in one, the
+' revert when it is unticked. Every media button used to set them too, so that the revert its own
+' opening line fires would hand back what it had just assigned; with that line moved to the front
+' of the sub nothing the revert writes survives, and those eighteen assignments were dead. Removed
+' 8/26/2026. Keep it that way: a media button writing here again would be the old plaster back.
 Dim Hold_HeightValue As String
 Dim Hold_WidthValue As String
 Dim Hold_LMarginSizeValue As String
@@ -592,8 +604,6 @@ Private Sub MarginHalfInch_Click()
     PPH = "11"
     PPO = "P"
     Media_Orientation = PPO
-    Hold_WidthValue = PPW
-    Hold_HeightValue = PPH
     IsPaper = True
     DocPicPortrait.Visible = True
     DocPicLandscape.Visible = False
@@ -620,8 +630,6 @@ Private Sub MarginTheeFourthsInch_Click()
     PPH = "11"
     PPO = "P"
     Media_Orientation = PPO
-    Hold_WidthValue = PPW
-    Hold_HeightValue = PPH
     IsPaper = True
     DocPicPortrait.Visible = True
     DocPicLandscape.Visible = False
@@ -648,8 +656,6 @@ Private Sub MarginOneInch_Click()
     PPH = "11"
     PPO = "P"
     Media_Orientation = PPO
-    Hold_WidthValue = PPW
-    Hold_HeightValue = PPH
     IsPaper = True
     DocPicPortrait.Visible = True
     DocPicLandscape.Visible = False
@@ -677,8 +683,6 @@ Private Sub Nine_Point_Seven_Tablet_Click()
     PPH = "5.82"
     PPO = "L"
     Media_Orientation = PPO
-    Hold_WidthValue = PPW
-    Hold_HeightValue = PPH
     IsPaper = False
     DocPicPortrait.Visible = False
     DocPicLandscape.Visible = False
@@ -711,8 +715,6 @@ Private Sub Ten_Point_One_Tablet_Click()
     PPH = "5.33"
     PPO = "L"
     Media_Orientation = PPO
-    Hold_WidthValue = PPW
-    Hold_HeightValue = PPH
     IsPaper = False
     DocPicPortrait.Visible = False
     DocPicLandscape.Visible = False
@@ -745,8 +747,6 @@ Private Sub Ten_Point_Two_Tablet_Click()
     PPH = "6.14"
     PPO = "L"
     Media_Orientation = PPO
-    Hold_WidthValue = PPW
-    Hold_HeightValue = PPH
     IsPaper = False
     DocPicPortrait.Visible = False
     DocPicLandscape.Visible = False
@@ -779,8 +779,6 @@ Private Sub Ten_Point_Five_Tablet_Click()
     PPH = "6.32"
     PPO = "L"
     Media_Orientation = PPO
-    Hold_WidthValue = PPW
-    Hold_HeightValue = PPH
     IsPaper = False
     DocPicPortrait.Visible = False
     DocPicLandscape.Visible = False
@@ -813,8 +811,6 @@ Private Sub Eleven_Point_Zero_Tablet_Click()
     PPH = "6.3"
     PPO = "L"
     Media_Orientation = PPO
-    Hold_WidthValue = PPW
-    Hold_HeightValue = PPH
     IsPaper = False
     DocPicPortrait.Visible = False
     DocPicLandscape.Visible = False
@@ -848,8 +844,6 @@ Private Sub Twelve_Point_Nine_Tablet_Click()
     PPO = "P"
     Media_Orientation = PPO
     
-    Hold_WidthValue = PPW
-    Hold_HeightValue = PPH
     
     IsPaper = False
     DocPicPortrait.Visible = False
