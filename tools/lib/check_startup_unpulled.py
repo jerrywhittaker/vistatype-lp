@@ -16,7 +16,13 @@ built, and `make try` stops when they disagree.
 BY CONTENT, not by date. The obvious test -- "is the STARTUP copy newer than the last build?" --
 cries wolf every time a real Setup.exe is installed, because installing rewrites the file and its
 date with no edit involved. The installer ships the same bytes `make try` copies, so a hash gives
-the right answer in both cases and needs no state file to compare against.
+the right answer in both cases.
+
+TWO hashes are acceptable, not one, and the second was learned the hard way: `make installer`
+rebuilds dist/ WITHOUT touching the STARTUP folder, so from that moment the two legitimately
+differ and every later `make try` was stopped. `make try` therefore records what it actually put
+there (dist/.startup-hash, --stamp), and either answer passes. A form edited in the VBA editor
+matches neither.
 
 Word LOCKS that file while it is open, so it cannot be hashed then. That is not a problem for
 `make try`, which needs Word closed anyway -- this just says so before the build rather than
@@ -37,6 +43,9 @@ from pathlib import Path
 # Matches DOTM in the Makefile. Nothing derives it -- both name the shipping add-in.
 DOTM = "LPandBRL.dotm"
 BUILT = Path("dist") / DOTM
+# What `make try` last copied INTO the STARTUP folder. dist/ is gitignored, so this is per
+# machine and never travels. See main() for why one hash is not enough.
+STAMP = Path("dist") / ".startup-hash"
 
 
 def die(msg):
@@ -92,8 +101,19 @@ def on_the_box(host):
 
 def main():
     warn_only = "--warn-only" in sys.argv[1:]
+    stamping = "--stamp" in sys.argv[1:]
     host = read_host()
     box = on_the_box(host)
+
+    if stamping:
+        # Called by `make try` straight after it copies the add-in into the STARTUP folder, to
+        # record what it put there. Never fatal: a missed stamp costs a false stop later, not a
+        # broken build.
+        h = box.get("HASH", "")
+        if h and h != "LOCKED":
+            STAMP.parent.mkdir(parents=True, exist_ok=True)
+            STAMP.write_text(h.lower() + "\n")
+        return 0
 
     if box.get("ABSENT"):
         # Nothing there to lose: a box that has never had the add-in installed or tried.
@@ -114,8 +134,22 @@ def main():
         print("  NOTE: no %s yet, so an unpulled form edit cannot be detected this once." % BUILT)
         return 0
 
-    ours = hashlib.sha256(BUILT.read_bytes()).hexdigest()
-    if ours == box.get("HASH", "").lower():
+    theirs = box.get("HASH", "").lower()
+
+    # TWO acceptable answers, not one, or this cries wolf on an ordinary day.
+    #
+    #   dist/LPandBRL.dotm -- what this repo last built. Matches after `make try` copies it, and
+    #                         after the user installs a Setup.exe, which lays down the same bytes.
+    #   dist/.startup-hash -- what `make try` last actually PUT there. Needed because
+    #                         `make installer` rebuilds dist/ WITHOUT touching the STARTUP folder,
+    #                         so from then on the two legitimately differ and comparing only
+    #                         against dist/ stopped every later `make try`. Seen 8/26/2026, on the
+    #                         first installer built after this guard existed.
+    #
+    # A form edited in the VBA editor matches NEITHER, which is the whole point.
+    if theirs and theirs == hashlib.sha256(BUILT.read_bytes()).hexdigest():
+        return 0
+    if STAMP.is_file() and theirs and theirs == STAMP.read_text().strip().lower():
         return 0
 
     if os.environ.get("ALLOW_STARTUP_OVERWRITE", "").strip():

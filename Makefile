@@ -253,6 +253,9 @@ try-build: check-config build
 	@# has already cleared them during the build this target depends on.
 	scp -q dist/$(DOTM) "$(WIN_HOST):$(WIN_DIR)/dist/startup-staged.dotm"
 	$(SSH) '$(WIN_PWSH) -NoProfile -Command "Copy-Item \"$(WIN_DIR)/dist/startup-staged.dotm\" \"$$env:APPDATA\\Microsoft\\Word\\STARTUP\\$(DOTM)\" -Force; Remove-Item \"$(WIN_DIR)/dist/startup-staged.dotm\" -Force -ErrorAction SilentlyContinue"'
+	@# Record what was just put there, so the next run can tell "the installer moved dist/ on"
+	@# from "a form was edited on the box". See the script.
+	@python3 tools/lib/check_startup_unpulled.py --stamp
 	@echo ""
 	@echo "$(DOTM) $(APPVER) is now in Word's STARTUP folder on $(WIN_HOST). Open Word there and test."
 	@python3 tools/lib/check_try_scope.py
