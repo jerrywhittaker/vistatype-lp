@@ -261,6 +261,18 @@ tools/lib/      check_style_guards.py (refuses to build when an ActiveDocument.S
                 reach the transcriber as "Compile error in hidden module: <name>" with no line number
                 and nothing naming the cause. Cost a build on 8/18/2026 - three Private Const lines for
                 the settings store. Covers .bas, .cls and the code section of .frm);
+                check_startup_unpulled.py (refuses to run `make try` when the add-in in Word's STARTUP
+                folder on the build box is not the one this repo last built. That is what a UserForm
+                LAYOUT edit looks like - Jerry makes those in the VBA editor against that one file,
+                because a .frx cannot be written from Linux - and the copy at the end of `make try`
+                goes straight over it: the build SUCCEEDS, says nothing, and the dialog quietly goes
+                back to how it looked. Compares by CONTENT, not by date, because installing a real
+                Setup.exe rewrites that file and its date with no edit involved and a date test would
+                cry wolf every time. Runs BEFORE the bump so a stop costs no version number, and it
+                also refuses while Word is open, which `make try` needs anyway - two minutes earlier
+                than the check that used to catch it. `make installer` runs it --warn-only: it does
+                not care whether Word is running, so a locked file is reported rather than fatal.
+                ALLOW_STARTUP_OVERWRITE=1 goes ahead anyway. Added 8/26/2026 at Jerry's request);
                 decompress_vba.py (reader); officeui_to_customui.py + inject_customui.py (ribbon);
                 inject_keymap.py (keyboard shortcuts -> .dotx/.dotm); build_ribbon_tabs.py
                 (ribbon tabs -> installer/ribbon-tabs.officeUI, plus the shipped-button-id
@@ -376,7 +388,8 @@ Makefile        pull / build / ribbon / qat / read / fonts / try / deploy / bran
                  came back on 8/22/2026 building the new one)
                 (`make try` bumps, builds, and puts the new .dotm straight into Word's STARTUP
                  folder on the build box - no installer, no wizard. Added 8/23/2026 at Jerry's
-                 request to shorten the code-test loop; see *Testing a change* below)
+                 request to shorten the code-test loop; see *Testing a change* below. It stops
+                 first on an unpulled form edit - tools/lib/check_startup_unpulled.py above)
                 (see DEVELOPMENT.md)
 ```
 
@@ -605,6 +618,19 @@ gets a `Setup.exe`, which is what a private build counter is for.
 
 **Word must be closed on the build box.** `make try` checks by process name and stops if it is
 not — a stray automation Word from a headless test run counts and is invisible on the desktop.
+That check now runs **before** the bump and the build (`tools/lib/check_startup_unpulled.py`), so
+an open Word costs a second rather than two minutes and a version number.
+
+**It also refuses to overwrite a form edit that has not been pulled into `src/` yet.** Jerry
+edits a UserForm's LAYOUT in the VBA editor against the add-in in Word's STARTUP folder on the
+box — a `.frx` is binary and cannot be written from Linux — and that edit lives in that ONE file
+until it is exported back into `src/forms/`. The copy at the end of `make try` went straight over
+it: the build succeeded, nothing was reported, and the dialog quietly went back to how it looked
+before. Nothing detected that until 8/26/2026, when Jerry asked what stops it. The guard compares
+by **content**, not by date, so installing a real `Setup.exe` does not read as an edit.
+`ALLOW_STARTUP_OVERWRITE=1 make try` goes ahead anyway. **Claude's duty when it fires:** pull the
+form out of the box's copy first — never `make pull`, which wipes `src/` from the repo-root
+`.dotm`; see `docs`/memory on the export-and-cherry-pick round trip.
 
 **What `make try` cannot test, and these need `make installer`:**
 

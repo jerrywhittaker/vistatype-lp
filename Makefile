@@ -18,6 +18,8 @@
 #   make try     Bump, build, and put the new add-in straight into Word's STARTUP folder on
 #                the build box - no installer, no wizard. The fastest loop for VBA and dialog
 #                work: change code, `make try`, open Word. Word must be CLOSED on the box.
+#                Stops FIRST if a form was hand-edited on the box and not pulled into src/ yet,
+#                because the copy at the end would silently go over it.
 #                Says afterwards what it cannot test, and when a real installer is needed.
 #   make deploy  Promote dist/LPandBRL.dotm (embedded ribbon) to the repo root.
 #   make branding  Regenerate the installer's icon and wizard artwork (installer/branding/)
@@ -107,6 +109,24 @@ check-frm-eol:
 # reason turned up. Two seconds to check.
 check-vba-lines:
 	@python3 tools/lib/check_vba_line_length.py
+
+# A UserForm's LAYOUT is edited by hand in the VBA editor, against the add-in Word actually
+# loads on the build box - a .frx is binary and cannot be written from Linux. That edit lives in
+# that ONE file until it is exported back into src/forms/, and the copy at the end of `make try`
+# goes straight over it. The build then SUCCEEDS, says nothing, and the dialog quietly goes back
+# to how it looked before; Word does not complain either, since the file it loads is merely
+# newer. Nothing detected that until 8/26/2026, when Jerry asked what stops it.
+#
+# Compares by CONTENT, not by date: installing a real Setup.exe rewrites that file and its date
+# with no edit involved, and a date test would cry wolf every time. Runs BEFORE the bump so a
+# stop costs no version number. The strict form also refuses while Word is open, which `make try`
+# needs anyway - saying so here saves a two-minute build. The soft form only warns about that,
+# for `make installer`, which does not care whether Word is running.
+check-startup-unpulled:
+	@python3 tools/lib/check_startup_unpulled.py
+
+check-startup-unpulled-soft:
+	@python3 tools/lib/check_startup_unpulled.py --warn-only
 
 # The toolbar's idQ="x1:btn_*" entries resolve against the hidden tab in customUI14.xml.
 # If they drift apart the buttons render blank on the user's machine and nothing warns you,
@@ -210,7 +230,7 @@ read:
 # then builds in the same run stamps the OLD number into the About dialogs and announces the old
 # number too. Caught by running it: the file said 3.0.243 and the build said 3.0.242. The sub-make
 # re-reads the Makefile and picks up what bump just wrote.
-try:
+try: check-startup-unpulled
 	@$(MAKE) --no-print-directory bump
 	@$(MAKE) --no-print-directory try-build
 
@@ -311,7 +331,7 @@ bump: check-config
 	 echo "version $$cur -> $$new (Makefile + vistatype.iss; both About dialogs stamped during the build)"
 
 # make installer bumps, then re-enters make so the recipe below sees the NEW APPVER.
-installer:
+installer: check-startup-unpulled-soft
 	@$(MAKE) --no-print-directory bump
 	@$(MAKE) --no-print-directory installer-build
 
@@ -367,4 +387,4 @@ scan:
 clean:
 	rm -rf dist build
 
-.PHONY: help check-config push-src pull build ribbon qat check-qat check-tabs check-frm-eol check-vba-lines read try try-build deploy stage branding check-branding bump font-installer installer installer-build scan clean
+.PHONY: help check-config push-src pull build ribbon qat check-qat check-tabs check-frm-eol check-vba-lines read try try-build check-startup-unpulled check-startup-unpulled-soft deploy stage branding check-branding bump font-installer installer installer-build scan clean
