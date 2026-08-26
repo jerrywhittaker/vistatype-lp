@@ -47,6 +47,39 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - Lp - 8/26/2026 - that used to pass unseen now stops the attach and names itself, which is the point,
 '           - Lp - 8/26/2026 - but it is the change to watch for after this build.
 '
+' Notes:    - Sh - 8/26/2026 - LOCATE SEARCHES THE VISIBLE RUN ONLY, because DUXBURY CODES ARE HIDDEN
+'           - Sh - 8/26/2026 - TEXT (Jerry). A braille entry is a page number followed by such a code.
+'           - Sh - 8/26/2026 - Range.Text hands hidden characters over whether or not they are on
+'           - Sh - 8/26/2026 - screen, so Locate was searching for something the reader cannot see -
+'           - Sh - 8/26/2026 - and it failed, as does Word's own Navigation pane on the same text.
+'           - Sh - 8/26/2026 - Sh_PgVal_TextOfCurrentTag now stops at the first hidden character.
+'           - Sh - 8/26/2026 - STOPPING, rather than collecting the visible characters and skipping
+'           - Sh - 8/26/2026 - the hidden ones, is the point: what is searched for has to be
+'           - Sh - 8/26/2026 - CONTIGUOUS in the document. "$pg12" followed by a hidden code is a
+'           - Sh - 8/26/2026 - real prefix of that paragraph; "$pg12" stitched across a hidden gap
+'           - Sh - 8/26/2026 - is not, and Find would never match it.
+'           - Sh - 8/26/2026 - IT ALSO SIDESTEPS A QUESTION NOT WORTH DEPENDING ON: whether Word's
+'           - Sh - 8/26/2026 - Find matches hidden text at all varies with whether the window is
+'           - Sh - 8/26/2026 - showing it, which is a display setting the user can change.
+'           - Sh - 8/26/2026 - THE KNOWN LIMIT MOVES WITH IT: two tags whose VISIBLE prefixes match
+'           - Sh - 8/26/2026 - cannot be told apart, and Locate lands on the first. On the braille
+'           - Sh - 8/26/2026 - side that prefix can be as short as "$pg12".
+'
+' Notes:    - Sh - 8/26/2026 - THE VALIDATION LIST IS ONE COLUMN NOW, AND THE CUT IS 40 CHARACTERS
+'           - Sh - 8/26/2026 - (Jerry). It supersedes the 23 in the note below, which was chosen to fit
+'           - Sh - 8/26/2026 - a narrow column. The temp document was laid out in TWO columns for
+'           - Sh - 8/26/2026 - braille and THREE for large print, and that was doing two things wrong.
+'           - Sh - 8/26/2026 - On the braille side an entry is a page number followed by a Duxbury code
+'           - Sh - 8/26/2026 - - the longest 37 characters - so every one of them was truncated. And
+'           - Sh - 8/26/2026 - the columns made the list read wrongly: five entries appeared on what
+'           - Sh - 8/26/2026 - looked like ONE line, and only turning paragraph marks on revealed that
+'           - Sh - 8/26/2026 - they were five separate paragraphs. A list meant to be read as a column
+'           - Sh - 8/26/2026 - of page numbers must not be laid out in columns of its own.
+'           - Sh - 8/26/2026 - APPLIED TO BOTH SIDES, not braille alone: SH_PGVAL_LINE_MAX is one
+'           - Sh - 8/26/2026 - constant and the temp document is built by one macro. Forty characters
+'           - Sh - 8/26/2026 - would not fit the three large print columns either, so the two changes
+'           - Sh - 8/26/2026 - go together. Splitting them per side is possible if it is ever wanted.
+'
 ' Notes:    - Sh - 8/23/2026 - THE VALIDATION LIST SHOWS 23 CHARACTERS AND THEN "..." (Jerry). A tag on a paragraph of
 '           - Sh - 8/23/2026 - its own is five or six characters and comes through whole; a tag on a paragraph that
 '           - Sh - 8/23/2026 - carries a heading as well used to drag the whole heading in, and the list is meant to be
@@ -1136,7 +1169,7 @@ Public Sh_GP_Counter_1 As Integer
 ' takes the line the cursor is on and Locate hunts for that text in the book - with "..." on the
 ' end it would never be found, because the book does not contain it. Both halves are here so they
 ' cannot drift apart.
-Public Const SH_PGVAL_LINE_MAX As Long = 23
+Public Const SH_PGVAL_LINE_MAX As Long = 40   ' was 23, when the list was in columns
 Public Const SH_PGVAL_ELLIPSIS As String = "..."
 
 Public Sh_Msg_Body As String            ' the message
@@ -22684,6 +22717,7 @@ End Sub   '*** end of Sh_Clear_Multi_Selection macro ***
 '                                 telling the user to Alt+Tab (see ShNonModalMessage)
 ' Version: 1.2  Date: 11/10/2025 - added "DoEvents" before and after "Selection.Paste" to avoid crash when MathType MathPage.wll is corrupt
 ' Version: 1.1  Date: 2/18/2024 - code to set word configuration added
+' Version: 1.1  Date: 8/26/2026 - the list is ONE column, not two for braille and three for LP
 ' Version: 1.0  Date: 2/16/2024
 '
 Sub Sh_Copy_Ref_Pg_Tags_To_Temp_File()
@@ -22704,16 +22738,26 @@ Sub Sh_Copy_Ref_Pg_Tags_To_Temp_File()
 
     Set tmpDoc = Documents.Add
     
-    With tmpDoc.PageSetup.TextColumns
-        If MsgBoxLabel = "Braille Macros" Then
-            Application.Run MacroName:="MS_Set_Word_Config_For_Braille"
-            .SetCount NumColumns:=2 'Braille
-       Else
-            Application.Run MacroName:="MS_Set_Word_Config_For_Large_Print"
-            MS_Word_Config = "Word is configured for large print"
-            .SetCount NumColumns:=3 'Large Print
-        End If
-    End With
+    If MsgBoxLabel = "Braille Macros" Then
+        Application.Run MacroName:="MS_Set_Word_Config_For_Braille"
+    Else
+        Application.Run MacroName:="MS_Set_Word_Config_For_Large_Print"
+        MS_Word_Config = "Word is configured for large print"
+    End If
+
+    ' ONE COLUMN. Jerry, 8/26/2026. The list was set in two columns for braille and three for
+    ' large print, and that is the whole reason a line was cut at 23 characters - a narrow column
+    ' held no more. On the braille side each entry is a page number followed by a Duxbury code,
+    ' the longest of them 37 characters, so every one of them was being truncated.
+    '
+    ' The columns also made the list read WRONGLY. Five entries landed on what looked like one
+    ' line; they were five separate paragraphs all along, and turning paragraph marks on was what
+    ' revealed it. A list meant to be read as a column of page numbers must not be laid out in
+    ' columns of its own.
+    '
+    ' One column, and SH_PGVAL_LINE_MAX raised to 40, shows the whole of a braille entry and
+    ' cannot look like that again.
+    tmpDoc.PageSetup.TextColumns.SetCount NumColumns:=1
 
     ActiveWindow.ActivePane.View.Type = wdPrintView
     Application.TaskPanes(wdTaskPaneFormatting).Visible = False
@@ -22774,6 +22818,7 @@ End Sub   '*** end of Sh_Copy_Ref_Pg_Tags_To_Temp_File macro ***
 ' behind, and the loop has a backstop. A Find loop that stops moving forward does not error - it
 ' runs for ever, and Word stops answering.
 '
+' Version: 1.2  Date: 8/26/2026 - the cut is at 40 characters, not 23 - the list is no longer in columns
 ' Version: 1.1  Date: 8/23/2026 - a line longer than 23 characters is cut and given an ellipsis
 ' Version: 1.0  Date: 8/23/2026
 '

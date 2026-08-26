@@ -584,8 +584,53 @@ End Sub
 ' whole paragraph rather than the selection, so clicking anywhere on the line is enough.
 Private Function Sh_PgVal_TextOfCurrentTag() As String
     Dim s As String
+    Dim ch As Range
+    Dim para As Range
+
     On Error Resume Next
-    s = Selection.Paragraphs(1).Range.Text
+
+    ' THE LEADING VISIBLE RUN, and nothing from the first hidden character onward.
+    '
+    ' Jerry, 8/26/2026: on the braille side an entry is a page number followed by a Duxbury code,
+    ' and THOSE CODES ARE HIDDEN TEXT. Range.Text hands them over regardless of whether they are
+    ' on screen, so the string being searched for held characters the reader cannot see - and
+    ' neither this Locate nor Word's own Navigation pane could find them in the book.
+    '
+    ' Searching only the visible run sidesteps the question of whether Word's Find matches hidden
+    ' text at all, which depends on whether the source document's window happens to be showing
+    ' it. Not worth depending on something that changes with a display setting.
+    '
+    ' STOPPING at the first hidden character, rather than collecting every visible one and
+    ' skipping the hidden, is deliberate: what is left has to be CONTIGUOUS in the document or
+    ' Find cannot match it. A line stitched together across a hidden gap is not.
+    '
+    ' THE COMMON SHAPE, which this handles well - a continuation page, built by the passes in
+    ' Dx_AutoTag_Page_Numbers:
+    '
+    '        $pg12-14[[*lec*]][[*i*]]14
+    '        \_visible_/\___hidden___/\/  visible
+    '
+    ' The leading visible run is "$pg12-14" - the tag and the page number, which is exactly what
+    ' identifies the entry, and contiguous in the book.
+    '
+    ' THE WEAK ONE, and it is worth knowing about: the EBAE lower-roman case inserts
+    ' "$pg[[*ii*]]" ahead of the number, so the leading visible run is the bare tag "$pg" and
+    ' Locate will land on the FIRST tag in the document rather than this one. That is no worse
+    ' than it was - before this, the search string carried hidden characters and found nothing at
+    ' all - but it is not right either. Curing it means either searching across the hidden gap
+    ' (which Find cannot do) or remembering where each entry came from when the list is built.
+    Set para = Selection.Paragraphs(1).Range
+    For Each ch In para.Characters
+        If ch.Font.Hidden Then Exit For
+        s = s & ch.Text
+    Next ch
+
+    ' A line that BEGINS hidden would leave nothing to search for. Fall back to the whole text,
+    ' which is what this did before - no worse than it was, and it keeps Locate answering.
+    If Len(Trim$(Replace(Replace(s, Chr(13), ""), Chr(7), ""))) = 0 Then
+        s = para.Text
+    End If
+
     s = Replace(s, Chr(13), "")
     s = Replace(s, Chr(7), "")
     s = Trim$(s)
