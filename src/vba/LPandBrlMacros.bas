@@ -19269,7 +19269,7 @@ Sub MS_Reset_Word_Configuration()
     ' AND THEN TELL HER THE TRUTH ABOUT IT. Sh_Apply_Word_Config SWALLOWS a configuration that
     ' raised: it blanks Sh_ConfiguredAs and returns normally. Reporting success off cfgType - what
     ' was ASKED for - would have announced "set up as a large print book" with nothing applied, and
-    ' Doc Info would have said the opposite a minute later. Report what is actually in force.
+    ' Document Settings would have said the opposite a minute later. Report what is actually in force.
     If Sh_ConfiguredAs = "" Then
         Sh_Say "Word's AutoCorrect settings have been put back to VistaType LP's starting point, " _
              & "and saved as yours. That part is done." & vbCr & vbCr _
@@ -19289,7 +19289,8 @@ Sub MS_Reset_Word_Configuration()
     Sh_Say "Word's AutoCorrect settings have been put back to VistaType LP's starting point, and " _
          & "saved as yours." & vbCr & vbCr _
          & "This document has been set up as " & whatItIs & "." & vbCr & vbCr _
-         & "Doc Info, on either VistaType tab, will confirm which configuration is in force.", _
+         & "Document Settings, on the Quick Access Toolbar, will confirm which configuration is " _
+         & "in force.", _
            "VistaType LP (236)"
 
 End Sub '*** end of MS_Reset_Word_Configuration ***
@@ -19459,7 +19460,7 @@ Sub MS_Set_Word_Config_For_New_Install()
     ' braille configuration uses is added here instead. They then STAY in the transcriber's own
     ' AutoCorrect list. Large print still deletes them - a large print book keeps 1/2 as typed.
     ' Runs LAST, below Sh_Restore_Transcriber_Settings, on purpose: if it ever raised,
-    ' Sh_Apply_Word_Config's handler would blank Sh_ConfiguredAs and Doc Info would report the
+    ' Sh_Apply_Word_Config's handler would blank Sh_ConfiguredAs and Document Settings would report the
     ' previous document's setup.
     Sh_Add_Compact_Fractions
 

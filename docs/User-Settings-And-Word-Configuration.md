@@ -295,8 +295,10 @@ This is also a good moment to use **Save My Settings**, so you have a way back.
 
 ### If you ever want to see what is in force
 
-**Doc Info** on either tab reports which configuration Word is currently set for — large print,
-braille, or ordinary. That line describes the document in front of you, which is the point of it.
+**Document Settings**, on the Quick Access Toolbar, reports which configuration Word is currently
+set for — large print, braille, or ordinary. That line describes the document in front of you,
+which is the point of it. (It is on the toolbar and not on either ribbon tab: the installer puts
+it there under both toolbar choices.)
 
 ---
 
@@ -535,10 +537,10 @@ value overriding her choice and repeats the original mistake.
    turn off "Replace text as you type" → close Word → reopen → open a blank document. Both still as
    she left them.
 2. **Switching still works.** With that ordinary document open, open a braille file. Fractions
-   should give `½`, capitalization as braille needs it. **Doc Info** says braille.
+   should give `½`, capitalization as braille needs it. **Document Settings** says braille.
 3. **Coming back.** Click to the ordinary document. Sentence capitals off again, "Replace text as you
    type" still off. `1/2` now becomes `½` here too, as of 8/18/2026 — see the fractions note below.
-   Doc Info says ordinary.
+   Document Settings says ordinary.
 4. **Large print in the mix.** Three documents open — ordinary, braille, large print — clicking round
    all three. Fractions on in braille and in the ordinary document, off in large print.
 5. **The master switch is never touched.** With "Replace text as you type" off, work in braille and
