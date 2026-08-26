@@ -47,6 +47,24 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - Lp - 8/26/2026 - that used to pass unseen now stops the attach and names itself, which is the point,
 '           - Lp - 8/26/2026 - but it is the change to watch for after this build.
 '
+' Notes:    - BRL - 8/26/2026 - EMBED AND UNEMBED NOW SAY WHICH PROBLEM IT IS (Jerry). Both refused a
+'           - BRL - 8/26/2026 - paragraph that is not in one of the four reference-page styles with a
+'           - BRL - 8/26/2026 - single message, "select the Reference Page Number" - which is no help
+'           - BRL - 8/26/2026 - when the real answer is that FORMAT $PG TAGS HAS NOT BEEN RUN YET. A
+'           - BRL - 8/26/2026 - paragraph still showing its $pg tag now gets a message saying so and
+'           - BRL - 8/26/2026 - naming the button to press. Dialogs 241/242 in Embed, 243/244 in
+'           - BRL - 8/26/2026 - UnEmbed - four numbers so a transcriber reading one out identifies
+'           - BRL - 8/26/2026 - both the macro and the situation.
+'           - BRL - 8/26/2026 - THE STYLE TYPES, measured from BANA Braille 2024.dotx and worth
+'           - BRL - 8/26/2026 - recording because they are not obvious: RefPageNumber and
+'           - BRL - 8/26/2026 - RefPageNemeth are PARAGRAPH styles; RefPageNumberEmbed and
+'           - BRL - 8/26/2026 - RefPageNemethEmbed are CHARACTER styles; DBT Code is a character
+'           - BRL - 8/26/2026 - style and is HIDDEN. Selection.Style reports a character style
+'           - BRL - 8/26/2026 - correctly - tested on the build box - taking it from the character
+'           - BRL - 8/26/2026 - to the LEFT of the insertion point. So a cursor inside the number,
+'           - BRL - 8/26/2026 - or immediately to its right, is detected; immediately to its LEFT
+'           - BRL - 8/26/2026 - is not, which is why the message says "to the right of or within".
+'
 ' Notes:    - Sh - 8/26/2026 - LOCATE SEARCHES THE VISIBLE RUN ONLY, because DUXBURY CODES ARE HIDDEN
 '           - Sh - 8/26/2026 - TEXT (Jerry). A braille entry is a page number followed by such a code.
 '           - Sh - 8/26/2026 - Range.Text hands hidden characters over whether or not they are on
@@ -2980,6 +2998,24 @@ End Sub   '****** end of Dx_Format_Tagged_Page_Numbers macro *****
 
 
 
+' True when the paragraph the cursor is in still carries a $pg tag.
+'
+' What it is FOR: telling two quite different problems apart when Embed or UnEmbed finds a
+' paragraph that is not in one of the four reference-page styles. A paragraph still showing its
+' $pg tag has simply not been through Format $pg Tags yet - a step the user has missed, not a
+' bad selection - and "select the reference page number" is no help at all in that case.
+' Jerry, 8/26/2026.
+'
+' The tag is looked for in the paragraph's TEXT, which carries hidden characters too, so it is
+' found whether or not the DBT codes beside it happen to be on screen.
+'
+' Version: 1.0  Date: 8/26/2026
+'
+Private Function Dx_Selection_Has_Pg_Tag() As Boolean
+    On Error Resume Next
+    Dx_Selection_Has_Pg_Tag = (InStr(Selection.Paragraphs(1).Range.Text, "$pg") > 0)
+End Function   '*** end of Dx_Selection_Has_Pg_Tag ***
+
 Sub Dx_Embed_Ref_Pg_No()
 '
 ' Convert_Reference_Page_Number_to_Embedded_Reference_Page_Number
@@ -3002,7 +3038,17 @@ Sub Dx_Embed_Ref_Pg_No()
 
     If Selection.Style <> "RefPageNumber" And Selection.Style <> "RefPageNemeth" And _
         Selection.Style <> "RefPageNumberEmbed" And Selection.Style <> "RefPageNemethEmbed" Then
-        MsgBox "Select the Reference Page Number or place cursor to the right of or within the number.", , "Braille Macros"
+        ' TWO DIFFERENT PROBLEMS, two different messages. See Dx_Selection_Has_Pg_Tag.
+        If Dx_Selection_Has_Pg_Tag() Then
+            Sh_Say "This page number has not been formatted yet." & vbCr & vbCr _
+                 & "It still carries its $pg tag. A reference page number has to be formatted " _
+                 & "before it can be embedded or unembedded - run Format $pg Tags, on the " _
+                 & "Reference Page Number Formatting group of the Braille Macros tab, and then " _
+                 & "try again.", "Braille Macros (241)"
+        Else
+            Sh_Say "Select the Reference Page Number, or place the cursor to the right of or " _
+                 & "within the number.", "Braille Macros (242)"
+        End If
         End
     End If
     
@@ -3038,6 +3084,10 @@ Sub Dx_UnEmbed_Ref_Pg_No()
 ' Embedded_Reference_Page_NumberConvert_Reference_Page_Number_to_
 ' Double Click the embedded page number before execution
 '
+' Version: 1.6 Date: 8/26/2026 - says WHICH problem it is: a page number that has not been formatted
+'                                yet is told to run Format $pg Tags, rather than to select it again
+' Version: 2.1 Date: 8/26/2026 - says WHICH problem it is: a page number that has not been formatted
+'                                yet is told to run Format $pg Tags, rather than to select it again
 ' Version: 2.0 Date: 8/26/2026 - the two early exits put the screen back and Exit Sub instead of End
 ' Version: 1.9 Date: 3/14/2024 - supressed instruction msg to when the style reqested style is the same as the current style
 '                                   and added message when non-reference page number selected
@@ -3057,7 +3107,17 @@ Sub Dx_UnEmbed_Ref_Pg_No()
     ' check to see if selection is a reference page number of any kind
     If Selection.Style <> "RefPageNumber" And Selection.Style <> "RefPageNemeth" And _
         Selection.Style <> "RefPageNumberEmbed" And Selection.Style <> "RefPageNemethEmbed" Then
-        MsgBox "Select the Reference Page Number or place cursor to the right of or within the number.", , "Braille Macros"
+        ' TWO DIFFERENT PROBLEMS, two different messages. See Dx_Selection_Has_Pg_Tag.
+        If Dx_Selection_Has_Pg_Tag() Then
+            Sh_Say "This page number has not been formatted yet." & vbCr & vbCr _
+                 & "It still carries its $pg tag. A reference page number has to be formatted " _
+                 & "before it can be embedded or unembedded - run Format $pg Tags, on the " _
+                 & "Reference Page Number Formatting group of the Braille Macros tab, and then " _
+                 & "try again.", "Braille Macros (243)"
+        Else
+            Sh_Say "Select the Reference Page Number, or place the cursor to the right of or " _
+                 & "within the number.", "Braille Macros (244)"
+        End If
         ' PUT THE SCREEN BACK, and Exit Sub rather than End. Both exits in this macro turned
         ' screen updating off eight lines above and then stopped without restoring it, so the
         ' user pressed Okay on the message and Word sat there frozen - which reads as a hang.
