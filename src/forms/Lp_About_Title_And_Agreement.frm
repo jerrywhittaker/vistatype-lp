@@ -31,7 +31,7 @@ Private Sub Label6_Click()
 End Sub
 
 Private Sub ViewVersion_Click()
-    Application.Run MacroName:="Sh_Is_Doc_Open"
+    Application.Run macroName:="Sh_Is_Doc_Open"
     Unload Me
     On Error GoTo NoInternet
     ActiveDocument.FollowHyperlink _

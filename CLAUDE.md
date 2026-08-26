@@ -261,6 +261,18 @@ tools/lib/      check_style_guards.py (refuses to build when an ActiveDocument.S
                 reach the transcriber as "Compile error in hidden module: <name>" with no line number
                 and nothing naming the cause. Cost a build on 8/18/2026 - three Private Const lines for
                 the settings store. Covers .bas, .cls and the code section of .frm);
+                build_ribbon_dispatch.py (`make build` runs it FIRST, because it WRITES
+                src/vba/RibbonDispatch.bas - a generated Select Case calling all 47 ribbon macros
+                by name, built from src/ribbon/customUI14.xml so the two can never drift. It exists
+                because WORD DOES NOT PASS AN ERROR BACK OUT OF Application.Run: it takes the error
+                itself and shows its own Run-time error dialog - the one offering Debug, which opens
+                this source on the user's machine - and the caller's On Error handler is NEVER
+                entered. Measured on the build box 8/26/2026: four real button presses wrote a marker
+                set immediately before `Application.Run control.Tag` and never the one immediately
+                after it, nor the one first thing in the handler. A DIRECT call propagates normally,
+                which is the whole reason for the table. It refuses to generate if a button's macro
+                stops being a plain no-argument Sub, since the Select Case would then not compile -
+                and nothing here compiles VBA, so that would ship. NEVER hand-edit RibbonDispatch.bas);
                 check_startup_unpulled.py (refuses to run `make try` when the add-in in Word's STARTUP
                 folder on the build box is not the one this repo last built. That is what a UserForm
                 LAYOUT edit looks like - Jerry makes those in the VBA editor against that one file,
@@ -354,7 +366,9 @@ installer/      vistatype.iss is the product installer. From 8/24/2026 its [Code
                 validates every x1:btn_* in the curated toolbar against the hidden ribbon tab
                 and stops if they disagree; a stale reference renders as a blank button on the
                 user's machine with no warning.
-docs/           Daily-Workflow-and-Releases.md (Jerry's plain-language guide to dev/master, building, releasing, and what to ask Claude); Installation-Guide.md (end-user install); Build-VM-Setup.md (Hyper-V build/test box); Software-Agreement.md (GPLv3 About-dialog text); Code-Signing.md (why Defender deleted the unsigned Setup.exe on 8/13-14/2026, what in the installer scores against it, how to test with `make scan` and MpCmdRun, and the signing options — note Azure Artifact Signing does NOT sign VBA projects, and EV no longer skips SmartScreen. Jerry bought the Certum open source card on 8/17/2026; the last section is the step-by-step for the day it arrives, what the build box already has, and the five things the card-free rehearsal proved); VistaTypeLP-Sans.md (what the bundled typeface covers and does not - languages, mathematics, science, medicine - measured face by face against Tahoma, plus the width and pagination trade-off and the Insert Symbol subset-list defect: 16 OS/2 unicode-range flags are unset, hiding 43.5% of the characters from Word's own browser)
+docs/           Reported-Errors.md (the register of reported faults and what fixed them - READ IT
+                BEFORE INVESTIGATING ANY REPORTED ERROR; see the rule below);
+                Daily-Workflow-and-Releases.md (Jerry's plain-language guide to dev/master, building, releasing, and what to ask Claude); Installation-Guide.md (end-user install); Build-VM-Setup.md (Hyper-V build/test box); Software-Agreement.md (GPLv3 About-dialog text); Code-Signing.md (why Defender deleted the unsigned Setup.exe on 8/13-14/2026, what in the installer scores against it, how to test with `make scan` and MpCmdRun, and the signing options — note Azure Artifact Signing does NOT sign VBA projects, and EV no longer skips SmartScreen. Jerry bought the Certum open source card on 8/17/2026; the last section is the step-by-step for the day it arrives, what the build box already has, and the five things the card-free rehearsal proved); VistaTypeLP-Sans.md (what the bundled typeface covers and does not - languages, mathematics, science, medicine - measured face by face against Tahoma, plus the width and pagination trade-off and the Insert Symbol subset-list defect: 16 OS/2 unicode-range flags are unset, hiding 43.5% of the characters from Word's own browser)
 reference/      generated read aids (gitignored mirror + interim form-code dump)
 assets/fonts/vistatypelp-sans/   the bundled typeface, VistaTypeLP Sans — four tracked .ttf faces
                 plus the THREE OFL texts it needs (Noto Sans, Noto Sans Math, Noto Sans Symbols).
@@ -379,7 +393,8 @@ assets/fonts/vistatypelp-sans/   the bundled typeface, VistaTypeLP Sans — four
                 a hotfix reached dev). All four are READ-ONLY and report; none edits or pushes.
                 They complement tools/lib's guards rather than repeat them — each file says
                 what the guards already cover.
-Makefile        pull / build / ribbon / qat / read / fonts / try / deploy / branding / stage /
+Makefile        pull / build / build-dispatch / ribbon / qat / read / fonts / try / deploy /
+                branding / stage /
                 installer / font-installer / scan
                 (`make fonts` rebuilds VistaTypeLP Sans from the current Noto Sans, Noto Sans Math
                  and Noto Sans Symbols releases. It REACHES THE NETWORK, so it is deliberately not
@@ -546,9 +561,16 @@ Jerry's rule, 8/23/2026. It governs every new dialog and every message:
 - Every CommandButton still gets a `ControlTipText` of its caption plus " Button", and a form
   is still Tahoma 10 throughout (the 8/7/2026 rules; both stand).
 
-**A `MsgBox` can do none of the three**, so a message is a UserForm here. Its font is whichever
-one Windows draws a message box in, its button says `OK` and cannot be changed, and it has no
-accelerators. `Sh_Message_Form` is the one dialog every message goes through, reached by two
+**These are requirements about how a message looks and reads. They are not a ban on anything** —
+Jerry's correction, 8/26/2026, after this file's earlier wording was quoted back at him as a
+reason his own `MsgBox` suggestion could not be done. He set how a message should appear; he did
+not forbid a control or a mechanism.
+
+What follows from that is a fact about `MsgBox`, not a rule of his: VBA's `MsgBox` draws in
+whichever font Windows uses for message boxes, its button says `OK` and cannot be changed, and it
+has no accelerators — so a plain `MsgBox` cannot meet the three. A UserForm can, which is why
+messages here are UserForms. Where a `MsgBox` is the right answer anyway, say so and let Jerry
+decide; do not cite the rule as settling it. `Sh_Message_Form` is the one dialog every message goes through, reached by two
 subs in `LPandBrlMacros` and never touched directly:
 
 ```vba
@@ -569,6 +591,13 @@ turns them into `vbCrLf` on the way into the text box, because an MSForms text b
 What is lost against `MsgBox`: its information / warning / question **icon**, and the sound
 the warning one made. A UserForm has neither.
 
+**If the form refuses to appear, `Sh_Say` and `Sh_Ask` fall back to a `MsgBox`** (8/26/2026).
+Until then the trap around `.Show` swallowed the failure and the message was simply **lost** —
+intolerable in an error handler, which is where it came up. Smaller and saying `OK` beats never
+appearing. In `Sh_Ask` it changes an answer too: a question that could not be shown used to come
+back `False`, i.e. Cancel, and silence that quietly means "no" cannot be told apart from the user
+having chosen "no".
+
 **Not retrofitted.** The two newest toolbar buttons — Reset Word Configuration and Styles Pane:
 Recommended — were converted on 8/23/2026, five messages. Counted the same day, what is left:
 **85 `MsgBox` calls in `LPandBrlMacros`, 48 inside the forms, 20 in the three smaller modules.**
@@ -581,6 +610,60 @@ on a UserForm control is a Windows tooltip and is the same. The only thing that 
 is the reader's own Windows text size (Settings → Accessibility → Text size), which changes it
 everywhere. Where hover text needs to be readable at 10 point or more, the answer is to put the
 words in the dialog, which VistaType LP does control.
+
+### How VistaType LP reports a macro that failed
+
+Added 8/26/2026, at Jerry's request. Before it, of 175 `On Error` statements in the project,
+**four** ever put an error in front of the user; the rest either swallowed it or let it reach
+the user as **Word's own "Run-time error" dialog**, which offers **Debug** — and the VBA project
+is not locked for viewing, so Debug opens the source on their machine.
+
+- **`RibbonAction` is the single catch point** for all 47 ribbon and toolbar buttons. It calls
+  each macro **directly**, through the generated `Sh_Dispatch` — *not* `Application.Run`, which
+  never lets the error back out (see `build_ribbon_dispatch.py` above). `Application.Run` remains
+  only as the fallback for a name the table lacks.
+- **`Sh_Report_Error`** restores the screen first (`ScreenUpdating`, `DisplayAlerts`, the progress
+  box and the please-wait box), then appends one line to the log, then shows dialog **240**
+  through `Sh_Ask` — where Okay opens the folder holding the log. Nothing in it may raise: it
+  runs on a path that has already gone wrong, and a second error there is Word's dialog again.
+- **The log is `%AppData%\VistaType LP Settings\VistaType-Errors.log`**, beside `VistaType.ini`
+  in the folder the uninstaller deliberately leaves alone — a log thrown away by the reinstall
+  someone suggested to cure the fault is worth nothing. `Sh_Store_Folder` is shared by both.
+- **`Sh_Last_Activity`** carries the "Where:" line. VBA gives a handler a number and a description
+  and nothing else — no line number (`Erl` needs numbered lines, which this project does not use)
+  and no call stack — so the last `SetActivityMessage` string is the only position marker there is.
+  The form's `SetActivityMessage` records it as well as showing it.
+- **Not total coverage.** The nine keyboard shortcuts in `src/keymap` and every UserForm button
+  call their macros directly and are still unguarded.
+- **`VT_VERSION` says which build produced a fault.** A placeholder in `src/vba` forever
+  (`"unstamped"`); `Import-Vba.ps1` replaces it inside the **built** `.dotm`, the same pass that
+  stamps the two About captions. Never put a real number in the source: the version bumps on
+  every `make try` and it would be committed by accident. A log line reading `unstamped` means
+  the build did not stamp it.
+- **The log is newest-first and capped at 50 lines** (Jerry, 8/26/2026): the line anyone needs is
+  the one they just caused. `Sh_Log_Newest_First` rewrites the whole file — Append can only add
+  at the bottom. **It is not cleared when the user presses Cancel**, and that was considered and
+  rejected: Cancel means "do not open the folder", not "throw this away", and the user who
+  cancels is exactly the one whose repeats are the only record you would ever get.
+
+### Before investigating a reported error, read `docs/Reported-Errors.md`
+
+**Jerry's rule, 8/26/2026** — his words: *"I don't want to spend time and tokens on
+re-investigating errors that have already been fixed."*
+
+`docs/Reported-Errors.md` is the register of faults and what fixed them, keyed on the four things
+a log line carries: **version, error number, macro, step**. Check it *first*, every time, before
+reading any code. It records the one thing the repository cannot infer — that *this* reported
+fault was cured by *that* change.
+
+The repo is only a backstop, and a weak one: the per-sub `' Version:` blocks say what changed,
+not which reported fault it cured; the macro in a log line is the *button's*, not necessarily
+where the failure was, because VBA gives no call stack; and only `X.Y` releases are tagged, so a
+report from an internal `3.0.X` build has nothing to diff against.
+
+**Add the row in the same change as the fix, never afterwards** — a register that lags says "not
+fixed" about something that is. Fill **Fixed in** with the build and **Shipped in** with the
+release; they are different, and only the second is something a user can install.
 
 ### Editing convention
 

@@ -160,6 +160,11 @@ Public Sub SetActivityMessage(ByVal sText As String)
     ' Same reason as SpinTick above - the repaint must not let the document redraw.
     Dim su_Prev As Boolean
     su_Prev = Application.ScreenUpdating
+    ' Recorded as well as shown. VBA gives an error handler no line number and no call
+    ' stack, so this is the only thing that can tell Sh_Report_Error WHERE in a long
+    ' macro it stopped - and these messages are written for the transcriber to read
+    ' anyway, so the log gets a plain-English position for one line of code.
+    Sh_Last_Activity = sText
     Me.ActivityMsg.Caption = sText
     Me.Repaint
     If Application.ScreenUpdating <> su_Prev Then Application.ScreenUpdating = su_Prev

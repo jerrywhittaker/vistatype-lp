@@ -51,9 +51,38 @@ Public Sub RibbonAction(ByVal control As IRibbonControl)
     Sh_Pos_Depth = 0
     Sh_Pos_Saved = False
 
+    ' EVERY ribbon and toolbar button comes through here, so one handler covers all of them
+    ' without touching a single one of the 236 macros. Before 8/26/2026 an error in any of them
+    ' either died silently inside its own On Error Resume Next or reached the transcriber as
+    ' Word's "Run-time error" dialog - which offers Debug, and this project is not locked for
+    ' viewing, so Debug would open the source on the user's machine.
+    '
+    ' It also stops the OTHER damage an unhandled error does here: a VBA project reset sets
+    ' gRibbon to Nothing (see its declaration), and tab visibility then stops working for the
+    ' rest of the Word session.
+    '
+    ' NOT total coverage, and do not read it as such. The nine keyboard shortcuts in
+    ' src/keymap call their macros directly, and so does a button on a UserForm; both still
+    ' behave as they always have until each is given the same handler.
+    ' NOT Application.Run, and that is the whole point. WORD DOES NOT PASS AN ERROR BACK OUT
+    ' OF Application.Run: it takes the error itself and shows its own "Run-time error" dialog,
+    ' the one with End and Debug, and the handler below is never entered. Measured on the build
+    ' box 8/26/2026 - four real button presses wrote a marker immediately before the call and
+    ' never the one immediately after it, nor the one first thing in the handler.
+    '
+    ' A DIRECT call propagates normally, so Sh_Dispatch calls the macro directly through a
+    ' Select Case generated from customUI14.xml itself (see RibbonDispatch, which is a
+    ' generated file). Application.Run stays as the fallback for a name the table does not
+    ' carry: that error still cannot be caught, but a button that does nothing at all would be
+    ' worse than one that fails the way it always used to.
+    On Error GoTo Failed
     If Len(control.Tag) > 0 Then
-        Application.Run control.Tag
+        If Not Sh_Dispatch(control.Tag) Then Application.Run control.Tag
     End If
+    Exit Sub
+
+Failed:
+    Sh_Report_Error control.Tag, Err.Number, Err.Description
 End Sub
 
 ' Called by Word for the two visible embedded tabs. Show them only when the user does NOT

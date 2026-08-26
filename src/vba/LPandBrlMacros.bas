@@ -1264,6 +1264,22 @@ Public Sh_LastDocEvent As String   ' diagnostic breadcrumb: last document event 
 ' record braille's own switched-off values as her preference, for good. A file survives End,
 ' survives Word closing, and can be carried to a new machine. See Sh_Settings_File.
 Private Const VT_STORE_FOLDER As String = "VistaType LP Settings"
+Private Const VT_ERROR_LOG_FILE As String = "VistaType-Errors.log"
+Private Const VT_ERROR_LOG_MAX As Long = 50   ' newest 50 kept; the oldest fall off
+Private Const VT_SUPPORT_EMAIL As String = "jerry@vistatypelp.org"
+
+' WHICH VERSION OF VistaType LP IS RUNNING - for the error log and dialog 240, so a report can
+' be told apart from one already fixed. A user cannot say which build they have, and the About
+' box is not open when a macro fails.
+'
+' STAMPED AT BUILD TIME. tools/windows/Import-Vba.ps1 replaces the line below inside the built
+' .dotm, exactly as it replaces the two About dialog captions, and THIS SOURCE KEEPS THE
+' PLACEHOLDER FOR EVER. That is deliberate: the version bumps on every `make try`, so a real
+' number here would show as a change in git all day and get committed by accident. A log line
+' reading "unstamped" means the build did not stamp it, which is itself worth knowing.
+'
+' Do not rename it without changing Import-Vba.ps1 - the stamper matches on this line.
+Public Const VT_VERSION As String = "unstamped"
 Private Const VT_STORE_FILE As String = "VistaType.ini"
 Private Const VT_STORE_MINE As String = "TranscriberSettings"
 
@@ -1321,6 +1337,15 @@ Private Const LP_TEMPLATE_FILE As String = "LargePrintTemplate.dotx"
 ' actually carried the braille AutoCorrect entries, and the "same type, nothing to do" test
 ' below would then believe a lie.
 Public Sh_ConfiguredAs As String       ' "LP", "BRL" or "DEF" - empty until the first config
+
+' The last thing Sh_NonModalMessageForm.SetActivityMessage was asked to display, e.g. "Setting
+' table alternating color style". Written by that sub and read by Sh_Report_Error, which is the
+' only reason it exists: VBA hands an error handler a number and a description and NOTHING that
+' says where in the macro it happened - no line number (Erl needs numbered lines, which this
+' project does not use) and no call stack. The 27 activity messages already in this module are
+' the nearest thing to a position marker the code has, so recording the last one turns them into
+' one. Blank for a macro that sets none, and Sh_Report_Error simply leaves the line out then.
+Public Sh_Last_Activity As String      ' the last activity message shown, for the error log
 
 ' See Lp_Split_Ordered_List_Sequence.
 Public Lp_ListSplitError As String
@@ -20043,13 +20068,18 @@ End Sub  '*** end of Sh_Add_One_Compact_Fraction ***
 ' Version: 1.0  Date: 8/18/2026
 '
 
-Private Function Sh_Settings_File() As String
+Private Function Sh_Store_Folder() As String
 '
-' The full path of the store, creating its folder the first time. Returns "" if it cannot be
-' had at all - every caller treats that as "nothing is remembered" and leaves Word alone,
-' which is the safe direction: no store is far better than a store holding the wrong answer.
+' %AppData%\VistaType LP Settings, made the first time it is wanted. "" if it cannot be had.
 '
-' Version: 1.0  Date: 8/18/2026
+' A SEPARATE folder from %AppData%\VistaType LP, which the uninstaller wipes whole. What lives
+' here has to outlast a reinstall: the transcriber's own Word settings, and now the error log,
+' which is worth nothing if it is thrown away by the very reinstall someone suggested to cure
+' the fault it recorded.
+'
+' Was the body of Sh_Settings_File until 8/26/2026, when the error log wanted the same folder.
+'
+' Version: 1.0  Date: 8/26/2026
 '
     Dim fso As Object
     Dim folder As String
@@ -20066,9 +20096,42 @@ Private Function Sh_Settings_File() As String
     If Not fso.FolderExists(folder) Then fso.CreateFolder folder
     If Not fso.FolderExists(folder) Then Exit Function
 
+    Sh_Store_Folder = folder
+
+End Function  '*** end of Sh_Store_Folder ***
+
+Private Function Sh_Settings_File() As String
+'
+' The full path of the store, creating its folder the first time. Returns "" if it cannot be
+' had at all - every caller treats that as "nothing is remembered" and leaves Word alone,
+' which is the safe direction: no store is far better than a store holding the wrong answer.
+'
+' Version: 1.1  Date: 8/26/2026 - the folder half moved to Sh_Store_Folder, shared with the log
+' Version: 1.0  Date: 8/18/2026
+'
+    Dim folder As String
+
+    folder = Sh_Store_Folder()
+    If folder = "" Then Exit Function
+
     Sh_Settings_File = folder & "\" & VT_STORE_FILE
 
 End Function  '*** end of Sh_Settings_File ***
+
+Private Function Sh_Error_Log_File() As String
+'
+' The full path of the error log, beside the settings store. "" if the folder cannot be had.
+'
+' Version: 1.0  Date: 8/26/2026
+'
+    Dim folder As String
+
+    folder = Sh_Store_Folder()
+    If folder = "" Then Exit Function
+
+    Sh_Error_Log_File = folder & "\" & VT_ERROR_LOG_FILE
+
+End Function  '*** end of Sh_Error_Log_File ***
 
 Public Function Sh_Setting_Read(ByVal storeSection As String, ByVal storeKey As String, _
                                 ByVal whenMissing As String) As String
@@ -20879,6 +20942,15 @@ Public Sub Sh_Say(ByVal body As String, ByVal titleText As String)
     ' file says.
     On Error Resume Next
     Sh_Message_Form.Show
+    If Err.Number <> 0 Then
+        Err.Clear
+        ' THE MESSAGE MATTERS MORE THAN THE TYPEFACE. Until 8/26/2026 a message that could not
+        ' be put on screen was simply lost - the trap swallowed it and the user was told
+        ' nothing. A MsgBox cannot do 10 point Tahoma, cannot say Okay and has no accelerator,
+        ' which is exactly why this form exists; but "smaller and says OK" beats "never
+        ' appeared", and this only runs when the form has already refused.
+        MsgBox body, vbOKOnly, titleText
+    End If
     Unload Sh_Message_Form
     Err.Clear
     On Error GoTo 0
@@ -20902,6 +20974,14 @@ Public Function Sh_Ask(ByVal body As String, ByVal titleText As String) As Boole
     ' because a dialog failed to appear.
     On Error Resume Next
     Sh_Message_Form.Show
+    If Err.Number <> 0 Then
+        Err.Clear
+        ' Same fallback as Sh_Say, and here it changes an answer as well as a message. The rule
+        ' used to be that a question which could not be shown came back False, i.e. Cancel.
+        ' That is right when there is no way to ask - but there IS one, so ask it. Silence that
+        ' quietly means "no" is indistinguishable from the user having chosen "no".
+        Sh_Msg_Answer = (MsgBox(body, vbOKCancel) = vbOK)
+    End If
     Unload Sh_Message_Form
     Err.Clear
     On Error GoTo 0
@@ -20910,6 +20990,206 @@ Public Function Sh_Ask(ByVal body As String, ByVal titleText As String) As Boole
     ' property of the form, so unloading the form cannot take the answer with it.
     Sh_Ask = Sh_Msg_Answer
 End Function   '*** end of Sh_Ask ***
+
+' ***** Reporting a macro that failed *****
+'
+' THE ONE PLACE A FAILED MACRO IS REPORTED. RibbonAction hands every ribbon and toolbar button
+' to it. Until 8/26/2026 nothing in this project did this at all: of 175 On Error statements,
+' exactly four ever put the error in front of the transcriber, and the rest either swallowed it
+' or let it reach the user as WORD's own "Run-time error" dialog - which offers a Debug button,
+' and the VBA project is not locked, so Debug opens this source on the user's machine.
+'
+' What it can say, and what it cannot. VBA hands a handler a number and a description and
+' nothing else: no line number (Erl needs numbered lines, which this project does not use) and
+' no call stack. So the report names the macro the BUTTON ran, not the one that actually broke
+' if that macro called another. Sh_Last_Activity is what makes up for it - see its declaration.
+'
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
+'
+' Version: 1.0  Date: 8/26/2026
+'
+Public Sub Sh_Report_Error(ByVal macroName As String, ByVal errNumber As Long, _
+                           ByVal errText As String)
+    Dim atStep As String
+    Dim logPath As String
+    Dim logLine As String
+    Dim saidTo As String
+
+    ' NOTHING IN HERE MAY RAISE. This runs on a path that has already gone wrong, and a second
+    ' error on top of the first would reach the transcriber as Word's own dialog - the exact
+    ' thing this sub exists to keep off the user's screen.
+    On Error Resume Next
+
+    atStep = Sh_Last_Activity
+    Sh_Last_Activity = ""
+
+    ' Put the screen back FIRST. A macro that stopped part-way left screen updating off and its
+    ' progress box sitting there, and a frozen Word with a "please wait" on it reads as a hang -
+    ' worse than the error, and the thing the user would telephone about.
+    Application.ScreenUpdating = True
+    Application.DisplayAlerts = wdAlertsAll
+    Unload Sh_NonModalMessageForm
+    Sh_Hide_Please_Wait
+    Err.Clear
+
+    ' The log is what makes a telephone call worth having: it survives the call, it survives a
+    ' reinstall, and three lines a week apart say a fault is not a one-off - which nothing in
+    ' this project could answer before.
+    logPath = Sh_Error_Log_File()
+    If logPath <> "" Then
+        logLine = Format$(Now, "yyyy-mm-dd hh:nn:ss") & "  v" & VT_VERSION & _
+                  "  " & macroName & "  err " & CStr(errNumber) & " """ & errText & """"
+        If atStep <> "" Then logLine = logLine & "  step """ & atStep & """"
+        logLine = logLine & "  " & Sh_Error_Context()
+
+        Sh_Log_Newest_First logPath, logLine
+        If Err.Number <> 0 Then
+            logPath = ""       ' could not write it, so do not send the user looking for it
+            Err.Clear
+        End If
+    End If
+
+    saidTo = "VistaType LP has encountered an error." & vbCr & vbCr _
+           & "Nothing has been saved. Ctrl+Z may put the document back; if it looks wrong, " _
+           & "close it without saving." & vbCr & vbCr _
+           & "Version:  " & VT_VERSION & vbCr _
+           & "What failed:  " & macroName & vbCr
+    If atStep <> "" Then saidTo = saidTo & "Where:  " & atStep & vbCr
+    saidTo = saidTo & "Error:  " & CStr(errNumber) & " - " & errText & vbCr & vbCr
+
+    ' PLEASE REPORT IT, AND SAY TO WHOM AND HOW. A user who is not told what to do with an
+    ' error does nothing with it, and the fault is never heard of again - which is the state
+    ' this project was in until 8/26/2026. Jerry's point when he first saw this dialog.
+    If logPath <> "" Then
+        saidTo = saidTo & "PLEASE REPORT THIS. The details above have been written to a log " _
+               & "file, and that log is what makes the fault findable." & vbCr & vbCr _
+               & "  1.  Press Okay and the folder holding the log will open." & vbCr _
+               & "  2.  Attach " & VT_ERROR_LOG_FILE & " to an email." & vbCr _
+               & "  3.  Send it to " & VT_SUPPORT_EMAIL & ", and say what you were doing " _
+               & "at the time." & vbCr & vbCr _
+               & "Help make VistaType LP better!" & vbCr & vbCr _
+               & "Press Cancel to close without opening the folder. The log is kept either way."
+    Else
+        saidTo = saidTo & "PLEASE REPORT THIS. The error log could not be written this time, " _
+               & "so the three lines above are the whole record." & vbCr & vbCr _
+               & "Write them down, the number in this title bar included, and email them to " _
+               & VT_SUPPORT_EMAIL & " with a note of what you were doing at the time." _
+               & vbCr & vbCr & "Help make VistaType LP better!"
+    End If
+
+    ' A question rather than a statement ONLY when there is a folder to open. Okay opens it;
+    ' Cancel, Esc and the red X all come back False and simply close, which is what Sh_Ask
+    ' promises. With no log there is nothing to open, so it goes back to being a statement.
+    If logPath <> "" Then
+        If Sh_Ask(saidTo, "VistaType LP (240)") Then
+            Shell "explorer.exe """ & Sh_Store_Folder() & """", vbNormalFocus
+            Err.Clear
+        End If
+    Else
+        Sh_Say saidTo, "VistaType LP (240)"
+    End If
+
+    On Error GoTo 0
+End Sub   '*** end of Sh_Report_Error ***
+
+' The log, NEWEST FIRST and at most VT_ERROR_LOG_MAX lines. Jerry's call, 8/26/2026.
+'
+' Newest first because the line anyone needs is the one they have just caused: they open the
+' file and it is the first thing there, rather than the far end of a scroll. Last in, first read.
+'
+' Capped because there is no reason to keep a year of it. 50 lines is about 11 KB, and a user
+' who has genuinely had 50 failures has bigger news than the 51st. The oldest fall off the end.
+'
+' NOT tied to the Cancel button in dialog 240, and that is deliberate. Cancel means "do not open
+' the folder", not "throw this away" - and the user who cancels is exactly the one whose repeats
+' would otherwise never be heard of at all.
+'
+' The whole file is rewritten each time. At 50 lines that costs nothing, and it is the only way
+' to put a line at the TOP: Append can only add at the bottom.
+'
+' Version: 1.0  Date: 8/26/2026
+'
+Private Sub Sh_Log_Newest_First(ByVal logPath As String, ByVal newLine As String)
+    Dim fso As Object
+    Dim ts As Object
+    Dim whole As String
+    Dim parts As Variant
+    Dim keep As String
+    Dim i As Long
+    Dim kept As Long
+
+    ' Same rule as everything else on this path: it must not raise. A failure here loses one log
+    ' line; a failure that escapes becomes a second error on top of the first.
+    On Error Resume Next
+
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    If fso Is Nothing Then Exit Sub
+
+    ' FileSystemObject rather than Dir$: Dir is stateful, and a Dir loop running anywhere else in
+    ' the project would be silently restarted by a call from here. Same reason as Sh_Store_Folder.
+    whole = ""
+    If fso.FileExists(logPath) Then
+        Set ts = fso.OpenTextFile(logPath, 1)          ' 1 = ForReading
+        If Not ts.AtEndOfStream Then whole = ts.ReadAll
+        ts.Close
+    End If
+
+    keep = newLine
+    kept = 1
+
+    whole = Replace(Replace(whole, vbCrLf, vbLf), vbCr, vbLf)
+    parts = Split(whole, vbLf)
+    For i = LBound(parts) To UBound(parts)
+        If kept >= VT_ERROR_LOG_MAX Then Exit For
+        If Len(Trim$(parts(i))) > 0 Then
+            keep = keep & vbCrLf & parts(i)
+            kept = kept + 1
+        End If
+    Next i
+
+    Set ts = fso.CreateTextFile(logPath, True)         ' True = overwrite
+    ts.Write keep & vbCrLf
+    ts.Close
+End Sub   '*** end of Sh_Log_Newest_First ***
+
+' What was on screen when it failed, for the log line. Everything here is read through
+' On Error Resume Next: this is describing a document that has just had a macro die on it, so
+' any one of these reads may be the thing that raises. A partial line is worth having; a
+' reporter that dies while reporting is worth nothing.
+'
+' Version: 1.0  Date: 8/26/2026
+'
+Private Function Sh_Error_Context() As String
+    Dim s As String
+    Dim ps As PageSetup
+
+    On Error Resume Next
+
+    s = "Word " & Application.Version
+
+    If Application.Documents.count = 0 Then
+        Sh_Error_Context = s & "  no document open"
+        Exit Function
+    End If
+
+    s = s & "  doc """ & ActiveDocument.Name & """"
+    If Sh_ConfiguredAs <> "" Then s = s & "  cfg " & Sh_ConfiguredAs
+    s = s & "  tmpl """ & ActiveDocument.AttachedTemplate.Name & """"
+
+    Set ps = ActiveDocument.PageSetup
+    If Not ps Is Nothing Then
+        ' CStr(Round()) and not Format$: Format$ with "0.##" left a trailing separator on a
+        ' whole number, so an 11 inch page logged as "8.5x11." (seen 8/26/2026).
+        s = s & "  " & CStr(Round(PointsToInches(ps.PageWidth), 2)) _
+              & "x" & CStr(Round(PointsToInches(ps.PageHeight), 2))
+        If ps.Orientation = wdOrientLandscape Then s = s & " L" Else s = s & " P"
+    End If
+
+    s = s & "  " & ActiveDocument.Styles(wdStyleNormal).Font.Name _
+          & " " & CStr(ActiveDocument.Styles(wdStyleNormal).Font.Size)
+
+    Sh_Error_Context = s
+End Function   '*** end of Sh_Error_Context ***
 
 Sub Sh_Is_Doc_Open()
 '

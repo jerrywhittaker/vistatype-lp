@@ -159,6 +159,44 @@ try {
         $proj.Name = $ProjectName
     }
 
+    # Stamp the version into the VBA too, so the error log and dialog 240 can say which build
+    # produced a fault. A user cannot tell you their build number and the About box is not open
+    # when a macro fails - so without this, a report cannot be told apart from one already fixed.
+    #
+    # Stamped into the BUILT .dotm and never into src/. The version bumps on every `make try`, so
+    # a real number in the source would show as a change in git all day and be committed by
+    # accident; the source keeps "unstamped" for ever. Same reasoning as the About captions
+    # below, which are also only written on the way into the build.
+    #
+    # Matches on the constant NAME, not on its current value, so it re-stamps a .dotm that was
+    # already stamped with an older number - the shell .dotm is reused build after build.
+    if ($AppVer) {
+        $vbMod = $proj.VBComponents | Where-Object { $_.Name -eq "LPandBrlMacros" }
+        if (-not $vbMod) {
+            Write-Host "WARNING: LPandBrlMacros not found - VT_VERSION not stamped"
+        } else {
+            $cm = $vbMod.CodeModule
+            $found = $false
+            for ($i = 1; $i -le $cm.CountOfLines; $i++) {
+                $line = $cm.Lines($i, 1)
+                if ($line -match '^\s*Public\s+Const\s+VT_VERSION\s+As\s+String\s*=') {
+                    $want = "Public Const VT_VERSION As String = ""$AppVer"""
+                    if ($line.Trim() -ne $want) {
+                        $cm.ReplaceLine($i, $want)
+                        Write-Host "stamp VT_VERSION -> $AppVer"
+                    } else {
+                        Write-Host "VT_VERSION already $AppVer"
+                    }
+                    $found = $true
+                    break
+                }
+            }
+            # Loud, because a silent miss means every error report from this build says
+            # "unstamped" and the register cannot be used at all.
+            if (-not $found) { Write-Host "WARNING: VT_VERSION line not found - error reports will say 'unstamped'" }
+        }
+    }
+
     # Stamp the version into both About dialogs.
     #
     # The caption lives in the binary .frx, not in code, so it cannot be edited as text on

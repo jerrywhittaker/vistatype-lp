@@ -45,7 +45,7 @@ DOTM      := LPandBRL.dotm
 DOTX      := LargePrintTemplate.dotx
 RIBBON    := Word.officeUI
 PROJNAME  := LPandBRL
-APPVER    := 3.0.250
+APPVER    := 3.0.262
 SETUP_EXE := VistaType LP and Braille Macros Setup $(APPVER).exe
 VERDATE   := $(shell date +%-m/%-d/%Y)
 
@@ -152,6 +152,16 @@ check-style-guards:
 check-vba-structure:
 	@python3 tools/lib/check_vba_structure.py
 
+# The ribbon dispatch table (src/vba/RibbonDispatch.bas), generated from customUI14.xml.
+# MUST run before the VBA checks and before push-src, because it WRITES a file into src/vba.
+#
+# It exists because Word does not pass an error back out of Application.Run - it shows its own
+# Run-time error dialog instead, and RibbonAction's handler is never entered. Measured on the
+# build box 8/26/2026. A direct call propagates, so the buttons are dispatched through a
+# generated Select Case. See the header of the script.
+build-dispatch:
+	@python3 tools/lib/build_ribbon_dispatch.py
+
 check-qat:
 	@python3 tools/lib/build_qat.py
 
@@ -171,7 +181,7 @@ branding:
 check-branding:
 	@python3 tools/lib/build_branding.py --check-only
 
-build: check-config check-frm-eol check-vba-lines check-vba-structure check-form-calls check-style-guards check-qat check-tabs push-src
+build: check-config build-dispatch check-frm-eol check-vba-lines check-vba-structure check-form-calls check-style-guards check-qat check-tabs push-src
 	$(SSH) '$(WIN_PWSH) -ExecutionPolicy Bypass -File $(WSCRIPTS)/Import-Vba.ps1 -Shell "$(WIN_DIR)/$(DOTM)" -SrcRoot "$(WIN_DIR)/src" -OutDotm "$(WIN_DIR)/dist/$(DOTM)" -ProjectName $(PROJNAME) -AppVer $(APPVER) -VerDate "$(VERDATE)"'
 	@# The two About forms carry the version in their binary .frx, so bring them home if the
 	@# stamp changed them. -u: only if newer, so an unchanged build copies nothing.
@@ -387,4 +397,4 @@ scan:
 clean:
 	rm -rf dist build
 
-.PHONY: help check-config push-src pull build ribbon qat check-qat check-tabs check-frm-eol check-vba-lines read try try-build check-startup-unpulled check-startup-unpulled-soft deploy stage branding check-branding bump font-installer installer installer-build scan clean
+.PHONY: help check-config push-src pull build build-dispatch ribbon qat check-qat check-tabs check-frm-eol check-vba-lines read try try-build check-startup-unpulled check-startup-unpulled-soft deploy stage branding check-branding bump font-installer installer installer-build scan clean
