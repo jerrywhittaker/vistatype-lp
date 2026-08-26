@@ -18,6 +18,18 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp - 8/26/2026 - Lp_Attach_The_Template STOPPED SWALLOWING ITS OWN ERRORS. Version 1.8 put an
+'           - Lp - 8/26/2026 - On Error Resume Next around the line that sets portrait orientation on 10/24/2023,
+'           - Lp - 8/26/2026 - because it raises when the first item in the document is a drop cap. It never ended
+'           - Lp - 8/26/2026 - it, so the guard stayed in force for the remaining 210-odd lines of the sub - the
+'           - Lp - 8/26/2026 - page size, the styles, the table banding, the TOC tab stops and a dozen
+'           - Lp - 8/26/2026 - Application.Run calls. VBA error handling is per procedure, so an error inside one
+'           - Lp - 8/26/2026 - of those abandoned it half-done and came back here to be discarded. The result was
+'           - Lp - 8/26/2026 - a half-formatted book and no message. It now guards the one statement it was added
+'           - Lp - 8/26/2026 - for. EXPECT THINGS TO SPEAK UP that have been silent since 10/24/2023: an error
+'           - Lp - 8/26/2026 - that used to pass unseen now stops the attach and names itself, which is the point,
+'           - Lp - 8/26/2026 - but it is the change to watch for after this build.
+'
 ' Notes:    - Sh - 8/23/2026 - THE VALIDATION LIST SHOWS 23 CHARACTERS AND THEN "..." (Jerry). A tag on a paragraph of
 '           - Sh - 8/23/2026 - its own is five or six characters and comes through whole; a tag on a paragraph that
 '           - Sh - 8/23/2026 - carries a heading as well used to drag the whole heading in, and the list is meant to be
@@ -15214,6 +15226,12 @@ Sub Lp_Attach_The_Template()
 
     ' Attaches the LP template with style changes
     '
+    ' Version: 3.7  Date: 8/26/2026 - ended the On Error Resume Next that 1.8 opened around the portrait
+    '                                orientation line and never closed. It had been swallowing every error in
+    '                                the remaining 210-odd lines of this sub since 10/24/2023 - the page size,
+    '                                the styles, the table banding, the TOC tab stops and a dozen
+    '                                Application.Run calls - so a failure produced a half-formatted book and
+    '                                no message. It now guards the one statement it was added for
     ' Version: 3.6  Date: 8/20/2026 - closes and reopens the document after the Save As, which is
     '                               the only thing that makes Word repaint the Quick Style gallery
     '                               after the attached template has changed which styles belong in
@@ -15453,8 +15471,18 @@ DoEvents
          If PPO = "L" Then
              Selection.PageSetup.Orientation = wdOrientLandscape
           Else
+            ' Guarded for ONE statement, and ended again on the very next line. Setting portrait
+            ' raises when the first item in the document is a drop cap, which is why 3.1's
+            ' predecessor 1.8 put this here on 10/24/2023. What it did not do was end it: On
+            ' Error Resume Next stayed in force for the remaining 210-odd lines of this sub, so
+            ' every later failure was swallowed and the transcriber got a half-formatted book
+            ' with nothing said. Those lines set the styles, the table banding and the TOC tab
+            ' stops, and make a dozen Application.Run calls - and VBA error handling is per
+            ' procedure, so an error inside one of THOSE abandons it half-done and comes back
+            ' here to be discarded. The page size two lines below was under it as well.
             On Error Resume Next
             Selection.PageSetup.Orientation = wdOrientPortrait 'will crash if first item in document is a drop cap
+            On Error GoTo 0
          End If
 
          .PageWidth = InchesToPoints(PPW)
