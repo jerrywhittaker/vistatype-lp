@@ -1,10 +1,10 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} LP_Attach_An_Lp_Template_Form 
    Caption         =   "Attach LP Template & Select Output Media"
-   ClientHeight    =   9132.001
+   ClientHeight    =   9204.001
    ClientLeft      =   120
    ClientTop       =   465
-   ClientWidth     =   12390
+   ClientWidth     =   12375
    OleObjectBlob   =   "LP_Attach_An_Lp_Template_Form.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
@@ -14,8 +14,35 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
+
 ' LP_Attach_An_Lp_Template_Form
 '
+' Version: 6.4  Date: 8/26/2026 - a TABLET could reach Word with its width and height
+'                                transposed, which set every page of the book to the wrong size.
+'                                Both orientation handlers arranged the two size boxes by testing
+'                                Hold_Orientation - the orientation in force when Customize was
+'                                last ticked - against PPO. That is not the media's own
+'                                orientation, and when the two happened to agree the handler took
+'                                the swap arm. Paper was rescued by its If IsPaper arm
+'                                re-assigning both boxes; a tablet had nothing below to put them
+'                                back. New Media_Orientation, set by every media button beside
+'                                its own PPO, is what the test compares now, and the two
+'                                paper-only re-assignments are gone with the old test - one rule
+'                                covers all nine media. AttachOkay_Click copies the boxes into
+'                                PPW/PPH and Lp_Attach_The_Template hands those to Word as
+'                                .PageWidth and .PageHeight, so what the transcriber selected is
+'                                what Word is told, which is the whole point of the dialog
+' Version: 6.3  Date: 8/26/2026 - the binding width, and the margins themselves, ran one media
+'                                button behind. Each of the nine media buttons cleared
+'                                CustomizeCheckBox part-way down its own run, and that assignment
+'                                raises CustomizeCheckBox_Click, which reverts PTM/PBM/PLM/PRM to
+'                                the Hold_ values from the previous media. Clearing it first, as
+'                                the sub's opening statement, is the whole fix. The three literal
+'                                margin re-types added in 4.4 to hide the symptom go with it, and
+'                                so does the unreachable If CustomizeCheckBox = True beside them
+'                                The .frx in this same build also carries Jerry's own adjustment
+'                                to the form's physical layout, made in the VBE on the build box:
+'                                the form itself, LandscapePicWithGutter, FontSans and FontTahoma
 ' Version: 6.2  Date: 8/22/2026 - the Typeface choice is BACK, with a face that fixes what killed
 '                                the last one. FontChoiceFrame / FontTahoma / FontSans, and the
 '                                bundled face is VistaTypeLP Sans: Greek complete, the phonetic
@@ -81,6 +108,11 @@ Dim IsPaper As Boolean
 ' whether this attach may change the book's typeface at all.
 Dim Lp_Doc_Font_At_Open As String
 Dim Hold_Orientation As String
+' The orientation the SELECTED media is stored in - "P" or "L". Every media button sets it
+' beside its own PPO. It is NOT Hold_Orientation: that one records whatever orientation was in
+' force when Customize was last ticked, which is a different thing entirely and is what made the
+' two orientation handlers transpose a tablet's width and height. See them for the rest.
+Dim Media_Orientation As String
 Dim Hold_HeightValue As String
 Dim Hold_WidthValue As String
 Dim Hold_LMarginSizeValue As String
@@ -337,23 +369,35 @@ End Sub
 
 Private Sub CustomOrientLandscape_Click()
 
-    If Hold_Orientation = PPO Then ' PPO = Print Page Orientation
-        CustomHeightValue = Hold_WidthValue
-        CustomWidthValue = Hold_HeightValue
-    Else
-        CustomHeightValue = Hold_HeightValue
-        CustomWidthValue = Hold_WidthValue
-    End If
-    
     PPO = "L" 'new setting
-    
+
+    ' PPW and PPH always hold the SELECTED media's two dimensions in that media's own
+    ' orientation - 8.5 by 11 for paper, 7.76 by 5.82 for the 9.7 inch tablet - and
+    ' Media_Orientation names which one that is. Arrange the pair to match the orientation being
+    ' asked for here, so the two boxes always read the page as Word will be told to set it:
+    ' AttachOkay_Click copies them into PPW/PPH and Lp_Attach_The_Template hands those straight
+    ' to .PageWidth and .PageHeight.
+    '
+    ' This replaces a test against Hold_Orientation, which records the orientation in force when
+    ' Customize was last ticked - not the media's. When the two happened to agree it took the
+    ' swap arm, and for a tablet nothing below put the numbers back (the paper arm re-assigned
+    ' them, which is why only tablets showed it). Three clicks were enough: 10.1 inch tablet,
+    ' tick Customize, 12.9 inch tablet, 10.1 inch again, and the boxes read 5.33 wide by 8.52
+    ' tall for a landscape screen. Customize is unticked by then, so no validation in
+    ' AttachOkay_Click ran and the book was set to the transposed size. Found 8/26/2026.
+    If PPO = Media_Orientation Then
+        CustomWidthValue = PPW
+        CustomHeightValue = PPH
+    Else
+        CustomWidthValue = PPH
+        CustomHeightValue = PPW
+    End If
+
     If IsPaper Then
         DocPicPortrait.Visible = False
         DocPicLandscape.Visible = True
         iPadPicPortrait.Visible = False
         iPadPicLandscape.Visible = False
-        CustomHeightValue = PPW
-        CustomWidthValue = PPH
         If MirroredCheckBox = True Then
             DocPicLandscape.Visible = False
             LandscapePicWithGutter.Visible = True
@@ -369,23 +413,35 @@ End Sub
 
 Private Sub CustomOrientPortrait_Click()
 
-    If Hold_Orientation = PPO Then
-        CustomHeightValue = Hold_WidthValue
-        CustomWidthValue = Hold_HeightValue
+    PPO = "P" 'new setting
+
+    ' PPW and PPH always hold the SELECTED media's two dimensions in that media's own
+    ' orientation - 8.5 by 11 for paper, 7.76 by 5.82 for the 9.7 inch tablet - and
+    ' Media_Orientation names which one that is. Arrange the pair to match the orientation being
+    ' asked for here, so the two boxes always read the page as Word will be told to set it:
+    ' AttachOkay_Click copies them into PPW/PPH and Lp_Attach_The_Template hands those straight
+    ' to .PageWidth and .PageHeight.
+    '
+    ' This replaces a test against Hold_Orientation, which records the orientation in force when
+    ' Customize was last ticked - not the media's. When the two happened to agree it took the
+    ' swap arm, and for a tablet nothing below put the numbers back (the paper arm re-assigned
+    ' them, which is why only tablets showed it). Three clicks were enough: 10.1 inch tablet,
+    ' tick Customize, 12.9 inch tablet, 10.1 inch again, and the boxes read 5.33 wide by 8.52
+    ' tall for a landscape screen. Customize is unticked by then, so no validation in
+    ' AttachOkay_Click ran and the book was set to the transposed size. Found 8/26/2026.
+    If PPO = Media_Orientation Then
+        CustomWidthValue = PPW
+        CustomHeightValue = PPH
     Else
-        CustomHeightValue = Hold_HeightValue
-        CustomWidthValue = Hold_WidthValue
+        CustomWidthValue = PPH
+        CustomHeightValue = PPW
     End If
-     
-     PPO = "P" 'new setting
-     
+
     If IsPaper Then
         DocPicPortrait.Visible = True
         DocPicLandscape.Visible = False
         iPadPicPortrait.Visible = False
         iPadPicLandscape.Visible = False
-        CustomHeightValue = PPH
-        CustomWidthValue = PPW
         If MirroredCheckBox = True Then
             DocPicPortrait.Visible = False
             PortraitPicWithGutter.Visible = True
@@ -399,6 +455,25 @@ Private Sub CustomOrientPortrait_Click()
     End If
 End Sub
 
+' Ticking Customize captures the current settings in the Hold_ variables; unticking it puts
+' them back. That revert is why every media button clears this checkbox as its FIRST statement
+' and not part-way down.
+'
+' Assigning CustomizeCheckBox.Value = False from code raises this Click just as a mouse would.
+' Done after a media button had already assigned its own PTM/PBM/PLM/PRM, the revert below
+' overwrote all four with the Hold_ values captured when Customize was last ticked - the
+' PREVIOUS media's margins. Ticking Customize again then wrote those stale publics straight back
+' into the four margin boxes, so the dialog, the binding width (half the left margin) and the
+' margins the book was actually set with all ran exactly one media button behind. Choosing 3/4
+' inch after 1/2 inch gave a binding width of .25 instead of .38; choosing 1 inch after that
+' gave .38 instead of .5. Found by Jerry, 8/26/2026.
+'
+' Version 4.4 (3/21/2024) treated the symptom in the three paper buttons by re-typing the four
+' margins as literals at the end of each one. That put the boxes right while leaving PLM/PRM/
+' PTM/PBM stale, so the fault came straight back the moment Customize was ticked - and the six
+' tablet buttons never got even that much, so their margin boxes showed the previous media's
+' numbers outright. Clearing the checkbox first fixes all nine at the source; those literal
+' re-types are gone with it.
 Private Sub CustomizeCheckBox_Click()
 
     If CustomizeCheckBox = True Then
@@ -507,6 +582,8 @@ Private Sub CustomizeCheckBox_Click()
 End Sub   '*** end of CustomizeCheckBox_Click ****
 
 Private Sub MarginHalfInch_Click()
+    ' FIRST, and it must stay first - see the note above CustomizeCheckBox_Click.
+    CustomizeCheckBox.Value = False
     PTM = ".5"
     PBM = ".5"
     PLM = ".5"
@@ -514,9 +591,9 @@ Private Sub MarginHalfInch_Click()
     PPW = "8.5"
     PPH = "11"
     PPO = "P"
+    Media_Orientation = PPO
     Hold_WidthValue = PPW
     Hold_HeightValue = PPH
-    CustomizeCheckBox.Value = False
     IsPaper = True
     DocPicPortrait.Visible = True
     DocPicLandscape.Visible = False
@@ -529,19 +606,12 @@ Private Sub MarginHalfInch_Click()
     LMarginSizeValue = PLM
     RMarginSizeValue = PRM
     DM = "Paper"
-    If CustomizeCheckBox = True Then
-        MirroredCheckBox.Enabled = True
-        MirroredCheckBox.Value = False
-    Else 'restores values to this preset - 3/21/2024 fix
-        TMarginSizeValue = ".5"
-        BMarginSizeValue = ".5"
-        LMarginSizeValue = ".5"
-        RMarginSizeValue = ".5"
-    End If
     CustomOrientPortrait = True
 End Sub
 
 Private Sub MarginTheeFourthsInch_Click()
+    ' FIRST, and it must stay first - see the note above CustomizeCheckBox_Click.
+    CustomizeCheckBox.Value = False
     PTM = ".75"
     PBM = ".75"
     PLM = ".75"
@@ -549,9 +619,9 @@ Private Sub MarginTheeFourthsInch_Click()
     PPW = "8.5"
     PPH = "11"
     PPO = "P"
+    Media_Orientation = PPO
     Hold_WidthValue = PPW
     Hold_HeightValue = PPH
-    CustomizeCheckBox.Value = False
     IsPaper = True
     DocPicPortrait.Visible = True
     DocPicLandscape.Visible = False
@@ -564,19 +634,12 @@ Private Sub MarginTheeFourthsInch_Click()
     LMarginSizeValue = PLM
     RMarginSizeValue = PRM
     DM = "Paper"
-    If CustomizeCheckBox = True Then
-        MirroredCheckBox.Enabled = True
-        MirroredCheckBox.Value = False
-    Else 'restores values to this preset - 3/21/2024 fix
-        TMarginSizeValue = ".75"
-        BMarginSizeValue = ".75"
-        LMarginSizeValue = ".75"
-        RMarginSizeValue = ".75"
-    End If
     CustomOrientPortrait = True
 End Sub
 
 Private Sub MarginOneInch_Click()
+    ' FIRST, and it must stay first - see the note above CustomizeCheckBox_Click.
+    CustomizeCheckBox.Value = False
     PTM = "1"
     PBM = "1"
     PLM = "1"
@@ -584,9 +647,9 @@ Private Sub MarginOneInch_Click()
     PPW = "8.5"
     PPH = "11"
     PPO = "P"
+    Media_Orientation = PPO
     Hold_WidthValue = PPW
     Hold_HeightValue = PPH
-    CustomizeCheckBox.Value = False
     IsPaper = True
     DocPicPortrait.Visible = True
     DocPicLandscape.Visible = False
@@ -600,19 +663,12 @@ Private Sub MarginOneInch_Click()
     RMarginSizeValue = PRM
 
     DM = "Paper"
-    If CustomizeCheckBox = True Then
-        MirroredCheckBox.Enabled = True
-        MirroredCheckBox.Value = False
-    Else 'restores values to this preset - 3/21/2024 fix
-        TMarginSizeValue = "1"
-        BMarginSizeValue = "1"
-        LMarginSizeValue = "1"
-        RMarginSizeValue = "1"
-    End If
     CustomOrientPortrait = True
 End Sub
 
 Private Sub Nine_Point_Seven_Tablet_Click()
+    ' FIRST, and it must stay first - see the note above CustomizeCheckBox_Click.
+    CustomizeCheckBox.Value = False
     PTM = ".2"
     PBM = ".2"
     PLM = ".2"
@@ -620,9 +676,9 @@ Private Sub Nine_Point_Seven_Tablet_Click()
     PPW = "7.76"
     PPH = "5.82"
     PPO = "L"
+    Media_Orientation = PPO
     Hold_WidthValue = PPW
     Hold_HeightValue = PPH
-    CustomizeCheckBox.Value = False
     IsPaper = False
     DocPicPortrait.Visible = False
     DocPicLandscape.Visible = False
@@ -645,6 +701,8 @@ Private Sub Nine_Point_Seven_Tablet_Click()
 End Sub
 
 Private Sub Ten_Point_One_Tablet_Click()
+    ' FIRST, and it must stay first - see the note above CustomizeCheckBox_Click.
+    CustomizeCheckBox.Value = False
     PTM = ".2"
     PBM = ".2"
     PLM = ".2"
@@ -652,9 +710,9 @@ Private Sub Ten_Point_One_Tablet_Click()
     PPW = "8.52"
     PPH = "5.33"
     PPO = "L"
+    Media_Orientation = PPO
     Hold_WidthValue = PPW
     Hold_HeightValue = PPH
-    CustomizeCheckBox.Value = False
     IsPaper = False
     DocPicPortrait.Visible = False
     DocPicLandscape.Visible = False
@@ -677,6 +735,8 @@ Private Sub Ten_Point_One_Tablet_Click()
 End Sub
 
 Private Sub Ten_Point_Two_Tablet_Click()
+    ' FIRST, and it must stay first - see the note above CustomizeCheckBox_Click.
+    CustomizeCheckBox.Value = False
     PTM = ".2"
     PBM = ".2"
     PLM = ".2"
@@ -684,9 +744,9 @@ Private Sub Ten_Point_Two_Tablet_Click()
     PPW = "8.18"
     PPH = "6.14"
     PPO = "L"
+    Media_Orientation = PPO
     Hold_WidthValue = PPW
     Hold_HeightValue = PPH
-    CustomizeCheckBox.Value = False
     IsPaper = False
     DocPicPortrait.Visible = False
     DocPicLandscape.Visible = False
@@ -709,6 +769,8 @@ Private Sub Ten_Point_Two_Tablet_Click()
 End Sub
 
 Private Sub Ten_Point_Five_Tablet_Click()
+    ' FIRST, and it must stay first - see the note above CustomizeCheckBox_Click.
+    CustomizeCheckBox.Value = False
     PTM = ".2"
     PBM = ".2"
     PLM = ".2"
@@ -716,9 +778,9 @@ Private Sub Ten_Point_Five_Tablet_Click()
     PPW = "8.42"
     PPH = "6.32"
     PPO = "L"
+    Media_Orientation = PPO
     Hold_WidthValue = PPW
     Hold_HeightValue = PPH
-    CustomizeCheckBox.Value = False
     IsPaper = False
     DocPicPortrait.Visible = False
     DocPicLandscape.Visible = False
@@ -741,6 +803,8 @@ Private Sub Ten_Point_Five_Tablet_Click()
 End Sub
 
 Private Sub Eleven_Point_Zero_Tablet_Click()
+    ' FIRST, and it must stay first - see the note above CustomizeCheckBox_Click.
+    CustomizeCheckBox.Value = False
     PTM = ".2"
     PBM = ".2"
     PLM = ".2"
@@ -748,9 +812,9 @@ Private Sub Eleven_Point_Zero_Tablet_Click()
     PPW = "9.01"
     PPH = "6.3"
     PPO = "L"
+    Media_Orientation = PPO
     Hold_WidthValue = PPW
     Hold_HeightValue = PPH
-    CustomizeCheckBox.Value = False
     IsPaper = False
     DocPicPortrait.Visible = False
     DocPicLandscape.Visible = False
@@ -773,6 +837,8 @@ Private Sub Eleven_Point_Zero_Tablet_Click()
 End Sub
 
 Private Sub Twelve_Point_Nine_Tablet_Click()
+    ' FIRST, and it must stay first - see the note above CustomizeCheckBox_Click.
+    CustomizeCheckBox.Value = False
     PTM = ".2"
     PBM = ".2"
     PLM = ".2"
@@ -780,11 +846,11 @@ Private Sub Twelve_Point_Nine_Tablet_Click()
     PPW = "7.76"
     PPH = "10.35"
     PPO = "P"
+    Media_Orientation = PPO
     
     Hold_WidthValue = PPW
     Hold_HeightValue = PPH
     
-    CustomizeCheckBox.Value = False
     IsPaper = False
     DocPicPortrait.Visible = False
     DocPicLandscape.Visible = False
