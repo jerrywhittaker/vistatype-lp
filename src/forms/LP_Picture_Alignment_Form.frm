@@ -55,6 +55,15 @@ skip2:
         If Selection.Type = wdSelectionNormal Or Selection.Information(wdWithInTable) Or Selection.InlineShapes.count = 1 Then
         Else
             MsgBox "Nothing is selected or the selected picture is NOT inline", , "VistaType LP (148)"
+            ' PUT THE SCREEN BACK before stopping. Screen updating went off at the top of this
+            ' handler and End does not restore it, so the user pressed OK on the message and
+            ' Word sat there frozen. Jerry, 8/26/2026.
+            '
+            ' End is KEPT here, unlike the two in Dx_UnEmbed_Ref_Pg_No. This is a form's button
+            ' handler: Exit Sub would return to the form, which would still be on screen and
+            ' waiting - a different behavior, not just a tidier one. Worth doing if that is what
+            ' is wanted, but it is a decision about the dialog rather than a repair.
+            Application.ScreenUpdating = True
             End
         End If
         

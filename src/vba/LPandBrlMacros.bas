@@ -3005,6 +3005,7 @@ Sub Dx_UnEmbed_Ref_Pg_No()
 ' Embedded_Reference_Page_NumberConvert_Reference_Page_Number_to_
 ' Double Click the embedded page number before execution
 '
+' Version: 2.0 Date: 8/26/2026 - the two early exits put the screen back and Exit Sub instead of End
 ' Version: 1.9 Date: 3/14/2024 - supressed instruction msg to when the style reqested style is the same as the current style
 '                                   and added message when non-reference page number selected
 ' Version: 1.8: Date: 9/21/2018 - fixed Nemeth code error
@@ -3024,12 +3025,26 @@ Sub Dx_UnEmbed_Ref_Pg_No()
     If Selection.Style <> "RefPageNumber" And Selection.Style <> "RefPageNemeth" And _
         Selection.Style <> "RefPageNumberEmbed" And Selection.Style <> "RefPageNemethEmbed" Then
         MsgBox "Select the Reference Page Number or place cursor to the right of or within the number.", , "Braille Macros"
-        End
+        ' PUT THE SCREEN BACK, and Exit Sub rather than End. Both exits in this macro turned
+        ' screen updating off eight lines above and then stopped without restoring it, so the
+        ' user pressed Okay on the message and Word sat there frozen - which reads as a hang.
+        '
+        ' Exit Sub is exactly equivalent here: the only thing that calls this macro is its own
+        ' ribbon button, through RibbonAction, which does nothing afterwards. It also spares the
+        ' module-level state End wipes - gRibbon, which is what lets Word re-ask about tab
+        ' visibility, and Sh_ConfiguredAs, which is what Document Settings reports.
+        '
+        ' Jerry, 8/26/2026: End was how he ended a macro early on, and goto eom came later. Fix
+        ' the ones causing a problem - these two were.
+        Application.ScreenUpdating = su_Prev
+        Exit Sub
     End If
        
     ' selection is to unembed then no changes
     If Selection.Style <> "RefPageNumberEmbed" And Selection.Style <> "RefPageNemethEmbed" Then
-        End
+        ' Nothing to unembed - see the note on the exit above.
+        Application.ScreenUpdating = su_Prev
+        Exit Sub
     End If
 
     ' Move cursor to the left until the embeded style is no longer valid
