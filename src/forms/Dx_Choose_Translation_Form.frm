@@ -14,6 +14,11 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 'Dx_Choose_Translation_Form
+' Version: 1.2 Date: 8/27/2026 - the four translation buttons call Dx_Set_BrailleType instead of
+'                               writing the BrailleType document variable themselves, so the type
+'                               and SWIFT's own DBTTemplate property are recorded together and in
+'                               one place. Dx_UEB_EBAE_String is still set first, on each button's
+'                               own first line - two Do While loops depend on it to terminate
 ' Version: 1.1 Date: 3/9/2024 - removed "End" from Sub Cmd_Cancel_Click
 '
 Private Sub Cmd_Cancel_Click()

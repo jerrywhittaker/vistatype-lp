@@ -18,6 +18,24 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - BRL - 8/27/2026 - THE TWO CLEANUP QUESTIONS AFTER A BRAILLE ATTACH ARE BACK (Jerry).
+'           - BRL - 8/27/2026 - "Do you want to fix common file errors?" and "remove multiple
+'           - BRL - 8/27/2026 - consecutive paragraph marks?" had stopped appearing. Dx_GP_String_1 was
+'           - BRL - 8/27/2026 - set to "Doc_Is_Already_Brl" in ONE place - Sh_Apply_Word_Config's braille
+'           - BRL - 8/27/2026 - branch, which runs whenever a braille document is opened or switched to -
+'           - BRL - 8/27/2026 - and cleared in ONE place, INSIDE the If that tested it, on the branch
+'           - BRL - 8/27/2026 - where it did not hold that value. So it was never cleared once set: open
+'           - BRL - 8/27/2026 - or click into any braille book and the attach skipped those questions on
+'           - BRL - 8/27/2026 - every document for the rest of the session, a fresh source file included.
+'           - BRL - 8/27/2026 - Dx_Attach_BANA_Template now reads the DOCUMENT instead, before attaching:
+'           - BRL - 8/27/2026 - did it already carry a BANA template? A document property cannot go stale
+'           - BRL - 8/27/2026 - the way a module variable does, and it survives the End statement this
+'           - BRL - 8/27/2026 - project runs on ordinary paths - which wipes module variables, so the old
+'           - BRL - 8/27/2026 - flag's behavior depended on whether an End had happened to run since.
+'           - BRL - 8/27/2026 - The write in Sh_Apply_Word_Config is GONE - it was the only writer of that
+'           - BRL - 8/27/2026 - value and the attach was its only reader. Dx_GP_String_1 is a scratch
+'           - BRL - 8/27/2026 - string with a dozen other meanings; a value nothing reads is a trap.
+'
 ' Notes:    - BRL - 8/27/2026 - DOC INFO NAMES THE DBT TRANSLATION TABLE ON A VISTATYPE BOOK TOO
 '           - BRL - 8/27/2026 - (Jerry). That line read "not recorded in this document" on every braille
 '           - BRL - 8/27/2026 - book, always. Sh_Dbt_Translation_Table asked ONE place - the custom
@@ -1828,7 +1846,13 @@ Sub Sh_Apply_Word_Config(ByVal cfgType As String, Optional ByVal DisplayToo As B
         Case "BRL"
             Application.Run MacroName:="MS_Set_Word_Config_For_Braille"
             If DisplayToo Then Application.TaskPanes(wdTaskPaneFormatting).Visible = False
-            Dx_GP_String_1 = "Doc_Is_Already_Brl"
+            ' Dx_GP_String_1 = "Doc_Is_Already_Brl" stood here until 8/27/2026. It was the ONLY
+            ' writer of that value and Dx_Attach_BANA_Template was its only reader, and because
+            ' nothing ever cleared it, one braille document opened in a session silenced that
+            ' sub's two cleanup questions on every document for the rest of it. The attach asks
+            ' the document directly now - see wasAlreadyBrl there - so this line has no reader
+            ' and is gone. Dx_GP_String_1 is a general-purpose scratch string with a dozen other
+            ' meanings; leaving a value in it that nothing reads is how the next fault starts.
         Case Else
             Application.Run MacroName:="MS_Set_Word_Config_For_New_Install"
     End Select
@@ -2049,6 +2073,14 @@ Sub Dx_Attach_BANA_Template()
 '  Version: 3.4  Date: 8/18/2026 - that font is now Times New Roman 14 pt, not Courier New 12 pt - matching what Duxbury's own SWIFT add-in sets when IT attaches a template (Jerry)
 '  Version: 3.3  Date: 8/5/2026 - puts the whole document into Courier New 12 pt as the last thing it does (Jerry)
 '  Version: 3.2  Date: 7/24/2026 - repaint (ScreenUpdating on + ScreenRefresh) before the template-choice and translation-choice forms; they were shown while ScreenUpdating was off, so the Word workspace behind them rendered black instead of the normal gray
+'  Version: 3.3  Date: 8/27/2026 - answering Yes to the paragraph-marks question now says "Multiple
+'                                  paragraph marks deleted" when it finishes, dialog 246 - the same message
+'                                  and the same number as the cleanup menu's own button (Jerry)
+'  Version: 3.2  Date: 8/27/2026 - the two cleanup questions are asked again (Jerry). Whether the book was
+'                                  ALREADY braille is now read off the document before the attach, instead of a
+'                                  session-wide string that was set on every braille document opened and never
+'                                  cleared - so once any braille file had been touched, the questions never
+'                                  appeared again for the rest of the Word session, on any document
 '  Version: 3.1  Date: 6/29/2025 - added Copy BANA Braille Template From Word Startup Folder to Templates Folder - Duxbury began
 '                                  to place the BANA Braille 2025.dotx in the Word startup folder - need to copy to templates folder
 '                                  or this attachment routine will not work - the template file will reside in both folders
@@ -2076,6 +2108,31 @@ Sub Dx_Attach_BANA_Template()
     If Documents.count = 0 Then
         Documents.Add Template:="Normal", NewTemplate:=False, DocumentType:=0
     End If
+
+    ' WAS THIS ALREADY A BRAILLE BOOK BEFORE WE TOUCHED IT? Asked here, of the document itself,
+    ' and asked BEFORE the template is attached further down - a moment later the answer is always
+    ' yes. It decides whether the two cleanup questions at the bottom of this sub are put to the
+    ' transcriber: re-attaching a template to a book already in braille should not offer to run
+    ' thirty cleanup passes over it again.
+    '
+    ' IT USED TO BE A SESSION-WIDE STRING, AND THAT IS THE FAULT Jerry reported on 8/27/2026 -
+    ' the two questions had stopped appearing at all. Dx_GP_String_1 was set to "Doc_Is_Already_Brl"
+    ' in ONE place, Sh_Apply_Word_Config's braille branch, which runs every time a braille document
+    ' is opened or switched to. It was cleared in ONE place - inside the very If that tested it,
+    ' on the branch where it did NOT hold that value. So the value, once set, was never cleared
+    ' again: open or click into any braille book, and for the rest of that Word session the attach
+    ' skipped the questions on every document, including a fresh source file that had never been
+    ' near braille. It reads as the questions being "removed".
+    '
+    ' A document property cannot go stale the way a module variable does, which is the whole point
+    ' of asking the document. It also survives VBA's End statement, which this project runs on
+    ' ordinary paths and which wipes module variables - so the old flag's behavior depended on
+    ' whether an End happened to have run since, and that is not a design.
+    Dim wasAlreadyBrl As Boolean
+    On Error Resume Next
+    wasAlreadyBrl = (InStr(ActiveDocument.AttachedTemplate, "BANA Braille") > 0)
+    Err.Clear
+    On Error GoTo 0
 
     'attching the BANA template will wipe out Word's language tags - change
     '     the foreign language tags of Word to DBT style names before attaching the BANA Template
@@ -2175,14 +2232,28 @@ Sub Dx_Attach_BANA_Template()
     Application.ScreenRefresh
     MsgBox (ActiveDocument.AttachedTemplate) + " template has been attached!", , "Braille Macros"
 
-    If Dx_GP_String_1 <> "Doc_Is_Already_Brl" Then
-        Dx_GP_String_1 = ""
+    ' The two cleanup questions. Asked when this was NOT already a braille book - see wasAlreadyBrl
+    ' at the top of the sub for what this used to test and why it stopped working.
+    '
+    ' The character count guard stays: an empty or near-empty document has nothing to clean up,
+    ' and being asked twice about it is just two more keys to press.
+    If Not wasAlreadyBrl Then
         If ActiveDocument.Characters.count > 10 Then
             If MsgBox("Do you want to fix common file errors?", vbYesNo, "Braille Macros") = vbYes Then
                 Application.Run MacroName:="Dx_Fix_Common_File_Errors"
             End If
             If MsgBox("Do you want to remove multiple consecutive paragraph marks? ", vbYesNo, "Braille Macros") = vbYes Then
                 Application.Run MacroName:="Sh_Replace_Multiple_Para_Marks_No_Warning"
+                ' The same "it is done" message the cleanup menu's own button gives, and the same
+                ' dialog number - it IS the same dialog. Added 8/27/2026: putting it only on the
+                ' menu button left this route silent, and this is a route the transcriber reaches
+                ' by answering Yes to a question about this exact job. Answering a direct question
+                ' with nothing on screen is the fault being fixed, not the button it came from.
+                '
+                ' It cannot go in Sh_Replace_Multiple_Para_Marks_No_Warning itself: that worker is
+                ' shared with large print, which has its own arrangement, and it runs inside
+                ' Lp_File_Fix_Sequence and Lp_Attach_The_Template as one step of many.
+                Sh_Say "Multiple paragraph marks deleted", "Braille Macros (246)"
             End If
         End If
     End If
@@ -3494,6 +3565,11 @@ End Function   '*** end of Dx_Ensure_BrailleType ***
 
 Sub Dx_Is_BANA_Template_Attached()
 '
+' Version: 1.6  Date: 8/27/2026 - the derive-or-ask block moved WHOLE into Dx_Ensure_BrailleType, so
+'                                Doc Info can ask the same question and get the same answer. Body only;
+'                                what this sub decides is unchanged. (The numbering below was already
+'                                out of order before this line - 1.2 sat above 1.5 - so this takes the
+'                                next number above the highest ever used rather than adding to the muddle)
 ' Version: 1.2 Date: 8/26/2026 - asks the DOCUMENT before asking the user: derives BrailleType from
 '                                the DBT translation table SWIFT records, so a SWIFT book stops
 '                                being asked which translation it is on every single macro
@@ -8371,6 +8447,10 @@ End Function '*** end of Dx_Is_The_Attached_Template_BANA_Braille Function ***
 
 Sub Dx_Replace_Multiple_Para_Marks_With_Warning()
 '
+' Version: 1.1   Date: 8/27/2026 - says "Multiple paragraph marks deleted" again (Jerry). The braille
+'                                  side lost that message on 8/12/2026, when its own worker was deleted
+'                                  in favour of the shared one and the message went with it. Dialog 246,
+'                                  through Sh_Say
 ' Version: 1.0   Date:  2/17/2024
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
@@ -8396,7 +8476,26 @@ Sub Dx_Replace_Multiple_Para_Marks_With_Warning()
     End If
     
     Application.Run MacroName:="Sh_Replace_Multiple_Para_Marks_No_Warning"
-    
+
+    ' SAY IT IS DONE. Restored 8/27/2026 (Jerry) - it had been gone since 8/12/2026 and nothing
+    ' said so. The braille side used to have its own worker, Dx_Replace_Multiple_Para_Marks_No_
+    ' Warning, which ended with MsgBox "Multiple paragraph marks deleted". That worker was deleted
+    ' whole when both sides were merged onto the shared Sh_Replace_Multiple_Para_Marks_No_Warning
+    ' - rightly, it did the job through a temporary document and could not see a blank line
+    ' holding a space - but its closing message went with it and was never carried across. Large
+    ' print never had one; it shows a please-wait box instead, so nobody noticed the braille side
+    ' had gone silent on a pass that can run for a while and leaves nothing on screen to show for
+    ' itself.
+    '
+    ' It goes HERE and not in the shared worker, which has five other callers: the braille attach
+    ' runs it straight after its own question and should stay quiet, Dx_Selected_Cleanup_Form runs
+    ' it as one ticked box among several, and large print has its own arrangement. This sub is the
+    ' braille menu button, and a button a transcriber presses on purpose should answer.
+    '
+    ' Sh_Say rather than MsgBox, per *How VistaType LP says things* - 10 point Tahoma, an Okay
+    ' button with Alt+O. 246 is the next unused dialog number; the highest in the project was 245.
+    Sh_Say "Multiple paragraph marks deleted", "Braille Macros (246)"
+
 End Sub    '***   end of  Dx_Replace_Multiple_Para_Marks_With_Warning macro ***
 
 ' Dx_Replace_Multiple_Para_Marks_No_Warning was here until 8/12/2026. It was still the original
@@ -21377,6 +21476,11 @@ End Sub  '*** end of Sh_Save_Transcriber_Settings ***
 ' it completely: by then the live value IS what the book asked for, whether it was written or was
 ' already there.
 '
+' "The end" is no longer literally the last statement in the BRAILLE sub, from 8/27/2026: the
+' wasSaved restore sits below this call. That is harmless and does not weaken anything here - the
+' restore writes no setting, so there is nothing for it to record. What matters is that this call
+' stays below every SETTING the configuration writes.
+'
 ' Running at the end also means a configuration that raises part way through records nothing, so
 ' the next return to an ordinary document reads no book record and treats the live values as hers.
 ' That is the safe way round: it can lose a restore, never her preferences.
@@ -22252,25 +22356,6 @@ firstSection:
     Set Sh_Target_Section = ActiveDocument.Sections(1)
 End Function
 
-' The DBT translation table this document is bound for - e.g. "English (UEB) - BANA.dxt" - or a
-' plain sentence when the document does not say.
-'
-' WHY IT IS WORTH REPORTING. SWIFT, Duxbury's own Word add-in, attaches the BANA template AND
-' records the translation table in the document's custom properties - but it does NOT set the
-' BrailleType document variable this project's macros ask for. Only Dx_Choose_Translation_Form
-' ever writes that. So on a SWIFT-prepared document every braille macro stops and asks which
-' translation it is, every time, and nothing remembers the answer. The document has been carrying
-' it all along and nothing looked. Found 8/26/2026 by reading a SWIFT file's XML: attached
-' template BANA Braille 2017.dot, DBTTemplate "English (UEB) - BANA.dxt", and the only document
-' variable present was SWIFT.StyleMap.GUID.
-'
-' READABLE BEFORE THE DOCUMENT HAS EVER BEEN SAVED. Tested on the build box: a custom property
-' lives in the in-memory document and saving only writes it out. So this reports on a brand new
-' SWIFT document, which is exactly the case that matters.
-'
-' A missing custom property raises error 5 - NOT 5825, which is what a missing document VARIABLE
-' raises. Measured, because the two are easy to confuse and the trap has to cover the right one.
-'
 ' Is this document still waiting to be written to disk? True when it has never been saved, and
 ' also when it has changes not yet written.
 '
@@ -22292,6 +22377,25 @@ Public Function Sh_Doc_Not_Yet_Saved() As Boolean
     Err.Clear
 End Function   '*** end of Sh_Doc_Not_Yet_Saved ***
 
+' The DBT translation table this document is bound for - e.g. "English (UEB) - BANA.dxt" - or a
+' plain sentence when the document does not say.
+'
+' WHY IT IS WORTH REPORTING. SWIFT, Duxbury's own Word add-in, attaches the BANA template AND
+' records the translation table in the document's custom properties - but it does NOT set the
+' BrailleType document variable this project's macros ask for. Only Dx_Choose_Translation_Form
+' ever writes that. So on a SWIFT-prepared document every braille macro stops and asks which
+' translation it is, every time, and nothing remembers the answer. The document has been carrying
+' it all along and nothing looked. Found 8/26/2026 by reading a SWIFT file's XML: attached
+' template BANA Braille 2017.dot, DBTTemplate "English (UEB) - BANA.dxt", and the only document
+' variable present was SWIFT.StyleMap.GUID.
+'
+' READABLE BEFORE THE DOCUMENT HAS EVER BEEN SAVED. Tested on the build box: a custom property
+' lives in the in-memory document and saving only writes it out. So this reports on a brand new
+' SWIFT document, which is exactly the case that matters.
+'
+' A missing custom property raises error 5 - NOT 5825, which is what a missing document VARIABLE
+' raises. Measured, because the two are easy to confuse and the trap has to cover the right one.
+'
 ' IT MUST ASK BOTH PLACES, and version 1.0 asked only one. Jerry, 8/27/2026: this line read "not
 ' recorded in this document" on every braille book, always. The custom property below is SWIFT's,
 ' and NOTHING IN THIS PROJECT HAS EVER WRITTEN IT - it is read in three places and written in
@@ -22362,6 +22466,12 @@ Sub Sh_Doc_Info()
 '
 ' Shows the settings and path info of the current Document
 '
+' Version: 2.2  Date: 8/27/2026 - the braille branch asks Dx_Ensure_BrailleType instead of reading the
+'                               BrailleType variable itself, so this screen and the macros cannot give
+'                               different answers - it named a SWIFT book's translation table and called
+'                               its translation settings undefined four lines below. And both of those
+'                               lines now say "will appear here only after the file is saved" while that
+'                               is the real reason the document is silent (Jerry)
 ' Version: 2.1  Date: 8/26/2026 - reports the DBT translation table a braille document is bound for
 ' Version: 2.0  Date: 8/9/2026 - page measurements are read from ONE SECTION, not from the
 '                               document. ActiveDocument.PageSetup returns wdUndefined - the
