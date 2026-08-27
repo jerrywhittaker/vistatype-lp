@@ -30,7 +30,12 @@ installing it with the new **one-click installer**.
      Run anyway**. (This appears because the installer isn’t code-signed; it is safe.)
 3. Click **Next / Install** through the wizard, then **Finish**. It takes under a minute.
 
-That’s it — nothing to restart. Open Word and look for the two new ribbon tabs.
+That’s it. Open Word and look for the two new ribbon tabs — the macros, the tabs and
+the toolbar are ready the moment setup finishes.
+
+The one thing that is not is the **VistaTypeLP Sans** typeface. Windows takes a personal
+typeface into use only when you next sign in, so sign out of Windows and back in before
+you expect to see it — see *The VistaTypeLP Sans typeface* below.
 
 ---
 
@@ -46,6 +51,8 @@ So you know exactly what changed on your computer:
 | Quick Access Toolbar icons | Your QAT | **You choose** during install — see below. The default installs VistaType’s standard toolbar; your own is saved first and you can have it back at any time |
 | Trust settings so macros run | Word Trust Center | Marks the STARTUP folder as trusted (including network/roaming profiles) |
 | Removed leftover files from old versions | Templates folder | Cleans up the obsolete “Large Print Templates” folder |
+| The **VistaTypeLP Sans** typeface, in four faces | Your personal **Fonts** folder | Installed for your Windows account only, which is what avoids the administrator password. **Left in place if you uninstall** — see below |
+| The typeface’s license | `%AppData%\VistaType LP Sans Fonts` | Three SIL Open Font License texts, one per typeface it is built from |
 | Removed the **VistaTypeLP Legible** typeface | Your personal **Fonts** folder | If an earlier version had installed it — see below |
 
 ---
@@ -61,38 +68,93 @@ If the tabs are there and buttons respond, you’re ready to go.
 
 ---
 
-## The VistaTypeLP Legible typeface has been withdrawn
+## The VistaTypeLP Sans typeface
 
-For a short time VistaType LP installed a typeface of its own, **VistaTypeLP Legible**, and
-offered it beside Tahoma when you attached the large-print template. **It is gone.** Large-print
-books are set in Tahoma, as they were for years, and the attach dialog no longer asks.
+VistaType LP installs a typeface of its own, **VistaTypeLP Sans**, and offers it beside
+Tahoma under **Font Choice** when you attach the large-print template. For a new book
+VistaTypeLP Sans is the one already selected; Tahoma is one click away.
 
-**Why it was withdrawn.** The typeface covers the Latin alphabet and the accents that go with
-it — English, French, German, Spanish and Italian all set correctly. It does not cover Greek,
-the phonetic alphabet, or most mathematical symbols. Word does not tell you when a character is
-missing: it silently borrows that one character from some other typeface, at some other size.
-In a large-print book that is the one thing that must never happen, and it turns up exactly
-where you would least want it — Latin, mathematics, phonetics, and the Greek that runs all
-through medical material. Tahoma covers the lot.
+**What it is.** Google’s **Noto Sans**, with three changes made for large print:
+
+- **The zero is slashed.** It *is* the ordinary zero — there is no setting to find and none
+  to forget.
+- **The whole face is enlarged by an exact 25/24**, so a point size set in Word matches the
+  VistaType ruler. Tahoma runs small against it.
+- **The whole of Noto Sans Math and Noto Sans Symbols is folded into every one of the four
+  faces.**
+
+That last change is the one that matters. It gives the typeface **6,450 characters against
+Tahoma’s 3,772** — Greek, the phonetic alphabet and mathematics complete — so Word is never
+left quietly filling a missing character out of some other typeface at some other size. In a
+large-print book that is the one thing that must never happen.
+
+It also has **four drawn faces where Tahoma has two.** There is no italic Tahoma and there
+never was: what you see when you press Ctrl+I in a Tahoma book is Word slanting the roman by
+machine. In VistaTypeLP Sans the italic and the bold italic are real.
+
+VistaTypeLP Sans is released under the **SIL Open Font License**, which is what allows
+VistaType LP to modify it, install it, and store a complete copy of it inside every book set
+in it. That embedded copy means a book still sets and prints correctly on a computer that has
+never seen the typeface.
+
+### When to pick Tahoma instead
+
+Two reasons, and both are real:
+
+1. **Hebrew, Arabic or Thai in the text.** Tahoma sets all three properly. VistaTypeLP Sans
+   sets none of them, and needs Tahoma or a third typeface for those runs.
+2. **A book that is already set in Tahoma.** VistaTypeLP Sans fits about **nine percent less
+   text on a line**, so the same book at the same point size **repaginates**. A book already
+   in a reader’s hands must not be reset.
+
+You do not have to think about fill-in lines. Their underscores draw with small holes in
+VistaTypeLP Sans, so VistaType LP types them in Tahoma by itself whatever the book is set in,
+and puts them back that way after every attach.
+
+### If the Typeface choice is grayed out
+
+Windows takes a personal typeface into use only when you next sign in. If VistaTypeLP Sans is
+grayed out and reads **NOT INSTALLED (or Word needs restarting)**, close Word and reopen it;
+if it is still grayed, **sign out of Windows and back in**. Tahoma is selected meanwhile, and
+everything else works normally.
+
+The typeface needs **Windows 10 version 1803 or newer**. On anything older it is not installed
+at all and the choice stays grayed — the rest of VistaType LP is unaffected.
+
+### Uninstalling leaves the typeface behind
+
+That is deliberate. A book VistaType LP set in the typeface carries its own copy inside the
+file and is safe either way — but a document that was typed in it by hand, outside VistaType
+LP, carries nothing, and taking the typeface off the machine would change how that document
+sets. The license text stays with it, for the same reason.
+
+---
+
+## The earlier VistaTypeLP Legible typeface was withdrawn
+
+For twelve days in August 2026 VistaType LP installed a **different** typeface,
+**VistaTypeLP Legible**. It is gone, and VistaTypeLP Sans is not a renamed version of it.
+
+**Why it was withdrawn.** It covered the Latin alphabet and the accents that go with it —
+English, French, German, Spanish and Italian all set correctly. It did not cover Greek, the
+phonetic alphabet, or most mathematical symbols, and Word does not tell you when a character
+is missing: it silently borrows that one character from another typeface, at another size.
+That turned up exactly where you would least want it — Latin, mathematics, phonetics, and the
+Greek that runs all through medical material.
 
 **What this means for you:**
 
 - **Nothing to do.** Install the new version over the old one in the usual way.
-- **Books you already made in it are safe, and are left alone.** Word stored a complete copy of
-  the typeface inside each of those documents when you attached the template, so they still open,
-  set and print exactly as they did. If you attach the template to one of them again, VistaType
-  LP recognizes it and **keeps the typeface it is already in** — it will not convert your book to
-  Tahoma or move your page breaks.
-- **New books are Tahoma.** No question is asked.
-- **The typeface is removed from your computer.** The installer takes it back off, because
-  leaving a face on the machine that VistaType LP no longer supports invites it being picked by
-  hand for the very documents it cannot set. The removal finishes the next time you sign in to
-  Windows — Windows will not release a typeface in the middle of a session — so if you still see
-  it in Word's font list today, sign out and back in.
-- **If you deliberately want to keep it**, install it yourself from the Braille Institute's own
-  **Atkinson Hyperlegible**, which is free. Do that knowing what is written above: a point size
-  set in Word will print about 8% smaller than it says, and the missing characters are still
-  missing.
+- **Books you already made in it are safe, and are left alone.** Word stored a complete copy
+  of the typeface inside each of those documents, so they still open, set and print exactly as
+  they did. If you attach the template to one of them again, VistaType LP recognizes it and
+  **keeps the typeface the book is already in** — it will not convert your book or move your
+  page breaks. The Font Choice reads *this book keeps VistaTypeLP Legible* and is grayed out.
+- **The typeface is removed from your computer.** Leaving a face on the machine that VistaType
+  LP no longer supports invites it being picked by hand for the very documents it cannot set.
+  The removal finishes the next time you sign in to Windows — Windows will not release a
+  typeface in the middle of a session — so if you still see it in Word’s font list today, sign
+  out and back in.
 
 ---
 
@@ -170,6 +232,9 @@ Uninstalling removes the macros, the template, and **only the VistaType Quick Ac
 Toolbar icons** — your own ribbon and toolbar customizations are left in place, including
 anything you added *after* installing VistaType.
 
+**The VistaTypeLP Sans typeface stays on the computer**, along with its license — see
+*Uninstalling leaves the typeface behind* above.
+
 If you had chosen VistaType’s standard toolbar, uninstalling puts back the toolbar you
 had before — and keeps any icons you added on top of ours in the meantime.
 
@@ -234,15 +299,23 @@ gone altogether, run the installer again.
 
 ### “Where did the VistaTypeLP Legible typeface go?”
 
-It was withdrawn — see *The VistaTypeLP Legible typeface has been withdrawn* above. The short
-version: it has no Greek, no phonetic alphabet and almost no mathematics, and Word substitutes a
-missing character silently and at the wrong size. Large-print books are Tahoma again.
+It was withdrawn, and **VistaTypeLP Sans** takes its place — see *The earlier VistaTypeLP
+Legible typeface was withdrawn* above. The short version: Legible had no Greek, no phonetic
+alphabet and almost no mathematics, and Word substitutes a missing character silently and at
+the wrong size. VistaTypeLP Sans carries all three.
 
-Books you have already produced in it are untouched and keep working: each one carries its own
-copy of the typeface inside the file.
+Books you have already produced in Legible are untouched and keep working: each one carries its
+own copy of the typeface inside the file, and attaching the template again keeps that book in
+the typeface it is already in.
 
-If Word still lists the typeface after installing the new version, **sign out of Windows and
-back in**. Windows does not release a personal typeface in the middle of a session.
+If Word still lists Legible after installing the new version, **sign out of Windows and back
+in**. Windows does not release a personal typeface in the middle of a session.
+
+### “VistaTypeLP Sans is grayed out when I attach the template”
+
+Same cause, the other way round: Windows takes a personal typeface into use only at sign-in.
+Close Word and reopen it; if it is still grayed, sign out of Windows and back in. See *If the
+Typeface choice is grayed out* above.
 
 ### “I removed the VistaType tabs and want them back”
 
