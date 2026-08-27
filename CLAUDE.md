@@ -665,6 +665,35 @@ report from an internal `3.0.X` build has nothing to diff against.
 fixed" about something that is. Fill **Fixed in** with the build and **Shipped in** with the
 release; they are different, and only the second is something a user can install.
 
+### Nothing here compiles VBA, and a build-time compile gate is NOT possible
+
+Established by measurement on 8/26/2026, after a Variant passed to a ByRef `String` shipped in
+3.0.274 and reached Jerry as **"Compile error in hidden module"**. Every guard in `tools/lib`
+passed it — structure, line length, style guards, form calls — because none of them type-check.
+
+**Do not try to add a compile gate to the build. It cannot work.** Three things were tried and
+measured, so nobody repeats them:
+
+- **VBA compiles lazily, one procedure at a time.** A module holding a good `Harmless` sub and a
+  broken one: running `Harmless` succeeded while the broken neighbour sat there uncompiled. So a
+  probe macro compiles only itself and what it actually calls.
+- **A probe that calls into the project does not help.** Versions calling nothing, calling
+  `Sh_Dispatch` (which names all 47 ribbon macros), and calling into `LPandBrlMacros` itself all
+  reported "compiles clean" with the fault deliberately reintroduced. A gate that always passes
+  is worse than none, which is why it was removed rather than kept.
+- **`Debug > Compile` is unreachable through automation.** The VBE's command bars enumerate no
+  matching control, even after `VBE.MainWindow.Visible = True`.
+
+**So the compile step is a HUMAN one**, and it is step 3a of the release checklist above. Say so
+whenever a change touches VBA and matters.
+
+The narrower lesson worth keeping: **give every helper `ByVal` parameters.** The fault was a
+Variant handed to a ByRef `String`, which VBA rejects at compile time. `ByVal` also avoids the
+other half of that bug — `Sh_IsValidRomanNumeral` reassigned its own parameter, so under ByRef it
+was quietly trimming and upper-casing the *caller's* variable. The 39 implicit-ByRef parameters
+left in the project are mostly UserForm event handlers (`Cancel As Integer`, `CloseMode As
+Integer`), which must stay ByRef.
+
 ### Editing convention
 
 Every sub is versioned inline via a comment block (Version/Date/Author). The module header
@@ -830,6 +859,13 @@ onto `master` directly — stop and ask Jerry rather than forcing a merge.
 3. **`make installer`** — rebuilds the `.dotm` from `src/` so the new `.frx`/ribbon/VBA compile
    in, compiles `Setup.exe`, copies it to `dist/` and the VM Desktop. Verify the built `.dotm`'s
    About caption reads the new version.
+3a. **DEBUG → COMPILE, BY HAND, ON THE BUILD BOX.** Open the STARTUP `.dotm` *directly*
+   (right-click → Open in `%AppData%\Microsoft\Word\STARTUP`, not the loaded add-in), then
+   **Alt+F11 → Debug → Compile LPandBRL**. Nothing happens if it is clean; it stops on the
+   offending line if it is not. **This is the only full compile that exists** — see the section
+   below — and it is the last chance to catch a "Compile error in hidden module" before a
+   transcriber does. Ten seconds; it caught nothing on 8/26/2026 only because the fault had
+   already been found the expensive way.
 4. **Jerry installs and tests from the Setup.exe.** **Word must be fully closed first** — Word
    locks the STARTUP `.dotm` and the install silently no-ops otherwise (symptom: About still
    shows the old version).

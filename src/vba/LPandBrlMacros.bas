@@ -18669,7 +18669,7 @@ Sub Lp_Table_Mark_Keep_With_Next()
     End If
 End Sub   '*** end of Lp_Table_Mark_Keep_With_Next '***
   
-Function Sh_IsValidRomanNumeral(s As String) As Boolean
+Function Sh_IsValidRomanNumeral(ByVal s As String) As Boolean
 '
 ' True when s is a well-formed roman numeral in CANONICAL form - the way a page number is
 ' actually written. Case is ignored, and a paragraph mark or cell marker on the end is not.
@@ -18689,6 +18689,12 @@ Function Sh_IsValidRomanNumeral(s As String) As Boolean
 ' numeral, and require the two to match. That accepts every real numeral and rejects the
 ' malformed ones - IIII, VX, IC - with nobody maintaining a list.
 '
+' Version: 2.1  Date: 8/26/2026 - the argument is ByVal. It was ByRef, and Dx_Manual_Tag_with_Dollar_pg
+'                                holds its line in a Variant, so calling it there was a COMPILE ERROR:
+'                                a Variant cannot be passed to a ByRef String. It reached Jerry as
+'                                "Compile error in hidden module", which nothing in this build can catch.
+'                                ByRef was wrong anyway - the first thing this does is reassign s, which
+'                                under ByRef trimmed and upper-cased the CALLER's string as a side effect
 ' Version: 2.0  Date: 8/26/2026 - value round trip, replacing the incomplete list
 ' Version: 1.0  Date: (original) - a Select Case over spelled-out numerals
 '
