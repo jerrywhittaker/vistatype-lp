@@ -18,6 +18,104 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - BRL - 8/27/2026 - DOC INFO NAMES THE DBT TRANSLATION TABLE ON A VISTATYPE BOOK TOO
+'           - BRL - 8/27/2026 - (Jerry). That line read "not recorded in this document" on every braille
+'           - BRL - 8/27/2026 - book, always. Sh_Dbt_Translation_Table asked ONE place - the custom
+'           - BRL - 8/27/2026 - property DBTTemplate - and nothing in this project has ever written it:
+'           - BRL - 8/27/2026 - it is read in three places and written in none. DBTTemplate is SWIFT's.
+'           - BRL - 8/27/2026 - A book the BRAILLE MACROS attached records the kind in the document
+'           - BRL - 8/27/2026 - VARIABLE BrailleType instead (Dx_Choose_Translation_Form, or
+'           - BRL - 8/27/2026 - Dx_Set_BrailleType on the derived path added 8/26/2026). So the one case
+'           - BRL - 8/27/2026 - the line was written for, a SWIFT file, was the only case it could ever
+'           - BRL - 8/27/2026 - answer. It now falls back to the variable and names the table from it
+'           - BRL - 8/27/2026 - through the new Dx_Dbt_Table_From_BrailleType - the exact inverse of
+'           - BRL - 8/27/2026 - Dx_BrailleType_From_Dbt_Table, same four pairs. The property is still
+'           - BRL - 8/27/2026 - asked first: it names the actual .dxt file, where the variable names one
+'           - BRL - 8/27/2026 - of four kinds, and when both are there they agree.
+'           - BRL - 8/27/2026 - AND WHEN IT IS TOO EARLY TO KNOW, IT SAYS SO. SWIFT writes DBTTemplate on
+'           - BRL - 8/27/2026 - SAVE, not on attach - measured 8/26/2026 - so a SWIFT document that has not
+'           - BRL - 8/27/2026 - been saved yet genuinely does not carry the answer. The line now reads
+'           - BRL - 8/27/2026 - "will appear here only after the file is saved" in that case, instead of
+'           - BRL - 8/27/2026 - "not recorded in this document", which read like a fault. Only when saving
+'           - BRL - 8/27/2026 - would actually help - never saved, or changes not yet written; a file that
+'           - BRL - 8/27/2026 - IS saved and still says nothing keeps the old wording, because telling
+'           - BRL - 8/27/2026 - someone to save an already-saved file sends them to do nothing useful.
+'           - BRL - 8/27/2026 - The line is inside Sh_Doc_Info's BRAILLE branch, so neither sentence can
+'           - BRL - 8/27/2026 - ever appear on a letter or a large print book.
+'           - BRL - 8/27/2026 - BOTH LINES SAY "AFTER THE FILE IS SAVED" WHEN THAT IS THE REASON
+'           - BRL - 8/27/2026 - (Jerry). SWIFT records what it knows when the file is SAVED, not when it
+'           - BRL - 8/27/2026 - attaches the template - measured 8/26/2026 - so on an unsaved SWIFT book
+'           - BRL - 8/27/2026 - the Document Settings window has nothing to report, for one reason. The
+'           - BRL - 8/27/2026 - translation table line said so from earlier today; the sentence at the
+'           - BRL - 8/27/2026 - BOTTOM, naming the translation the macros will use, still said "Document
+'           - BRL - 8/27/2026 - UEB or EBAE translation settings are undefined", which reads as something
+'           - BRL - 8/27/2026 - broken. It now reads "The translation used by the macros will appear here
+'           - BRL - 8/27/2026 - only after the file is saved". Both lines turn on ONE function,
+'           - BRL - 8/27/2026 - Sh_Doc_Not_Yet_Saved, so they cannot say different things about one file -
+'           - BRL - 8/27/2026 - which is the mistake this same screen had already made once today.
+'           - BRL - 8/27/2026 - NO TEST FOR "WAS IT SWIFT", because nothing records who attached the
+'           - BRL - 8/27/2026 - template and none is needed: VistaType LP's own attach forces the Choose
+'           - BRL - 8/27/2026 - Translation dialog and records the answer before it finishes, so a book
+'           - BRL - 8/27/2026 - this add-in prepared always knows. Unknown AND unsaved IS the SWIFT case.
+'           - BRL - 8/27/2026 - A SAVED book that still says nothing keeps the old wording - telling
+'           - BRL - 8/27/2026 - someone to save a file they have saved sends them to do nothing useful.
+'           - BRL - 8/27/2026 - AND THE TYPE THE MACROS USE IS THE ONE SWIFT SET (Jerry). One
+'           - BRL - 8/27/2026 - question - which translation is this - was written out longhand in
+'           - BRL - 8/27/2026 - Dx_Is_BANA_Template_Attached and NOWHERE ELSE, so Doc Info answered it
+'           - BRL - 8/27/2026 - its own way by reading the BrailleType variable directly. On a SWIFT
+'           - BRL - 8/27/2026 - book that had not yet had a braille macro run on it, that screen named
+'           - BRL - 8/27/2026 - the translation table on one line and said "translation settings are
+'           - BRL - 8/27/2026 - undefined" four lines below - the same screen disagreeing with itself.
+'           - BRL - 8/27/2026 - Dx_Ensure_BrailleType is now that question: the variable if it holds one
+'           - BRL - 8/27/2026 - of the four, else derived from SWIFT's table and recorded, else "".
+'           - BRL - 8/27/2026 - Doc Info calls it with recordIt False - a screen that only REPORTS must
+'           - BRL - 8/27/2026 - not mark the file as changed - and loses nothing, because the next
+'           - BRL - 8/27/2026 - braille macro records the same answer. The legacy "UEB" and "EBAE"
+'           - BRL - 8/27/2026 - values are still treated as not knowing: they say neither textbook nor
+'           - BRL - 8/27/2026 - Nemeth. Dx_Set_Doc_Braille_Type_Variable was left alone - it is dead
+'           - BRL - 8/27/2026 - code, called from nowhere.
+'           - BRL - 8/27/2026 - AND VISTATYPE LP NOW WRITES DBTTemplate TOO, so a book prepared here is
+'           - BRL - 8/27/2026 - legible to SWIFT and not only the other way round. Jerry's call, 8/27/2026,
+'           - BRL - 8/27/2026 - and the same reasoning that put the braille attach into Times New Roman 14
+'           - BRL - 8/27/2026 - on 8/18/2026: a transcriber uses both programs and moves files between
+'           - BRL - 8/27/2026 - them. Dx_Set_BrailleType writes both halves - its own BrailleType variable
+'           - BRL - 8/27/2026 - and SWIFT's property - and the form's four translation buttons now call it
+'           - BRL - 8/27/2026 - rather than writing the variable themselves, so "one place" is finally one.
+'           - BRL - 8/27/2026 - IT NEVER OVERWRITES AN EXISTING DBTTemplate. Duxbury ships 226 translation
+'           - BRL - 8/27/2026 - tables and this project knows four. On a SWIFT book the property is already
+'           - BRL - 8/27/2026 - there and is the more specific answer - it names the actual .dxt file, where
+'           - BRL - 8/27/2026 - the variable names one of four kinds. Rewriting it would, for any table
+'           - BRL - 8/27/2026 - outside the four, quietly point the book at a DIFFERENT table than was
+'           - BRL - 8/27/2026 - chosen in SWIFT. Reaching DBT with the wrong table is worse than with none.
+'           - BRL - 8/27/2026 - NOT TESTED AGAINST SWIFT ITSELF - no SWIFT install is on the build box. What
+'           - BRL - 8/27/2026 - is measured is that the property is written and reads back correctly; what
+'           - BRL - 8/27/2026 - SWIFT then does with it is inferred from the file it wrote on 8/26/2026.
+'
+' Notes:    - BRL - 8/27/2026 - THE SPELLING CHECKER IS QUIET IN A BRAILLE DOCUMENT AGAIN (Jerry). He
+'           - BRL - 8/27/2026 - reported red squiggles in every braille file, whether SWIFT or the braille
+'           - BRL - 8/27/2026 - macros had attached the BANA template, and Full File Cleanup not putting
+'           - BRL - 8/27/2026 - them out. Neither of those was ever going to: Dx_File_Fix_Sequence touches
+'           - BRL - 8/27/2026 - no Word setting at all, and the checker was VistaType LP's own doing.
+'           - BRL - 8/27/2026 - MS_Set_Word_Config_For_Braille forces Options.CheckSpellingAsYouType True,
+'           - BRL - 8/27/2026 - and has since 3.0.220 on 8/21/2026 - deliberately, because the AutoCorrect
+'           - BRL - 8/27/2026 - "use suggestions from the spelling checker" box is GATED on it and is
+'           - BRL - 8/27/2026 - silently refused while it is off (measured on the build box, 8/21/2026).
+'           - BRL - 8/27/2026 - THAT LINE STAYS. What changes is that the braille configuration now also
+'           - BRL - 8/27/2026 - sets ActiveDocument.ShowSpellingErrors and .ShowGrammaticalErrors False -
+'           - BRL - 8/27/2026 - Word's "Hide ... errors in this document only", under "Exceptions for:" on
+'           - BRL - 8/27/2026 - the Proofing page. Per DOCUMENT, saved into the file: the transcriber's own
+'           - BRL - 8/27/2026 - Word setting is untouched and her letters are still checked, the file stays
+'           - BRL - 8/27/2026 - quiet wherever it is opened, and the AutoCorrect gate stays up.
+'           - BRL - 8/27/2026 - LARGE PRINT IS NOT GIVEN THIS, on purpose - a large print book is ordinary
+'           - BRL - 8/27/2026 - prose and wants checking. Braille source is not: it is full of $pg tags and
+'           - BRL - 8/27/2026 - [[*lec*]] Duxbury codes, every one of which draws a squiggle.
+'           - BRL - 8/27/2026 - TWO THINGS THIS DOES NOT DO. It marks a braille file as CHANGED the first
+'           - BRL - 8/27/2026 - time it is opened under this build - the writes are guarded, so it is once
+'           - BRL - 8/27/2026 - per file and never again. And Options.CheckGrammarWithSpelling is written
+'           - BRL - 8/27/2026 - NOWHERE in this project by any of the three configurations, so pressing F7
+'           - BRL - 8/27/2026 - in a braille file still runs a grammar check; Word's own default for that
+'           - BRL - 8/27/2026 - box is ticked. Left alone rather than fixed quietly - it is a decision.
+'
 ' Notes:    - Sh - 8/26/2026 - BOTH AutoTag Ref Pages MACROS STOPPED SWALLOWING THEIR OWN ERRORS.
 '           - Sh - 8/26/2026 - Lp_AutoTag_Page_Numbers and Dx_AutoTag_Page_Numbers each set On Error
 '           - Sh - 8/26/2026 - Resume Next inside the roman-numeral loop - "prevents crash in a table",
@@ -3255,23 +3353,144 @@ Public Function Dx_BrailleType_From_Dbt_Table() As String
     End If
 End Function   '*** end of Dx_BrailleType_From_Dbt_Table ***
 
-' Records the document's braille type, replacing whatever was there.
+' The DBT translation table a braille type stands for - the exact inverse of
+' Dx_BrailleType_From_Dbt_Table above, and the four pairs are the ones listed in its comment.
+'
+' WHY IT IS NEEDED. Two add-ins record the same fact in two different places and neither reads
+' the other's. SWIFT writes the table name into the custom property DBTTemplate; VistaType LP
+' writes the KIND into the document variable BrailleType, through Dx_Set_BrailleType and
+' Dx_Choose_Translation_Form. Nothing in this project has ever written DBTTemplate - it is read
+' in three places and written in none - so on a document VistaType attached, anything asking for
+' the property finds nothing. That is what made Doc Info say "not recorded in this document" on
+' every braille book the braille macros themselves had prepared. Jerry, 8/27/2026.
+'
+' The two are not quite the same fact and the difference is worth knowing: the property names the
+' actual .dxt file, while the variable names one of four kinds. They map one to one, so naming
+' the table from the kind is exact rather than a guess.
+'
+' Returns "" for a type it does not recognize, so a caller can tell "not recorded" from "recorded
+' as something I cannot name" instead of printing a wrong table.
+'
+' Version: 1.0  Date: 8/27/2026
+'
+Public Function Dx_Dbt_Table_From_BrailleType(ByVal brlType As String) As String
+    Select Case UCase$(Trim$(brlType))
+        Case "UEBT": Dx_Dbt_Table_From_BrailleType = "English (UEB) - BANA.dxt"
+        Case "UEBN": Dx_Dbt_Table_From_BrailleType = "English (UEB) - BANA with Nemeth.dxt"
+        Case "EBAT": Dx_Dbt_Table_From_BrailleType = "English (BANA Pre-UEB Textbook DE) - BANA.dxt"
+        Case "EBAN": Dx_Dbt_Table_From_BrailleType = "English (BANA Pre-UEB Textbook DE) - BANA Nemeth.dxt"
+        Case Else:   Dx_Dbt_Table_From_BrailleType = ""
+    End Select
+End Function   '*** end of Dx_Dbt_Table_From_BrailleType ***
+
+' Records the document's braille type, replacing whatever was there - in BOTH places it can be
+' recorded, so that the book is legible to Duxbury's own add-in as well as to this one.
 '
 ' The same steps Dx_Choose_Translation_Form takes when the user answers by hand, in one place so
-' a derived answer and an asked one are stored identically. Deleting first because Variables.Add
-' on a name that already exists raises.
+' a derived answer and an asked one are stored identically. That claim was only half true until
+' 8/27/2026: the form's four buttons wrote the variable themselves rather than calling this, so
+' "one place" was two. They call this now.
 '
+' TWO PLACES, BECAUSE TWO ADD-INS. SWIFT records the DBT translation table's file name in the
+' custom property DBTTemplate - "English (UEB) - BANA.dxt". VistaType LP records the KIND in the
+' document variable BrailleType - "UEBT", "UEBN", "EBAT", "EBAN". They are the same fact, and they
+' map one to one, but until now each add-in wrote only its own. VistaType LP could read a SWIFT
+' book; SWIFT could not read one of Jerry's, because the property it looks for was never there.
+' His call, 8/27/2026. It is the same reasoning that put the braille attach into Times New Roman
+' 14 on 8/18/2026: a transcriber uses both programs and moves files between them, and a file that
+' behaves differently depending on which add-in touched it last is a file they have to think
+' about.
+'
+' IT NEVER OVERWRITES AN EXISTING DBTTemplate, and that guard is the whole safety of this. Duxbury
+' ships 226 translation tables; this project knows four of them. On a SWIFT book the property is
+' already there and is the more specific answer - it names the actual .dxt file, where the
+' variable names one of four kinds. Rewriting it with our canonical name would, for any table
+' outside the four, quietly point the book at a DIFFERENT table than the transcriber chose in
+' SWIFT. Reaching DBT with the wrong translation table is worse than reaching it with none, so
+' the property is written only when the document does not already carry one.
+'
+' Nothing here is fatal. If either write fails the document is no worse off than before, and the
+' caller is mid-way through attaching a template.
+'
+' Version: 1.1  Date: 8/27/2026 - also writes SWIFT's DBTTemplate custom property, when the
+'                                 document does not already carry one (Jerry)
 ' Version: 1.0  Date: 8/26/2026
 '
 Public Sub Dx_Set_BrailleType(ByVal brlType As String)
+    Dim tbl As String
+    Dim existing As String
+
     If brlType = "" Then Exit Sub
+
     On Error Resume Next
     ActiveDocument.Variables("BrailleType").Delete
     Err.Clear
     ActiveDocument.Variables.Add Name:="BrailleType", Value:=brlType
     Err.Clear
+
+    ' SWIFT's half. Absent-only - see above.
+    existing = ActiveDocument.CustomDocumentProperties("DBTTemplate").Value
+    Err.Clear
+    tbl = Dx_Dbt_Table_From_BrailleType(brlType)
+    If Trim$(existing) = "" And tbl <> "" Then
+        ActiveDocument.CustomDocumentProperties.Add _
+                Name:="DBTTemplate", LinkToContent:=False, _
+                Type:=msoPropertyTypeString, Value:=tbl
+        Err.Clear
+    End If
     On Error GoTo 0
 End Sub   '*** end of Dx_Set_BrailleType ***
+
+' The translation type this document is set for - "EBAT", "EBAN", "UEBT", "UEBN" - or "" when
+' nothing in the document says and only the transcriber can settle it.
+'
+' ONE PLACE, BECAUSE THE ANSWER LIVES IN TWO. The document variable BrailleType is what the
+' macros read - 26 of them - and is written by the Choose Translation dialog. SWIFT writes no such
+' variable; it writes the table name into the DBTTemplate property instead. So on a SWIFT book the
+' answer IS in the file while the variable is empty, and anything reading the variable alone
+' concludes the document says nothing. Jerry, 8/27/2026: if the translation table is known, the
+' type the macros use should be the one SWIFT set.
+'
+' That was already true of Dx_Is_BANA_Template_Attached, which has derived it since 8/26/2026 -
+' but ONLY there, written out longhand. Doc Info read the variable directly, so a SWIFT book that
+' had not yet had a braille macro run on it printed its translation table on one line and
+' "translation settings are undefined" four lines below. Two lines of one screen disagreeing.
+'
+' RECORDIT. True on the paths about to DO something with the answer, so the derivation happens
+' once and the 26 readers see it. False for Doc Info, which only reports: writing a document
+' variable marks the file as CHANGED, and merely looking at a document's settings must not put a
+' "save your changes?" prompt on a book nobody edited. Doc Info loses nothing by it - the next
+' braille macro records the same answer.
+'
+' Version: 1.0  Date: 8/27/2026
+'
+Public Function Dx_Ensure_BrailleType(Optional ByVal recordIt As Boolean = True) As String
+    Dim held As String
+    Dim derived As String
+
+    Dx_Ensure_BrailleType = ""
+
+    On Error Resume Next
+    held = ActiveDocument.Variables("BrailleType").Value
+    Err.Clear
+    On Error GoTo 0
+
+    Select Case held
+        Case "EBAT", "EBAN", "UEBT", "UEBN"
+            ' Already settled. "UEB" and "EBAE" are deliberately NOT accepted - they are the
+            ' legacy values from earlier versions of these macros and say neither textbook nor
+            ' Nemeth, so a document holding one is treated as not knowing and is asked again.
+            ' Dx_Set_Doc_Braille_Type_Variable rejects them the same way.
+            Dx_Ensure_BrailleType = held
+            Exit Function
+    End Select
+
+    derived = Dx_BrailleType_From_Dbt_Table()
+    If derived = "" Then Exit Function
+
+    If recordIt Then Dx_Set_BrailleType derived
+    Dx_Ensure_BrailleType = derived
+End Function   '*** end of Dx_Ensure_BrailleType ***
 
 Sub Dx_Is_BANA_Template_Attached()
 '
@@ -3304,30 +3523,21 @@ Sub Dx_Is_BANA_Template_Attached()
         End
     End If
     
-    On Error GoTo GetTempTypeFromUser  ' will crash if these are not in the file - need to get it from user
-     If ActiveDocument.Variables("BrailleType") = "EBAT" Or ActiveDocument.Variables("BrailleType") = "UEBT" Or _
-                ActiveDocument.Variables("BrailleType") = "EBAN" Or ActiveDocument.Variables("BrailleType") = "UEBN" Then
-        GoTo GetTempTypeFromUserExit
-    Else
-        GoTo GetTempTypeFromUser
-    End If
-GetTempTypeFromUser:
-        ' ASK THE DOCUMENT BEFORE ASKING THE USER. A SWIFT-prepared book already records which
-        ' translation table it is bound for; nothing here ever looked, so every braille macro
-        ' stopped and asked, every time, and nothing remembered the answer. Derived once, written
-        ' into BrailleType, and not asked again. Jerry, 8/26/2026.
-        '
-        ' SWIFT writes that property when the file is SAVED, not when the template is attached -
-        ' measured on the build box - so a brand new unsaved document still has to be asked once,
-        ' and Dx_Choose_Translation_Form settles it from then on.
-        Dim derivedType As String
-        derivedType = Dx_BrailleType_From_Dbt_Table()
-        If derivedType <> "" Then
-            Dx_Set_BrailleType derivedType
-        Else
-            Dx_Choose_Translation_Form.Show
-        End If
-GetTempTypeFromUserExit:
+    ' ASK THE DOCUMENT BEFORE ASKING THE USER. A SWIFT-prepared book already records which
+    ' translation table it is bound for; nothing here ever looked, so every braille macro stopped
+    ' and asked, every time, and nothing remembered the answer. Derived once, written into
+    ' BrailleType, and not asked again. Jerry, 8/26/2026.
+    '
+    ' SWIFT writes that property when the file is SAVED, not when the template is attached -
+    ' measured on the build box - so a brand new unsaved document still has to be asked once, and
+    ' Dx_Choose_Translation_Form settles it from then on.
+    '
+    ' The question moved into Dx_Ensure_BrailleType on 8/27/2026. It was written out longhand here
+    ' and NOWHERE ELSE, which is what let Doc Info answer it differently - naming a SWIFT book's
+    ' translation table and calling its translation settings undefined on the same screen. One
+    ' function now, so the macros and the reporting screen cannot disagree. It records what it
+    ' derives, so the 26 macros that read the variable directly see it too.
+    If Dx_Ensure_BrailleType() = "" Then Dx_Choose_Translation_Form.Show
     
 End Sub   '*** end of Dx_Is_BANA_Template_Attached macro ***
 
@@ -20190,6 +20400,14 @@ Sub MS_Set_Word_Config_For_Braille()
     '
     ' Author: Jerry Whittaker -  jerry@vistatypelp.org
     '
+    ' Version: 2.7  Date: 8/27/2026 - hides the proofing marks in the braille DOCUMENT -
+    '                                  ShowSpellingErrors and ShowGrammaticalErrors, both False. The
+    '                                  app-wide spell-check-as-you-type stays ON, because the AutoCorrect
+    '                                  suggestions box is gated on it (see 3.0.220). Jerry: the checker
+    '                                  was on in every braille file whichever add-in attached the template.
+    '                                  Also notes the document's changed flag on the way in and puts it back
+    '                                  (TRUE only) on the way out, so configuring a braille document no
+    '                                  longer asks "save your changes?" about a file nobody edited
     ' Version: 2.6  Date: 8/22/2026 - THE WHOLE AUTOCORRECT TAB, all eight boxes, exactly as large print -
     '                                  see its 2.7 note. And the two AutoFormat As You Type boxes braille had
     '                                  never written, both False: built-in heading styles and define-styles-
@@ -20223,6 +20441,24 @@ Sub MS_Set_Word_Config_For_Braille()
     ' Version: 1.4  Date: 8/8/2018
     '
     ActiveDocument.ActiveWindow.View.ReadingLayout = False  'will crash if document is in reading view ... close reading view
+
+    ' WAS THE DOCUMENT UNCHANGED WHEN WE ARRIVED? Noted here and put back at the very bottom, so
+    ' that merely CONFIGURING a braille document cannot make Word ask "save your changes?" about a
+    ' file the transcriber only looked at. This sub writes several DOCUMENT properties - the two
+    ' hide-proofing-marks ones added 8/27/2026, and the Styles pane sort and filter above - and
+    ' every one of them sets the changed flag.
+    '
+    ' It only ever puts back TRUE, never FALSE, and that distinction is the whole safety of it.
+    ' Two callers run this sub in the MIDDLE of a job, after the document has really been changed:
+    ' Dx_Attach_BANA_Template calls it one line after assigning .AttachedTemplate, and
+    ' Dx_Fix_Common_File_Errors calls it partway down thirty-odd passes over the text. On those
+    ' paths the document is already dirty when we arrive, wasSaved is False, and nothing is put
+    ' back. Telling Word an edited document needs no saving is how work is lost; this cannot.
+    Dim wasSaved As Boolean
+    On Error Resume Next
+    wasSaved = ActiveDocument.Saved
+    On Error GoTo 0
+
     ' Note the settings this sub is about to take away, but only if the ORDINARY configuration
     ' is in force - see Sh_Save_Transcriber_Settings.
     If Sh_ConfiguredAs = "DEF" Then Sh_Save_Transcriber_Settings
@@ -20300,6 +20536,57 @@ Sub MS_Set_Word_Config_For_Braille()
     ' value False. That is why 3.0.218 and 3.0.219 appeared to write it and did nothing. Proved on
     ' the build box 8/21/2026: with this True the very next assignment sticks. MUST STAY ABOVE IT.
     If Options.CheckSpellingAsYouType <> True Then Options.CheckSpellingAsYouType = True
+
+    ' ...AND THE MARKS ARE HIDDEN IN THIS DOCUMENT, which is not a contradiction of the line
+    ' above. Jerry, 8/27/2026: the spelling checker was on in every braille file however the BANA
+    ' template got there, and Full File Cleanup did not put it out. It was never SWIFT and never
+    ' the template - it is the line above, and that line has to stay: the AutoCorrect suggestions
+    ' box below is gated on it and cannot be ticked while it is off.
+    '
+    ' So the setting stays on and the SQUIGGLES go, per document. These two are Word's "Hide
+    ' spelling errors in this document only" and "Hide grammar errors in this document only", on
+    ' the Proofing page under "Exceptions for:". They are DOCUMENT properties saved into the file,
+    ' which is why this is the right lever for braille and the app-wide option is the wrong one:
+    '
+    '   - a DBT source file is full of $pg tags and [[*lec*]] Duxbury codes, and every one of them
+    '     draws a red squiggle. That is the noise being got rid of
+    '   - the transcriber's own Word setting is untouched, so ordinary documents are still checked.
+    '     Turning the app option off instead would follow her out of the book until the ledger
+    '     handed it back
+    '   - it travels with the file, so the same braille source is quiet wherever it is opened
+    '   - the AutoCorrect gate above stays UP, so the suggestions box still works
+    '
+    ' Large print is deliberately NOT given this (Jerry, 8/27/2026) - a large print book is
+    ' ordinary prose and the transcriber wants it checked.
+    '
+    ' THE CHANGED FLAG IS PUT BACK AT THE BOTTOM OF THIS SUB, and it has to be. Setting either of
+    ' these MARKS THE DOCUMENT AS CHANGED, and the If <> guard alone does NOT make that a
+    ' once-per-file cost, which is what this comment claimed when it was written: the property is
+    ' only persisted if the transcriber SAVES. Open a braille book from the shared drive to check
+    ' a page number, change nothing, close it - Word asks "save your changes?" about a file she
+    ' did not touch, and asks again every single time, because nothing was ever written to disk.
+    ' Nothing in that prompt names VistaType LP. See wasSaved at the top of the sub.
+    '
+    ' The guards stay: they save two writes on a book that is already quiet, and they keep the
+    ' flag clean on the far more common re-configuration path.
+    '
+    ' ACTIVEDOCUMENT, AND THAT NOW MATTERS. Until 8/27/2026 every write in this sub was
+    ' application-wide, so which document happened to be active was of no consequence. These two
+    ' are the first DOCUMENT writes on the ordinary path, and one caller reaches here with the
+    ' wrong document in front: Sh_Copy_Ref_Pg_Tags_To_Temp_File runs Documents.Add and then calls
+    ' this sub, so ActiveDocument is the throwaway $pg validation list rather than the braille
+    ' book. Harmless as it stands - that list is closed with wdDoNotSaveChanges and the book was
+    ' configured when it was opened - but anyone ADDING a document-level write here must check
+    ' that path first.
+    '
+    ' On Error Resume Next around them because this sub has no error handler of its own, and the
+    ' five spelling and grammar writes at the very bottom must be reached whatever happens here.
+    ' If a locked or protected document refuses the write, that is the right failure: the marks
+    ' stay and nothing downstream reads the value.
+    On Error Resume Next
+    If ActiveDocument.ShowSpellingErrors <> False Then ActiveDocument.ShowSpellingErrors = False
+    If ActiveDocument.ShowGrammaticalErrors <> False Then ActiveDocument.ShowGrammaticalErrors = False
+    On Error GoTo 0
 
     ' THE WHOLE AUTOCORRECT TAB, decided by a book and not left to her - Jerry, 8/22/2026: every
     ' box on it is ticked in braille and in large print EXCEPT the two capitalization ones below.
@@ -20393,7 +20680,14 @@ Sub MS_Set_Word_Config_For_Braille()
     ' document can tell a setting SHE changed from one this sub set. THE VERY LAST THING THE SUB
     ' DOES, below the six writes above and not above them - see Sh_Note_Book_Settings 1.1.
     Sh_Note_Book_Settings
-    
+
+    ' Put the changed flag back, and ONLY back to unchanged - see wasSaved at the top. Everything
+    ' this sub writes is a setting; it changes no text, no styles and no formatting, so a document
+    ' that arrived saved is still saved when it leaves. Last, so it covers every write above it.
+    On Error Resume Next
+    If wasSaved Then ActiveDocument.Saved = True
+    On Error GoTo 0
+
     Application.ScreenUpdating = su_Prev ' Turn screen updating on
     If Not Sh_Config_Skip_Display Then Application.ScreenRefresh
 
@@ -21977,10 +22271,63 @@ End Function
 ' A missing custom property raises error 5 - NOT 5825, which is what a missing document VARIABLE
 ' raises. Measured, because the two are easy to confuse and the trap has to cover the right one.
 '
+' Is this document still waiting to be written to disk? True when it has never been saved, and
+' also when it has changes not yet written.
+'
+' It exists because TWO lines of the Document Settings window turn on it and they must never
+' disagree - the DBT translation table, and the sentence at the bottom naming the translation the
+' macros will use. SWIFT records what it knows when the file is SAVED, not when it attaches the
+' template (measured 8/26/2026), so on an unsaved SWIFT book both lines are blank for one reason
+' and one reason only, and both should say so rather than reading like a fault.
+'
+' Written as its own function rather than twice inline: the same question answered in two places
+' is exactly how Doc Info came to name a book's translation table and call its translation
+' settings undefined on the same screen. Once was enough.
+'
+' Version: 1.0  Date: 8/27/2026
+'
+Public Function Sh_Doc_Not_Yet_Saved() As Boolean
+    On Error Resume Next
+    Sh_Doc_Not_Yet_Saved = (ActiveDocument.Path = "") Or (ActiveDocument.Saved = False)
+    Err.Clear
+End Function   '*** end of Sh_Doc_Not_Yet_Saved ***
+
+' IT MUST ASK BOTH PLACES, and version 1.0 asked only one. Jerry, 8/27/2026: this line read "not
+' recorded in this document" on every braille book, always. The custom property below is SWIFT's,
+' and NOTHING IN THIS PROJECT HAS EVER WRITTEN IT - it is read in three places and written in
+' none. A document the BRAILLE MACROS attached carries the kind in the document VARIABLE
+' BrailleType instead, put there by Dx_Choose_Translation_Form or Dx_Set_BrailleType. So the one
+' case this line was added for - a SWIFT file - was the only case it could ever answer, and every
+' book Jerry prepares himself fell straight through to the sentence.
+'
+' The property is asked FIRST because it names the actual .dxt file the document is bound for,
+' where the variable names one of four kinds; when both are present they agree, and the more
+' direct one should win. Dx_Dbt_Table_From_BrailleType maps the second to the first.
+'
+' A missing custom property raises error 5; a missing document VARIABLE raises 5825. Both are
+' trapped, and the two are easy to confuse - see Dx_BrailleType_From_Dbt_Table.
+'
+' WHEN THE DOCUMENT SAYS NOTHING, SAY WHY. Jerry, 8/27/2026. SWIFT writes DBTTemplate when the
+' file is SAVED, not when it attaches the template - measured on 8/26/2026 - so a SWIFT document
+' that has not been saved yet genuinely does not carry the answer, and "not recorded in this
+' document" reads like a fault when it is simply too early. It now says so instead.
+'
+' The sentence is only used when saving would ACTUALLY help - the file has never been written to
+' disk, or it has changes not yet written. A document that IS saved and still says nothing gets
+' the old wording, because telling someone to save a file they have already saved sends them to
+' do something that cannot work. Both halves are true statements about the file in front of them.
+'
+' Reads as a continuation of the label in Sh_Doc_Info, which supplies "DBT Translation Table = ".
+'
+' Version: 1.2  Date: 8/27/2026 - says "will appear here only after the file is saved" while that
+'                                 is the real reason the document is silent (Jerry)
+' Version: 1.1  Date: 8/27/2026 - falls back to the BrailleType document variable, which is what
+'                                 the braille macros' own attach writes (Jerry)
 ' Version: 1.0  Date: 8/26/2026
 '
 Public Function Sh_Dbt_Translation_Table() As String
     Dim s As String
+    Dim brlType As String
 
     On Error Resume Next
     s = ActiveDocument.CustomDocumentProperties("DBTTemplate").Value
@@ -21988,9 +22335,24 @@ Public Function Sh_Dbt_Translation_Table() As String
     On Error GoTo 0
 
     If Trim$(s) = "" Then
-        Sh_Dbt_Translation_Table = "not recorded in this document"
-    Else
+        ' Nothing from SWIFT. Ask what this project's own attach wrote.
+        On Error Resume Next
+        brlType = ActiveDocument.Variables("BrailleType").Value
+        Err.Clear
+        On Error GoTo 0
+        s = Dx_Dbt_Table_From_BrailleType(brlType)
+    End If
+
+    If Trim$(s) <> "" Then
         Sh_Dbt_Translation_Table = Trim$(s)
+        Exit Function
+    End If
+
+    ' Nothing recorded. Say which of the two reasons it is - see Sh_Doc_Not_Yet_Saved.
+    If Sh_Doc_Not_Yet_Saved() Then
+        Sh_Dbt_Translation_Table = "will appear here only after the file is saved"
+    Else
+        Sh_Dbt_Translation_Table = "not recorded in this document"
     End If
 End Function   '*** end of Sh_Dbt_Translation_Table ***
 
@@ -22174,19 +22536,42 @@ Sub Sh_Doc_Info()
     ElseIf InStr(UCase(ActiveDocument.AttachedTemplate), "BRAILLE") > 0 Then
 
         If InStr(UCase(ActiveDocument.AttachedTemplate), "BRAILLE") > 0 Then
-                On Error GoTo Unknown
-                If ActiveDocument.Variables("BrailleType") = "EBAT" Then
-                    BrlType = "Macros will format this document for BANA EBAE translation"
-                ElseIf ActiveDocument.Variables("BrailleType") = "EBAN" Then
-                    BrlType = "Macros will format this document for BANA EBAE Nemeth translation"
-                ElseIf ActiveDocument.Variables("BrailleType") = "UEBT" Then
-                    BrlType = "Macros will format this document for BANA UEB translation"
-                ElseIf ActiveDocument.Variables("BrailleType") = "UEBN" Then
-                    BrlType = "Macros will format this document for BANA UEB Nemeth translation"
-                ElseIf ActiveDocument.Variables("BrailleType") = "Undefined" Then
-Unknown:
-                    BrlType = "Document UEB or EBAE translation settings are undefined"
-                End If
+                ' Asks the same question Dx_Is_BANA_Template_Attached asks, through the same
+                ' function, so this screen and the macros cannot give different answers. It read
+                ' the BrailleType variable directly until 8/27/2026 and therefore said
+                ' "undefined" on a SWIFT book while naming that same book's translation table
+                ' four lines above. RECORDS NOTHING - the False - because looking at a
+                ' document's settings must not mark the file as changed.
+                Select Case Dx_Ensure_BrailleType(False)
+                    Case "EBAT"
+                        BrlType = "Macros will format this document for BANA EBAE translation"
+                    Case "EBAN"
+                        BrlType = "Macros will format this document for BANA EBAE Nemeth translation"
+                    Case "UEBT"
+                        BrlType = "Macros will format this document for BANA UEB translation"
+                    Case "UEBN"
+                        BrlType = "Macros will format this document for BANA UEB Nemeth translation"
+                    Case Else
+                        ' Nothing in the document says which translation this is. On an unsaved
+                        ' SWIFT book that is not a fault and not a setting anyone has got wrong -
+                        ' SWIFT writes what it knows when the file is SAVED, not when it attaches
+                        ' the template, so the answer is simply not there yet. Jerry, 8/27/2026:
+                        ' say that, rather than "undefined", which reads as something broken.
+                        '
+                        ' No test for "was it SWIFT" is needed or possible - nothing records who
+                        ' attached the template. It does not have to: VistaType LP's own attach
+                        ' forces the Choose Translation dialog and records the answer before it
+                        ' finishes, so a book this add-in prepared always knows. Unknown AND
+                        ' unsaved IS the SWIFT case.
+                        '
+                        ' Same test as the DBT Translation Table line above - one function, so the
+                        ' two lines of this window cannot say different things about one file.
+                        If Sh_Doc_Not_Yet_Saved() Then
+                            BrlType = "The translation used by the macros will appear here only after the file is saved"
+                        Else
+                            BrlType = "Document UEB or EBAE translation settings are undefined"
+                        End If
+                End Select
             Else
                 BrlType = ""
             End If

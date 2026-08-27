@@ -27,8 +27,11 @@ Private Sub Cmd_BANA_EBAE_Button_Click()
     BrlType = "Undefined"
     On Error Resume Next
     BrlType = ActiveDocument.Variables("Undefined")
-    ActiveDocument.Variables("BrailleType").Delete
-    ActiveDocument.Variables.Add Name:="BrailleType", Value:="EBAT" 'place EBAE Textbook type into document info
+    ' Records the type AND, when the document does not already carry one, SWIFT's own
+    ' DBTTemplate property - so a book prepared here is legible to SWIFT too. These four
+    ' buttons wrote the variable themselves until 8/27/2026, which is why Dx_Set_BrailleType
+    ' said it was "one place" while being two. See it for why the property is absent-only.
+    Dx_Set_BrailleType "EBAT"   'place EBAE Textbook type into document info
     Unload Me 'close this form
 End Sub
 
@@ -39,8 +42,11 @@ Private Sub Cmd_BANA_EBAE_Nemeth_Button_Click()
     BrlType = "Undefined"
     On Error Resume Next
     BrlType = ActiveDocument.Variables("Undefined")
-    ActiveDocument.Variables("BrailleType").Delete
-    ActiveDocument.Variables.Add Name:="BrailleType", Value:="EBAN" 'place EBAE Nemeth type into document info
+    ' Records the type AND, when the document does not already carry one, SWIFT's own
+    ' DBTTemplate property - so a book prepared here is legible to SWIFT too. These four
+    ' buttons wrote the variable themselves until 8/27/2026, which is why Dx_Set_BrailleType
+    ' said it was "one place" while being two. See it for why the property is absent-only.
+    Dx_Set_BrailleType "EBAN"   'place EBAE Nemeth type into document info
     Unload Me 'close this form
 End Sub
 
@@ -51,8 +57,11 @@ Private Sub Cmd_BANA_UEB_Button_Click()
     BrlType = "Undefined"
     On Error Resume Next
     BrlType = ActiveDocument.Variables("Undefined")
-    ActiveDocument.Variables("BrailleType").Delete
-    ActiveDocument.Variables.Add Name:="BrailleType", Value:="UEBT" 'place UEB Textbook type into document info
+    ' Records the type AND, when the document does not already carry one, SWIFT's own
+    ' DBTTemplate property - so a book prepared here is legible to SWIFT too. These four
+    ' buttons wrote the variable themselves until 8/27/2026, which is why Dx_Set_BrailleType
+    ' said it was "one place" while being two. See it for why the property is absent-only.
+    Dx_Set_BrailleType "UEBT"   'place UEB Textbook type into document info
     Unload Me 'close this form
 End Sub
 
@@ -63,8 +72,11 @@ Private Sub Cmd_BANA_UEB_Nemeth_Button_Click()
     BrlType = "Undefined"
     On Error Resume Next
     BrlType = ActiveDocument.Variables("Undefined")
-    ActiveDocument.Variables("BrailleType").Delete
-    ActiveDocument.Variables.Add Name:="BrailleType", Value:="UEBN" 'place UEB Nemeth type into document info
+    ' Records the type AND, when the document does not already carry one, SWIFT's own
+    ' DBTTemplate property - so a book prepared here is legible to SWIFT too. These four
+    ' buttons wrote the variable themselves until 8/27/2026, which is why Dx_Set_BrailleType
+    ' said it was "one place" while being two. See it for why the property is absent-only.
+    Dx_Set_BrailleType "UEBN"   'place UEB Nemeth type into document info
     Unload Me 'close this form
 End Sub
 
