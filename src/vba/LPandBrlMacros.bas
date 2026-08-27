@@ -2073,6 +2073,7 @@ Sub Dx_Attach_BANA_Template()
 '  Version: 3.4  Date: 8/18/2026 - that font is now Times New Roman 14 pt, not Courier New 12 pt - matching what Duxbury's own SWIFT add-in sets when IT attaches a template (Jerry)
 '  Version: 3.3  Date: 8/5/2026 - puts the whole document into Courier New 12 pt as the last thing it does (Jerry)
 '  Version: 3.2  Date: 7/24/2026 - repaint (ScreenUpdating on + ScreenRefresh) before the template-choice and translation-choice forms; they were shown while ScreenUpdating was off, so the Word workspace behind them rendered black instead of the normal gray
+'  Version: 3.4  Date: 8/27/2026 - that message now carries the COUNT (Jerry)
 '  Version: 3.3  Date: 8/27/2026 - answering Yes to the paragraph-marks question now says "Multiple
 '                                  paragraph marks deleted" when it finishes, dialog 246 - the same message
 '                                  and the same number as the cleanup menu's own button (Jerry)
@@ -2243,7 +2244,9 @@ Sub Dx_Attach_BANA_Template()
                 Application.Run MacroName:="Dx_Fix_Common_File_Errors"
             End If
             If MsgBox("Do you want to remove multiple consecutive paragraph marks? ", vbYesNo, "Braille Macros") = vbYes Then
-                Application.Run MacroName:="Sh_Replace_Multiple_Para_Marks_No_Warning"
+                ' Directly, for the count - see the cleanup menu's own button.
+                Dim marksRemoved As Long
+                marksRemoved = Sh_Replace_Multiple_Para_Marks_No_Warning()
                 ' The same "it is done" message the cleanup menu's own button gives, and the same
                 ' dialog number - it IS the same dialog. Added 8/27/2026: putting it only on the
                 ' menu button left this route silent, and this is a route the transcriber reaches
@@ -2253,7 +2256,7 @@ Sub Dx_Attach_BANA_Template()
                 ' It cannot go in Sh_Replace_Multiple_Para_Marks_No_Warning itself: that worker is
                 ' shared with large print, which has its own arrangement, and it runs inside
                 ' Lp_File_Fix_Sequence and Lp_Attach_The_Template as one step of many.
-                Sh_Say "Multiple paragraph marks deleted", "Braille Macros (246)"
+                Sh_Say Dx_Para_Marks_Message(marksRemoved), "Braille Macros (246)"
             End If
         End If
     End If
@@ -8447,6 +8450,8 @@ End Function '*** end of Dx_Is_The_Attached_Template_BANA_Braille Function ***
 
 Sub Dx_Replace_Multiple_Para_Marks_With_Warning()
 '
+' Version: 1.2   Date: 8/27/2026 - the message now carries the COUNT, through Dx_Para_Marks_Message,
+'                                  and says so plainly when nothing needed deleting (Jerry)
 ' Version: 1.1   Date: 8/27/2026 - says "Multiple paragraph marks deleted" again (Jerry). The braille
 '                                  side lost that message on 8/12/2026, when its own worker was deleted
 '                                  in favour of the shared one and the message went with it. Dialog 246,
@@ -8475,7 +8480,10 @@ Sub Dx_Replace_Multiple_Para_Marks_With_Warning()
         
     End If
     
-    Application.Run MacroName:="Sh_Replace_Multiple_Para_Marks_No_Warning"
+    ' Called DIRECTLY, not through Application.Run, because the number is wanted - Application.Run
+    ' would discard it, and it swallows errors besides.
+    Dim removed As Long
+    removed = Sh_Replace_Multiple_Para_Marks_No_Warning()
 
     ' SAY IT IS DONE. Restored 8/27/2026 (Jerry) - it had been gone since 8/12/2026 and nothing
     ' said so. The braille side used to have its own worker, Dx_Replace_Multiple_Para_Marks_No_
@@ -8494,7 +8502,7 @@ Sub Dx_Replace_Multiple_Para_Marks_With_Warning()
     '
     ' Sh_Say rather than MsgBox, per *How VistaType LP says things* - 10 point Tahoma, an Okay
     ' button with Alt+O. 246 is the next unused dialog number; the highest in the project was 245.
-    Sh_Say "Multiple paragraph marks deleted", "Braille Macros (246)"
+    Sh_Say Dx_Para_Marks_Message(removed), "Braille Macros (246)"
 
 End Sub    '***   end of  Dx_Replace_Multiple_Para_Marks_With_Warning macro ***
 
@@ -12622,8 +12630,52 @@ Sub Lp_Replace_Multiple_Para_Marks_With_Warning()
     
 End Sub    '***   end of  Lp_Replace_Multiple_Para_Marks_With_Warning macro ***
      
-Sub Sh_Replace_Multiple_Para_Marks_No_Warning()
+' What to tell the transcriber after removing empty paragraphs, for a count of n.
 '
+' ONE PLACE, and deliberately so. Two braille routes report this - the cleanup menu's own button
+' and the Yes answer to the attach's question - and earlier today the same message went onto one
+' of them and not the other, which is exactly the fault Jerry reported. Two callers, one sentence.
+'
+' The zero case is not a failure and must not read like one: a file with no empty paragraphs in it
+' is a file that was already clean, and saying so is the most useful thing this message does.
+' Singular is spelled out rather than left as "1 paragraph marks".
+'
+' Version: 1.0  Date: 8/27/2026
+'
+Private Function Dx_Para_Marks_Message(ByVal n As Long) As String
+    If n = 0 Then
+        Dx_Para_Marks_Message = "No empty paragraph marks were found - nothing needed deleting."
+    ElseIf n = 1 Then
+        Dx_Para_Marks_Message = "1 empty paragraph mark deleted."
+    Else
+        Dx_Para_Marks_Message = Trim$(Str$(n)) & " empty paragraph marks deleted."
+    End If
+End Function   '*** end of Dx_Para_Marks_Message ***
+
+' Removes every empty paragraph in the selection, or in the whole document when nothing is
+' selected, and RETURNS HOW MANY it removed.
+'
+' The count was added 8/27/2026 at Jerry's request. Until then the braille message said "Multiple
+' paragraph marks deleted" whether it had removed two hundred or none, so it confirmed that the
+' macro had RUN and not that it had DONE anything - and the zero case is the useful half: it tells
+' the transcriber the file was already clean instead of leaving her wondering.
+'
+' A Function rather than a Sub for that reason, and that is safe here because this name is not a
+' ribbon button, a toolbar button or a keyboard shortcut - build_ribbon_dispatch.py refuses to
+' generate if a button's macro stops being a plain no-argument Sub, and this is not one. Checked
+' against src/ribbon, src/keymap and RibbonDispatch.bas before the change.
+'
+' Its other four callers still reach it through Application.Run as a STATEMENT, which works
+' unchanged on a Function and discards the number. Only the two braille callers that report it
+' ask for the value, and they call it DIRECTLY - a direct call returns the value and lets an error
+' propagate, where Application.Run does neither.
+'
+' deCount is NOT the answer and was never meant to be: it counts paragraphs WALKED, to throttle
+' DoEvents to one in 200. removed is the new one and only moves on an actual delete.
+'
+Public Function Sh_Replace_Multiple_Para_Marks_No_Warning() As Long
+'
+'  Version: 2.3  Date: 8/27/2026 - counts what it deletes and returns it, for the message (Jerry)
 '  Version: 2.2  Date: 8/13/2026 - it removes EVERY empty paragraph in range, leaving none.
 '
 '                                 2.0 and 2.1 left one behind on the reading that "collapse a
@@ -12663,6 +12715,7 @@ Sub Sh_Replace_Multiple_Para_Marks_No_Warning()
     Dim prevP As Paragraph
     Dim stopBefore As Long
     Dim deCount As Long
+    Dim removed As Long
 
     Set doc = ActiveDocument
 
@@ -12685,7 +12738,10 @@ Sub Sh_Replace_Multiple_Para_Marks_No_Warning()
         ' The document's own final paragraph mark cannot be removed - Word always keeps one -
         ' so leave it alone rather than ask and be refused.
         If p.Range.End < doc.Content.End Then
-            If Sh_IsBlankParaMark(p) Then p.Range.Delete
+            If Sh_IsBlankParaMark(p) Then
+                p.Range.Delete
+                removed = removed + 1
+            End If
         End If
 
         If Not (prevP Is Nothing) Then
@@ -12698,7 +12754,9 @@ Sub Sh_Replace_Multiple_Para_Marks_No_Warning()
         If deCount Mod 200 = 0 Then Sh_Spin_DoEvents
     Loop
 
-End Sub   '***** Sh_Replace_Multiple_Para_Marks_No_Warning ********
+    Sh_Replace_Multiple_Para_Marks_No_Warning = removed
+
+End Function   '***** Sh_Replace_Multiple_Para_Marks_No_Warning ********
 
 Private Function Sh_IsBlankParaMark(p As Paragraph) As Boolean
     '
