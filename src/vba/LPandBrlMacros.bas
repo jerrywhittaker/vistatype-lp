@@ -20298,7 +20298,8 @@ Sub MS_Set_Word_Config_For_Large_Print()
     '
     ' Author: Jerry Whittaker -  jerry@vistatypelp.org
     '
-    ' Version: 2.7  Date: 8/22/2026 - THE WHOLE AUTOCORRECT TAB, all eight boxes (Jerry). Five of them were
+    ' Version: 2.8  Date: 8/27/2026 - deletes 0/3 as well, the nineteenth compact fraction (Jerry)
+' Version: 2.7  Date: 8/22/2026 - THE WHOLE AUTOCORRECT TAB, all eight boxes (Jerry). Five of them were
     '                                  dropped from all three configurations on 8/18/2026 as "identical
     '                                  everywhere" and come back in the two books only - the same correction
     '                                  smart quotes got on 8/21. CorrectSentenceCaps and CorrectTableCells
@@ -20489,7 +20490,7 @@ Sub MS_Set_Word_Config_For_Large_Print()
     End If
     If Not Sh_Config_Skip_Display Then Application.ScreenRefresh
     
-    ' Delete the 18 compact fraction AutoCorrect entries. This is not a preference and it is not
+    ' Delete the 19 compact fraction AutoCorrect entries. This is not a preference and it is not
     ' negotiable, so do not remove it to save the writes:
     '
     '   A compact fraction is ONE character, and its digits are drawn far smaller than the base
@@ -20525,6 +20526,10 @@ Sub MS_Set_Word_Config_For_Large_Print()
     AutoCorrect.Entries("7/8").Delete
     AutoCorrect.Entries("1/9").Delete
     AutoCorrect.Entries("1/10").Delete
+    ' The nineteenth, 8/27/2026 - U+2189, zero thirds. Deleted for the same reason as the other
+    ' eighteen, and kept in step with Sh_Add_Compact_Fractions, which now writes it. Deleting an
+    ' entry that was never added raises, and the On Error Resume Next above covers that.
+    AutoCorrect.Entries("0/3").Delete
 
     MS_Word_Config = "Word is configured for large print"
     Sh_ConfiguredAs = "LP"    ' see Sh_HandleDocumentActivated: record what is ACTUALLY in force
@@ -20852,10 +20857,13 @@ End Sub  '*** end of  MS_Set_Word_Config_For_Braille macro***
 
 Sub Sh_Add_Compact_Fractions()
 '
-' Adds the 18 compact fraction AutoCorrect entries - 1/2 -> ½ and the rest.
+' Adds the 19 compact fraction AutoCorrect entries - 1/2 -> ½ and the rest.
 '
 ' Only three of the eighteen are Word's own, and Word does those through the AutoFormat as you
 ' type option, not through an AutoCorrect entry. The other fifteen are this add-in's.
+'
+' NINETEEN from 8/27/2026, and that is now every precomposed vulgar fraction Unicode has - see
+' the note beside 0/3 at the bottom of the list.
 '
 ' ONE copy of the list. Called by MS_Set_Word_Config_For_Braille and, from 8/18/2026, by
 ' MS_Set_Word_Config_For_New_Install as well: two copies of eighteen entries would drift.
@@ -20870,6 +20878,7 @@ Sub Sh_Add_Compact_Fractions()
 '
 ' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
+' Version: 1.1  Date: 8/27/2026 - 0/3 added, the nineteenth and last (Jerry)
 ' Version: 1.0  Date: 8/18/2026
 '
     Sh_Add_One_Compact_Fraction "1/2", ChrW(189)
@@ -20890,6 +20899,25 @@ Sub Sh_Add_Compact_Fractions()
     Sh_Add_One_Compact_Fraction "7/8", ChrW(8542)
     Sh_Add_One_Compact_Fraction "1/9", ChrW(8529)
     Sh_Add_One_Compact_Fraction "1/10", ChrW(8530)
+
+    ' THE NINETEENTH, added 8/27/2026 (Jerry). ChrW(8585) is U+2189, VULGAR FRACTION ZERO THIRDS.
+    ' It is the only one of Unicode's nineteen precomposed vulgar fractions this list did not
+    ' carry: the other eighteen are U+00BC to U+00BE and the whole run U+2150 to U+215E, and every
+    ' one of those was already here. Enumerated character by character rather than recalled, so
+    ' the list is complete and there is no twentieth to go looking for.
+    '
+    ' Two OTHER characters carry "FRACTION" in their Unicode names and are deliberately NOT here,
+    ' because neither is a fraction of a value: U+2044 FRACTION SLASH is the slash used to build
+    ' one, and U+215F FRACTION NUMERATOR ONE is a raised 1 with a slash, meant to be followed by a
+    ' denominator. Everything else named FRACTION belongs to another script - Tamil, Malayalam,
+    ' Oriya, Meroitic and the rest - and has nothing to do with American transcription.
+    '
+    ' COVERAGE, measured 8/27/2026 before adding it, per the rule that cost the old bundled face.
+    ' Times New Roman has it, and a braille book is set in Times New Roman 14. Tahoma has it, and
+    ' so does VistaTypeLP Sans. Calibri and Arial do NOT - but they already cannot draw 1/7, 1/9 or
+    ' 1/10 either, and Arial cannot draw nine of the eighteen, so this joins an existing exposure
+    ' rather than creating one. In those faces Word substitutes silently, at another size.
+    Sh_Add_One_Compact_Fraction "0/3", ChrW(8585)
 
 End Sub  '*** end of Sh_Add_Compact_Fractions ***
 
