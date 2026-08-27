@@ -47,6 +47,28 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - Lp - 8/26/2026 - that used to pass unseen now stops the attach and names itself, which is the point,
 '           - Lp - 8/26/2026 - but it is the change to watch for after this build.
 '
+' Notes:    - BRL - 8/26/2026 - A SWIFT BOOK NO LONGER ASKS WHICH TRANSLATION IT IS, EVERY TIME
+'           - BRL - 8/26/2026 - (Jerry). SWIFT is Duxbury's own Word add-in. It DOES attach the BANA
+'           - BRL - 8/26/2026 - template properly - read out of a real SWIFT file: attached template
+'           - BRL - 8/26/2026 - "BANA Braille 2017.dot", so the InStr test in this module finds it.
+'           - BRL - 8/26/2026 - What it does NOT do is set the BrailleType document variable, which
+'           - BRL - 8/26/2026 - only Dx_Choose_Translation_Form ever wrote. The lookup therefore
+'           - BRL - 8/26/2026 - raised, every braille macro jumped to the Choose Translation dialog,
+'           - BRL - 8/26/2026 - and nothing remembered the answer.
+'           - BRL - 8/26/2026 - THE ANSWER WAS IN THE DOCUMENT ALL ALONG. SWIFT records the DBT
+'           - BRL - 8/26/2026 - translation table in the custom properties - DBTTemplate,
+'           - BRL - 8/26/2026 - "English (UEB) - BANA.dxt". Dx_BrailleType_From_Dbt_Table reads it,
+'           - BRL - 8/26/2026 - Dx_Set_BrailleType writes BrailleType once, and the dialog is only
+'           - BRL - 8/26/2026 - shown when the document genuinely does not say.
+'           - BRL - 8/26/2026 - "PRE-UEB" IS TESTED BEFORE "UEB" AND MUST STAY THAT WAY. Duxbury
+'           - BRL - 8/26/2026 - names the EBAE tables "English (BANA Pre-UEB Textbook DE) - BANA.dxt",
+'           - BRL - 8/26/2026 - which CONTAINS "UEB". The other order would call every EBAE book UEB
+'           - BRL - 8/26/2026 - and have it translated wrongly. Proved on the build box against the
+'           - BRL - 8/26/2026 - real names from the 226 .dxt tables DBT 14.1 installs.
+'           - BRL - 8/26/2026 - SWIFT WRITES THAT PROPERTY ON SAVE, NOT ON ATTACH - measured - so a
+'           - BRL - 8/26/2026 - brand new unsaved document is still asked, once. Doc Info reports the
+'           - BRL - 8/26/2026 - table now, which is how that was established and how to check it again.
+'
 ' Notes:    - BRL - 8/26/2026 - EMBED AND UNEMBED NOW SAY WHICH PROBLEM IT IS (Jerry). Both refused a
 '           - BRL - 8/26/2026 - paragraph that is not in one of the four reference-page styles with a
 '           - BRL - 8/26/2026 - single message, "select the Reference Page Number" - which is no help
@@ -3180,8 +3202,82 @@ Sub Dx_UnEmbed_Ref_Pg_No()
     
 End Sub   '*** end of Dx_UnEmbed_Ref_Pg_No macro ***
 
+' Which braille translation this document is for - "UEBT", "UEBN", "EBAT", "EBAN" - worked out
+' from the DBT translation table it is bound for. "" when the document does not say, or names a
+' table this cannot place, in which case the user is asked as before.
+'
+' WHY. SWIFT, Duxbury's own Word add-in, attaches the BANA template and records the translation
+' table in the document's custom properties - but it does NOT set the BrailleType document
+' variable this project asks for. Only Dx_Choose_Translation_Form ever wrote that. So a
+' SWIFT-prepared book made EVERY braille macro stop and ask which translation it was, every time,
+' with the answer sitting unread in the document. Jerry, 8/26/2026.
+'
+' "PRE-UEB" IS TESTED FIRST, AND THAT IS THE WHOLE TRICK. Duxbury names the EBAE tables
+' "English (BANA Pre-UEB Textbook DE) - BANA.dxt", which CONTAINS "UEB". Testing for UEB first
+' would call every EBAE document UEB and have the book translated wrongly. Read off the 226 .dxt
+' tables installed with DBT 14.1 on the build box, not guessed:
+'
+'   English (UEB) - BANA.dxt                             -> UEBT
+'   English (UEB) - BANA with Nemeth.dxt                 -> UEBN
+'   English (BANA Pre-UEB Textbook DE) - BANA.dxt        -> EBAT
+'   English (BANA Pre-UEB Textbook DE) - BANA Nemeth.dxt -> EBAN
+'
+' Version: 1.0  Date: 8/26/2026
+'
+Public Function Dx_BrailleType_From_Dbt_Table() As String
+    Dim tbl As String
+    Dim isNemeth As Boolean
+
+    Dx_BrailleType_From_Dbt_Table = ""
+
+    On Error Resume Next
+    tbl = ActiveDocument.CustomDocumentProperties("DBTTemplate").Value
+    Err.Clear
+    On Error GoTo 0
+
+    tbl = UCase$(Trim$(tbl))
+    If tbl = "" Then Exit Function
+
+    isNemeth = (InStr(tbl, "NEMETH") > 0)
+
+    If InStr(tbl, "PRE-UEB") > 0 Then          ' EBAE - and it contains "UEB", so test it FIRST
+        If isNemeth Then
+            Dx_BrailleType_From_Dbt_Table = "EBAN"
+        Else
+            Dx_BrailleType_From_Dbt_Table = "EBAT"
+        End If
+    ElseIf InStr(tbl, "UEB") > 0 Then
+        If isNemeth Then
+            Dx_BrailleType_From_Dbt_Table = "UEBN"
+        Else
+            Dx_BrailleType_From_Dbt_Table = "UEBT"
+        End If
+    End If
+End Function   '*** end of Dx_BrailleType_From_Dbt_Table ***
+
+' Records the document's braille type, replacing whatever was there.
+'
+' The same steps Dx_Choose_Translation_Form takes when the user answers by hand, in one place so
+' a derived answer and an asked one are stored identically. Deleting first because Variables.Add
+' on a name that already exists raises.
+'
+' Version: 1.0  Date: 8/26/2026
+'
+Public Sub Dx_Set_BrailleType(ByVal brlType As String)
+    If brlType = "" Then Exit Sub
+    On Error Resume Next
+    ActiveDocument.Variables("BrailleType").Delete
+    Err.Clear
+    ActiveDocument.Variables.Add Name:="BrailleType", Value:=brlType
+    Err.Clear
+    On Error GoTo 0
+End Sub   '*** end of Dx_Set_BrailleType ***
+
 Sub Dx_Is_BANA_Template_Attached()
 '
+' Version: 1.2 Date: 8/26/2026 - asks the DOCUMENT before asking the user: derives BrailleType from
+'                                the DBT translation table SWIFT records, so a SWIFT book stops
+'                                being asked which translation it is on every single macro
 ' Version: 1.5  Date: 2/27/2022 - Added check for "ActiveDocument.Variables("BrailleType")"
 ' Version: 1.4  Date: 10/27/2021 - fixed logic bug in determining if BANA template attached
 ' Version: 1.3  Date: 10/26/2021 - removed code to read SWIFT values
@@ -3216,7 +3312,21 @@ Sub Dx_Is_BANA_Template_Attached()
         GoTo GetTempTypeFromUser
     End If
 GetTempTypeFromUser:
-        Dx_Choose_Translation_Form.Show
+        ' ASK THE DOCUMENT BEFORE ASKING THE USER. A SWIFT-prepared book already records which
+        ' translation table it is bound for; nothing here ever looked, so every braille macro
+        ' stopped and asked, every time, and nothing remembered the answer. Derived once, written
+        ' into BrailleType, and not asked again. Jerry, 8/26/2026.
+        '
+        ' SWIFT writes that property when the file is SAVED, not when the template is attached -
+        ' measured on the build box - so a brand new unsaved document still has to be asked once,
+        ' and Dx_Choose_Translation_Form settles it from then on.
+        Dim derivedType As String
+        derivedType = Dx_BrailleType_From_Dbt_Table()
+        If derivedType <> "" Then
+            Dx_Set_BrailleType derivedType
+        Else
+            Dx_Choose_Translation_Form.Show
+        End If
 GetTempTypeFromUserExit:
     
 End Sub   '*** end of Dx_Is_BANA_Template_Attached macro ***
@@ -3779,10 +3889,40 @@ Sub Dx_Fix_Body_Text_Styles()
     
 End Sub '***** end of Dx_Fix_Body_Text_Styles Macros *****
 
+' True when a line looks like a page number rather than a sentence - it holds at least one digit.
+'
+' A light guard, on purpose. The large print Manual Tag validates nothing at all and tags whatever
+' line the cursor is on; this only exists so that pressing the button on a paragraph of prose says
+' something useful instead of tagging it. Roman numerals are handled by Sh_IsValidRomanNumeral
+' before this is reached, so a line of nothing but "xii" does not need a digit to pass.
+'
+' Accepts what real page numbers look like: 12, 12-14, A-5, 3a.
+'
+' Version: 1.0  Date: 8/26/2026
+'
+Private Function Sh_Looks_Like_Page_Number(ByVal s As String) As Boolean
+    Dim i As Long
+    Dim c As String
+
+    s = Trim$(Replace(Replace(Replace(s, vbCr, ""), vbLf, ""), Chr$(7), ""))
+    If Len(s) = 0 Then Exit Function
+
+    For i = 1 To Len(s)
+        c = Mid$(s, i, 1)
+        If c >= "0" And c <= "9" Then
+            Sh_Looks_Like_Page_Number = True
+            Exit Function
+        End If
+    Next i
+End Function   '*** end of Sh_Looks_Like_Page_Number ***
+
 Sub Dx_Manual_Tag_with_Dollar_pg()
 '
 ' Dx_Manual_Tag_with_Dollar_pg Macro
 '
+' Version: 1.6  Date: 8/26/2026 - tags an ARABIC page number too. It refused anything that was not a
+'                                roman numeral, so typing 12 was answered "This is not a valid roman
+'                                numeral". The roman test now only decides the EBAE [[*ii*]] code
 ' Version: 1.5  Date: 9/25/2018 - incorporated proper tagging of lower case roman in EBAE documents'
 ' Version: 1.4  Date: 5/4/2017
 '
@@ -3802,19 +3942,33 @@ Sub Dx_Manual_Tag_with_Dollar_pg()
     Dim Possible_LC_Roman As Variant
     Possible_LC_Roman = Clipboard_Data.GetText
     
-    'validate the selection
-    If Not Sh_IsValidRomanNumeral(UCase(Possible_LC_Roman)) Then  'see if it is a roman numeral - validates only in Ucase
-       Selection.HomeKey Unit:=wdLine
-       MsgBox "This is not a valid roman numeral.", , "Braille Macros"
-       End
+    ' A PAGE NUMBER, NOT ONLY A ROMAN ONE. Jerry, 8/26/2026: typing 12 in its own paragraph and
+    ' pressing Manual Tag Ref Page answered "This is not a valid roman numeral". Most page numbers
+    ' are arabic, and the large print half of this feature has never validated at all - it tags
+    ' whatever the line holds.
+    '
+    ' The roman test is still made, but only for what it is actually needed for: deciding whether
+    ' an EBAE document wants the lower-case [[*ii*]] code, which is the block below. Anything else
+    ' holding a digit is tagged as it stands.
+    Dim isRoman As Boolean
+    isRoman = Sh_IsValidRomanNumeral(Possible_LC_Roman)
+
+    If Not isRoman And Not Sh_Looks_Like_Page_Number(Possible_LC_Roman) Then
+        Selection.HomeKey Unit:=wdLine
+        Sh_Say "That line does not look like a page number." & vbCr & vbCr _
+             & "Manual Tag Ref Page tags the line the cursor is on. Put the cursor on the line " _
+             & "holding the page number - roman or arabic - and try again.", "Braille Macros (245)"
+        Exit Sub
     End If
-    
+
     ' if this is an EBAE document - then it might be a lower case roman numeral needing a [[*ii*]] code
-    If ActiveDocument.Variables("BrailleType") = "EBAT" Or ActiveDocument.Variables("BrailleType") = "EBAN" Then
-        If UCase(Possible_LC_Roman) <> Possible_LC_Roman Then  'the roman numeral is lower case
-            Selection.HomeKey Unit:=wdLine
-            Selection.TypeText Text:="[[*ii*]]"
-            Selection.HomeKey Unit:=wdLine
+    If isRoman Then
+        If ActiveDocument.Variables("BrailleType") = "EBAT" Or ActiveDocument.Variables("BrailleType") = "EBAN" Then
+            If UCase(Possible_LC_Roman) <> Possible_LC_Roman Then  'the roman numeral is lower case
+                Selection.HomeKey Unit:=wdLine
+                Selection.TypeText Text:="[[*ii*]]"
+                Selection.HomeKey Unit:=wdLine
+            End If
         End If
     End If
           
@@ -4153,6 +4307,9 @@ End Sub   '***** End of Dx_Spelling_List Macro *****
 
 Sub Dx_AutoTag_Page_Numbers()
 '
+' Version: 3.0 Date: 8/26/2026 - roman page numbers no longer stop at 387. The paragraph window was 11
+'                                characters, so CCCLXXXVIII (388) and everything above it was skipped;
+'                                it is 16 now, which covers every numeral below 4000
 ' Version: 2.9 Date: 8/26/2026 - ended the On Error Resume Next set inside the roman-numeral loop.
 '                                It was never turned off, so it stayed in force for the remaining 96
 '                                lines - the $pg colouring, the paragraph mark taken off the top of the
@@ -4799,10 +4956,16 @@ Sub Dx_AutoTag_Page_Numbers()
             
         txt = para.Range.Text
         
-        ' the longest roman numeral is 10 characters plus 1 for the para mark = 11
-        ' when length is greater than 11, then the paragraph is too long to be a pg numb
-        ' when > 11 go to next paragraph
-        If Len(txt) > 11 Then
+        ' THE LONGEST ROMAN NUMERAL BELOW 4000 IS 15 CHARACTERS - MMMDCCCLXXXVIII, 3888 - plus
+        ' one for the paragraph mark, so the window is 16. It was 11, which is 10 characters of
+        ' text, and that stopped roman page numbers dead at 387: CCCLXXXVIII (388) is eleven
+        ' characters and every numeral from there up was skipped without a word. 347 of the
+        ' numbers below 4000 did not fit. Measured, and widened on Jerry's instruction,
+        ' 8/26/2026 - he asked for a wider range and there was one to have.
+        '
+        ' A longer window costs nothing: anything that is not a numeral is refused by
+        ' Sh_IsValidRomanNumeral a few lines below, which is what that function is for.
+        If Len(txt) > 16 Then
           GoTo LoopEnd
         End If
         
@@ -4812,7 +4975,7 @@ Sub Dx_AutoTag_Page_Numbers()
         End If
         
         ActualStr = Trim(txt) ' actual string can be upper or lower case
-        tempStr = Trim(Left(UCase(txt), 11)) ' change to Upper case and take up to 11 characters
+        tempStr = Trim(Left(UCase(txt), 16)) ' upper case, up to 16 characters - see the note above
         strLength = Len(tempStr) - 1 'set length not including the para mark
         tempStr = Left(tempStr, strLength) ' set comparison string
         'is the string in the lower roman array
@@ -10400,6 +10563,8 @@ End Function   '*** end of Lp_Is_Hyphen_Char function ***
 
 Sub Lp_AutoTag_Page_Numbers()
 '
+' Version: 2.7  Date: 8/26/2026 - roman page numbers no longer stop at 387: the paragraph window was 11
+'                                characters and is 16 now, covering every numeral below 4000
 ' Version: 2.6  Date: 8/26/2026 - ended the On Error Resume Next set inside the roman-numeral loop.
 '                                It was never turned off, so it stayed in force for the remaining 339
 '                                lines of this macro and every failure in them was discarded silently
@@ -10511,10 +10676,16 @@ Sub Lp_AutoTag_Page_Numbers()
             
         txt = para.Range.Text
         
-        ' the longest roman numeral is 10 characters plus 1 for the para mark = 11
-        ' when length is greater than 11, then the paragraph is too long to be a Roman numeral pg numb
-        ' when > 11 go to next paragraph
-        If Len(txt) > 11 Then
+        ' THE LONGEST ROMAN NUMERAL BELOW 4000 IS 15 CHARACTERS - MMMDCCCLXXXVIII, 3888 - plus
+        ' one for the paragraph mark, so the window is 16. It was 11, which is 10 characters of
+        ' text, and that stopped roman page numbers dead at 387: CCCLXXXVIII (388) is eleven
+        ' characters and every numeral from there up was skipped without a word. 347 of the
+        ' numbers below 4000 did not fit. Measured, and widened on Jerry's instruction,
+        ' 8/26/2026 - he asked for a wider range and there was one to have.
+        '
+        ' A longer window costs nothing: anything that is not a numeral is refused by
+        ' Sh_IsValidRomanNumeral a few lines below, which is what that function is for.
+        If Len(txt) > 16 Then
           GoTo LoopEnd
         End If
         
@@ -10523,7 +10694,7 @@ Sub Lp_AutoTag_Page_Numbers()
             GoTo LoopEnd
         End If
         
-        tempStr = Trim(Left(UCase(txt), 11)) ' change to upper case and take up to 11 characters
+        tempStr = Trim(Left(UCase(txt), 16)) ' upper case, up to 16 characters - see the note above
         strLength = Len(tempStr) - 1 'set length not including the para mark
         tempStr = Left(tempStr, strLength)  ' set comparison string
         
@@ -18499,31 +18670,105 @@ Sub Lp_Table_Mark_Keep_With_Next()
 End Sub   '*** end of Lp_Table_Mark_Keep_With_Next '***
   
 Function Sh_IsValidRomanNumeral(s As String) As Boolean
+'
+' True when s is a well-formed roman numeral in CANONICAL form - the way a page number is
+' actually written. Case is ignored, and a paragraph mark or cell marker on the end is not.
+'
+' REPLACED A HAND-TYPED LIST, 8/26/2026. The old version compared against 36 spelled-out values
+' and the list had holes in it: it ran I to X and then jumped straight to XVI. Measured against
+' the first hundred numerals it rejected 72 of them - including xi, xii, xiii, xiv, xv, xxvi,
+' xxvii, xxviii and xxix, which is exactly the range roman front matter lives in.
+'
+' THAT WAS NOT ONLY A MANUAL-TAGGING PROBLEM. Both AutoTag macros ask this function whether a
+' paragraph is a roman page number - Dx_AutoTag_Page_Numbers and Lp_AutoTag_Page_Numbers - so
+' pages xi to xv and xxvi to xxix were being left untagged in every book, braille and large print
+' alike, with nothing to say so. Jerry met the manual half of it by typing 12 in its own
+' paragraph and being told it was not a valid roman numeral.
+'
+' The test is a ROUND TRIP: read the numeral as a number, write that number back out as a
+' numeral, and require the two to match. That accepts every real numeral and rejects the
+' malformed ones - IIII, VX, IC - with nobody maintaining a list.
+'
+' Version: 2.0  Date: 8/26/2026 - value round trip, replacing the incomplete list
+' Version: 1.0  Date: (original) - a Select Case over spelled-out numerals
+'
+    Dim n As Long
 
-    Dim validChars As String: validChars = "IVXLCDM"
-    Dim i As Long
-
-    s = Trim(UCase(s))
+    s = Trim$(UCase$(Replace(Replace(Replace(s, vbCr, ""), vbLf, ""), Chr$(7), "")))
     If Len(s) = 0 Then Exit Function
 
-    ' Reject if any character isn’t a Roman letter
+    n = Sh_Roman_To_Number(s)
+    If n <= 0 Then Exit Function
+
+    Sh_IsValidRomanNumeral = (Sh_Number_To_Roman(n) = s)
+End Function   '*** end of Function Sh_IsValidRomanNumeral ***
+
+' The value of one roman digit, or 0 for anything that is not one.
+'
+' Version: 1.0  Date: 8/26/2026
+'
+Private Function Sh_Roman_Digit(ByVal c As String) As Long
+    Select Case c
+        Case "I": Sh_Roman_Digit = 1
+        Case "V": Sh_Roman_Digit = 5
+        Case "X": Sh_Roman_Digit = 10
+        Case "L": Sh_Roman_Digit = 50
+        Case "C": Sh_Roman_Digit = 100
+        Case "D": Sh_Roman_Digit = 500
+        Case "M": Sh_Roman_Digit = 1000
+        Case Else: Sh_Roman_Digit = 0
+    End Select
+End Function   '*** end of Sh_Roman_Digit ***
+
+' A roman numeral read as a number. 0 when it holds a character that is not a roman digit.
+' Subtractive pairs are handled the ordinary way - a digit worth less than the one after it is
+' taken away rather than added, so IX is 9.
+'
+' Version: 1.0  Date: 8/26/2026
+'
+Private Function Sh_Roman_To_Number(ByVal s As String) As Long
+    Dim i As Long
+    Dim v As Long
+    Dim nxt As Long
+    Dim total As Long
+
     For i = 1 To Len(s)
-        If InStr(validChars, Mid(s, i, 1)) = 0 Then Exit Function
+        v = Sh_Roman_Digit(Mid$(s, i, 1))
+        If v = 0 Then Exit Function          ' not a roman digit at all
+        If i < Len(s) Then nxt = Sh_Roman_Digit(Mid$(s, i + 1, 1)) Else nxt = 0
+        If v < nxt Then
+            total = total - v
+        Else
+            total = total + v
+        End If
     Next i
 
-    ' Accept if it matches known valid forms
-    Select Case s
-        Case "I", "II", "III", "IV", "V", "VI", "VII", "VIII", _
-             "IX", "X", "XVI", "XVII", "XVIII", "XIX", "XX", _
-             "XXI", "XXII", "XXIII", "XXIV", "XXV", "XXX", _
-             "XL", "L", "LX", "LXX", "LXXX", _
-             "XC", "C", "CC", "CCC", "CD", "D", _
-             "DC", "DCC", "DCCC", "CM", "M"
-             Sh_IsValidRomanNumeral = True
-        Case Else
-            Sh_IsValidRomanNumeral = False
-    End Select
-End Function   '*** end of Function Sh_IsValidRomanNumeral ***
+    Sh_Roman_To_Number = total
+End Function   '*** end of Sh_Roman_To_Number ***
+
+' A number written out as a roman numeral, in canonical form. This is the half of the round trip
+' that rejects IIII and VX: only one spelling of each number comes out of here.
+'
+' Version: 1.0  Date: 8/26/2026
+'
+Private Function Sh_Number_To_Roman(ByVal n As Long) As String
+    Dim vals As Variant
+    Dim syms As Variant
+    Dim i As Long
+    Dim out As String
+
+    vals = Array(1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1)
+    syms = Array("M", "CM", "D", "CD", "C", "XC", "L", "XL", "X", "IX", "V", "IV", "I")
+
+    For i = LBound(vals) To UBound(vals)
+        Do While n >= vals(i)
+            out = out & syms(i)
+            n = n - vals(i)
+        Loop
+    Next i
+
+    Sh_Number_To_Roman = out
+End Function   '*** end of Sh_Number_To_Roman ***
 
 Sub Lp_Normalize_Styles()
     '
@@ -21707,12 +21952,49 @@ firstSection:
     Set Sh_Target_Section = ActiveDocument.Sections(1)
 End Function
 
+' The DBT translation table this document is bound for - e.g. "English (UEB) - BANA.dxt" - or a
+' plain sentence when the document does not say.
+'
+' WHY IT IS WORTH REPORTING. SWIFT, Duxbury's own Word add-in, attaches the BANA template AND
+' records the translation table in the document's custom properties - but it does NOT set the
+' BrailleType document variable this project's macros ask for. Only Dx_Choose_Translation_Form
+' ever writes that. So on a SWIFT-prepared document every braille macro stops and asks which
+' translation it is, every time, and nothing remembers the answer. The document has been carrying
+' it all along and nothing looked. Found 8/26/2026 by reading a SWIFT file's XML: attached
+' template BANA Braille 2017.dot, DBTTemplate "English (UEB) - BANA.dxt", and the only document
+' variable present was SWIFT.StyleMap.GUID.
+'
+' READABLE BEFORE THE DOCUMENT HAS EVER BEEN SAVED. Tested on the build box: a custom property
+' lives in the in-memory document and saving only writes it out. So this reports on a brand new
+' SWIFT document, which is exactly the case that matters.
+'
+' A missing custom property raises error 5 - NOT 5825, which is what a missing document VARIABLE
+' raises. Measured, because the two are easy to confuse and the trap has to cover the right one.
+'
+' Version: 1.0  Date: 8/26/2026
+'
+Public Function Sh_Dbt_Translation_Table() As String
+    Dim s As String
+
+    On Error Resume Next
+    s = ActiveDocument.CustomDocumentProperties("DBTTemplate").Value
+    Err.Clear
+    On Error GoTo 0
+
+    If Trim$(s) = "" Then
+        Sh_Dbt_Translation_Table = "not recorded in this document"
+    Else
+        Sh_Dbt_Translation_Table = Trim$(s)
+    End If
+End Function   '*** end of Sh_Dbt_Translation_Table ***
+
 Sub Sh_Doc_Info()
 '
 ' Sh_Doc_Info macro
 '
 ' Shows the settings and path info of the current Document
 '
+' Version: 2.1  Date: 8/26/2026 - reports the DBT translation table a braille document is bound for
 ' Version: 2.0  Date: 8/9/2026 - page measurements are read from ONE SECTION, not from the
 '                               document. ActiveDocument.PageSetup returns wdUndefined - the
 '                               literal 9999999 - the moment two sections disagree, and divided
@@ -21903,7 +22185,8 @@ Unknown:
                 BrlType = ""
             End If
 
-            MsgBox "Attached Template = " & ActiveDocument.AttachedTemplate & vbCr & vbCr _
+            MsgBox "Attached Template = " & ActiveDocument.AttachedTemplate & vbCr _
+                        & "DBT Translation Table = " & Sh_Dbt_Translation_Table() & vbCr & vbCr _
                         & MS_Word_Config & vbCr & vbCr _
                         & " Orientation                        = " + Sh_GP_String_1 & vbCr _
                         & " Paper/Screen Height        = " + PPH & vbCr _
