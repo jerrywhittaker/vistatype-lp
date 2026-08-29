@@ -214,6 +214,16 @@ tools/windows/  Export-Vba.ps1 / Import-Vba.ps1 / New-UserForm.ps1 — run in Wo
                  Height to PowerShell at all - they live on the component, through
                  Properties.Item, and must be handed over as STRINGS - and a control's font can only
                  be set from VBA. Added 8/23/2026 for the KeyHelp lines on the $pg validation menus
+                Set-FormCaption.ps1 — changes the CAPTION of one control on an existing UserForm and
+                 rewrites the .frm/.frx pair, headlessly. A caption set in the designer lives in the
+                 BINARY .frx, so it cannot be edited from Linux — this is the technique Import-Vba.ps1
+                 uses to stamp the two About dialogs' version captions, made general. Matches on the
+                 control's CURRENT CAPTION by default (-OldCaption), the way the version stamper does,
+                 or on -Name when the words are not unique. REFUSES when it matches nothing, and prints
+                 every caption on the form so the near-miss is obvious; refuses on more than one match
+                 unless -All. Added 8/29/2026 to reword the Encode Fractions instruction on
+                 Dx_Type_Dashes_Form. Afterwards run tools/lib/check_frm_eol.py and
+                 tools/lib/trim_frm_blanks.py, as with the other two form tools
                 Remove-FormControls.ps1 — takes named controls OFF a UserForm and rewrites the
                  .frm/.frx pair, headlessly, in a throwaway blank document. A control lives in the
                  BINARY .frx, so deleting its lines from the .frm leaves it on the form, still

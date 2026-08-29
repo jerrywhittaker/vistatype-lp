@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Dx_Type_Dashes_Form 
    Caption         =   "Type Dashes/Primes/Fractions"
-   ClientHeight    =   8172
+   ClientHeight    =   8088
    ClientLeft      =   120
    ClientTop       =   450
    ClientWidth     =   11520
@@ -13,8 +13,14 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
+
+
 'Dx_Type_Dashes_Form (Code)
 
+' Version: 1.6  Date: 8/29/2026 - Encode Fractions leaves the DBT codes HIDDEN AND PLUM, as it always
+'                                meant to (Jerry). It hid them in three passes and then un-hid them
+'                                all again on the last two statements - see CmdEncode_Click. Also
+'                                reworded the instruction above the button
 ' Version: 1.5  Date: 3/5/2023 - added encode selected fraction with DBT Codes - CmdEncode_Click
 ' Version: 1.4  Date: 2/24/2023 - fixed enter fraction button to change to automatic color after before entering space at end
 ' Version: 1.3  Date: 10/27/2021 - added filter for Numerator and Denominator to allow only numbers, commas, and decimal point
@@ -41,120 +47,17 @@ Private Sub CmdEncode_Click()
 '
 ' Author: Jerry Whittaker
 '
+' Version: 2.0  Date: 8/29/2026 - the work moved to Dx_Encode_Fractions_With_DBT_Codes in
+'                                 LPandBrlMacros, where it now skips dates. This handler was a
+'                                 hundred and fifteen lines of Find and Replace, which is not how
+'                                 anything else here is arranged - forms call macros. Keeping the
+'                                 layout of this form editable by hand without colliding with that
+'                                 logic is the other half of the reason.
 ' Version: 1.0  Date: 3/5/2023
 
-    If Selection.Type <> wdSelectionNormal Then
-        MsgBox "Text containing fractions (not dates in 12/25 format) must be selected first!", , "Braille Macros"
-        End
-    End If
-    
-    ' find fraction in text and insert DBT codes into the numbers
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "([0.0-9.9]{1,})/([0.0-9.9]{1,})"
-        .Replacement.Text = "[[*fs*]]\1[[*fl*]]\2[[*fe*]]"
-        .Forward = True
-        .Wrap = wdFindStop
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find.Replacement.Font
-        .Hidden = True
-        .Color = wdColorPlum
-    End With
-     With Selection.Find
-        .Text = "(\[\[\*fs\*\]\])"
-        .Replacement.Text = "[[*fs*]]"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = True
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find.Replacement.Font
-        .Hidden = True
-        .Color = wdColorPlum
-    End With
-     With Selection.Find
-        .Text = "(\[\[\*fl\*\]\])"
-        .Replacement.Text = "[[*fl*]]"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = True
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find.Replacement.Font
-        .Hidden = True
-        .Color = wdColorPlum
-    End With
-     With Selection.Find
-        .Text = "(\[\[\*fe\*\]\])"
-        .Replacement.Text = "[[*fe*]]"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = True
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find.Replacement.Font
-        .Hidden = False
-        .Color = wdColorAutomatic
-    End With
-     With Selection.Find
-        .Text = "^013"
-        .Replacement.Text = "^013"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = True
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-
-    With Selection.Font
-        .Hidden = False
-        .Color = wdColorAutomatic
-    End With
-    
-    Selection.Collapse 'clear selection
-   
-    Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
+    Application.Run MacroName:="Dx_Encode_Fractions_With_DBT_Codes"
     Unload Me
-    
+
 End Sub
 
 Private Sub CmdLong_Click()

@@ -37,6 +37,19 @@ Private Const SH_PGVAL_KEY_MACRO As String = "LPandBRL.ShNonModalMessage.Sh_PgVa
 ' The document the please-wait box was opened over, so focus can be handed back to it.
 Private Sh_PleaseWait_Doc As Document
 
+' The progress bar's two pieces of state - see Sh_Progress_Open near the bottom of this module.
+' Sh_Progress_Up says whether a bar is on screen, so Sh_Progress_Say never has to ask the FORM
+' (reading a property of an unloaded UserForm instantiates it and runs its Initialize, and this
+' form's Initialize reads Application.Left, which hangs a Word with no desktop). Sh_Progress_Doc
+' is the document the bar was opened over, so focus can be handed back to it - the same reason
+' Sh_PleaseWait_Doc exists above.
+'
+' Module variables, and the End statement this project runs on ordinary paths wipes them - which
+' is correct here rather than a trap, because End unloads every UserForm too. Flag and form go
+' together either way.
+Private Sh_Progress_Up As Boolean
+Private Sh_Progress_Doc As Document
+
 ' Handing focus back to the document needs the Windows API. Activating the document window
 ' through the object model is NOT enough: a modeless UserForm keeps the keyboard focus, so
 ' Word draws no caret and the arrow keys walk the form's buttons instead of the text
@@ -698,3 +711,90 @@ Private Function Sh_PgVal_Ready() As Boolean
     Sh_PgVal_Ready = True
 End Function
 '*** end of $pg reference-page validation helper ***
+
+' --- Sh_Convert_Progress_Form: the BAR, for a macro that knows how far through it is ----------
+'
+' Added 8/29/2026 at Jerry's request: braille Full File Cleanup and Remove Empty Paragraphs show
+' a bar on a large file, so nobody thinks Word has frozen. Same reason the DAISY converter was
+' given one on 8/3/2026 - his words then were that without a visible indicator "many will think
+' the computer is frozen and well... reboot time".
+'
+' NOT the same thing as the please-wait box above. That one turns a spinner and says nothing
+' about how far along the work is; this says how far along it is. Use the spinner where the
+' macro cannot know, and the bar where it can.
+'
+' Three wrappers rather than reaching for the form directly, for two reasons: a caller cannot
+' leave the box on screen, and a progress box can never be the thing that stops a cleanup - every
+' one of them traps. Sh_Progress_Say on a box that was never opened does nothing at all, which is
+' what makes it safe to leave those calls in a macro that is sometimes run without a box.
+'
+' The form's designer caption reads "Converting - Please Wait", which is what the converter
+' wanted. Sh_Progress_Open sets it at RUN TIME instead, so the .frx is not touched - a caption is
+' one of the few things about a UserForm that can be changed without opening the designer in Word.
+'
+' Version: 1.0  Date: 8/29/2026
+'
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
+
+Public Sub Sh_Progress_Open(ByVal boxTitle As String)
+' Puts the bar on screen, empty, and titles it. Modeless, so the macro carries straight on.
+'
+' HANDS FOCUS BACK TO THE DOCUMENT afterwards, and that is not tidiness. Showing a modeless form
+' takes the focus, and Word can then make a DIFFERENT document active - Jerry saw exactly that on
+' 8/3/2026 with the please-wait box: "Full File Cleanup jump to the blank startup document part
+' way through the run", after which the macro works on the wrong file. Every pass these bars sit
+' over addresses ActiveDocument, and several use Selection.Find, so the same mistake here would
+' clean the empty Document1 and leave her book untouched. Sh_Show_Please_Wait and
+' Sh_Hide_Please_Wait have carried this call since that day; these do too.
+
+    On Error Resume Next
+    Set Sh_Progress_Doc = ActiveDocument
+    Sh_Convert_Progress_Form.Caption = boxTitle
+    Sh_Convert_Progress_Form.SetProgress 0, ""
+    Sh_Convert_Progress_Form.Show vbModeless
+    Sh_Progress_Up = True
+    Sh_Focus_Document Sh_Progress_Doc
+    Err.Clear
+    On Error GoTo 0
+
+End Sub  '*** end of Sh_Progress_Open ***
+
+Public Sub Sh_Progress_Say(ByVal pct As Single, ByVal what As String)
+' Moves the bar and says what is happening. SetProgress clamps pct to 0-100 itself and holds
+' ScreenUpdating across its own repaint, so a caller with the screen switched off - which is
+' every caller here - does not get a flash of half-cleaned document.
+'
+' Gated on Sh_Progress_Up, a FLAG, and not on the form's own .Visible: reading any property of an
+' unloaded UserForm instantiates it and runs UserForm_Initialize, which for this form reads
+' Application.Left - and that is the line that hangs a Word driven over SSH with no desktop. A
+' flag means a Say with no bar open costs nothing and touches nothing, which is what makes it
+' safe to leave these calls in a macro that is sometimes run without a box.
+
+    If Not Sh_Progress_Up Then Exit Sub
+
+    On Error Resume Next
+    Sh_Convert_Progress_Form.SetProgress pct, what
+    Err.Clear
+    On Error GoTo 0
+
+End Sub  '*** end of Sh_Progress_Say ***
+
+Public Sub Sh_Progress_Close()
+' Takes the bar off screen. Unload rather than Hide, so the next Open starts from a fresh form
+' and cannot show the last run's message for a moment before the first step arrives.
+'
+' Safe to call when no bar is open, and safe to call twice - which is the point: every path out
+' of a macro that opened one can end with this, including an error handler.
+
+    If Not Sh_Progress_Up Then Exit Sub
+
+    On Error Resume Next
+    Sh_Progress_Up = False
+    Unload Sh_Convert_Progress_Form
+    Sh_Focus_Document Sh_Progress_Doc
+    Set Sh_Progress_Doc = Nothing
+    Err.Clear
+    On Error GoTo 0
+
+End Sub  '*** end of Sh_Progress_Close ***
+'*** end of the progress bar helpers ***

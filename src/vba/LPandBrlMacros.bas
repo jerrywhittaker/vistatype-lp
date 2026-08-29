@@ -18,6 +18,101 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - BRL - 8/29/2026 - ENCODE FRACTIONS LEAVES ITS DBT CODES HIDDEN AND PLUM, AND SKIPS
+'           - BRL - 8/29/2026 - DATES (Jerry). Two faults in one button on Dx_Type_Dashes_Form.
+'           - BRL - 8/29/2026 - It DID hide them - three passes, one each for [[*fs*]], [[*fl*]] and
+'           - BRL - 8/29/2026 - [[*fe*]] - and then its last two statements undid all of it:
+'           - BRL - 8/29/2026 - Selection.Font applies to the WHOLE SELECTION, and the reset to
+'           - BRL - 8/29/2026 - not-hidden and automatic ran BEFORE Selection.Collapse. So the codes
+'           - BRL - 8/29/2026 - came out as ordinary black text. The reset is still wanted - without
+'           - BRL - 8/29/2026 - it the next thing typed comes out plum - it just belongs on the
+'           - BRL - 8/29/2026 - insertion point. Exactly the fault the Enter Fraction button had on
+'           - BRL - 8/29/2026 - 2/24/2023, cured the same way; this one was never noticed.
+'           - BRL - 8/29/2026 - DATES: one wildcard Replace:=wdReplaceAll did the whole job, so
+'           - BRL - 8/29/2026 - 12/25/2026 matched the "12/25" and gave
+'           - BRL - 8/29/2026 - [[*fs*]]12[[*fl*]]25[[*fe*]]/2026. It now reads the character on each
+'           - BRL - 8/29/2026 - side of every hit and refuses one with a SLASH against it, which is
+'           - BRL - 8/29/2026 - the whole of what separates nn/nn/nn from a fraction. A two-part date
+'           - BRL - 8/29/2026 - like 12/26 is character for character a fraction and still cannot be
+'           - BRL - 8/29/2026 - told apart - the words above the button say so.
+'           - BRL - 8/29/2026 - THE LOGIC MOVED OUT OF THE FORM into Dx_Encode_Fractions_With_DBT_
+'           - BRL - 8/29/2026 - Codes. A hundred and fifteen lines of Find and Replace in a button
+'           - BRL - 8/29/2026 - handler is not how anything else here is arranged, and it means the
+'           - BRL - 8/29/2026 - form's LAYOUT can be reworked by hand in the VBA editor without
+'           - BRL - 8/29/2026 - colliding with a change to the logic.
+'
+' Notes:    - BRL - 8/29/2026 - THE AUTOMATIC CLEANUP BELONGS TO THE ATTACH BUTTON ALONE (Jerry).
+'           - BRL - 8/29/2026 - Fifteen braille macros - Manual Tag, AutoTag Ref Pages, Embed and
+'           - BRL - 8/29/2026 - UnEmbed, Type Dashes, Compress Linear Math and the rest - call
+'           - BRL - 8/29/2026 - Dx_Is_BANA_Template_Attached, which attaches the template for the
+'           - BRL - 8/29/2026 - transcriber when the document has none. With the cleanup automatic,
+'           - BRL - 8/29/2026 - all fifteen would have started running thirty-six destructive passes
+'           - BRL - 8/29/2026 - and an UndoClear because she asked to tag ONE page number. Before
+'           - BRL - 8/29/2026 - today those routes reached two Yes/No questions she could decline.
+'           - BRL - 8/29/2026 - So Dx_Attach_BANA_Template is now a wrapper passing autoClean True,
+'           - BRL - 8/29/2026 - and Dx_Is_BANA_Template_Attached calls the worker with False. Found
+'           - BRL - 8/29/2026 - in review before it shipped, not in the field.
+'
+' Notes:    - BRL - 8/29/2026 - THE BRAILLE ATTACH RUNS IN FOUR STAGES, IN THIS ORDER (Jerry):
+'           - BRL - 8/29/2026 - attach the template, fix common file errors, remove the empty
+'           - BRL - 8/29/2026 - paragraphs, adjust the screen.
+'           - BRL - 8/29/2026 - The four view settings - draft view, the document map, the navigation
+'           - BRL - 8/29/2026 - pane and Show All - sat immediately after the attach and now sit at
+'           - BRL - 8/29/2026 - the very end. Set where they were, they were laid down BEFORE some
+'           - BRL - 8/29/2026 - thirty-eight passes of cleanup ran over the document, and the first
+'           - BRL - 8/29/2026 - thing Full File Cleanup does is call MS_Set_Word_Config_For_Braille
+'           - BRL - 8/29/2026 - all over again. What the transcriber ends up looking at should be
+'           - BRL - 8/29/2026 - decided after the work, not before it.
+'           - BRL - 8/29/2026 - The On Error Resume Next that came with those settings is now CLOSED.
+'           - BRL - 8/29/2026 - It used to be opened there and never turned off, so it swallowed
+'           - BRL - 8/29/2026 - every error in the rest of the macro - the translation choice, the
+'           - BRL - 8/29/2026 - foreign language coloring, the text box removal, and from today the
+'           - BRL - 8/29/2026 - two cleanups as well. Same fault the register carries three rows for.
+'           - BRL - 8/29/2026 - ONE THING THAT CHANGED WITH IT, and it was considered: Show All is no
+'           - BRL - 8/29/2026 - longer on while the cleanups run. Word's Find skips hidden text when
+'           - BRL - 8/29/2026 - it is not displayed, so a replacement could in principle reach across
+'           - BRL - 8/29/2026 - a hidden [[*code*]] and take it with it. It cannot bite here: the
+'           - BRL - 8/29/2026 - cleanups only run when the file was NOT already braille, and a file
+'           - BRL - 8/29/2026 - that has never been near the braille macros carries no DBT codes to
+'           - BRL - 8/29/2026 - hide. The ribbon's own Full File Cleanup button has never set Show
+'           - BRL - 8/29/2026 - All either, so the two routes now behave the same way.
+'
+' Notes:    - BRL - 8/29/2026 - ATTACHING A BANA TEMPLATE NOW CLEANS THE FILE UP BY ITSELF (Jerry),
+'           - BRL - 8/29/2026 - and both cleanups show a PROGRESS BAR.
+'           - BRL - 8/29/2026 - Large print has always done this: Lp_Attach_The_Template runs its own
+'           - BRL - 8/29/2026 - Full File Cleanup and empty-paragraph removal without asking. Braille
+'           - BRL - 8/29/2026 - asked two Yes/No questions instead, from 2018 until today. They are
+'           - BRL - 8/29/2026 - gone, not defaulted to Yes: a question asked on every attach of every
+'           - BRL - 8/29/2026 - fresh source file, whose answer is always the same, is two keys to
+'           - BRL - 8/29/2026 - press rather than a choice.
+'           - BRL - 8/29/2026 - ONLY ON A FILE THAT WAS NOT ALREADY BRAILLE, which is Jerry's own
+'           - BRL - 8/29/2026 - condition. Attaching a BANA template to an existing braille book is a
+'           - BRL - 8/29/2026 - repair - re-pointing it at its template, or moving it between
+'           - BRL - 8/29/2026 - translations - and thirty-six cleanup passes over work already done
+'           - BRL - 8/29/2026 - to it would undo the transcriber's corrections without asking.
+'           - BRL - 8/29/2026 - BOTH STILL RUN BY HAND exactly as before, from the braille ribbon and
+'           - BRL - 8/29/2026 - the cleanup menu, and run that way they still report what they did:
+'           - BRL - 8/29/2026 - "End of Fix Common File Errors" and the count of paragraph marks
+'           - BRL - 8/29/2026 - removed. Only the attach is silent. Dx_Fix_Common_File_Errors is now a
+'           - BRL - 8/29/2026 - one-line wrapper over Dx_Fix_Common_File_Errors_Run(quiet), so its name
+'           - BRL - 8/29/2026 - and no-argument shape survive for the Application.Run callers.
+'           - BRL - 8/29/2026 - THE BAR is Sh_Convert_Progress_Form, built for the DAISY converter on
+'           - BRL - 8/29/2026 - 8/3/2026 for the same reason in Jerry's words: without a visible
+'           - BRL - 8/29/2026 - indicator "many will think the computer is frozen and well... reboot
+'           - BRL - 8/29/2026 - time". Reached through three new wrappers in ShNonModalMessage -
+'           - BRL - 8/29/2026 - Sh_Progress_Open / _Say / _Close - which all trap, so a progress box
+'           - BRL - 8/29/2026 - can never be the thing that stops a cleanup, and Sh_Progress_Say on a
+'           - BRL - 8/29/2026 - box that was never opened does nothing at all.
+'           - BRL - 8/29/2026 - Full File Cleanup counts its own passes through Dx_Ffc_Step, so adding
+'           - BRL - 8/29/2026 - or removing one needs no percentages rewritten. Remove Empty Paragraphs
+'           - BRL - 8/29/2026 - measures by CHARACTER POSITION, not a paragraph count: Paragraphs.Count
+'           - BRL - 8/29/2026 - walks the whole collection to answer, which is exactly the wait the bar
+'           - BRL - 8/29/2026 - exists to explain.
+'           - BRL - 8/29/2026 - LARGE PRINT IS UNTOUCHED. showProgress is optional and off by default,
+'           - BRL - 8/29/2026 - so the six existing callers of the shared worker behave as they did -
+'           - BRL - 8/29/2026 - the two LP routes already put a please-wait spinner up, and a second
+'           - BRL - 8/29/2026 - box on top of it would be worse than none.
+'
 ' Notes:    - MS - 8/29/2026 - THE COMPACT FRACTION AUTOCORRECT ENTRIES ARE REMOVED, NOT ADDED (Jerry).
 '           - MS - 8/29/2026 - He typed 1/2/2026 into an ordinary document and got the 1/2 back as a
 '           - MS - 8/29/2026 - compact fraction. An AutoCorrect entry named "1/2" fires the moment "1/2"
@@ -2130,6 +2225,28 @@ End Sub  '*** end of AutoClose macro ***
 
 Sub Dx_Attach_BANA_Template()
 '
+' The braille ribbon's Attach BANA Template button, and nothing else.
+'
+' Version: 1.0  Date: 8/29/2026
+'
+' Author: Jerry Whittaker - jerry@vistatypelp.org
+'
+' A wrapper over Dx_Attach_BANA_Template_Run, added 8/29/2026 with the automatic cleanup. autoClean
+' is True here because pressing this button IS the transcriber saying "prepare this file". The one
+' other route into the attach - Dx_Is_BANA_Template_Attached, which fifteen braille macros call
+' when a document has no BANA template yet - passes False, so it attaches quietly and gets on with
+' the job she actually asked for. Jerry's call, 8/29/2026.
+'
+' The no-argument shape is kept because this is a ribbon tag: RibbonDispatch.bas calls it by name
+' through the generated Sh_Dispatch, and build_ribbon_dispatch.py refuses to generate at all if a
+' button's macro stops being a plain no-argument Sub.
+
+    Dx_Attach_BANA_Template_Run True
+
+End Sub   '***** end of Dx_Attach_BANA_Template *****
+
+Public Sub Dx_Attach_BANA_Template_Run(ByVal autoClean As Boolean)
+'
 '    Attaches BANA Template
 '    Changes view to draft
 '    Converts word foreign language tags to BANA template styles
@@ -2137,6 +2254,31 @@ Sub Dx_Attach_BANA_Template()
 '
 '  Version: 3.4  Date: 8/18/2026 - that font is now Times New Roman 14 pt, not Courier New 12 pt - matching what Duxbury's own SWIFT add-in sets when IT attaches a template (Jerry)
 '  Version: 3.3  Date: 8/5/2026 - puts the whole document into Courier New 12 pt as the last thing it does (Jerry)
+'  Version: 4.3  Date: 8/29/2026 - the draft view no longer arrives the moment the button is pressed,
+'                                 and the "template has been attached!" message is now the LAST thing
+'                                 said (Jerry). Sh_Config_Skip_Display is held up across the attach and
+'                                 both cleanups, so MS_Set_Word_Config_For_Braille - called here AND as
+'                                 Full File Cleanup's first pass - sets the typing settings but not the
+'                                 screen. It comes down at stage four, which is now the one place the
+'                                 braille display is decided
+'  Version: 4.2  Date: 8/29/2026 - takes autoClean, so the cleanups run only when the transcriber
+'                                 pressed Attach BANA Template (Jerry). Fifteen other braille macros
+'                                 reach this sub through Dx_Is_BANA_Template_Attached when a document
+'                                 has no BANA template yet, and they now pass False: she pressed
+'                                 Manual Tag or AutoTag, and a silent thirty-six-pass cleanup with an
+'                                 UndoClear after it is not what she asked for
+'  Version: 4.1  Date: 8/29/2026 - FOUR STAGES, IN THIS ORDER (Jerry): attach the template, fix
+'                                 common file errors, remove the empty paragraphs, adjust the
+'                                 screen. The four view settings moved from just after the attach
+'                                 to the very end - they were being laid down before everything
+'                                 that then rewrote the document. The On Error Resume Next that
+'                                 came with them is now closed instead of running to the end of
+'                                 the macro
+'  Version: 4.0  Date: 8/29/2026 - RUNS THE TWO CLEANUPS ITSELF instead of asking (Jerry), and only
+'                                 when the document was not already a braille book. Full File Cleanup
+'                                 then Remove Empty Paragraphs, both silent, both showing a progress
+'                                 bar - which is what large print has done since it was written. The
+'                                 two Yes/No questions from 2018 are gone
 '  Version: 3.2  Date: 7/24/2026 - repaint (ScreenUpdating on + ScreenRefresh) before the template-choice and translation-choice forms; they were shown while ScreenUpdating was off, so the Word workspace behind them rendered black instead of the normal gray
 '  Version: 3.4  Date: 8/27/2026 - that message now carries the COUNT (Jerry)
 '  Version: 3.3  Date: 8/27/2026 - answering Yes to the paragraph-marks question now says "Multiple
@@ -2260,19 +2402,22 @@ Sub Dx_Attach_BANA_Template()
         .UpdateStylesOnOpen = False  ' supresses any further style updates
     End With
 
-    ' configure word settings for braille
+    ' Configure Word for braille - THE TYPING SETTINGS ONLY. Sh_Config_Skip_Display holds back the
+    ' display half of that sub: the style area, the rulers, the styles pane and DRAFT VIEW.
+    '
+    ' Jerry, 8/29/2026: the screen is stage FOUR of the attach and must not change before then.
+    ' Moving the four view settings out of this macro was not enough on its own - the draft view
+    ' was still arriving the instant the button was pressed, because MS_Set_Word_Config_For_Braille
+    ' sets it too, and Full File Cleanup calls that sub AGAIN as its own first pass. So the flag
+    ' stays up across all three working stages and comes down at stage four, which is the only
+    ' place the braille display is decided.
+    '
+    ' The flag is a Public Boolean and this is the one sub that leaves it raised across other
+    ' calls, so every way out of here has to lower it. The End on the canceled-template path above
+    ' runs before it is raised, and End would clear it anyway.
+    Sh_Config_Skip_Display = True
+
     Application.Run MacroName:="MS_Set_Word_Config_For_Braille"
-      
-    If ActiveWindow.View.SplitSpecial = wdPaneNone Then
-        ActiveWindow.ActivePane.View.Type = wdNormalView
-    Else
-        ActiveWindow.View.Type = wdNormalView
-    End If
-    
-    ActiveWindow.DocumentMap = False
-    On Error Resume Next
-    CommandBars("Navigation").Visible = False
-    ActiveWindow.ActivePane.View.ShowAll = True
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     ActiveDocument.UndoClear
 
@@ -2296,44 +2441,117 @@ Sub Dx_Attach_BANA_Template()
     Application.Run MacroName:="Sh_Remove_Txt_Bxs_And_Frames"
     Application.ScreenUpdating = su_Prev ' Turn screen updating on
     Application.ScreenRefresh
-    MsgBox (ActiveDocument.AttachedTemplate) + " template has been attached!", , "Braille Macros"
 
-    ' The two cleanup questions. Asked when this was NOT already a braille book - see wasAlreadyBrl
-    ' at the top of the sub for what this used to test and why it stopped working.
+    ' "... template has been attached!" USED TO BE SAID HERE. It is now the very last thing this
+    ' macro does - after the cleanups, after the font, after the screen. Jerry, 8/29/2026: it is
+    ' the message that says the job is finished, so it cannot come before two progress bars and a
+    ' change of view. Said here it announced an attach that still had most of its work ahead of it.
+
+    ' THE TWO CLEANUPS, RUN AUTOMATICALLY. Jerry, 8/29/2026: do here what large print already does
+    ' - Lp_Attach_The_Template runs Lp_Fix_Common_File_Errors and the empty-paragraph removal
+    ' itself, without asking and without a word, and this now matches it.
     '
-    ' The character count guard stays: an empty or near-empty document has nothing to clean up,
-    ' and being asked twice about it is just two more keys to press.
-    If Not wasAlreadyBrl Then
+    ' They were two Yes/No questions from 2018 until today. The questions are gone, not merely
+    ' defaulted to Yes: a question asked on every single attach of a fresh source file, whose
+    ' answer is always the same, is two keys to press rather than a choice. Both jobs remain on the
+    ' braille ribbon and on the cleanup menu for the times the answer is genuinely no, and run
+    ' from THERE they still report what they did.
+    '
+    ' ONLY WHEN THIS WAS NOT ALREADY A BRAILLE BOOK, which is the whole point of the guard and
+    ' Jerry's own condition. Attaching a BANA template to an EXISTING braille file is a repair -
+    ' re-pointing a book at its template, or moving it between translations - and running
+    ' thirty-six cleanup passes over work already done to it would undo the transcriber's
+    ' corrections without asking. wasAlreadyBrl is read off the document before the attach; see the
+    ' note at the top of this sub for why it is not a module variable.
+    '
+    ' The character count guard stays: an empty or near-empty document has nothing to clean up, and
+    ' running two progress bars over it would only be strange to watch.
+    ' autoClean is False when a braille macro attached the template on her behalf rather than her
+    ' pressing Attach - see the wrapper above. Fifteen macros do that through
+    ' Dx_Is_BANA_Template_Attached, and she pressed Manual Tag or AutoTag, not Attach. Running
+    ' thirty-six destructive passes and an UndoClear because she asked to tag one page number is
+    ' not what she asked for. Jerry's call, 8/29/2026.
+    If autoClean And Not wasAlreadyBrl Then
         If ActiveDocument.Characters.count > 10 Then
-            If MsgBox("Do you want to fix common file errors?", vbYesNo, "Braille Macros") = vbYes Then
-                Application.Run MacroName:="Dx_Fix_Common_File_Errors"
-            End If
-            If MsgBox("Do you want to remove multiple consecutive paragraph marks? ", vbYesNo, "Braille Macros") = vbYes Then
-                ' Directly, for the count - see the cleanup menu's own button.
-                Dim marksRemoved As Long
-                marksRemoved = Sh_Replace_Multiple_Para_Marks_No_Warning()
-                ' The same "it is done" message the cleanup menu's own button gives, and the same
-                ' dialog number - it IS the same dialog. Added 8/27/2026: putting it only on the
-                ' menu button left this route silent, and this is a route the transcriber reaches
-                ' by answering Yes to a question about this exact job. Answering a direct question
-                ' with nothing on screen is the fault being fixed, not the button it came from.
-                '
-                ' It cannot go in Sh_Replace_Multiple_Para_Marks_No_Warning itself: that worker is
-                ' shared with large print, which has its own arrangement, and it runs inside
-                ' Lp_File_Fix_Sequence and Lp_Attach_The_Template as one step of many.
-                Sh_Say Dx_Para_Marks_Message(marksRemoved), "Braille Macros (246)"
-            End If
+
+            ' quiet:=True, so no "End of Fix Common File Errors" to dismiss part way through an
+            ' attach. The progress bar it shows is the feedback. A DIRECT call rather than
+            ' Application.Run, because Application.Run cannot pass an argument to a typed
+            ' parameter - it marshals everything as a Variant - and because a direct call lets an
+            ' error propagate, where Application.Run hands it to Word's own Debug dialog.
+            Dx_Fix_Common_File_Errors_Run True
+
+            ' showProgress:=True, and the count discarded: on this path the bar has already said
+            ' how many went as it worked, and dialog 246 belongs to the routes the transcriber
+            ' asked for the job by name. Called as a statement, which is how VBA runs a Function
+            ' whose return value is not wanted.
+            Sh_Replace_Multiple_Para_Marks_No_Warning True
+
         End If
     End If
 
-    ' LAST, after the optional cleanups above rather than beside the attach itself. Both of them
-    ' rewrite text - Dx_Fix_Common_File_Errors alone runs some thirty passes over the document -
-    ' so a font set any earlier is not the font the transcriber ends up looking at. (Until
-    ' 8/18/2026 this note named Word's AutoFormat command as the reason; that call is gone, but
-    ' the passes that replaced it rewrite text just the same, so this still belongs last.)
+    ' After the cleanups above rather than beside the attach itself. Both of them rewrite text -
+    ' Dx_Fix_Common_File_Errors alone runs some thirty-six passes over the document - so a font
+    ' set any earlier is not the font the transcriber ends up looking at. (Until 8/18/2026 this
+    ' note named Word's AutoFormat command as the reason; that call is gone, but the passes that
+    ' replaced it rewrite text just the same, so this still belongs here.)
     Application.Run MacroName:="Dx_Set_Whole_Document_To_Times_New_Roman_14"
 
-End Sub   '***** end of Dx_Attach_BANA_Template macro *****
+    ' ---- FOURTH AND LAST: the screen ----------------------------------------------------------
+    '
+    ' Jerry's order, 8/29/2026: attach the template, fix common file errors, remove the empty
+    ' paragraphs, then adjust the display. These four settings sat immediately after the attach
+    ' until today, which put them ahead of everything that then rewrote the document - and ahead
+    ' of Full File Cleanup's own first pass, which is MS_Set_Word_Config_For_Braille all over
+    ' again. Whatever those passes did to the view, this is now the last word on it.
+    '
+    ' Draft view (wdNormalView) because a braille source file has no page layout worth looking at,
+    ' and Show All so the transcriber can see the paragraph marks the cleanups have just been
+    ' working on. The document map and the navigation pane go because they take width from a file
+    ' that is read as plain text.
+    '
+    ' The braille display, all of it, in one place and at the end. Lowering the flag first is what
+    ' lets MS_Set_Word_Config_For_Braille do its display half this time: the style area, the
+    ' rulers, the styles pane and draft view. Every write in that sub is guarded with an
+    ' If <> Then, so running it a second time costs a few comparisons and changes nothing that is
+    ' already right.
+    Sh_Config_Skip_Display = False
+    Application.Run MacroName:="MS_Set_Word_Config_For_Braille"
+
+    ' The four this macro owns, which that sub does not set.
+    '
+    ' The trap is round the lines that can genuinely raise and IS CLOSED AFTERWARDS. It used to be
+    ' opened in the middle of this macro and never closed, so it swallowed every error in
+    ' everything that followed - the translation choice, the foreign language coloring, the text
+    ' box removal, and from today the two cleanups as well. That is the same fault the register
+    ' carries three rows for. CommandBars("Navigation") does not exist in every Word build, and
+    ' ActivePane raises on a window that has none, which is why the trap is there at all.
+    On Error Resume Next
+
+    If ActiveWindow.View.SplitSpecial = wdPaneNone Then
+        ActiveWindow.ActivePane.View.Type = wdNormalView
+    Else
+        ActiveWindow.View.Type = wdNormalView
+    End If
+
+    ActiveWindow.DocumentMap = False
+    CommandBars("Navigation").Visible = False
+    ActiveWindow.ActivePane.View.ShowAll = True
+
+    Err.Clear
+    On Error GoTo 0
+
+    Application.ScreenRefresh
+
+    ' ---- LAST OF ALL: say it is done ------------------------------------------------------------
+    '
+    ' Jerry, 8/29/2026: the attached message is the last message shown, and the draft view appears
+    ' just before it. By the time this is read the template is on, the file is cleaned, the empty
+    ' paragraphs are gone, the book is in Times New Roman 14 and the screen is set - so the
+    ' sentence is true when it is said, which it was not when it sat halfway up this macro.
+    MsgBox (ActiveDocument.AttachedTemplate) + " template has been attached!", , "Braille Macros"
+
+End Sub   '***** end of Dx_Attach_BANA_Template_Run macro *****
 
 Sub Dx_Set_Whole_Document_To_Times_New_Roman_14()
 '
@@ -3655,7 +3873,10 @@ Sub Dx_Is_BANA_Template_Attached()
 
     Application.Run MacroName:="Sh_Is_Doc_Open"
     If InStr(ActiveDocument.AttachedTemplate, "BANA Braille") = 0 Then
-        Application.Run MacroName:="Dx_Attach_BANA_Template"   'template was NOT attached - attach it
+        ' autoClean:=False - she pressed one of fifteen other braille buttons, not Attach, and the
+        ' template is being put on for her so that button can work. A DIRECT call, because
+        ' Application.Run cannot pass an argument to a typed parameter. Jerry, 8/29/2026.
+        Dx_Attach_BANA_Template_Run False   'template was NOT attached - attach it
     End If
     
     ' BANA Braille template is attached but is it a version which is too old?
@@ -3909,9 +4130,36 @@ Sub Dx_Replace_Tabs_With_Single_Space()
 End Sub  '*** end of Dx_Replace_Tabs_With_Single_Space Macro ***
 
 Sub Dx_Fix_Common_File_Errors()
+'
+' The Fix Errors button on the braille cleanup menu - which is where the ribbon's Full File
+' Cleanup leads, through Dx_File_Fix_Sequence. Says "End of Fix Common File Errors" when it
+' finishes, as it always has.
+'
+' Version: 1.0  Date: 8/29/2026
+'
+' Author: Jerry Whittaker - jerry@vistatypelp.org
+'
+' A wrapper, added 8/29/2026 so that Dx_Attach_BANA_Template can run the same work WITHOUT the
+' closing message - see Dx_Fix_Common_File_Errors_Run. The name and the no-argument shape are kept
+' exactly as they were: Dx_File_Cleanup_Sub_Menu_Form's Fix Errors button reaches this macro
+' through Application.Run, which resolves by name at run time and would fail silently on a rename.
+' The attach no longer comes through here at all - it calls the worker directly, with quiet True.
+
+    Dx_Fix_Common_File_Errors_Run False
+
+End Sub '***** end of Dx_Fix_Common_File_Errors *****
+
+Public Sub Dx_Fix_Common_File_Errors_Run(ByVal quiet As Boolean)
 
 ' Dx_Fix_Common_File_Errors Macro
 '
+' Version: 3.0  Date: 8/29/2026 - shows a PROGRESS BAR, and takes a quiet flag (Jerry). The bar
+'                                  exists because this runs some thirty-six passes over the whole
+'                                  document with the screen switched off and, until today, not one
+'                                  DoEvents in it - on a large book Word simply looked frozen.
+'                                  quiet:=True is the attach path, which runs this automatically
+'                                  and must not stop to be dismissed; the ribbon and the cleanup
+'                                  menu pass False and still get the closing message
 ' Version: 2.13  Date: 8/29/2026 - converts typed fractions to compact fractions (Jerry). The macro that does it,
 '                                  Dx_Replace_Fraction_Text_With_Compact_Fractions, has existed since 10/1/2021 and was
 '                                  called from nowhere at all - no ribbon button, no menu, and not from here, though the
@@ -3943,8 +4191,15 @@ Sub Dx_Fix_Common_File_Errors()
     '------------------------------------------------------
 
     Dim su_Prev As Boolean
+    Dim stepNo As Long
+
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
+
+    ' The bar. Every pass below announces itself through Dx_Ffc_Step, which counts and works out
+    ' the percentage, so adding or removing a pass needs no arithmetic - only the total in
+    ' Dx_Ffc_Step kept honest. Sh_Progress_Say traps, so the box can never stop the cleanup.
+    Sh_Progress_Open "Braille - Full File Cleanup"
 
     '------------- start cleanup ------------------
 
@@ -3974,56 +4229,81 @@ Sub Dx_Fix_Common_File_Errors()
     ' Word's AutoFormat command, which is what made the on-demand AutoFormat settings load-bearing
     ' rather than cosmetic. With it gone they are the transcriber's, like the rest of the fifteen
     ' removed from the three configuration subs on 8/18/2026.
+    Dx_Ffc_Step stepNo, "Setting Word up for braille"
     Application.Run MacroName:="MS_Set_Word_Config_For_Braille"
 
     If ActiveDocument.Variables("BrailleType") = "EBAT" Or ActiveDocument.Variables("BrailleType") = "EBAN" Then 'are cleaned up only for EBAE Textbook and EBAE Nemeth
+        Dx_Ffc_Step stepNo, "Fixing em dash spacing"
         Application.Run MacroName:="Dx_Fix_Em_Dash_Space_Errors"
     End If
     
+    Dx_Ffc_Step stepNo, "Removing square bullets"
     Application.Run MacroName:="Dx_Delete_Square_Bullet"
     
+    Dx_Ffc_Step stepNo, "Fixing Abbyy FineReader text and headings"
     Application.Run MacroName:="Dx_Fix_Abbyy_FineReader_Text_and_Headers"
 
+    Dx_Ffc_Step stepNo, "Deleting images"
     Application.Run MacroName:="Dx_Delete_Images"
 
+    Dx_Ffc_Step stepNo, "Turning white text back to automatic"
     Application.Run MacroName:="Sh_Replace_White_Text_With_Automatic"
 
+    Dx_Ffc_Step stepNo, "Fixing primes"
     Application.Run MacroName:="Dx_Fix_Primes"
 
+    Dx_Ffc_Step stepNo, "Removing spaces before punctuation"
     Application.Run MacroName:="Sh_Remove_Spaces_Before_Punctuation"
 
+    Dx_Ffc_Step stepNo, "Fixing en dashes"
     Application.Run MacroName:="Dx_Fix_En_Dash_Errors"
 
+    Dx_Ffc_Step stepNo, "Removing text boxes and frames"
     Application.Run MacroName:="Sh_Remove_Txt_Bxs_And_Frames"
     
+    Dx_Ffc_Step stepNo, "Turning automatic lists into text"
     Application.Run MacroName:="Dx_Convert_Auto_List_To_Text"
 
+    Dx_Ffc_Step stepNo, "Fixing Body Text styles"
     Application.Run MacroName:="Dx_Fix_Body_Text_Styles"
     
+    Dx_Ffc_Step stepNo, "Coloring foreign language words"
     Application.Run MacroName:="Dx_Add_Color_To_Foreign_Language_Words"
       
+    Dx_Ffc_Step stepNo, "Making quotation marks curly"
     Application.Run MacroName:="Dx_Replace_Straight_Quotes_With_Smart_Quotes"
     
+    Dx_Ffc_Step stepNo, "Replacing small caps with capitals"
     Application.Run MacroName:="Sh_Replace_Small_Caps_With_All_Caps"
 
+    Dx_Ffc_Step stepNo, "Removing optional hyphens"
     Application.Run MacroName:="Dx_Remove_Optional_Hyphens"
     
+    Dx_Ffc_Step stepNo, "Removing breaks"
     Application.Run MacroName:="Dx_Remove_Breaks"
     
+    Dx_Ffc_Step stepNo, "Removing column breaks"
     Application.Run MacroName:="Dx_Remove_Column_Breaks"
 
+    Dx_Ffc_Step stepNo, "Removing headers and footers"
     Application.Run MacroName:="Sh_RemoveHeadAndFoot"
 
+    Dx_Ffc_Step stepNo, "Fixing DAISY page numbers"
     Application.Run MacroName:="Sh_Para_Before_Dollar" 'Fixes DAISY Page Problems
     
+    Dx_Ffc_Step stepNo, "Removing keep with next"
     Application.Run MacroName:="Dx_Remove_Keep_With_Next"
 
+    Dx_Ffc_Step stepNo, "Turning hyperlinks into text"
     Application.Run MacroName:="Dx_Convert_Hyperliks_To_Text"   'convert hidden hyperlink to actual address
     
+    Dx_Ffc_Step stepNo, "Fixing non-breaking hyphens"
     Application.Run MacroName:="Dx_Replace_Word_NonBreaking_Hyphen_With_Unicode_Non_Breaking_Hypen"
     
+    Dx_Ffc_Step stepNo, "Replacing tabs with single spaces"
     Application.Run MacroName:="Dx_Replace_Tabs_With_Single_Space" ' also converts underlined tabs BANA template only to single Space
     
+    Dx_Ffc_Step stepNo, "Removing page breaks"
     Application.Run MacroName:="Dx_Remove_Breaks" 'page breaks
     
     ' "Para" supplied, so this does NOT stop to ask - Full File Cleanup must run straight
@@ -4031,14 +4311,19 @@ Sub Dx_Fix_Common_File_Errors()
     ' A direct call, not Application.Run. Once MacroName:= is written as a NAMED argument every
     ' argument after it must be named too, so "Application.Run MacroName:=..., ""Para""" does not
     ' compile. This is a Public Sub in this same module, so it can simply be called.
+    Dx_Ffc_Step stepNo, "Turning manual line breaks into paragraphs"
     Sh_Replace_Manual_Line_Break "Para"
     
+    Dx_Ffc_Step stepNo, "Collapsing runs of underscores"
     Application.Run MacroName:="Dx_Replace_Underscore_With_Single_Underscore"
     
+    Dx_Ffc_Step stepNo, "Replacing non-breaking spaces"
     Application.Run MacroName:="Sh_ReplaceNonBreakingSpacesWithNormalSpace"
 
+    Dx_Ffc_Step stepNo, "Removing spaces before punctuation"
     Application.Run MacroName:="Dx_Replace_Spaces_Before_Punctuation"
 
+    Dx_Ffc_Step stepNo, "Removing multiple spaces"
     Application.Run MacroName:="Sh_Remove_Multi_Spaces"
 
     ' Typed fractions become compact ones - 1/2 to ½ - which is the opposite of what large print
@@ -4047,22 +4332,30 @@ Sub Dx_Fix_Common_File_Errors()
     ' HERE and not earlier because the spacing passes above have run: "2  1/2" is already
     ' "2 1/2" by now, and a mixed number comes out as one. Tabs have gone to single spaces too,
     ' so a tabbed measurement column converts with the rest.
+    Dx_Ffc_Step stepNo, "Converting typed fractions"
     Application.Run MacroName:="Dx_Replace_Fraction_Text_With_Compact_Fractions"
 
     If ActiveDocument.Variables("BrailleType") = "EBAN" Or ActiveDocument.Variables("BrailleType") = "UEBN" Then
+        Dx_Ffc_Step stepNo, "Removing math function-application marks"
         Application.Run MacroName:="Dx_Replace_Function_Application_With_Space" ' code used in math - U+2061 or chrW8289"
+        Dx_Ffc_Step stepNo, "Fixing equals signs at the end of a line"
         Application.Run MacroName:="Dx_Fix_Equals_Before_Para_Mark"
     End If
     
+    Dx_Ffc_Step stepNo, "Fixing paragraph spacing"
     Application.Run MacroName:="Dx_Fix_Para_Space_Errors"
        
+    Dx_Ffc_Step stepNo, "Marking incomplete equations"
     Application.Run MacroName:="Dx_Add_Qmark_To_Incomplete_Equations"
 
     ' LAST of the content steps, and before the cursor goes home below - this one uses
     ' Selection.Find, which moves it. The cleanups above lose the red on the $pg tags, and this
     ' macro can be run on its own from the braille ribbon with no Dx_AutoTag_Page_Numbers
     ' afterwards to put it back.
+    Dx_Ffc_Step stepNo, "Coloring the $pg tags red"
     Application.Run MacroName:="Dx_Color_Dollar_PG_Red"
+
+    Sh_Progress_Say 100, "Finished."
 
     ActiveDocument.UndoClear
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
@@ -4070,9 +4363,45 @@ Sub Dx_Fix_Common_File_Errors()
 
     Sh_Return_User_To_Start_Position
 
-    MsgBox "End of Fix Common File Errors", , "Braille Macros"
+    ' The bar comes down BEFORE the message, so it is not left sitting behind a dialog waiting to
+    ' be dismissed.
+    Sh_Progress_Close
+
+    ' Silent on the attach path. Jerry, 8/29/2026: attaching a BANA template to a fresh source
+    ' file runs this automatically, and large print - the behavior he asked this to match - runs
+    ' its own cleanup and says nothing. Run from the ribbon or the cleanup menu it still reports.
+    If Not quiet Then MsgBox "End of Fix Common File Errors", , "Braille Macros"
     
-End Sub '***** end of Dx_Fix_Common_File_Errors Macro *****
+End Sub '***** end of Dx_Fix_Common_File_Errors_Run Macro *****
+
+Private Sub Dx_Ffc_Step(ByRef stepNo As Long, ByVal what As String)
+'
+' Version: 1.0  Date: 8/29/2026
+'
+' Author: Jerry Whittaker - jerry@vistatypelp.org
+'
+' One step of Dx_Fix_Common_File_Errors_Run's progress bar. Counts, works out the percentage and
+' says what is about to happen - so a pass added to or taken out of that sequence needs no
+' percentages rewritten, only DX_FFC_STEPS below kept honest.
+'
+' stepNo is BYREF, and deliberately: it is a counter the caller owns and this has to advance it.
+' That is the one shape the project's ByVal rule does not cover.
+'
+' DX_FFC_STEPS is ONE MORE than the 36 passes, and deliberately. Each step announces itself
+' BEFORE its pass runs, so a total of 36 would put the bar at 100% while the last pass was still
+' working - which is the one thing a progress bar must never say. At 37 the last step reads 97%
+' and the caller sets 100 once the work is actually done.
+'
+' 36 is the count with EVERY conditional pass running - the three that fire only for EBAE or for
+' Nemeth. A UEB textbook skips all three and finishes at 89%, then jumps to 100. A bar that
+' arrives a little short is honest; one that arrives early is not.
+
+    Const DX_FFC_STEPS As Long = 37
+
+    stepNo = stepNo + 1
+    Sh_Progress_Say 100# * stepNo / DX_FFC_STEPS, what
+
+End Sub  '*** end of Dx_Ffc_Step ***
 
 Sub Dx_Color_Dollar_PG_Red()
 '
@@ -8223,6 +8552,250 @@ Private Function Dx_Fraction_Edge_Is_Clear(ByVal edgeChar As String) As Boolean
 
 End Function  '*** end of Dx_Fraction_Edge_Is_Clear function ***
 
+Sub Dx_Encode_Fractions_With_DBT_Codes()
+'
+' The Encode Fractions button on Dx_Type_Dashes_Form. Wraps every typed fraction in the selection
+' in Duxbury's fraction codes - 1/2 becomes [[*fs*]]1[[*fl*]]2[[*fe*]] - and leaves those codes
+' hidden, in plum, the way every other DBT code in a braille file is carried.
+'
+' Version: 2.0  Date: 8/29/2026 - SKIPS DATES (Jerry), and moved here out of the form's own code
+'                                 module. See both notes below.
+' Version: 1.0  Date: 3/5/2023  - as CmdEncode_Click, inside Dx_Type_Dashes_Form
+'
+' Author: Jerry Whittaker - jerry@vistatypelp.org
+'
+' DATES. Jerry, 8/29/2026: do here what the braille Full File Cleanup already does - leave a date
+' alone. Until today one wildcard Replace:=wdReplaceAll did the whole job, and on 12/25/2026 it
+' matched the "12/25" and stopped, giving [[*fs*]]12[[*fl*]]25[[*fe*]]/2026 - a date turned into a
+' fraction with its year hanging off the end.
+'
+' The test is the character on each side of a hit, and here it is a SLASH that disqualifies it.
+' That is the whole of what separates nn/nn/nn from a fraction. A digit cannot be against a hit -
+' the pattern takes every digit it can reach on both sides of the slash - so unlike
+' Dx_Compact_One_Fraction there is nothing else to refuse, and 21/2 is still encoded as the
+' improper fraction it is.
+'
+' WHAT IT STILL CANNOT DO, and why the words above the button say so: a two-part date like 12/26
+' is character for character a fraction, and nothing can tell them apart. Selecting the right
+' range stays the transcriber's job.
+'
+' FIND THEM ALL FIRST, THEN CHANGE THEM, LAST ONE FIRST - the same shape, and for the same reasons,
+' as Dx_Compact_One_Fraction: a re-scanning loop can meet its own output for ever when track
+' changes is on, and going backwards means no recorded position can have moved by the time it is
+' used.
+'
+' MOVED OUT OF THE FORM on 8/29/2026. It was a hundred and fifteen lines of Find and Replace
+' sitting in a button handler, which is not how anything else in this project is arranged - forms
+' call macros. It also means Jerry can rework the form's layout by hand in the VBA editor without
+' colliding with a change to this logic.
+
+    If Selection.Type <> wdSelectionNormal Then
+        MsgBox "Text containing fractions (not dates in 12/25 format) must be selected first!", , "Braille Macros"
+        Exit Sub
+    End If
+
+    Dim scopeStart As Long
+    Dim scopeEnd As Long
+    Dim scanRange As Range
+    Dim hitRange As Range
+    Dim hitStart() As Long
+    Dim hitEnd() As Long
+    Dim hitCount As Long
+    Dim i As Long
+    Dim edgeText As Variant
+    Dim beforeChar As String
+    Dim afterChar As String
+    Dim hitText As String
+    Dim parts() As String
+
+    scopeStart = Selection.Range.Start
+    scopeEnd = Selection.Range.End
+
+    ReDim hitStart(0 To 63)
+    ReDim hitEnd(0 To 63)
+
+    Set scanRange = ActiveDocument.Range(scopeStart, scopeEnd)
+
+    With scanRange.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
+        ' The character class was written [0.0-9.9] and means digits and the period, twice over.
+        ' Left as digits and a period, spelled once: a fraction here can be 1.5/2, and nothing else
+        ' belongs in one.
+        .Text = "([0-9.]{1,})/([0-9.]{1,})"
+        .Replacement.Text = ""
+        .Forward = True
+        .Wrap = wdFindStop
+        .Format = False
+        .MatchCase = False
+        .MatchWholeWord = False
+        .MatchWildcards = True
+        .MatchSoundsLike = False
+        .MatchAllWordForms = False
+    End With
+
+    ' ---- pass one: which hits are fractions rather than dates. Nothing is written here.
+    Do While scanRange.Find.Execute
+
+        beforeChar = ""
+        afterChar = ""
+
+        If scanRange.Start > 0 Then
+            ' Range.Text comes back Null for some table-structure ranges, and Null into a String is
+            ' run-time error 94. Read it as a Variant and ask.
+            edgeText = ActiveDocument.Range(scanRange.Start - 1, scanRange.Start).Text
+            If Not IsNull(edgeText) Then beforeChar = CStr(edgeText)
+        End If
+
+        If scanRange.End < ActiveDocument.Content.End Then
+            edgeText = ActiveDocument.Range(scanRange.End, scanRange.End + 1).Text
+            If Not IsNull(edgeText) Then afterChar = CStr(edgeText)
+        End If
+
+        If InStr(beforeChar, "/") = 0 And InStr(afterChar, "/") = 0 Then
+            If hitCount > UBound(hitStart) Then
+                ReDim Preserve hitStart(0 To hitCount * 2)
+                ReDim Preserve hitEnd(0 To hitCount * 2)
+            End If
+            hitStart(hitCount) = scanRange.Start
+            hitEnd(hitCount) = scanRange.End
+            hitCount = hitCount + 1
+        End If
+
+        ' Past this hit either way, so a refused one cannot be found again for ever.
+        scanRange.Collapse wdCollapseEnd
+        If scanRange.Start >= scopeEnd Then Exit Do
+        scanRange.End = scopeEnd
+
+    Loop
+
+    ' ---- pass two: code them, last one first.
+    For i = hitCount - 1 To 0 Step -1
+
+        Set hitRange = ActiveDocument.Range(hitStart(i), hitEnd(i))
+
+        ' A Null from Range.Text compares as False here rather than raising, which is the answer
+        ' wanted. Split on the one slash the pattern allows.
+        If InStr(hitRange.Text, "/") > 0 Then
+            hitText = hitRange.Text
+            parts = Split(hitText, "/")
+            If UBound(parts) = 1 Then
+                ' Guarded for the same reason Dx_Compact_One_Fraction's write is: Range.Text raises
+                ' where Find's own Replace used to walk quietly past - a locked content control, a
+                ' field result, a document restricted for editing.
+                On Error Resume Next
+                hitRange.Text = "[[*fs*]]" & parts(0) & "[[*fl*]]" & parts(1) & "[[*fe*]]"
+                Err.Clear
+                On Error GoTo 0
+            End If
+        End If
+
+    Next i
+
+    ' ---- and now hide the codes, exactly as this macro has since 3/5/2023.
+    Selection.Find.ClearFormatting
+    Selection.Find.Replacement.ClearFormatting
+    With Selection.Find.Replacement.Font
+        .Hidden = True
+        .Color = wdColorPlum
+    End With
+     With Selection.Find
+        .Text = "(\[\[\*fs\*\]\])"
+        .Replacement.Text = "[[*fs*]]"
+        .Forward = True
+        .Wrap = wdFindContinue
+        .Format = True
+        .MatchCase = False
+        .MatchWholeWord = False
+        .MatchAllWordForms = False
+        .MatchSoundsLike = False
+        .MatchWildcards = True
+    End With
+    Selection.Find.Execute Replace:=wdReplaceAll
+    
+    Selection.Find.ClearFormatting
+    Selection.Find.Replacement.ClearFormatting
+    With Selection.Find.Replacement.Font
+        .Hidden = True
+        .Color = wdColorPlum
+    End With
+     With Selection.Find
+        .Text = "(\[\[\*fl\*\]\])"
+        .Replacement.Text = "[[*fl*]]"
+        .Forward = True
+        .Wrap = wdFindContinue
+        .Format = True
+        .MatchCase = False
+        .MatchWholeWord = False
+        .MatchAllWordForms = False
+        .MatchSoundsLike = False
+        .MatchWildcards = True
+    End With
+    Selection.Find.Execute Replace:=wdReplaceAll
+    
+    Selection.Find.ClearFormatting
+    Selection.Find.Replacement.ClearFormatting
+    With Selection.Find.Replacement.Font
+        .Hidden = True
+        .Color = wdColorPlum
+    End With
+     With Selection.Find
+        .Text = "(\[\[\*fe\*\]\])"
+        .Replacement.Text = "[[*fe*]]"
+        .Forward = True
+        .Wrap = wdFindContinue
+        .Format = True
+        .MatchCase = False
+        .MatchWholeWord = False
+        .MatchAllWordForms = False
+        .MatchSoundsLike = False
+        .MatchWildcards = True
+    End With
+    Selection.Find.Execute Replace:=wdReplaceAll
+    
+    Selection.Find.ClearFormatting
+    Selection.Find.Replacement.ClearFormatting
+    With Selection.Find.Replacement.Font
+        .Hidden = False
+        .Color = wdColorAutomatic
+    End With
+     With Selection.Find
+        .Text = "^013"
+        .Replacement.Text = "^013"
+        .Forward = True
+        .Wrap = wdFindContinue
+        .Format = True
+        .MatchCase = False
+        .MatchWholeWord = False
+        .MatchAllWordForms = False
+        .MatchSoundsLike = False
+        .MatchWildcards = False
+    End With
+    Selection.Find.Execute Replace:=wdReplaceAll
+
+    ' COLLAPSE FIRST, THEN reset what the next keystroke will look like. These two statements
+    ' were the other way round from 3/5/2023 until 8/29/2026, and that is the whole of why the
+    ' DBT codes came out as ordinary black text: Selection.Font applies to the WHOLE SELECTION,
+    ' and at this point the selection is still the range that was just encoded - so the last
+    ' thing this macro did was un-hide and un-plum every code it had spent three passes hiding.
+    ' Jerry reported it 8/29/2026.
+    '
+    ' The reset is still wanted, and belongs on the INSERTION POINT: without it the next thing
+    ' the transcriber types comes out hidden and plum. Same purpose as the 2/24/2023 fix to the
+    ' Enter Fraction button, which had the same problem and was cured the same way.
+    Selection.Collapse 'clear selection
+
+    With Selection.Font
+        .Hidden = False
+        .Color = wdColorAutomatic
+    End With
+   
+    Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
+    Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
+
+End Sub  '*** end of Dx_Encode_Fractions_With_DBT_Codes ***
+
+
 
 Sub Dx_Replace_Word_NonBreaking_Hyphen_With_Unicode_Non_Breaking_Hypen()
 '
@@ -8393,6 +8966,7 @@ End Function '*** end of Dx_Is_The_Attached_Template_BANA_Braille Function ***
 
 Sub Dx_Replace_Multiple_Para_Marks_With_Warning()
 '
+' Version: 1.3   Date: 8/29/2026 - shows a progress bar while it walks the document (Jerry)
 ' Version: 1.2   Date: 8/27/2026 - the message now carries the COUNT, through Dx_Para_Marks_Message,
 '                                  and says so plainly when nothing needed deleting (Jerry)
 ' Version: 1.1   Date: 8/27/2026 - says "Multiple paragraph marks deleted" again (Jerry). The braille
@@ -8425,8 +8999,12 @@ Sub Dx_Replace_Multiple_Para_Marks_With_Warning()
     
     ' Called DIRECTLY, not through Application.Run, because the number is wanted - Application.Run
     ' would discard it, and it swallows errors besides.
+    '
+    ' showProgress:=True from 8/29/2026 (Jerry): this is a button a transcriber presses on a whole
+    ' book, and until now it left nothing at all on screen while it walked every paragraph. The
+    ' bar closes itself before the message below appears.
     Dim removed As Long
-    removed = Sh_Replace_Multiple_Para_Marks_No_Warning()
+    removed = Sh_Replace_Multiple_Para_Marks_No_Warning(True)
 
     ' SAY IT IS DONE. Restored 8/27/2026 (Jerry) - it had been gone since 8/12/2026 and nothing
     ' said so. The braille side used to have its own worker, Dx_Replace_Multiple_Para_Marks_No_
@@ -12616,8 +13194,15 @@ End Function   '*** end of Dx_Para_Marks_Message ***
 ' deCount is NOT the answer and was never meant to be: it counts paragraphs WALKED, to throttle
 ' DoEvents to one in 200. removed is the new one and only moves on an actual delete.
 '
-Public Function Sh_Replace_Multiple_Para_Marks_No_Warning() As Long
+Public Function Sh_Replace_Multiple_Para_Marks_No_Warning(Optional ByVal showProgress As Boolean = False) As Long
 '
+'  Version: 2.4  Date: 8/29/2026 - will show a PROGRESS BAR when asked (Jerry). Optional and OFF by
+'                                 default, so the six existing callers are untouched: the two large
+'                                 print routes already put their own please-wait box up and a second
+'                                 box on top of it would be worse than none, and the Selected Cleanup
+'                                 form runs several ticked jobs where one box each would be a queue.
+'                                 The two BRAILLE routes pass True - the attach, and Remove Multiple
+'                                 Consecutive Paragraph Marks from the cleanup menu.
 '  Version: 2.3  Date: 8/27/2026 - counts what it deletes and returns it, for the message (Jerry)
 '  Version: 2.2  Date: 8/13/2026 - it removes EVERY empty paragraph in range, leaving none.
 '
@@ -12659,6 +13244,8 @@ Public Function Sh_Replace_Multiple_Para_Marks_No_Warning() As Long
     Dim stopBefore As Long
     Dim deCount As Long
     Dim removed As Long
+    Dim spanEnd As Long
+    Dim spanLen As Long
 
     Set doc = ActiveDocument
 
@@ -12668,6 +13255,27 @@ Public Function Sh_Replace_Multiple_Para_Marks_No_Warning() As Long
         Set rng = doc.Content
     End If
     stopBefore = rng.Start
+
+    ' The bar, when the caller asked for one.
+    '
+    ' Measured off CHARACTER POSITIONS, not a paragraph count: rng.Paragraphs.Count walks the whole
+    ' collection to answer, which on a long book is exactly the wait the bar exists to explain. The
+    ' walk below runs BACKWARD from the end of the range to its start, so how far p has travelled
+    ' from spanEnd is how far through the work it is, and that costs nothing to read.
+    '
+    ' The document shrinks as empty paragraphs go, so positions slide down under the arithmetic and
+    ' the bar can run slightly ahead of the truth on a file with a great many of them. It is a
+    ' progress bar; Sh_Progress_Say clamps at 100 and the caller finishes it off.
+    spanEnd = rng.End
+    spanLen = rng.End - rng.Start
+    If spanLen < 1 Then spanLen = 1
+    If showProgress Then
+        Sh_Progress_Open "Braille - Removing Empty Paragraphs"
+        ' Say something straight away. The bar below only moves every 200 paragraphs, so a short
+        ' document would otherwise show an empty track and a blank line for the whole run and then
+        ' jump to 100 - which reads as a bar that does not work.
+        Sh_Progress_Say 0, "Looking for empty paragraphs"
+    End If
 
     Set p = rng.Paragraphs.Last
 
@@ -12694,8 +13302,26 @@ Public Function Sh_Replace_Multiple_Para_Marks_No_Warning() As Long
 
         Set p = prevP
         deCount = deCount + 1
-        If deCount Mod 200 = 0 Then Sh_Spin_DoEvents
+        If deCount Mod 200 = 0 Then
+            ' One throttle, both indicators. Sh_Spin_DoEvents turns whichever spinner box is up -
+            ' large print's - and does nothing when none is; the line below moves the bar, and does
+            ' nothing when no bar is up. Neither knows about the other.
+            Sh_Spin_DoEvents
+            ' p is Nothing at the first paragraph of the document, and the Do While above does not
+            ' get to notice until after this block - so ask here too, or reading p.Range raises 91
+            ' on exactly the run where the count lands on a multiple of 200 at the top of the file.
+            ' VBA's And does not short-circuit, but "Not (p Is Nothing)" is safe on Nothing.
+            If showProgress And Not (p Is Nothing) Then
+                Sh_Progress_Say 100# * (spanEnd - p.Range.Start) / spanLen, _
+                                Format(removed, "#,##0") & " removed so far"
+            End If
+        End If
     Loop
+
+    If showProgress Then
+        Sh_Progress_Say 100, Format(removed, "#,##0") & " removed."
+        Sh_Progress_Close
+    End If
 
     Sh_Replace_Multiple_Para_Marks_No_Warning = removed
 
@@ -21935,6 +22561,17 @@ Public Sub Sh_Report_Error(ByVal macroName As String, ByVal errNumber As Long, _
     Application.DisplayAlerts = wdAlertsAll
     Unload Sh_NonModalMessageForm
     Sh_Hide_Please_Wait
+    ' And the progress bar, added 8/29/2026 with the braille cleanup bars. A modeless box left
+    ' floating over Word after a failure IS the hang the transcriber reports. Sh_Progress_Close
+    ' does nothing when no bar is open and cannot raise, so it is safe on this path - which has
+    ' already gone wrong once and must not go wrong again.
+    Sh_Progress_Close
+    ' And lower the hold-the-screen-back flag. Dx_Attach_BANA_Template_Run raises it across the
+    ' attach and both cleanups and lowers it at its last stage; a failure in between would leave it
+    ' up, and every configuration after that would set the typing and never the screen - on every
+    ' document, for the rest of the session, with nothing to say why. Sh_Apply_Word_Config clears
+    ' it too, on both its paths, so this is a second net rather than the only one.
+    Sh_Config_Skip_Display = False
     Err.Clear
 
     ' The log is what makes a telephone call worth having: it survives the call, it survives a
