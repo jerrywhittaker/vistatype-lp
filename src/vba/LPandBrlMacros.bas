@@ -18,6 +18,71 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - MS - 8/29/2026 - THE COMPACT FRACTION AUTOCORRECT ENTRIES ARE REMOVED, NOT ADDED (Jerry).
+'           - MS - 8/29/2026 - He typed 1/2/2026 into an ordinary document and got the 1/2 back as a
+'           - MS - 8/29/2026 - compact fraction. An AutoCorrect entry named "1/2" fires the moment "1/2"
+'           - MS - 8/29/2026 - is followed by ANY delimiter, and a slash is one - so the second slash of a
+'           - MS - 8/29/2026 - date triggers it. That is what an AutoCorrect entry does; no entry can be
+'           - MS - 8/29/2026 - written that tells a date from a fraction.
+'           - MS - 8/29/2026 - Sh_Add_Compact_Fractions IS NOW Sh_Delete_Compact_Fractions, and both the
+'           - MS - 8/29/2026 - ordinary and the braille configurations call it. The rename is deliberate:
+'           - MS - 8/29/2026 - one list, one direction, and no sub left behind that could add them again.
+'           - MS - 8/29/2026 - DELETING MATTERS AS MUCH AS NOT ADDING. An entry, once written, stays in the
+'           - MS - 8/29/2026 - transcriber's own AutoCorrect list; every machine that ran a 3.0.2xx build
+'           - MS - 8/29/2026 - has all nineteen, and this is the only thing that reaches one.
+'           - MS - 8/29/2026 - Nothing is really lost. Word's OWN fraction replacement does ½ ¼ ¾ through
+'           - MS - 8/29/2026 - AutoFormatAsYouTypeReplaceFractions, a different mechanism, on all along, and
+'           - MS - 8/29/2026 - it has never touched a date. Braille gets the rest from Full File Cleanup,
+'           - MS - 8/29/2026 - which reads both sides of a hit and so gets dates right. An ordinary document
+'           - MS - 8/29/2026 - keeps the other fifteen as typed, exactly as it did before 8/18/2026.
+'           - MS - 8/29/2026 - LARGE PRINT IS UNTOUCHED. It has deleted all nineteen since 10/19/2021 and
+'           - MS - 8/29/2026 - keeps its own copy of the list: the blanket On Error Resume Next above that
+'           - MS - 8/29/2026 - block also covers the rest of that sub, so lifting it out would change what
+'           - MS - 8/29/2026 - happens after it, for no gain.
+'
+' Notes:    - LP - 8/29/2026 - LARGE PRINT TAKES 0/3 APART AGAIN (Jerry). Lp_Replace_Compact_Fractions_
+'           - LP - 8/29/2026 - With_Fraction_Text handled eighteen compact fractions and not the nineteenth,
+'           - LP - 8/29/2026 - U+2189. AutoCorrect began making that character on 8/27/2026, so from that day
+'           - LP - 8/29/2026 - a transcriber typing "0/3" into a large print book got a compact fraction that
+'           - LP - 8/29/2026 - nothing ever pulled apart - drawn smaller than the size the book is set in,
+'           - LP - 8/29/2026 - which is the one thing large print must never do. Found while adding the
+'           - LP - 8/29/2026 - braille fraction pass below, and it is the reason 0/3 is not swept there.
+'
+' Notes:    - BRL - 8/29/2026 - FULL FILE CLEANUP CONVERTS TYPED FRACTIONS TO COMPACT ONES (Jerry).
+'           - BRL - 8/29/2026 - 1/2 becomes the single character ½, which is what DBT wants to read, and
+'           - BRL - 8/29/2026 - is the opposite of what large print does - Lp_Fix_Common_File_Errors pulls
+'           - BRL - 8/29/2026 - compact fractions apart into text, because a compact one draws smaller
+'           - BRL - 8/29/2026 - than the size the book is set in.
+'           - BRL - 8/29/2026 - The macro that does it, Dx_Replace_Fraction_Text_With_Compact_Fractions,
+'           - BRL - 8/29/2026 - was written on 10/1/2021 and has been called from NOWHERE ever since: no
+'           - BRL - 8/29/2026 - ribbon button, no menu, and not from this sequence either, though its own
+'           - BRL - 8/29/2026 - 10/20/2021 note says it was added to it. Word's AutoFormat command was
+'           - BRL - 8/29/2026 - doing the fractions instead, until that was taken out on 8/18/2026 for
+'           - BRL - 8/29/2026 - eating empty paragraphs - so braille books have had no fraction pass at
+'           - BRL - 8/29/2026 - all for the last eleven days, and only the AutoCorrect entries before that.
+'           - BRL - 8/29/2026 - IT COULD NOT SIMPLY BE SWITCHED ON. All eighteen of its passes set
+'           - BRL - 8/29/2026 - MatchWholeWord = True, which reads as though it stops "1/2" being found
+'           - BRL - 8/29/2026 - inside a date. Measured on the build box 8/29/2026, Word ignores whole-word
+'           - BRL - 8/29/2026 - entirely once the search text carries a slash: "Due 1/2/2026 and 3/4/2025"
+'           - BRL - 8/29/2026 - came back "Due ½/2026 and ¾/2025", and "21/2" came back "2½". Each fraction
+'           - BRL - 8/29/2026 - now goes through Dx_Compact_One_Fraction, which refuses a hit with a digit
+'           - BRL - 8/29/2026 - or another slash against either end of it. "2 1/2 cups" still converts.
+'           - BRL - 8/29/2026 - A second fault went with it: 5/8 was searched for as " 5/8" with a leading
+'           - BRL - 8/29/2026 - space, so it ate the space in front and gave "Take⅝ inch".
+'           - BRL - 8/29/2026 - 0/3 IS NOT SWEPT, though AutoCorrect has offered it since 8/27/2026, and the
+'           - BRL - 8/29/2026 - two lists differ on purpose. "0/3" in real text is a score or a count far
+'           - BRL - 8/29/2026 - more often than a fraction of a value - U+2189 was encoded for baseball -
+'           - BRL - 8/29/2026 - and AutoCorrect fires one entry at a time with the transcriber watching,
+'           - BRL - 8/29/2026 - while this runs over a whole book with nobody watching and no undo after it.
+'           - BRL - 8/29/2026 - THE TWO DBT CODE PASSES THAT ENDED THAT MACRO ARE GONE. They hid every
+'           - BRL - 8/29/2026 - [[*code*]] in plum - housekeeping left behind by the 3/5/2023 edit that
+'           - BRL - 8/29/2026 - stopped the macro writing DBT fraction codes. It writes none now, and
+'           - BRL - 8/29/2026 - Dx_Set_DBT_Codes_Color_and_Style does that job properly at the end of this
+'           - BRL - 8/29/2026 - sequence, applying the "DBT Code" style as well, which they did not. Left in,
+'           - BRL - 8/29/2026 - they would have hidden the codes before five later passes ran, and Word's
+'           - BRL - 8/29/2026 - Find skips hidden text when Show All is off - so a replacement could reach
+'           - BRL - 8/29/2026 - across a hidden code and delete it, on some machines and not others.
+'
 ' Notes:    - BRL - 8/27/2026 - THE TWO CLEANUP QUESTIONS AFTER A BRAILLE ATTACH ARE BACK (Jerry).
 '           - BRL - 8/27/2026 - "Do you want to fix common file errors?" and "remove multiple
 '           - BRL - 8/27/2026 - consecutive paragraph marks?" had stopped appearing. Dx_GP_String_1 was
@@ -3847,6 +3912,11 @@ Sub Dx_Fix_Common_File_Errors()
 
 ' Dx_Fix_Common_File_Errors Macro
 '
+' Version: 2.13  Date: 8/29/2026 - converts typed fractions to compact fractions (Jerry). The macro that does it,
+'                                  Dx_Replace_Fraction_Text_With_Compact_Fractions, has existed since 10/1/2021 and was
+'                                  called from nowhere at all - no ribbon button, no menu, and not from here, though the
+'                                  2.6 line below says it was added. It needed repairing before it could be let loose on
+'                                  a whole book; see its own note.
 ' Version: 2.12  Date: 8/18/2026 - Word's own AutoFormat command is no longer run over the document. It ate empty
 '                                  paragraphs (measured on the LP side, 8/13/2026), and everything it did that
 '                                  braille wants is done properly by other steps in this same sequence. Jerry,
@@ -3887,10 +3957,12 @@ Sub Dx_Fix_Common_File_Errors()
     ' the empty paragraph marks that survived Full File Cleanup. It also restyles headings and
     ' rewrites quotes and fractions behind the transcriber's back.
     '
-    ' Nothing here needed it. What it did for braille was already done properly elsewhere in this
-    ' same sequence: quotes by Dx_Replace_Straight_Quotes_With_Smart_Quotes, fractions by
-    ' Dx_Replace_Fraction_Text_With_Compact_Fractions, dashes by Dx_Fix_En_Dash_Errors and
-    ' Dx_Fix_Em_Dash_Space_Errors. It also made plain URLs into live hyperlinks, which is pointless
+    ' Nothing here needed it. What it did for braille is done properly elsewhere in this same
+    ' sequence: quotes by Dx_Replace_Straight_Quotes_With_Smart_Quotes, dashes by
+    ' Dx_Fix_En_Dash_Errors and Dx_Fix_Em_Dash_Space_Errors, and fractions by
+    ' Dx_Replace_Fraction_Text_With_Compact_Fractions - though that last one was not true when
+    ' this note was written on 8/18/2026, and was made true on 8/29/2026. It also made plain URLs
+    ' into live hyperlinks, which is pointless
     ' here - Dx_Convert_Hyperliks_To_Text turns them straight back into text a few steps later,
     ' because a DBT source file has no use for a clickable link. Deliberately NOT replaced with
     ' Sh_Linkify_Range for that reason; large print keeps its links, braille does not.
@@ -3968,7 +4040,15 @@ Sub Dx_Fix_Common_File_Errors()
     Application.Run MacroName:="Dx_Replace_Spaces_Before_Punctuation"
 
     Application.Run MacroName:="Sh_Remove_Multi_Spaces"
-    
+
+    ' Typed fractions become compact ones - 1/2 to ½ - which is the opposite of what large print
+    ' does with them. Jerry, 8/29/2026.
+    '
+    ' HERE and not earlier because the spacing passes above have run: "2  1/2" is already
+    ' "2 1/2" by now, and a mixed number comes out as one. Tabs have gone to single spaces too,
+    ' so a tabbed measurement column converts with the rest.
+    Application.Run MacroName:="Dx_Replace_Fraction_Text_With_Compact_Fractions"
+
     If ActiveDocument.Variables("BrailleType") = "EBAN" Or ActiveDocument.Variables("BrailleType") = "UEBN" Then
         Application.Run MacroName:="Dx_Replace_Function_Application_With_Space" ' code used in math - U+2061 or chrW8289"
         Application.Run MacroName:="Dx_Fix_Equals_Before_Para_Mark"
@@ -7934,352 +8014,215 @@ End Sub   '*** end of Dx_Convert_Hyperliks_To_Text macro ***
 
 Sub Dx_Replace_Fraction_Text_With_Compact_Fractions()
 '
-' Replaces typed fractions with compact fractions. e.g 1/2 to ½ (limited to the 18 compact fractions supported by Word)
+' Replaces typed fractions with compact fractions - 1/2 becomes ½. Eighteen of the nineteen
+' precomposed vulgar fractions Unicode has; 0/3 is deliberately not one of them, see below.
+' Braille only: large print does the OPPOSITE, and must, because a compact fraction draws
+' smaller than the size the book is set in.
 '
+' Version: 2.0  Date: 8/29/2026 - Full File Cleanup runs this now, so it had to stop damaging
+'                                 dates and longer numbers - see below. The stray leading space
+'                                 taken off 5/8. The two DBT code passes that used to end this
+'                                 macro are gone.
 ' Version: 1.2  Date: 3/5/2023 - removed encode fractions with DBT fraction codes
 ' Version: 1.1  Date: 11/14/2021 - minor bug fix
 ' Version: 1.0  Date: 10/1/2021
+'
+' Author: Jerry Whittaker - jerry@vistatypelp.org
+'
+' WHY THIS IS NO LONGER EIGHTEEN Selection.Find PASSES. It was, and every one of them set
+' MatchWholeWord = True, which reads as though it stops "1/2" being found inside a date. It does
+' not. Measured on the build box 8/29/2026: Word ignores whole-word altogether once the search
+' text carries a slash. "Due 1/2/2026 and 3/4/2025" came back as "Due ½/2026 and ¾/2025", and
+' "21/2" came back as "2½". That harmed nobody while nothing called this macro - it was on no
+' ribbon tab and in no menu. It matters now that Full File Cleanup calls it on every book.
+'
+' So each fraction goes through Dx_Compact_One_Fraction, which reads the character on each side
+' of a hit and leaves the hit alone when a digit or another slash is against it. "2 1/2 cups"
+' still becomes "2 ½ cups" - a space is not a digit.
+'
+' 5/8 was searched for as " 5/8", with a leading space, so it swallowed the space in front of it
+' and gave "Take⅝ inch". Fixed here. Also invisible until this ran unattended.
+'
+' 0/3 (U+2189) IS NOT SWEPT, and that is a decision, not an omission. In real text "0/3" is
+' almost never a fraction of a value - it is a score or a count, "0/3 patients responded", "you
+' scored 0/3" - and the character was encoded for baseball scoring. This sweep runs over a whole
+' OCR'd textbook with nobody watching, and Dx_Fix_Common_File_Errors calls UndoClear when it
+' finishes, so a wrong conversion cannot be backed out. Eighteen it is.
+'
+' From 8/29/2026 this sub is the ONLY thing in VistaType LP that makes a compact fraction: the
+' AutoCorrect entries are gone from both the ordinary and the braille configurations, because an
+' entry named "1/2" fires on the slash in 1/2/2026. See Sh_Delete_Compact_Fractions. Word's own
+' three - ½ ¼ ¾ - are still made as you type, by Word, through a different mechanism.
+'
+' TWO DBT CODE PASSES USED TO END THIS MACRO, and they are gone as of 8/29/2026. They hid every
+' [[*code*]] in plum and then put the color back on plum paragraph marks - housekeeping left
+' behind by the version 1.2 edit above, which stopped this macro writing DBT fraction codes. It
+' writes none now, so it has nothing of its own to tidy. Dx_Set_DBT_Codes_Color_and_Style does
+' that job properly at the end of the sequence, and applies the "DBT Code" style as well, which
+' those passes did not. Leaving them in would also have hidden the codes BEFORE five later passes
+' ran, and Word's Find skips hidden text when Show All is off - so a replacement could have
+' reached across a hidden code and deleted it, on a machine with Show All off and not on one with
+' it on.
+'
+' The main text story only. Content does not reach footnotes or endnotes, so a footnoted fraction
+' stays typed while the body's convert; nor headers, footers or text boxes, which Full File
+' Cleanup strips anyway with Sh_RemoveHeadAndFoot and Sh_Remove_Txt_Bxs_And_Frames.
 
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Replacement.Text = "½"
-        .Text = "1/2"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = True
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Replacement.Text = ChrW(8531)
-        .Text = "1/3"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = True
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Replacement.Text = ChrW(8532)
-        .Text = "2/3"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = True
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+    Dx_Compact_One_Fraction "1/2", ChrW(189)
+    Dx_Compact_One_Fraction "1/3", ChrW(8531)
+    Dx_Compact_One_Fraction "2/3", ChrW(8532)
+    Dx_Compact_One_Fraction "1/4", ChrW(188)
+    Dx_Compact_One_Fraction "3/4", ChrW(190)
+    Dx_Compact_One_Fraction "1/5", ChrW(8533)
+    Dx_Compact_One_Fraction "2/5", ChrW(8534)
+    Dx_Compact_One_Fraction "3/5", ChrW(8535)
+    Dx_Compact_One_Fraction "4/5", ChrW(8536)
+    Dx_Compact_One_Fraction "1/6", ChrW(8537)
+    Dx_Compact_One_Fraction "5/6", ChrW(8538)
+    Dx_Compact_One_Fraction "1/7", ChrW(8528)
+    Dx_Compact_One_Fraction "1/8", ChrW(8539)
+    Dx_Compact_One_Fraction "3/8", ChrW(8540)
+    Dx_Compact_One_Fraction "5/8", ChrW(8541)
+    Dx_Compact_One_Fraction "7/8", ChrW(8542)
+    Dx_Compact_One_Fraction "1/9", ChrW(8529)
+    Dx_Compact_One_Fraction "1/10", ChrW(8530)
 
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Replacement.Text = "¼"
-        .Text = "1/4"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = True
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-   
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Replacement.Text = "¾"
-        .Text = "3/4"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = True
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Replacement.Text = ChrW(8533)
-        .Text = "1/5"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = True
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Replacement.Text = ChrW(8534)
-        .Text = "2/5"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = True
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Replacement.Text = ChrW(8535)
-        .Text = "3/5"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = True
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Replacement.Text = ChrW(8536)
-        .Text = "4/5"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = True
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Replacement.Text = ChrW(8537)
-        .Text = "1/6"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = True
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Replacement.Text = ChrW(8538)
-        .Text = "5/6"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = True
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Replacement.Text = ChrW(8528)
-        .Text = "1/7"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = True
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Replacement.Text = ChrW(8539)
-        .Text = "1/8"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = True
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Replacement.Text = ChrW(8540)
-        .Text = "3/8"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = True
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Replacement.Text = ChrW(8541)
-        .Text = " 5/8"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = True
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Replacement.Text = ChrW(8542)
-        .Text = "7/8"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = True
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Replacement.Text = ChrW(8529)
-        .Text = "1/9"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = True
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Replacement.Text = ChrW(8530)
-        .Text = "1/10"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = True
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    ' find any DBT code - set to hidden wdColorPlum
-    Selection.Find.ClearFormatting
-    With Selection.Find.Font
-        .Hidden = False
-        .Color = wdColorAutomatic
-    End With
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find.Replacement.Font
-        .Hidden = True
-        .Color = wdColorPlum
-    End With
-    With Selection.Find
-        .Text = "\[\[\*(?{1,})\*\]\]"
-        .Replacement.Text = "^&"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = True
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    ' replace hidden plum para marks with auto color - not hidden
-    Selection.Find.ClearFormatting
-    With Selection.Find.Font
-        .Hidden = True
-        .Color = wdColorPlum
-    End With
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find.Replacement.Font
-        .Hidden = False
-        .Color = wdColorAutomatic
-    End With
-    With Selection.Find
-        .Text = "^p"
-        .Replacement.Text = "^p"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = True
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-
-    
 End Sub   '*** end of Dx_Replace_Fraction_Text_With_Compact_Fractions macro ***
+
+Private Sub Dx_Compact_One_Fraction(ByVal fractionTyped As String, ByVal fractionChar As String)
+'
+' Version: 1.0  Date: 8/29/2026
+'
+' Author: Jerry Whittaker - jerry@vistatypelp.org
+'
+' One fraction, across the whole document. Works on a RANGE, not the Selection, so the
+' transcriber's cursor stays where it was and no window has to be shown.
+'
+' A hit is replaced only when neither the character before it nor the character after it is a
+' digit or a slash. That is what keeps "1/2/2026" a date and "21/2" a number, and it is needed
+' because Word's MatchWholeWord does nothing at all for a search string holding a slash - see
+' the note on Dx_Replace_Fraction_Text_With_Compact_Fractions.
+'
+' FIND THEM ALL FIRST, THEN CHANGE THEM, LAST ONE FIRST. Three reasons, and the first is the one
+' that would have hung Word:
+'
+'  - WITH TRACK CHANGES ON, a replacement does not remove the old text, it marks it deleted and
+'    leaves it in the text stream. A loop that searched again from just past its own replacement
+'    would find that same "1/2" once more, replace it again, and never finish - behind a frozen
+'    screen, because the caller has turned ScreenUpdating off. Nothing in this project ever turns
+'    track changes off, so a document arriving with it on is entirely possible.
+'  - Changing the text back to front means every position still to be used lies BEFORE the one
+'    just changed, so none of them can have moved. No re-scanning, and no arithmetic to keep the
+'    positions honest.
+'  - It is one pass of Find per fraction instead of one per hit.
+'
+' The write is guarded. Range.Text raises where Find's own Replace:=wdReplaceAll used to walk
+' quietly past - a locked content control, a field result, a document restricted for editing -
+' and there is no error handler anywhere between here and the ribbon, so an unguarded raise
+' reaches the transcriber as Word's own Run-time error dialog, with the screen still frozen.
+' Skipping the one place it cannot write is what the old code did, so it is what this does.
+
+    Dim scanRange As Range
+    Dim hitRange As Range
+    Dim hitStart() As Long
+    Dim hitCount As Long
+    Dim i As Long
+    Dim edgeText As Variant
+    Dim beforeChar As String
+    Dim afterChar As String
+
+    ReDim hitStart(0 To 63)
+    hitCount = 0
+
+    Set scanRange = ActiveDocument.Content
+
+    With scanRange.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
+        .Text = fractionTyped
+        .Replacement.Text = ""
+        .Forward = True
+        .Wrap = wdFindStop
+        .Format = False
+        .MatchCase = False
+        .MatchWholeWord = False
+        .MatchWildcards = False
+        .MatchSoundsLike = False
+        .MatchAllWordForms = False
+    End With
+
+    ' ---- pass one: find every hit worth taking. Nothing is written in this loop, so the
+    '      positions it collects cannot go stale while it is collecting them.
+    Do While scanRange.Find.Execute
+
+        beforeChar = ""
+        afterChar = ""
+
+        If scanRange.Start > 0 Then
+            ' Range.Text comes back Null for some table-structure ranges, and Null into a String
+            ' is run-time error 94. Read it as a Variant and ask.
+            edgeText = ActiveDocument.Range(scanRange.Start - 1, scanRange.Start).Text
+            If Not IsNull(edgeText) Then beforeChar = CStr(edgeText)
+        End If
+
+        If scanRange.End < ActiveDocument.Content.End Then
+            edgeText = ActiveDocument.Range(scanRange.End, scanRange.End + 1).Text
+            If Not IsNull(edgeText) Then afterChar = CStr(edgeText)
+        End If
+
+        If Dx_Fraction_Edge_Is_Clear(beforeChar) And Dx_Fraction_Edge_Is_Clear(afterChar) Then
+            If hitCount > UBound(hitStart) Then ReDim Preserve hitStart(0 To hitCount * 2)
+            hitStart(hitCount) = scanRange.Start
+            hitCount = hitCount + 1
+        End If
+
+        ' Past this hit either way, so a refused one cannot be found again for ever.
+        scanRange.Collapse wdCollapseEnd
+        scanRange.End = ActiveDocument.Content.End
+
+    Loop
+
+    ' ---- pass two: change them, last one first.
+    For i = hitCount - 1 To 0 Step -1
+
+        Set hitRange = ActiveDocument.Range(hitStart(i), hitStart(i) + Len(fractionTyped))
+
+        ' Still the text that was found there? A Null from Range.Text compares as False here
+        ' rather than raising, which is the answer wanted.
+        If hitRange.Text = fractionTyped Then
+            On Error Resume Next
+            hitRange.Text = fractionChar
+            Err.Clear
+            On Error GoTo 0
+        End If
+
+    Next i
+
+End Sub  '*** end of Dx_Compact_One_Fraction ***
+
+Private Function Dx_Fraction_Edge_Is_Clear(ByVal edgeChar As String) As Boolean
+'
+' Version: 1.0  Date: 8/29/2026
+'
+' Author: Jerry Whittaker - jerry@vistatypelp.org
+'
+' Is it safe to convert a fraction with this character against it? Nothing there at all - the
+' start or the end of the document - counts as clear. A digit or a slash does not: those are
+' what make "1/2" part of a date or of a longer number rather than a fraction of its own.
+'
+' An end-of-cell marker arrives here as two characters, Chr(13) and Chr(7), and is clear.
+
+    If edgeChar = "" Then
+        Dx_Fraction_Edge_Is_Clear = True
+        Exit Function
+    End If
+
+    If InStr("0123456789/", edgeChar) > 0 Then Exit Function
+
+    Dx_Fraction_Edge_Is_Clear = True
+
+End Function  '*** end of Dx_Fraction_Edge_Is_Clear function ***
+
 
 Sub Dx_Replace_Word_NonBreaking_Hyphen_With_Unicode_Non_Breaking_Hypen()
 '
@@ -16628,7 +16571,15 @@ End Sub
 
 Sub Lp_Replace_Compact_Fractions_With_Fraction_Text()
 '
+' Version: 1.1  Date: 8/29/2026 - the nineteenth fraction, 0/3, which AutoCorrect began making on
+'                                 8/27/2026 and this macro could not take apart again (Jerry)
 ' Version: 1.0  Date: 10/19/2021
+'
+' Author: Jerry Whittaker - jerry@vistatypelp.org
+'
+' Pulls every compact fraction back into typed text - ½ becomes 1/2 - because a compact fraction
+' is drawn smaller than the size the book is set in. Braille does the OPPOSITE, in
+' Dx_Replace_Fraction_Text_With_Compact_Fractions.
 '
     Selection.Find.ClearFormatting
     Selection.Find.Replacement.ClearFormatting
@@ -16907,6 +16858,28 @@ Sub Lp_Replace_Compact_Fractions_With_Fraction_Text()
     With Selection.Find
         .Text = ChrW(8530)
         .Replacement.Text = "1/10"
+        .Forward = True
+        .Wrap = wdFindContinue
+        .Format = False
+        .MatchCase = False
+        .MatchWholeWord = False
+        .MatchWildcards = False
+        .MatchSoundsLike = False
+        .MatchAllWordForms = False
+    End With
+    Selection.Find.Execute Replace:=wdReplaceAll
+
+    ' THE NINETEENTH. ChrW(8585) is U+2189, vulgar fraction zero thirds, and this macro handled
+    ' only eighteen until 8/29/2026. AutoCorrect started making that character on 8/27/2026, when
+    ' 0/3 joined the shared list (now Sh_Delete_Compact_Fractions) - so a transcriber typing "0/3"
+    ' into a large print book
+    ' got a compact fraction that nothing here ever pulled apart again. It draws smaller than the
+    ' size the book is set in, which is the one thing large print must never do. Jerry, 8/29/2026.
+    Selection.Find.ClearFormatting
+    Selection.Find.Replacement.ClearFormatting
+    With Selection.Find
+        .Text = ChrW(8585)
+        .Replacement.Text = "0/3"
         .Forward = True
         .Wrap = wdFindContinue
         .Format = False
@@ -20158,7 +20131,7 @@ Sub MS_Set_Word_Config_For_New_Install()
     '                                 written at all. The other 32 already agreed. Note the deliberate asymmetry
     '                                 that is NOT a bug: ApplyHeadings is False as you type and True on demand.
     ' Version: 2.3  Date: 8/18/2026 - stopped DELETING the 18 compact fraction AutoCorrect entries and ADDS
-    '                                 them instead, through the shared Sh_Add_Compact_Fractions - the same
+    '                                 them instead, through the shared list sub - the same
     '                                 eighteen the braille configuration uses (Jerry, 8/18/2026). Fifteen of
     '                                 them are not Word's; they now stay in the transcriber's own AutoCorrect
     '                                 list. Large print still deletes them.
@@ -20275,20 +20248,28 @@ Sub MS_Set_Word_Config_For_New_Install()
     ' rule above is untouched - a value written HERE would be rewritten on every letter she opens,
     ' and that is the thing that cannot be told from her own choice.
 
-    ' The compact fractions. Until 8/18/2026 this sub DELETED all eighteen. Be clear about what
-    ' that did and did not cost: Word itself does only three - one half, one quarter and three
-    ' quarters - and it does them through AutoFormatAsYouTypeReplaceFractions, which this sub no
-    ' longer writes at all (it is hers, and in the ledger), not through
-    ' an AutoCorrect entry, so those three went on working. The other fifteen (1/3, 2/3, 1/5 and
-    ' the rest) exist ONLY as the entries the braille configuration adds, and these deletes were
-    ' written the same day, 10/19/2021, to take them straight back out again.
-    ' Jerry, 8/18/2026: an ordinary document should have all eighteen, so the same list the
-    ' braille configuration uses is added here instead. They then STAY in the transcriber's own
-    ' AutoCorrect list. Large print still deletes them - a large print book keeps 1/2 as typed.
+    ' The compact fractions, and this line has now been both ways round.
+    '
+    ' Until 8/18/2026 this sub DELETED all eighteen. On 8/18/2026 Jerry's call was that an ordinary
+    ' document should HAVE them, so it added them instead. ON 8/29/2026 IT IS BACK TO DELETING, and
+    ' this time the reason is measured rather than a preference: an AutoCorrect entry named "1/2"
+    ' fires on any delimiter after it, a slash included, so typing 1/2/2026 gave ½/2026. Jerry hit
+    ' it in an ordinary document. No entry can be written that tells a date from a fraction.
+    '
+    ' What is NOT lost: Word itself does three - one half, one quarter, three quarters - through
+    ' AutoFormatAsYouTypeReplaceFractions, which is a DIFFERENT mechanism, not an AutoCorrect
+    ' entry, and which this sub does not write at all (it is hers, and in the ledger). Those three
+    ' have been on all along and have never touched a date. The other fifteen stay as typed in an
+    ' ordinary document, exactly as they did before 8/18/2026.
+    '
+    ' The delete matters as much as dropping the add: an entry, once written, STAYS in the
+    ' transcriber's own AutoCorrect list. Every machine that has run a 3.0.2xx build already has
+    ' all nineteen, and this is the only thing that reaches one.
+    '
     ' Runs LAST, below Sh_Restore_Transcriber_Settings, on purpose: if it ever raised,
     ' Sh_Apply_Word_Config's handler would blank Sh_ConfiguredAs and Document Settings would report the
     ' previous document's setup.
-    Sh_Add_Compact_Fractions
+    Sh_Delete_Compact_Fractions
 
 End Sub '*** end of MS_Set_Word_Config_For_New_Install ***
 
@@ -20505,8 +20486,13 @@ Sub MS_Set_Word_Config_For_Large_Print()
     ' Full File Cleanup reaches through its menu form, and which also runs when the LP template is
     ' attached. So a pasted-in one is corrected when the book is cleaned up, not as it lands.
     '
-    ' They may be present because the braille configuration adds them, and, from 8/18/2026, so
-    ' does the default one (Jerry: an ordinary document should have them).
+    ' They may be present on a machine that ran a build between 10/19/2021 and 8/29/2026, when the
+    ' braille configuration added them - and between 8/18/2026 and 8/29/2026, when the ordinary
+    ' one did too. Neither adds them any more (see Sh_Delete_Compact_Fractions: an entry named
+    ' "1/2" fires on the slash in a date). THIS BLOCK STAYS AS IT IS ANYWAY. It is large print's
+    ' own guarantee, it must go on reaching machines that still carry the entries, and the blanket
+    ' On Error Resume Next above it also covers the rest of this sub - so lifting the list out to
+    ' the shared version would change what happens after it, for no gain.
     On Error Resume Next
     AutoCorrect.Entries("1/2").Delete
     AutoCorrect.Entries("1/3").Delete
@@ -20527,7 +20513,7 @@ Sub MS_Set_Word_Config_For_Large_Print()
     AutoCorrect.Entries("1/9").Delete
     AutoCorrect.Entries("1/10").Delete
     ' The nineteenth, 8/27/2026 - U+2189, zero thirds. Deleted for the same reason as the other
-    ' eighteen, and kept in step with Sh_Add_Compact_Fractions, which now writes it. Deleting an
+    ' eighteen, and kept in step with the shared list in Sh_Delete_Compact_Fractions. Deleting an
     ' entry that was never added raises, and the On Error Resume Next above covers that.
     AutoCorrect.Entries("0/3").Delete
 
@@ -20588,7 +20574,9 @@ Sub MS_Set_Word_Config_For_Braille()
     '                                 CorrectKeyboardSetting, guarded every remaining write with If <>, and
     '                                 noted the five spelling and grammar settings on the way in so the
     '                                 default configuration can put them back. 40 -> 25.
-    ' Version: 2.1  Date: 8/18/2026 - the 18 compact fraction entries moved out into Sh_Add_Compact_Fractions,
+    ' Version: 2.2  Date: 8/29/2026 - stops ADDING the compact fraction entries and deletes them instead:
+    '                                 an entry named "1/2" fires on the slash in 1/2/2026 (Jerry)
+    ' Version: 2.1  Date: 8/18/2026 - the 18 compact fraction entries moved out into the shared list sub,
     '                                 now shared with MS_Set_Word_Config_For_New_Install. Same eighteen, same
     '                                 values; braille behavior unchanged.
     ' Version: 2.0  Date:  10/27/2021 - Turned ruler display on - Disable linked styles in styles pane
@@ -20800,9 +20788,21 @@ Sub MS_Set_Word_Config_For_Braille()
         If .AutoFormatReplaceHyperlinks <> True Then .AutoFormatReplaceHyperlinks = True
     End With
     
-    ' add the compact fractions to autocorrect - the list lives in Sh_Add_Compact_Fractions,
-    ' shared with MS_Set_Word_Config_For_New_Install from 8/18/2026
-    Sh_Add_Compact_Fractions
+    ' TAKE the compact fractions OFF autocorrect - the list lives in Sh_Delete_Compact_Fractions,
+    ' shared with the ordinary-document configuration so the two cannot drift.
+    '
+    ' Braille ADDED them from 10/19/2021 until 8/29/2026, and wanting compact fractions in a
+    ' braille file was never the problem. The mechanism was: an AutoCorrect entry named "1/2"
+    ' fires on any delimiter after it, a slash included, so typing 1/2/2026 gave ½/2026 here too.
+    ' Jerry, 8/29/2026.
+    '
+    ' A braille file still gets its compact fractions, later and correctly:
+    ' Dx_Replace_Fraction_Text_With_Compact_Fractions runs inside Dx_Fix_Common_File_Errors from
+    ' 8/29/2026 and reads the characters on both sides of every hit, so it converts "2 1/2 cups"
+    ' and leaves 1/2/2026, 21/2 and 1/24 alone. Word's own three - ½ ¼ ¾ - carry on being made as
+    ' you type, through AutoFormatAsYouTypeReplaceFractions, which this sub switches on above and
+    ' which is not an AutoCorrect entry.
+    Sh_Delete_Compact_Fractions
     
     
     If Not Sh_Config_Skip_Display Then   ' the transcriber's screen is theirs - see Sh_Config_Skip_Display
@@ -20855,50 +20855,66 @@ Sub MS_Set_Word_Config_For_Braille()
 
 End Sub  '*** end of  MS_Set_Word_Config_For_Braille macro***
 
-Sub Sh_Add_Compact_Fractions()
+Sub Sh_Delete_Compact_Fractions()
 '
-' Adds the 19 compact fraction AutoCorrect entries - 1/2 -> ½ and the rest.
-'
-' Only three of the eighteen are Word's own, and Word does those through the AutoFormat as you
-' type option, not through an AutoCorrect entry. The other fifteen are this add-in's.
-'
-' NINETEEN from 8/27/2026, and that is now every precomposed vulgar fraction Unicode has - see
-' the note beside 0/3 at the bottom of the list.
-'
-' ONE copy of the list. Called by MS_Set_Word_Config_For_Braille and, from 8/18/2026, by
-' MS_Set_Word_Config_For_New_Install as well: two copies of eighteen entries would drift.
-' MS_Set_Word_Config_For_Large_Print deletes them instead - a large print book keeps 1/2
-' as it was typed - so that list stays where it is.
-'
-' Writes only an entry that is MISSING or holds something else, for the same reason
-' MS_Set_Word_Config_For_New_Install writes only the Options that differ (7/18/2026): that
-' sub runs on every ordinary document, and eighteen needless writes to Word's AutoCorrect
-' store on each one is exactly the churn that brought on Office's "restart to apply your
-' privacy settings" notice.
+' Takes the 19 compact fraction AutoCorrect entries OFF the machine - 1/2 -> ½ and the rest.
 '
 ' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
+' Version: 2.0  Date: 8/29/2026 - ADDS THEM NO LONGER. This sub used to write the entries and is
+'                                 now the one place that removes them (Jerry). See below.
 ' Version: 1.1  Date: 8/27/2026 - 0/3 added, the nineteenth and last (Jerry)
 ' Version: 1.0  Date: 8/18/2026
 '
-    Sh_Add_One_Compact_Fraction "1/2", ChrW(189)
-    Sh_Add_One_Compact_Fraction "1/3", ChrW(8531)
-    Sh_Add_One_Compact_Fraction "2/3", ChrW(8532)
-    Sh_Add_One_Compact_Fraction "1/4", ChrW(188)
-    Sh_Add_One_Compact_Fraction "3/4", ChrW(190)
-    Sh_Add_One_Compact_Fraction "1/5", ChrW(8533)
-    Sh_Add_One_Compact_Fraction "2/5", ChrW(8534)
-    Sh_Add_One_Compact_Fraction "3/5", ChrW(8535)
-    Sh_Add_One_Compact_Fraction "4/5", ChrW(8536)
-    Sh_Add_One_Compact_Fraction "1/6", ChrW(8537)
-    Sh_Add_One_Compact_Fraction "5/6", ChrW(8538)
-    Sh_Add_One_Compact_Fraction "1/7", ChrW(8528)
-    Sh_Add_One_Compact_Fraction "1/8", ChrW(8539)
-    Sh_Add_One_Compact_Fraction "3/8", ChrW(8540)
-    Sh_Add_One_Compact_Fraction "5/8", ChrW(8541)
-    Sh_Add_One_Compact_Fraction "7/8", ChrW(8542)
-    Sh_Add_One_Compact_Fraction "1/9", ChrW(8529)
-    Sh_Add_One_Compact_Fraction "1/10", ChrW(8530)
+' WHY AN AUTOCORRECT ENTRY CANNOT DO THIS JOB. Jerry, 8/29/2026, after typing a date into an
+' ordinary document and getting ½/2026 back.
+'
+' An AutoCorrect entry named "1/2" fires the moment "1/2" is followed by ANY delimiter, and a
+' slash is a delimiter. So typing 1/2/2026 converts at the second slash. That is not a fault in
+' the entry - it is what an AutoCorrect entry does, and no entry can be written that knows a date
+' from a fraction. The entries went in on 8/18/2026 and the dates started breaking that day.
+'
+' WHAT REPLACES THEM, in each of the three configurations:
+'
+'  - ORDINARY documents keep Word's OWN fraction replacement, which is a different mechanism -
+'    AutoFormat as you type, not an AutoCorrect entry - and covers three, ½ ¼ ¾. It has been on
+'    the whole time and has never touched a date. The other fifteen simply stay as typed, which
+'    is how an ordinary document behaved before 8/18/2026.
+'  - BRAILLE keeps Word's own three as well, and gets the rest from
+'    Dx_Replace_Fraction_Text_With_Compact_Fractions in Full File Cleanup (8/29/2026). That pass
+'    reads the characters on both sides of a hit and refuses one with a digit or a slash against
+'    it, so it gets 1/2/2026 and 21/2 right where an entry never can. Later, and correct, beats
+'    as-you-type and wrong.
+'  - LARGE PRINT never wanted them: a compact fraction is one character whose digits are drawn
+'    far smaller than the base font size, and large print's cardinal rule is that every character
+'    is the size the transcriber set. MS_Set_Word_Config_For_Large_Print has deleted them all
+'    along and STILL CARRIES ITS OWN COPY OF THE LIST - deliberately left alone on 8/29/2026,
+'    because the blanket On Error Resume Next above that block also covers the rest of that sub,
+'    and lifting it out would change what happens after it.
+'
+' Deleting an entry that is not there raises, which is trapped per entry, so a machine that never
+' had them costs 19 failed lookups and no writes at all. That matters because this runs on every
+' ordinary document opened: needless writes to Word's AutoCorrect store are the churn that brought
+' on Office's "restart to apply your privacy settings" notice.
+'
+    Sh_Delete_One_Compact_Fraction "1/2"
+    Sh_Delete_One_Compact_Fraction "1/3"
+    Sh_Delete_One_Compact_Fraction "2/3"
+    Sh_Delete_One_Compact_Fraction "1/4"
+    Sh_Delete_One_Compact_Fraction "3/4"
+    Sh_Delete_One_Compact_Fraction "1/5"
+    Sh_Delete_One_Compact_Fraction "2/5"
+    Sh_Delete_One_Compact_Fraction "3/5"
+    Sh_Delete_One_Compact_Fraction "4/5"
+    Sh_Delete_One_Compact_Fraction "1/6"
+    Sh_Delete_One_Compact_Fraction "5/6"
+    Sh_Delete_One_Compact_Fraction "1/7"
+    Sh_Delete_One_Compact_Fraction "1/8"
+    Sh_Delete_One_Compact_Fraction "3/8"
+    Sh_Delete_One_Compact_Fraction "5/8"
+    Sh_Delete_One_Compact_Fraction "7/8"
+    Sh_Delete_One_Compact_Fraction "1/9"
+    Sh_Delete_One_Compact_Fraction "1/10"
 
     ' THE NINETEENTH, added 8/27/2026 (Jerry). ChrW(8585) is U+2189, VULGAR FRACTION ZERO THIRDS.
     ' It is the only one of Unicode's nineteen precomposed vulgar fractions this list did not
@@ -20917,28 +20933,27 @@ Sub Sh_Add_Compact_Fractions()
     ' so does VistaTypeLP Sans. Calibri and Arial do NOT - but they already cannot draw 1/7, 1/9 or
     ' 1/10 either, and Arial cannot draw nine of the eighteen, so this joins an existing exposure
     ' rather than creating one. In those faces Word substitutes silently, at another size.
-    Sh_Add_One_Compact_Fraction "0/3", ChrW(8585)
+    Sh_Delete_One_Compact_Fraction "0/3"
 
-End Sub  '*** end of Sh_Add_Compact_Fractions ***
+End Sub  '*** end of Sh_Delete_Compact_Fractions ***
 
-Private Sub Sh_Add_One_Compact_Fraction(ByVal fractionTyped As String, ByVal fractionChar As String)
+Private Sub Sh_Delete_One_Compact_Fraction(ByVal fractionTyped As String)
 '
-' One entry for Sh_Add_Compact_Fractions. Reading an entry that is not there raises an
-' error, so the read is trapped and an absent entry simply reads as empty and gets added.
+' One entry for Sh_Delete_Compact_Fractions. Asking for an entry that is not there raises, so the
+' trap goes round each one on its own rather than round the whole list - a blanket handler left
+' open across nineteen statements goes on swallowing errors in whatever follows it.
 '
 ' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
+' Version: 2.0  Date: 8/29/2026 - deletes where it used to add (Jerry)
 ' Version: 1.0  Date: 8/18/2026
 '
-    Dim inForce As String
-
     On Error Resume Next
-    inForce = AutoCorrect.Entries(fractionTyped).Value
+    AutoCorrect.Entries(fractionTyped).Delete
+    Err.Clear
     On Error GoTo 0
 
-    If inForce <> fractionChar Then AutoCorrect.Entries.Add Name:=fractionTyped, Value:=fractionChar
-
-End Sub  '*** end of Sh_Add_One_Compact_Fraction ***
+End Sub  '*** end of Sh_Delete_One_Compact_Fraction ***
 
 ' --- The settings store -------------------------------------------------------------------
 ' One small file, written and read with Word's own System.PrivateProfileString, so no file
