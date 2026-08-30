@@ -2386,7 +2386,7 @@ Public Sub Dx_Attach_BANA_Template_Run(ByVal autoClean As Boolean)
     Unload Dx_Choose_BANA_Template_Form
 
     If Dx_BANA_Template_Name = "" Then ' likely that the user hit the close-window X
-        MsgBox "No template selected... attachment canceled", , "Braille Macros"
+        MsgBox "No template selected... attachment canceled", , "Braille Macros (261)"
         End
     End If
 
@@ -2549,7 +2549,7 @@ Public Sub Dx_Attach_BANA_Template_Run(ByVal autoClean As Boolean)
     ' just before it. By the time this is read the template is on, the file is cleaned, the empty
     ' paragraphs are gone, the book is in Times New Roman 14 and the screen is set - so the
     ' sentence is true when it is said, which it was not when it sat halfway up this macro.
-    MsgBox (ActiveDocument.AttachedTemplate) + " template has been attached!", , "Braille Macros"
+    MsgBox (ActiveDocument.AttachedTemplate) + " template has been attached!", , "Braille Macros (262)"
 
 End Sub   '***** end of Dx_Attach_BANA_Template_Run macro *****
 
@@ -3884,7 +3884,8 @@ Sub Dx_Is_BANA_Template_Attached()
         Dim lngQuery As Long
         lngQuery = MsgBox("The BANA template attached to this document is " + ActiveDocument.AttachedTemplate + "." & vbCr _
                        & vbCr & "These macros will not work with BANA templates prior to BANA Braille 2014" & vbCr _
-                       & vbCr & "Attach a newer BANA template to this document before proceeding.", "Braille Macros")
+                       & vbCr & "Attach a newer BANA template to this document before proceeding.", _
+                       vbExclamation, "Braille Macros (263)")
         End
     End If
     
@@ -4370,7 +4371,7 @@ Public Sub Dx_Fix_Common_File_Errors_Run(ByVal quiet As Boolean)
     ' Silent on the attach path. Jerry, 8/29/2026: attaching a BANA template to a fresh source
     ' file runs this automatically, and large print - the behavior he asked this to match - runs
     ' its own cleanup and says nothing. Run from the ribbon or the cleanup menu it still reports.
-    If Not quiet Then MsgBox "End of Fix Common File Errors", , "Braille Macros"
+    If Not quiet Then MsgBox "End of Fix Common File Errors", , "Braille Macros (264)"
     
 End Sub '***** end of Dx_Fix_Common_File_Errors_Run Macro *****
 
@@ -4994,7 +4995,7 @@ Sub Dx_Spelling_List()
     Application.Run MacroName:="Dx_Is_BANA_Template_Attached"
       
     If Selection.Type <> wdSelectionNormal Then
-        MsgBox "Select the spelling list first!", , "Braille Macros"
+        MsgBox "Select the spelling list first!", , "Braille Macros (265)"
         End
     End If
 
@@ -5778,10 +5779,10 @@ LoopEnd:
     Next
         
     If TagCounter = 0 Then
-        MsgBox "There are no tagged page numbers in this document.", , "Braille Macros"
+        MsgBox "There are no tagged page numbers in this document.", , "Braille Macros (266)"
     Else
         If MsgBox("There are " + Trim(Str(TagCounter)) + " page numbers in the document." + vbCr + vbCr _
-                + "Do you want to validate the tagged page numbers?", vbYesNo, "Braille Macros") = vbYes Then
+                + "Do you want to validate the tagged page numbers?", vbYesNo, "Braille Macros (267)") = vbYes Then
             Sh_Validation_Choices_Form.Show
         End If
     End If
@@ -6128,7 +6129,7 @@ Sub Dx_Format_Exercise_Lv_1_and_Lv_2()
     Application.Run MacroName:="Dx_Is_BANA_Template_Attached"
     
     If Selection.Type <> wdSelectionNormal Then
-        MsgBox "Select the exercise list first!", , "Braille Macros"
+        MsgBox "Select the exercise list first!", , "Braille Macros (268)"
         End
     End If
 
@@ -7111,7 +7112,7 @@ Sub Dx_Is_Text_Selected()
 '--------------------------------------------------------------------------------
 
     If Selection.Type <> wdSelectionNormal Then
-        MsgBox "Text must be selected first!", , "Braille Macros"
+        MsgBox "Text must be selected first!", , "Braille Macros (269)"
         End
     End If
     
@@ -7174,7 +7175,7 @@ Sub Dx_Attach_Same_BANA_Template()
             .AttachedTemplate = TemplatePathandName
             .UpdateStylesOnOpen = False  ' supresses any further style updates
         Else
-            MsgBox " Cannot continue!" + vbCr + vbCr + "The template file: " + TemplatePathandName + " does not exist." + vbCr + vbCr + "Install the file and try again.", , "Braille Macros"
+            MsgBox " Cannot continue!" + vbCr + vbCr + "The template file: " + TemplatePathandName + " does not exist." + vbCr + vbCr + "Install the file and try again.", , "Braille Macros (270)"
             End
         End If
     End With
@@ -7668,7 +7669,7 @@ Sub Dx_Delete_Images()
             & vbCrLf & vbCrLf & "*Office Math Mark-up Language equations" _
             & vbCrLf & "created by the Word Equation Editor", _
                        VBA.VbMsgBoxStyle.vbInformation + VBA.VbMsgBoxStyle.vbYesNo + VBA.VbMsgBoxStyle.vbDefaultButton2, _
-                       "Braille Macros")
+                       "Braille Macros (271)")
     
             If Answer = vbYes Then
                 Selection.Find.ClearFormatting
@@ -8015,7 +8016,7 @@ Sub Dx_Fix_Abbyy_FineReader_Text_and_Headers()
                 .AttachedTemplate = TemplatePathandName
                 .UpdateStylesOnOpen = False  ' supresses any further style updates
             Else
-                MsgBox " Cannot continue!" + vbCr + vbCr + "The template file: " + TemplatePathandName + " does not exist." + vbCr + vbCr + "Install the file and try again.", , "Braille Macros"
+                MsgBox " Cannot continue!" + vbCr + vbCr + "The template file: " + TemplatePathandName + " does not exist." + vbCr + vbCr + "Install the file and try again.", , "Braille Macros (272)"
                 End
             End If
         End With
@@ -8157,11 +8158,11 @@ Sub Dx_Compress_Linear_Math()
         Selection.Paragraphs(1).Range.Select
     End If
     
-    If MsgBox("Compress this math expression?", vbYesNo, "Braille Macros") = vbYes Then
+    If MsgBox("Compress this math expression?", vbYesNo, "Braille Macros (273)") = vbYes Then
         GoTo CompressThis:
     Else
         Selection.Collapse
-        MsgBox "Select only the math to be compressed and run this macro again.", , "Braille Macros"
+        MsgBox "Select only the math to be compressed and run this macro again.", , "Braille Macros (274)"
         End
     End If
     
@@ -8590,7 +8591,7 @@ Sub Dx_Encode_Fractions_With_DBT_Codes()
 ' colliding with a change to this logic.
 
     If Selection.Type <> wdSelectionNormal Then
-        MsgBox "Text containing fractions (not dates in 12/25 format) must be selected first!", , "Braille Macros"
+        MsgBox "Text containing fractions (not dates in 12/25 format) must be selected first!", , "Braille Macros (275)"
         Exit Sub
     End If
 
@@ -8989,7 +8990,7 @@ Sub Dx_Replace_Multiple_Para_Marks_With_Warning()
                                   & "document this macro will remove those lines!" & vbCr _
                        & vbCr & "To limit the replacement scope, select only the text" & vbCr _
                                   & "to be changed." & vbCr _
-                       & vbCr & "Do you wish to continue?", vbYesNo + vbCritical + vbDefaultButton2, "Braille Macros")
+                       & vbCr & "Do you wish to continue?", vbYesNo + vbCritical + vbDefaultButton2, "Braille Macros (276)")
            
         If lngQuery = vbNo Then
             End
@@ -17877,7 +17878,7 @@ Sub Dx_Change_Prodnotes_To_Transcriber_Notes()
     On Error GoTo 0
     If StrComp(Left(tmplName, Len("BANA Braille")), "BANA Braille", vbTextCompare) <> 0 Then
         MsgBox "This macro needs a BANA Braille template attached to the document." & vbCr & vbCr & _
-               "Attach a BANA Braille template and try again.", vbExclamation, "Braille Macros"
+               "Attach a BANA Braille template and try again.", vbExclamation, "Braille Macros (277)"
         Exit Sub
     End If
 
@@ -17889,7 +17890,7 @@ Sub Dx_Change_Prodnotes_To_Transcriber_Notes()
     On Error GoTo 0
     If stProd Is Nothing Then
         MsgBox "This document does not contain a ""Prodnote"" style." & vbCr & vbCr & _
-               "There is nothing to change.", vbInformation, "Braille Macros"
+               "There is nothing to change.", vbInformation, "Braille Macros (278)"
         Exit Sub
     End If
 
@@ -17908,7 +17909,7 @@ Sub Dx_Change_Prodnotes_To_Transcriber_Notes()
         used = .found
     End With
     If Not used Then
-        MsgBox "No prodnotes found", vbInformation, "Braille Macros"
+        MsgBox "No prodnotes found", vbInformation, "Braille Macros (279)"
         Exit Sub
     End If
 
@@ -17919,13 +17920,13 @@ Sub Dx_Change_Prodnotes_To_Transcriber_Notes()
     If stTrans Is Nothing Then
         MsgBox "This document does not contain a ""TranscriberNote"" style." & vbCr & vbCr & _
                "Attach a BANA Braille template that defines the TranscriberNote style and try again.", _
-               vbExclamation, "Braille Macros"
+               vbExclamation, "Braille Macros (280)"
         Exit Sub
     End If
 
     ' 6. Confirm before changing anything.
     If MsgBox("Change all paragraphs styled Prodnote into Transcriber Notes?", _
-              vbYesNo + vbQuestion, "Braille Macros") <> vbYes Then
+              vbYesNo + vbQuestion, "Braille Macros (281)") <> vbYes Then
         Exit Sub
     End If
 
@@ -17956,7 +17957,7 @@ Sub Dx_Change_Prodnotes_To_Transcriber_Notes()
     Sh_Return_User_To_Start_Position
 
     MsgBox "All paragraphs styled Prodnote have been changed to Transcriber Notes.", _
-           vbInformation, "Braille Macros"
+           vbInformation, "Braille Macros (282)"
 
 End Sub   '*** end of Dx_Change_Prodnotes_To_Transcriber_Notes macro ***
 
