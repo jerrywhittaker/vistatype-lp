@@ -121,6 +121,30 @@ in the same module can simply be called — `Sh_Replace_Manual_Line_Break "Para"
 Derived by following the call graph from each ribbon button, so it may over-report: some of
 these reach it only through a shared cleanup helper. Confirm per button as you go.
 
+**It DID over-report, and by a lot — traced 8/31/2026.** Following every macro each button can
+reach, dialogs included, only **seven places** in the whole project still call a scratch-document
+routine: `Dx_Format_Exercise_Lv_1_and_Lv_2` (converted at 3.0.309),
+`Lp_Format_Exercise_Lv_1_and_Lv_2`, `Lp_Table_Convert_Options_Form` (five calls),
+`Lp_TOC_CleanAndFormat_TOC`, `Lp_Resize_Images` (two), `Lp_Change_Image_Color_Form` and
+`Lp_Section_Brk_Caution`.
+
+**None of the six braille $pg buttons is among them** — AutoTag Ref Pages, Validate $pg Tags,
+Manual Tag Ref Page, Format $pg Tags, Embed and UnEmbed reach no scratch document at all. The
+three things in their reach that DO show or activate a document are all deliberate: the
+`Documents.Add` in `Dx_Attach_BANA_Template_Run` fires only when nothing is open at all; the
+second document in `Sh_Copy_Ref_Pg_Tags_To_Temp_File` is the validation list, which is meant to
+be read; and the `.Activate` calls in `ShNonModalMessage` put the transcriber back in her own
+document. Leave those alone.
+
+Two more findings from the same trace, both worth acting on separately:
+
+- **`Sh_Copy_To_Temp_Doc` and `Sh_Copy_From_Temp_Doc` are called from nowhere** - not by a macro,
+  a form, a ribbon button or a keyboard shortcut. They were written on 8/11/2026 to pick the
+  right route for the horizontal-list merge, and whatever used them has since moved to the
+  hidden route.
+- **`Dx_Copy_To_Temp_Doc` has no live caller either from 3.0.309**, the braille exercise macro
+  having been its last one. The braille side of this list is finished.
+
 ### Braille Macros tab
 
 - [x] Attach BANA Template — `Dx_Attach_BANA_Template` (Jerry, 8/13/2026, build 3.0.174)
@@ -134,10 +158,16 @@ these reach it only through a shared cleanup helper. Confirm per button as you g
 - [ ] UnEmbed Ref Pg Numb — `Dx_UnEmbed_Ref_Pg_No`
 - [ ] Foreign Lang in Color — `Dx_Add_Color_To_Foreign_Language_Words`
 - [ ] Format Spelling List — `Dx_Spelling_List`
-- [x] Exercise Levels 1 & 2 — `Dx_Format_Exercise_Lv_1_and_Lv_2` (Jerry, 8/13/2026, build
-      3.0.174). Reaches Convert Auto List To Text. Missed off the braille list first time round;
-      the caller scan had attributed that call to `Dx_Replace_Straight_Quotes_With_Smart_Quotes`,
-      which does not make it.
+- [x] Exercise Levels 1 & 2 — `Dx_Format_Exercise_Lv_1_and_Lv_2` (3.0.309, 8/31/2026).
+      **The 8/13/2026 tick on this line was wrong, and it stood for eighteen days.** What was
+      tested that day was Convert Auto List To Text, which this button reaches and which had
+      just been converted; the button itself still made its own scratch document with
+      `Dx_Copy_To_Temp_Doc` and still put it on screen. Jerry reported it again on 8/31/2026 —
+      "the screen goes blank while the macro is working on the temp doc". A tick here means THIS
+      BUTTON no longer round-trips through a visible document, not that a helper it calls was
+      converted. Converted at 3.0.309: `Dx_Exercise_Levels_Hidden` does the round trip on a
+      document created `Visible:=False`, and `Dx_Tabs_To_Fill_Ins` and `Dx_Fix_Para_Space_Errors`
+      took an optional range so they could be run against it.
 - [ ] Dashes/Primes/Fractions — `Dx_Type_Dashes`
 - [ ] Compress Linear Math — `Dx_Compress_Linear_Math`
 - [ ] DAISY or NIMAS to Word — `DN_Menu_Starter`
@@ -151,11 +181,17 @@ these reach it only through a shared cleanup helper. Confirm per button as you g
 - [x] Full File Cleanup — `Lp_File_Fix_Sequence` (Jerry, 8/13/2026, build 3.0.174)
 - [x] Selection Cleanup — `Lp_Selected_File_CleanUp` (Jerry, 8/13/2026, build 3.0.174)
 - [ ] AutoTag Ref Pages — `Lp_AutoTag_Page_Numbers`
-- [x] Format Exercise — `Lp_Format_Exercise_Lv_1_and_Lv_2` (Jerry, 8/13/2026, build 3.0.174).
-      This is the LP button that reaches Convert Auto List To Text — NOT Fill-In Line, which was
-      reported to Jerry as its caller by mistake. `Lp_Format_Exercise_Lv_1_and_Lv_2` begins two
-      lines after `Lp_Type_Fill_In_Line` ends, and a script that walked back to the nearest
-      preceding Sub landed on the wrong one. Fill-In Line reaches nothing on this list.
+- [ ] Format Exercise — `Lp_Format_Exercise_Lv_1_and_Lv_2`. **STILL ROUND-TRIPS.** It was
+      ticked on 8/13/2026 for the same wrong reason as its braille twin above: what was tested
+      was Convert Auto List To Text, which this button reaches and which had just been
+      converted. The button itself still calls `Lp_Copy_To_Temp_Doc`, so the screen still goes
+      blank. The braille half was converted at 3.0.309; this one is the obvious next piece of
+      work, and under the merge rule the two may well come out as one `Sh_` macro.
+      (Also recorded here because it was worth finding out: this is the LP button that reaches
+      Convert Auto List To Text — NOT Fill-In Line, which was reported to Jerry as its caller by
+      mistake. `Lp_Format_Exercise_Lv_1_and_Lv_2` begins two lines after `Lp_Type_Fill_In_Line`
+      ends, and a script that walked back to the nearest preceding Sub landed on the wrong one.
+      Fill-In Line reaches nothing on this list.)
 - [ ] Table and TOC Tools — `Lp_Table_Tools`
 - [ ] Bkgrnd & Picture Tools — `Lp_Picture_Tools_Menu_Starter`
 - [ ] DAISY or NIMAS to Word — `DN_Menu_Starter`
