@@ -136,14 +136,30 @@ second document in `Sh_Copy_Ref_Pg_Tags_To_Temp_File` is the validation list, wh
 be read; and the `.Activate` calls in `ShNonModalMessage` put the transcriber back in her own
 document. Leave those alone.
 
-Two more findings from the same trace, both worth acting on separately:
+Two more findings from the same trace, both worth acting on separately. **Both were acted on at
+3.0.318, 8/31/2026 — the five dead procedures are gone:**
 
-- **`Sh_Copy_To_Temp_Doc` and `Sh_Copy_From_Temp_Doc` are called from nowhere** - not by a macro,
+- **`Sh_Copy_To_Temp_Doc` and `Sh_Copy_From_Temp_Doc` were called from nowhere** - not by a macro,
   a form, a ribbon button or a keyboard shortcut. They were written on 8/11/2026 to pick the
-  right route for the horizontal-list merge, and whatever used them has since moved to the
-  hidden route.
-- **`Dx_Copy_To_Temp_Doc` has no live caller either from 3.0.309**, the braille exercise macro
-  having been its last one. The braille side of this list is finished.
+  right route for the horizontal-list merge, and whatever used them had since moved to the
+  hidden route. Removed, with the `Sh_TempDocRoute` variable that only they wrote.
+- **`Dx_Copy_To_Temp_Doc` had no live caller either from 3.0.309**, the braille exercise macro
+  having been its last one. The braille side of this list is finished. Removed, along with
+  `Dx_Copy_From_Temp_Doc` and `Dx_Attach_Same_BANA_Template` — which nothing but
+  `Dx_Copy_To_Temp_Doc` ever called — and the `Dx_Attached_BANA_Template` variable, whose only
+  reader was `Dx_Attach_Same_BANA_Template`. **Dialog 270 went with them and its number is
+  retired, not reused.**
+
+  Why remove rather than leave: dead code that still reads `Documents.Add`, `Selection.Copy` and
+  `Selection.Paste` is exactly the thing that gets called again by someone tidying up later, and
+  it would put the flashing scratch document straight back. A tombstone comment stands where each
+  one was.
+
+**`Lp_Copy_To_Temp_Doc` and `Lp_Copy_From_Temp_Doc` stay, and still show their document.** Six
+places call them: `Lp_Format_Exercise_Lv_1_and_Lv_2`, `Lp_Resize_Images`,
+`Lp_TOC_CleanAndFormat_TOC`, and the `Lp_Table_Convert_Options_Form`,
+`Lp_Change_Image_Color_Form` and `Lp_Section_Brk_Caution` forms — the large-print half of this
+list, still to do.
 
 ### Braille Macros tab
 

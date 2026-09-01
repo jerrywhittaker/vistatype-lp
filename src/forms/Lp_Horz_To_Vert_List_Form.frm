@@ -21,7 +21,8 @@ Attribute VB_Exposed = False
 '                        Lp_Horz_To_Vert_Hidden
 ' Version 1.8 8/11/2026 - serves BOTH ribbon tabs; Dx_Horz_To_Vert_List_Form is gone. The
 '                        round trip through the temp document picks its route from the
-'                        document being worked on - see Sh_Copy_To_Temp_Doc
+'                        document being worked on - see Sh_Copy_To_Temp_Doc, which was
+'                        removed on 8/31/2026 once nothing called it
 ' Version 1.7 8/10/2026 - an ordered list is recognized by its SEQUENCE first
 '                        (Lp_Split_Ordered_List_Sequence), falling back to the passes below
 '                        when nothing convincing is found

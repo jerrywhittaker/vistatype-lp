@@ -62,12 +62,20 @@ Other rules:
 
 ## Converting a macro off the temporary document
 
-`Lp_Copy_To_Temp_Doc` and `Dx_Copy_To_Temp_Doc` create the scratch document hidden and then
-deliberately show, maximize and activate it — four statements, not an accident. That is the
-screen flashing. They must, because their callers work through `Selection`, and `Selection` only
-reaches the active document. Converting a macro means moving its passes onto a **range**, so the
-window is never needed. The round trip itself stays: it is what gives the single undo and the
-private workspace.
+`Lp_Copy_To_Temp_Doc` creates the scratch document hidden and then deliberately shows, maximizes
+and activates it — four statements, not an accident. That is the screen flashing. It must,
+because its callers work through `Selection`, and `Selection` only reaches the active document.
+Converting a macro means moving its passes onto a **range**, so the window is never needed. The
+round trip itself stays: it is what gives the single undo and the private workspace.
+
+**The braille half of this is finished** (3.0.318, 8/31/2026). `Dx_Copy_To_Temp_Doc`,
+`Dx_Copy_From_Temp_Doc` and `Dx_Attach_Same_BANA_Template` were removed once Exercise Levels
+1 & 2 — their last caller — moved onto `Dx_Exercise_Levels_Hidden` at 3.0.309, and the
+`Sh_Copy_To_Temp_Doc` / `Sh_Copy_From_Temp_Doc` route pickers went with them. No braille macro
+shows a scratch document any more; three still make one, hidden. **`Lp_Copy_To_Temp_Doc` is the
+only one left that puts a document on the screen**, and six large-print places still call it:
+`Lp_Format_Exercise_Lv_1_and_Lv_2`, `Lp_Resize_Images`, `Lp_TOC_CleanAndFormat_TOC`, and the
+`Lp_Table_Convert_Options_Form`, `Lp_Change_Image_Color_Form` and `Lp_Section_Brk_Caution` forms.
 
 **Jerry's rule, 8/12/2026: whenever converting a pair leaves the `Lp_` and `Dx_` versions
 identical, merge them into one `Sh_` macro.** That is not a coincidence when it happens —

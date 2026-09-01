@@ -20,6 +20,21 @@ Attribute VB_Name = "LPandBrlMacros"
 '
 ' Notes:    - BRL - 8/29/2026 - ENCODE FRACTIONS LEAVES ITS DBT CODES HIDDEN AND PLUM, AND SKIPS
 '           - BRL - 8/29/2026 - DATES (Jerry). Two faults in one button on Dx_Type_Dashes_Form.
+'           - BRL - 8/31/2026 - THE BRAILLE SCRATCH-DOCUMENT ROUTINES ARE GONE. Dx_Copy_To_Temp_Doc,
+'           -                   Dx_Copy_From_Temp_Doc and Dx_Attach_Same_BANA_Template lost their
+'           -                   last caller at 3.0.309, when Exercise Levels 1 & 2 moved onto
+'           -                   Dx_Exercise_Levels_Hidden. Sh_Copy_To_Temp_Doc and
+'           -                   Sh_Copy_From_Temp_Doc, the pair that chose between the braille and
+'           -                   the large print route, had been called from nowhere since
+'           -                   8/12/2026, when the horizontal-list merge moved to the hidden
+'           -                   route. All five are removed, with the Sh_TempDocRoute and
+'           -                   Dx_Attached_BANA_Template variables that existed only to serve
+'           -                   them. Dialog 270 goes with them and its number is retired, not
+'           -                   reused. No braille macro SHOWS a scratch document now - three of
+'           -                   them still make one (Dx_Exercise_Levels_Hidden,
+'           -                   Sh_Copy_Ref_Pg_Tags_To_Temp_File and the braille export), which is
+'           -                   the case Sh_HandleDocumentNew's guard exists for.
+'           -                   Lp_Copy_To_Temp_Doc stays - six large print places still call it.
 '           - BRL - 8/31/2026 - Exercise Levels 1 & 2 no longer works on a scratch document the
 '           -                   transcriber can see. Jerry: "the screen goes blank while the
 '           -                   macro is working on the temp doc". Dx_Copy_To_Temp_Doc made it
@@ -1452,7 +1467,8 @@ Public Dx_GP_Counter_1 As Integer
 Public Dx_GP_Boolean_1 As Boolean
 
 Public Dx_BANA_Template_Name As String
-Public Dx_Attached_BANA_Template As String
+' Dx_Attached_BANA_Template stood here until 8/31/2026. Its only reader was
+' Dx_Attach_Same_BANA_Template, which went with the braille scratch-document routines.
 
 Public Dx_UEB_EBAE_Boolean As Boolean
 Public Dx_UEB_EBAE_String As String
@@ -1735,10 +1751,6 @@ Public Lp_Hv_Kind As String
 Public Lp_Hv_Sort_Wanted As Boolean
 Public Lp_Hv_Go As Boolean
 
-' Which round trip Sh_Copy_To_Temp_Doc took, so Sh_Copy_From_Temp_Doc can take the same one
-' back. Asking the document again would be wrong - by then the active document IS the temp one.
-Public Sh_TempDocRoute As String
-
 ' True while a configuration is being applied because the transcriber SWITCHED documents, as
 ' opposed to opening one or attaching a template. The three MS_Set_Word_Config_* subs then set
 ' Word's typing behavior - Options, AutoCorrect, spelling, fractions, the things that are wrong
@@ -1818,8 +1830,9 @@ Sub Sh_HandleDocumentNew()
     ' A MACRO is running, not a transcriber. The same test, for the same reason, as the one at
     ' the top of Sh_HandleDocumentActivated - see the long note there - but it was missing here,
     ' and Word raises NewDocument for EVERY Documents.Add, including the ones macros make.
-    ' Lp_Copy_To_Temp_Doc and Dx_Copy_To_Temp_Doc create the scratch document from about 35
-    ' places, so a book being cleaned up had Word reconfigured for an ORDINARY document half way
+    ' Lp_Copy_To_Temp_Doc creates the scratch document from six places, and Dx_Copy_To_Temp_Doc
+    ' did the same until 8/31/2026 - between them, about 35 - so a book being cleaned up had
+    ' Word reconfigured for an ORDINARY document half way
     ' through the job. Three costs, none of them visible: the Styles pane closed and the screen
     ' refreshed at the exact points the macro had turned refreshing off - the 7/24 and 8/2/2026
     ' complaints arriving by another door; the whole configuration written twice, once on the way
@@ -1910,8 +1923,9 @@ Sub Sh_HandleDocumentActivated()
     If Documents.count = 0 Then Exit Sub
 
     ' A MACRO is running, not a transcriber. Word's own macros activate documents constantly -
-    ' every Lp_Copy_To_Temp_Doc and Dx_Copy_To_Temp_Doc creates a document and activates it, and
-    ' those two are called from about 35 places. Reconfiguring Word in the middle of one would
+    ' every Lp_Copy_To_Temp_Doc creates a document and activates it, and it is called from six
+    ' places (Dx_Copy_To_Temp_Doc did the same until 8/31/2026, and between them they were called
+    ' from about 35). Reconfiguring Word in the middle of one would
     ' put back the ~74 Options and AutoCorrect writes that were taken OUT of fourteen dialogs on
     ' 7/24/2026, and would refresh the screen at the exact points the code turns refreshing off.
     ' Screen updating being off is the marker: those macros all turn it off, and a transcriber
@@ -2267,6 +2281,9 @@ Public Sub Dx_Attach_BANA_Template_Run(ByVal autoClean As Boolean)
 '
 '  Version: 3.4  Date: 8/18/2026 - that font is now Times New Roman 14 pt, not Courier New 12 pt - matching what Duxbury's own SWIFT add-in sets when IT attaches a template (Jerry)
 '  Version: 3.3  Date: 8/5/2026 - puts the whole document into Courier New 12 pt as the last thing it does (Jerry)
+'  Version: 4.4  Date: 8/31/2026 - the Dx_Attached_BANA_Template = Dx_BANA_Template_Name line is
+'                                 gone. Nothing read that variable once the braille scratch-document
+'                                 routines were removed; behavior here is unchanged
 '  Version: 4.3  Date: 8/29/2026 - the draft view no longer arrives the moment the button is pressed,
 '                                 and the "template has been attached!" message is now the LAST thing
 '                                 said (Jerry). Sh_Config_Skip_Display is held up across the attach and
@@ -2446,8 +2463,6 @@ Public Sub Dx_Attach_BANA_Template_Run(ByVal autoClean As Boolean)
     Loop
 
     Application.ScreenUpdating = False
-
-    Dx_Attached_BANA_Template = Dx_BANA_Template_Name
 
     'converts Word Lang Tags into DBT foreign language tags - BANA template must be attached for this to work
     Application.Run MacroName:="Dx_Add_Color_To_Foreign_Language_Words"
@@ -4953,8 +4968,9 @@ End Sub  '*** end of Dx_Close_with_no_Save macro ***
 ' went with it: the macro does not care what template is attached, and the large-print side had
 ' already commented its own template check out (Jerry, 8/11/2026).
 '
-' The round trip through the temporary document still differs by document type, and has to -
-' see Sh_Copy_To_Temp_Doc.
+' The round trip no longer differs by document type, and no longer shows its document:
+' Lp_Horz_List_To_Vertical works in a scratch document that is never displayed -
+' Lp_Horz_To_Vert_Hidden.
 
 
 Sub Dx_Fix_Em_Dash_Space_Errors()
@@ -6879,69 +6895,20 @@ Sub Dx_Is_Text_Selected()
     
 End Sub '***** End of Dx_Is_Text_Selected *************
 
-Sub Dx_Copy_To_Temp_Doc()
+' Dx_Copy_To_Temp_Doc, Dx_Copy_From_Temp_Doc and Dx_Attach_Same_BANA_Template stood here until
+' 8/31/2026. They were the braille half of the round trip through a scratch document the
+' transcriber could see. Their last caller was Exercise Levels 1 & 2, which moved onto
+' Dx_Exercise_Levels_Hidden at 3.0.309 - a document created Visible:=False and worked on through
+' a range, never shown.
 '
-' Author: Jerry Whittaker -  jerry@vistatypelp.org
+' Careful with the wording: no braille macro SHOWS a scratch document now, but three still MAKE
+' one - Dx_Exercise_Levels_Hidden here, Sh_Copy_Ref_Pg_Tags_To_Temp_File, and the braille export
+' in DxExportImportSelectedText. Word raises NewDocument for every one of them, which is exactly
+' what Sh_HandleDocumentNew's macro-is-running guard is there to catch. Do not read this
+' tombstone as "the braille side never adds a document" and take that guard out.
 '
-' Version: 1.3  Date: 3/19/2021 - added Dx_Attach_Same_BANA_Template to end of procedure
-' Version: 1.2  Date: 9/9/2018
-' Dx_Attached_BANA_Template is a public variable
-
-    Application.Run MacroName:="Dx_Is_BANA_Template_Attached"
-    Dx_Attached_BANA_Template = ActiveDocument.AttachedTemplate 'get the name of the orig doc template
-    Dx_GP_String_1 = ActiveDocument.Variables("BrailleType") ' put the braille xlation type in public var
-    Selection.Copy 'copy the selected text in the main document
-    Application.ScreenUpdating = False ' Turn screen updating off
-    Documents.Add 'create a new temp wd doc
-    Sh_SleepForSeconds 3
-    Selection.Paste 'AndFormat (wdFormatOriginalFormatting)
-    Application.Run MacroName:="Dx_Attach_Same_BANA_Template"
-
-End Sub '***** end of Dx_Copy_To_Temp_Doc Macro *****
-
-Sub Dx_Copy_From_Temp_Doc()
-'
-' Author: Jerry Whittaker -  jerry@vistatypelp.org
-' Date: 9/9/2018
-' Version: 1.5
-'
-    Dim su_Prev As Boolean
-    su_Prev = Application.ScreenUpdating
-    Application.ScreenUpdating = False ' Turn screen updating off
-    Selection.WholeStory
-    Selection.Copy 'copy the selected text to the clipboard
-    ActiveDocument.Close SaveChanges:=False 'close the temp doc without saving
-    Application.ScreenUpdating = su_Prev ' Turn screen updating on
-    Selection.Paste 'paste the clipboard back into the original document
-    Application.Run MacroName:="MS_Set_Word_Config_For_Braille"
-
-End Sub '***** end of Dx_Copy_From_Temp_Doc Macro *****
-
-Sub Dx_Attach_Same_BANA_Template()
-'
-' Attaches the same BANA Template as the original DOC to the copied selection
-' Author: Jerry Whittaker -  jerry@vistatypelp.org
-'
-' Version: 1.6  Date: 7/9/2021 - added existance check and message for attached BANA template
-' Version: 1.5  Date: 10/17/2020 - improved attachment process
-' Version: 1.4  Date: 3/16/2017
-'
-
-     Dim TemplatePathandName As String
-    TemplatePathandName = Options.DefaultFilePath(wdUserTemplatesPath) + "\" + Dx_Attached_BANA_Template
-    
-    With ActiveDocument
-        If Sh_FileExists(TemplatePathandName) Then
-            .UpdateStylesOnOpen = True
-            .AttachedTemplate = TemplatePathandName
-            .UpdateStylesOnOpen = False  ' supresses any further style updates
-        Else
-            MsgBox " Cannot continue!" + vbCr + vbCr + "The template file: " + TemplatePathandName + " does not exist." + vbCr + vbCr + "Install the file and try again.", , "Braille Macros (270)"
-            End
-        End If
-    End With
-    
-End Sub  '***** End of Dx_Attach_Same_BANA_Template Macro *****
+' Dialog 270 - "the template file does not exist", in Dx_Attach_Same_BANA_Template - is retired
+' with them. That number is not to be reused.
 
 ' Dx_Kill_The_Hyperlinks was here until 8/12/2026. With the round trip gone the two sides were
 ' the same macro written twice, so they are now Sh_Kill_The_Hyperlinks.
@@ -14504,45 +14471,16 @@ SortMsg:
     Lp_ListSplitError = "sort refused: " & Err.Description
 End Sub
 
-' --- One horizontal-to-vertical macro, two kinds of document -------------------------------
+' Sh_Copy_To_Temp_Doc and Sh_Copy_From_Temp_Doc stood here until 8/31/2026. Written 8/11/2026,
+' they chose the braille or the large print round trip from the document being worked on, and
+' remembered the choice, because by the time the text came back the active document was the
+' temporary one. Nothing called them after the horizontal-list merge moved to the hidden route
+' the next day, and the braille route they chose between went at 3.0.309.
 '
-' The two sides copy the selection into a temporary document in genuinely different ways, and
-' the difference matters:
-'
-'   Lp_Copy_To_Temp_Doc   builds the temp document FROM LargePrintTemplate.dotx, and stops with
-'                         "Template not found" when it is missing
-'   Dx_Copy_To_Temp_Doc   plain new document, then re-attaches the SAME BANA template and keeps
-'                         the document's BrailleType
-'
-' Send a braille file through the large-print route and three things go wrong: it fails outright
-' on a machine with no large-print template, the text is round-tripped through a document
-' carrying LP styles, and the BANA template and BrailleType are not put back. The last one would
-' not show up until much later.
-'
-' So the route is chosen from the document being worked on. Sh_Doc_Config_Type answers that
-' already. The choice is REMEMBERED, because by the time the text comes back the active document
-' is the temporary one and asking again would give the wrong answer.
-'
-' Version: 1.0  Date: 8/11/2026
-Public Sub Sh_Copy_To_Temp_Doc()
-    If Sh_Doc_Config_Type() = "BRL" Then
-        Sh_TempDocRoute = "BRL"
-        Application.Run MacroName:="Dx_Copy_To_Temp_Doc"
-    Else
-        Sh_TempDocRoute = "LP"
-        Application.Run MacroName:="Lp_Copy_To_Temp_Doc"
-    End If
-End Sub
-
-' Version: 1.0  Date: 8/11/2026
-Public Sub Sh_Copy_From_Temp_Doc()
-    If Sh_TempDocRoute = "BRL" Then
-        Application.Run MacroName:="Dx_Copy_From_Temp_Doc"
-    Else
-        Application.Run MacroName:="Lp_Copy_From_Temp_Doc"
-    End If
-    Sh_TempDocRoute = ""
-End Sub
+' Lp_Copy_To_Temp_Doc stays, and still puts its document on the screen. Six places call it:
+' Lp_Format_Exercise_Lv_1_and_Lv_2, Lp_Resize_Images, Lp_TOC_CleanAndFormat_TOC and the
+' Lp_Table_Convert_Options_Form, Lp_Change_Image_Color_Form and Lp_Section_Brk_Caution forms.
+' See docs/Temp-Doc-Conversion-Checklist.md.
 
 Sub Lp_Horz_List_To_Vertical()
     '
