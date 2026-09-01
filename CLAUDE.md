@@ -73,9 +73,17 @@ round trip itself stays: it is what gives the single undo and the private worksp
 1 & 2 — their last caller — moved onto `Dx_Exercise_Levels_Hidden` at 3.0.309, and the
 `Sh_Copy_To_Temp_Doc` / `Sh_Copy_From_Temp_Doc` route pickers went with them. No braille macro
 shows a scratch document any more; three still make one, hidden. **`Lp_Copy_To_Temp_Doc` is the
-only one left that puts a document on the screen**, and six large-print places still call it:
-`Lp_Format_Exercise_Lv_1_and_Lv_2`, `Lp_Resize_Images`, `Lp_TOC_CleanAndFormat_TOC`, and the
+only one left that puts a document on the screen**, and **five** large-print places still call
+it from 9/1/2026: `Lp_Resize_Images`, `Lp_TOC_CleanAndFormat_TOC`, and the
 `Lp_Table_Convert_Options_Form`, `Lp_Change_Image_Color_Form` and `Lp_Section_Brk_Caution` forms.
+
+`Lp_Format_Exercise_Lv_1_and_Lv_2` was the sixth and was converted at 3.0.319 (9/1/2026), onto
+`Lp_Exercise_Levels_Hidden` / `Lp_Ex_Passes` / `Lp_Ex_Repl`. **It was NOT merged with the braille
+twin**, and that is worth recording because the merge rule below made it look likely: the two
+apply different styles and produce different output — `List` and `List 2` with underlined Tahoma
+fill-in lines here, `Exercise1`/`Exercise2`/`Ex2Nemeth2` with `[[*kps*]]` and `[[*kpe*]]` markers
+there. `Lp_Fix_Para_Space_Errors` and `Sh_Remove_Spaces_Before_Punctuation` took an optional range
+so they could be run against the hidden document.
 
 **Jerry's rule, 8/12/2026: whenever converting a pair leaves the `Lp_` and `Dx_` versions
 identical, merge them into one `Sh_` macro.** That is not a coincidence when it happens —

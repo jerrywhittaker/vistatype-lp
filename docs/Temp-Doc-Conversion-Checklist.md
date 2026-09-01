@@ -124,7 +124,8 @@ these reach it only through a shared cleanup helper. Confirm per button as you g
 **It DID over-report, and by a lot — traced 8/31/2026.** Following every macro each button can
 reach, dialogs included, only **seven places** in the whole project still call a scratch-document
 routine: `Dx_Format_Exercise_Lv_1_and_Lv_2` (converted at 3.0.309),
-`Lp_Format_Exercise_Lv_1_and_Lv_2`, `Lp_Table_Convert_Options_Form` (five calls),
+`Lp_Format_Exercise_Lv_1_and_Lv_2` (converted at 3.0.319),
+`Lp_Table_Convert_Options_Form` (five calls),
 `Lp_TOC_CleanAndFormat_TOC`, `Lp_Resize_Images` (two), `Lp_Change_Image_Color_Form` and
 `Lp_Section_Brk_Caution`.
 
@@ -155,11 +156,10 @@ Two more findings from the same trace, both worth acting on separately. **Both w
   it would put the flashing scratch document straight back. A tombstone comment stands where each
   one was.
 
-**`Lp_Copy_To_Temp_Doc` and `Lp_Copy_From_Temp_Doc` stay, and still show their document.** Six
-places call them: `Lp_Format_Exercise_Lv_1_and_Lv_2`, `Lp_Resize_Images`,
-`Lp_TOC_CleanAndFormat_TOC`, and the `Lp_Table_Convert_Options_Form`,
-`Lp_Change_Image_Color_Form` and `Lp_Section_Brk_Caution` forms — the large-print half of this
-list, still to do.
+**`Lp_Copy_To_Temp_Doc` and `Lp_Copy_From_Temp_Doc` stay, and still show their document.**
+**Five** places call them from 9/1/2026: `Lp_Resize_Images`, `Lp_TOC_CleanAndFormat_TOC`, and the
+`Lp_Table_Convert_Options_Form`, `Lp_Change_Image_Color_Form` and `Lp_Section_Brk_Caution`
+forms — what is left of the large-print half of this list.
 
 ### Braille Macros tab
 
@@ -197,12 +197,31 @@ list, still to do.
 - [x] Full File Cleanup — `Lp_File_Fix_Sequence` (Jerry, 8/13/2026, build 3.0.174)
 - [x] Selection Cleanup — `Lp_Selected_File_CleanUp` (Jerry, 8/13/2026, build 3.0.174)
 - [ ] AutoTag Ref Pages — `Lp_AutoTag_Page_Numbers`
-- [ ] Format Exercise — `Lp_Format_Exercise_Lv_1_and_Lv_2`. **STILL ROUND-TRIPS.** It was
+- [x] Format Exercise — `Lp_Format_Exercise_Lv_1_and_Lv_2` (3.0.319, 9/1/2026). It had been
       ticked on 8/13/2026 for the same wrong reason as its braille twin above: what was tested
       was Convert Auto List To Text, which this button reaches and which had just been
-      converted. The button itself still calls `Lp_Copy_To_Temp_Doc`, so the screen still goes
-      blank. The braille half was converted at 3.0.309; this one is the obvious next piece of
-      work, and under the merge rule the two may well come out as one `Sh_` macro.
+      converted. The button itself still called `Lp_Copy_To_Temp_Doc` and the screen still went
+      blank. Converted onto `Lp_Exercise_Levels_Hidden`, `Lp_Ex_Passes` and `Lp_Ex_Repl`, with
+      `Lp_Fix_Para_Space_Errors` and `Sh_Remove_Spaces_Before_Punctuation` gaining an optional
+      range so they could be run against the hidden document.
+
+      **NOT merged with the braille twin, and the merge rule expected it would be.** Once both
+      were on ranges they turned out not to be the same job written twice: this one applies
+      `List` and `List 2`, doubles the paragraph marks so each item gets a blank line, and
+      rebuilds fill-in lines as underlined Tahoma underscores; the braille one applies
+      `Exercise1`, `Exercise2` and `Ex2Nemeth2`, places `[[*kps*]]` and `[[*kpe*]]` markers
+      hidden and plum, and writes UEB or EBAE fill-in indicators. The shape of the round trip is
+      shared — and it IS shared, through `Sh_Trailing_Para_Marks` and
+      `Sh_Set_Trailing_Para_Marks` — but nothing between the two ends is.
+
+      Three faults went with the old route, all of them invisible until they bit:
+      `Lp_Copy_To_Temp_Doc` looks `LargePrintTemplate.dotx` up **by path**, and on a miss it
+      shows a message and does a plain `Exit Sub` the caller never sees — so all twenty finds
+      ran on the transcriber's own book, each with `wdFindContinue`, meaning the whole book and
+      not the selection. A selection made inside a **table** was widened to the whole table on
+      the way out but pasted back over the selection on the way home. And the way home was a
+      guess: `Documents(1)`, or `Documents(2)` when that was the scratch one, which is wrong the
+      moment a third document is open.
       (Also recorded here because it was worth finding out: this is the LP button that reaches
       Convert Auto List To Text — NOT Fill-In Line, which was reported to Jerry as its caller by
       mistake. `Lp_Format_Exercise_Lv_1_and_Lv_2` begins two lines after `Lp_Type_Fill_In_Line`

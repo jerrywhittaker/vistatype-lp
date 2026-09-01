@@ -18,7 +18,44 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - BRL - 8/29/2026 - ENCODE FRACTIONS LEAVES ITS DBT CODES HIDDEN AND PLUM, AND SKIPS
+' Notes:    - LP  - 9/1/2026 - FORMAT EXERCISE LEVELS 1 AND 2 NO LONGER BLANKS THE SCREEN. The
+'           -                   twin of the braille one converted the day before. Lp_Copy_To_Temp_Doc
+'           -                   creates its scratch document hidden and then shows, maximizes and
+'           -                   activates it, because its callers work through Selection; every
+'           -                   pass here works on a RANGE now - Lp_Exercise_Levels_Hidden,
+'           -                   Lp_Ex_Passes and Lp_Ex_Repl - and the document is never shown.
+'           -                   NOT merged with the braille version under the 8/12/2026 rule: the
+'           -                   two do different work. This one applies List and List 2 and builds
+'           -                   underlined Tahoma fill-in lines; the braille one applies Exercise1,
+'           -                   Exercise2 and Ex2Nemeth2 and places [[*kps*]] and [[*kpe*]] markers.
+'           -                   Three faults went with the old route. The scratch document was
+'           -                   built by looking LargePrintTemplate.dotx up BY PATH, and on a miss
+'           -                   Lp_Copy_To_Temp_Doc showed a message and did a plain Exit Sub the
+'           -                   caller never saw - so all twenty finds ran on the transcriber's own
+'           -                   book, each with wdFindContinue, meaning the whole book. A selection
+'           -                   made inside a TABLE was widened to the entire table on the way out
+'           -                   but pasted back over the selection on the way home. And the way
+'           -                   home was a guess: Documents(1), or Documents(2) when that was the
+'           -                   scratch one. The scratch document is built from the source book's
+'           -                   own attached template now, and the range it came from is the range
+'           -                   it goes back into.
+'           -                   The macro also STOPS, dialog 285, when the selection does not end
+'           -                   with a paragraph mark - a paragraph's style lives in its mark, so
+'           -                   without it the last item came home unstyled. Dialog 133 says the
+'           -                   same thing it always said, through Sh_Say, and exits instead of
+'           -                   running End.
+'           -                   Lp_Fix_Para_Space_Errors and Sh_Remove_Spaces_Before_Punctuation
+'           -                   take an optional range so they can run against it. The second one
+'           -                   lost three passes that were exact repeats of an earlier one.
+'           - LP  - 9/1/2026 - AND IT NO LONGER LEAVES A BLANK LINE ABOVE THE FIRST ITEM (Jerry).
+'           -                   The macro puts TWO paragraph marks at the top for its own use -
+'           -                   one so the numbered-item finds have a mark to match in front of
+'           -                   item 1, one from the pass that puts a mark before each List run -
+'           -                   and the old cleanup deleted one character, so one of them went
+'           -                   home with the text. Every leading empty paragraph goes now. The
+'           -                   styling of the first two display lines went with them: it existed
+'           -                   to make that blank match the item below it.
+'           - BRL - 8/29/2026 - ENCODE FRACTIONS LEAVES ITS DBT CODES HIDDEN AND PLUM, AND SKIPS
 '           - BRL - 8/29/2026 - DATES (Jerry). Two faults in one button on Dx_Type_Dashes_Form.
 '           - BRL - 8/31/2026 - THE BRAILLE SCRATCH-DOCUMENT ROUTINES ARE GONE. Dx_Copy_To_Temp_Doc,
 '           -                   Dx_Copy_From_Temp_Doc and Dx_Attach_Same_BANA_Template lost their
@@ -34,7 +71,8 @@ Attribute VB_Name = "LPandBrlMacros"
 '           -                   them still make one (Dx_Exercise_Levels_Hidden,
 '           -                   Sh_Copy_Ref_Pg_Tags_To_Temp_File and the braille export), which is
 '           -                   the case Sh_HandleDocumentNew's guard exists for.
-'           -                   Lp_Copy_To_Temp_Doc stays - six large print places still call it.
+'           -                   Lp_Copy_To_Temp_Doc stays - five large print places still call it
+'           -                   from 9/1/2026, six until then.
 '           - BRL - 8/31/2026 - Exercise Levels 1 & 2 no longer works on a scratch document the
 '           -                   transcriber can see. Jerry: "the screen goes blank while the
 '           -                   macro is working on the temp doc". Dx_Copy_To_Temp_Doc made it
@@ -1830,7 +1868,7 @@ Sub Sh_HandleDocumentNew()
     ' A MACRO is running, not a transcriber. The same test, for the same reason, as the one at
     ' the top of Sh_HandleDocumentActivated - see the long note there - but it was missing here,
     ' and Word raises NewDocument for EVERY Documents.Add, including the ones macros make.
-    ' Lp_Copy_To_Temp_Doc creates the scratch document from six places, and Dx_Copy_To_Temp_Doc
+    ' Lp_Copy_To_Temp_Doc creates the scratch document from five places, and Dx_Copy_To_Temp_Doc
     ' did the same until 8/31/2026 - between them, about 35 - so a book being cleaned up had
     ' Word reconfigured for an ORDINARY document half way
     ' through the job. Three costs, none of them visible: the Styles pane closed and the screen
@@ -1923,7 +1961,7 @@ Sub Sh_HandleDocumentActivated()
     If Documents.count = 0 Then Exit Sub
 
     ' A MACRO is running, not a transcriber. Word's own macros activate documents constantly -
-    ' every Lp_Copy_To_Temp_Doc creates a document and activates it, and it is called from six
+    ' every Lp_Copy_To_Temp_Doc creates a document and activates it, and it is called from five
     ' places (Dx_Copy_To_Temp_Doc did the same until 8/31/2026, and between them they were called
     ' from about 35). Reconfiguring Word in the middle of one would
     ' put back the ~74 Options and AutoCorrect writes that were taken OUT of fourteen dialogs on
@@ -10463,6 +10501,29 @@ Sub Lp_Convert_Auto_List_To_Text(Optional ByVal target As Range)
     ' target  the range to work on. Omit it and the selection is used, or the whole document when
     '         there is no selection.
     '
+    ' Version: 2.1  Date: 9/1/2026 - NOTHING here selects anything any more, and nothing reads
+    '                                ActiveDocument. Both were safe while a range handed to this
+    '                                sub was always in the document on the screen. From 9/1/2026
+    '                                it is not: Lp_Ex_Passes hands it the content of a scratch
+    '                                document created Visible:=False.
+    '
+    '                                rng.Select on a document with no window either raises or
+    '                                gives it one, and the macro it was selecting FOR -
+    '                                Lp_Toggle_Space_After_Current_Para - works entirely through
+    '                                ActiveDocument and Selection, so even on the kinder outcome
+    '                                it would have set SpaceAfter on the TRANSCRIBER'S OWN BOOK
+    '                                at wherever her cursor was sitting. The same work is done by
+    '                                Sh_Toggle_Space_After_Range below, on the range, with no
+    '                                selection involved.
+    '
+    '                                The Normal font name was read off ActiveDocument too, which
+    '                                during a hidden round trip is the book and not the document
+    '                                being worked on. Read off the range's own document now.
+    '
+    '                                And it takes the onOwn shape the other two range-aware
+    '                                helpers have: given a range it saves no cursor position, so
+    '                                an error partway cannot leave Sh_Pos_Depth stuck above zero
+    '                                and every later macro refusing to put the transcriber back.
     ' Version: 2.0  Date: 8/13/2026 - no temporary document; takes a range. See the note in the
     '                                braille copy - ConvertNumbersToText and every Find here were
     '                                whole-document, so the scratch document was the scope.
@@ -10484,16 +10545,21 @@ Sub Lp_Convert_Auto_List_To_Text(Optional ByVal target As Range)
     ' Version: 1.2  Date: 1/8/2016
     '
     Dim rng As Range
+    Dim doc As Document
     Dim NewCharacter As String
     Dim NormalFont As String
     Dim su_Prev As Boolean
+    Dim onOwn As Boolean
 
-    su_Prev = Application.ScreenUpdating
-    Application.ScreenUpdating = False
+    ' Given a range, work on that and touch nothing else - no screen freeze of its own, no saved
+    ' cursor position, no collapse at the end. Those belong to a macro the transcriber pressed a
+    ' button for; this is also one step inside a longer job.
+    onOwn = (target Is Nothing)
 
-    Sh_Save_User_Position
-
-    If target Is Nothing Then
+    If onOwn Then
+        su_Prev = Application.ScreenUpdating
+        Application.ScreenUpdating = False
+        Sh_Save_User_Position
         If Selection.Type = wdSelectionNormal Then
             Set rng = Selection.Range
         Else
@@ -10502,8 +10568,10 @@ Sub Lp_Convert_Auto_List_To_Text(Optional ByVal target As Range)
     Else
         Set rng = target
     End If
+
+    Set doc = rng.Document
     NewCharacter = ChrW(8226): ' a bullet
-    NormalFont = ActiveDocument.Styles(wdStyleNormal).Font.Name
+    NormalFont = doc.Styles(wdStyleNormal).Font.Name
 
     rng.ListFormat.ConvertNumbersToText  ' automatic numbers, bullets and multi-level lists
 
@@ -10541,11 +10609,12 @@ Sub Lp_Convert_Auto_List_To_Text(Optional ByVal target As Range)
     Sh_Marker_Tab_To_Space rng, "([0-9]{1,}^046)^009", NormalFont      ' 1.
 
     ' Close the space below the list items and bring them to the left margin.
-    ' Lp_Toggle_Space_After_Current_Para reads the selection, so the range is selected for it.
-    ' That costs nothing on screen - the flashing came from ACTIVATING another document, not
-    ' from moving the selection inside this one.
-    rng.Select
-    Application.Run MacroName:="Lp_Toggle_Space_After_Current_Para"
+    '
+    ' This used to be rng.Select followed by Lp_Toggle_Space_After_Current_Para, which reads the
+    ' selection. That was safe only while the range was in the document on the screen - see the
+    ' version note at the top of this sub for what it would have done to the transcriber's own
+    ' book once the range could be in a hidden one.
+    Sh_Toggle_Space_After_Range rng
     rng.Paragraphs.Outdent
     rng.Paragraphs.Outdent
     rng.Paragraphs.Outdent
@@ -10563,13 +10632,43 @@ Sub Lp_Convert_Auto_List_To_Text(Optional ByVal target As Range)
         .Execute Replace:=wdReplaceAll
     End With
 
-    Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    Sh_Return_User_To_Start_Position
-    Selection.Collapse Direction:=wdCollapseStart
-    Application.ScreenUpdating = su_Prev
-    Application.ScreenRefresh
+    If onOwn Then
+        Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
+        Sh_Return_User_To_Start_Position
+        Selection.Collapse Direction:=wdCollapseStart
+        Application.ScreenUpdating = su_Prev
+        Application.ScreenRefresh
+    End If
 
 End Sub  '**** end of Lp_Convert_Auto_List_To_Text Macro ***********
+
+' The space-after toggle, done on a RANGE instead of on the selection.
+'
+' Lp_Toggle_Space_After_Current_Para is the button version and stays exactly as it is: it reads
+' the selection, which is right for a transcriber pressing a button. This is the same three
+' decisions expressed against a range, so it can run inside a document that has no window.
+'
+' Faithful to the button version, including the part that reads oddly: the size comes from the
+' style of the paragraph the range ENDS in, and the toggle is a toggle - a range whose paragraphs
+' all have no space after gains some, rather than staying at none.
+'
+' The one deliberate difference is Single rather than Integer for the size. A style's own font
+' size is never mixed, so nothing can overflow, but a half-point size no longer rounds.
+'
+' Version: 1.0  Date: 9/1/2026
+Private Sub Sh_Toggle_Space_After_Range(ByVal rng As Range)
+    Dim doc As Document
+    Dim sizeWanted As Single
+
+    Set doc = rng.Document
+    sizeWanted = doc.Styles(doc.Paragraphs(doc.Range(0, rng.End).Paragraphs.count).Style).Font.Size
+
+    If rng.ParagraphFormat.SpaceAfter = 0 Then
+        rng.ParagraphFormat.SpaceAfter = sizeWanted
+    Else
+        rng.ParagraphFormat.SpaceAfter = 0
+    End If
+End Sub   '*** end of Sh_Toggle_Space_After_Range ***
 
 Sub Lp_About()
 '
@@ -11728,12 +11827,21 @@ Public Function Sh_Para_Fix_Range() As Range
     Set Sh_Para_Fix_Range = doc.Range(a, b)
 End Function
 
-Sub Lp_Fix_Para_Space_Errors()
+Sub Lp_Fix_Para_Space_Errors(Optional ByVal target As Range)
 '
 ' Lp_Fix_Para_Space_Errors Macro
 '
 ' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
+' Version: 2.1 Date: 9/1/2026 - takes an optional range, so it can be run as one step of a
+'                               longer job against a document that is never shown - which is
+'                               how the large-print exercise macro reaches it from 9/1/2026.
+'                               The same change Dx_Fix_Para_Space_Errors had on 8/31/2026.
+'
+'                               Given a range it also reads the "1 point" style off THAT
+'                               range's own document. ActiveDocument during a hidden round
+'                               trip is the transcriber's book, not the document being
+'                               worked on, so the guard was asking the wrong document.
 ' Version: 2.0 Date: 8/12/2026 - no temporary document; every pass is scoped to a range.
 '
 '                               NOT merged with the braille version: the two do different work.
@@ -11754,15 +11862,26 @@ Sub Lp_Fix_Para_Space_Errors()
 ' Version: 1.1 Date: 1/8/2019
 ' Version: 1.0 Date: 2/13/2015
 '
+    Dim doc As Document
     Dim rng As Range
     Dim su_Prev As Boolean
+    Dim onOwn As Boolean
 
-    su_Prev = Application.ScreenUpdating
-    Application.ScreenUpdating = False
+    ' Given a range, work on that and touch nothing else - no screen freeze of its own, no saved
+    ' cursor position, no collapse at the end. Those belong to a macro the transcriber pressed a
+    ' button for; this is also one step inside a longer job now.
+    onOwn = (target Is Nothing)
 
-    Sh_Save_User_Position
+    If onOwn Then
+        su_Prev = Application.ScreenUpdating
+        Application.ScreenUpdating = False
+        Sh_Save_User_Position
+        Set rng = Sh_Para_Fix_Range()
+    Else
+        Set rng = target
+    End If
 
-    Set rng = Sh_Para_Fix_Range()
+    Set doc = rng.Document
 
     ' rogue paragraph marks
     With rng.Find
@@ -11786,10 +11905,10 @@ Sub Lp_Fix_Para_Space_Errors()
     ' Protect the "1 point" style from the rest of the macros: every "1 point" paragraph is left
     ' holding a single non-breaking space and nothing else. Guarded - Styles(name) raises 5941
     ' when the document does not carry the style, and with no style there is nothing to protect.
-    If Sh_Style_Exists(ActiveDocument, "1 point") Then
+    If Sh_Style_Exists(doc, "1 point") Then
         With rng.Find
             .ClearFormatting
-            .Style = ActiveDocument.Styles("1 point")
+            .Style = doc.Styles("1 point")
             .Replacement.ClearFormatting
             .Text = "?{1,}^013"
             .Replacement.Text = "^s^013"
@@ -11843,11 +11962,13 @@ Sub Lp_Fix_Para_Space_Errors()
         .Execute Replace:=wdReplaceAll
     End With
 
-    Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    Sh_Return_User_To_Start_Position
-    Selection.Collapse Direction:=wdCollapseStart
-    Application.ScreenUpdating = su_Prev
-    Application.ScreenRefresh
+    If onOwn Then
+        Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
+        Sh_Return_User_To_Start_Position
+        Selection.Collapse Direction:=wdCollapseStart
+        Application.ScreenUpdating = su_Prev
+        Application.ScreenRefresh
+    End If
 
 End Sub '***** End of Lp_Fix_Para_Space_Errors ********
 
@@ -13368,6 +13489,13 @@ Sub Lp_Format_Exercise_Lv_1_and_Lv_2()
 '
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
+' Version: 2.1  Date: 9/1/2026 - no blank line above the first item any more (Jerry). The macro
+'                                adds two paragraph marks at the top for its own use and used to
+'                                take only one of them away again - see the end of Lp_Ex_Passes.
+' Version: 2.0  Date: 9/1/2026 - the scratch document is never shown. Every pass now works on a
+'                                RANGE, so the screen no longer blinks to a blank document and
+'                                back. What moved, and the three faults that went with the old
+'                                route, are written out above Lp_Exercise_Levels_Hidden below.
 ' Version: 1.7  Date: 8/23/2026 - the fill-in lines it builds are TAHOMA, like every other fill-in
 '                                 line (Jerry). It rebuilds any it finds, so without this it handed
 '                                 hand-typed ones back holey
@@ -13378,467 +13506,334 @@ Sub Lp_Format_Exercise_Lv_1_and_Lv_2()
 ' Version: 1.1  Date: 2/14/2017
 '
     Application.Run MacroName:="Lp_Is_Lp_Template_Attached"
-    
+
+    ' Exit Sub, not End. End resets every module-level variable in the project, which on this
+    ' path throws away the saved-settings values and Sh_Last_Activity along with them - and
+    ' there is nothing here to unwind, because nothing has been created yet.
     If Selection.Type <> wdSelectionNormal Then
-        MsgBox "Select the exercise list first!", , "VistaType LP (133)"
-        End
+        Sh_Say "Select the exercise list first.", "VistaType LP (133)"
+        Exit Sub
     End If
 
-    Sh_Save_User_Position   ' record the spot HERE, before Lp_Copy_To_Temp_Doc makes the temp file active
-
-    Dim su_Prev As Boolean
-    su_Prev = Application.ScreenUpdating
-    Application.ScreenUpdating = False ' Turn screen updating off
-    Application.Run MacroName:="Lp_Copy_To_Temp_Doc"
-    Application.ScreenUpdating = False ' Turn screen updating off
-    Application.Run MacroName:="Lp_Convert_Auto_List_To_Text"
-    Application.Run MacroName:="Lp_Fix_Para_Space_Errors"
-    Application.Run MacroName:="Sh_Remove_Multi_Spaces"
-    Application.ScreenUpdating = False ' Turn screen updating off
-    Selection.WholeStory
-    Selection.Style = ActiveDocument.Styles("Normal")
-    Selection.HomeKey Unit:=wdStory
-    Selection.TypeParagraph
-    
-    ' remove previous fill-ins
-    Selection.Find.ClearFormatting
-    Selection.Find.Font.Underline = wdUnderlineSingle
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "_{2,}"
-        .Replacement.Text = "_"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = True
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-
-   ' replace space before underscore with tab
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "^032_^032"
-        .Replacement.Text = "^032^t^032"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-
-    'replace two tabs with tab-comma-tab
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "^t{2,}"
-        .Replacement.Text = "^t^044^t"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = True
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Font.Underline = wdUnderlineNone
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "^095{2,}"
-        .Replacement.Text = "^t^044^t"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = True
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-
-    ' replace multiple underscores with single tab
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "^095{1,}"
-        .Replacement.Text = "^t"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = True
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-
-    ' replace space underscore followed with comma with tab
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "^032_^044"
-        .Replacement.Text = "^032^t^044"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-
-    ' replace underscore followed by a period with a tab
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "^032_^046"
-        .Replacement.Text = "^032^t^046"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-        
-   
-    '*****************************************************
-    ' remove mulitiple para marks
-    '*****************************************************
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-     With Selection.Find
-        .Text = "^013{2,}"
-        .Replacement.Text = "^p"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = True
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    '*****************************************************
-    ' double para marks
-    '*****************************************************
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-
-     With Selection.Find
-        .Text = "^013"
-        .Replacement.Text = "^p^p"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = True
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    ' **************************************************************
-    ' Set all para to List 2
-    ' **************************************************************
-    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
-    ' this pass can do nothing without it - no style means nothing is formatted with it.
-    If Sh_Style_Exists(ActiveDocument, "List 2") Then
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    Selection.Find.Replacement.Style = ActiveDocument.Styles("List 2")
-    With Selection.Find
-        .Text = "^013"
-        .Replacement.Text = ""
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = True
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    End If
-
-    ' **************************************************************
-    ' find para marks followed numbers followd by period and space
-    ' **************************************************************
-    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
-    ' this pass can do nothing without it - no style means nothing is formatted with it.
-    If Sh_Style_Exists(ActiveDocument, "List") Then
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    Selection.Find.Replacement.Style = ActiveDocument.Styles("List")
-     With Selection.Find
-        .Text = "^013([0-9]{1,}^046^032)"
-        .Replacement.Text = "^p\1"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = True
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    End If
-    
-    ' **************************************************************
-    ' find para marks followed numbers followed by a space only
-    ' **************************************************************
-    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
-    ' this pass can do nothing without it - no style means nothing is formatted with it.
-    If Sh_Style_Exists(ActiveDocument, "List") Then
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    Selection.Find.Replacement.Style = ActiveDocument.Styles("List")
-     With Selection.Find
-        .Text = "^013([0-9]{1,}^032)"
-        .Replacement.Text = "^p\1"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = True
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    End If
-
-    ' **************************************************************
-    ' find para marks followed numbers followed by period
-    ' **************************************************************
-    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
-    ' this pass can do nothing without it - no style means nothing is formatted with it.
-    If Sh_Style_Exists(ActiveDocument, "List") Then
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    Selection.Find.Replacement.Style = ActiveDocument.Styles("List")
-     With Selection.Find
-        .Text = "^013([0-9]{1,}^046)"
-        .Replacement.Text = "^p\1"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = True
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    End If
-
-    ' **************************************************************
-    ' find para marks followed numbers followed by period
-    ' **************************************************************
-    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
-    ' this pass can do nothing without it - no style means nothing is formatted with it.
-    If Sh_Style_Exists(ActiveDocument, "List") Then
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    Selection.Find.Replacement.Style = ActiveDocument.Styles("List")
-     With Selection.Find
-        .Text = "^013([0-9]{1,})"
-        .Replacement.Text = "^p\1"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = True
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    End If
-    
-    '*****************************************************
-    ' remove mulitiple para marks
-    '*****************************************************
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-     With Selection.Find
-        .Text = "^013{2,}"
-        .Replacement.Text = "^p"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = True
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    '*****************************************************
-    ' Convert Tabs to fill Ins
-    '*****************************************************
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    Selection.Find.Replacement.Font.Underline = wdUnderlineSingle
-    With Selection.Find
-        .Text = "^t"
-        .Replacement.Text = " ________ "
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = True
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    '*****************************************************
-    ' remove underlines from spaces
-    '*****************************************************
-    Selection.Find.ClearFormatting
-    Selection.Find.Font.Underline = wdUnderlineSingle
-    Selection.Find.Replacement.ClearFormatting
-    Selection.Find.Replacement.Font.Underline = wdUnderlineNone
-    With Selection.Find
-        .Text = "^032"
-        .Replacement.Text = ""
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = True
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-
-    '*****************************************************
-    ' and the fill-ins into Tahoma
-    '*****************************************************
-    ' Jerry, 8/23/2026. The same face every other fill-in line is in - see Lp_Fill_Face_To_Restore
-    ' for why Tahoma. It matters more here than anywhere: this macro COLLAPSES existing fill-in
-    ' lines to a single underscore near the top and rebuilds them from tabs down here, so without
-    ' this line, running Format Exercise over a passage containing hand-typed Tahoma fills would
-    ' quietly hand them back holey.
+    ' The selection has to end with a paragraph mark: a paragraph's formatting - here the List
+    ' style and its indentation - lives IN its mark, and the passes below work paragraph by
+    ' paragraph. Leave the last mark behind and the last item comes home unstyled.
     '
-    ' AFTER the pass above, not built into it. The tab becomes " ________ " with the underline on
-    ' the spaces as well, and that pass is what takes it off them; asking for Tahoma up there would
-    ' name the face on those two spaces too, and a space in the wrong face is a space of the wrong
-    ' width. Lp_Tahoma_The_Fill_Ins only touches an underscore that is underlined.
-    '
-    ' ActiveDocument is normally the scratch document these passes all run in, so this reaches
-    ' what the transcriber selected and nothing else in her book, and it travels home with the
-    ' paste-back. NORMALLY, not always: Lp_Copy_To_Temp_Doc gives up with a message and a plain
-    ' Exit Sub when LargePrintTemplate.dotx is not in this machine's Templates folder, and every
-    ' pass in this macro then runs on the book itself. That is pre-existing and already far worse
-    ' than one face - the passes above rewrite the whole book with wdFindContinue - but the claim
-    ' is stated accurately here rather than assumed.
-    '
-    ' The measured part: a RANGE find changes nothing about the selection. Checked on the build
-    ' box 8/23/2026 from an insertion point and from a WholeStory selection - Type, Start and End
-    ' all identical before and after. That matters because Lp_Fix_Para_Space_Errors and
-    ' Sh_Remove_Multi_Spaces, three lines further on, narrow themselves to the selection when
-    ' there is one.
-    Lp_Tahoma_The_Fill_Ins ActiveDocument
-
-    '*****************************************************
-    ' remove spaces before commas
-    '*****************************************************
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "^032{1,}^044"
-        .Replacement.Text = "^044"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = True
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = True
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    '*****************************************************
-    ' place para mark before each "List" Style
-    '*****************************************************
-    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
-    ' this pass can do nothing without it - no style means nothing is formatted with it.
-    If Sh_Style_Exists(ActiveDocument, "List") Then
-    Selection.Find.ClearFormatting
-    Selection.Find.Style = ActiveDocument.Styles("List")
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = ""
-        .Replacement.Text = "^013^&"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = True
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+    ' New here on 9/1/2026; the braille twin has asked since 8/31/2026. The old route could not
+    ' have asked this early - by the time it knew anything it had already put a scratch document
+    ' on the screen.
+    If Right$(Selection.Range.Text, 1) <> vbCr Then
+        Sh_Say "Select the exercise list including the paragraph mark at the end of the last " _
+             & "item." & vbCr & vbCr _
+             & "Turning paragraph marks on makes it easy to see where the list ends.", _
+               "VistaType LP (285)"
+        Exit Sub
     End If
 
-    Application.Run MacroName:="Lp_Fix_Para_Space_Errors"
-    Application.Run MacroName:="Sh_Remove_Multi_Spaces"
-    Application.Run MacroName:="Sh_Remove_Spaces_Before_Punctuation"
-
-    '*****************************************************
-    ' clean-up
-    '*****************************************************
-    Selection.HomeKey Unit:=wdStory
-    Selection.MoveDown Unit:=wdLine, count:=2, Extend:=wdExtend
-    If Sh_Style_Exists(ActiveDocument, "List") Then
-    Selection.Style = ActiveDocument.Styles("List")
-    End If
-    
-    Selection.HomeKey Unit:=wdStory
-    Selection.Delete Unit:=wdCharacter, count:=1
-    Selection.EndKey Unit:=wdStory
-    Selection.Delete Unit:=wdCharacter, count:=1
-    
-    Application.Run MacroName:="Lp_Copy_From_Temp_Doc"
-
-    Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    'ActiveDocument.UndoClear ' No undo
-    Application.ScreenUpdating = su_Prev ' Turn screen updating on
-
-    Sh_Return_User_To_Start_Position
+    Lp_Exercise_Levels_Hidden Selection.Range
 
 End Sub  '***** end of Lp_Format_Exercise_Lv_1_and_Lv_2 Macro *****
+
+' --- Exercise levels 1 and 2, in a scratch document that never appears -----------------------
+'
+' The same round trip this macro has always used - copy the list out, work on it, put it back -
+' and the same single undo, because the text goes home in ONE assignment. What is different is
+' that the scratch document is never shown.
+'
+' Lp_Copy_To_Temp_Doc creates the scratch document hidden and then deliberately gives it a
+' window, shows it, maximizes it and activates it. That is the blinking, and it is four
+' statements, not an accident: every pass below used to work through Selection, and Selection
+' only reaches the document that is active. The passes work on the scratch document's own
+' content instead, so nothing is shown, maximized or activated.
+'
+' Three faults went with the old route, and all three are gone with it:
+'
+'   * EVERY PASS RAN ON THE TRANSCRIBER'S BOOK when LargePrintTemplate.dotx was not in this
+'     machine's Templates folder. Lp_Copy_To_Temp_Doc looks that template up BY PATH, and on a
+'     miss it shows a message and does a plain Exit Sub - the caller is never told, so the
+'     twenty finds below ran on the book itself, every one of them with .Wrap = wdFindContinue,
+'     which means the whole book and not the selection. The scratch document is built from the
+'     SOURCE document's own attached template here, so there is no path to miss - and no route
+'     on which a pass touches anything but the scratch document.
+'   * THE WHOLE TABLE INSTEAD OF THE SELECTION. Lp_Copy_To_Temp_Doc widens a selection made
+'     inside a table to the entire table, but Lp_Copy_From_Temp_Doc pastes back over the
+'     SELECTION - so a few words picked out of a table came home as the whole table, reformatted
+'     over the top of them. What is selected is what travels now.
+'   * A GUESS AT WHICH DOCUMENT TO COME HOME TO. Lp_Copy_From_Temp_Doc found the transcriber's
+'     book by taking Documents(1), or Documents(2) when Documents(1) was the scratch one. With
+'     any third document open that is a guess. The range this is handed is the range the text
+'     goes back into.
+'
+' Version: 1.0  Date: 9/1/2026
+Public Sub Lp_Exercise_Levels_Hidden(ByVal src As Range)
+    Dim origDoc As Document
+    Dim tempDoc As Document
+    Dim tpl As String
+    Dim su_Prev As Boolean
+    Dim body As Range
+    Dim work As Range
+    Dim srcTrail As Long
+    ' errNum, not eNum: VBA identifiers are case-insensitive, so a variable called eNum IS the
+    ' reserved word Enum as far as the compiler is concerned, and the Dim will not compile.
+    Dim errNum As Long
+    Dim errText As String
+
+    If src Is Nothing Then Exit Sub
+    Set origDoc = src.Document
+    Set work = src
+
+    Sh_Save_User_Position
+
+    su_Prev = Application.ScreenUpdating
+    Application.ScreenUpdating = False
+
+    On Error Resume Next
+    tpl = origDoc.AttachedTemplate.FullName
+    On Error GoTo 0
+
+    ' How many paragraph marks the selection ends with. They travel WITH the text and have to
+    ' come back in the same number - a paragraph's formatting lives in its mark, and the passes
+    ' below collapse runs of marks, so the text can return ending with fewer than it left with.
+    ' Both halves of that cost a fault on 8/12/2026; the reasoning is written out in full above
+    ' Lp_Horz_To_Vert_Hidden.
+    Sh_Last_Activity = "Exercise levels: reading the selection"
+    srcTrail = Sh_Trailing_Para_Marks(src.Text)
+
+    On Error GoTo eom
+    Sh_Last_Activity = "Exercise levels: creating the scratch document"
+    If Len(tpl) > 0 Then
+        Set tempDoc = Documents.Add(Template:=tpl, Visible:=False)
+    Else
+        Set tempDoc = Documents.Add(Visible:=False)
+    End If
+
+    ' A document made from an older template comes back in that template's OWN compatibility
+    ' mode - measured on the build box 8/31/2026 on the braille side, where the BANA 2017
+    ' template is a .dot and the scratch document came out in Word 2003 mode against a book in
+    ' Word 2015 mode. Put back up to the book's own mode, trapped and never fatal.
+    On Error Resume Next
+    If tempDoc.CompatibilityMode < origDoc.CompatibilityMode Then tempDoc.Convert
+    On Error GoTo eom
+
+    ' NOTHING here shows, maximizes or activates the scratch document. That is the whole point.
+    Sh_Last_Activity = "Exercise levels: copying the list out"
+    tempDoc.Content.FormattedText = work.FormattedText
+
+    Sh_Last_Activity = "Exercise levels: formatting the list"
+    Lp_Ex_Passes tempDoc
+
+    Sh_Last_Activity = "Exercise levels: restoring the paragraph marks"
+    Sh_Set_Trailing_Para_Marks tempDoc, srcTrail
+
+    ' Home in one assignment, which Word records as a single undo step. The scratch document's
+    ' own final paragraph mark is never part of the text and is left behind.
+    Sh_Last_Activity = "Exercise levels: copying the list home"
+    Set body = tempDoc.Range(0, tempDoc.Content.End - 1)
+    work.FormattedText = body.FormattedText
+
+    tempDoc.Close SaveChanges:=wdDoNotSaveChanges
+    Set tempDoc = Nothing
+    Sh_Last_Activity = ""
+
+    Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
+    Application.ScreenUpdating = su_Prev
+    Sh_Return_User_To_Start_Position
+    Exit Sub
+
+eom:
+    ' Put the screen back and take the scratch document away BEFORE the error is reported, or
+    ' the transcriber is left looking at a frozen Word with a hidden document still open.
+    errNum = Err.Number
+    errText = Err.Description
+    On Error Resume Next
+    If Not tempDoc Is Nothing Then tempDoc.Close SaveChanges:=wdDoNotSaveChanges
+    Application.ScreenUpdating = su_Prev
+    Sh_Return_User_To_Start_Position
+    On Error GoTo 0
+    Sh_Report_Error "Lp_Format_Exercise_Lv_1_and_Lv_2", errNum, errText
+End Sub  '***** end of Lp_Exercise_Levels_Hidden *****
+
+' Every pass, in the order they have always run, against the scratch document's whole content.
+'
+' Version: 1.0  Date: 9/1/2026
+Private Sub Lp_Ex_Passes(ByVal doc As Document)
+    Dim guard As Long
+
+    Sh_Last_Activity = "Exercise levels: automatic numbering to text"
+    Lp_Convert_Auto_List_To_Text doc.Content
+    Sh_Last_Activity = "Exercise levels: paragraph and space errors"
+    Lp_Fix_Para_Space_Errors doc.Content
+    Sh_Last_Activity = "Exercise levels: removing multiple spaces"
+    Sh_Remove_Multi_Spaces doc.Content
+
+    Sh_Last_Activity = "Exercise levels: applying Normal"
+    doc.Content.Style = doc.Styles("Normal")
+
+    ' A paragraph mark at the very top, because every numbered-item find below looks for a
+    ' PARAGRAPH MARK followed by a number and the first item has nothing in front of it
+    ' otherwise. The old route typed it with Selection.TypeParagraph after a HomeKey. It is
+    ' taken off again at the bottom of this sub, where the old route deleted one character.
+    Sh_Last_Activity = "Exercise levels: adding the paragraph mark at the top"
+    doc.Range(0, 0).InsertBefore vbCr
+
+    Sh_Last_Activity = "Exercise levels: clearing a previous run"
+    ' collapse fill-in lines already in the text to a single underscore
+    Lp_Ex_Repl doc, "_{2,}", "_", True, True, "", "", wdUnderlineSingle
+    Lp_Ex_Repl doc, "^032_^032", "^032^t^032", False, False        ' space, underscore, space
+    Lp_Ex_Repl doc, "^t{2,}", "^t^044^t", True, False              ' two tabs to tab-comma-tab
+    Lp_Ex_Repl doc, "^095{2,}", "^t^044^t", True, True, "", "", wdUnderlineNone
+    Lp_Ex_Repl doc, "^095{1,}", "^t", True, False                  ' underscores to one tab
+    Lp_Ex_Repl doc, "^032_^044", "^032^t^044", False, False        ' underscore then comma
+    Lp_Ex_Repl doc, "^032_^046", "^032^t^046", False, False        ' underscore then period
+
+    Sh_Last_Activity = "Exercise levels: removing multiple paragraph marks"
+    Lp_Ex_Repl doc, "^013{2,}", "^p", True, True
+
+    ' Double them: an exercise list is set with a blank line between the items.
+    Lp_Ex_Repl doc, "^013", "^p^p", True, True
+
+    Sh_Last_Activity = "Exercise levels: marking the exercise levels"
+    ' every paragraph to List 2, then each numbered item back up to List
+    Lp_Ex_Repl doc, "^013", "", False, True, "", "List 2"
+    Lp_Ex_Repl doc, "^013([0-9]{1,}^046^032)", "^p\1", True, True, "", "List"
+    Lp_Ex_Repl doc, "^013([0-9]{1,}^032)", "^p\1", True, True, "", "List"
+    Lp_Ex_Repl doc, "^013([0-9]{1,}^046)", "^p\1", True, True, "", "List"
+    Lp_Ex_Repl doc, "^013([0-9]{1,})", "^p\1", True, True, "", "List"
+
+    Lp_Ex_Repl doc, "^013{2,}", "^p", True, True
+
+    Sh_Last_Activity = "Exercise levels: turning the tabs into fill-ins"
+    Lp_Ex_Repl doc, "^t", " ________ ", False, True, "", "", -1, wdUnderlineSingle
+    ' and take the underline back off the two spaces the line above put it on
+    Lp_Ex_Repl doc, "^032", "", False, True, "", "", wdUnderlineSingle, wdUnderlineNone
+
+    ' Jerry, 8/23/2026. The same face every other fill-in line is in - see Lp_Fill_Face_To_Restore
+    ' for why Tahoma. It matters more here than anywhere: this macro COLLAPSES existing fill-in
+    ' lines to a single underscore near the top and rebuilds them from tabs just above, so
+    ' without this line, running Format Exercise over a passage containing hand-typed Tahoma
+    ' fills would quietly hand them back holey.
+    '
+    ' AFTER the underline pass, not built into it. The tab becomes " ________ " with the
+    ' underline on the spaces as well, and that pass is what takes it off them; asking for Tahoma
+    ' up there would name the face on those two spaces too, and a space in the wrong face is a
+    ' space of the wrong width. Lp_Tahoma_The_Fill_Ins only touches an underscore that is
+    ' underlined.
+    '
+    ' It is handed the SCRATCH document now. It used to be handed ActiveDocument, which was the
+    ' scratch document only because the old route had activated it - and was the transcriber's
+    ' own book on the route where the template lookup failed. See the note above
+    ' Lp_Exercise_Levels_Hidden.
+    Sh_Last_Activity = "Exercise levels: putting the fill-ins into Tahoma"
+    Lp_Tahoma_The_Fill_Ins doc
+
+    Sh_Last_Activity = "Exercise levels: removing spaces before commas"
+    Lp_Ex_Repl doc, "^032{1,}^044", "^044", True, True
+
+    ' a paragraph mark in front of each numbered item, so every one has its blank line
+    Lp_Ex_Repl doc, "", "^013^&", False, True, "List"
+
+    Sh_Last_Activity = "Exercise levels: the last cleanup passes"
+    Lp_Fix_Para_Space_Errors doc.Content
+    Sh_Remove_Multi_Spaces doc.Content
+    Sh_Remove_Spaces_Before_Punctuation doc.Content
+
+    ' The old route finished by going to the top, selecting two DISPLAY LINES, styling them
+    ' "List" and then deleting one character. Both of those paragraphs are empty - the one this
+    ' sub added at the top, and the one the pass above put in front of the first numbered item -
+    ' so what it was really doing was giving the first item the same blank line in the same style
+    ' as every other item, then taking the spare mark away again.
+    '
+    ' Said in paragraphs rather than display lines, which is what they always were: an empty
+    ' paragraph is one display line only until something makes it otherwise.
+    ' EVERY empty paragraph at the top goes, not one of them. Jerry, 9/1/2026: "the format
+    ' exercise should not be adding a blank line above the first para in the selection."
+    '
+    ' There are two of them by the time the passes are finished, and NEITHER is the
+    ' transcriber's. One is the paragraph mark this sub adds at the top, because the
+    ' numbered-item finds all look for a paragraph mark FOLLOWED BY a number and the first item
+    ' has nothing in front of it otherwise. The other comes from the "paragraph mark before each
+    ' List style" pass: the items and the marks between them are one continuous run of List, so
+    ' that pass finds one run and inserts one mark, at the front.
+    '
+    ' The old route took away exactly one - go to the top, delete one character - and so handed
+    ' back a blank line above the first item. It also styled the first two DISPLAY LINES "List"
+    ' first; that existed to make the surviving blank match the item below it, and it goes with
+    ' the blank. The first item does not need it: passes 11 to 14 style each numbered item List
+    ' as they find it.
+    '
+    ' Counted, not just tested for: a Delete that is refused would otherwise spin here for ever,
+    ' and a Word that never comes back is worse than a spare paragraph.
+    Sh_Last_Activity = "Exercise levels: removing the paragraph marks at the top"
+    On Error Resume Next
+    Do While Left$(doc.Content.Text, 1) = vbCr And guard < 20
+        doc.Range(0, 1).Delete
+        guard = guard + 1
+    Loop
+    On Error GoTo 0
+
+    ' The old route also deleted one character at the very END here. Nothing does that now:
+    ' Sh_Set_Trailing_Para_Marks settles the count against what the selection actually left
+    ' with, which is the question that delete was a rough answer to.
+
+End Sub  '***** end of Lp_Ex_Passes *****
+
+' One find and replace over the scratch document's whole content.
+'
+' A style named here is applied, or searched for, only when the document carries it:
+' Styles(name) raises run-time error 5941 on a document that does not, and List and List 2 come
+' from LargePrintTemplate.dotx. That is the same guard the passes carried one at a time before.
+'
+' findUnderline and replUnderline are -1 when the pass does not care. wdUnderlineNone is 0 and
+' wdUnderlineSingle is 1, so -1 cannot be mistaken for either.
+'
+' NOT TRAPPED, and this is the one place it differs from Dx_Ex_Repl, which swallows. A pass that
+' failed silently here would hand the transcriber a half-formatted list - items styled, no
+' fill-in lines - with no dialog and nothing in the log. The error goes up to
+' Lp_Exercise_Levels_Hidden instead, which restores the screen, closes the scratch document and
+' reports dialog 240 carrying the Sh_Last_Activity line, so the log says WHICH pass. That is also
+' closer to what the old route did: it had no handler at all, so a failing pass reached the user
+' as Word's own run-time error dialog - louder still, and with a Debug button that opens this
+' source on her machine.
+'
+' Version: 1.1  Date: 9/1/2026 - a failed pass is reported, not swallowed
+' Version: 1.0  Date: 9/1/2026
+Private Sub Lp_Ex_Repl(ByVal doc As Document, ByVal findText As String, _
+                       ByVal replText As String, ByVal useWildcards As Boolean, _
+                       ByVal useFormat As Boolean, _
+                       Optional ByVal findStyle As String = "", _
+                       Optional ByVal replStyle As String = "", _
+                       Optional ByVal findUnderline As Long = -1, _
+                       Optional ByVal replUnderline As Long = -1)
+
+    If Len(findStyle) > 0 Then
+        If Not Sh_Style_Exists(doc, findStyle) Then Exit Sub
+    End If
+    If Len(replStyle) > 0 Then
+        If Not Sh_Style_Exists(doc, replStyle) Then Exit Sub
+    End If
+
+    With doc.Content.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
+        If Len(findStyle) > 0 Then .Style = doc.Styles(findStyle)
+        If Len(replStyle) > 0 Then .Replacement.Style = doc.Styles(replStyle)
+        If findUnderline >= 0 Then .Font.Underline = findUnderline
+        If replUnderline >= 0 Then .Replacement.Font.Underline = replUnderline
+        .Text = findText
+        .Replacement.Text = replText
+        .Forward = True
+        ' wdFindStop, not wdFindContinue: continue would run past the end of the range and
+        ' quietly turn "this document" into "wherever it reached".
+        .Wrap = wdFindStop
+        .Format = useFormat
+        .MatchCase = False
+        .MatchWholeWord = False
+        .MatchAllWordForms = False
+        .MatchSoundsLike = False
+        .MatchWildcards = useWildcards
+        .Execute Replace:=wdReplaceAll
+    End With
+End Sub  '***** end of Lp_Ex_Repl *****
 Sub Lp_Remove_Tabs_Before_and_After_Para_Marks()
 '
 ' Author: Jerry Whittaker -  jerry@vistatypelp.org
@@ -14477,9 +14472,10 @@ End Sub
 ' temporary one. Nothing called them after the horizontal-list merge moved to the hidden route
 ' the next day, and the braille route they chose between went at 3.0.309.
 '
-' Lp_Copy_To_Temp_Doc stays, and still puts its document on the screen. Six places call it:
-' Lp_Format_Exercise_Lv_1_and_Lv_2, Lp_Resize_Images, Lp_TOC_CleanAndFormat_TOC and the
-' Lp_Table_Convert_Options_Form, Lp_Change_Image_Color_Form and Lp_Section_Brk_Caution forms.
+' Lp_Copy_To_Temp_Doc stays, and still puts its document on the screen. FIVE places call it
+' from 9/1/2026, when Lp_Format_Exercise_Lv_1_and_Lv_2 moved onto Lp_Exercise_Levels_Hidden:
+' Lp_Resize_Images, Lp_TOC_CleanAndFormat_TOC and the Lp_Table_Convert_Options_Form,
+' Lp_Change_Image_Color_Form and Lp_Section_Brk_Caution forms.
 ' See docs/Temp-Doc-Conversion-Checklist.md.
 
 Sub Lp_Horz_List_To_Vertical()
@@ -23215,10 +23211,32 @@ Sub Sh_Text_Frame_Warning_To_Red(Optional ByVal target As Range)
 
 End Sub   '*** end of Sh_Text_Frame_Warning_To_Red ***
 
-Sub Sh_Remove_Spaces_Before_Punctuation()
+Sub Sh_Remove_Spaces_Before_Punctuation(Optional ByVal target As Range)
 '
 ' Sh_Remove_Spaces_Before_Punctuation Macro
 '
+' Version 1.2 Date: 9/1/2026 - takes an optional range, so it can be run as one step of a longer
+'                              job against a document that is never shown - which is how the
+'                              large-print exercise macro reaches it from 9/1/2026. Without a
+'                              range it works exactly as it always has, through Selection.
+'
+'                              The eighteen find-and-replace blocks became one helper called
+'                              fifteen times. Three of the eighteen were exact repeats of an
+'                              earlier block - the space-before-a-closing-single-quote pass ran
+'                              three times and the space-after-an-opening-single-quote pass
+'                              twice. A replace-all leaves nothing for a second identical pass
+'                              to find, so they did nothing.
+'
+'                              A FOURTH BLOCK HAD NEVER RUN AT ALL, AND NOW DOES. Spaces after
+'                              an opening brace - "{ x" to "{x" - set every parameter and then
+'                              had no .Execute line after its End With, so the next block simply
+'                              cleared them again. Dead since 9/21/2019, the day it was written.
+'                              Going through the helper gives it the Execute the other fourteen
+'                              had, so this macro now closes up that space everywhere it runs:
+'                              Selection Cleanup, Lp_File_Fix_Sequence, and the exercise passes.
+'                              That is plainly what the block was written to do, but it IS new
+'                              behavior in buttons that are not otherwise changing, so it is
+'                              Jerry's to keep or drop - dropping it means deleting one line.
 ' Version 1.1 Date: 9/21/2019  added additional punctuation
 ' Version 1.0
 '
@@ -23226,295 +23244,71 @@ Sub Sh_Remove_Spaces_Before_Punctuation()
 '
 ' Date 11/2/16
 '
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "^032{1,}\?"
-        .Replacement.Text = "?"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+    Dim rng As Range
 
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "^032{1,}^046"
-        .Replacement.Text = "^046"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+    ' Nothing given: the old route, Selection.Find with .Wrap = wdFindContinue, which is what
+    ' the three callers that press a button for this have always had. rng stays Nothing and the
+    ' helper below takes that as its signal.
+    Set rng = target
 
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "^032{1,}\!"
-        .Replacement.Text = "!"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "^032{1,};"
-        .Replacement.Text = ";"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+    Sh_Punct_Repl rng, "^032{1,}\?", "?"
+    Sh_Punct_Repl rng, "^032{1,}^046", "^046"
+    Sh_Punct_Repl rng, "^032{1,}\!", "!"
+    Sh_Punct_Repl rng, "^032{1,};", ";"
+    Sh_Punct_Repl rng, "^032{1,}:", ":"
+    Sh_Punct_Repl rng, ChrW(8220) & "^032{1,}", ChrW(8220)
+    Sh_Punct_Repl rng, "^032{1,}" & ChrW(8221), ChrW(8221)
+    Sh_Punct_Repl rng, "^032{1,}`", "`"
+    Sh_Punct_Repl rng, "`^032{1,}", "`"
+    Sh_Punct_Repl rng, "^032{1,}’", "’"
+    Sh_Punct_Repl rng, "‘^032{1,}", "‘"
+    Sh_Punct_Repl rng, "\[^032{1,}", "["
+    Sh_Punct_Repl rng, "^032{1,}\]", "]"
+    Sh_Punct_Repl rng, "^032{1,}\}", "}"
+    Sh_Punct_Repl rng, "\{^032{1,}", "{"
 
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "^032{1,}:"
-        .Replacement.Text = ":"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = ChrW(8220) & "^032{1,}"
-        .Replacement.Text = ChrW(8220)
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "^032{1,}" & ChrW(8221)
-        .Replacement.Text = ChrW(8221)
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "^032{1,}`"
-        .Replacement.Text = "`"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "`^032{1,}"
-        .Replacement.Text = "`"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "^032{1,}’"
-        .Replacement.Text = "’"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "‘^032{1,}"
-        .Replacement.Text = "‘"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "^032{1,}’"
-        .Replacement.Text = "’"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "\[^032{1,}"
-        .Replacement.Text = "["
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    Selection.Find.Execute Replace:=wdReplaceAll
-
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "^032{1,}\]"
-        .Replacement.Text = "]"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "^032{1,}\}"
-        .Replacement.Text = "}"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "\{^032{1,}"
-        .Replacement.Text = "{"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "‘^032{1,}"
-        .Replacement.Text = "‘"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "^032{1,}’"
-        .Replacement.Text = "’"
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
- 
 End Sub  '*** end of Sh_Remove_Spaces_Before_Punctuation macro ***
+
+' One space-before-punctuation replace-all. rng Nothing means the whole document reached the way
+' this macro always reached it, through Selection with wdFindContinue; a range means that range
+' and nothing outside it.
+'
+' rng.Duplicate, not rng: a Find belongs to the range it is asked for, and each pass here gets a
+' fresh copy so an earlier replacement cannot have left this one pointing somewhere unexpected.
+' The caller's own range tracks the edits by itself, the way every Word range does.
+'
+' Version: 1.0  Date: 9/1/2026
+Private Sub Sh_Punct_Repl(ByVal rng As Range, ByVal findText As String, ByVal replText As String)
+    Dim f As Find
+
+    If rng Is Nothing Then
+        Set f = Selection.Find
+    Else
+        Set f = rng.Duplicate.Find
+    End If
+
+    With f
+        .ClearFormatting
+        .Replacement.ClearFormatting
+        .Text = findText
+        .Replacement.Text = replText
+        .Forward = True
+        ' wdFindStop on a range: continue would run past the end of it and quietly turn "this
+        ' selection" into "wherever it reached".
+        If rng Is Nothing Then
+            .Wrap = wdFindContinue
+        Else
+            .Wrap = wdFindStop
+        End If
+        .Format = False
+        .MatchCase = False
+        .MatchWholeWord = False
+        .MatchAllWordForms = False
+        .MatchSoundsLike = False
+        .MatchWildcards = True
+        .Execute Replace:=wdReplaceAll
+    End With
+End Sub  '*** end of Sh_Punct_Repl ***
 
 Sub Sh_Save_User_Position()
 '
