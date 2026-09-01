@@ -23234,9 +23234,9 @@ Sub Sh_Remove_Spaces_Before_Punctuation(Optional ByVal target As Range)
 '                              Going through the helper gives it the Execute the other fourteen
 '                              had, so this macro now closes up that space everywhere it runs:
 '                              Selection Cleanup, Lp_File_Fix_Sequence, and the exercise passes.
-'                              That is plainly what the block was written to do, but it IS new
-'                              behavior in buttons that are not otherwise changing, so it is
-'                              Jerry's to keep or drop - dropping it means deleting one line.
+'                              That is new behavior in buttons that are not otherwise changing,
+'                              so it was put to Jerry rather than slipped in. KEPT - his answer,
+'                              9/1/2026: "the brace fix is fine." Do not take it out again.
 ' Version 1.1 Date: 9/21/2019  added additional punctuation
 ' Version 1.0
 '
