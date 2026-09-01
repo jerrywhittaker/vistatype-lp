@@ -73,9 +73,16 @@ round trip itself stays: it is what gives the single undo and the private worksp
 1 & 2 — their last caller — moved onto `Dx_Exercise_Levels_Hidden` at 3.0.309, and the
 `Sh_Copy_To_Temp_Doc` / `Sh_Copy_From_Temp_Doc` route pickers went with them. No braille macro
 shows a scratch document any more; three still make one, hidden. **`Lp_Copy_To_Temp_Doc` is the
-only one left that puts a document on the screen**, and **five** large-print places still call
-it from 9/1/2026: `Lp_Resize_Images`, `Lp_TOC_CleanAndFormat_TOC`, and the
-`Lp_Table_Convert_Options_Form`, `Lp_Change_Image_Color_Form` and `Lp_Section_Brk_Caution` forms.
+only one left that puts a document on the screen**, and **four** large-print places still call
+it from 9/1/2026: `Lp_TOC_CleanAndFormat_TOC`, and the `Lp_Table_Convert_Options_Form`,
+`Lp_Change_Image_Color_Form` and `Lp_Section_Brk_Caution` forms.
+
+**Not every one of these is a conversion — check first whether the round trip is needed at all.**
+`Lp_Resize_Images` (3.0.321, 9/1/2026) turned out not to need one: all it does is walk images and
+set their scale, and an `InlineShapes` collection comes off a `Range` as readily as off a
+document. Two of its four branches asked `ActiveDocument` for its images instead of asking the
+selection for its own, which is the only reason the selection had to *be* a document. Deleting
+the round trip took five faults with it — see the note above the macro.
 
 `Lp_Format_Exercise_Lv_1_and_Lv_2` was the sixth and was converted at 3.0.319 (9/1/2026), onto
 `Lp_Exercise_Levels_Hidden` / `Lp_Ex_Passes` / `Lp_Ex_Repl`. **It was NOT merged with the braille

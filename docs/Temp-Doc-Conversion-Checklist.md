@@ -122,12 +122,18 @@ Derived by following the call graph from each ribbon button, so it may over-repo
 these reach it only through a shared cleanup helper. Confirm per button as you go.
 
 **It DID over-report, and by a lot — traced 8/31/2026.** Following every macro each button can
-reach, dialogs included, only **seven places** in the whole project still call a scratch-document
-routine: `Dx_Format_Exercise_Lv_1_and_Lv_2` (converted at 3.0.309),
-`Lp_Format_Exercise_Lv_1_and_Lv_2` (converted at 3.0.319),
-`Lp_Table_Convert_Options_Form` (five calls),
-`Lp_TOC_CleanAndFormat_TOC`, `Lp_Resize_Images` (two), `Lp_Change_Image_Color_Form` and
+reach, dialogs included, only **seven places** in the whole project still called a
+scratch-document routine that morning: `Dx_Format_Exercise_Lv_1_and_Lv_2`,
+`Lp_Format_Exercise_Lv_1_and_Lv_2`, `Lp_Table_Convert_Options_Form` (five calls),
+`Lp_TOC_CleanAndFormat_TOC`, `Lp_Resize_Images` (two calls), `Lp_Change_Image_Color_Form` and
 `Lp_Section_Brk_Caution`.
+
+**Three of those seven are done, and FOUR are left.** Settled at 3.0.309
+(`Dx_Format_Exercise_Lv_1_and_Lv_2`, converted), 3.0.319
+(`Lp_Format_Exercise_Lv_1_and_Lv_2`, converted) and 3.0.321 (`Lp_Resize_Images`, round trip
+**deleted** — it never needed one). Still calling `Lp_Copy_To_Temp_Doc`:
+`Lp_Table_Convert_Options_Form` (five calls), `Lp_TOC_CleanAndFormat_TOC`,
+`Lp_Change_Image_Color_Form` and `Lp_Section_Brk_Caution`.
 
 **None of the six braille $pg buttons is among them** — AutoTag Ref Pages, Validate $pg Tags,
 Manual Tag Ref Page, Format $pg Tags, Embed and UnEmbed reach no scratch document at all. The
@@ -157,9 +163,15 @@ Two more findings from the same trace, both worth acting on separately. **Both w
   one was.
 
 **`Lp_Copy_To_Temp_Doc` and `Lp_Copy_From_Temp_Doc` stay, and still show their document.**
-**Five** places call them from 9/1/2026: `Lp_Resize_Images`, `Lp_TOC_CleanAndFormat_TOC`, and the
+**Four** places call them from 9/1/2026: `Lp_TOC_CleanAndFormat_TOC`, and the
 `Lp_Table_Convert_Options_Form`, `Lp_Change_Image_Color_Form` and `Lp_Section_Brk_Caution`
 forms — what is left of the large-print half of this list.
+
+**Ask first whether the round trip is needed at all.** `Lp_Resize_Images` was on this list as a
+conversion and turned out to be a deletion: nothing it does needs a document of its own. Two
+tickets off this list so far have been of that kind. Read what the macro actually does to the
+scratch document before planning how to move it onto a range — if every pass is something a
+`Range` can be asked for directly, the answer is to delete the round trip, not to rebuild it.
 
 ### Braille Macros tab
 
@@ -228,7 +240,32 @@ forms — what is left of the large-print half of this list.
       ends, and a script that walked back to the nearest preceding Sub landed on the wrong one.
       Fill-In Line reaches nothing on this list.)
 - [ ] Table and TOC Tools — `Lp_Table_Tools`
-- [ ] Bkgrnd & Picture Tools — `Lp_Picture_Tools_Menu_Starter`
+- [ ] Bkgrnd & Picture Tools — `Lp_Picture_Tools_Menu_Starter`. **Resize Images, one of the
+      things under it, is done** (3.0.321, 9/1/2026) — and it was a DELETION, not a conversion.
+      All the macro does is walk images and set their scale, and an `InlineShapes` collection
+      comes off a `Range` as readily as off a document; two of its four branches asked
+      `ActiveDocument` for its images instead of asking the selection for its own, which is the
+      only reason the selection had to *be* a document.
+
+      Five faults went with the round trip, none of them ever reported:
+
+      - **The clipboard, twice.** The table branch carried the table home through
+        `Selection.Copy` / `Selection.Paste`, and `MS_Clear_F_and_R_Params_and_Clipboard` then
+        emptied the clipboard on *every* route out, including the three that never used it.
+      - **The table, deleted and pasted back.** `Selection.rows.Delete`, a `TypeBackspace` and a
+        delete-one-character removed the transcriber's own table so the scratch document's copy
+        could be pasted in its place.
+      - **Cells she had not selected.** `Lp_Copy_To_Temp_Doc` widens a selection made inside a
+        table to the entire table, so images in other cells were resized too.
+      - **The whole undo history**, thrown away by `ActiveDocument.UndoClear` — so a resize could
+        not be taken back, and neither could anything done before it. It is one custom undo
+        record now, `"Resize Images"`, the same idiom as Reflow Table and the two exports.
+      - **The book**, on a machine without `LargePrintTemplate.dotx`. `Lp_Copy_To_Temp_Doc` looks
+        it up by path and quietly gives up on a miss; on the table branch that meant deleting her
+        table and pasting whatever was on the clipboard.
+
+      The other buttons under this menu are still to do — `Lp_Change_Image_Color_Form` still
+      round-trips.
 - [ ] DAISY or NIMAS to Word — `DN_Menu_Starter`
 
 ### Already done

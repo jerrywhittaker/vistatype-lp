@@ -18,6 +18,28 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - LP  - 9/1/2026 - RESIZE IMAGES NO LONGER BLANKS THE SCREEN EITHER, and it never
+'           -                   needed a scratch document: the work is "walk some images and set
+'           -                   their scale", and an InlineShapes collection comes off a RANGE as
+'           -                   readily as off a document. Two of the four branches asked
+'           -                   ActiveDocument for its images instead of the selection for its
+'           -                   own, so the selection had to BE a document. Now Lp_Resize_Images
+'           -                   picks a collection per branch and Lp_Scale_Inline_Shapes walks it.
+'           -                   Five things went with the round trip, none ever reported: the
+'           -                   CLIPBOARD (the table branch copied through it, and
+'           -                   MS_Clear_F_and_R_Params_and_Clipboard then emptied it on every
+'           -                   route out, including three that never used it); the TABLE, which
+'           -                   was deleted with rows.Delete plus a TypeBackspace plus a
+'           -                   delete-one-character and pasted back from the scratch document;
+'           -                   CELLS THE TRANSCRIBER HAD NOT SELECTED, because
+'           -                   Lp_Copy_To_Temp_Doc widens a selection inside a table to the whole
+'           -                   table; the WHOLE UNDO HISTORY, thrown away by
+'           -                   ActiveDocument.UndoClear, so a resize could not be taken back and
+'           -                   neither could anything before it; and, on a machine without
+'           -                   LargePrintTemplate.dotx, the BOOK - the table branch would delete
+'           -                   her table and paste whatever was on the clipboard. The scaling is
+'           -                   one custom undo record, "Resize Images", so Ctrl+Z takes it back
+'           -                   in one press. Dialog 142 goes through Sh_Say.
 ' Notes:    - LP  - 9/1/2026 - FORMAT EXERCISE LEVELS 1 AND 2 NO LONGER BLANKS THE SCREEN. The
 '           -                   twin of the braille one converted the day before. Lp_Copy_To_Temp_Doc
 '           -                   creates its scratch document hidden and then shows, maximizes and
@@ -71,8 +93,8 @@ Attribute VB_Name = "LPandBrlMacros"
 '           -                   them still make one (Dx_Exercise_Levels_Hidden,
 '           -                   Sh_Copy_Ref_Pg_Tags_To_Temp_File and the braille export), which is
 '           -                   the case Sh_HandleDocumentNew's guard exists for.
-'           -                   Lp_Copy_To_Temp_Doc stays - five large print places still call it
-'           -                   from 9/1/2026, six until then.
+'           -                   Lp_Copy_To_Temp_Doc stays - FOUR large print places still call
+'           -                   it from 9/1/2026, six that morning.
 '           - BRL - 8/31/2026 - Exercise Levels 1 & 2 no longer works on a scratch document the
 '           -                   transcriber can see. Jerry: "the screen goes blank while the
 '           -                   macro is working on the temp doc". Dx_Copy_To_Temp_Doc made it
@@ -1868,7 +1890,7 @@ Sub Sh_HandleDocumentNew()
     ' A MACRO is running, not a transcriber. The same test, for the same reason, as the one at
     ' the top of Sh_HandleDocumentActivated - see the long note there - but it was missing here,
     ' and Word raises NewDocument for EVERY Documents.Add, including the ones macros make.
-    ' Lp_Copy_To_Temp_Doc creates the scratch document from five places, and Dx_Copy_To_Temp_Doc
+    ' Lp_Copy_To_Temp_Doc creates the scratch document from four places, and Dx_Copy_To_Temp_Doc
     ' did the same until 8/31/2026 - between them, about 35 - so a book being cleaned up had
     ' Word reconfigured for an ORDINARY document half way
     ' through the job. Three costs, none of them visible: the Styles pane closed and the screen
@@ -1961,7 +1983,7 @@ Sub Sh_HandleDocumentActivated()
     If Documents.count = 0 Then Exit Sub
 
     ' A MACRO is running, not a transcriber. Word's own macros activate documents constantly -
-    ' every Lp_Copy_To_Temp_Doc creates a document and activates it, and it is called from five
+    ' every Lp_Copy_To_Temp_Doc creates a document and activates it, and it is called from four
     ' places (Dx_Copy_To_Temp_Doc did the same until 8/31/2026, and between them they were called
     ' from about 35). Reconfiguring Word in the middle of one would
     ' put back the ~74 Options and AutoCorrect writes that were taken OUT of fourteen dialogs on
@@ -14472,10 +14494,13 @@ End Sub
 ' temporary one. Nothing called them after the horizontal-list merge moved to the hidden route
 ' the next day, and the braille route they chose between went at 3.0.309.
 '
-' Lp_Copy_To_Temp_Doc stays, and still puts its document on the screen. FIVE places call it
-' from 9/1/2026, when Lp_Format_Exercise_Lv_1_and_Lv_2 moved onto Lp_Exercise_Levels_Hidden:
-' Lp_Resize_Images, Lp_TOC_CleanAndFormat_TOC and the Lp_Table_Convert_Options_Form,
+' Lp_Copy_To_Temp_Doc stays, and still puts its document on the screen. FOUR places call it
+' from 9/1/2026: Lp_TOC_CleanAndFormat_TOC and the Lp_Table_Convert_Options_Form,
 ' Lp_Change_Image_Color_Form and Lp_Section_Brk_Caution forms.
+'
+' Two left that morning: Lp_Format_Exercise_Lv_1_and_Lv_2 moved onto
+' Lp_Exercise_Levels_Hidden, and Lp_Resize_Images turned out never to have needed a scratch
+' document at all - see the note on it for the five things that went with its round trip.
 ' See docs/Temp-Doc-Conversion-Checklist.md.
 
 Sub Lp_Horz_List_To_Vertical()
@@ -17891,86 +17916,202 @@ Sub Lp_Resize_Images()
     '
     ' Author: Jerry Whittaker - jerry@vistatypelp.org
     '
+    ' Version: 2.0  Date: 9/1/2026 - no scratch document on any route, and none was ever needed.
+    '                               The whole of the work is "walk some images and set their
+    '                               scale", and an InlineShapes collection can be had from a
+    '                               RANGE just as well as from a document. The round trip existed
+    '                               only because two of the four branches asked ActiveDocument
+    '                               for its images instead of asking the selection for its own -
+    '                               so the selection had to BE a document. What went with it is
+    '                               written out below.
+    '                               TESTED: the single-image, text-range and whole-document
+    '                               branches were run on the build box, along with the one-press
+    '                               undo. The TABLE branch was tested by Jerry in real Word on
+    '                               9/1/2026 and cannot be tested any other way - Tables.Add hangs
+    '                               an invisible Word, so a table cannot be built headlessly at
+    '                               all. Anyone changing that branch has to do the same.
     ' Version: 1.5  Date: 11/18/2020 - added unload of Lp_Resize_Images_Form
     ' Version: 1.3  Date: 2/11/2019 - complete rewirte - deletion of images from tables corrected
     ' Version: 1.2  Date: 1/10/2019
     ' Version: 1.1  Date: 12/9/2018
     ' Version: 1.0  Date: 1/22/2016
-
+    '
+    ' Five things went with the old route. None of them was ever reported, and all five cost the
+    ' transcriber something every time she resized an image:
+    '
+    '   * THE CLIPBOARD, twice over. The table branch used Selection.Copy to carry the table
+    '     home, so resizing an image threw away whatever she had copied. Then
+    '     MS_Clear_F_and_R_Params_and_Clipboard emptied the clipboard deliberately on EVERY route
+    '     out, including the three that never touched it. Nothing here copies anything now, and
+    '     nothing here does a find and replace either, so that call has gone with the rest.
+    '   * THE TABLE, deleted and pasted back. Selection.rows.Delete, a TypeBackspace and a
+    '     delete-one-character took the transcriber's table out of her book, and a Paste put the
+    '     scratch document's copy in its place - three destructive statements and a paste to
+    '     change a number on an image that never needed to leave the page. The images scale where
+    '     they stand now.
+    '   * CELLS SHE HAD NOT SELECTED - on the text branch, and be exact about this.
+    '     Lp_Copy_To_Temp_Doc widens ANY selection made inside a table to the ENTIRE table, so
+    '     dragging across two pictures in a table and asking for 50% resized every picture in it.
+    '     The text branch below asks the SELECTION for its own images now, so it does what she
+    '     asked. The branch below THAT still means the whole table, deliberately: picking rows or
+    '     cells off the selection bar is how a transcriber says "this table".
+    '
+    '     So the two now differ, where the old code made them agree by over-reaching - drag
+    '     across the text and she gets what she highlighted, pick the rows and she gets the
+    '     table. That is the right answer to each gesture, but it IS a difference, and making
+    '     both mean the selection is Jerry's call if he would rather.
+    '   * THE WHOLE UNDO HISTORY. ActiveDocument.UndoClear threw away everything the transcriber
+    '     could have undone, not this macro's part of it - so a resize could not be taken back,
+    '     and neither could anything she had done before it. The scaling sits in one custom undo
+    '     record now, the same way Reflow Table and the two exports do it, so Ctrl+Z takes the
+    '     whole resize back in one press and leaves the rest of her history alone.
+    '   * THE BOOK ITSELF, on a machine missing LargePrintTemplate.dotx. Lp_Copy_To_Temp_Doc
+    '     looks that template up by path and, on a miss, shows a message and does a plain
+    '     Exit Sub the caller never sees. On the table branch that meant deleting her table and
+    '     pasting whatever happened to be on the clipboard in its place.
+    '
     Application.Run MacroName:="Sh_Is_Doc_Open"
-    
-    Dim i As Long
-        
+
+    Dim pics As InlineShapes
+    Dim pct As Single
     Dim su_Prev As Boolean
-    su_Prev = Application.ScreenUpdating
-    Application.ScreenUpdating = False ' Turn screen updating of
-     
-    ' A single image is selected - selection can be within text or in a table
+    Dim objUndo As UndoRecord
+    Dim recording As Boolean
+    Dim wholeDoc As Boolean
+    Dim saved As Boolean
+    ' errNum, not eNum: VBA identifiers are case-insensitive, so a variable called eNum IS the
+    ' reserved word Enum as far as the compiler is concerned, and the Dim will not compile.
+    Dim errNum As Long
+    Dim errText As String
+
+    pct = Val(Lp_Pic_Percent)
+
+    ' WHICH images, asked in the order these branches have always been asked. A selected image
+    ' still wins over the "all images in the document" choice, exactly as before.
+    Sh_Last_Activity = "Resize images: deciding which images"
     If Selection.Type = wdSelectionInlineShape Then
-        With Selection
-            For i = 1 To .InlineShapes.count
-            With .InlineShapes(i)
-                .ScaleHeight = Val(Lp_Pic_Percent)
-                .ScaleWidth = Val(Lp_Pic_Percent)
-            End With
-            Next i
-        End With
-        Selection.Collapse 'clear selection
-    ElseIf Lp_Pic_All_Selectd = "S" And Selection.Type = wdSelectionNormal Then  ' either a selected image or range (range may include a table)
-            Application.Run MacroName:="Lp_Copy_To_Temp_Doc"
-            With ActiveDocument
-                For i = 1 To .InlineShapes.count
-                With .InlineShapes(i)
-                    .ScaleHeight = Val(Lp_Pic_Percent)
-                    .ScaleWidth = Val(Lp_Pic_Percent)
-                End With
-                    Next i
-            End With
-            Selection.EndKey Unit:=wdStory  ' move to the bottom of the document
-            Selection.Delete Unit:=wdCharacter, count:=1  ' delete ending para mark
-            Application.Run MacroName:="Lp_Copy_From_Temp_Doc"
-    ElseIf Selection.Information(wdWithInTable) Then   ' Table is selected
-        Selection.Tables(1).Select 'Select the whole table
-        Application.Run MacroName:="Lp_Copy_To_Temp_Doc"
-            With ActiveDocument
-                For i = 1 To .InlineShapes.count
-                With .InlineShapes(i)
-                    .ScaleHeight = Val(Lp_Pic_Percent)
-                    .ScaleWidth = Val(Lp_Pic_Percent)
-                End With
-                    Next i
-            End With
-        Selection.WholeStory
-        Selection.Copy 'copy the selected text to the clipboard
-        ActiveDocument.Close SaveChanges:=False 'close the temp doc without saving
-        Selection.rows.Delete
-        Selection.TypeBackspace ' delete the table in the original document
-        Selection.Delete Unit:=wdCharacter, count:=1
-        Selection.Paste 'paste the clipboard back into the original document
-    ElseIf Lp_Pic_All_Selectd = "A" Then  ' all images in the document
-        Sh_Save_User_Position
-        With ActiveDocument
-            For i = 1 To .InlineShapes.count
-            With .InlineShapes(i)
-                .ScaleHeight = Val(Lp_Pic_Percent)
-                .ScaleWidth = Val(Lp_Pic_Percent)
-            End With
-            Next i
-        End With
-        Sh_Return_User_To_Start_Position
+        ' one image, in text or in a table
+        Set pics = Selection.InlineShapes
+
+    ElseIf Lp_Pic_All_Selectd = "S" And Selection.Type = wdSelectionNormal Then
+        ' a range of text, which may take a table in with it - Range.InlineShapes reaches the
+        ' images inside one, which is the whole reason the scratch document can go
+        Set pics = Selection.Range.InlineShapes
+
+    ElseIf Selection.Information(wdWithInTable) Then
+        ' rows or cells picked rather than text, which is what the transcriber does when she
+        ' means "this table"
+        Set pics = Selection.Tables(1).Range.InlineShapes
+
+    ElseIf Lp_Pic_All_Selectd = "A" Then
+        ' ActiveDocument.InlineShapes, not ActiveDocument.Content.InlineShapes: this is the
+        ' collection the macro has always used and the two are not guaranteed to be the same one
+        Set pics = ActiveDocument.InlineShapes
+        wholeDoc = True
+
     Else
-        MsgBox "Select a specific image, a text range containing images (including tables with images) or select a table containing images.", , "VistaType LP (142)"
+        ' Cleared before leaving. Sh_Last_Activity is only ever cleared by a macro that
+        ' finishes, so a route out that leaves it set has the NEXT failure anywhere in the
+        ' project reporting "Resize images: deciding which images" as its step - which is the one
+        ' thing this marker exists to prevent.
+        Sh_Last_Activity = ""
+        Sh_Say "Select a specific image, a text range containing images (including tables " _
+             & "with images) or select a table containing images.", "VistaType LP (142)"
+        Unload Lp_Resize_Images_Form
+        Exit Sub
     End If
-   
+
+    ' A chosen collection holding NO images is a silent no-op: the dialog closes and nothing
+    ' happens. Raised with Jerry on 9/1/2026 and left as it is - saying so would need a message
+    ' and a dialog number of its own, and those are his. Written down so it is a known gap rather
+    ' than a surprise. The old route was barely better: it round-tripped a document and changed
+    ' nothing.
+    su_Prev = Application.ScreenUpdating
+    Application.ScreenUpdating = False
+
+    On Error GoTo eom
+
+    Set objUndo = Application.UndoRecord
+    objUndo.StartCustomRecord "Resize Images"
+    recording = True
+
+    ' Only on the whole-document branch, and kept rather than dropped as redundant: resizing
+    ' every picture in a long book repaginates the whole of it with the screen frozen, and
+    ' Sh_Return_User_To_Start_Position turns screen updating back on BEFORE it moves the cursor
+    ' and refreshes after - which is what stops the window sitting somewhere the transcriber did
+    ' not leave it. Nothing else here moves her cursor, so nothing else needs it.
+    If wholeDoc Then
+        Sh_Save_User_Position
+        saved = True
+    End If
+
+    Sh_Last_Activity = "Resize images: scaling"
+    Lp_Scale_Inline_Shapes pics, pct
+
+    If saved Then
+        Sh_Return_User_To_Start_Position
+        saved = False
+    End If
+
+    objUndo.EndCustomRecord
+    recording = False
+    Sh_Last_Activity = ""
+
     Selection.Collapse 'clear selection
-    Application.ScreenUpdating = su_Prev ' Turn screen updating on
+    Application.ScreenUpdating = su_Prev
     Application.ScreenRefresh
-    Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    ActiveDocument.UndoClear
-    
+
     Unload Lp_Resize_Images_Form
-    
+    Exit Sub
+
+eom:
+    ' Close the undo record and put the screen back BEFORE the error is reported, or the
+    ' transcriber is left looking at a frozen Word with an undo record still open - and an undo
+    ' record left open swallows everything she does afterwards into it.
+    errNum = Err.Number
+    errText = Err.Description
+    On Error Resume Next
+    If recording Then objUndo.EndCustomRecord
+    ' Sh_Save_User_Position counts its nesting, so a save that never gets its matching return
+    ' leaves the count above zero and every later macro in the session stops putting her back.
+    If saved Then Sh_Return_User_To_Start_Position
+    Application.ScreenUpdating = su_Prev
+    Application.ScreenRefresh
+    Unload Lp_Resize_Images_Form
+    On Error GoTo 0
+    Sh_Report_Error "Lp_Resize_Images", errNum, errText
+
 End Sub  '***** end of Lp_Resize_Images Macro *****
+
+' Scale every image in a collection, and that is the whole of what Resize Images does.
+'
+' It takes an InlineShapes collection rather than a document or a range on purpose: the caller
+' decides what "which images" means - one selected image, a range of text, a table, the whole
+' document - and every one of those answers is an InlineShapes collection. That is what makes
+' the scratch document unnecessary.
+'
+' EVERYTHING in the collection is scaled, not only pictures: an OLE object or an equation among
+' them would be too. That is what the four separate loops this replaces did, and changing it is
+' not this change's business.
+'
+' A percentage of zero or less is refused rather than applied. The form will not offer one - it
+' puts 50 back when the box holds less than 1 - but nothing else stood between a zero and an
+' image scaled out of existence.
+'
+' Version: 1.0  Date: 9/1/2026
+Private Sub Lp_Scale_Inline_Shapes(ByVal pics As InlineShapes, ByVal pct As Single)
+    Dim i As Long
+
+    If pics Is Nothing Then Exit Sub
+    If pct <= 0 Then Exit Sub
+
+    For i = 1 To pics.count
+        With pics(i)
+            .ScaleHeight = pct
+            .ScaleWidth = pct
+        End With
+    Next i
+End Sub  '***** end of Lp_Scale_Inline_Shapes *****
 
 Sub Lp_SetPicturesToInlineAndLockAspectRatio()
 '
