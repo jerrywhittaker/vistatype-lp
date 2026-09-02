@@ -128,12 +128,12 @@ scratch-document routine that morning: `Dx_Format_Exercise_Lv_1_and_Lv_2`,
 `Lp_TOC_CleanAndFormat_TOC`, `Lp_Resize_Images` (two calls), `Lp_Change_Image_Color_Form` and
 `Lp_Section_Brk_Caution`.
 
-**Three of those seven are done, and FOUR are left.** Settled at 3.0.309
+**Five of those seven are done, and TWO are left.** Settled at 3.0.309
 (`Dx_Format_Exercise_Lv_1_and_Lv_2`, converted), 3.0.319
-(`Lp_Format_Exercise_Lv_1_and_Lv_2`, converted) and 3.0.321 (`Lp_Resize_Images`, round trip
-**deleted** — it never needed one). Still calling `Lp_Copy_To_Temp_Doc`:
-`Lp_Table_Convert_Options_Form` (five calls), `Lp_TOC_CleanAndFormat_TOC`,
-`Lp_Change_Image_Color_Form` and `Lp_Section_Brk_Caution`.
+(`Lp_Format_Exercise_Lv_1_and_Lv_2`, converted), 3.0.321 (`Lp_Resize_Images`, round trip
+**deleted** — it never needed one) and 3.0.326 (`Lp_Section_Brk_Caution`, round trip **deleted**,
+and a book-corrupting defect found and cured with it). Still calling `Lp_Copy_To_Temp_Doc`:
+`Lp_Table_Convert_Options_Form` (five calls) and `Lp_TOC_CleanAndFormat_TOC`.
 
 **None of the six braille $pg buttons is among them** — AutoTag Ref Pages, Validate $pg Tags,
 Manual Tag Ref Page, Format $pg Tags, Embed and UnEmbed reach no scratch document at all. The
@@ -163,9 +163,10 @@ Two more findings from the same trace, both worth acting on separately. **Both w
   one was.
 
 **`Lp_Copy_To_Temp_Doc` and `Lp_Copy_From_Temp_Doc` stay, and still show their document.**
-**Four** places call them from 9/1/2026: `Lp_TOC_CleanAndFormat_TOC`, and the
-`Lp_Table_Convert_Options_Form`, `Lp_Change_Image_Color_Form` and `Lp_Section_Brk_Caution`
-forms — what is left of the large-print half of this list.
+**Two** places call them from 9/1/2026: `Lp_TOC_CleanAndFormat_TOC` and the
+`Lp_Table_Convert_Options_Form` — what is left of the large-print half of this list.
+`Lp_Change_Image_Color_Form` is off it too: it reaches `Lp_Copy_To_Temp_Doc` only through the
+Picture Tools menu, and was counted separately above.
 
 **Ask first whether the round trip is needed at all.** `Lp_Resize_Images` was on this list as a
 conversion and turned out to be a deletion: nothing it does needs a document of its own. Two
@@ -207,7 +208,26 @@ scratch document before planning how to move it onto a range — if every pass i
       end to end, so every helper converted for the cleanup reaches a transcriber through the
       attach as well — on a whole document, with nothing selected.
 - [x] Full File Cleanup — `Lp_File_Fix_Sequence` (Jerry, 8/13/2026, build 3.0.174)
-- [x] Selection Cleanup — `Lp_Selected_File_CleanUp` (Jerry, 8/13/2026, build 3.0.174)
+- [x] Selection Cleanup — `Lp_Selected_File_CleanUp` (Jerry, 8/13/2026, build 3.0.174). One
+      option on that menu, **replace section breaks**, still round-tripped until 3.0.326
+      (9/1/2026) — `Lp_Replace_Section_Break_With_Page_Break` shows `Lp_Section_Brk_Caution`, and
+      the Okay button on that form was what called `Lp_Copy_To_Temp_Doc`. A tick against a menu
+      is not a tick against everything under it.
+
+      **And the round trip was the least of it.** Replacing every section break with a manual
+      page break collapses the document into ONE section, so every section's page setup is
+      discarded. Jerry's own test book — eight sections, seven starting on an odd page, each one
+      immediately before a `Print Pg Num` paragraph — was "fine before the macro, corrupted
+      after", and repaginating what came out killed Word outright. That had been true for as long
+      as the macro existed.
+
+      Cured by not deleting the breaks at all: whether a section starts on the next page or the
+      next *odd* page is a **property**, so `SectionStart` moves from `wdSectionOddPage` to
+      `wdSectionNewPage`. Every section and its page setup survive, no paragraph mark is touched,
+      the blank filler pages are gone and each chapter still opens on a page of its own — which
+      is the purpose of the button. It works on the **whole book** now, never a selection, and no
+      longer demands one; both dialogs were reworded and dialog 129 is retired. Full account,
+      including two wrong turns, in `docs/Reported-Errors.md`.
 - [ ] AutoTag Ref Pages — `Lp_AutoTag_Page_Numbers`
 - [x] Format Exercise — `Lp_Format_Exercise_Lv_1_and_Lv_2` (3.0.319, 9/1/2026). It had been
       ticked on 8/13/2026 for the same wrong reason as its braille twin above: what was tested

@@ -107,7 +107,14 @@ Private Sub ContinueButton_Click()
       
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     ActiveDocument.UndoClear
-    MsgBox "End of Macro"
+    ' 9/1/2026 - removed: MsgBox "End of Macro" (Jerry). It told the transcriber nothing, and it
+    ' carried no title, so Word captioned it "Microsoft Word" - it did not even look like part of
+    ' VistaType LP. The twin of the one taken off Lp_Replace_Section_Break_With_Page_Break the
+    ' same day; both have the shape of a line left in from debugging. No dialog number to retire.
+    '
+    ' The two lines above it were NOT touched, and both are worth a look one day: the clipboard
+    ' is emptied on purpose, and ActiveDocument.UndoClear throws away the WHOLE undo history
+    ' rather than this macro's part of it.
     Unload Me
     
 End Sub

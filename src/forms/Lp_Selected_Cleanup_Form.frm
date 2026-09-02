@@ -14,6 +14,8 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
+
+
 ' Lp_Selected_Cleanup_Form
 '
 ' Version: 1.8  Date: 7/24/2026 - no longer runs "MS_Set_Word_Config_For_Large_Print" on form open
@@ -69,7 +71,10 @@ Private Sub OkayButton_Click()
         Application.Run MacroName:="Lp_Is_Text_Selected"
         Application.Run MacroName:="Lp_Replace_Multiple_Para_Marks_With_Warning"
     ElseIf Replace_Sec_Brk Then
-        Application.Run MacroName:="Lp_Is_Text_Selected"
+        ' NO Lp_Is_Text_Selected here, unlike every other option on this menu. From 9/1/2026 this
+        ' one always works on the WHOLE BOOK - converting half a book for a tablet and leaving
+        ' half laid out for two-sided printing makes no sense (Jerry) - so demanding a selection
+        ' would be asking for something that is then ignored.
         Application.Run MacroName:="Lp_Replace_Section_Break_With_Page_Break"
     ElseIf SpacesBeforePunctuation Then
         Application.Run MacroName:="Lp_Is_Text_Selected"

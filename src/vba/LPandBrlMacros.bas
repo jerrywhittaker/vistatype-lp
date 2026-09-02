@@ -18,6 +18,25 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - LP  - 9/1/2026 - REPLACE SECTION BREAKS WAS CORRUPTING BOOKS, AND HAD BEEN ALL
+'           -                   ALONG (Jerry). What the button is for: turning a double-sided book
+'           -                   into one that reads on a tablet's continuous screen, with each
+'           -                   chapter still opening on a page of its own. Replacing every section
+'           -                   break with a manual page break collapses the book to ONE section,
+'           -                   so every section's page setup is thrown away. On Jerry's own test
+'           -                   book - eight sections, seven starting on an odd page, each one
+'           -                   immediately before a Print Pg Num paragraph - it was "fine before
+'           -                   the macro, corrupted after", and repaginating the result killed
+'           -                   Word. Measured: the old Selection.Find form and a Range.Find form
+'           -                   both do it. Cured by not deleting the breaks at all - whether a
+'           -                   section starts on the next page or the next ODD page is a PROPERTY,
+'           -                   so SectionStart goes from wdSectionOddPage to wdSectionNewPage.
+'           -                   Every section and its page setup survive and no paragraph mark is
+'           -                   touched. It works on the WHOLE BOOK now, never a selection, and no
+'           -                   longer asks for one: half a book converted for a tablet is not a
+'           -                   state anybody wants. Both dialogs reworded to match. The scratch
+'           -                   document went with the find, and dialog 129 is retired.
+'           -                   Two wrong turns worth not repeating are in docs/Reported-Errors.md.
 ' Notes:    - LP  - 9/1/2026 - RESIZE IMAGES NO LONGER BLANKS THE SCREEN EITHER, and it never
 '           -                   needed a scratch document: the work is "walk some images and set
 '           -                   their scale", and an InlineShapes collection comes off a RANGE as
@@ -93,8 +112,8 @@ Attribute VB_Name = "LPandBrlMacros"
 '           -                   them still make one (Dx_Exercise_Levels_Hidden,
 '           -                   Sh_Copy_Ref_Pg_Tags_To_Temp_File and the braille export), which is
 '           -                   the case Sh_HandleDocumentNew's guard exists for.
-'           -                   Lp_Copy_To_Temp_Doc stays - FOUR large print places still call
-'           -                   it from 9/1/2026, six that morning.
+'           -                   Lp_Copy_To_Temp_Doc stays - THREE large print places still
+'           -                   call it from 9/1/2026, six that morning.
 '           - BRL - 8/31/2026 - Exercise Levels 1 & 2 no longer works on a scratch document the
 '           -                   transcriber can see. Jerry: "the screen goes blank while the
 '           -                   macro is working on the temp doc". Dx_Copy_To_Temp_Doc made it
@@ -1549,6 +1568,13 @@ Public Lp_GP_String_3 As String
 Public Lp_GP_Boolean_1 As Boolean
 Public Lp_GP_Counter_1 As Integer
 
+' How many section starts Lp_Section_Brk_Caution changed, so the macro that showed the dialog can
+' report it AFTER the dialog has closed. -1 means it never got that far.
+'
+' The count is passed this way rather than the form saying it itself: showing one message dialog
+' from inside another dialog's button handler means a modal form on top of a modal form, and this
+' project has no other instance of that. The macro shows it once Lp_Section_Brk_Caution is gone.
+Public Lp_Sec_Starts_Changed As Long
 Public Lp_Pic_Percent As String
 Public Lp_Pic_All_Selectd As String
 
@@ -1890,7 +1916,7 @@ Sub Sh_HandleDocumentNew()
     ' A MACRO is running, not a transcriber. The same test, for the same reason, as the one at
     ' the top of Sh_HandleDocumentActivated - see the long note there - but it was missing here,
     ' and Word raises NewDocument for EVERY Documents.Add, including the ones macros make.
-    ' Lp_Copy_To_Temp_Doc creates the scratch document from four places, and Dx_Copy_To_Temp_Doc
+    ' Lp_Copy_To_Temp_Doc creates the scratch document from three places, and Dx_Copy_To_Temp_Doc
     ' did the same until 8/31/2026 - between them, about 35 - so a book being cleaned up had
     ' Word reconfigured for an ORDINARY document half way
     ' through the job. Three costs, none of them visible: the Styles pane closed and the screen
@@ -1983,7 +2009,7 @@ Sub Sh_HandleDocumentActivated()
     If Documents.count = 0 Then Exit Sub
 
     ' A MACRO is running, not a transcriber. Word's own macros activate documents constantly -
-    ' every Lp_Copy_To_Temp_Doc creates a document and activates it, and it is called from four
+    ' every Lp_Copy_To_Temp_Doc creates a document and activates it, and it is called from three
     ' places (Dx_Copy_To_Temp_Doc did the same until 8/31/2026, and between them they were called
     ' from about 35). Reconfiguring Word in the middle of one would
     ' put back the ~74 Options and AutoCorrect writes that were taken OUT of fourteen dialogs on
@@ -12963,15 +12989,69 @@ Sub Lp_Replace_Section_Break_With_Page_Break()
 '
 ' Lp_Replace_Section_Break_With_Page_Break Macro
 '
+' Version 3.0  Date: 9/1/2026 - IT NO LONGER DELETES THE SECTION BREAKS (Jerry). What the button
+'                              is for, in his words: "change the book from a double-sided
+'                              document into one which can be used on the continuous format of a
+'                              tablet screen while preserving the start of each chapter on a new
+'                              screen page."
+'
+'                              Replacing every section break with a manual page break did that
+'                              and a great deal more, all of it unwanted. It collapsed the book
+'                              to ONE section, so every section's own page setup was thrown away
+'                              and the whole book took the first section's. On his own test book
+'                              - eight sections, seven of them starting on an odd page, each one
+'                              sitting immediately in front of a Print Pg Num paragraph - the
+'                              result was "fine before the macro, corrupted after". Asking Word
+'                              to repaginate what came out of it killed Word outright.
+'
+'                              A section start is a PROPERTY, so change the property: any section
+'                              set to start on an odd or an even page is set to start on a new
+'                              page instead. Each chapter still begins on a new page; the blank
+'                              filler pages a double-sided book needs are gone, which is what a
+'                              tablet wants. Nothing is deleted - every section keeps its own
+'                              page setup, no paragraph mark is touched, and the Print Pg Num
+'                              paragraphs are not involved at all.
+'
+'                              The count comes back through Lp_Sec_Starts_Changed and is reported
+'                              HERE, after the dialog has closed - see the note on that variable.
+'
+'                              The scratch document went with the rewrite, and this time it is
+'                              genuinely gone: the old code needed it only to stop
+'                              Selection.Find with wdFindContinue running over the whole book,
+'                              and there is no find any more.
+' Version 2.0  Date: 9/1/2026 - the "End of Macro" message is gone (Jerry). It was dialog 129, it
+'                              said nothing a transcriber could use, and it appeared only on the
+'                              Okay route - press Cancel and it never showed, which is the shape
+'                              of a line left in from debugging. 129 is RETIRED, not reused: a
+'                              number identifies one dialog out of all of them when somebody says
+'                              what they saw.
 ' Version 1.3  Date: 1/8/2019
 ' Version 1.2  Date: 11/15/2018
 '
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
     Application.Run MacroName:="Sh_Is_Doc_Open"
+
+    ' -1 until the Okay button says otherwise. Cancel and the red X both run End, which stops
+    ' everything, so neither route ever reaches the lines below.
+    Lp_Sec_Starts_Changed = -1
     Lp_Section_Brk_Caution.Show
-    MsgBox "End of Macro", , "VistaType LP (129)"
-    
+    If Lp_Sec_Starts_Changed < 0 Then Exit Sub
+
+    If Lp_Sec_Starts_Changed = 0 Then
+        Sh_Say "Nothing needed changing: no part of this document is set to start on an odd or " _
+             & "an even page." & vbCr & vbCr _
+             & "A book that is already single-sided has nothing for this to do.", _
+               "VistaType LP (286)"
+    Else
+        Sh_Say Lp_Sec_Starts_Changed & " section start" & _
+               IIf(Lp_Sec_Starts_Changed = 1, " was", "s were") & _
+               " changed from odd or even page to new page." & vbCr & vbCr _
+             & "Each one still begins on a new page, so every chapter still opens on a screen " _
+             & "of its own - but the blank pages a double-sided book needs are gone.", _
+               "VistaType LP (286)"
+    End If
+
 End Sub  '*** end of Lp_Replace_Section_Break_With_Page_Break Macro ***
 Sub Lp_Replace_Multiple_Para_Marks_With_Warning()
 '
@@ -14494,13 +14574,15 @@ End Sub
 ' temporary one. Nothing called them after the horizontal-list merge moved to the hidden route
 ' the next day, and the braille route they chose between went at 3.0.309.
 '
-' Lp_Copy_To_Temp_Doc stays, and still puts its document on the screen. FOUR places call it
-' from 9/1/2026: Lp_TOC_CleanAndFormat_TOC and the Lp_Table_Convert_Options_Form,
-' Lp_Change_Image_Color_Form and Lp_Section_Brk_Caution forms.
+' Lp_Copy_To_Temp_Doc stays, and still puts its document on the screen. THREE places call it
+' from 9/1/2026: Lp_TOC_CleanAndFormat_TOC and the Lp_Table_Convert_Options_Form and
+' Lp_Change_Image_Color_Form forms.
 '
-' Two left that morning: Lp_Format_Exercise_Lv_1_and_Lv_2 moved onto
-' Lp_Exercise_Levels_Hidden, and Lp_Resize_Images turned out never to have needed a scratch
-' document at all - see the note on it for the five things that went with its round trip.
+' Three went in one day, and only ONE of the three was a conversion. Lp_Resize_Images and
+' Lp_Section_Brk_Caution both turned out never to have needed a scratch document at all, and
+' the second turned out to be corrupting books besides. READ WHAT THE MACRO DOES to that
+' document before planning how to move it onto a range. Lp_Format_Exercise_Lv_1_and_Lv_2 was
+' the real conversion, onto Lp_Exercise_Levels_Hidden.
 ' See docs/Temp-Doc-Conversion-Checklist.md.
 
 Sub Lp_Horz_List_To_Vertical()
