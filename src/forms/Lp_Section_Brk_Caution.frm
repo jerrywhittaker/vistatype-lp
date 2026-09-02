@@ -1,10 +1,10 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_Section_Brk_Caution 
    Caption         =   "Caution"
-   ClientHeight    =   2655
+   ClientHeight    =   3036
    ClientLeft      =   120
    ClientTop       =   465
-   ClientWidth     =   5175
+   ClientWidth     =   4815
    OleObjectBlob   =   "Lp_Section_Brk_Caution.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
@@ -13,7 +13,6 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
-
 
 ' Version: 1.5  Date: 7/26/2026 - returns the user to where the cursor was when Okay was clicked
 ' Version: 1.4  Date: 7/24/2026 - no longer runs "MS_Set_Word_Config_For_Large_Print" on form open
@@ -163,4 +162,3 @@ Private Sub UserForm_Initialize()
     Me.Left = Application.Left + (0.5 * Application.Width) - (0.5 * Me.Width)
     Me.Top = Application.Top + (0.5 * Application.Height) - (0.5 * Me.Height)
 End Sub
-

@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_Selected_Cleanup_Form 
    Caption         =   "Selected Cleanup"
-   ClientHeight    =   8424.001
+   ClientHeight    =   8664.001
    ClientLeft      =   120
    ClientTop       =   450
    ClientWidth     =   8310.001
@@ -13,8 +13,6 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
-
-
 
 ' Lp_Selected_Cleanup_Form
 '
@@ -104,4 +102,3 @@ Private Sub UserForm_Initialize()
     Me.Left = Application.Left + (0.5 * Application.Width) - (0.5 * Me.Width)
     Me.Top = Application.Top + (0.5 * Application.Height) - (0.5 * Me.Height)
 End Sub
-
