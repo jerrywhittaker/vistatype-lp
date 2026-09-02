@@ -18,6 +18,34 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - LP  - 9/2/2026 - FIX COMMON FILE ERRORS NOW FLATTENS COLUMNS (Jerry). A book
+'           -                   scanned out of a two- or three-column original arrived in those
+'           -                   columns and stayed in them: nothing in the repair list looked at
+'           -                   the page layout at all. Large print cannot use columns - a column
+'           -                   narrow enough for three across a page holds four or five words at
+'           -                   18 point - so Lp_Convert_Multi_Column_To_Single now runs FIRST of
+'           -                   the repairs, before anything works on the text.
+'           -                   It changes a PROPERTY and deletes nothing: how many columns a
+'           -                   stretch of text runs in is PageSetup.TextColumns on its section,
+'           -                   so every section keeps its page size, margins, gutter and start
+'           -                   rule. That is the 9/1/2026 lesson from Replace Section Breaks
+'           -                   applied on purpose. Each section is asked separately, so a
+'           -                   two-column glossary at the back of a one-column book is the only
+'           -                   thing that changes there. The column breaks are removed only
+'           -                   INSIDE the sections that were converted, and each is replaced by
+'           -                   a space: in a one-column section a column break is somebody's own
+'           -                   page break, and deleting one outright welds the last word of a
+'           -                   column to the first word of the next. In a book that was never in
+'           -                   columns the macro does nothing whatever.
+'           -                   AND IT RUNS ON A RAW FILE ONLY (Jerry): "on a new non-lp document
+'           -                   only, not on a re-attach process... multi-columns created within
+'           -                   the editing are acceptable." So it exits at once on a large print
+'           -                   book, which protects the columns Lp_Convert_Table_To_Real_Columns
+'           -                   makes on the Table Tools menu and any laid out by hand. The guard
+'           -                   sits in the macro, not the caller, exactly as the one in
+'           -                   Lp_Add_Para_After_Image does and for the same reason: the attach
+'           -                   already skips the sequence on an LP book, but File Cleanup on the
+'           -                   ribbon runs it on demand when the template IS attached.
 ' Notes:    - LP  - 9/1/2026 - REPLACE SECTION BREAKS WAS CORRUPTING BOOKS, AND HAD BEEN ALL
 '           -                   ALONG (Jerry). What the button is for: turning a double-sided book
 '           -                   into one that reads on a tablet's continuous screen, with each
@@ -9136,6 +9164,11 @@ Sub Lp_Fix_Common_File_Errors()
 '
 ' Lp_Fix_Common_File_Errors
 '
+' Version: 3.13  Date: 9/2/2026 - runs Lp_Convert_Multi_Column_To_Single first, so a book
+'                               scanned out of a two- or three-column original arrives as one
+'                               column before anything else touches it. That macro does nothing
+'                               once the document is a large print book, so File Cleanup run from
+'                               the ribbon mid-edit leaves columns alone. Jerry, 9/2/2026
 ' Version: 3.12  Date: 8/3/2026 - its 28 DoEvents are now Sh_Spin_DoEvents, so the please-wait spinner turns with each one; OnTime alone fires only once a second and the spinner looked stuck
 ' Version: 3.11  Date: 8/2/2026 - runs Sh_Color_Dollar_PG_Red as the LAST step, so the $pg tags are still red when File Cleanup is run on its own rather than as part of the attach sequence; the cleanups above lose the color and no Lp_Normalize_Styles follows to restore it
 ' Version: 3.10  Date: 7/26/2026 - returns the user to where the cursor was when the macro started
@@ -9160,6 +9193,7 @@ Sub Lp_Fix_Common_File_Errors()
 
     ' Description:  Fixes common errors in entire  file
     '
+    '   Turns two- and three-column text into a single column (raw, non-LP files only)
     '   Converts Abbyy FineReader styles to Word styles
     '   Removes spaces before punctuation
     '   Removes drop caps
@@ -9190,6 +9224,13 @@ Sub Lp_Fix_Common_File_Errors()
     Sh_Save_User_Position
 
     Selection.Collapse 'clear selection
+
+    ' FIRST of the repairs. Its position is not load-bearing - nothing else in this list reads
+    ' the column count, and in the attach sequence the page size and margins are not settled
+    ' until Lp_Attach_The_Template runs afterwards. It goes first because it is the one repair
+    ' here that changes the shape of the page rather than the text on it. Jerry, 9/2/2026.
+    Application.Run MacroName:="Lp_Convert_Multi_Column_To_Single"
+Sh_Spin_DoEvents
     Application.Run MacroName:="Sh_Color_Dollar_PG_Red"
 Sh_Spin_DoEvents
     Application.Run MacroName:="Lp_Replace_Underline_Tab_With_Underlined_Underscore"
@@ -9275,6 +9316,156 @@ Sh_Spin_DoEvents
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
 
 End Sub '*** end of Lp_Fix_Common_File_Errors macro ***
+
+' Lp_Convert_Multi_Column_To_Single
+'
+' Turns text laid out in newspaper-style columns into text that runs in a single column, and
+' takes out the column breaks that went with it.
+'
+' Source books arrive in two and three columns often enough that this belongs in Fix Common File
+' Errors: textbooks, workbooks and almost anything scanned out of a printed original. Large print
+' cannot use them. A column narrow enough for two or three to sit across a page holds four or
+' five words at 18 point, and the reader spends the page hunting for where the next line begins -
+' which is the opposite of what the format is for.
+'
+' HOW MANY COLUMNS TEXT RUNS IN IS A PROPERTY OF ITS SECTION - PageSetup.TextColumns - so this
+' changes the property and deletes nothing. That is deliberate, and it is the lesson Replace
+' Section Breaks cost on 9/1/2026: taking a book apart to change how it is laid out throws away
+' every section's page setup and can leave the book unopenable. Here each section keeps its page
+' size, its margins, its gutter and its start rule, and only the column count moves.
+'
+' A book can be in columns in one part and not another - a two-column glossary at the back of a
+' one-column book is ordinary - so every section is asked, and only the ones actually in more
+' than one column are changed.
+'
+' THE COLUMN BREAKS ARE REMOVED ONLY INSIDE THE SECTIONS THAT WERE ACTUALLY CONVERTED, and that
+' restriction is the whole of it. In a one-column section a column break behaves as a page break,
+' so it is somebody's deliberate page start, not a leftover of VistaType LP's to remove - a
+' twelve-chapter book whose openings were forced with Ctrl+Shift+Enter would otherwise reflow
+' from end to end with nothing on the page saying why. Inside a section that WAS in columns the
+' break is a leftover, and leaving it would force a page break in the middle of a paragraph.
+'
+' A NEW, NON-LARGE-PRINT DOCUMENT ONLY. Jerry, 9/2/2026: "It should be done on a new non-lp
+' document only, not on a re-attach process... multi-columns created within the editing are
+' acceptable." So this is a repair for a raw file on its way in, and once a document is a large
+' print book its columns are somebody's own work and are left alone. Two of them are:
+'
+'   * Lp_Convert_Table_To_Real_Columns, on the Table Tools menu, deliberately puts a converted
+'     table into two or three real columns. Nothing in the document distinguishes those from a
+'     publisher's scanned page, and Lp_Fix_Common_File_Errors ends with UndoClear, so flattening
+'     them could not be taken back.
+'   * a stretch someone laid out in columns by hand while editing.
+'
+' THE GUARD HAS TO LIVE HERE RATHER THAN AT THE CALLER, for the same reason as the one in
+' Lp_Add_Para_After_Image: the attach sequence already skips this whole macro on a document that
+' is already large print, but File Cleanup on the LP ribbon runs the same sequence on demand and
+' by then the template usually IS attached.
+'
+' BOTH tests, not just the attached-template one. A book made on an OBSOLETE large print template
+' answers False to Lp_Is_The_Attached_Template_LP - that is the whole reason Lp_Was_Made_As_An_Lp_Book
+' exists - and it is exactly the book that has been edited the longest. Lp_Attach_The_Template
+' makes the same choice for the same reason where it sets Lp_Doc_Was_Already_LP.
+'
+' The $pg validation list is not a consideration: it is a SEPARATE, temporary document, never the
+' book, and it has been one column since 8/26/2026 - the columns were cutting braille entries off
+' at 23 characters.
+'
+' A break is replaced by a SPACE, not by nothing. Where one was put in mid-sentence, deleting it
+' outright welds the last word of one column to the first word of the next - "of theword" - and
+' nothing later in the sequence can see that, because there is nothing wrong with the spacing.
+' The space is the safe answer, and the sequence tidies up after it: Lp_Fix_Para_Space_Errors
+' takes spaces off both sides of a paragraph mark and Sh_Remove_Multi_Spaces collapses a doubled
+' one, and both run after this pass.
+'
+' Version: 1.2  Date: 9/2/2026 - does nothing at all once the document is a large print book
+'                               (Jerry): a raw file on its way in is the only place columns are
+'                               an error, and columns made while editing are somebody's own work.
+' Version: 1.1  Date: 9/2/2026 - the column breaks go only inside the sections that were
+'                               converted, which is what the paragraph above always said and the
+'                               code did not do; a break is replaced by a space rather than by
+'                               nothing; and a failure is now reported through Sh_Report_Error
+'                               instead of being swallowed. All three from the 9/2/2026 review.
+' Version: 1.0  Date: 9/2/2026
+Sub Lp_Convert_Multi_Column_To_Single()
+
+    Dim doc As Document
+    Dim sec As Section
+    Dim converted As Collection
+    Dim idx As Variant
+    Dim k As Long
+    ' errNum, not eNum: VBA identifiers are case-insensitive, so a variable called eNum IS the
+    ' reserved word Enum as far as the compiler is concerned, and the Dim will not compile.
+    Dim errNum As Long
+    Dim errText As String
+
+    ' A raw file on its way in, and nothing else - see the note above.
+    If Lp_Is_The_Attached_Template_LP = True Then Exit Sub
+    If Lp_Was_Made_As_An_Lp_Book = True Then Exit Sub
+
+    On Error GoTo eom
+
+    Set doc = ActiveDocument
+    Set converted = New Collection
+
+    Sh_Last_Activity = "Multi-column text: counting the columns in each section"
+
+    For k = 1 To doc.Sections.count
+        Set sec = doc.Sections(k)
+        If sec.PageSetup.TextColumns.count > 1 Then
+            sec.PageSetup.TextColumns.SetCount NumColumns:=1
+            converted.Add k
+        End If
+    Next k
+
+    If converted.count = 0 Then
+        Sh_Last_Activity = ""
+        Exit Sub
+    End If
+
+    ' The section is fetched again on each pass rather than held from the loop above: replacing
+    ' a break shortens the document, so a Range taken before the first replacement no longer ends
+    ' where its section does.
+    '
+    ' Range.Find, not Selection.Find, so the cursor and the selection are left where they were -
+    ' this runs as one step of a long sequence that puts the user back at the end.
+    Sh_Last_Activity = "Multi-column text: removing the column breaks"
+
+    For Each idx In converted
+        With doc.Sections(CLng(idx)).Range.Find
+            .ClearFormatting
+            .Replacement.ClearFormatting
+            .Text = "^n"                    ' ^n is Word's find code for a column break
+            .Replacement.Text = " "
+            .Forward = True
+            .Wrap = wdFindStop
+            .Format = False
+            .MatchCase = False
+            .MatchWholeWord = False
+            .MatchWildcards = False
+            .MatchSoundsLike = False
+            .MatchAllWordForms = False
+            .Execute Replace:=wdReplaceAll
+        End With
+    Next idx
+
+    Sh_Last_Activity = ""
+    Exit Sub
+
+eom:
+    ' Reported, not swallowed. A protected or read-only document raises 4605 on SetCount, and
+    ' without this the columns would silently stay as they were: this is one step of a sequence
+    ' of thirty and nothing downstream would know it had failed.
+    '
+    ' Sh_Report_Error puts the screen back and takes the please-wait box down before it says
+    ' anything, so its dialog cannot end up behind the box the sequence is showing. It also
+    ' clears Sh_Last_Activity itself, which matters - a marker left saying this macro failed
+    ' would be reported as the step for the NEXT failure anywhere in the run.
+    errNum = Err.Number
+    errText = Err.Description
+    On Error Resume Next
+    Sh_Report_Error "Lp_Convert_Multi_Column_To_Single", errNum, errText
+End Sub '*** end of Lp_Convert_Multi_Column_To_Single macro ***
+
 
 Sub Lp_Convert_Hyperliks_To_Text()
     '
