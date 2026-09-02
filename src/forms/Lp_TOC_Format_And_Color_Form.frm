@@ -15,6 +15,11 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 'Lp_TOC_Format_And_Color_Form
 '
+' Version: 1.1  Date: 9/2/2026 - dialog 207 no longer promises a number of Ctrl+Z presses.
+'                               Lp_TOC_CleanAndFormat_TOC stopped round-tripping through a
+'                               scratch document, so the two presses that bought are gone; and
+'                               it CANNOT have a custom undo record instead - one crashed Word
+'                               outright. See the note in that macro.
 ' Version: 1.0  Date: 8/25/2025
 '
 Private Sub CancelButton_Click()
@@ -27,7 +32,7 @@ Private Sub OkayButton_Click()
     
     If FormatTheTOCButton Then
         Application.Run MacroName:="Lp_TOC_CleanAndFormat_TOC"
-        MsgBox "Press Ctrl+Z two (2) times to return to the original TOC.", , "VistaType LP (207)"
+        MsgBox "Press Ctrl+Z, more than once, to return to the original TOC.", , "VistaType LP (207)"
         Exit Sub
         
     ElseIf AddColorBarsButton Then

@@ -128,12 +128,17 @@ scratch-document routine that morning: `Dx_Format_Exercise_Lv_1_and_Lv_2`,
 `Lp_TOC_CleanAndFormat_TOC`, `Lp_Resize_Images` (two calls), `Lp_Change_Image_Color_Form` and
 `Lp_Section_Brk_Caution`.
 
-**Five of those seven are done, and TWO are left.** Settled at 3.0.309
+**Six of those seven are done, and ONE is left.** Settled at 3.0.309
 (`Dx_Format_Exercise_Lv_1_and_Lv_2`, converted), 3.0.319
 (`Lp_Format_Exercise_Lv_1_and_Lv_2`, converted), 3.0.321 (`Lp_Resize_Images`, round trip
-**deleted** — it never needed one) and 3.0.326 (`Lp_Section_Brk_Caution`, round trip **deleted**,
-and a book-corrupting defect found and cured with it). Still calling `Lp_Copy_To_Temp_Doc`:
-`Lp_Table_Convert_Options_Form` (five calls) and `Lp_TOC_CleanAndFormat_TOC`.
+**deleted** — it never needed one), 3.0.326 (`Lp_Section_Brk_Caution`, round trip **deleted**,
+and a book-corrupting defect found and cured with it) and 3.0.338
+(`Lp_TOC_CleanAndFormat_TOC`, round trip **deleted** — the third of these that never needed one).
+Still calling `Lp_Copy_To_Temp_Doc`: `Lp_Table_Convert_Options_Form` (five calls).
+
+**Three of the six settled were deletions, not conversions.** That is now the expected answer, not
+the surprise one: read what the macro does to the scratch document before planning how to move it
+onto a range.
 
 **None of the six braille $pg buttons is among them** — AutoTag Ref Pages, Validate $pg Tags,
 Manual Tag Ref Page, Format $pg Tags, Embed and UnEmbed reach no scratch document at all. The
@@ -163,8 +168,8 @@ Two more findings from the same trace, both worth acting on separately. **Both w
   one was.
 
 **`Lp_Copy_To_Temp_Doc` and `Lp_Copy_From_Temp_Doc` stay, and still show their document.**
-**Two** places call them from 9/1/2026: `Lp_TOC_CleanAndFormat_TOC` and the
-`Lp_Table_Convert_Options_Form` — what is left of the large-print half of this list.
+**One** place calls them from 9/2/2026: the `Lp_Table_Convert_Options_Form` — what is left of
+the large-print half of this list. `Lp_TOC_CleanAndFormat_TOC` came off at 3.0.338.
 `Lp_Change_Image_Color_Form` is off it too: it reaches `Lp_Copy_To_Temp_Doc` only through the
 Picture Tools menu, and was counted separately above.
 
@@ -260,6 +265,23 @@ scratch document before planning how to move it onto a range — if every pass i
       ends, and a script that walked back to the nearest preceding Sub landed on the wrong one.
       Fill-In Line reaches nothing on this list.)
 - [ ] Table and TOC Tools — `Lp_Table_Tools`
+      - The **TOC** half is done (3.0.338). `Lp_TOC_CleanAndFormat_TOC` works on the selected
+        range in the book; the round trip was **deleted**, not converted. What went with it:
+        the whole book on a machine that cannot find `LargePrintTemplate.dotx` (the macro ran
+        all nineteen replaces across it and then closed it with `SaveChanges:=wdDoNotSaveChanges`,
+        because `Lp_Copy_To_Temp_Doc` reports a missing template and does a plain `Exit Sub` that
+        `Application.Run` never hands back); a TOC inside a table, widened on the way out and
+        pasted back narrow; the transcriber's view, flipped to Print Layout every run; her
+        clipboard, emptied although nothing was ever put on it; and two dead regular expressions.
+        **Every `Find` is `wdFindStop` now** — the old code used `wdFindContinue`, which is safe
+        only inside a scratch document and means "the whole book" on a range.
+        `Sh_Para_Fix_Range` answers both paragraph-mark traps; it is used ONLY for the two passes
+        that need the mark in front of the selection, because every other pass would otherwise
+        reach into the paragraph above the TOC.
+        **Left alone deliberately:** the two `Print Pg Num` passes at the end are not repeatable —
+        formatting the same TOC twice gives every reference page number two leading non-breaking
+        spaces and two tabs.
+      - The **table** half is what remains — `Lp_Table_Convert_Options_Form`, five calls.
 - [ ] Bkgrnd & Picture Tools — `Lp_Picture_Tools_Menu_Starter`. **Resize Images, one of the
       things under it, is done** (3.0.321, 9/1/2026) — and it was a DELETION, not a conversion.
       All the macro does is walk images and set their scale, and an `InlineShapes` collection

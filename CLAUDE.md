@@ -73,14 +73,21 @@ round trip itself stays: it is what gives the single undo and the private worksp
 1 & 2 — their last caller — moved onto `Dx_Exercise_Levels_Hidden` at 3.0.309, and the
 `Sh_Copy_To_Temp_Doc` / `Sh_Copy_From_Temp_Doc` route pickers went with them. No braille macro
 shows a scratch document any more; three still make one, hidden. **`Lp_Copy_To_Temp_Doc` is the
-only one left that puts a document on the screen**, and **three** large-print places still call
-it from 9/1/2026: `Lp_TOC_CleanAndFormat_TOC`, and the `Lp_Table_Convert_Options_Form` and
-`Lp_Change_Image_Color_Form` forms.
+only one left that puts a document on the screen**, and **two** large-print places still call
+it from 9/2/2026: the `Lp_Table_Convert_Options_Form` and `Lp_Change_Image_Color_Form` forms.
+`Lp_TOC_CleanAndFormat_TOC` came off it at 3.0.338 — another deletion, not a conversion.
 
 **Check first whether the round trip is needed at all — and what the macro actually does.** Of the
 three settled on 9/1/2026 only one was a conversion. `Lp_Resize_Images` (3.0.321) only walks
 images and sets their scale, and an `InlineShapes` collection comes off a `Range` as readily as
-off a document. `Lp_Section_Brk_Caution` (3.0.326) turned out to be **corrupting books**: replacing
+off a document. `Lp_TOC_CleanAndFormat_TOC` (3.0.338) was the third deletion: every pass is Paragraphs or
+Characters off a Range, it never used the clipboard, and it turned out that on a machine which
+cannot find `LargePrintTemplate.dotx` the round trip ran all nineteen of its replaces across the
+transcriber's whole book and then closed it without saving — because `Lp_Copy_To_Temp_Doc`
+reports a missing template with a `MsgBox` and a plain `Exit Sub`, and `Application.Run` never
+hands that back to the caller. **Every `Find` in a converted macro must be `wdFindStop`**; the
+scratch-document versions use `wdFindContinue`, which on a range means the whole book.
+`Lp_Section_Brk_Caution` (3.0.326) turned out to be **corrupting books**: replacing
 every section break with a page break collapses the document to one section and discards every
 section's page setup, which had been true since long before the conversion work. It was cured by
 changing each section's `SectionStart` property instead of deleting anything. Reading what a macro

@@ -18,6 +18,41 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - LP  - 9/2/2026 - FORMAT TOC NO LONGER SHOWS A SCRATCH DOCUMENT, and it never
+'           -                   needed one. Every pass in Lp_TOC_CleanAndFormat_TOC is something
+'           -                   a Range can be asked for: no Shapes, no Frames, no Hyperlinks, no
+'           -                   TablesOfContents, no TabStops - only Paragraphs and Characters,
+'           -                   and it never used the clipboard. The third ticket off this list
+'           -                   that was a DELETION rather than a conversion, after Resize Images
+'           -                   and Replace Section Breaks. Five things went with the round trip,
+'           -                   none ever reported: THE BOOK, on a machine that cannot find
+'           -                   LargePrintTemplate.dotx - Lp_Copy_To_Temp_Doc says so and does a
+'           -                   plain Exit Sub, Application.Run does not hand that back, and the
+'           -                   macro then ran all nineteen replaces across her whole book,
+'           -                   restyled it, and closed it with SaveChanges:=wdDoNotSaveChanges;
+'           -                   A TOC INSIDE A TABLE, widened to the whole table on the way out
+'           -                   and pasted back over the narrow original, the same fault as
+'           -                   Resize Images and reachable through Table Tools; THE VIEW, flipped
+'           -                   to Print Layout on every run; THE CLIPBOARD, emptied although
+'           -                   nothing was ever put on it - Sh_Reset_Find_Parameters is new and
+'           -                   resets the find parameters WITHOUT that; and TWO DEAD REGULAR
+'           -                   EXPRESSIONS, one of them carrying a malformed pattern.
+'           -                   Every Find is wdFindStop now, which on a range is the difference
+'           -                   between the TOC and the whole book. Sh_Para_Fix_Range answers both
+'           -                   paragraph-mark traps, and is used ONLY for the two passes that
+'           -                   need the mark in front of the selection, and failures go through
+'           -                   Sh_Report_Error instead of Word's own dialog.
+'           -                   IT CANNOT HAVE A CUSTOM UNDO RECORD. Version 2.0 opened one so
+'           -                   Ctrl+Z would take the job back in a single press, and it CRASHED
+'           -                   WORD - access violation in wwlib.dll, nothing raised, nothing
+'           -                   logged. Measured with three canaries: the same range replace with
+'           -                   the screen on survived, with the screen frozen survived, and with
+'           -                   the undo record open never came back. Replace:=wdReplaceAll inside
+'           -                   StartCustomRecord is a Word defect. Ctrl+Z takes several presses
+'           -                   here and dialog 207 no longer promises a number.
+'           -                   TWO callers of Lp_Copy_To_Temp_Doc are left, both on the
+'           -                   large-print side: Lp_Table_Convert_Options_Form (five calls) and
+'           -                   Lp_Change_Image_Color_Form (one).
 ' Notes:    - LP  - 9/2/2026 - FIX COMMON FILE ERRORS NOW FLATTENS COLUMNS (Jerry). A book
 '           -                   scanned out of a two- or three-column original arrived in those
 '           -                   columns and stayed in them: nothing in the repair list looked at
@@ -14765,13 +14800,13 @@ End Sub
 ' temporary one. Nothing called them after the horizontal-list merge moved to the hidden route
 ' the next day, and the braille route they chose between went at 3.0.309.
 '
-' Lp_Copy_To_Temp_Doc stays, and still puts its document on the screen. THREE places call it
-' from 9/1/2026: Lp_TOC_CleanAndFormat_TOC and the Lp_Table_Convert_Options_Form and
-' Lp_Change_Image_Color_Form forms.
+' Lp_Copy_To_Temp_Doc stays, and still puts its document on the screen. TWO places call it
+' from 9/2/2026: the Lp_Table_Convert_Options_Form (five calls) and Lp_Change_Image_Color_Form
+' forms. Lp_TOC_CleanAndFormat_TOC came off it at 3.0.338.
 '
-' Three went in one day, and only ONE of the three was a conversion. Lp_Resize_Images and
-' Lp_Section_Brk_Caution both turned out never to have needed a scratch document at all, and
-' the second turned out to be corrupting books besides. READ WHAT THE MACRO DOES to that
+' Four have gone now, and only ONE of the four was a conversion. Lp_Resize_Images,
+' Lp_Section_Brk_Caution and Lp_TOC_CleanAndFormat_TOC all turned out never to have needed a
+' scratch document at all, and the second turned out to be corrupting books besides. READ WHAT THE MACRO DOES to that
 ' document before planning how to move it onto a range. Lp_Format_Exercise_Lv_1_and_Lv_2 was
 ' the real conversion, onto Lp_Exercise_Levels_Hidden.
 ' See docs/Temp-Doc-Conversion-Checklist.md.
@@ -20191,237 +20226,323 @@ Sub Lp_Normalize_Styles()
 
 End Sub
 
+' ONE find-and-replace over a fresh Duplicate of the range, with every property set explicitly.
+' Word's find settings are application-wide, so a Find object inherits whatever was left in them -
+' the block this replaced never set MatchAllWordForms or MatchSoundsLike at all. Taking a
+' Duplicate each time also means no Find object is reused across a range that has just got shorter.
+'
+' Version: 1.0  Date: 9/2/2026
+Private Sub Lp_TOC_Replace(ByVal target As Range, ByVal findText As String, _
+                           ByVal replText As String, ByVal useWildcards As Boolean)
+    Dim r As Range
+
+    If target.start >= target.End Then Exit Sub
+
+    Set r = target.Duplicate
+    With r.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
+        .Text = findText
+        .Replacement.Text = replText
+        .Forward = True
+        .Wrap = wdFindStop
+        .Format = False
+        .MatchCase = False
+        .MatchWholeWord = False
+        .MatchAllWordForms = False
+        .MatchSoundsLike = False
+        .MatchWildcards = useWildcards
+        .Execute Replace:=wdReplaceAll
+    End With
+End Sub
+
 Sub Lp_TOC_CleanAndFormat_TOC()
     '
+    ' Cleans up a table of contents that was typed or scanned in as plain text and formats it:
+    ' strips the junk characters OCR leaves behind, turns the space in front of each page number
+    ' into a tab, un-bolds the number, applies TOC 1, and lays a tab in front of the "pn" in each
+    ' Print Pg Num paragraph.
+    '
+    ' Version: 2.1  Date: 9/2/2026 - the custom undo record is GONE. It crashed Word - see the note
+'                               where it used to be opened. Ctrl+Z takes several presses again,
+'                               and dialog 207 no longer promises a number.
+' Version: 2.0  Date: 9/2/2026 - NO SCRATCH DOCUMENT. The work happens in the book, on the
+    '                               range the transcriber selected, so nothing is copied out and
+    '                               nothing is pasted back - and the screen no longer flashes.
+    '                               See the long note below: this was a DELETION, not a
+    '                               conversion. Nothing it does needed a document of its own.
     ' Version 1.1  Date: 7/18/2026 - perf: nbsp removal now a single Find pass, and the bold-map
     '                                read/write enumerates characters once each way instead of
     '                                indexed Characters(i) (O(n) vs O(n^2) per paragraph). Same output.
     ' Version 1.0  Date: 9/1/2025
     '
-
-    Dim OriginalDocName As String
-    Dim TempDocName As String
-
-    If Not Selection.Type = wdSelectionNormal Then
-        MsgBox "Select the entire TOC including any text that does reference page numbers", , "VistaType LP  (206)"
-        End
-    End If
-
-    OriginalDocName = Lp_GP_String_1 '"Lp_GP_String_1" was filled by "Lp_TOC_Format_And_Color_Form"
-    
-    Selection.MoveStart Unit:=wdCharacter, count:=0 'move to top of selection
-    Sh_Save_User_Position
-    
-    'copy to temp doc
-    Application.Run MacroName:="Lp_Copy_To_Temp_Doc"
-    DoEvents
-    'Selection.HomeKey Unit:=wdStory
-    Selection.TypeParagraph 'a space charater as the first char in the temp doc will crash the formatting
-                            'this forces the removal of spaces  after a para mark to work later in the cleanup
-    Selection.EndKey Unit:=wdStory
-    Selection.Delete Unit:=wdCharacter, count:=1 'get rid of the ending para mark created with the new document
-    ActiveDocument.Content.Select
-
-    TempDocName = ActiveDocument.Name
-    
+    ' WHY THE ROUND TRIP WENT, AND WHAT WENT WITH IT (9/2/2026)
+    '
+    ' Every pass in here is something a Range can be asked for directly. There are no Shapes, no
+    ' Frames, no Hyperlinks, no TablesOfContents and no TabStops - the only collections walked are
+    ' Paragraphs and Characters, and both come off a Range as readily as off a document. It never
+    ' used the clipboard either: the text went home through FormattedText. So this is the third
+    ' ticket off the temporary-document list that turned out to be a deletion rather than a
+    ' conversion, after Lp_Resize_Images and Lp_Section_Brk_Caution.
+    '
+    ' Five things went with it, none of them ever reported:
+    '
+    '   * THE BOOK, on a machine that cannot find LargePrintTemplate.dotx. Lp_Copy_To_Temp_Doc
+    '     looks the template up by path and, on a miss, shows "Template not found at:" and does a
+    '     plain Exit Sub - and Application.Run does not hand that back, so this macro carried on
+    '     with the transcriber's own book as ActiveDocument. It would have typed a paragraph mark
+    '     over her selected TOC, run all nineteen replaces across the WHOLE BOOK (every tab to a
+    '     space, every dash to a hyphen, every bullet and ellipsis deleted), restyled every
+    '     paragraph without a trailing number to Normal, and then closed her book with
+    '     SaveChanges:=wdDoNotSaveChanges. The only thing she ever saw was a "Template Error"
+    '     message half a minute earlier.
+    '   * A TOC INSIDE A TABLE. Lp_Copy_To_Temp_Doc widens any selection made inside a table to
+    '     the whole table, but the text came home over Selection - still the narrow original. The
+    '     same fault that was found in Lp_Resize_Images, and reachable: Lp_Table_Tools falls
+    '     through to this form whenever the selection spans more than one paragraph.
+    '   * THE TRANSCRIBER'S VIEW. It ended by flipping ActiveWindow.View.Type to wdNormalView and
+    '     then wdPrintView - a repaint after activating another document - which silently moved
+    '     anyone working in Draft or Web Layout into Print Layout.
+    '   * THE CLIPBOARD, emptied by MS_Clear_F_and_R_Params_and_Clipboard on the way out although
+    '     this macro never put anything on it. The find parameters ARE worth resetting and still
+    '     are, just below; the clipboard is not ours to empty.
+    '   * TWO DEAD REGULAR EXPRESSIONS. regexNum was built with "^\d+$" and then rebuilt with the
+    '     unified pattern before it was ever tested, and regexRoman was built, never read, and
+    '     carried a malformed pattern - "^[mdclxvi]{2,}$""Section 3" - whose doubled quotes are a
+    '     VBA escape, so it matched nothing. Both are gone.
+    '
+    ' THE TWO PARAGRAPH-MARK TRAPS, and how they are answered here. Sh_Para_Fix_Range does both:
+    ' it never includes the document's own final paragraph mark (rewriting ^013 there ADDS a
+    ' paragraph), and it reaches back one character to take in the paragraph mark in FRONT of the
+    ' selection so that "spaces after a paragraph mark" can match the first line. That reach-back
+    ' is what the old Selection.TypeParagraph at the top of the scratch document was doing by
+    ' hand. It is used ONLY for the two passes that need it - fixRng below - because every other
+    ' pass would otherwise reach into the paragraph before the TOC and change the transcriber's
+    ' text there.
+    '
+    ' AND EVERY FIND IS wdFindStop. The old code used wdFindContinue throughout, which was safe
+    ' only because the scratch document held nothing but the TOC. On a range it means "carry
+    ' straight past the end and do the whole book" - the one change here that must never be
+    ' undone.
+    '
+    ' Still to decide, deliberately NOT changed: the two Print Pg Num passes at the end are not
+    ' repeatable. They insert a non-breaking space and a tab unconditionally, so formatting the
+    ' same TOC twice gives every reference page number two of each.
+    '
+    Dim doc As Document
+    Dim workRng As Range
+    Dim fixRng As Range
     Dim para As Paragraph
     Dim paraRange As Range
     Dim charRange As Range
     Dim i As Long
-    Dim endText As String
     Dim numStart As Long
-    Dim ch As String
     Dim regexNum As Object
-    Dim regexRoman As Object
     Dim hasNumberOrRoman As Boolean
     Dim boldMap() As Boolean
     Dim charCount As Long
     Dim Sel As Range
     Dim paraText As String
-    Dim re As Object
     Dim match As Object
     Dim matchStart As Long
     Dim matchLength As Long
     Dim numberRng As Range
+    Dim selStart As Long
+    Dim selEnd As Long
+    Dim su_Prev As Boolean
+    ' errNum, not eNum: VBA identifiers are case-insensitive, so a variable called eNum IS the
+    ' reserved word Enum as far as the compiler is concerned, and the Dim will not compile.
+    Dim errNum As Long
+    Dim errText As String
 
-    'begin cleanup before formatting
-    With Selection.Find
-        .ClearFormatting
-        .Replacement.ClearFormatting
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = False
-        
-        ' ? U+2666
-        .Text = ChrW(&H2666)
-        .Replacement.Text = ""
-        .Execute Replace:=wdReplaceAll
-        
-        ' * U+002A
-        .Text = ChrW(&H2A)
-        .Replacement.Text = ""
-        .Execute Replace:=wdReplaceAll
- 
-        ' Tab
-        .Text = "^t"
-        .Replacement.Text = " "
-        .Execute Replace:=wdReplaceAll
-        
-        ' Ellipsis … U+2026
-        .Text = ChrW(&H2026)
-        .Replacement.Text = ""
-        .Execute Replace:=wdReplaceAll
-        
-        ' Non-breaking space U+00A0
-        '.text = ChrW(&HA0)
-        '.Replacement.text = ""
-        '.Execute Replace:=wdReplaceAll
-        
-        ' Soft hyphen U+00AD
-        .Text = ChrW(&HAD)
-        .Replacement.Text = ""
-        .Execute Replace:=wdReplaceAll
-        
-        ' Zero-width space U+200B
-        .Text = ChrW(&H200B)
-        .Replacement.Text = ""
-        .Execute Replace:=wdReplaceAll
-        
-        ' Zero-width non-joiner U+200C
-        .Text = ChrW(&H200C)
-        .Replacement.Text = ""
-        .Execute Replace:=wdReplaceAll
-        
-        ' Zero-width joiner U+200D
-        .Text = ChrW(&H200D)
-        .Replacement.Text = ""
-        .Execute Replace:=wdReplaceAll
-        
-        ' En dash U+2013
-        .Text = ChrW(&H2013)
-        .Replacement.Text = "-"
-        .Execute Replace:=wdReplaceAll
-        
-        ' Em dash U+2014
-        .Text = ChrW(&H2014)
-        .Replacement.Text = "-"
-        .Execute Replace:=wdReplaceAll
-        
-        ' Middle dot · U+00B7
-        .Text = ChrW(&HB7)
-        .Replacement.Text = ""
-        .Execute Replace:=wdReplaceAll
-        
-        ' Ligature ? U+FB01
-        .Text = ChrW(&HFB01)
-        .Replacement.Text = "fi"
-        .Execute Replace:=wdReplaceAll
-        
-        ' Ligature ? U+FB02
-        .Text = ChrW(&HFB02)
-        .Replacement.Text = "fl"
-        .Execute Replace:=wdReplaceAll
-        
-        ' Multiple spaces ? single space
-        .MatchWildcards = True
-        .Text = "[ ]{2,}"
-        .Replacement.Text = " "
-        .Execute Replace:=wdReplaceAll
-        
-        ' Any bullet character (common set: • ? ? ? ? ? U+F0B7 etc.)
-        .Text = "[" & ChrW(&H2022) & ChrW(&H2023) & ChrW(&H25AA) & ChrW(&H25E6) & ChrW(&H25CF) & ChrW(&H25CB) & ChrW(&HF0B7) & "]"
-        .Replacement.Text = ""
-        .Execute Replace:=wdReplaceAll
-        
-        ' Remove space following a paragraph mark
-        .MatchWildcards = False
-        .Text = "^p "
-        .Replacement.Text = "^p"
-        .Execute Replace:=wdReplaceAll
-    End With
-    
-    '*******************************************************
-    ' Remove spaces before paragraph marks
-    '*******************************************************
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "^032{1,}^013"
-        .Replacement.Text = "^p"
-        .Forward = True
-        .Wrap = wdFindContinue  'replaces all in the document
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    '*******************************************************
-    ' Remove Spaces following paragraph marks
-    '*******************************************************
-    With Selection.Find
-        .Text = "^013^032{1,}"
-        .Replacement.Text = "^p"
-        .Forward = True
-        .Wrap = wdFindContinue  'replaces all in the document
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchAllWordForms = False
-        .MatchSoundsLike = False
-        .MatchWildcards = True
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-
-    ActiveDocument.Content.Select
-    Set Sel = ActiveDocument.Content
-
-    'start remove nonbreaking space for all except style "Print Pg Num"
-    For Each para In Sel.Paragraphs
-    Set paraRange = para.Range
-    paraText = paraRange.Text
-
-    If paraRange.Style = "Print Pg Num" Then
-        ' Skip this paragraph
-        GoTo NextPara
+    If Not Selection.Type = wdSelectionNormal Then
+        Sh_Say "Select the entire TOC including any text that does reference page numbers", "VistaType LP  (206)"
+        ' End, not Exit Sub, and deliberately: returning would let the form that called this go
+        ' straight on to say "Press Ctrl+Z once to return to the original TOC" about a TOC that
+        ' was never touched. That is how it has always behaved here.
+        End
     End If
 
-    ' Remove all non-breaking spaces from the paragraph (single Find pass, not a per-character scan)
-    With paraRange.Find
+    Set doc = ActiveDocument
+
+    ' Both ranges are taken BEFORE anything is changed, and both are live: Word moves a Range's
+    ' end when text inside it is deleted, so they stay in step with each other all the way down.
+    '
+    ' fixRng is the selection with the paragraph mark in front of it, for the two "spaces after a
+    ' paragraph mark" passes only. workRng is the TOC itself and is what everything else works on.
+    Set fixRng = Sh_Para_Fix_Range()
+
+    selStart = Selection.Range.start
+    selEnd = Selection.Range.End
+    If selEnd > doc.Content.End - 1 Then selEnd = doc.Content.End - 1
+    If selEnd < selStart Then selEnd = selStart
+    Set workRng = doc.Range(selStart, selEnd)
+
+    ' WHOLE PARAGRAPHS, and never one the transcriber merely clipped at the bottom.
+    '
+    ' Range.Paragraphs hands back WHOLE paragraphs, not the selected part of them, so the styling
+    ' loops below would restyle a paragraph the selection only reaches into. Dragging one word too
+    ' far past the end of a TOC - an ordinary over-drag - would have turned the paragraph after it
+    ' into Normal with no space after, whatever it was. The scratch document could not do that,
+    ' because only the selected fragment ever travelled.
+    '
+    ' So: the START opens out to the beginning of its paragraph (missing the first character of the
+    ' first TOC line is a slip, and that line is plainly meant), and a LAST paragraph that is only
+    ' clipped is dropped altogether. A single-paragraph selection is always kept - there would be
+    ' nothing left otherwise.
+    Set paraRange = workRng.Paragraphs(1).Range
+    workRng.start = paraRange.start
+
+    Set paraRange = workRng.Paragraphs(workRng.Paragraphs.count).Range
+    If workRng.Paragraphs.count > 1 And selEnd < paraRange.End - 1 Then
+        Set paraRange = workRng.Paragraphs(workRng.Paragraphs.count - 1).Range
+    End If
+    workRng.End = paraRange.End
+    If workRng.End > doc.Content.End - 1 Then workRng.End = doc.Content.End - 1
+
+    Sh_Save_User_Position
+
+    su_Prev = Application.ScreenUpdating
+    Application.ScreenUpdating = False
+
+    On Error GoTo eom
+
+    ' NO CUSTOM UNDO RECORD, AND IT CANNOT HAVE ONE. Version 2.0 opened one so that Ctrl+Z would
+    ' take the whole job back in a single press. It CRASHED WORD OUTRIGHT - an access violation in
+    ' wwlib.dll, Word's own layout engine, with nothing raised and nothing logged.
+    '
+    ' Measured on the build box, 9/2/2026, with three canaries doing the same harmless range
+    ' replace under different conditions: screen on and no undo record SURVIVED; screen frozen and
+    ' no undo record SURVIVED; screen frozen with the undo record open never came back. It is a
+    ' Word defect, not this macro's logic - a Find with Replace:=wdReplaceAll inside
+    ' StartCustomRecord kills it. The document, the selection and the whole sequence of passes had
+    ' already been cleared: driven step by step from a script against a copy of the same book with
+    ' the same selection, every one of them completes.
+    '
+    ' So Ctrl+Z takes several presses here, as it did before this macro was converted. Do not
+    ' "improve" that with an undo record. If one press is ever wanted, the passes have to stop
+    ' using wdReplaceAll and find-then-edit in a loop instead.
+
+    Sh_Last_Activity = "Format TOC: cleaning up the characters"
+
+    'begin cleanup before formatting
+    ' ONE FRESH RANGE PER PASS. The block that stood here held a single Find object and fired it
+    ' sixteen times at a range that gets shorter with every replace. Lp_TOC_Replace takes a
+    ' Duplicate each time and sets EVERY property, so nothing is inherited and nothing is reused.
+    Lp_TOC_Replace workRng, ChrW(&H2666), "", False        ' diamond
+    Lp_TOC_Replace workRng, ChrW(&H2A), "", False          ' asterisk
+    Lp_TOC_Replace workRng, "^t", " ", False               ' tab
+    Lp_TOC_Replace workRng, ChrW(&H2026), "", False        ' ellipsis
+    Lp_TOC_Replace workRng, ChrW(&HAD), "", False          ' soft hyphen
+    Lp_TOC_Replace workRng, ChrW(&H200B), "", False        ' zero-width space
+    Lp_TOC_Replace workRng, ChrW(&H200C), "", False        ' zero-width non-joiner
+    Lp_TOC_Replace workRng, ChrW(&H200D), "", False        ' zero-width joiner
+    Lp_TOC_Replace workRng, ChrW(&H2013), "-", False       ' en dash
+    Lp_TOC_Replace workRng, ChrW(&H2014), "-", False      ' em dash
+    Lp_TOC_Replace workRng, ChrW(&HB7), "", False         ' middle dot
+    Lp_TOC_Replace workRng, ChrW(&HFB01), "fi", False     ' fi ligature
+    Lp_TOC_Replace workRng, ChrW(&HFB02), "fl", False     ' fl ligature
+    Lp_TOC_Replace workRng, "[ ]{2,}", " ", True          ' runs of spaces
+    Lp_TOC_Replace workRng, "[" & ChrW(&H2022) & ChrW(&H2023) & ChrW(&H25AA) & _
+                            ChrW(&H25E6) & ChrW(&H25CF) & ChrW(&H25CB) & ChrW(&HF0B7) & "]", _
+                            "", True                          ' bullets
+
+
+    ' EVERY CHARACTER WAS JUNK. An empty range is not a bounded search - it is a starting point,
+    ' so the wildcard passes below would carry on from here to the end of the book. There is
+    ' nothing left to format either way.
+    If workRng.start >= workRng.End Then GoTo tidy
+
+    '*******************************************************
+    ' Remove space following a paragraph mark
+    '
+    ' fixRng, not workRng: the mark in front of the first TOC line sits OUTSIDE the selection, so
+    ' without the reach-back a leading space on the first line survives. The pattern puts the mark
+    ' back, so the paragraph before the TOC is not harmed.
+    '*******************************************************
+    Sh_Last_Activity = "Format TOC: spaces around the paragraph marks"
+
+    With fixRng.Find
         .ClearFormatting
         .Replacement.ClearFormatting
-        .Text = Chr(160)
-        .Replacement.Text = " "
+        .Text = "^p "
+        .Replacement.Text = "^p"
         .Forward = True
         .Wrap = wdFindStop
         .Format = False
+        .MatchCase = False
+        .MatchWholeWord = False
+        .MatchAllWordForms = False
+        .MatchSoundsLike = False
+        .MatchWildcards = False
         .Execute Replace:=wdReplaceAll
     End With
 
-NextPara:
-Next para
+    '*******************************************************
+    ' Remove spaces before paragraph marks. workRng: spaces at the end of the paragraph BEFORE the
+    ' TOC are the transcriber's own and are none of this macro's business.
+    '*******************************************************
+    With workRng.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
+        .Text = "^032{1,}^013"
+        .Replacement.Text = "^p"
+        .Forward = True
+        .Wrap = wdFindStop
+        .Format = False
+        .MatchCase = False
+        .MatchWholeWord = False
+        .MatchAllWordForms = False
+        .MatchSoundsLike = False
+        .MatchWildcards = True
+        .Execute Replace:=wdReplaceAll
+    End With
 
+    '*******************************************************
+    ' Remove spaces following paragraph marks - fixRng again, same reason as above
+    '*******************************************************
+    With fixRng.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
+        .Text = "^013^032{1,}"
+        .Replacement.Text = "^p"
+        .Forward = True
+        .Wrap = wdFindStop
+        .Format = False
+        .MatchCase = False
+        .MatchWholeWord = False
+        .MatchAllWordForms = False
+        .MatchSoundsLike = False
+        .MatchWildcards = True
+        .Execute Replace:=wdReplaceAll
+    End With
+
+    'start remove nonbreaking space for all except style "Print Pg Num"
+    Sh_Last_Activity = "Format TOC: removing the non-breaking spaces"
+
+    For Each para In workRng.Paragraphs
+        Set paraRange = para.Range
+
+        If Not Sh_Para_Style_Is(paraRange, "Print Pg Num") Then
+            ' Remove all non-breaking spaces from the paragraph (single Find pass, not a
+            ' per-character scan)
+            With paraRange.Find
+                .ClearFormatting
+                .Replacement.ClearFormatting
+                .Text = Chr(160)
+                .Replacement.Text = " "
+                .Forward = True
+                .Wrap = wdFindStop
+                .Format = False
+                ' Explicitly off. Find settings are Word-wide, and the block above left them on -
+                ' Chr(160) is not a wildcard metacharacter, so this worked, but only by luck.
+                .MatchWildcards = False
+                .Execute Replace:=wdReplaceAll
+            End With
+        End If
+    Next para
     'end remove nonbreaking space for all except style "Print Pg Num"
-    
-    Set regexNum = CreateObject("VBScript.RegExp")
-    With regexNum
-        .Global = False
-        .IgnoreCase = False
-        .pattern = "^\d+$"
-    End With
-    
-    Set regexRoman = CreateObject("VBScript.RegExp")
-    With regexRoman
-        .Global = False
-        .IgnoreCase = True
-        .pattern = "^[mdclxvi]{2,}$""Section 3"
-    End With
+
 
     '*** begin formatting ***
     ' === Unified regex pattern ===
@@ -20436,20 +20557,25 @@ Next para
     End With
 
     ' === First loop: detect and style ===
-    For Each para In Selection.Paragraphs
+    Sh_Last_Activity = "Format TOC: styling the entry lines"
+
+    For Each para In workRng.Paragraphs
         Set paraRange = para.Range
-        
+
         ' Skip paragraphs that begin with "$pg" or have style "Print Pg Num"
         ' Sh_Para_Style_Is, not "= ActiveDocument.Styles(...)": VBA evaluates BOTH sides of Or,
         ' so a document without the style raised 5941 here even when the text test already passed.
         If Left(paraRange.Text, 3) = "$pg" Or Sh_Para_Style_Is(paraRange, "Print Pg Num") Then
             GoTo SkipPara
         End If
-        
+
         ' Test for number/roman/letter+number
         hasNumberOrRoman = regexNum.test(paraRange.Text)
-        
-        ' If no match, reset style to Normal but preserve bold map
+
+        ' If no match, reset style to Normal but preserve bold map.
+        ' ActiveDocument is the BOOK from this version on, so this is the book's own Normal. It
+        ' used to be the scratch document's, which came from LargePrintTemplate.dotx - so a book
+        ' set at 20 point had the template's idea of Normal applied and carried home.
         If Not hasNumberOrRoman Then
             charCount = paraRange.Characters.count - 1
             If charCount > 0 Then
@@ -20474,62 +20600,63 @@ Next para
                 para.SpaceAfter = 0
             End If
         End If
-        
+
 SkipPara:
     Next para
 
     ' === Second loop: replace space with tab and apply TOC style ===
-    Set Sel = Selection.Range
+    Sh_Last_Activity = "Format TOC: the tab in front of each page number"
+
+    Set Sel = workRng
     For Each para In Sel.Paragraphs
         Set paraRange = para.Range
         paraText = paraRange.Text
-        
+
         If regexNum.test(paraText) Then
             Set match = regexNum.Execute(paraText)(0)
             matchStart = match.FirstIndex + 1 ' space's position (zero-based)
             matchLength = Len(match.SubMatches(0)) ' matched number/roman/letter+number
-            
+
             ' Replace the space before the pattern with a tab
             paraRange.Characters(matchStart).Text = vbTab
-            
+
             ' Select and un-bold the matched number/roman/letter+number
             Set numberRng = paraRange.Duplicate
             numberRng.start = paraRange.start + matchStart
             numberRng.End = numberRng.start + matchLength
             numberRng.Font.Bold = False
-            
+
             ' Apply style
             On Error Resume Next
             paraRange.Style = "TOC 1"
-            On Error GoTo 0
+            On Error GoTo eom
         End If
-        
+
     Next para
     '*** End formatting ***
 
+
     ' begin Fix reference pages
-    Set Sel = ActiveDocument.Content
-    
+    Sh_Last_Activity = "Format TOC: the reference page lines"
+
+    Set Sel = workRng
+
     For Each para In Sel.Paragraphs
         Set paraRange = para.Range
-        paraText = paraRange.Text
-    
-        If paraRange.Style = "Print Pg Num" Then
+
+        If Sh_Para_Style_Is(paraRange, "Print Pg Num") Then
             ' Insert NonBreakingSpace at start
             paraRange.InsertBefore Chr(160)
-            ' Insert NBSP before paragraph mark (end of visible text)
-            'paraRange.End = paraRange.End - 1
-            'paraRange.InsertAfter Chr(160)
         End If
     Next para
-    
-    Set Sel = ActiveDocument.Content
-    
+
+    Set Sel = workRng
+
     For Each para In Sel.Paragraphs
         Set paraRange = para.Range
         paraText = paraRange.Text
-    
-        If paraRange.Style = "Print Pg Num" Then
+
+        If Sh_Para_Style_Is(paraRange, "Print Pg Num") Then
             numStart = InStr(paraText, "pn")
             If numStart > 0 Then
                 paraRange.start = paraRange.start + numStart - 1
@@ -20539,45 +20666,68 @@ SkipPara:
         End If
     Next para
     ' end Fix reference pages
-    
-    Selection.HomeKey Unit:=wdStory
-    Selection.Delete Unit:=wdCharacter, count:=1
-    ActiveDocument.Content.Select
 
-    ' begin copy from temp doc and paste into selected text area in the original doc
-    Dim srcDoc As Document
-    Dim destDoc As Document
-    
-    ' Reference the open source and destination docs
-    Set srcDoc = Documents(TempDocName)
-    Set destDoc = Documents(OriginalDocName)
-    
-    ' Replace the current selection in the destination
-    destDoc.Activate
-    Selection.FormattedText = srcDoc.Range.FormattedText
-    ' end copy from temp doc and paste into selected text area in the original doc
+tidy:
+    Sh_Last_Activity = ""
 
-    ' begin kill the temp doc
-       'Dim srcDoc As Document
-    Set srcDoc = Documents(TempDocName)
-    ' Activate it
-    srcDoc.Activate
-    ' Close without saving (discard changes)
-    srcDoc.Close SaveChanges:=wdDoNotSaveChanges
-    ' end kill the temp doc
-    
-    Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    Sh_Return_User_To_Start_Position
+    ' The find parameters, and NOT the clipboard. This macro never puts anything on the clipboard,
+    ' and MS_Clear_F_and_R_Params_and_Clipboard - which used to be called here - empties it.
+    Sh_Reset_Find_Parameters
 
-    Application.ScreenUpdating = True
+    Application.ScreenUpdating = su_Prev
     Application.ScreenRefresh
-    DoEvents
-    ActiveWindow.View.Type = wdNormalView
-    ActiveWindow.View.Type = wdPrintView
-    Selection.Collapse Direction:=wdCollapseStart
-    DoEvents
 
+    Sh_Return_User_To_Start_Position
+    Selection.Collapse Direction:=wdCollapseStart
+
+    Exit Sub
+
+eom:
+    ' Put the screen back BEFORE anything else. The work happens in the book now, so a failure
+    ' part way through leaves a half-formatted TOC and the transcriber has to be told rather than
+    ' left to find it.
+    errNum = Err.Number
+    errText = Err.Description
+    On Error Resume Next
+    Application.ScreenUpdating = su_Prev
+    Application.ScreenRefresh
+    ' Sh_Save_User_Position increments a module-level counter and Sh_Return_User_To_Start_Position
+    ' is what puts it back. Leaving it up wedges EVERY later macro reached from a keyboard shortcut
+    ' or a dialog button: each one saves no position, and the restore exits at its depth test
+    ' before it turns screen updating back on. Only a ribbon or toolbar button clears the counter,
+    ' so the transcriber would report "the macros keep throwing me to the top of the document" and
+    ' nothing would connect it to a TOC that failed an hour earlier. Lp_Resize_Images and both
+    ' exercise-level macros pair theirs in the handler for the same reason.
+    Sh_Return_User_To_Start_Position
+    Sh_Reset_Find_Parameters
+    Sh_Report_Error "Lp_TOC_CleanAndFormat_TOC", errNum, errText
 End Sub   '*** end of Lp_TOC_CleanAndFormat_TOC ***
+
+' Puts Word's find-and-replace parameters back to their defaults, and touches nothing else.
+'
+' MS_Clear_F_and_R_Params_and_Clipboard does this AND empties the clipboard, which is right for a
+' macro that copied something and wrong for one that did not - the transcriber's clipboard is not
+' ours to throw away. Split out 9/2/2026 when Lp_TOC_CleanAndFormat_TOC stopped using a scratch
+' document, and so stopped having any reason to clear a clipboard it never wrote to.
+'
+' Version: 1.0  Date: 9/2/2026
+Public Sub Sh_Reset_Find_Parameters()
+    On Error Resume Next
+    With Selection.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
+        .Text = ""
+        .Replacement.Text = ""
+        .Forward = True
+        .Wrap = wdFindStop
+        .Format = False
+        .MatchCase = False
+        .MatchWholeWord = False
+        .MatchWildcards = False
+        .MatchSoundsLike = False
+        .MatchAllWordForms = False
+    End With
+End Sub '*** end of Sh_Reset_Find_Parameters ***
 
 Sub Lp_Replace_Underline_Tab_With_Underlined_Underscore()
 '
