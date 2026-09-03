@@ -17,6 +17,12 @@ Attribute VB_Exposed = False
 '
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
+' Version: 2.0  Date: 9/3/2026  - NO SCRATCH DOCUMENT. Both conversions run on the table where it
+'                                 stands in the transcriber's own book, so nothing is shown on the
+'                                 screen, nothing goes through the clipboard, no document is
+'                                 activated, and each conversion is one Ctrl+Z instead of two or
+'                                 four. The deliberate minimize/maximize of the Word window at the
+'                                 end of a rotation - "the Jolt" - is gone with it
 ' Version: 1.9  Date: 7/24/2026 - no longer runs "MS_Set_Word_Config_For_Large_Print" on form open
 ' Version: 1.8  Date: 6/22/2026 - ajusted timing with "do events" to make sure that the original document is shown at the end of the rotation
 ' Version: 1.7  Date: 5/5/2026  - fixed bug in table rotation that prevented temp files from being closed
@@ -40,6 +46,29 @@ Private Sub CmdCancel_Click()
 End Sub
 
 Private Sub CmdOkay_Click()
+
+    Dim su_Prev As Boolean
+    Dim workTbl As Table
+
+    ' NO CUSTOM UNDO RECORD, AND THESE TWO CONVERSIONS MUST NEVER HAVE ONE. 3.0.345 and 3.0.347
+    ' each opened one so that Ctrl+Z would take the whole job back in a single press, and each
+    ' CRASHED WORD OUTRIGHT - Jerry, testing 3.0.347: "converting table to a list and transposing
+    ' (rotating) a table, both crashed word". It is the Word defect measured on the build box on
+    ' 9/2/2026 and written up at the top of Lp_TOC_CleanAndFormat_TOC: a Find with
+    ' Replace:=wdReplaceAll inside an open StartCustomRecord takes Word down with an access
+    ' violation in wwlib.dll, nothing raised and nothing logged.
+    '
+    ' None is needed. The work is done in a scratch document that is never shown, and comes home
+    ' in two steps - delete the table, put the result where it stood. Ctrl+Z is two presses, the
+    ' same as the old list conversion and better than the old rotation's four. See
+    ' Lp_Table_Convert_Hidden for why it cannot be one.
+    '
+    ' The handler below is not optional. The form calls its macros directly rather than through
+    ' RibbonAction, so without it a failure reaches the transcriber as Word's own Run-time error
+    ' dialog, Debug button and all - and Debug opens this source on their machine.
+    On Error GoTo ConversionFailed
+
+    su_Prev = Application.ScreenUpdating
 
     Lp_Table_Convert_Options_Form.Hide
     
@@ -155,171 +184,129 @@ Private Sub CmdOkay_Click()
     End If
 
 '****************** run the selected conversion **************************************
+'
+' 9/3/2026 - Both conversions now do their work in a scratch document that is NEVER SHOWN, and
+' bring the result home in a single assignment. See Lp_Table_Convert_Hidden for the whole story;
+' in short, the scratch document does two jobs and only one of them was ever the fault. It had to
+' be SHOWN because the passes reached their table through Selection - that is the flash of yellow
+' - and the passes now take the table instead. But it is also what keeps the undo short, because
+' edits made in another document are not in this book's undo stack at all. Taking the round trip
+' out altogether made Ctrl+Z 30 to 50 presses, and a custom undo record to cure that crashed Word.
 
 '***************** List Table ******************************
 
     If InStr(Lp_GP_String_3, "L") > 0 Then
-        Application.ScreenUpdating = False
-        If InStr(Lp_GP_String_3, "X") > 0 Then  'table with row and column headers
-            Application.Run MacroName:="Lp_Table_Is_R1C1_Empty" ' also stores documen name into Lp_GP_String_2
-            Application.Run MacroName:="Lp_Copy_To_Temp_Doc"
-            Application.Run MacroName:="Lp_Table_Cleanup_For_Roation_And_List"
-            Application.Run MacroName:="Lp_Table_Fill_Empty_Cells"
-            Application.Run MacroName:="Lp_Table_Row_Column_Header_Setup"
-            Application.Run MacroName:="Lp_Table_Convert_RC_Table_To_List"
 
-        ElseIf InStr(Lp_GP_String_3, "W") > 0 Then  'table with no row or column headers
-            Application.Run MacroName:="Lp_Copy_To_Temp_Doc"
-            Application.Run MacroName:="Lp_Table_Fill_Empty_Cells"
-            Application.Run MacroName:="Lp_Table_Convert_NoRC_Table_To_List"
-            
-        ElseIf InStr(Lp_GP_String_3, "Z") > 0 Then  'table with row only headers
-            Application.Run MacroName:="Lp_Copy_To_Temp_Doc"
-            Application.Run MacroName:="Lp_Table_Transpose_Table" 'table is now a type "Y"
-            Lp_GP_String_3 = Replace(Lp_GP_String_3, "Z ", "Y ") 'change the control string
-            GoTo TypeYTable
-            
-        ElseIf InStr(Lp_GP_String_3, "Y") > 0 Then  'table with column header only
-            Application.Run MacroName:="Lp_Copy_To_Temp_Doc" ' type Z table has already been transposed
-TypeYTable:
-            Application.Run MacroName:="Lp_Table_Fill_Empty_Cells"
-            Application.Run MacroName:="Lp_Table_Cleanup_For_Roation_And_List"
-            Application.Run MacroName:="Lp_Table_Transpose_Table" 'makes the column only table a row-only table
-            Application.Run MacroName:="Lp_Table_Row_Column_Header_Setup"
-            Application.Run MacroName:="Lp_Table_Convert_R_Only_Table_To_List"
+        If Not Selection.Information(wdWithInTable) Then
+            Sh_Say "Place the cursor in the table first.", "VistaType LP (288)"
+            Unload Lp_Table_Tools_Menu_Form
+            Unload Me
+            End
         End If
-        
-        Application.ScreenUpdating = True
+        Set workTbl = Selection.Tables(1)
+
+        ' A row-and-column list needs a header in row 1, column 1, and this stops with a message
+        ' if there is not one. Asked before anything is changed.
+        If InStr(Lp_GP_String_3, "X") > 0 Then
+            Lp_Table_Is_R1C1_Empty workTbl
+        End If
+
+        ' The row-only and column-only lists are made by rotating the table, so a merged one
+        ' cannot be done - and the transcriber must hear that BEFORE anything is changed.
+        If InStr(Lp_GP_String_3, "Y") > 0 Or InStr(Lp_GP_String_3, "Z") > 0 Then
+            If Not Lp_Table_Is_Uniform_Grid(workTbl) Then
+                Sh_Say "This table has merged cells. Unmerge them before converting it to a list.", "VistaType LP (287)"
+                Unload Lp_Table_Tools_Menu_Form
+                Unload Me
+                End
+            End If
+        End If
+
+        Application.ScreenUpdating = False
+
+        Lp_Table_Convert_Hidden workTbl, False
+
+        ' The find parameters are put back, but NOT through
+        ' MS_Clear_F_and_R_Params_and_Clipboard: nothing here uses the clipboard any more, so
+        ' emptying it would throw away whatever the transcriber had copied for no reason.
+        Sh_Reset_Find_Parameters
+
+        Application.ScreenUpdating = su_Prev
+        ActiveWindow.ScrollIntoView Selection.Range
         Application.ScreenRefresh
-        DoEvents    ' Let the UI catch up
-        MsgBox "Press Ctrl+Z Two (2) times to restore original table.", , "VistaType (178)"
-        Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
+
+        Sh_Say "Press Ctrl+Z two times to restore the original table.", "VistaType (178)"
         Unload Lp_Table_Tools_Menu_Form
         Unload Me
         End
     End If
-    
+
 '************ Rotate (transpose) Table ****************
+
     If InStr(Lp_GP_String_3, "R") > 0 Then
+
+        If Not Selection.Information(wdWithInTable) Then
+            Sh_Say "Place the cursor in the table first.", "VistaType LP (288)"
+            Unload Lp_Table_Tools_Menu_Form
+            Unload Me
+            End
+        End If
+        Set workTbl = Selection.Tables(1)
+
+        ' Asked FIRST, so that a table that cannot be rotated is never changed at all.
+        If Not Lp_Table_Is_Uniform_Grid(workTbl) Then
+            Sh_Say "This table has merged cells. Unmerge them before rotating the table.", "VistaType LP (287)"
+            Unload Lp_Table_Tools_Menu_Form
+            Unload Me
+            End
+        End If
+
         Application.ScreenUpdating = False
-        Application.Run MacroName:="Lp_Copy_To_Temp_Doc"
-        TempFileName = ActiveDocument.fullName ' the name of the temporary File
-        Application.Run MacroName:="Lp_Table_Cleanup_For_Roation_And_List"
-        Application.Run MacroName:="Lp_Table_Transpose_Table"
-        Application.Run MacroName:="Lp_Table_Fill_Empty_Cells"
-        If Not InStr(Lp_GP_String_3, "W") = 0 Then
-            Application.Run MacroName:="Lp_Table_Row_Column_Header_Setup"
-        End If
 
-       '**********  Start put a par above table '*********
-        Dim tbl As Table
-        Dim tblRange As Range
-    
-        'place transcriber note at top in temp file
-        Selection.HomeKey Unit:=wdStory 'top of temp doc - move to the single para mark at top
-        Application.Run MacroName:="Lp_Table_Insert_Transcriber_Note"
-        Selection.WholeStory
-        Selection.Copy
-        DoEvents
+        Lp_Table_Convert_Hidden workTbl, True
 
-        'open original doc and delete the table
-        Documents(Lp_GP_String_2).Activate
-        DoEvents '6/22/2026 need some time here
-        DoEvents
-        DoEvents
-        DoEvents
-        ActiveDocument.Tables(Lp_GP_Counter_1).Select
-        ActiveDocument.Tables(Lp_GP_Counter_1).Delete
+        ' See the note in the list branch: find parameters back, clipboard left alone.
+        Sh_Reset_Find_Parameters
 
-        ' --- PART 1: The Import & UI Kick ---
-        Dim srcDoc As Document
-        Dim tgtDoc As Document
-        Dim targetRange As Range
-        Dim originalTemp As Document
-        
-        ' Capture the ORIGINAL temp doc before anything overwrites srcDoc
-        Set originalTemp = Documents(TempFileName)
-        
-        ' srcDoc is the one you're currently importing from
-        Set srcDoc = Documents(TempFileName)
-        Set tgtDoc = ActiveDocument
-        
-        ' Make sure the target doc owns the selection BEFORE using Selection
-        tgtDoc.Activate
-        
-        ' Define where the content should land
-        Set targetRange = Selection.Range
-        targetRange.Collapse Direction:=wdCollapseStart
-        
-        ' Move EVERYTHING (Text, Tables, Styles) from temp doc
-        targetRange.FormattedText = srcDoc.Content.FormattedText
-        
-        ' --- CLOSE BOTH TEMP DOCS ---
-        Application.DisplayAlerts = wdAlertsNone
-        
-        ' Close the one you just imported from
-        If Not srcDoc Is Nothing Then
-            srcDoc.Close SaveChanges:=wdDoNotSaveChanges
-        End If
-        
-        ' Close the ORIGINAL temp doc (the one that was being left open)
-        If Not originalTemp Is Nothing Then
-            originalTemp.Close SaveChanges:=wdDoNotSaveChanges
-        End If
-        
-        Application.DisplayAlerts = wdAlertsAll
-
-        ' --- THE VISUAL SHOCK: Applying your Style ---
-        ' Applying a style forces Word's layout engine to "Draw" the table NOW
-        On Error Resume Next
-        With targetRange.Tables(1)
-            '.Style = "yellow on white paper table"
-            .AllowAutoFit = True
-            .AutoFitBehavior (wdAutoFitWindow)
-        End With
-        On Error GoTo 0
-
-        ' --- THE REFRESH SEQUENCE ---
-        ' Force ScreenUpdating back to True
-        Do While Application.ScreenUpdating = False
-            Application.ScreenUpdating = True
-        Loop
-
-        ' Snap the "Camera" to the new table so it's visible behind the MsgBox
-        targetRange.Tables(1).Select
+        Application.ScreenUpdating = su_Prev
         ActiveWindow.ScrollIntoView Selection.Range
-        ActiveDocument.Repaginate
-        
-        ' The "Jolt" - Minimize/Maximize forces Windows OS to repaint the pixels
-        ActiveWindow.WindowState = wdWindowStateMinimize
-        DoEvents
-        ActiveWindow.WindowState = wdWindowStateMaximize
-
-        ' Final hard refresh
         Application.ScreenRefresh
-        DoEvents
 
-        ' --- NOTIFICATIONS ---
-        ' vbSystemModal forces the box to the front and gives Word a moment to breathe
-        MsgBox "Press Ctrl+Z (undo) four (4) times to restore original table.", vbSystemModal, "VistaType LP (200)"
-        
+        Sh_Say "Press Ctrl+Z two times to restore the original table.", "VistaType LP (200)"
+
         If InStr(Lp_GP_String_3, "X") > 0 Then
-            MsgBox "Check the header in column 1 row 1. The title should describe the data in the column.", vbSystemModal, "VistaType LP (202)"
+            Sh_Say "Check the header in column 1 row 1. The title should describe the data in the column.", "VistaType LP (202)"
         End If
 
-        ' --- CLEANUP ---
-        Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-        
-        ' Unload forms cleanly
-        On Error Resume Next
         Unload Lp_Table_Tools_Menu_Form
         Unload Me
     End If
+
+    Exit Sub
+
+ConversionFailed:
+    ' Put the screen back BEFORE saying anything, then report through the add-in's own dialog
+    ' rather than Word's. Nothing in here may raise.
+    Dim failNumber As Long
+    Dim failText As String
+
+    failNumber = Err.Number
+    failText = Err.Description
+
+    On Error Resume Next
+    Sh_Reset_Find_Parameters
+    Application.ScreenUpdating = True
+    Application.ScreenRefresh
+
+    ' Nothing here opens a custom undo record and nothing saves a cursor position any more -
+    ' Lp_Table_Convert_Hidden closes its own scratch document on the way out - so the screen is
+    ' the only thing to put back.
+    Sh_Report_Error "Lp_Table_Convert_Options_Form", failNumber, failText
+
+    Unload Lp_Table_Tools_Menu_Form
+    Unload Me
+
 End Sub
-
-
-
-'********* Begin Table Type Image Buttons - these select the table type radio buttons ********
 
 Private Sub RCTableImageButton_Click()
     CmdOkay.Enabled = True
@@ -577,20 +564,11 @@ Sub UserForm_Initialize()
     Me.Left = Application.Left + (0.5 * Application.Width) - (0.5 * Me.Width)
     Me.Top = Application.Top + (0.5 * Application.Height) - (0.5 * Me.Height)
     
-    '*** store the index of the selected table ***
-    Dim tbl As Table
-    Dim Lp_GP_Counter_1 As Long
-    Dim i As Long
-
-    If Selection.Information(wdWithInTable) Then
-        For i = 1 To ActiveDocument.Tables.count
-            Set tbl = ActiveDocument.Tables(i)
-            If Selection.Range.start >= tbl.Range.start And Selection.Range.End <= tbl.Range.End Then
-                Lp_GP_Counter_1 = i
-                Exit For
-            End If
-        Next i
-    End If
+    ' 9/3/2026 - removed a block that walked the tables to store the selected table's index
+    ' in Lp_GP_Counter_1. Its own "Dim Lp_GP_Counter_1 As Long" made a LOCAL of that name,
+    ' so the Public it meant to set was never touched and the whole loop was thrown away.
+    ' Nothing needs the index now in any case: both conversions work on Selection.Tables(1)
+    ' in the transcriber's own document, so there is no second document to find it again in.
 
 End Sub
 

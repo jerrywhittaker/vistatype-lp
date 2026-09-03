@@ -18,6 +18,103 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - LP  - 9/3/2026 - TABLE TOOLS NO LONGER SHOWS A SCRATCH DOCUMENT (Jerry, testing
+'           -                   3.0.339: "the table rotation shows flashing yellow on the screen
+'           -                   during the operation... full screen blinking"). Convert to List
+'           -                   and Rotate Table both ran inside a document that
+'           -                   Lp_Copy_To_Temp_Doc created and then deliberately SHOWED,
+'           -                   MAXIMIZED and ACTIVATED - four statements, because every pass
+'           -                   reached its table through Selection and Selection only reaches
+'           -                   the active document. That window, holding one table and nothing
+'           -                   else, is the splash of yellow. The rotation then finished by
+'           -                   MINIMIZING AND MAXIMIZING the Word window on purpose, "the Jolt -
+'           -                   Minimize/Maximize forces Windows OS to repaint the pixels",
+'           -                   which is the full-screen blink. Both are gone.
+'           -                   Ten macros now take the table they are to work on. What went with
+'           -                   the round trip: the clipboard (Selection.Copy of the whole story,
+'           -                   pasted back over the table - the transcriber's own clipboard was
+'           -                   emptied afterwards, and is not touched at all now), two document
+'           -                   activations per run, the temp file and its Kill, and eleven
+'           -                   DoEvents put there to give the switching time.
+'           -                   AND THE ROUND TRIP CAME BACK, HIDDEN - which is the real lesson
+'           -                   and cost three builds. Removing the scratch document altogether
+'           -                   was the wrong half: it does TWO jobs. It had to be SHOWN because
+'           -                   the passes reached their table through Selection, and that is the
+'           -                   flashing - converting the passes onto ranges is what cures it. But
+'           -                   it is ALSO what keeps the undo short, because edits made in
+'           -                   another document are not in this book's undo stack at all. Doing
+'           -                   the work in the book made Ctrl+Z 30 to 50 presses (Jerry:
+'           -                   "not tollerable for anyone"), and a custom undo record to cure
+'           -                   THAT crashed Word outright at 3.0.345 and again at 3.0.347
+'           -                   ("converting table to a list and transposing (rotating) a table,
+'           -                   both crashed word") - the defect already recorded for Format TOC
+'           -                   on 9/2/2026: a Find with Replace:=wdReplaceAll inside an open
+'           -                   StartCustomRecord takes Word down with an access violation in
+'           -                   wwlib.dll, nothing raised, nothing logged.
+'           -                   Lp_Table_Convert_Hidden is the answer and the shape to copy:
+'           -                   hidden Documents.Add from the book's own attached template, every
+'           -                   pass on a range, the note written into the scratch document's
+'           -                   first paragraph, and the whole thing home by FormattedText. TWO
+'           -                   Ctrl+Z presses, not one: assigning FormattedText to a range that
+'           -                   IS a table fills that table's CELLS instead of replacing it, so
+'           -                   3.0.349 put the finished list back inside its own table (Jerry:
+'           -                   "Convert Table to List is placing the list data in a table") and
+'           -                   the table has to be deleted first. Same as the old list
+'           -                   conversion, better than the old rotation's four. NO UNDO RECORD,
+'           -                   EVER, on a path that replaces.
+'           -                   Three faults could not have survived the move and are fixed here:
+'           -                   Lp_Table_Convert_RC_Table_To_List recolored ": " with
+'           -                   wdFindContinue, which against the transcriber's book instead of a
+'           -                   one-table scratch document is every colon in the chapter, and the
+'           -                   manual-line-break pass in Lp_Table_Cleanup_For_Roation_And_List
+'           -                   was the same; Lp_Table_Mark_Keep_With_Next read a table variable
+'           -                   the half above it had never set, run-time error 91 on any
+'           -                   row-and-column list run without "keep list groups on same page";
+'           -                   and its tidy-up of doubled paragraph marks started at
+'           -                   Selection.HomeKey wdStory, the top of the BOOK. Every Find is
+'           -                   wdFindStop and confined to the table.
+'           -                   ONE caller of Lp_Copy_To_Temp_Doc is left in the whole project:
+'           -                   Lp_Change_Image_Color_Form.
+'           -                   NO GUESSING. Six of the converted macros fell back on
+'           -                   ActiveDocument.Tables(1) when handed no table. That was the right
+'           -                   answer only because the document was a scratch one holding
+'           -                   exactly one table; in the transcriber's book the first table is
+'           -                   almost never the one under the cursor, so they now do NOTHING
+'           -                   rather than rewrite chapter one.
+'           -                   AND THE FORM NOW HAS AN ERROR HANDLER, which it never had. A
+'           -                   failure part way through used to cost a scratch copy; it now
+'           -                   leaves a half-converted table in the book, the screen frozen, and
+'           -                   Sh_Pos_Depth stuck at 1, which disables the cursor return for the
+'           -                   rest of the session, silently. The form calls its macros directly
+'           -                   and not through
+'           -                   RibbonAction, so nothing else was going to catch it and the
+'           -                   transcriber got Word's own Run-time error dialog with its Debug
+'           -                   button. It now restores all three and reports through dialog 240.
+'           -                   Merged cells are asked about FIRST, through the new
+'           -                   Lp_Table_Is_Uniform_Grid: the rotation used to strip the table's
+'           -                   line breaks, tabs and header formatting and only then say it
+'           -                   could not rotate it, under a message giving no hint that anything
+'           -                   had happened. And an EMPTY header cell no longer reaches the
+'           -                   title-case pass, which asks for Selection.Words(1) - a header
+'           -                   cell is legitimately empty when "leave blank cells blank" is
+'           -                   chosen.
+'           -                   Three more came out of review before any of it shipped. The
+'           -                   transcriber note is now split off the first line of the list
+'           -                   rather than born in a blank scratch document, so it inherits from
+'           -                   it: its KeepWithNext was written wdToggle, which FLIPPED the
+'           -                   direct one already there on a "keep list groups on the same page"
+'           -                   run and left the note stranded at the foot of a page, and its font
+'           -                   color came from the first header, which had just been set to the
+'           -                   color the transcriber chose. Both are set outright now. The third
+'           -                   was not a regression but was worth fixing while here: the
+'           -                   transpose copied the source table's STYLE and not the six
+'           -                   ApplyStyle* switches on the table itself, which are what decide
+'           -                   whether Word draws the yellow and white banding at all.
+'           -                   Separately, CONVERT TABLE TO REAL COLUMNS no longer ends with
+'           -                   every column selected (Jerry, same report). It selects the
+'           -                   converted text to set its spacing and needs that selection to
+'           -                   reach the section; it simply never put it down, so the next
+'           -                   keystroke would have replaced the lot.
 ' Notes:    - LP  - 9/2/2026 - FORMAT TOC NO LONGER SHOWS A SCRATCH DOCUMENT, and it never
 '           -                   needed one. Every pass in Lp_TOC_CleanAndFormat_TOC is something
 '           -                   a Range can be asked for: no Shapes, no Frames, no Hyperlinks, no
@@ -1979,8 +2076,9 @@ Sub Sh_HandleDocumentNew()
     ' A MACRO is running, not a transcriber. The same test, for the same reason, as the one at
     ' the top of Sh_HandleDocumentActivated - see the long note there - but it was missing here,
     ' and Word raises NewDocument for EVERY Documents.Add, including the ones macros make.
-    ' Lp_Copy_To_Temp_Doc creates the scratch document from three places, and Dx_Copy_To_Temp_Doc
-    ' did the same until 8/31/2026 - between them, about 35 - so a book being cleaned up had
+    ' Lp_Copy_To_Temp_Doc creates the scratch document, from one place now (it was three until
+    ' 9/3/2026), and Dx_Copy_To_Temp_Doc did the same until 8/31/2026 - between them, about 35 -
+    ' so a book being cleaned up had
     ' Word reconfigured for an ORDINARY document half way
     ' through the job. Three costs, none of them visible: the Styles pane closed and the screen
     ' refreshed at the exact points the macro had turned refreshing off - the 7/24 and 8/2/2026
@@ -2072,9 +2170,9 @@ Sub Sh_HandleDocumentActivated()
     If Documents.count = 0 Then Exit Sub
 
     ' A MACRO is running, not a transcriber. Word's own macros activate documents constantly -
-    ' every Lp_Copy_To_Temp_Doc creates a document and activates it, and it is called from three
-    ' places (Dx_Copy_To_Temp_Doc did the same until 8/31/2026, and between them they were called
-    ' from about 35). Reconfiguring Word in the middle of one would
+    ' every Lp_Copy_To_Temp_Doc creates a document and activates it, and it is still called from
+    ' one place (three until 9/3/2026; Dx_Copy_To_Temp_Doc did the same until 8/31/2026, and
+    ' between them they were called from about 35). Reconfiguring Word in the middle of one would
     ' put back the ~74 Options and AutoCorrect writes that were taken OUT of fourteen dialogs on
     ' 7/24/2026, and would refresh the screen at the exact points the code turns refreshing off.
     ' Screen updating being off is the marker: those macros all turn it off, and a transcriber
@@ -16180,10 +16278,12 @@ Sub Lp_Table_Convert_Table_Format_Error()
     
 End Sub
 
-Sub Lp_Table_Convert_R_Only_Table_To_List()
+Sub Lp_Table_Convert_R_Only_Table_To_List(Optional ByVal tbl As Table)
 '
-Dim su_Prev As Boolean
-su_Prev = Application.ScreenUpdating
+' Version: 2.1  Date: 9/3/2026 - the transcriber note and the cursor are the caller's job now -
+'                                see Lp_Table_Convert_NoRC_Table_To_List
+' Version: 2.0  Date: 9/3/2026 - works on the table it is handed, in a scratch document that is
+'                                never shown, instead of reaching it through Selection
 ' Version: 1.4  Date: 7/26/2026 - returns the user to where the cursor was when the macro started
 ' Version: 1.3  Date: 8/14/2025 - removed 40% screen - added Application.ScreenUpdating = False
 ' Version: 1.2  Date: 7/22/2025 - Removed "Remove manual line breaks, tabs and extra spaces from table"
@@ -16191,74 +16291,17 @@ su_Prev = Application.ScreenUpdating
 ' Version: 1.1   Date: 12/5/2019 - revisions compatible with Lp_Table_Convert_Options_Form Version 1.0  Date :12/5/2019
 ' Version: 1.0   Date: 11/27/2019
 '
+    ' Nothing handed over means do nothing - see NO GUESSING in the module changelog.
+    If tbl Is Nothing Then Exit Sub
 
-    Dim TempFileName As String
-    Application.ScreenUpdating = False
+    Lp_Table_Style_InCell_Para_And_Image tbl
 
-    Sh_Save_User_Position
-
-    Lp_Table_Convert_Options_Form.Hide
-
-    Application.Run MacroName:="Lp_Table_Style_InCell_Para_And_Image"
-    
     If InStr(Lp_GP_String_3, "S") > 0 Then
-        Application.Run MacroName:="Lp_Table_Mark_Keep_With_Next"
+        Lp_Table_Mark_Keep_With_Next tbl
     End If
 
-   ' convert table to text
-    ActiveDocument.Tables(1).Select
-    Selection.rows.ConvertToText Separator:=wdSeparateByParagraphs, NestedTables:=True
-
-    ' Store full path + file name of the active (temp) document
-    Dim TempDocName As String
-    TempFileName = ActiveDocument.fullName
-    
-
-    'place transcriber note at top in temp file
-     Selection.HomeKey Unit:=wdStory 'top of temp doc - move to the single para mark at top
-
-     Application.Run MacroName:="Lp_Table_Insert_Transcriber_Note"
-
-    'remove bottom para marks
-    Selection.EndKey Unit:=wdStory
-    Selection.Delete Unit:=wdCharacter, count:=1
-    Selection.EndKey Unit:=wdStory
-    Selection.Delete Unit:=wdCharacter, count:=1
-    'Selection.EndKey Unit:=wdStory
-    'Selection.Delete Unit:=wdCharacter, Count:=1
-
-     DoEvents
-     Selection.WholeStory
-     DoEvents
-     Selection.Copy
-     DoEvents
-
-     'open original doc
-     DoEvents
-     Documents(Lp_GP_String_2).Activate
-     DoEvents
-     ActiveDocument.Tables(Lp_GP_Counter_1).Select
-     DoEvents
-     ActiveDocument.Tables(Lp_GP_Counter_1).Delete
-     DoEvents
-     'The table is gone, so the cursor now sits exactly where the converted block will land.
-     'The transcriber note was put at the TOP of the temp document, so it is the first
-     'paragraph of what we are about to paste - leave the user on it (Jerry, 7/26/2026).
-     Sh_Set_Return_Position Selection.Range.start
-     Selection.Paste
-     DoEvents
-
-     'Screen stays OFF through the temp-file cleanup below. Turning it on here and THEN
-     'activating the temp document painted that document on screen - a splash of the table's
-     'alternating row color - before it was closed again (Jerry, 7/26/2026).
-     'delete temp file
-     Documents(TempFileName).Activate
-     ActiveDocument.Close SaveChanges:=wdDoNotSaveChanges
-     DoEvents
-     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-
-     Application.ScreenUpdating = su_Prev
-     Sh_Return_User_To_Start_Position
+    ' the table becomes the list
+    tbl.ConvertToText Separator:=wdSeparateByParagraphs, NestedTables:=True
 
 End Sub  '*** end Lp_Table_Convert_R_Only_Table_To_List macro ****
 
@@ -16421,6 +16464,11 @@ Sub Lp_Convert_Table_To_Real_Columns()
     '
     ' Converts table to multi-column list within two continuous page breaks
     '
+    ' Version: 1.2  Date: 9/3/2026 - puts the cursor back at the start of the new columns
+    '                                instead of leaving every column selected. Step 8 selects
+    '                                the converted text to set its spacing and step 9 needs
+    '                                that selection to reach the section, so the selection is
+    '                                the working tool here - it was simply never put down.
     ' Version: 1.1  Date: 1/29/2026 - complete rewrite
     ' Version: 1.0  Date: 1/14/2019
     '
@@ -16492,15 +16540,20 @@ Sub Lp_Convert_Table_To_Real_Columns()
         .EvenlySpaced = True
     End With
     
-    ' 10. REFRESH VISUALS
+    ' 10. PUT THE SELECTION DOWN
+    ' The columns are made; leaving them all selected means the transcriber's next keystroke
+    ' replaces the lot.
+    Selection.Collapse Direction:=wdCollapseStart
+
+    ' 11. REFRESH VISUALS
     Application.ScreenUpdating = su_Prev
     DoEvents
     Application.ScreenRefresh
     
-    ' 11. CLOSE UNDO & NOTIFY
+    ' 12. CLOSE UNDO & NOTIFY
     objUndo.EndCustomRecord
     
-    MsgBox "Press Ctrl+Z one time to restore the original table.", , "VistaType LP (222)"
+    Sh_Say "Press Ctrl+Z one time to restore the original table.", "VistaType LP (222)"
 End Sub
 
 Sub Lp_Toggle_Space_After_Current_Para()
@@ -18469,31 +18522,35 @@ Sub Lp_Delete_Zero_Width_Spaces()
     
 End Sub   '*** end of Lp_Delete_Zero_Width_Spaces macro ***
 
-Sub Lp_Table_Apply_Character_Case_To_Row_Headers()
+Sub Lp_Table_Apply_Character_Case_To_Row_Headers(Optional ByVal tbl As Table)
 '
+' Version: 1.3 Date: 9/3/2026 - title-cases through Sh_Title_Case_Range, so it needs no window
+' Version: 1.2 Date: 9/3/2026 - takes the table to work on instead of ActiveDocument.Tables(1)
 ' Version: 1.1 Date:9/19/2025 - removed lower case setting for row/column headers
 ' Version: 1.0 Date: 8/9/2025
 '
-    Dim tbl As Table
     Dim c   As cell
     Dim rng As Range
     Dim i   As Long
 
-    ' Point to the first table
-    Set tbl = ActiveDocument.Tables(1)
-    
+    ' Nothing handed over means do nothing - see NO GUESSING in the module changelog.
+    If tbl Is Nothing Then Exit Sub
+
     ' Walk each cell in row 1
     For Each c In tbl.rows(1).Cells
         Set rng = c.Range
         rng.End = rng.End - 1  ' Exclude the cell marker
-        
-        ' Choose action based on Lp_GP_String_3
-        If InStr(Lp_GP_String_3, "P") > 0 Then
-            rng.Select
-            Sh_Apply_Title_Case_Capitalization
-            
+
+        ' Choose action based on Lp_GP_String_3.
+        ' An EMPTY header cell is skipped: Sh_Apply_Title_Case_Capitalization asks for
+        ' Selection.Words(1), and a header cell can legitimately be empty when the transcriber
+        ' chose "leave blank cells blank". Inside a scratch document that was survivable; in
+        ' the book it would stop the conversion half done.
+        If InStr(Lp_GP_String_3, "P") > 0 And Len(Trim$(rng.Text)) > 0 Then
+            Sh_Title_Case_Range rng
+
         ElseIf InStr(Lp_GP_String_3, "U") > 0 Then
-            ' Uppercase only a–z, keep formatting
+            ' Uppercase only a-z, keep formatting
             For i = 1 To rng.Characters.count
                 With rng.Characters(i)
                     If .Text Like "[a-z]" Then .Text = UCase(.Text)
@@ -18504,31 +18561,32 @@ Sub Lp_Table_Apply_Character_Case_To_Row_Headers()
 
 End Sub  '*** end of Lp_Table_Apply_Character_Case_To_Row_Headers***
 
-Sub Lp_Table_Apply_Character_Case_To_Column_Headers()
+Sub Lp_Table_Apply_Character_Case_To_Column_Headers(Optional ByVal tbl As Table)
 '
+' Version: 1.3 Date: 9/3/2026 - title-cases through Sh_Title_Case_Range, so it needs no window
+' Version: 1.2 Date: 9/3/2026 - takes the table to work on instead of ActiveDocument.Tables(1)
 ' Version: 1.1 Date: 9/19/1015 - removed lower case setting
 ' Version: 1.0 Date: 8/9/2025
 '
-    Dim tbl  As Table
     Dim cel  As cell
     Dim rng  As Range
     Dim i    As Long
 
-    ' Reference the first table in the document
-    Set tbl = ActiveDocument.Tables(1)
-    
+    ' Nothing handed over means do nothing - see NO GUESSING in the module changelog.
+    If tbl Is Nothing Then Exit Sub
+
     ' Loop through each cell in column 1
     For Each cel In tbl.Columns(1).Cells
         Set rng = cel.Range
-        rng.End = rng.End - 1    ' Exclude end-of-cell marker
+        rng.End = rng.End - 1    ' Exclude end of cell marker
 
-        ' Decide action based on Lp_GP_String_3
-        If InStr(Lp_GP_String_3, "P") > 0 Then
-            rng.Select
-            Sh_Apply_Title_Case_Capitalization
+        ' Decide action based on Lp_GP_String_3 - an EMPTY header cell is skipped, see the
+        ' note in Lp_Table_Apply_Character_Case_To_Row_Headers.
+        If InStr(Lp_GP_String_3, "P") > 0 And Len(Trim$(rng.Text)) > 0 Then
+            Sh_Title_Case_Range rng
 
         ElseIf InStr(Lp_GP_String_3, "U") > 0 Then
-            ' Uppercase only a–z, preserving formatting
+            ' Uppercase only a-z, preserving formatting
             For i = 1 To rng.Characters.count
                 With rng.Characters(i)
                     If .Text Like "[a-z]" Then .Text = UCase(.Text)
@@ -18740,60 +18798,58 @@ Sub Lp_Picture_Color_Change_Menu()
     
 End Sub '*** end of Lp_Picture_Color_Change_Menu macro ***
 
-Sub Lp_Table_Row_Column_Header_Setup()
+Sub Lp_Table_Row_Column_Header_Setup(Optional ByVal tbl As Table)
     '
     ' these routines are only used when table contains row headings, column headings or both
     ' - not used for tables without row and column headings
     '
+    ' Version: 2.0  Date: 9/3/2026 - works on the table it is handed, through ranges, instead of
+    '                                on ActiveDocument.Tables(1) through Selection. Selecting a
+    '                                column to color it is what made this pass need a document
+    '                                on the screen, and the mixture of Selection.Tables(1) and
+    '                                ActiveDocument.Tables(1) in here meant it could be reading
+    '                                two different tables in the same run.
     ' Version: 1.1  Date: 8/13/2025 - fixes for rotated tables and fixes for RC tables
     ' Version: 1.0  Date: 7/7/2025 - new code
     '
-    Dim tbl As Table
-    Dim rng As Range
-    Dim col As Column
-    Dim para As Paragraph
-    
-    Application.ScreenUpdating = False
-    
+    Dim cel As cell
+
+    ' Nothing handed over means do nothing - see NO GUESSING in the module changelog.
+    If tbl Is Nothing Then Exit Sub
+
      '++++++++++ Begin style setup for table types X and Y +++++++++++++++++++++
     If InStr(Lp_GP_String_3, "Y") > 0 Then
-        Set tbl = ActiveDocument.Tables(1)
-        
+
         'set style for table types X and Y
         tbl.Range.Style = "List 2" 'Apply the "List 2" style to the whole table
-        
+
         ' Apply the "List" style to each paragraph in the first column
-         With ActiveDocument.Tables(1).Columns(1)
-            .Select
-            Selection.Style = "List"
-        End With
+        For Each cel In tbl.Columns(1).Cells
+            cel.Range.Style = "List"
+        Next cel
     End If
     '++++++++++ End set style for table types X and Y +++++++++++++++++++++
-    
-    ' Get the first table in the document
-    Set tbl = Selection.Tables(1)
 
     '++++++++++ Begin Title Case, Lower Case, Upper Case Header changes +++++++++++++++++++++
 
     If InStr(Lp_GP_String_3, "X") > 0 Then 'table is rotated and both column and row headers
-        Application.Run MacroName:="Lp_Table_Apply_Character_Case_To_Column_Headers"
-        Application.Run MacroName:="Lp_Table_Apply_Character_Case_To_Row_Headers"
+        Lp_Table_Apply_Character_Case_To_Column_Headers tbl
+        Lp_Table_Apply_Character_Case_To_Row_Headers tbl
     End If
 
     If InStr(Lp_GP_String_3, "Y") > 0 Then ' table is rotated and now has column headers only
-        Application.Run MacroName:="Lp_Table_Apply_Character_Case_To_Column_Headers"
+        Lp_Table_Apply_Character_Case_To_Column_Headers tbl
     End If
-        
+
     '++++++++++ End Title Case, Lower Case, Upper Case Header changes +++++++++++++++++++++
 
     '++++++++++ Begin Header Color  and Bold Settings +++++++++++++++
-    Set tbl = ActiveDocument.Tables(1)
-    
+
     If InStr(Lp_GP_String_3, "C") > 0 Then
         Dim cRed        As Integer        ' 1st digit of RGB color
         Dim cGreen      As Integer        ' 2nd digit of RGB color
         Dim cBlue       As Integer        ' 3rd digit of RGB color
-        
+
         If InStr(Lp_GP_String_3, "2") > 0 Then      'Red
             cRed = 255
             cGreen = 0
@@ -18815,268 +18871,140 @@ Sub Lp_Table_Row_Column_Header_Setup()
             cGreen = 128
             cBlue = 0
         End If
-        
+
         ' ++++++ Type X +++++++
         If InStr(Lp_GP_String_3, "X") > 0 Then 'table has both row and column headers
-            tbl.Columns(1).Select
-            With Selection.Font
-                .Color = wdColorAutomatic
-                If InStr(Lp_GP_String_3, "H") > 0 Then 'Bold wanted
-                    With Selection.Font
+            For Each cel In tbl.Columns(1).Cells
+                With cel.Range.Font
+                    .Color = wdColorAutomatic
+                    If InStr(Lp_GP_String_3, "H") > 0 Then 'Bold wanted
                         .Bold = True
-                    End With
-                End If
-            End With
-            tbl.rows(1).Select
-            With Selection.Font
-                .Color = RGB(cRed, cGreen, cBlue)
-            End With
+                    End If
+                End With
+            Next cel
+            tbl.rows(1).Range.Font.Color = RGB(cRed, cGreen, cBlue)
             Exit Sub
         End If
 
         ' ++++++ Type Y +++++++
         If (InStr(Lp_GP_String_3, "Y") > 0) Then    ' table has column headers only
-            tbl.Columns(1).Select
-            With Selection.Font
-                If InStr(Lp_GP_String_3, "1") > 0 Then
-                    .Color = wdColorAutomatic
-                Else
-                    .Color = RGB(cRed, cGreen, cBlue)
-                End If
-                If InStr(Lp_GP_String_3, "H") > 0 Then 'Bold wanted
-                    With Selection.Font
+            For Each cel In tbl.Columns(1).Cells
+                With cel.Range.Font
+                    If InStr(Lp_GP_String_3, "1") > 0 Then
+                        .Color = wdColorAutomatic
+                    Else
+                        .Color = RGB(cRed, cGreen, cBlue)
+                    End If
+                    If InStr(Lp_GP_String_3, "H") > 0 Then 'Bold wanted
                         .Bold = True
-                    End With
-                End If
-            End With
+                    End If
+                End With
+            Next cel
             Exit Sub
         End If
     End If
-       
+
     '++++++++++ End Header Color  and Bold Settings +++++++++++++++
 
 End Sub '*** end of Lp_Table_Row_Column_Header_Setup ***
 
-Sub Lp_Table_Convert_NoRC_Table_To_List()
+Sub Lp_Table_Convert_NoRC_Table_To_List(Optional ByVal tbl As Table)
 '
+' Version: 2.1  Date: 9/3/2026 - the transcriber note and the cursor are the caller's job now.
+'                                Lp_Table_Convert_Hidden writes the note into the scratch
+'                                document's first paragraph so that the note and the list come
+'                                home together as ONE edit, which is one Ctrl+Z.
+' Version: 2.0  Date: 9/3/2026 - works on the table it is handed, through ranges. It used to
+'                                reach its table through Selection, which is why the scratch
+'                                document had to be put on the screen; it is hidden now. The
+'                                clipboard round trip, the two document activations and the
+'                                trailing-paragraph deletes that went with them are gone.
 ' Version: 1.4  Date: 7/26/2026 - returns the user to where the cursor was when the macro started
 ' Version: 1.2  Date: 8/15/2025 - remove para mark at top placed by Lp_Copy_To_Temp_Doc
 '                               - added Application.Run MacroName:="Lp_Table_Style_InCell_Para_And_Image"
-Dim su_Prev As Boolean
-su_Prev = Application.ScreenUpdating
 ' Version: 1.1  Date: 814/2025  - remove 40% screen setting - added Application.ScreenUpdating = False
 ' Version: 1.0  Date: 8/8/2025
 '
-    Application.ScreenUpdating = False
+    ' Nothing handed over means do nothing - see NO GUESSING in the module changelog.
+    If tbl Is Nothing Then Exit Sub
 
-    Sh_Save_User_Position
+    '**********  the whole table takes the List style *********
+    tbl.Range.Style = "List"
 
-    Dim tbl As Table
-    Dim tblRange As Range
-    Dim TempFileName As String
+    ' make any in-cell paragraphs List 4
+    Lp_Table_Style_InCell_Para_And_Image tbl
 
-    '**********  Start put a par above table '*********
-
-    If Selection.Tables.count > 0 Then
-        Set tbl = Selection.Tables(1)
-        Set tblRange = tbl.Range
-        tblRange.Cut
-        Selection.TypeParagraph
-        Selection.MoveUp Unit:=wdParagraph, count:=1
-        Selection.MoveDown Unit:=wdParagraph, count:=1
-        DoEvents
-        Selection.Paste
-    End If
-
-    '**********  convert whole table to list style *********
-    ActiveDocument.Tables(1).Select
-    Selection.Style = "List"
-
-     ' make any in-cell paragraphs List 4
-    Application.Run MacroName:="Lp_Table_Style_InCell_Para_And_Image"
- 
-    'convert table to list
-    ActiveDocument.Tables(1).ConvertToText Separator:=wdSeparateByParagraphs
-    
-    '********** start create transcriber note ********
-    Selection.HomeKey Unit:=wdStory
-    Selection.Delete 'remove para mark
-    Application.Run "Lp_Table_Insert_Transcriber_Note"
-
-    ' Store full path + file name of the active (temp) document
-    Dim TempDocName As String
-    TempFileName = ActiveDocument.fullName
-    
-    ' remove ending para mark
-    Selection.EndKey Unit:=wdStory
-    Selection.Delete Unit:=wdCharacter, count:=1
-    
-    'copy the list
-     DoEvents
-     Selection.WholeStory
-     DoEvents
-     Selection.Copy
-     DoEvents
-
-     'open original doc and paste
-     DoEvents
-     Documents(Lp_GP_String_2).Activate
-     DoEvents
-     ActiveDocument.Tables(Lp_GP_Counter_1).Select
-     DoEvents
-     ActiveDocument.Tables(Lp_GP_Counter_1).Delete
-     DoEvents
-     'The table is gone, so the cursor now sits exactly where the converted block will land.
-     'The transcriber note was put at the TOP of the temp document, so it is the first
-     'paragraph of what we are about to paste - leave the user on it (Jerry, 7/26/2026).
-     Sh_Set_Return_Position Selection.Range.start
-     Selection.Paste
-     DoEvents
-
-     'Screen stays OFF through the temp-file cleanup below. Turning it on here and THEN
-     'activating the temp document painted that document on screen - a splash of the table's
-     'alternating row color - before it was closed again (Jerry, 7/26/2026).
-     'delete temp file
-     Documents(TempFileName).Activate
-     ActiveDocument.Close SaveChanges:=wdDoNotSaveChanges
-     DoEvents
-     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-
-     Application.ScreenUpdating = su_Prev
-     Sh_Return_User_To_Start_Position
+    '**********  the table becomes the list *********
+    tbl.ConvertToText Separator:=wdSeparateByParagraphs
 
 End Sub   '*** end of Lp_Table_Convert_NoRC_Table_To_List ***
 
-Sub Lp_Table_Cleanup_For_Roation_And_List()
+Sub Lp_Table_Cleanup_For_Roation_And_List(Optional ByVal tbl As Table)
     '
+    ' Takes the manual line breaks, tabs and doubled spaces out of a table, clears bold,
+    ' italic and underline off its headers, and trims the trailing paragraph marks out of
+    ' every cell. Used by both the rotate and the convert-to-list paths.
+    '
+    ' Version: 2.0  Date: 9/3/2026 - works on the table it is handed, in the transcriber's own
+    '                                book, instead of on ActiveDocument.Tables(1) inside a
+    '                                scratch document that had to be put on the screen to be
+    '                                reached through Selection. Every Find is now a Range find
+    '                                with wdFindStop so it cannot run past that table - the
+    '                                manual-line-break pass said wdFindContinue, which on a
+    '                                range means the whole book. The inner undo record went as
+    '                                well: the caller now wraps the whole conversion in one.
     ' Verskon: 1.2  Date: 8/13/2025 - removed automatic colors on Headers - added removal of multiple para marks before end of cell marker
     ' Version: 1.1  Date: 8/6/2025 ' added clear headers
     ' Version: 1.0  Date: 7/24/2025
     '
-    '********** Begin Remove manual line breaks, tabs and extra spaces from table and clear headers********
-    
-    Application.ScreenUpdating = False
-    Dim tbl As Table
-    Dim cell As cell
-    Dim txt As String
-
-    ActiveDocument.Tables(1).Select
-
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "^p^p"
-        .Replacement.Text = ""
-        .Forward = False
-        .Wrap = wdFindStop
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-   Selection.Find.Execute Replace:=wdReplaceAll
-
-    Selection.Tables(1).Select  'select entire table
-     
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "^t"
-        .Replacement.Text = "^032"
-        .Forward = True
-        .Wrap = wdFindStop
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Selection.Tables(1).Select  'select entire table
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "^032{1,}"
-        .Replacement.Text = "^032"
-        .Forward = True
-        .Wrap = wdFindStop
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = True
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Selection.Tables(1).Select  'select entire table
-    
-     ' Replace manual line breaks with space
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "^l"
-        .Replacement.Text = " "
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    '***** begin clear all headers ****
-    
-    ' Reference the first table in the active document
-    Set tbl = ActiveDocument.Tables(1)
-    
-     If InStr(Lp_GP_String_3, "X") > 0 Or InStr(Lp_GP_String_3, "Y") > 0 Then
-        ' Loop through every cell in row 1
-        For Each cell In tbl.rows(1).Cells
-            With cell.Range.Font
-                .Bold = False
-                .Italic = False
-                .Underline = wdUnderlineNone
-            End With
-        Next cell
-    End If
-        
-     If InStr(Lp_GP_String_3, "X") > 0 Then
-        ' Loop through every cell in row 1
-        For Each cell In tbl.Columns(1).Cells
-            With cell.Range.Font
-                .Bold = False
-                .Italic = False
-                .Underline = wdUnderlineNone
-            End With
-        Next cell
-    End If
-    
-    'TrimTrailingParasInTable1()
-    Dim ur As UndoRecord
-    'Dim tbl As table
     Dim cel As cell
     Dim r As Range, delR As Range
-    'Dim txt As String
+    Dim txt As String
     Dim i As Long, n As Long
 
-    If ActiveDocument.Tables.count = 0 Then Exit Sub
-    Set tbl = ActiveDocument.Tables(1)
+    ' Nothing handed over means do nothing - see NO GUESSING in the module changelog.
+    If tbl Is Nothing Then Exit Sub
 
-    ' Wrap in a single undo step.
-    Set ur = Application.UndoRecord
-    ur.StartCustomRecord "Trim trailing paragraph marks in Table(1)"
+    '********** Remove manual line breaks, tabs and extra spaces from the table ********
+
+    ' Doubled paragraph marks, backwards, exactly as this pass has always run
+    Lp_Table_Replace_In_Table tbl, "^p^p", "", False, False
+
+    ' Tabs to a space, then any run of spaces down to one
+    Lp_Table_Replace_In_Table tbl, "^t", "^032", True, False
+    Lp_Table_Replace_In_Table tbl, "^032{1,}", "^032", True, True
+
+    ' Manual line breaks to a space
+    Lp_Table_Replace_In_Table tbl, "^l", " ", True, False
+
+    '***** clear all headers ****
+
+    If InStr(Lp_GP_String_3, "X") > 0 Or InStr(Lp_GP_String_3, "Y") > 0 Then
+        ' Every cell in row 1
+        For Each cel In tbl.rows(1).Cells
+            With cel.Range.Font
+                .Bold = False
+                .Italic = False
+                .Underline = wdUnderlineNone
+            End With
+        Next cel
+    End If
+
+    If InStr(Lp_GP_String_3, "X") > 0 Then
+        ' Every cell in column 1
+        For Each cel In tbl.Columns(1).Cells
+            With cel.Range.Font
+                .Bold = False
+                .Italic = False
+                .Underline = wdUnderlineNone
+            End With
+        Next cel
+    End If
+
+    '***** trim the trailing paragraph marks out of every cell ****
 
     For Each cel In tbl.Range.Cells
-        ' Work inside the cell, excluding the end-of-cell marker.
+        ' Work inside the cell, excluding the end of cell marker.
         Set r = cel.Range
         r.End = r.End - 1
 
@@ -19095,7 +19023,7 @@ Sub Lp_Table_Cleanup_For_Roation_And_List()
             End If
         Loop
 
-        ' Delete all trailing paragraph marks before the end-of-cell marker.
+        ' Delete all trailing paragraph marks before the end of cell marker.
         If n > 0 Then
             Set delR = r.Duplicate
             delR.start = delR.End - n
@@ -19104,57 +19032,128 @@ Sub Lp_Table_Cleanup_For_Roation_And_List()
 NextCell:
     Next cel
 
-    ur.EndCustomRecord
-
-    '***** end clear all headers ****
-    
-    '********** End Remove manual line breaks, tabs and extra spaces from table and clear headers********
-
 End Sub   '*** end of Lp_Table_Cleanup_For_Roation_And_List ***
 
-Sub Lp_Table_Transpose_Table()
+Private Sub Lp_Table_Replace_In_Table(ByVal tbl As Table, ByVal findText As String, _
+                                      ByVal replaceText As String, ByVal goForward As Boolean, _
+                                      ByVal useWildcards As Boolean)
     '
-    ' Version: 1.0 Date: 9/2/2025 - new code
+    ' One find and replace confined to one table.
     '
-    ActiveDocument.Tables(1).Select
-    
-    Dim src As Table, dst As Table
+    ' Version: 1.0  Date: 9/3/2026
+    '
+    ' wdFindStop is not optional here. These passes used to run against a Selection inside a
+    ' scratch document that held nothing but the table, so the wrap setting could not do any
+    ' harm. Against a range in the transcriber's own book, wdFindContinue would carry each
+    ' replace on through the rest of the chapter.
+    '
+    Dim rng As Range
+
+    Set rng = tbl.Range
+    With rng.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
+        .Text = findText
+        .Replacement.Text = replaceText
+        .Forward = goForward
+        .Wrap = wdFindStop
+        .Format = False
+        .MatchCase = False
+        .MatchWholeWord = False
+        .MatchWildcards = useWildcards
+        .MatchSoundsLike = False
+        .MatchAllWordForms = False
+        .Execute Replace:=wdReplaceAll
+    End With
+
+End Sub   '*** end of Lp_Table_Replace_In_Table ***
+
+Function Lp_Table_Is_Uniform_Grid(ByVal tbl As Table) As Boolean
+'
+' True when every row has the same number of cells, i.e. nothing in the table is merged.
+' A merged table cannot be transposed - cell(r, c) does not mean what it says.
+'
+' Version: 1.0  Date: 9/3/2026
+'
+' Its own function so the CALLER can ask BEFORE it changes anything. The rotation used to clean
+' the table up first and only then find that it could not be rotated, which left the
+' transcriber's own table stripped of its line breaks, tabs and header formatting underneath a
+' message that gave no hint anything had happened to it.
+'
+    Lp_Table_Is_Uniform_Grid = _
+        (tbl.Range.Cells.count = tbl.rows.count * tbl.Columns.count)
+
+End Function   '*** end of Lp_Table_Is_Uniform_Grid ***
+
+Function Lp_Table_Transpose_Table(Optional ByVal srcTbl As Table, _
+                                  Optional ByVal keepParaAbove As Boolean = False) As Table
+    '
+    ' Turns a table on its side - row 1 becomes column 1 - and returns the new table, or
+    ' Nothing when it will not do the job and has said why.
+    '
+    ' keepParaAbove leaves in place the empty paragraph this macro opens above the new table
+    ' while it is building it. The rotation writes its transcriber note into that paragraph:
+    ' asking a TABLE's own range to insert a paragraph before it puts the paragraph inside the
+    ' first cell, so the one paragraph above a table that is known to be a real one is the one
+    ' put there deliberately.
+    '
+    ' Version: 2.0  Date: 9/3/2026 - takes the table to transpose and hands back the one it
+    '                                built, instead of selecting ActiveDocument.Tables(1). The
+    '                                Select was the first statement in the macro and ran before
+    '                                the screen was frozen, which is where the flash of the
+    '                                table's row color came from; it also meant the FIRST table
+    '                                in the document, which was only ever the right one because
+    '                                a scratch document had been made to hold one table.
+    ' Version: 1.0  Date: 9/2/2025 - new code
+    '
+    Dim dst As Table
     Dim r As Long, c As Long
-    Dim rows As Long, cols As Long
+    Dim numRows As Long, numCols As Long
     Dim srcCellRng As Range, dstCellRng As Range
     Dim insertRng As Range
     Dim tblStyle As Style
 
-    Set src = Selection.Tables(1)
+    Set Lp_Table_Transpose_Table = Nothing
 
-    ' Guard: merged cells are not supported for a true transpose
-    If src.Range.Cells.count <> (src.rows.count * src.Columns.count) Then
-        MsgBox "This table has merged cells. Unmerge before transposing.", vbExclamation
-        Exit Sub
+    ' Nothing handed over means do nothing - see NO GUESSING in the module changelog.
+    If srcTbl Is Nothing Then Exit Function
+
+    ' Backstop only: the callers ask Lp_Table_Is_Uniform_Grid before they touch anything, so
+    ' the transcriber hears about merged cells before the table has been changed at all.
+    If Not Lp_Table_Is_Uniform_Grid(srcTbl) Then
+        Sh_Say "This table has merged cells. Unmerge them before rotating the table.", "VistaType LP (287)"
+        Exit Function
     End If
 
-    rows = src.rows.count
-    cols = src.Columns.count
-    Set tblStyle = src.Style
+    numRows = srcTbl.rows.count
+    numCols = srcTbl.Columns.count
+    Set tblStyle = srcTbl.Style
 
-    Dim su_Prev As Boolean
-    su_Prev = Application.ScreenUpdating
-    Application.ScreenUpdating = False
-
-    ' Insert destination table immediately after the source
-    Set insertRng = src.Range.Duplicate
+    ' Insert the destination table immediately after the source
+    Set insertRng = srcTbl.Range.Duplicate
     insertRng.Collapse wdCollapseEnd
     insertRng.InsertParagraphAfter
     insertRng.Collapse wdCollapseEnd
 
-    Set dst = insertRng.Tables.Add(Range:=insertRng, NumRows:=cols, NumColumns:=rows)
+    Set dst = insertRng.Tables.Add(Range:=insertRng, NumRows:=numCols, NumColumns:=numRows)
     dst.Style = tblStyle
 
-    ' Fill destination with formatted content (keeps inline images)
-    For r = 1 To rows
-        For c = 1 To cols
-            Set srcCellRng = src.cell(r, c).Range.Duplicate
-            ' Trim end-of-cell marker (Chr(13) + Chr(7))
+    ' The STYLE is only half of how a table looks. Which parts of it Word actually draws -
+    ' the banded rows above all - are switches on the TABLE, and a table Word has just made
+    ' carries its own defaults for them. Without this the yellow and white striping can come
+    ' back as one flat color, or come back where the transcriber had turned it off.
+    dst.ApplyStyleRowBands = srcTbl.ApplyStyleRowBands
+    dst.ApplyStyleColumnBands = srcTbl.ApplyStyleColumnBands
+    dst.ApplyStyleHeadingRows = srcTbl.ApplyStyleHeadingRows
+    dst.ApplyStyleFirstColumn = srcTbl.ApplyStyleFirstColumn
+    dst.ApplyStyleLastRow = srcTbl.ApplyStyleLastRow
+    dst.ApplyStyleLastColumn = srcTbl.ApplyStyleLastColumn
+
+    ' Fill the destination with formatted content (keeps inline images)
+    For r = 1 To numRows
+        For c = 1 To numCols
+            Set srcCellRng = srcTbl.cell(r, c).Range.Duplicate
+            ' Trim end of cell marker (Chr(13) + Chr(7))
             srcCellRng.End = srcCellRng.End - 1
 
             Set dstCellRng = dst.cell(c, r).Range.Duplicate
@@ -19166,52 +19165,58 @@ Sub Lp_Table_Transpose_Table()
     Next r
 
     ' Remove the original table; the transposed one remains in its place
-    src.Delete
+    srcTbl.Delete
 
-    ' Clean up the extra paragraph we inserted (optional)
-    If dst.Range.Previous Is Nothing Then
-        ' nothing to clean
-    ElseIf dst.Range.Previous.Text = vbCr Then
-        dst.Range.Previous.Delete
+    ' Clean up the extra paragraph inserted above, unless the caller asked to keep it
+    If Not keepParaAbove Then
+        If dst.Range.Previous Is Nothing Then
+            ' nothing to clean
+        ElseIf dst.Range.Previous.Text = vbCr Then
+            dst.Range.Previous.Delete
+        End If
     End If
 
-    Application.ScreenUpdating = su_Prev
+    Set Lp_Table_Transpose_Table = dst
 
-End Sub   '*** end of Lp_Table_Transpose_Table ***
+End Function   '*** end of Lp_Table_Transpose_Table ***
 
-Sub Lp_Table_Fill_Empty_Cells()
-
-    'Version 1.0 Date: 7/26/2025
-
-    Dim tTable As Table
+Sub Lp_Table_Fill_Empty_Cells(Optional ByVal tbl As Table)
+    '
+    ' Puts an em dash or "N/A" into every empty cell, per the choice on
+    ' Lp_Table_Convert_Options_Form, and reports in Lp_GP_Boolean_1 whether it filled any.
+    '
+    ' Version: 2.0  Date: 9/3/2026 - works on the table it is handed rather than selecting
+    '                                ActiveDocument.Tables(1). The Select was one of the
+    '                                statements that painted the scratch document on screen.
+    ' Version: 1.0  Date: 7/26/2025
+    '
     Dim cCell As cell
     Dim sTemp As String
     Dim bReplaced As Boolean
+
     Lp_GP_Boolean_1 = False 'was blank cell replaced?
-    
-    ActiveDocument.Tables(1).Select
-    
+
+    ' Nothing handed over means do nothing - see NO GUESSING in the module changelog.
+    If tbl Is Nothing Then Exit Sub
+
     If InStr(Lp_GP_String_3, "M") > 0 Then
         sTemp = Chr(151) 'em dash
     End If
-    
+
     If InStr(Lp_GP_String_3, "N") > 0 Then
         sTemp = "N/A"    'not available
     End If
 
-   If Selection.Information(wdWithInTable) Then
-        Set tTable = Selection.Tables(1)
-        For Each cCell In tTable.Range.Cells
-            'An apparently empty cell contains an end of cell marker
-            If Len(Trim(cCell.Range.Text)) < 3 Then
-                cCell.Range = sTemp
-                bReplaced = True
-            End If
-        Next
-    End If
-    
+    For Each cCell In tbl.Range.Cells
+        'An apparently empty cell contains an end of cell marker
+        If Len(Trim(cCell.Range.Text)) < 3 Then
+            cCell.Range = sTemp
+            bReplaced = True
+        End If
+    Next
+
     Lp_GP_Boolean_1 = bReplaced
-    
+
 End Sub   '****** End of Lp_Table_Fill_Empty_Cells *******
 
 Sub Lp_ValidateTableIntegrityForListOrRotation()
@@ -19312,49 +19317,297 @@ Sub Lp_DoesRangeHaveATOCStyle()
     
 End Sub   '*** end of Lp_DoesRangeHaveATOCStyle ***
 
-Sub Lp_Table_Insert_Transcriber_Note()
-'
-'  Version: 1.1  Date: 10/29/2025 - added Lp_GP_Boolean_1 = True only when blank cell has been filled wiht "N/A" Or em dash
-'  Version: 1.0  Date: 8/12/2025
-'
-    Selection.Font.Bold = True
-    Selection.TypeText Text:="Note"
-    Selection.Font.Bold = False
-    
+' Lp_Table_Insert_Transcriber_Note, Lp_Table_Note_Above and Lp_Table_Note_Above_Table stood here
+' until 9/3/2026. All three wrote the transcriber note through Selection, or worked out where to
+' put it from a character offset, and both needed the document to be on the screen. The note is
+' now written by Lp_Table_Note_At_Top into the empty first paragraph of a scratch document that
+' is never shown, so that it comes home with the converted list or the rotated table as ONE
+' edit - which is one Ctrl+Z. Removed rather than left: dead code carrying Selection.TypeText is
+' exactly what gets called again by someone tidying up later, and it would put the flashing
+' document straight back.
+
+Public Sub Lp_Table_Note_At_Top(ByVal doc As Document)
+    '
+    ' Writes the transcriber note into the empty first paragraph of the scratch document, above
+    ' the converted list or the rotated table.
+    '
+    ' Version: 1.0  Date: 9/3/2026
+    '
+    ' The range twin of Lp_Table_Insert_Transcriber_Note, which types through Selection and so
+    ' needs a window. Lp_Table_Convert_Hidden leaves paragraph 1 empty for exactly this.
+    '
+    ' Everything is set outright rather than inherited. The old note was typed into a virgin
+    ' paragraph of a scratch document and picked up its defaults for free; that is worth saying
+    ' in code rather than relying on, and KeepWithNext was written as wdToggle - which FLIPS what
+    ' is there - where what is wanted is simply True.
+    '
+    Dim head As Range
+    Dim tail As Range
+    Dim words As String
+
+    If doc Is Nothing Then Exit Sub
+    If doc.Paragraphs.count = 0 Then Exit Sub
+
+    Set head = doc.Paragraphs(1).Range
+    head.End = head.End - 1            ' inside the paragraph, in front of its mark
+    head.Collapse wdCollapseStart
+
+    head.InsertAfter "Note"            ' head now covers the word
+    With head.Font
+        .Color = wdColorAutomatic
+        .Italic = False
+        .Underline = wdUnderlineNone
+        .Bold = True
+    End With
+
     If InStr(Lp_GP_String_3, "L") > 0 Then
-        Selection.TypeText Text:=": The original table has been changed into a list."
+        words = ": The original table has been changed into a list."
     Else
-        Selection.TypeText Text:=": The original table has been rotated (transposed)."
+        words = ": The original table has been rotated (transposed)."
     End If
 
     If InStr(Lp_GP_String_3, "M") > 0 And Lp_GP_Boolean_1 = True Then 'empty cells were filled
-        Selection.TypeText Text:=" Empty table cells are shown as " + ChrW(34) + ChrW(&H2014) + ChrW(34) + "."
+        words = words & " Empty table cells are shown as " & ChrW(34) & ChrW(&H2014) & ChrW(34) & "."
     End If
     If InStr(Lp_GP_String_3, "N") > 0 And Lp_GP_Boolean_1 = True Then 'empty cells were filled
-        Selection.TypeText Text:=" Empty table cells are shown as " + ChrW(34) + "N/A" + ChrW(34) + "."
+        words = words & " Empty table cells are shown as " & ChrW(34) & "N/A" & ChrW(34) & "."
     End If
-    
-    If Sh_Style_Exists(ActiveDocument, "Box Blue") Then
-    Selection.Style = ActiveDocument.Styles("Box Blue")
+
+    Set tail = head.Duplicate
+    tail.Collapse wdCollapseEnd
+    tail.InsertAfter words             ' tail now covers the rest of the sentence
+    With tail.Font
+        .Color = wdColorAutomatic
+        .Italic = False
+        .Underline = wdUnderlineNone
+        .Bold = False
+    End With
+
+    If Sh_Style_Exists(doc, "Box Blue") Then
+        doc.Paragraphs(1).Range.Style = doc.Styles("Box Blue")
     End If
-    Selection.ParagraphFormat.KeepWithNext = wdToggle
-    
-End Sub   '*** end of Lp_Table_Insert_Transcriber_Note ***
+    doc.Paragraphs(1).Format.KeepWithNext = True
 
-Sub Lp_Table_Is_R1C1_Empty()
-'
-' Version 1.0  Date: 8/12/2025
+End Sub   '*** end of Lp_Table_Note_At_Top ***
 
+Public Sub Sh_Title_Case_Range(ByVal rng As Range)
+    '
+    ' Title-case one range, without needing a window.
+    '
+    ' Version: 1.0  Date: 9/3/2026
+    '
+    ' The twin of Sh_Apply_Title_Case_Capitalization, which works through Selection and so needs
+    ' the document to be on the screen. The table conversions do their work in a scratch document
+    ' that is never shown, so they use this one. Same word list, same rules.
+    '
+    Dim strL As String
+    Dim i As Long
+    Dim n As Long
+
+    If rng Is Nothing Then Exit Sub
+    If Len(Trim$(rng.Text)) = 0 Then Exit Sub
+
+    n = rng.words.count
+    If n = 0 Then Exit Sub
+
+    rng.words(1).Case = wdTitleWord
+    If n > 1 Then rng.words(n).Case = wdTitleWord
+
+    For i = 2 To n - 1
+        strL = LCase(Trim(rng.words(i)))
+        If strL = "a" Or strL = "above" Or strL = "after" Or strL = "an" Or _
+              strL = "and" Or strL = "as" Or strL = "at" Or strL = "below" Or _
+              strL = "but" Or strL = "by" Or strL = "down" Or strL = "for" Or _
+              strL = "from" Or strL = "in" Or strL = "into" Or strL = "of" Or _
+              strL = "off" Or strL = "on" Or strL = "onto" Or strL = "or" Or strL = "yet" Or _
+              strL = "out" Or strL = "over" Or strL = "the" Or strL = "to" Or strL = "nor" Or _
+              strL = "under" Or strL = "up" Or strL = "with" Or strL = "is" Then
+            rng.words(i).Case = wdLowerCase
+        Else
+            rng.words(i).Case = wdTitleWord
+        End If
+    Next i
+
+End Sub   '*** end of Sh_Title_Case_Range ***
+
+Public Sub Lp_Table_Convert_Hidden(ByVal srcTbl As Table, ByVal wantRotate As Boolean)
+    '
+    ' Converts one table to a list, or rotates it, in a scratch document that is NEVER SHOWN,
+    ' and brings the result home in two steps - so Ctrl+Z is two presses, not the 30 to 50 that
+    ' doing the work in the book itself cost.
+    '
+    ' Version: 1.1  Date: 9/3/2026 - deletes the original table instead of assigning over it. See
+    '                               the note at "HOME" below: assigning FormattedText to a range
+    '                               that IS a table fills that table's cells rather than
+    '                               replacing it, so the list came back inside the table.
+    ' Version: 1.0  Date: 9/3/2026
+    '
+    ' THE ROUND TRIP IS THE POINT. It was taken out altogether at 3.0.345 and that was the wrong
+    ' half to remove: the scratch document does two jobs, and only one of them was the fault.
+    '   * It had to be SHOWN because every pass reached its table through Selection, and
+    '     Selection only reaches the active document. THAT is the flash of yellow Jerry reported
+    '     against 3.0.339, and it is gone - the passes now take the table to work on, so the
+    '     document is made hidden and stays hidden.
+    '   * It is also what keeps the UNDO SHORT. Edits made in another document are not in this
+    '     book's undo stack at all, so only the one assignment home is. Doing the work in the
+    '     book instead made Ctrl+Z 30 to 50 presses (Jerry, 9/3/2026: "not tollerable for
+    '     anyone"), and wrapping it in a custom undo record to fix that CRASHED WORD - a Find
+    '     with Replace:=wdReplaceAll inside StartCustomRecord is a Word defect, measured for
+    '     Format TOC on 9/2/2026 and hit again here at 3.0.345 and 3.0.347.
+    ' Hidden round trip, one assignment home, no undo record: short undo, no flash, no crash.
+    '
+    ' Built from the source document's OWN attached template so the styles resolve the same way,
+    ' the same as Lp_Horz_To_Vert_Hidden and Lp_Exercise_Levels_Hidden.
+    '
+    Dim origDoc As Document
+    Dim tempDoc As Document
+    Dim tpl As String
+    Dim dest As Range
+    Dim work As Range
+    Dim landing As Range
+    Dim body As Range
     Dim tbl As Table
+    Dim newTbl As Table
+
+    If srcTbl Is Nothing Then Exit Sub
+
+    Set work = srcTbl.Range.Duplicate
+    Set landing = srcTbl.Range.Duplicate
+    Set origDoc = work.Document
+
+    On Error Resume Next
+    tpl = origDoc.AttachedTemplate.fullName
+    On Error GoTo 0
+
+    On Error GoTo eom
+    If Len(tpl) > 0 Then
+        Set tempDoc = Documents.Add(Template:=tpl, Visible:=False)
+    Else
+        Set tempDoc = Documents.Add(Visible:=False)
+    End If
+
+    ' A document made from a .dot comes back in that template's own compatibility mode - see the
+    ' long note in Lp_Horz_To_Vert_Hidden. Trapped, and never fatal.
+    On Error Resume Next
+    If tempDoc.CompatibilityMode < origDoc.CompatibilityMode Then tempDoc.Convert
+    On Error GoTo eom
+
+    ' NOTHING here shows, maximizes or activates the scratch document. That is the whole point.
+    '
+    ' Paragraph 1 is left empty for the transcriber note and the table goes under it. Same shape
+    ' Lp_Copy_To_Temp_Doc used, and it is what lets the note and the result come home together
+    ' as one edit.
+    Set dest = tempDoc.Range
+    dest.InsertParagraphBefore
+    Set dest = tempDoc.Paragraphs(2).Range
+    dest.Collapse wdCollapseStart
+    dest.FormattedText = work.FormattedText
+
+    If tempDoc.Tables.count = 0 Then GoTo eom
+    Set tbl = tempDoc.Tables(1)
+
+    If wantRotate Then
+
+        Lp_Table_Cleanup_For_Roation_And_List tbl
+        Set newTbl = Lp_Table_Transpose_Table(tbl)
+        If newTbl Is Nothing Then GoTo eom
+        Set tbl = newTbl
+
+        Lp_Table_Fill_Empty_Cells tbl
+
+        If Not InStr(Lp_GP_String_3, "W") = 0 Then
+            Lp_Table_Row_Column_Header_Setup tbl
+        End If
+
+        ' A table on its side has a different number of columns from the one it came from.
+        tbl.AllowAutoFit = True
+        tbl.AutoFitBehavior wdAutoFitWindow
+
+    Else
+
+        If InStr(Lp_GP_String_3, "X") > 0 Then          'row and column headers
+            Lp_Table_Cleanup_For_Roation_And_List tbl
+            Lp_Table_Fill_Empty_Cells tbl
+            Lp_Table_Row_Column_Header_Setup tbl
+            Lp_Table_Convert_RC_Table_To_List tbl
+
+        ElseIf InStr(Lp_GP_String_3, "W") > 0 Then      'no row or column headers
+            Lp_Table_Fill_Empty_Cells tbl
+            Lp_Table_Convert_NoRC_Table_To_List tbl
+
+        ElseIf InStr(Lp_GP_String_3, "Z") > 0 Then      'row headers only
+            Set newTbl = Lp_Table_Transpose_Table(tbl)  'it is now a type Y table
+            If newTbl Is Nothing Then GoTo eom
+            Set tbl = newTbl
+            Lp_GP_String_3 = Replace(Lp_GP_String_3, "Z ", "Y ")
+            GoTo TypeYTable
+
+        ElseIf InStr(Lp_GP_String_3, "Y") > 0 Then      'column headers only
+TypeYTable:                                             'a type Z table has already been transposed
+            Lp_Table_Fill_Empty_Cells tbl
+            Lp_Table_Cleanup_For_Roation_And_List tbl
+            Set newTbl = Lp_Table_Transpose_Table(tbl)  'a column-only table becomes a row-only one
+            If newTbl Is Nothing Then GoTo eom
+            Set tbl = newTbl
+            Lp_Table_Row_Column_Header_Setup tbl
+            Lp_Table_Convert_R_Only_Table_To_List tbl
+        End If
+
+    End If
+
+    Lp_Table_Note_At_Top tempDoc
+
+    ' HOME. The scratch document's own final paragraph mark is never part of the text and is
+    ' left behind.
+    '
+    ' TWO STEPS, AND IT CANNOT BE ONE. The obvious version - assign the result straight over the
+    ' original table's range - does not replace the table: Word keeps the table and puts the
+    ' incoming text INTO ITS CELLS, so the list came back inside the table it was made from
+    ' (Jerry, testing 3.0.349: "Convert Table to List is placing the list data in a table").
+    ' The table is deleted first and the result lands where it stood, which is what the old
+    ' clipboard route did too. So Ctrl+Z is two presses: one for the result, one for the table.
+    '
+    ' Making it one would mean widening the range to take in a paragraph mark outside the table
+    ' so that the range is not purely a table - and there is not always one to take. A table at
+    ' the very end of a book is followed only by the document's permanent final paragraph mark,
+    ' which cannot be replaced (error 5904), and a table at the very start has nothing before it.
+    ' Two honest presses beat a conditional that fails at the ends of a book.
+    Set body = tempDoc.Range(0, tempDoc.Content.End - 1)
+
+    srcTbl.Delete
+    landing.Collapse wdCollapseStart      ' where the table stood
+    landing.FormattedText = body.FormattedText
+
+    tempDoc.Close SaveChanges:=wdDoNotSaveChanges
+    Set tempDoc = Nothing
+
+    ' Leave the transcriber on the note, so it can be read or edited straight away
+    ' (Jerry, 7/26/2026).
+    landing.Collapse wdCollapseStart
+    landing.Select
+
+    Exit Sub
+
+eom:
+    On Error Resume Next
+    If Not tempDoc Is Nothing Then tempDoc.Close SaveChanges:=wdDoNotSaveChanges
+
+End Sub   '*** end of Lp_Table_Convert_Hidden ***
+
+Sub Lp_Table_Is_R1C1_Empty(Optional ByVal tbl As Table)
+    '
+    ' Version: 1.1  Date: 9/3/2026 - takes the table to check, so it no longer depends on the
+    '                                selection being inside it
+    ' Version: 1.0  Date: 8/12/2025
+    '
     Dim cellText As String
 
-    ' Assume cursor is in or table is selected
-    Set tbl = Selection.Tables(1)
+    If tbl Is Nothing Then Set tbl = Selection.Tables(1)
 
     ' Get raw cell text
     cellText = tbl.cell(1, 1).Range.Text
 
-    ' Remove end-of-cell marker and all non-printing characters
+    ' Remove end of cell marker and all non-printing characters
     cellText = Replace(cellText, Chr(7), "")
     cellText = Replace(cellText, vbCr, "")
     cellText = Replace(cellText, vbLf, "")
@@ -19370,8 +19623,15 @@ Sub Lp_Table_Is_R1C1_Empty()
 
 End Sub   '*** end of Lp_Table_Is_R1C1_Empty ***
 
-Sub Lp_Table_Convert_RC_Table_To_List()
+Sub Lp_Table_Convert_RC_Table_To_List(Optional ByVal tbl As Table)
 '
+' Version: 2.1  Date: 9/3/2026 - the transcriber note and the cursor are the caller's job now -
+'                                see Lp_Table_Convert_NoRC_Table_To_List
+' Version: 2.0  Date: 9/3/2026 - works on the table it is handed, in a scratch document that is
+'                                never shown. Two things could not have survived the move
+'                                unchanged: the ": " recolor searched with wdFindContinue, which
+'                                against a real book is every colon in the chapter, and
+'                                Lp_Table_Mark_Keep_With_Next was called with no table at all.
 ' Version: 1.6  Date: 7/26/2026 - returns the user to where the cursor was when the macro started
 ' version: 1.4  Date: 8/16/2025 - added clear clipboard
 ' Version: 1.3  Date: 815/2025 - added Application.Run MacroName:="Lp_Table_Style_InCell_Para_And_Image"
@@ -19379,77 +19639,46 @@ Sub Lp_Table_Convert_RC_Table_To_List()
 ' Version: 1.1  Date: 8/13/2025 - new paste routine - : + space to color automatic
 ' Version: 1.0  Date: 8/12/2025
 '
-    Dim tbl As Table
     Dim i As Long
     Dim totalRows As Long
-    Dim doc As Document
     Dim nRows As Long, nCols As Long
     Dim r As Long, c As Long
     Dim hdr As Range, tgtCell As Range, ins As Range
+    Dim cel As cell
     Dim delim As String
-    Dim undoOn As Boolean
-    Dim lastRow As Long, lastCol As Long
-    Dim para As Paragraph
-    Set tbl = ActiveDocument.Tables(1)
-    Dim tblc As cell
+    Dim convRange As Range
+
+    ' Nothing handed over means do nothing - see NO GUESSING in the module changelog.
+    If tbl Is Nothing Then Exit Sub
+
     totalRows = tbl.rows.count
-    Dim fileName As String
-    Dim TempFileName As String
-    Dim d As Document
 
-    Sh_Save_User_Position
-
-    ' Step 1: Modify Row 1 – add ":" to each cell
+    ' Step 1: add ":" to the end of every row header in column 1
     For i = 2 To totalRows
         With tbl.cell(i, 1).Range
-            ' Move the end back one hit to stay inside the cell (avoiding the end-of-cell marker)
+            ' Move the end back one hit to stay inside the cell (avoiding the end of cell marker)
             .MoveEnd Unit:=wdCharacter, count:=-1
             ' This adds the colon without destroying images or formatting
             .InsertAfter ":"
         End With
     Next i
 
-    ' Step 2: Modify Column 1, Rows 2 to last – safely add ":"
-        For i = 2 To totalRows
-            With tbl.cell(i, 1).Range
-                ' 1. Pull the end of the range back by 1 to skip the "End of Cell" marker
-                ' If you don't do this, the colon might appear on a new line or outside the cell
-                .MoveEnd Unit:=wdCharacter, count:=-1
-                
-                ' 2. Use InsertAfter instead of .Text = .Text
-                ' This adds the colon to the end while leaving existing Images/Formatting alone
-                '.InsertAfter ":"
-            End With
-        Next i
-
-    ' convert to list
-    Set doc = ActiveDocument
-    If doc.Tables.count = 0 Then Exit Sub
-    
-    Set tbl = doc.Tables(1)
     nRows = tbl.rows.count
     nCols = tbl.Columns.count
     If nRows < 2 Then Exit Sub ' Need at least a header row + one data row
-    
-    delim = " " ' Delimiter after the prefixed header text (adjust if needed)
-    
+
+    delim = " " ' Delimiter after the prefixed header text
+
     On Error GoTo CleanFail
-    Dim su_Prev As Boolean
-    su_Prev = Application.ScreenUpdating
-    Application.ScreenUpdating = False
-    If Not Application.UndoRecord Is Nothing Then
-        Application.UndoRecord.StartCustomRecord "Style, Prefix, Remove Header (First Table)"
-        undoOn = True
-    End If
-    
+
     ' 1) Apply paragraph style "List" to Column 1, Rows 2..n
     For r = 2 To nRows
         With tbl.cell(r, 1).Range
-            .End = .End - 1 ' exclude end-of-cell marker
+            .End = .End - 1 ' exclude end of cell marker
             .Style = wdStyleList
         End With
     Next r
-    
+
     ' 2) Apply paragraph style "List 2" to Columns 2..n, Rows 2..n
     If nCols >= 2 Then
         For r = 2 To nRows
@@ -19461,7 +19690,7 @@ Sub Lp_Table_Convert_RC_Table_To_List()
             Next c
         Next r
     End If
-    
+
     ' 3) Set font color to Automatic for header row (Row 1), Columns 2..n
     If nCols >= 2 Then
         For c = 2 To nCols
@@ -19471,12 +19700,12 @@ Sub Lp_Table_Convert_RC_Table_To_List()
             End With
         Next c
     End If
-   
+
     ' 4) Prefix each data cell with its column header (preserving header formatting)
     For c = 1 To nCols
         Set hdr = tbl.cell(1, c).Range
-        hdr.End = hdr.End - 1 ' exclude end-of-cell marker
-        
+        hdr.End = hdr.End - 1 ' exclude end of cell marker
+
         If Len(hdr.Text) > 0 Then
             For r = 2 To nRows
                 ' Handle possible merged cells safely
@@ -19488,12 +19717,12 @@ Sub Lp_Table_Convert_RC_Table_To_List()
                     GoTo NextCell
                 End If
                 On Error GoTo CleanFail
-                
+
                 ' Insert formatted header at the very start of the target cell
                 Set ins = tgtCell.Duplicate
                 ins.End = ins.start            ' collapse to start of cell
                 ins.FormattedText = hdr.FormattedText
-                
+
                 ' Optional delimiter after the prefixed header
                 ins.Collapse wdCollapseEnd
                 ins.Text = delim
@@ -19501,159 +19730,71 @@ NextCell:
             Next r
         End If
     Next c
-    
+
     ' 5) Remove Row 1 (header row)
     tbl.rows(1).Delete
 
-    'set bold on headers
-    ActiveDocument.Tables(1).Columns(1).Select
-    Selection.Font.Bold = True
-    
-     Application.Run MacroName:="Lp_Table_Style_InCell_Para_And_Image"
-     Application.Run MacroName:="Lp_Table_Mark_Keep_With_Next"
+    'set bold on the row headers - Word's Column object has no Range of its own, so the pass
+    'that used to select the column and work through Selection walks the cells instead
+    For Each cel In tbl.Columns(1).Cells
+        cel.Range.Font.Bold = True
+    Next cel
 
-   ' convert table to text
-    ActiveDocument.Tables(1).Select
-    Selection.rows.ConvertToText Separator:=wdSeparateByParagraphs, NestedTables:=False
+    Lp_Table_Style_InCell_Para_And_Image tbl
+    Lp_Table_Mark_Keep_With_Next tbl
 
-    ' delete last to para marks
-    Selection.Collapse wdCollapseStart
-    Selection.EndKey Unit:=wdStory
-    Selection.Delete Unit:=wdCharacter, count:=1
-    Selection.EndKey Unit:=wdStory
-    Selection.Delete Unit:=wdCharacter, count:=1
-    
-    ' create normal style para mark at top
-    Dim rng As Range
-    Set doc = ActiveDocument
-    Set rng = doc.Paragraphs(1).Range
-    rng.InsertParagraphBefore
-    With doc.Paragraphs(1).Range
-        .Style = wdStyleNormal
-    End With
-    
-    ' Store full path + file name of the active (temp) document
-    Dim TempDocName As String
-    TempFileName = ActiveDocument.fullName
-    
-    'transcriber note
-     Selection.HomeKey Unit:=wdStory
+    ' the table becomes the list
+    Set convRange = tbl.ConvertToText(Separator:=wdSeparateByParagraphs, NestedTables:=False)
 
-    'place transcriber note at top in temp file
-     Selection.HomeKey Unit:=wdStory 'top of temp doc - move to the single para mark at top
-     Selection.Delete ' remove para mark at top
-
-     Application.Run MacroName:="Lp_Table_Insert_Transcriber_Note"
-
-    'make colons and spaces color automatic
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    Selection.Find.Replacement.Font.Color = wdColorAutomatic
-    With Selection.Find
+    'make colons and spaces color automatic - inside the converted list only
+    With convRange.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
+        .Replacement.Font.Color = wdColorAutomatic
         .Text = ": "
         .Replacement.Text = "^&"
         .Forward = True
-        .Wrap = wdFindContinue
+        .Wrap = wdFindStop
         .Format = True
         .MatchCase = False
         .MatchWholeWord = False
         .MatchWildcards = False
         .MatchSoundsLike = False
         .MatchAllWordForms = False
+        .Execute Replace:=wdReplaceAll
     End With
-    
-        Selection.Find.Execute Replace:=wdReplaceAll
-     DoEvents
-     Selection.WholeStory
-     DoEvents
-     Selection.Copy
-     DoEvents
-
-     'open original doc
-     DoEvents
-     Documents(Lp_GP_String_2).Activate
-     DoEvents
-     ActiveDocument.Tables(Lp_GP_Counter_1).Select
-     DoEvents
-     ActiveDocument.Tables(Lp_GP_Counter_1).Delete
-     DoEvents
-     'The table is gone, so the cursor now sits exactly where the converted block will land.
-     'The transcriber note was put at the TOP of the temp document, so it is the first
-     'paragraph of what we are about to paste - leave the user on it (Jerry, 7/26/2026).
-     Sh_Set_Return_Position Selection.Range.start
-     Selection.Paste
-     DoEvents
-
-     'Screen stays OFF through the temp-file cleanup below - see the note in the other two
-     'converts. Painting the temp document before closing it flashed the table's row color.
-     'delete temp file
-     Documents(TempFileName).Activate
-     ActiveDocument.Close SaveChanges:=wdDoNotSaveChanges
-     DoEvents
-
-    'delete the temp file
-    For Each d In Application.Documents
-        If StrComp(d.fullName, TempDocName, vbTextCompare) = 0 Then
-            d.Close SaveChanges:=wdDoNotSaveChanges
-            Exit For
-        End If
-    Next d
-    DoEvents
-    On Error Resume Next
-    Kill TempDocName
-    On Error GoTo 0
-    Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    Application.ScreenUpdating = su_Prev
-    Sh_Return_User_To_Start_Position
-    Exit Sub
-
-DoEvents
-    Application.ScreenRefresh
-    Exit Sub
 
 CleanExit:
-    If undoOn Then Application.UndoRecord.EndCustomRecord
-    Application.ScreenUpdating = su_Prev
-    Sh_Return_User_To_Start_Position
     Exit Sub
 
 CleanFail:
     ' Minimal cleanup; allow user to undo partially if needed
     Resume CleanExit
-    
+
 End Sub   '*** end of Lp_Table_Convert_RC_Table_To_List ***
 
-Sub Lp_Table_Style_InCell_Para_And_Image()
+Sub Lp_Table_Style_InCell_Para_And_Image(Optional ByVal tbl As Table)
 '
+' Version: 2.0  Date: 9/3/2026 - takes the table to style. It used to refuse outright unless the
+'                                document held exactly one table, which is only ever true of a
+'                                scratch document, and it selected that table to find it.
 ' Version: 1.1  Date: 9/2/2025
 ' Version: 1.0  Date: 8/15/2025
 '
-    
-    Dim tbl As Table, tblc As cell
+
+    Dim tblc As cell
     Dim ils As inlineShape
     Dim imgRange As Range
     Dim pImage As Paragraph, pAbove As Paragraph, p As Paragraph
     Dim startStyling As Boolean
-    
-    ' === Select the only table in the document ===
-    If ActiveDocument.Tables.count = 1 Then
-        ActiveDocument.Tables(1).Range.Select
-    Else
-        MsgBox "This macro expects exactly one table in the document.", vbExclamation
-        Exit Sub
-    End If
-    
-    ' === Begin undo record ===
-    On Error Resume Next
-    Application.UndoRecord.StartCustomRecord "Style Above Image as List 2, Image and Following as List 4"
-    On Error GoTo 0
-    
-    Set tbl = Selection.Tables(1)
-    
+
+    ' Nothing handed over means do nothing - see NO GUESSING in the module changelog.
+    If tbl Is Nothing Then Exit Sub
+
     For Each tblc In tbl.Range.Cells
         For Each ils In tblc.Range.InlineShapes
             Set imgRange = ils.Range
-    
+
             ' === Ensure paragraph mark before image ===
             If imgRange.start > tblc.Range.start Then
                 If Mid(tblc.Range.Text, imgRange.start - tblc.Range.start, 1) <> vbCr Then
@@ -19662,7 +19803,7 @@ Sub Lp_Table_Style_InCell_Para_And_Image()
             Else
                 tblc.Range.InsertBefore vbCr
             End If
-    
+
             ' === Re-identify image paragraph and above paragraph ===
             ' Work from the cell's paragraph collection to avoid stale references
             For Each p In tblc.Range.Paragraphs
@@ -19680,7 +19821,7 @@ Sub Lp_Table_Style_InCell_Para_And_Image()
                     Set pAbove = pImage.Previous
                 End If
             End If
-    
+
             ' === Style paragraph above image as "List 2" ===
             If Not pAbove Is Nothing Then
                 With pAbove.Range
@@ -19690,7 +19831,7 @@ Sub Lp_Table_Style_InCell_Para_And_Image()
                     On Error GoTo 0
                 End With
             End If
-    
+
             ' === Style image paragraph and everything after as "List 4" ===
             startStyling = False
             For Each p In tblc.Range.Paragraphs
@@ -19712,40 +19853,45 @@ Sub Lp_Table_Style_InCell_Para_And_Image()
             Set pAbove = Nothing
         Next ils
     Next tblc
-    
-    ' === End undo record ===
-    On Error Resume Next
-    Application.UndoRecord.EndCustomRecord
-    On Error GoTo 0
 
 End Sub   '*** end of Lp_Table_Style_InCell_Para_And_Image ***
 
-Sub Lp_Table_Mark_Keep_With_Next()
+Sub Lp_Table_Mark_Keep_With_Next(Optional ByVal tbl As Table)
 '
+' Version: 2.0  Date: 9/3/2026 - takes the table to mark. Two faults went with the change: the
+'                                blank-line-between-groups half read tbl even when the
+'                                keep-together half above had never set it, which is run-time
+'                                error 91 on a row-and-column list without "keep on same page";
+'                                and its tidy-up of doubled paragraph marks started at
+'                                Selection.HomeKey wdStory, which in the transcriber's own book
+'                                is the top of the book, not the top of the table.
 ' Version: 1.1  Date: 9/2/2025 - fixed problem with all paras set to keep - last item h
 ' Version: 1.0  Date: 8/15/2025
 '
     'mark each except cell in the last column with KeepWithNext
     'S=Keep List Group on same page
-    
-    Dim tbl As Table
+
     Dim lastRow As Integer
     Dim lastCol As Integer
     Dim r As Integer
     Dim c As Integer
     Dim para As Paragraph
 
-    If Selection.Information(wdWithInTable) And InStr(Lp_GP_String_3, "S") > 0 Then
+    If tbl Is Nothing Then
+        If Not Selection.Information(wdWithInTable) Then Exit Sub
         Set tbl = Selection.Tables(1)
+    End If
+
+    If InStr(Lp_GP_String_3, "S") > 0 Then
         lastRow = tbl.rows.count
         lastCol = tbl.Columns.count
-        
+
         For r = 1 To lastRow
             For c = 1 To lastCol
                 ' Skip any cell in the last column
                 If c <> lastCol Then
                     With tbl.cell(r, c).Range
-                        ' Avoid selecting the end-of-cell marker
+                        ' Avoid selecting the end of cell marker
                         .End = .End - 1
                         For Each para In .Paragraphs
                             para.Format.KeepWithNext = True
@@ -19755,45 +19901,36 @@ Sub Lp_Table_Mark_Keep_With_Next()
             Next c
         Next r
     End If
-    
+
     'put blank line between groups
     If InStr(Lp_GP_String_3, "E") > 0 Then  'E=Create empty para after list group
-    
+
         lastCol = tbl.Columns.count
-        
+
         For r = 1 To tbl.rows.count
             With tbl.cell(r, lastCol).Range
                 .End = .End - 1 ' exclude marker
-        
+
                 ' Trim trailing blanks/NBSP paragraphs but leave one if styled
                 Do While .Paragraphs.count > 1 _
                   And Len(Trim$(Replace(Replace(.Paragraphs(.Paragraphs.count).Range.Text, vbCr, ""), Chr(160), " "))) = 0
                     .Paragraphs(.Paragraphs.count).Range.Delete
                 Loop
-        
+
                 ' After cleanup, if the last para has content, append a new one
                 If Len(Trim$(Replace(Replace(.Paragraphs(.Paragraphs.count).Range.Text, vbCr, ""), Chr(160), " "))) <> 0 Then
                     .Collapse wdCollapseEnd
                     .InsertAfter vbCr
                 End If
-        
+
                 ' Style only the trailing empty para (if >1 para, it's truly trailing)
                 If .Paragraphs.count > 1 Then
                     .Paragraphs(.Paragraphs.count).Range.Style = "Normal"
                 End If
             End With
         Next r
-        
-        Selection.HomeKey Unit:=wdStory
-        With Selection.Find
-            .ClearFormatting
-            .Replacement.ClearFormatting
-            .Text = "^p^p"
-            .Replacement.Text = "^p"
-            .Forward = True
-            .Wrap = wdFindStop
-            .Execute Replace:=wdReplaceAll
-        End With
+
+        Lp_Table_Replace_In_Table tbl, "^p^p", "^p", True, False
     End If
 End Sub   '*** end of Lp_Table_Mark_Keep_With_Next '***
   

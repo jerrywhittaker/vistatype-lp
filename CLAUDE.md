@@ -73,9 +73,52 @@ round trip itself stays: it is what gives the single undo and the private worksp
 1 & 2 — their last caller — moved onto `Dx_Exercise_Levels_Hidden` at 3.0.309, and the
 `Sh_Copy_To_Temp_Doc` / `Sh_Copy_From_Temp_Doc` route pickers went with them. No braille macro
 shows a scratch document any more; three still make one, hidden. **`Lp_Copy_To_Temp_Doc` is the
-only one left that puts a document on the screen**, and **two** large-print places still call
-it from 9/2/2026: the `Lp_Table_Convert_Options_Form` and `Lp_Change_Image_Color_Form` forms.
+only one left that puts a document on the screen**, and from 9/3/2026 **one** large-print place
+still calls it: `Lp_Change_Image_Color_Form`.
 `Lp_TOC_CleanAndFormat_TOC` came off it at 3.0.338 — another deletion, not a conversion.
+
+**Table Tools came off it at 3.0.345** (9/3/2026), reported by Jerry testing 3.0.339: flashes of
+the table's yellow rows during Convert to List and Rotate Table, and a full-screen blink at the
+end of a rotation. The blink was deliberate — the rotation finished by minimizing and maximizing
+the Word window "to force Windows OS to repaint the pixels". Ten macros now take the table they
+are to work on (`Lp_Table_Cleanup_For_Roation_And_List`, `Lp_Table_Transpose_Table` — now a
+Function returning the new table — `Lp_Table_Fill_Empty_Cells`, `Lp_Table_Row_Column_Header_Setup`,
+the two `Lp_Table_Apply_Character_Case_To_*_Headers`, `Lp_Table_Style_InCell_Para_And_Image`,
+`Lp_Table_Mark_Keep_With_Next`, `Lp_Table_Is_R1C1_Empty` and the three `Lp_Table_Convert_*_To_List`),
+and `Lp_Table_Note_Above` opens the transcriber note in a new paragraph above the result instead of
+at `Selection.HomeKey wdStory`. The clipboard round trip went with it, so the transcriber's own
+clipboard is no longer emptied.
+
+**And then the round trip came back, hidden — which is the lesson.** 3.0.345 removed the scratch
+document altogether and did the work in the transcriber's book. That made Ctrl+Z **30 to 50
+presses** (Jerry: *"not tollerable for anyone"*), and a custom undo record to cure that
+**crashed Word outright** at 3.0.345 and again at 3.0.347 — the defect already recorded for
+Format TOC: **a `Find` with `Replace:=wdReplaceAll` inside an open `StartCustomRecord` kills
+Word**, access violation in `wwlib.dll`, nothing raised, nothing logged.
+
+**The scratch document does two jobs and only one of them was ever the fault.** It had to be
+*shown* because the passes reached their table through `Selection` — that is the flashing, and
+converting the passes onto ranges is what fixes it. But it is also **what keeps the undo short**:
+edits made in another document are not in this book's undo stack at all, so only the one
+assignment home is. That is what the rule at the top of this section means by *"the round trip
+itself stays"*. `Lp_Table_Convert_Hidden` (3.0.348) is the shape to copy — hidden
+`Documents.Add`, passes on ranges, result home by `FormattedText`, no undo record. **Two presses,
+not one, and that is as good as it gets when the original is a table:** assigning `FormattedText`
+to a range that *is* a table fills that table's cells instead of replacing it (3.0.349 shipped
+the list back inside its own table), so the table has to be deleted first — one step for the
+delete, one for the result. Jerry's own words when it went wrong: *"why not save the original table and restore it
+with one undo?"*
+
+Two things follow. **Convert the passes, do not delete the round trip** unless the macro provably
+needs no private workspace (Resize Images, Replace Section Breaks and Format TOC did not).
+And **read `docs/Reported-Errors.md` for the mechanism you are about to introduce, not only for
+the feature you were asked about** — the undo-record row was already there and was walked past.
+**Three faults could not have survived the move**, and finding them is the argument for reading
+what a macro does rather than only how it gets there: two `Find` passes used `wdFindContinue`,
+which against a real book is every colon in the chapter rather than one table;
+`Lp_Table_Mark_Keep_With_Next` read a table variable the half above it had never set (run-time
+error 91 on any row-and-column list run without *keep list groups on same page*); and its
+paragraph-mark tidy-up began at `Selection.HomeKey wdStory`, the top of the book.
 
 **Check first whether the round trip is needed at all — and what the macro actually does.** Of the
 three settled on 9/1/2026 only one was a conversion. `Lp_Resize_Images` (3.0.321) only walks

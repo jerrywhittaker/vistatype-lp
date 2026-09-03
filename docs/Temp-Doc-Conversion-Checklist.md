@@ -28,7 +28,12 @@ has never lost anyone's work.
 ## What to look for on each one
 
 - **No flash.** The screen should not blink to a blank document and back.
-- **One Ctrl+Z** puts the document back as it was.
+- **One Ctrl+Z** puts the document back as it was — and the way to get that is the **round
+  trip**, not a custom undo record. Work done in another document is not in this book's undo
+  stack, so bringing the result home in one `FormattedText` assignment is one step. A custom
+  undo record around a `Replace:=wdReplaceAll` **crashes Word**: measured 9/2/2026 for Format
+  TOC, and hit again on 9/3/2026 by both table conversions. Convert the passes; keep the
+  document.
 - **Formatting survives**, indentation especially — see the traps below.
 - **The paragraph before and after the selection is untouched**, both its text and its formatting.
 - **A selection that stops mid-paragraph** does not gain a paragraph mark.
@@ -128,15 +133,17 @@ scratch-document routine that morning: `Dx_Format_Exercise_Lv_1_and_Lv_2`,
 `Lp_TOC_CleanAndFormat_TOC`, `Lp_Resize_Images` (two calls), `Lp_Change_Image_Color_Form` and
 `Lp_Section_Brk_Caution`.
 
-**Six of those seven are done, and ONE is left.** Settled at 3.0.309
+**All seven are done.** Settled at 3.0.309
 (`Dx_Format_Exercise_Lv_1_and_Lv_2`, converted), 3.0.319
 (`Lp_Format_Exercise_Lv_1_and_Lv_2`, converted), 3.0.321 (`Lp_Resize_Images`, round trip
 **deleted** — it never needed one), 3.0.326 (`Lp_Section_Brk_Caution`, round trip **deleted**,
 and a book-corrupting defect found and cured with it) and 3.0.338
-(`Lp_TOC_CleanAndFormat_TOC`, round trip **deleted** — the third of these that never needed one).
-Still calling `Lp_Copy_To_Temp_Doc`: `Lp_Table_Convert_Options_Form` (five calls).
+(`Lp_TOC_CleanAndFormat_TOC`, round trip **deleted** — the third of these that never needed one)
+and 3.0.345 (`Lp_Table_Convert_Options_Form`, **converted** — its five calls are gone).
+`Lp_Change_Image_Color_Form` is the one place in the project that still calls
+`Lp_Copy_To_Temp_Doc`, and it was counted separately, under Picture Tools.
 
-**Three of the six settled were deletions, not conversions.** That is now the expected answer, not
+**Three of the seven settled were deletions, not conversions.** That is now the expected answer, not
 the surprise one: read what the macro does to the scratch document before planning how to move it
 onto a range.
 
@@ -168,10 +175,9 @@ Two more findings from the same trace, both worth acting on separately. **Both w
   one was.
 
 **`Lp_Copy_To_Temp_Doc` and `Lp_Copy_From_Temp_Doc` stay, and still show their document.**
-**One** place calls them from 9/2/2026: the `Lp_Table_Convert_Options_Form` — what is left of
-the large-print half of this list. `Lp_TOC_CleanAndFormat_TOC` came off at 3.0.338.
-`Lp_Change_Image_Color_Form` is off it too: it reaches `Lp_Copy_To_Temp_Doc` only through the
-Picture Tools menu, and was counted separately above.
+**One** place calls them from 9/3/2026: `Lp_Change_Image_Color_Form`, reached through the
+Picture Tools menu. `Lp_TOC_CleanAndFormat_TOC` came off at 3.0.338 and
+`Lp_Table_Convert_Options_Form` at 3.0.345.
 
 **Ask first whether the round trip is needed at all.** `Lp_Resize_Images` was on this list as a
 conversion and turned out to be a deletion: nothing it does needs a document of its own. Two
@@ -281,7 +287,45 @@ scratch document before planning how to move it onto a range — if every pass i
         **Left alone deliberately:** the two `Print Pg Num` passes at the end are not repeatable —
         formatting the same TOC twice gives every reference page number two leading non-breaking
         spaces and two tabs.
-      - The **table** half is what remains — `Lp_Table_Convert_Options_Form`, five calls.
+      - The **table** half is done too (3.0.345, 9/3/2026), and it was a **conversion**: the
+        passes really did need a table, they just did not need a document. Jerry reported it
+        testing 3.0.339 — flashes of the table's yellow rows during Convert to List and Rotate
+        Table, and a full-screen blink at the end of a rotation.
+        **The blink was deliberate code**: the rotation finished by minimizing and maximizing
+        the Word window, commented "the Jolt - Minimize/Maximize forces Windows OS to repaint
+        the pixels". The flashes were `Lp_Copy_To_Temp_Doc` showing its window, holding one
+        table and nothing else.
+        Ten macros now take the table to work on as an `Optional ByVal tbl As Table`;
+        `Lp_Table_Transpose_Table` became a **Function** returning the table it built, because
+        after a transpose the old one is gone and the caller has nothing to hold; and
+        `Lp_Table_Note_Above` opens the transcriber note in a new paragraph above the result
+        instead of at `Selection.HomeKey wdStory`, which was the top of the *scratch* document.
+        The clipboard round trip went with it, so the transcriber's own clipboard is no longer
+        emptied.
+        **The round trip itself came back, hidden, and that is the lesson of this ticket.**
+        3.0.345 removed the scratch document altogether. Ctrl+Z then took **30 to 50 presses**
+        (Jerry: *"not tollerable for anyone"*), and a custom undo record to cure that **crashed
+        Word** at 3.0.345 and again at 3.0.347 — the Format TOC defect, a `Find` with
+        `Replace:=wdReplaceAll` inside an open `StartCustomRecord`. The scratch document is
+        **also what keeps the undo short**: edits in another document are not in this book's
+        undo stack, so only the assignment home is. `Lp_Table_Convert_Hidden` (3.0.348) is the
+        shape — hidden `Documents.Add`, passes on ranges, `FormattedText` home, no undo record.
+        **Two** Ctrl+Z presses: assigning `FormattedText` to a range that *is* a table fills that
+        table's cells instead of replacing it (3.0.349 put the finished list back inside its own
+        table), so the table is deleted first. Same as the old list conversion, better than the
+        old rotation's four.
+        **Three faults could not have survived the move**, and none had ever been reported:
+        two `Find` passes used `wdFindContinue` — the `": "` recolor in
+        `Lp_Table_Convert_RC_Table_To_List` and the manual-line-break pass in
+        `Lp_Table_Cleanup_For_Roation_And_List` — which against a real book is the rest of the
+        chapter rather than one table; `Lp_Table_Mark_Keep_With_Next` read a table variable the
+        half above it had never set, which is run-time error 91 on any row-and-column list run
+        without *keep list groups on same page*; and its paragraph-mark tidy-up began at
+        `Selection.HomeKey wdStory`, the top of the book.
+        A fourth was dead rather than dangerous: `Lp_Table_Convert_Options_Form`'s
+        `UserForm_Initialize` walked the tables to record the selected one's index in
+        `Lp_GP_Counter_1`, and its own `Dim Lp_GP_Counter_1 As Long` made that a **local**, so
+        the Public was never written and the loop was thrown away. Nothing needs the index now.
 - [ ] Bkgrnd & Picture Tools — `Lp_Picture_Tools_Menu_Starter`. **Resize Images, one of the
       things under it, is done** (3.0.321, 9/1/2026) — and it was a DELETION, not a conversion.
       All the macro does is walk images and set their scale, and an `InlineShapes` collection
@@ -307,7 +351,7 @@ scratch document before planning how to move it onto a range — if every pass i
         table and pasting whatever was on the clipboard.
 
       The other buttons under this menu are still to do — `Lp_Change_Image_Color_Form` still
-      round-trips.
+      round-trips, and from 9/3/2026 it is the **last** place in the project that does.
 - [ ] DAISY or NIMAS to Word — `DN_Menu_Starter`
 
 ### Already done
