@@ -12497,7 +12497,7 @@ Sub Lp_Copy_To_Temp_Doc()
     strTemplatePath = Options.DefaultFilePath(wdUserTemplatesPath) & "\" & LP_TEMPLATE_FILE
     
     If Dir(strTemplatePath) = "" Then
-        MsgBox "Template not found at: " & strTemplatePath, vbCritical, "Template Error"
+        MsgBox "Template not found at: " & strTemplatePath, vbCritical, "VistaType LP (305)"
         Exit Sub
     End If
 
@@ -12557,48 +12557,19 @@ Sub Lp_Copy_To_Temp_Doc()
 
 End Sub '*** end of Lp_Copy_To_Temp_Doc Macro ***
 
-Sub Lp_Copy_From_Temp_Doc()
-    '
-    ' copies changes from a temp file back into the original file
-    '
-    ' Version: 1.6  Date: 2/8/2026 - full rewrite
-    ' Version: 1.5  Date: 1/23/2021
-    '
-    Dim masterDoc As Document
-    Dim tempDoc As Document
-    Dim targetRange As Range
-    Dim tempName As String
-
-    ' 1. Identify the Temp Doc (currently active)
-    Set tempDoc = ActiveDocument
-    tempName = tempDoc.Name
-
-    ' 2. Identify the Master Doc
-    If Documents.count > 1 Then
-        If Documents(1).Name <> tempName Then
-            Set masterDoc = Documents(1)
-        Else
-            Set masterDoc = Documents(2)
-        End If
-    Else
-        MsgBox "Master document not detected.", vbCritical
-        Exit Sub
-    End If
-
-    ' 3. Set the target to the current selection in the Master Doc
-    ' We use the Master's active window to find where your cursor is
-    Set targetRange = masterDoc.ActiveWindow.Selection.Range
-
-    ' 4. Transfer the content directly (Formatting included)
-    ' This replaces the targetRange with the tempDoc's content
-    targetRange.FormattedText = tempDoc.Content.FormattedText
-    
-    ' 5. Close the Temp file
-    tempDoc.Close SaveChanges:=wdDoNotSaveChanges
-    
-    ' Optional: Bring Master to front so you can see the result
-    masterDoc.Activate
-End Sub
+' Lp_Copy_From_Temp_Doc stood here until 9/3/2026. It brought a scratch document's content back
+' into the transcriber's book and closed it, and it had NO CALLER LEFT anywhere in the project -
+' not a macro, a form, a ribbon button or a keyboard shortcut. Table Tools was its last one, and
+' that came off the scratch document at 3.0.350 (Lp_Table_Convert_Hidden does its own round trip
+' and brings the result home itself).
+'
+' Removed rather than left, for the reason the five braille scratch-document routines were
+' removed on 8/31/2026: dead code carrying Documents.Add, Selection.Copy and .Activate is exactly
+' what gets called again by someone tidying up later, and it would put the flashing scratch
+' document straight back. Its message was dialog 301; that number is retired, not reused.
+'
+' Lp_Copy_To_Temp_Doc STAYS. Lp_Change_Image_Color_Form still calls it, and it is now the one
+' place in the project that shows a scratch document.
 
 Sub Lp_Toggle_Page_Color()
 '
@@ -13366,7 +13337,7 @@ Sub Lp_Replace_Section_Break_With_Page_Break()
         Sh_Say "Nothing needed changing: no part of this document is set to start on an odd or " _
              & "an even page." & vbCr & vbCr _
              & "A book that is already single-sided has nothing for this to do.", _
-               "VistaType LP (286)"
+               "VistaType LP (320)"
     Else
         Sh_Say Lp_Sec_Starts_Changed & " section start" & _
                IIf(Lp_Sec_Starts_Changed = 1, " was", "s were") & _
@@ -16327,7 +16298,7 @@ Sub Lp_Convert_Table_To_Pseudo_Columns()
     
     ' 2. VALIDATION
     If Not Selection.Information(wdWithInTable) Then
-        MsgBox "Please click inside the table first.", vbExclamation
+        MsgBox "Please click inside the table first.", vbExclamation, "VistaType LP (289)"
         objUndo.EndCustomRecord
         Exit Sub
     End If
@@ -16430,7 +16401,7 @@ Sub Lp_Convert_Table_To_Pseudo_Columns()
 ErrorHandler:
     Application.ScreenUpdating = su_Prev
     If Not objUndo Is Nothing Then objUndo.EndCustomRecord
-    MsgBox "Error: " & Err.Description, vbCritical
+    MsgBox "Error: " & Err.Description, vbCritical, "VistaType LP (290)"
 End Sub
 
 
@@ -16483,7 +16454,7 @@ Sub Lp_Convert_Table_To_Real_Columns()
     On Error GoTo 0
     
     If sourceTbl Is Nothing Then
-        MsgBox "Please place cursor inside the table first!", vbExclamation
+        MsgBox "Please place cursor inside the table first!", vbExclamation, "VistaType LP (291)"
         Exit Sub
     End If
     
@@ -17003,7 +16974,7 @@ SaveTheFile:
             "Continuing without saving may result in an unstable Word document." & vbCrLf & vbCrLf & _
             "Do you want to reconsider saving this file?", _
             vbYesNo + vbExclamation, _
-            "Save As Canceled")
+            "VistaType LP (306)")
 
         If userChoice = vbNo Then
             Unload Sh_NonModalMessageForm
@@ -17886,13 +17857,13 @@ Sub Sh_Delete_Prodnote_Paragraphs()
     Next para
 
     If marked.count = 0 Then
-        MsgBox "No prodnotes found", vbInformation, IIf(isLP, "VistaType LP (228)", "Braille Macros")
+        MsgBox "No prodnotes found", vbInformation, IIf(isLP, "VistaType LP (228)", "Braille Macros (228)")
         Exit Sub
     End If
 
     ' --- 2. Confirm before deleting anything ---
     If MsgBox("Do you want to delete all paragraphs styled as Prodnote?", _
-              vbYesNo + vbQuestion, IIf(isLP, "VistaType LP (229)", "Braille Macros")) <> vbYes Then
+              vbYesNo + vbQuestion, IIf(isLP, "VistaType LP (229)", "Braille Macros (229)")) <> vbYes Then
         Exit Sub
     End If
 
@@ -17942,7 +17913,7 @@ Sub Sh_Delete_Prodnote_Paragraphs()
               "so the cell could not be removed. Their text was deleted and the empty " & _
               "paragraph reset to Normal."
     End If
-    MsgBox msg, vbInformation, IIf(isLP, "VistaType LP (230)", "Braille Macros")
+    MsgBox msg, vbInformation, IIf(isLP, "VistaType LP (230)", "Braille Macros (230)")
 
 End Sub   '*** end of Sh_Delete_Prodnote_Paragraphs macro ***
 
@@ -19288,7 +19259,7 @@ Sub Lp_ValidateTableIntegrityForListOrRotation()
     ElseIf Selection.Tables.count > 0 Then
         Set tbl = Selection.Tables(Selection.Tables.count)
     Else
-        MsgBox "Place the cursor in a table or select one first.", vbExclamation
+        MsgBox "Place the cursor in a table or select one first.", vbExclamation, "VistaType LP (292)"
         Exit Sub
     End If
 
@@ -19358,7 +19329,7 @@ Sub Lp_DoesRangeHaveATOCStyle()
     Next para
     
     If containsTOC = False Then
-        MsgBox "The selected range contains NO TOC styles.", , "VistaType LP  (203)"
+        MsgBox "The selected range contains NO TOC styles.", , "VistaType LP (203)"
         End
     End If
     
@@ -19664,7 +19635,7 @@ Sub Lp_Table_Is_R1C1_Empty(Optional ByVal tbl As Table)
     ' Check if cell is effectively empty
     If Len(cellText) = 0 Then
         MsgBox "The table cell in row 1 column 1 is empty or contains only spaces." & _
-        " The cell must contain a header which describes the content of the column it heads.", , "VistaType LP  (205)"
+        " The cell must contain a header which describes the content of the column it heads.", , "VistaType LP (205)"
         End
     End If
 
@@ -20540,7 +20511,7 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     Dim errText As String
 
     If Not Selection.Type = wdSelectionNormal Then
-        Sh_Say "Select the entire TOC including any text that does reference page numbers", "VistaType LP  (206)"
+        Sh_Say "Select the entire TOC including any text that does reference page numbers", "VistaType LP (206)"
         ' End, not Exit Sub, and deliberately: returning would let the form that called this go
         ' straight on to say "Press Ctrl+Z once to return to the original TOC" about a TOC that
         ' was never touched. That is how it has always behaved here.
@@ -22972,7 +22943,7 @@ Public Function Sh_Ask(ByVal body As String, ByVal titleText As String) As Boole
         ' used to be that a question which could not be shown came back False, i.e. Cancel.
         ' That is right when there is no way to ask - but there IS one, so ask it. Silence that
         ' quietly means "no" is indistinguishable from the user having chosen "no".
-        Sh_Msg_Answer = (MsgBox(body, vbOKCancel) = vbOK)
+        Sh_Msg_Answer = (MsgBox(body, vbOKCancel, titleText) = vbOK)
     End If
     Unload Sh_Message_Form
     Err.Clear
@@ -23202,7 +23173,7 @@ Sub Sh_Is_Doc_Open()
 ' Version: 1.0 Date: 7/31/2016
 '
     If Application.Documents.count = 0 Then
-        MsgBox "Cannot continue... no document is open."
+        MsgBox "Cannot continue... no document is open.", , "VistaType LP (293)"
         End
     End If
     
@@ -24200,7 +24171,7 @@ On Error GoTo 0
     If Sh_GP_Boolean_1 = False Then
         ActiveDocument.Close SaveChanges:=False
         Application.ScreenUpdating = True ' Turn screen updating on
-        MsgBox "Selected text must include the ending paragraph mark."
+        MsgBox "Selected text must include the ending paragraph mark.", , "VistaType LP (294)"
         End
     End If
     
@@ -24574,7 +24545,11 @@ Sub Sh_Copy_Ref_Pg_Tags_To_Temp_File()
     If Dx_Is_The_Attached_Template_BANA_Braille Then
         MsgBoxLabel = "Braille Macros"
     Else
-        MsgBoxLabel = "VistaType"
+        ' "VistaType LP", not "VistaType". This string is the TITLE BAR of the five $pg
+        ' validation messages in ShNonModalMessage, and the declaration of Sh_PgVal_TitleText
+        ' there has said "VistaType LP" or "Braille Macros" all along. Jerry, 9/3/2026:
+        ' "i've seen some without LP".
+        MsgBoxLabel = "VistaType LP"
     End If
 
     Set tmpDoc = Documents.Add
@@ -24887,7 +24862,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
             "Your screen will show a wait message until the book has been converted into a Word document." & vbCrLf & vbCrLf & _
             "After completion, the folder will contain two new files: The .xml in .txt format (with reference pages tagged with $pg), and an .html file which can be opened with a web browser.", _
             vbOKCancel, _
-            "Convert DAISY/NIMAS to Word Document") = vbOK Then
+            "Convert DAISY/NIMAS to Word Document (308)") = vbOK Then
     Else
         Exit Sub
     End If
@@ -24916,7 +24891,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     ' --- Step 3: Check for XML ---
     fileName = Dir(folderPath & "*.xml", vbNormal)
     If fileName = "" Then
-        MsgBox "No XML file was found in the selected folder. The process will now end.", vbCritical, "No XML Found"
+        MsgBox "No XML file was found in the selected folder. The process will now end.", vbCritical, "No XML Found (309)"
         Exit Sub
     End If
 
@@ -24924,7 +24899,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     Sh_GP_String_1 = ""
     DN_XML_Type_Form.Show
     If UCase(Sh_GP_String_1) <> "DAISY" And UCase(Sh_GP_String_1) <> "NIMAS" Then
-        MsgBox "No valid format selected. The process will now end.", vbExclamation, "Process Aborted"
+        MsgBox "No valid format selected. The process will now end.", vbExclamation, "Process Aborted (310)"
         Exit Sub
     End If
 
@@ -24938,7 +24913,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     Sh_GP_String_2 = ""
     DN_Keep_Or_Omit_Images_Form.Show
     If Sh_GP_String_2 <> "KEEP" And Sh_GP_String_2 <> "OMIT" Then
-        MsgBox "No image choice was made. The process will now end.", vbExclamation, "Process Aborted"
+        MsgBox "No image choice was made. The process will now end.", vbExclamation, "Process Aborted (311)"
         Exit Sub
     End If
 
@@ -25199,7 +25174,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     
     MsgBox "Here is the " & Sh_GP_String_1 & " file in Word format." & _
     vbCrLf & vbCrLf & "All reference page numbers have been tagged with $pg tags ready for validation." & _
-    vbCrLf & vbCrLf & "The document will now be stabilized and then saved as a Word document with a .docx file type.", vbInformation
+    vbCrLf & vbCrLf & "The document will now be stabilized and then saved as a Word document with a .docx file type.", vbInformation, "VistaType LP (295)"
     
     Dim doc As Document
     Dim userChoice As VbMsgBoxResult
@@ -25260,7 +25235,7 @@ SaveTheFile:
                 "Continuing without saving may result in an unstable Word document." & vbCrLf & vbCrLf & _
                 "Do you want to reconsider and save this file?", _
                 vbYesNo + vbExclamation, _
-                "Save As Canceled")
+                "Save As Canceled (312)")
 
             If userChoice = vbNo Then
                 Unload Sh_Convert_Progress_Form
@@ -25305,7 +25280,7 @@ SaveTheFile:
     ActiveWindow.View.Type = wdPrintView
     Sh_Spin_DoEvents
     
-    MsgBox "Conversion is complete and the file has been stabilized and saved", vbInformation, "Operation Complete"
+    MsgBox "Conversion is complete and the file has been stabilized and saved", vbInformation, "Operation Complete (313)"
 
     ' A converted book that carries prodnotes needs a word of explanation -- what they are,
     ' why they are red, and what to do with them for braille and for large print. Shown after

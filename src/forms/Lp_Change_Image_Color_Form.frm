@@ -47,7 +47,7 @@ Private Sub Okay_Button_Click()
             End With
             End
 err1:
-            MsgBox "No Picture selected"
+            MsgBox "No Picture selected", , "VistaType LP (299)"
             On Error GoTo 0
             End
         ElseIf Grayscale_Radio_Button Then

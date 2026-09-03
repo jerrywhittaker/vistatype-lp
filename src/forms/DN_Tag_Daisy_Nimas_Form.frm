@@ -82,7 +82,7 @@ Private Sub CmdOkay_Click()
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     
     DN_Tag_Daisy_Nimas_Form.Hide
-    MsgBox "Macro Completed"
+    MsgBox "Macro Completed", , "Braille Macros (302)"
     Unload DN_Tag_Daisy_Nimas_Form
         
     End Sub   '*** End of  CmdOkay_Click() ***

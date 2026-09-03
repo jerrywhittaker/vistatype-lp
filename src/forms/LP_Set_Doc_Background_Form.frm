@@ -40,7 +40,7 @@ Private Sub OkayButton_Click()
                 GoTo eom
         ElseIf DM = "Unknown" Or DM = "" Then
                 Dim lngChoice As Long
-                lngChoice = MsgBox("Black backgounds are for documents intended for screen reading only. Is this document intended for screen reading?", vbYesNo + vbDefaultButton2)
+                lngChoice = MsgBox("Black backgounds are for documents intended for screen reading only. Is this document intended for screen reading?", vbYesNo + vbDefaultButton2, "VistaType LP (298)")
                 If lngChoice = vbYes Then
                     ' writes a variable name (Media) and variable value "Screen" into the document xml file
                     Sh_Write_Document_Variables "Media", "Screen"

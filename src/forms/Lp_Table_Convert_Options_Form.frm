@@ -215,7 +215,7 @@ Private Sub CmdOkay_Click()
         ' cannot be done - and the transcriber must hear that BEFORE anything is changed.
         If InStr(Lp_GP_String_3, "Y") > 0 Or InStr(Lp_GP_String_3, "Z") > 0 Then
             If Not Lp_Table_Is_Uniform_Grid(workTbl) Then
-                Sh_Say "This table has merged cells. Unmerge them before converting it to a list.", "VistaType LP (287)"
+                Sh_Say "This table has merged cells. Unmerge them before converting it to a list.", "VistaType LP (319)"
                 Unload Lp_Table_Tools_Menu_Form
                 Unload Me
                 End
@@ -235,7 +235,7 @@ Private Sub CmdOkay_Click()
         ActiveWindow.ScrollIntoView Selection.Range
         Application.ScreenRefresh
 
-        Sh_Say "Press Ctrl+Z two times to restore the original table.", "VistaType (178)"
+        Sh_Say "Press Ctrl+Z two times to restore the original table.", "VistaType LP (178)"
         Unload Lp_Table_Tools_Menu_Form
         Unload Me
         End

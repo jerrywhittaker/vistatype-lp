@@ -23,7 +23,7 @@ Private Sub CmdOkay_Click()
 
     ' check the percent value range
     If Val(Percent_Requested) > 575 Or Val(Percent_Requested) < 1 Then
-        MsgBox "Percent is out of range"
+        MsgBox "Percent is out of range", , "VistaType LP (300)"
     Else
         If Resize_Selected Then
             Lp_Pic_All_Selectd = "S" 'save the choice

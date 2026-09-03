@@ -29,7 +29,7 @@ Private Sub View_the_Page_Click()
 NoInternet:
         MsgBox "The connection has failed. There may be no internet connection or the site is blocked or unavailable. Try again later or..." & vbCr _
         & vbCr & "Write down this short URL to try in a web browser on this or a different computer." & vbCr _
-        & vbCr & "https://tinyurl.com/mjawwjtd", , "Braille Macros"
+        & vbCr & "https://tinyurl.com/mjawwjtd", , "Braille Macros (318)"
 EndOfSub:
     Unload Me
 End Sub

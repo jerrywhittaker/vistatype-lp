@@ -28,7 +28,7 @@ End Sub
 Private Sub Okay_Click()
 
     If Selection.Type <> wdSelectionNormal Then
-        MsgBox "Text must be selected first!", , "Braille Macros"
+        MsgBox "Text must be selected first!", , "Braille Macros (317)"
         Unload Dx_Selected_Cleanup_Form
         End
     End If

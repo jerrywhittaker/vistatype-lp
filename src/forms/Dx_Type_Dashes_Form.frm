@@ -252,7 +252,7 @@ End Sub
 
 Private Sub EnterFractionButton_Click()
     If Val(Numerator) = 0 Or Val(Denominator) = 0 Then
-        MsgBox "Invalid Fraction Values"
+        MsgBox "Invalid Fraction Values", , "Braille Macros (304)"
         Exit Sub
     Else
         With Selection.Font

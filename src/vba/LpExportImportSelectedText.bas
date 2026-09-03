@@ -45,7 +45,7 @@ Sub Lp_Export_Selection_To_NewFile()
 
     ' 1. VALIDATION & MASTER SAVE
     Set srcDoc = ActiveDocument
-    If srcDoc.ReadOnly Then MsgBox "Selections cannot be exported from this file because it is marked as Read-Only.", vbCritical: Exit Sub
+    If srcDoc.ReadOnly Then MsgBox "Selections cannot be exported from this file because it is marked as Read-Only.", vbCritical, "VistaType LP (296)": Exit Sub
     If Selection.Type = wdSelectionIP Then
         MsgBox "Select text to be exported first.", vbExclamation, "VistaType LP (224)"
         Exit Sub

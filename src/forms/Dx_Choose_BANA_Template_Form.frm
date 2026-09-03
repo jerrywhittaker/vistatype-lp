@@ -24,7 +24,7 @@ Attribute VB_Exposed = False
 '
 Private Sub CmdCancel_Click()
     Unload Me 'unload the list form
-    MsgBox "No template selected... attachment canceled", , "Braille Macros"
+    MsgBox "No template selected... attachment canceled", , "Braille Macros (315)"
     End
 End Sub
 
@@ -33,7 +33,7 @@ Sub CmdOkay_Click()
         Dx_BANA_Template_Name = List_File_Box.Value
         Unload Me 'unload the list form
     Else
-       MsgBox "Select the text before choosing Attach"
+       MsgBox "Select the text before choosing Attach", , "Braille Macros (303)"
     End If
 End Sub
 
@@ -64,7 +64,7 @@ Private Sub UserForm_Initialize()
 
     If Counter = 0 Then
         lngChoice = MsgBox("There are no BANA Templates in the Templates folder!" + vbCr + vbCr _
-            & "Do you want to view the contents of the templates folder?", vbYesNo + vbDefaultButton2, "Braille Macros")
+            & "Do you want to view the contents of the templates folder?", vbYesNo + vbDefaultButton2, "Braille Macros (316)")
         If lngChoice = vbYes Then
             Dim Foldername As String
             Foldername = Options.DefaultFilePath(wdUserTemplatesPath)

@@ -151,7 +151,7 @@ Skip3:
         
         ' Validate the selection
         If Selection.Type <> wdSelectionNormal Then
-            MsgBox "Please select text containing pictures to align.", vbExclamation
+            MsgBox "Please select text containing pictures to align.", vbExclamation, "VistaType LP (297)"
             Exit Sub
         End If
         
