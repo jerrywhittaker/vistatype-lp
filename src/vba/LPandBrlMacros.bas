@@ -23811,7 +23811,7 @@ Sub Sh_Doc_Info()
                     & " Mirrored Margins              = " + MirrorString & vbCr _
                     & " Binding (Gutter) Width       = " + PPG & vbCr _
                     & " Orientation                        = " + Sh_GP_String_1 & vbCr _
-                    & " Output Media Type           = " + DM & SectionNote, , "Document Settings"
+                    & " Output Media Type           = " + DM & SectionNote, , "Document Settings (100)"
                     
     ElseIf InStr(UCase(ActiveDocument.AttachedTemplate), "BRAILLE") > 0 Then
 
@@ -23866,7 +23866,7 @@ Sub Sh_Doc_Info()
                         & " Bottom Margin                  = " + PBM & vbCr _
                         & " Left Margin                        = " + PLM & vbCr _
                         & " Right Margin                     = " + PRM & vbCr _
-                        & vbCr & BrlType & vbCr & SectionNote, , "Document Settings"
+                        & vbCr & BrlType & vbCr & SectionNote, , "Document Settings (101)"
         Else
             MsgBox "Attached Template = " & ActiveDocument.AttachedTemplate & vbCr & vbCr _
                     & MS_Word_Config & vbCr & vbCr _
@@ -23876,7 +23876,7 @@ Sub Sh_Doc_Info()
                     & " Top Margin                        = " + PTM & vbCr _
                     & " Bottom Margin                  = " + PBM & vbCr _
                     & " Left Margin                        = " + PLM & vbCr _
-                    & " Right Margin                     = " + PRM & SectionNote, , "Document Settings"
+                    & " Right Margin                     = " + PRM & SectionNote, , "Document Settings (102)"
     End If
                
     Sh_GP_String_1 = ""
