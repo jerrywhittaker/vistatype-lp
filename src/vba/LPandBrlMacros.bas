@@ -19097,6 +19097,11 @@ Function Lp_Table_Transpose_Table(Optional ByVal srcTbl As Table, _
     ' first cell, so the one paragraph above a table that is known to be a real one is the one
     ' put there deliberately.
     '
+    ' Version: 2.1  Date: 9/3/2026 - carries the source table's BORDER WEIGHTS to the new table.
+    '                                A style's own borders came across; the heavier weight
+    '                                Lp_Set_Table_Border_Weights puts on as direct formatting for
+    '                                the book's base font size did not, so a rotated table came
+    '                                back thin (Jerry, 9/3/2026)
     ' Version: 2.0  Date: 9/3/2026 - takes the table to transpose and hands back the one it
     '                                built, instead of selecting ActiveDocument.Tables(1). The
     '                                Select was the first statement in the macro and ran before
@@ -19112,6 +19117,8 @@ Function Lp_Table_Transpose_Table(Optional ByVal srcTbl As Table, _
     Dim srcCellRng As Range, dstCellRng As Range
     Dim insertRng As Range
     Dim tblStyle As Style
+    Dim edge As Variant
+    Dim bStyle As Variant, bWidth As Variant, bColor As Variant
 
     Set Lp_Table_Transpose_Table = Nothing
 
@@ -19163,6 +19170,46 @@ Function Lp_Table_Transpose_Table(Optional ByVal srcTbl As Table, _
             dstCellRng.FormattedText = srcCellRng
         Next c
     Next r
+
+    ' The BORDER WEIGHTS come across as well, and they have to be copied rather than worked out
+    ' again. The table style carries borders of its own and the new table gets those, but
+    ' Lp_Set_Table_Border_Weights and the four Table Tools color buttons put a HEAVIER weight on
+    ' as direct formatting - chosen for the book's base font size, 2 1/4 to 6 point - and that
+    ' lived on the old table and died with it, so a rotated table came back thin. Reported by
+    ' Jerry, 9/3/2026.
+    '
+    ' Copied from the source rather than recomputed, for two reasons: Lp_Border_Weight_For_Base_Font
+    ' reads the Lp_Base_Font_Size Public, which holds whatever was chosen the last time a template
+    ' was attached in this Word session and is exactly the staleness the color buttons were fixed
+    ' for on 8/8/2026; and copying also carries a weight the transcriber set by hand.
+    '
+    ' Like for like, including inside-horizontal to inside-horizontal. Whether rotating a table
+    ' ought to swap its inside rules is a real question, but every weight this add-in sets puts
+    ' the same value on all six edges, so a swap would change nothing and could only surprise.
+    '
+    ' An edge that is not there raises - a single cell table has no inside borders - so each is
+    ' read on its own and a miss is skipped, the same way Lp_Set_Table_Border_Weights does it.
+    On Error Resume Next
+    For Each edge In Array(wdBorderLeft, wdBorderRight, wdBorderTop, wdBorderBottom, _
+                           wdBorderHorizontal, wdBorderVertical)
+        Err.Clear
+        bStyle = srcTbl.Borders(edge).LineStyle
+        If Err.Number = 0 Then
+            bWidth = srcTbl.Borders(edge).LineWidth
+            bColor = srcTbl.Borders(edge).Color
+            With dst.Borders(edge)
+                .LineStyle = bStyle
+                .LineWidth = bWidth
+                .Color = bColor
+            End With
+        End If
+    Next edge
+    Err.Clear
+    dst.Borders(wdBorderDiagonalDown).LineStyle = srcTbl.Borders(wdBorderDiagonalDown).LineStyle
+    dst.Borders(wdBorderDiagonalUp).LineStyle = srcTbl.Borders(wdBorderDiagonalUp).LineStyle
+    dst.Borders.Shadow = srcTbl.Borders.Shadow
+    Err.Clear
+    On Error GoTo 0
 
     ' Remove the original table; the transposed one remains in its place
     srcTbl.Delete
