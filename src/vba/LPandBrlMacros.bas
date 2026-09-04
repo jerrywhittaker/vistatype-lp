@@ -542,8 +542,28 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - BRL - 9/3/2026 - to SWIFT"). SWIFT CAN THEREFORE BE TESTED AGAINST DIRECTLY, and anything
 '           - BRL - 9/3/2026 - about what SWIFT does should be measured rather than inferred.
 '           - BRL - 9/3/2026 - TWO TABS, TWO PRODUCTS, DO NOT CONFUSE THEM: SWIFT's own ribbon tab is
-'           - BRL - 9/3/2026 - "Braille". VistaType LP's is "Braille Macros". The tab callback added on
-'           - BRL - 9/3/2026 - 9/3/2026 hangs on "Braille Macros" and must stay there.
+'           - BRL - 9/3/2026 - "Braille". VistaType LP's is "Braille Macros".
+'           - BRL - 9/3/2026 - WHAT WAS MEASURED ON THE BUILD BOX, 9/3/2026, so it is not measured again:
+'           - BRL - 9/3/2026 - SWIFT is a COM add-in (SWIFT.AddinModule, LoadBehavior 3) and it DOES
+'           - BRL - 9/3/2026 - load in an automation Word - COMAddIns reports connect=True. But its
+'           - BRL - 9/3/2026 - .Object exposes only OnConnection, OnDisconnection, OnAddInsUpdate,
+'           - BRL - 9/3/2026 - OnStartupComplete - the bare IDTExtensibility2 members and nothing else -
+'           - BRL - 9/3/2026 - so THERE IS NO WAY TO DRIVE SWIFT'S ATTACH FROM A SCRIPT. Its attach is a
+'           - BRL - 9/3/2026 - ribbon button, and a ribbon does not exist in an automation instance.
+'           - BRL - 9/3/2026 - Two things that CAN be stated as measured: BANA Braille 2024.dotx carries
+'           - BRL - 9/3/2026 - no docProps/custom.xml at all, so DBTTemplate does not come from the
+'           - BRL - 9/3/2026 - template; and creating a document FROM that template and saving it does
+'           - BRL - 9/3/2026 - NOT produce the property, so a plain save is not what writes it.
+'           - BRL - 9/3/2026 - AND SETTLED, BY JERRY, AGAINST SWIFT ITSELF on 3.0.365: "the document
+'           - BRL - 9/3/2026 - settings does not show the tranlation table until after the file is
+'           - BRL - 9/3/2026 - saved." SWIFT attached the template with its own Braille tab, Doc Info
+'           - BRL - 9/3/2026 - named no table before the save and named one after it.
+'           - BRL - 9/3/2026 - SO: SWIFT WRITES DBTTemplate ON SAVE, NOT ON ATTACH. That was the
+'           - BRL - 9/3/2026 - project's working assumption from 8/26/2026 and it is now MEASURED
+'           - BRL - 9/3/2026 - rather than inferred from a file. Everything built on it stands:
+'           - BRL - 9/3/2026 - Sh_Dbt_Translation_Table's two answers, Doc Info's wording, and
+'           - BRL - 9/3/2026 - Dx_Braille_File_Not_Ready - whose whole promise is that saving the file
+'           - BRL - 9/3/2026 - is what lets the braille macros learn the table.
 '
 ' Notes:    - BRL - 8/27/2026 - THE SPELLING CHECKER IS QUIET IN A BRAILLE DOCUMENT AGAIN (Jerry). He
 '           - BRL - 8/27/2026 - reported red squiggles in every braille file, whether SWIFT or the braille
