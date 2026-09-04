@@ -8547,6 +8547,18 @@ Sub Dx_Replace_Fraction_Text_With_Compact_Fractions()
 ' Braille only: large print does the OPPOSITE, and must, because a compact fraction draws
 ' smaller than the size the book is set in.
 '
+' WHAT DUXBURY MAKES OF THESE - ANSWERED, and it needed no tester. Jerry, 9/4/2026:
+' "Duxbury recognizes all compact fractions. any other fraction can be enter in coded form
+' using the dashes/Prime/Fractions macro."
+'
+' So the compact character and the DBT fraction codes are not two answers to one question -
+' they divide it. The nineteen fractions Unicode has a character for are what this sweep
+' makes, and DBT reads them. Every other fraction - 3/17, 7/32 - is typed in DBT's own coded
+' form, [[*fs*]]3[[*fl*]]17[[*fe*]], through Encode Fractions on Dx_Type_Dashes_Form. That is
+' why version 1.2 took the two DBT code passes OUT of this macro on 3/5/2023: they belong to
+' the button a transcriber presses for the fractions no character exists for, not to a sweep
+' that runs over every book.
+'
 ' Version: 2.0  Date: 8/29/2026 - Full File Cleanup runs this now, so it had to stop damaging
 '                                 dates and longer numbers - see below. The stray leading space
 '                                 taken off 5/8. The two DBT code passes that used to end this
