@@ -62,20 +62,55 @@ Other rules:
 
 ## Converting a macro off the temporary document
 
-`Lp_Copy_To_Temp_Doc` creates the scratch document hidden and then deliberately shows, maximizes
-and activates it — four statements, not an accident. That is the screen flashing. It must,
-because its callers work through `Selection`, and `Selection` only reaches the active document.
+**FINISHED 9/4/2026 (3.0.366). No macro in VistaType LP puts a document on the screen any more.**
+Change Picture Color was the last one, and `Lp_Copy_To_Temp_Doc` was removed with it — along with
+`Sh_Is_End_Paragraph_Mark_Included`, whose only caller it was, and the two public variables only
+that macro wrote. Dialogs 294, 301 and 305 are retired. **Four macros still make a scratch
+document and all four keep it hidden**: `Lp_Table_Convert_Hidden`, `Lp_Exercise_Levels_Hidden`,
+`Dx_Exercise_Levels_Hidden` and `Lp_Horz_To_Vert_Hidden`.
+
+The rest of this section is kept because the reasoning is what to copy the next time a macro has
+to move onto a range — the traps are not specific to the scratch document.
+
+`Lp_Copy_To_Temp_Doc` created the scratch document hidden and then deliberately showed, maximized
+and activated it — four statements, not an accident. That was the screen flashing. It had to,
+because its callers worked through `Selection`, and `Selection` only reaches the active document.
 Converting a macro means moving its passes onto a **range**, so the window is never needed. The
-round trip itself stays: it is what gives the single undo and the private workspace.
+round trip itself stays where it earns its place: it is what gives the single undo and the
+private workspace.
 
 **The braille half of this is finished** (3.0.318, 8/31/2026). `Dx_Copy_To_Temp_Doc`,
 `Dx_Copy_From_Temp_Doc` and `Dx_Attach_Same_BANA_Template` were removed once Exercise Levels
 1 & 2 — their last caller — moved onto `Dx_Exercise_Levels_Hidden` at 3.0.309, and the
 `Sh_Copy_To_Temp_Doc` / `Sh_Copy_From_Temp_Doc` route pickers went with them. No braille macro
-shows a scratch document any more; three still make one, hidden. **`Lp_Copy_To_Temp_Doc` is the
-only one left that puts a document on the screen**, and from 9/3/2026 **one** large-print place
-still calls it: `Lp_Change_Image_Color_Form`.
+shows a scratch document any more; three still make one, hidden.
 `Lp_TOC_CleanAndFormat_TOC` came off it at 3.0.338 — another deletion, not a conversion.
+
+**The large-print half finished at 3.0.366** (9/4/2026) with Change Picture Color, and that was a
+deletion too — the fourth. Recoloring pictures is "walk some images and set one property", so it
+needs a `Range`, not a document. Five faults went with the round trip and none had ever been
+reported: the transcriber's clipboard, emptied by the `Copy` and `Paste` that carried the text
+home; cells the user had not selected, because `Lp_Copy_To_Temp_Doc` widened any selection made
+inside a table to the whole table; the selection replaced by a paste rather than edited where it
+stood; the demand that the selection end with a paragraph mark, which existed only to make the
+text travel whole; and, on a machine without `LargePrintTemplate.dotx`, **the user's own book
+closed without saving** — the missing-template `Exit Sub` that `Application.Run` never hands
+back, followed by `Sh_Is_End_Paragraph_Mark_Included` doing
+`ActiveDocument.Close SaveChanges:=False` on that book. **Equations are out of reach now, and that is Jerry's call** — *"I don't want equations
+(from MathType) touched."* A MathType equation is an embedded OLE object and so an inline shape
+like any other, and all three of the old loops tested nothing; the recolor takes
+`wdInlineShapePicture` and `wdInlineShapeLinkedPicture` only. What Word does when asked to gray an
+embedded object could **not** be measured — embedding one into an invisible Word fails outright
+over SSH, the same family as `Tables.Add` hanging — and the type test means it never has to be
+answered.
+
+A **sixth** thing was about forms rather than scratch documents: the Okay button read its radio
+buttons *after* `Unload Me`, and touching any member of a UserForm's default instance is what
+creates the form, so those lines might have been reading a brand new form's design-time values.
+**They were not** — put to Jerry, 9/4/2026: choosing grayscale has always given him grayscale.
+Read the choices before unloading anyway; it is the right order, not a repair. **Ask him before
+writing a fault into the record**: a UserForm cannot be exercised headlessly, so the only
+measurement available was his own Word, and one sentence from him settled it.
 
 **Table Tools came off it at 3.0.345** (9/3/2026), reported by Jerry testing 3.0.339: flashes of
 the table's yellow rows during Convert to List and Rotate Table, and a full-screen blink at the

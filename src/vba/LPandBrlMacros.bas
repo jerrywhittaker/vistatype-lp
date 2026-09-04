@@ -18,6 +18,54 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - LP  - 9/4/2026 - NOTHING IN VISTATYPE LP PUTS A SCRATCH DOCUMENT ON THE SCREEN
+'           -                   ANY MORE. Change Picture Color was the last one: "all pictures in
+'           -                   the selected range" copied the transcriber's selection into a
+'           -                   document that Lp_Copy_To_Temp_Doc created, showed, maximized and
+'           -                   activated, recolored the pictures in there, and pasted the whole
+'           -                   of the text back over that selection. The recolor now happens
+'           -                   where the pictures stand - Lp_Change_Image_Color takes the choice
+'           -                   the dialog made and asks the selection, the range or the document
+'           -                   for its own InlineShapes - and Lp_Copy_To_Temp_Doc is REMOVED.
+'           -                   The flashing this run of work began on is over.
+'           -                   Five things went with the round trip, none of them ever reported:
+'           -                   the transcriber's CLIPBOARD, emptied by the Copy and the Paste
+'           -                   that carried the text home; CELLS THE USER HAD NOT SELECTED,
+'           -                   because Lp_Copy_To_Temp_Doc widened any selection made inside a
+'           -                   table to the whole table; THE SELECTION REPLACED BY A PASTE rather
+'           -                   than edited where it stood, which with track changes on is the
+'           -                   whole range recorded as deleted and retyped; the DEMAND that the
+'           -                   selection end with a paragraph mark, which existed only because
+'           -                   the text had to travel; and, on a machine that cannot find
+'           -                   LargePrintTemplate.dotx, THE BOOK CLOSED WITHOUT SAVING -
+'           -                   Lp_Copy_To_Temp_Doc reports a missing template with a message and
+'           -                   a plain Exit Sub that Application.Run never hands back, so
+'           -                   Sh_Is_End_Paragraph_Mark_Included ran against the transcriber's
+'           -                   own book and closed it without saving. That check is
+'           -                   removed too; dialogs 294 and 305 are retired, not reused.
+'           -                   Ctrl+Z now takes the whole recolor back in ONE press on every
+'           -                   branch, where "all pictures in the document" used to cost one
+'           -                   press per picture: the property writes sit in one custom undo
+'           -                   record. Safe here, where a custom undo record killed Word in
+'           -                   Format TOC and in Table Tools - what crashes is a Find with
+'           -                   Replace:=wdReplaceAll inside an open record, and nothing in this
+'           -                   macro searches for anything.
+'           -                   ONLY PICTURES ARE RECOLORED (Jerry, same day: "I don't want
+'           -                   equations (from MathType) touched"). A MathType equation is an
+'           -                   embedded OLE object and so an inline shape like any other, and
+'           -                   the three loops this replaces tested nothing, so every one of
+'           -                   them reached it. Lp_Recolor_Inline_Shapes now takes only
+'           -                   wdInlineShapePicture and wdInlineShapeLinkedPicture. Word's own
+'           -                   OMath equations are not inline shapes and were never in reach.
+'           -                   The Okay button also reads its radio buttons BEFORE unloading the
+'           -                   form. It read them afterwards, and touching any member of a
+'           -                   UserForm's default instance is what creates the form - so those
+'           -                   lines might have been reading a brand new form's design-time
+'           -                   values rather than the transcriber's choice. THEY WERE NOT:
+'           -                   Jerry, 9/4/2026, asked directly - choosing grayscale has always
+'           -                   given him grayscale, so the values were surviving the unload and
+'           -                   nothing was broken. Reading them first is still the right order
+'           -                   and it removes the question; it is not a repair.
 ' Notes:    - LP  - 9/3/2026 - TABLE TOOLS NO LONGER SHOWS A SCRATCH DOCUMENT (Jerry, testing
 '           -                   3.0.339: "the table rotation shows flashing yellow on the screen
 '           -                   during the operation... full screen blinking"). Convert to List
@@ -1769,8 +1817,10 @@ Public Lp_Pic_All_Selectd As String
 
 Public Sh_GP_String_1 As String
 Public Sh_GP_String_2 As String   ' the conversion's image choice, "KEEP" or "OMIT"
-Public Sh_GP_Boolean_1 As Boolean
-Public Sh_GP_Counter_1 As Integer
+' Sh_GP_Boolean_1 and Sh_GP_Counter_1 stood here until 9/4/2026. Only
+' Sh_Is_End_Paragraph_Mark_Included ever wrote them and nothing ever read them back, so they went
+' with that macro when Change Picture Color stopped round-tripping. Sh_GP_String_1 and
+' Sh_GP_String_2 above are still in use.
 
 ' What the shared message dialog is about to say, and what was pressed. Sh_Say and Sh_Ask write
 ' these, Sh_Message_Form reads them, and the answer comes back the same way.
@@ -2105,9 +2155,9 @@ Sub Sh_HandleDocumentNew()
     ' A MACRO is running, not a transcriber. The same test, for the same reason, as the one at
     ' the top of Sh_HandleDocumentActivated - see the long note there - but it was missing here,
     ' and Word raises NewDocument for EVERY Documents.Add, including the ones macros make.
-    ' Lp_Copy_To_Temp_Doc creates the scratch document, from one place now (it was three until
-    ' 9/3/2026), and Dx_Copy_To_Temp_Doc did the same until 8/31/2026 - between them, about 35 -
-    ' so a book being cleaned up had
+    ' Lp_Copy_To_Temp_Doc created the scratch document until 9/4/2026, when the last caller went
+    ' and the routine with it, and Dx_Copy_To_Temp_Doc did the same until 8/31/2026 - between
+    ' them they were called from about 35 places - so a book being cleaned up had
     ' Word reconfigured for an ORDINARY document half way
     ' through the job. Three costs, none of them visible: the Styles pane closed and the screen
     ' refreshed at the exact points the macro had turned refreshing off - the 7/24 and 8/2/2026
@@ -2199,10 +2249,10 @@ Sub Sh_HandleDocumentActivated()
     If Documents.count = 0 Then Exit Sub
 
     ' A MACRO is running, not a transcriber. Word's own macros activate documents constantly -
-    ' every Lp_Copy_To_Temp_Doc creates a document and activates it, and it is still called from
-    ' one place (three until 9/3/2026; Dx_Copy_To_Temp_Doc did the same until 8/31/2026, and
-    ' between them they were called from about 35). Reconfiguring Word in the middle of one would
-    ' put back the ~74 Options and AutoCorrect writes that were taken OUT of fourteen dialogs on
+    ' every Lp_Copy_To_Temp_Doc created a document and activated it (that routine is gone from
+    ' 9/4/2026, and Dx_Copy_To_Temp_Doc went on 8/31/2026; between them they were called from
+    ' about 35 places, and four hidden round trips remain). Reconfiguring Word in the middle of
+    ' one would put back the ~74 Options and AutoCorrect writes taken OUT of fourteen dialogs on
     ' 7/24/2026, and would refresh the screen at the exact points the code turns refreshing off.
     ' Screen updating being off is the marker: those macros all turn it off, and a transcriber
     ' clicking a window has it on.
@@ -6616,7 +6666,8 @@ Sub Dx_Format_Exercise_Lv_1_and_Lv_2()
     ' the SELECTION in the active document - so it ran after the scratch document was already on
     ' screen, and when the answer was no it closed that document, showed a MsgBox and stopped
     ' everything with End. Asked here, of the range, nothing has been created yet and there is
-    ' nothing to unwind. That macro stays where it is; Lp_Change_Image_Color_Form still uses it.
+    ' nothing to unwind. That macro is GONE as of 9/4/2026 - Change Picture Color was its last
+    ' caller and stopped round-tripping - so this is the only form the question takes now.
     If Right$(Selection.Range.Text, 1) <> vbCr Then
         Sh_Say "Select the exercise list including the paragraph mark at the end of the last " _
              & "item." & vbCr & vbCr _
@@ -12662,95 +12713,28 @@ Sub Sh_Remove_Multi_Spaces(Optional ByVal target As Range)
 
 End Sub  '***** End of Sh_Remove_Multi_Spaces ********
 
-Sub Lp_Copy_To_Temp_Doc()
-    '
-    ' Version: 2.4 Date: 8/2/2026 - no longer hides the Styles pane: that setting is Word-wide, so it closed the pane in the user's own book, and nothing ever put it back
-    ' Version: 2.3 Date: 3/5/2026 - full rewrite of previous versions
-    '
-    Dim origDoc As Document
-    Dim tempDoc As Document
-    Dim sourceRng As Range
-    Dim destRng As Range
-    Dim wasInTable As Boolean
-    Dim strTemplatePath As String
-    
-    ' 1. Set the Template Path and Verify
-    strTemplatePath = Options.DefaultFilePath(wdUserTemplatesPath) & "\" & LP_TEMPLATE_FILE
-    
-    If Dir(strTemplatePath) = "" Then
-        MsgBox "Template not found at: " & strTemplatePath, vbCritical, "VistaType LP (305)"
-        Exit Sub
-    End If
-
-    ' 2. Capture selection from original document
-    If Selection.Information(wdWithInTable) Then
-        wasInTable = True
-        Set sourceRng = Selection.Tables(1).Range
-    Else
-        Set sourceRng = Selection.Range
-    End If
-    
-    Set origDoc = ActiveDocument
-    
-    ' START GLOBAL FREEZE
-    Dim su_Prev As Boolean
-    su_Prev = Application.ScreenUpdating
-    Application.ScreenUpdating = False
-    
-    ' 3. Create the document
-    Set tempDoc = Documents.Add(Template:=strTemplatePath, Visible:=False)
-    
-    ' 4. Transfer content
-    Set destRng = tempDoc.Range
-    If wasInTable Then
-        destRng.InsertParagraphBefore
-        Set destRng = tempDoc.Paragraphs(2).Range
-        destRng.Collapse wdCollapseStart
-    End If
-    
-    destRng.FormattedText = sourceRng.FormattedText
-    
-    ' 5. UI Cleanup
-    ' 8/2/2026 - removed "Application.TaskPanes(wdTaskPaneFormatting).Visible = False". The
-    ' intent was to keep the scratch window uncluttered, but pane visibility is a WORD-WIDE
-    ' setting, not a per-document one, so there is no way to tidy the temp document without
-    ' closing the pane in the user's book as well - and nothing ever put it back. With
-    ' eighteen callers (Table Tools, Fill-In Line, Horiz-to-Vert list, image color) the pane
-    ' died on the first one used and stayed dead for the rest of the session. Save-and-restore
-    ' is not the answer either: several callers never reach Lp_Copy_From_Temp_Doc, so the
-    ' saved state would strand.
-
-    ' 6. THE REVEAL - Fix for Error 5941
-    ' If no window exists for this hidden doc, we create one now
-    If tempDoc.Windows.count = 0 Then
-        tempDoc.Windows.Add
-    End If
-
-    ' Now that we are sure Windows(1) exists, we configure it
-    With tempDoc.Windows(1)
-        .Visible = True
-        .WindowState = wdWindowStateMaximize
-    End With
-
-    ' 7. Final handoff
-    tempDoc.Activate
-    Application.ScreenUpdating = su_Prev
-
-End Sub '*** end of Lp_Copy_To_Temp_Doc Macro ***
-
-' Lp_Copy_From_Temp_Doc stood here until 9/3/2026. It brought a scratch document's content back
-' into the transcriber's book and closed it, and it had NO CALLER LEFT anywhere in the project -
-' not a macro, a form, a ribbon button or a keyboard shortcut. Table Tools was its last one, and
-' that came off the scratch document at 3.0.350 (Lp_Table_Convert_Hidden does its own round trip
-' and brings the result home itself).
+' Lp_Copy_To_Temp_Doc and Lp_Copy_From_Temp_Doc both stood here. Lp_Copy_From_Temp_Doc went on
+' 9/3/2026 and Lp_Copy_To_Temp_Doc on 9/4/2026, when Change Picture Color - the last caller
+' either of them had anywhere in the project - stopped needing one.
+'
+' Lp_Copy_To_Temp_Doc made a document from LargePrintTemplate.dotx, copied the selection into it,
+' and then deliberately gave it a window, showed it, maximized it and activated it. That is the
+' screen going blank, and it was not carelessness: its callers reached their text through
+' Selection, and Selection only reaches the document that is active. Every one of them works on a
+' Range now, so no window is needed - and three of them, Resize Images, Replace Section Breaks
+' and Format TOC, turned out never to have needed a document at all.
 '
 ' Removed rather than left, for the reason the five braille scratch-document routines were
 ' removed on 8/31/2026: dead code carrying Documents.Add, Selection.Copy and .Activate is exactly
 ' what gets called again by someone tidying up later, and it would put the flashing scratch
-' document straight back. Its message was dialog 301; that number is retired, not reused.
+' document straight back. Their messages were dialogs 301 and 305; both numbers are retired, not
+' reused.
 '
-' Lp_Copy_To_Temp_Doc STAYS. Lp_Change_Image_Color_Form still calls it, and it is now the one
-' place in the project that shows a scratch document.
+' WHAT STILL MAKES A SCRATCH DOCUMENT, AND KEEPS IT HIDDEN: Lp_Table_Convert_Hidden,
+' Lp_Exercise_Levels_Hidden, Dx_Exercise_Levels_Hidden and Lp_Horz_To_Vert_Hidden. The round trip
+' does two jobs and only showing it was ever the fault - it is also what keeps Ctrl+Z to one or
+' two presses, because edits made in another document are not in this book's undo stack at all.
+' It stays wherever it earns that. See the 9/3/2026 note at the top of this module.
 
 Sub Lp_Toggle_Page_Color()
 '
@@ -14118,9 +14102,10 @@ End Sub  '***** end of Lp_Format_Exercise_Lv_1_and_Lv_2 Macro *****
 ' and the same single undo, because the text goes home in ONE assignment. What is different is
 ' that the scratch document is never shown.
 '
-' Lp_Copy_To_Temp_Doc creates the scratch document hidden and then deliberately gives it a
-' window, shows it, maximizes it and activates it. That is the blinking, and it is four
-' statements, not an accident: every pass below used to work through Selection, and Selection
+' Lp_Copy_To_Temp_Doc (removed 9/4/2026) created the scratch document hidden and then
+' deliberately gave it a window, showed it, maximized it and activated it. That was the blinking,
+' and it was four statements, not an accident: every pass below used to work through Selection,
+' and Selection
 ' only reaches the document that is active. The passes work on the scratch document's own
 ' content instead, so nothing is shown, maximized or activated.
 '
@@ -14808,9 +14793,9 @@ End Function
 ' work on it, put it back - and the same single undo, because the text goes home in ONE
 ' assignment. What is different is that the temporary document is never shown.
 '
-' Lp_Copy_To_Temp_Doc creates it hidden and then deliberately gives it a window, makes the
-' window visible, maximizes it and activates it. That is the flashing, and it is four
-' statements, not an accident. It has to do that because its callers work through Selection,
+' Lp_Copy_To_Temp_Doc (removed 9/4/2026) created it hidden and then deliberately gave it a
+' window, made the window visible, maximized it and activated it. That was the flashing, and it
+' was four statements, not an accident. It had to, because its callers worked through Selection,
 ' and Selection only reaches the document that is active.
 '
 ' So the passes here work on a RANGE instead. The range is the temporary document's own
@@ -15050,9 +15035,10 @@ End Sub
 ' temporary one. Nothing called them after the horizontal-list merge moved to the hidden route
 ' the next day, and the braille route they chose between went at 3.0.309.
 '
-' Lp_Copy_To_Temp_Doc stays, and still puts its document on the screen. TWO places call it
-' from 9/2/2026: the Lp_Table_Convert_Options_Form (five calls) and Lp_Change_Image_Color_Form
-' forms. Lp_TOC_CleanAndFormat_TOC came off it at 3.0.338.
+' Lp_Copy_To_Temp_Doc IS GONE TOO, from 9/4/2026. It stayed for a while after these two went -
+' Lp_TOC_CleanAndFormat_TOC came off it at 3.0.338, Lp_Table_Convert_Options_Form at 3.0.345 -
+' and Change Picture Color, its last caller anywhere, stopped needing it at 3.0.366. Nothing in
+' the project puts a scratch document on the screen now.
 '
 ' Four have gone now, and only ONE of the four was a conversion. Lp_Resize_Images,
 ' Lp_Section_Brk_Caution and Lp_TOC_CleanAndFormat_TOC all turned out never to have needed a
@@ -18625,6 +18611,235 @@ Private Sub Lp_Scale_Inline_Shapes(ByVal pics As InlineShapes, ByVal pct As Sing
         End With
     Next i
 End Sub  '***** end of Lp_Scale_Inline_Shapes *****
+
+' Change the color of some pictures, and that is the whole of what Change Picture Color does.
+'
+' The caller says WHICH pictures, in the three words the dialog offers: "A" every picture in the
+' document, "S" the picture the transcriber has selected, "R" the pictures inside the text that
+' is selected. newColorType is an MsoPictureColorType - msoPictureAutomatic puts the original
+' colors back, msoPictureGrayscale grays them.
+'
+' Version: 1.0  Date: 9/4/2026 - the work of Lp_Change_Image_Color_Form's Okay button, lifted out
+'                               of the form and taken off the scratch document. This was the LAST
+'                               place in the project that put a document on the screen, so
+'                               Lp_Copy_To_Temp_Doc is removed and the flashing is over.
+'
+'                               None of the round trip was ever needed. The whole of the work is
+'                               "walk some pictures and set one property", and an InlineShapes
+'                               collection comes off a Range as readily as off a document - the
+'                               same answer Resize Images turned out to have on 9/1/2026, which
+'                               is this macro's neighbour in every way. Only the "selected range"
+'                               choice ever round-tripped; the other two always worked in the
+'                               book, which is what made the odd one out easy to walk past.
+'
+'                               What went with it, and none of it was ever reported:
+'
+'                                 * THE CLIPBOARD. Selection.Copy carried the text out of the
+'                                   scratch document and Selection.Paste put it back over the
+'                                   selection, so changing a picture's color threw away whatever
+'                                   the transcriber had copied. Nothing here copies anything now.
+'                                 * CELLS NOBODY HAD SELECTED. Lp_Copy_To_Temp_Doc widened ANY
+'                                   selection made inside a table to the ENTIRE table, so
+'                                   dragging across two pictures in a table and asking for
+'                                   grayscale grayed every picture in that table. The range
+'                                   branch asks the SELECTION for its own pictures now.
+'                                 * THE SELECTION, REPLACED BY A PASTE. The pictures were
+'                                   recolored in the scratch document and the whole of the text
+'                                   came home over the top of what was highlighted. With
+'                                   track changes on that is the entire range recorded as deleted
+'                                   and retyped, for the sake of one picture's color.
+'                                 * THE DEMAND FOR THE ENDING PARAGRAPH MARK, dialog 294. It
+'                                   existed only because the text had to travel and come back
+'                                   whole. Recoloring pictures where they stand needs no such
+'                                   thing, so the rule is gone and so is the message.
+'                                 * THE BOOK, CLOSED WITHOUT SAVING, on a machine that cannot
+'                                   find LargePrintTemplate.dotx. Lp_Copy_To_Temp_Doc looked that
+'                                   template up by path and, on a miss, showed a message and did
+'                                   a plain Exit Sub that Application.Run never handed back - so
+'                                   the form carried straight on with the transcriber's OWN book
+'                                   still active, and Sh_Is_End_Paragraph_Mark_Included did
+'                                   ActiveDocument.Close SaveChanges:=False on it. The same shape
+'                                   as the Format TOC fault of 9/2/2026, and worse: it happened
+'                                   before a single picture had been touched.
+'
+'                               ONLY PICTURES ARE RECOLORED, and that is Jerry's call of the
+'                               same day: "I don't want equations (from MathType) touched." The
+'                               three loops this replaces tested nothing, so a MathType equation
+'                               - an embedded OLE object, and an inline shape like any other -
+'                               was in reach of every one of them. What Word does when asked to
+'                               gray one could not be measured (embedding an OLE object into an
+'                               invisible Word fails over SSH), and the type test means it does
+'                               not have to be. Word's own OMath equations were never in reach.
+'
+'                               TWO more differences, both of them visible. THE SCREEN IS NOW
+'                               FROZEN ON ALL THREE CHOICES: only the range branch turned
+'                               ScreenUpdating off before, so "all pictures in the document" used
+'                               to repaint picture by picture and now goes still and repaints
+'                               once at the end. And THE RANGE CHOICE NO LONGER NEEDS
+'                               LargePrintTemplate.dotx to be installed at all - it used to make
+'                               a document from that template, so on a machine without it the
+'                               choice stopped (dialog 305) or did the damage described above.
+'                               It now works on any document, a BANA braille book or a raw
+'                               publisher file included.
+'
+'                               ONE Ctrl+Z now takes the whole recolor back, on every branch,
+'                               because the property writes sit in one custom undo record. "All
+'                               pictures in the document" used to cost one press per picture.
+'                               A custom undo record is safe HERE where it killed Word outright
+'                               in Format TOC and in Table Tools: what crashes is a Find with
+'                               Replace:=wdReplaceAll inside an open record, and nothing in this
+'                               macro searches for anything.
+'
+' Author: Jerry Whittaker - jerry@vistatypelp.org
+'
+Public Sub Lp_Change_Image_Color(ByVal whichPics As String, ByVal newColorType As Long)
+    Dim pics As InlineShapes
+    Dim su_Prev As Boolean
+    Dim objUndo As UndoRecord
+    Dim recording As Boolean
+    Dim wholeDoc As Boolean
+    Dim saved As Boolean
+    Dim errNum As Long
+    Dim errText As String
+
+    Sh_Last_Activity = "Change picture color: deciding which pictures"
+
+    Select Case UCase$(whichPics)
+
+    Case "S"
+        ' The picture that was clicked. Selection.InlineShapes is the shapes INSIDE the
+        ' selection, so one clicked picture gives that one. Where a text selection holds several,
+        ' every picture in it is recolored, and the old code took Selection.InlineShapes(1) and
+        ' recolored the first shape only - which, in a math book, could BE the equation. Only
+        ' pictures are recolored now; see Lp_Recolor_Inline_Shapes.
+        If Selection.InlineShapes.count = 0 Then
+            Sh_Last_Activity = ""
+            Sh_Say "No Picture selected", "VistaType LP (299)"
+            Exit Sub
+        End If
+        Set pics = Selection.InlineShapes
+
+    Case "R"
+        If Selection.Type <> wdSelectionNormal Then
+            Sh_Last_Activity = ""
+            Sh_Say "Select the text range containing pictures for color change", _
+                   "VistaType LP (164)"
+            Exit Sub
+        End If
+        ' Range.InlineShapes reaches the pictures inside a table that the selection takes in,
+        ' which is what makes the scratch document unnecessary.
+        Set pics = Selection.Range.InlineShapes
+
+    Case "A"
+        ' ActiveDocument.InlineShapes, not ActiveDocument.Content.InlineShapes: this is the
+        ' collection the macro has always used and the two are not guaranteed to be the same one.
+        Set pics = ActiveDocument.InlineShapes
+        wholeDoc = True
+
+    Case Else
+        ' Cleared before leaving, or the NEXT failure anywhere in the project reports "Change
+        ' picture color: deciding which pictures" as its step.
+        Sh_Last_Activity = ""
+        Exit Sub
+
+    End Select
+
+    ' A chosen collection holding no pictures is a silent no-op: the dialog closes and nothing
+    ' happens. Left as it is, the same as Resize Images, because saying so needs a message and a
+    ' dialog number of its own and those are Jerry's. Written down so it is a known gap rather
+    ' than a surprise.
+    su_Prev = Application.ScreenUpdating
+    Application.ScreenUpdating = False
+
+    On Error GoTo eom
+
+    Set objUndo = Application.UndoRecord
+    objUndo.StartCustomRecord "Change Picture Color"
+    recording = True
+
+    ' Only on the whole-document branch. Recoloring every picture in a long book repaginates the
+    ' whole of it with the screen frozen, and Sh_Return_User_To_Start_Position turns screen
+    ' updating back on BEFORE it moves the cursor and refreshes after - which is what stops the
+    ' window sitting somewhere the transcriber did not leave it. The other two branches work
+    ' where the cursor already is, so nothing has to move it and the selection is left alone.
+    ' On this branch the selection IS collapsed on the way out, because the position recorded is
+    ' a point - the same as Resize Images, and the reason the other two branches do not do it.
+    If wholeDoc Then
+        Sh_Save_User_Position
+        saved = True
+    End If
+
+    Sh_Last_Activity = "Change picture color: recoloring"
+    Lp_Recolor_Inline_Shapes pics, newColorType
+
+    If saved Then
+        Sh_Return_User_To_Start_Position
+        saved = False
+    End If
+
+    objUndo.EndCustomRecord
+    recording = False
+    Sh_Last_Activity = ""
+
+    Application.ScreenUpdating = su_Prev
+    Application.ScreenRefresh
+    Exit Sub
+
+eom:
+    ' Close the undo record and put the screen back BEFORE the error is reported, or the
+    ' transcriber is left looking at a frozen Word with an undo record still open - and an undo
+    ' record left open swallows everything done afterwards into it.
+    errNum = Err.Number
+    errText = Err.Description
+    On Error Resume Next
+    If recording Then objUndo.EndCustomRecord
+    ' Sh_Save_User_Position counts its nesting, so a save that never gets its matching return
+    ' leaves the count above zero and every later macro in the session stops putting it back.
+    If saved Then Sh_Return_User_To_Start_Position
+    Application.ScreenUpdating = su_Prev
+    Application.ScreenRefresh
+    On Error GoTo 0
+    Sh_Report_Error "Lp_Change_Image_Color", errNum, errText
+
+End Sub  '***** end of Lp_Change_Image_Color Macro *****
+
+' Set the color type on every PICTURE in a collection, and that is the whole of what the recolor
+' does.
+'
+' It takes an InlineShapes collection rather than a document or a range for the same reason
+' Lp_Scale_Inline_Shapes above does: the caller decides what "which pictures" means - one
+' selected picture, a range of text, the whole document - and every one of those answers is an
+' InlineShapes collection. That is what makes the scratch document unnecessary.
+'
+' ONLY PICTURES, AND THAT IS JERRY'S CALL, 9/4/2026: "I don't want equations (from MathType)
+' touched." A MathType equation is an inline shape like any other - wdInlineShapeEmbeddedOLEObject
+' - so an untested loop over InlineShapes reaches it, and what Word does when asked to gray an
+' embedded object could not be established: embedding one into an invisible Word fails outright
+' over SSH, the same family as Tables.Add hanging, so it cannot be measured on the build box. The
+' type test settles it without needing the answer. Word's OWN equations (OMath) are not inline
+' shapes at all and were never in reach.
+'
+' The three loops this replaces had no test and recolored whatever they found, so this is a
+' change: an embedded object that really is a picture - a scan brought in with Paste Special as
+' an object rather than as a picture - is now skipped as well. Say so if that turns up in a real
+' book; it is one more Type to add here, not a redesign.
+'
+' Version: 1.1  Date: 9/4/2026 - pictures only (Jerry); equations and other embedded objects are
+'                               left alone
+' Version: 1.0  Date: 9/4/2026
+Private Sub Lp_Recolor_Inline_Shapes(ByVal pics As InlineShapes, ByVal newColorType As Long)
+    Dim i As Long
+    Dim shapeType As Long
+
+    If pics Is Nothing Then Exit Sub
+
+    For i = 1 To pics.count
+        shapeType = pics(i).Type
+        If shapeType = wdInlineShapePicture Or shapeType = wdInlineShapeLinkedPicture Then
+            pics(i).PictureFormat.ColorType = newColorType
+        End If
+    Next i
+End Sub  '***** end of Lp_Recolor_Inline_Shapes *****
 
 Sub Lp_SetPicturesToInlineAndLockAspectRatio()
 '
@@ -24311,54 +24526,23 @@ Sub Sh_Return_User_To_Start_Position()
 
 End Sub   '*** end of Sh_Return_User_To_Start_Position macro ***
 
-Sub Sh_Is_End_Paragraph_Mark_Included()
+' Sh_Is_End_Paragraph_Mark_Included stood here until 9/4/2026. It went to the end of the ACTIVE
+' document, counted the paragraph marks at the end of it, and when it found only one it closed
+' that document with SaveChanges:=False, showed dialog 294 and stopped everything with End.
 '
-' Sh_Is_End_Paragraph_Mark_Included Macro
+' It existed to check that a selection about to be copied into a scratch document had brought its
+' last paragraph mark with it, and its last caller was Change Picture Color, which stopped
+' round-tripping on 9/4/2026. Format Exercise had already left it on 9/1/2026 and asks the
+' question of the RANGE instead - Right$(Selection.Range.Text, 1) <> vbCr - which is the shape to
+' copy if it is ever wanted again: nothing has been created at that point, so there is nothing to
+' unwind when the answer is no.
 '
-' Validates existance of para mark at end of selected text
-'
-' Author: Jerry Whittaker - jerry@vistatypelp.org
-
-'
-' Version: 1.1  Date: 12/18/20203 - fixed bug when only para marks are included
-' Version: 1.0  Date: 11/16/2016
-'
-    Sh_GP_Boolean_1 = False ' General Pupose boolean
-    
-    Dim Para_Counter As Integer
-    Para_Counter = 0
-    
-    Dim Loop_Continue As Boolean
-    Loop_Continue = True
-    
-    Selection.EndKey Unit:=wdStory   'go to end of document
-    
-    On Error GoTo Error1
-    Do While Loop_Continue
-        If Asc(WordBasic.[Selection$]()) = 13 Then
-            Para_Counter = Para_Counter + 1
-            Selection.MoveLeft Unit:=wdCharacter, count:=1 'move back one character
-        Else
-            Loop_Continue = False
-        End If
-    Loop
-
-    If Para_Counter > 1 Then
-        Sh_GP_Boolean_1 = True 'more than one para mark
-        Sh_GP_Counter_1 = Para_Counter
-    End If
-Error1:
-On Error GoTo 0
-    If Sh_GP_Boolean_1 = False Then
-        ActiveDocument.Close SaveChanges:=False
-        Application.ScreenUpdating = True ' Turn screen updating on
-        MsgBox "Selected text must include the ending paragraph mark.", , "VistaType LP (294)"
-        End
-    End If
-    
-    Application.ScreenUpdating = True  'turn on screen
-        
-End Sub '*** end of Sh_Is_End_Paragraph_Mark_Included ***
+' Removed rather than left, and this one had teeth. On a machine that cannot find
+' LargePrintTemplate.dotx, Lp_Copy_To_Temp_Doc showed a message and did a plain Exit Sub that
+' Application.Run never handed back to its caller - so this macro ran against the transcriber's
+' OWN BOOK, found the single paragraph mark at the end of it, and closed that book without saving.
+' Dialog 294 is retired, not reused. The two general-purpose variables it wrote, Sh_GP_Boolean_1
+' and Sh_GP_Counter_1, had no other reader anywhere in the project and went with it.
 
 Sub Sh_Remove_DollarPG_For_Retag()
 

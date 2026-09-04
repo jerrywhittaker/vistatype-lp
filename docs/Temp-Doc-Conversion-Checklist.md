@@ -1,8 +1,19 @@
 # Hiding the temporary document — what to test
 
+**FINISHED, 9/4/2026. Nothing in VistaType LP puts a scratch document on the screen any more.**
+Change Picture Color was the last one, and `Lp_Copy_To_Temp_Doc` — the routine that created a
+document and then deliberately showed, maximized and activated it — was removed with it, along
+with `Sh_Is_End_Paragraph_Mark_Included`, whose only caller it was. Four macros still make a
+scratch document and all four keep it **hidden**: `Lp_Table_Convert_Hidden`,
+`Lp_Exercise_Levels_Hidden`, `Dx_Exercise_Levels_Hidden` and `Lp_Horz_To_Vert_Hidden`. The round
+trip was never the fault; showing it was, and it is what keeps Ctrl+Z to one or two presses.
+
+The rest of this file stands as the record of how each one was settled and what to test, because
+the traps in it apply to any macro that is ever moved onto a range.
+
 Horiz List to Vertical was converted first (3.0.147) and is the worked example. This is the
-list of everything else that goes through the same round trip, so each one can be ticked off as
-it is converted and tried.
+list of everything else that went through the same round trip, ticked off as each was converted
+and tried.
 
 ## What the change is
 
@@ -138,12 +149,12 @@ scratch-document routine that morning: `Dx_Format_Exercise_Lv_1_and_Lv_2`,
 (`Lp_Format_Exercise_Lv_1_and_Lv_2`, converted), 3.0.321 (`Lp_Resize_Images`, round trip
 **deleted** — it never needed one), 3.0.326 (`Lp_Section_Brk_Caution`, round trip **deleted**,
 and a book-corrupting defect found and cured with it) and 3.0.338
-(`Lp_TOC_CleanAndFormat_TOC`, round trip **deleted** — the third of these that never needed one)
-and 3.0.345 (`Lp_Table_Convert_Options_Form`, **converted** — its five calls are gone).
-`Lp_Change_Image_Color_Form` is the one place in the project that still calls
-`Lp_Copy_To_Temp_Doc`, and it was counted separately, under Picture Tools.
+(`Lp_TOC_CleanAndFormat_TOC`, round trip **deleted** — the third of these that never needed one),
+3.0.345 (`Lp_Table_Convert_Options_Form`, **converted** — its five calls are gone) and 3.0.366
+(`Lp_Change_Image_Color_Form`, round trip **deleted** — the last one in the project, and
+`Lp_Copy_To_Temp_Doc` was removed with it).
 
-**Three of the seven settled were deletions, not conversions.** That is now the expected answer, not
+**Four of the seven settled were deletions, not conversions.** That is now the expected answer, not
 the surprise one: read what the macro does to the scratch document before planning how to move it
 onto a range.
 
@@ -174,10 +185,11 @@ Two more findings from the same trace, both worth acting on separately. **Both w
   it would put the flashing scratch document straight back. A tombstone comment stands where each
   one was.
 
-**`Lp_Copy_To_Temp_Doc` and `Lp_Copy_From_Temp_Doc` stay, and still show their document.**
-**One** place calls them from 9/3/2026: `Lp_Change_Image_Color_Form`, reached through the
-Picture Tools menu. `Lp_TOC_CleanAndFormat_TOC` came off at 3.0.338 and
-`Lp_Table_Convert_Options_Form` at 3.0.345.
+**`Lp_Copy_To_Temp_Doc` and `Lp_Copy_From_Temp_Doc` are GONE** — the second on 9/3/2026, the
+first on 9/4/2026 when Change Picture Color, its last caller, stopped needing one. Both were
+removed rather than left, for the reason the five braille scratch-document routines were removed
+on 8/31/2026: dead code carrying `Documents.Add`, `Selection.Copy` and `.Activate` is exactly
+what gets called again by someone tidying up later. Dialogs 301 and 305 are retired with them.
 
 **Ask first whether the round trip is needed at all.** `Lp_Resize_Images` was on this list as a
 conversion and turned out to be a deletion: nothing it does needs a document of its own. Two
@@ -350,8 +362,50 @@ scratch document before planning how to move it onto a range — if every pass i
         it up by path and quietly gives up on a miss; on the table branch that meant deleting her
         table and pasting whatever was on the clipboard.
 
-      The other buttons under this menu are still to do — `Lp_Change_Image_Color_Form` still
-      round-trips, and from 9/3/2026 it is the **last** place in the project that does.
+      **And Change Picture Color is done (3.0.366, 9/4/2026) — the last round trip in the
+      project.** It was a **deletion**, the fourth: the whole of the work is "walk some pictures
+      and set one property", and an `InlineShapes` collection comes off a `Range` as readily as
+      off a document. Only the *selected range* choice ever round-tripped, which is what made the
+      odd one out easy to walk past — the other two choices always worked in the book.
+
+      Five faults went with it, none ever reported: the transcriber's **clipboard**, emptied by
+      the `Selection.Copy` and `Selection.Paste` that carried the text home; **cells the user had
+      not selected**, because `Lp_Copy_To_Temp_Doc` widened any selection made inside a table to
+      the whole table; **the selection replaced by a paste** rather than edited where it stood,
+      which with track changes on is the entire range recorded as deleted and retyped for the
+      sake of one picture's color; **the demand that the selection end with a paragraph mark**
+      (dialog 294), which existed only because the text had to travel; and, on a machine that
+      cannot find `LargePrintTemplate.dotx`, **the user's own book closed without saving** — the
+      missing-template `Exit Sub` that `Application.Run` never hands back, followed by
+      `Sh_Is_End_Paragraph_Mark_Included` doing `ActiveDocument.Close SaveChanges:=False` on that
+      book. The same shape as the Format TOC fault of 9/2/2026, and worse: it happened before
+      a single picture had been touched.
+
+      **One Ctrl+Z now, on every branch** — the property writes sit in one custom undo record,
+      where "all pictures in the document" used to cost one press per picture. Safe here, where a
+      custom undo record killed Word in Format TOC and Table Tools: what crashes is a `Find` with
+      `Replace:=wdReplaceAll` inside an open record, and this macro searches for nothing.
+
+      **A sixth thing, and it is about forms, not scratch documents.** The Okay button read its
+      radio buttons *after* `Unload Me`. Touching any member of a UserForm's default instance is
+      what creates the form, so those lines might have been reading a brand new form's design-time
+      values rather than what the transcriber had clicked. **They were not.** A UserForm cannot
+      be exercised headlessly at all, so it was put to Jerry instead (9/4/2026): choosing
+      grayscale has always given him grayscale, so the values were surviving the unload and this
+      dialog has been doing what it was told. The choices are read first now because that is the
+      right order, not because anything was broken.
+
+      **And Jerry had never seen this one flash**, which is consistent rather than contradictory:
+      only the *selected range* choice ever made a scratch document, so the two choices he uses
+      never had one to show.
+
+      **Equations are out of reach now, and that is Jerry's call** — *"I don't want equations
+      (from MathType) touched."* A MathType equation is an embedded OLE object and so an inline
+      shape like any other, and all three of the old loops tested nothing. The recolor now takes
+      `wdInlineShapePicture` and `wdInlineShapeLinkedPicture` only. What Word does when asked to
+      gray an embedded object could **not** be measured — embedding one into an invisible Word
+      fails outright over SSH, the same family as `Tables.Add` hanging — and the type test means
+      it never has to be answered.
 - [ ] DAISY or NIMAS to Word — `DN_Menu_Starter`
 
 ### Already done
