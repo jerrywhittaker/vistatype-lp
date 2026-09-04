@@ -2200,11 +2200,31 @@ Sub Sh_HandleDocumentNew()
     ' when nothing is open, and that one is fine: it runs MS_Set_Word_Config_For_Braille directly
     ' a few lines later.
     '
-    ' One thing to know before adding another Documents.Add for the transcriber inside a screen-off
-    ' macro: the later pick-up by Sh_HandleDocumentActivated sets the TYPING side only - it passes
-    ' DisplayToo False - so such a document would never get formatting marks, the rulers, Print view
-    ' or the Styles pane. Nothing hits that today. Configure it in the macro itself, as
-    ' Dx_Attach_BANA_Template does.
+    ' PIECE 6 OF THE AUTOMATIC-CONFIGURATION PLAN, SETTLED 9/4/2026 (Jerry). THE RULE IS: a
+    ' document a macro makes FOR THE TRANSCRIBER is configured by the macro that made it. Do not
+    ' leave it to the pick-up when her cursor reaches it.
+    '
+    ' The pick-up does work - Sh_HandleDocumentActivated configures whatever she clicks into - but
+    ' it sets the TYPING side only, because it passes DisplayToo False. A document left to it
+    ' would never get formatting marks, the rulers, Print view or the Styles pane.
+    '
+    ' Checked site by site on 9/4/2026, and every transcriber-facing document is already covered,
+    ' so the rule cost no code:
+    '   * Dx_Attach_BANA_Template_Run's blank document, made when nothing is open (screen OFF, so
+    '     this handler skips it) - the macro runs MS_Set_Word_Config_For_Braille itself, twice.
+    '   * Lp_Attach_Lp_Template's blank document (screen ON, so this handler configures it as an
+    '     ordinary document) - and Lp_Attach_The_Template then applies the large print
+    '     configuration when the attach finishes, which is what it ends up being.
+    '   * Sh_Convert_XML_File_To_Word_Document's converted book (screen ON, so this handler
+    '     configures it). That one is a DEPENDENCY ON LINE ORDER - see the note at its
+    '     Documents.Add - not a guarantee, and it is marked there.
+    '   * Sh_Copy_Ref_Pg_Tags_To_Temp_File's $pg validation list - the macro runs
+    '     MS_Set_Word_Config_For_Braille or MS_Set_Word_Config_For_Large_Print on it itself,
+    '     matching the book it was made from.
+    '   * The two export macros. Nothing configures those and nothing needs to - they are saved
+    '     and closed inside the macro and she never sees them. BE EXACT ABOUT WHY THIS HANDLER
+    '     SKIPS THEM: it is the ScreenUpdating = False each sets before its Documents.Add, NOT the
+    '     Visible:=False. Word raises NewDocument for a hidden document too.
     If Not Application.ScreenUpdating Then Exit Sub
 
     ' Written only when work actually happens - see the breadcrumb note in Sh_HandleDocumentActivated.
@@ -2693,7 +2713,13 @@ Public Sub Dx_Attach_BANA_Template_Run(ByVal autoClean As Boolean)
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False
     
-    ' If no document is active then create a new blank document
+    ' If no document is active then create a new blank document.
+    '
+    ' The screen is OFF by the line above, so Sh_HandleDocumentNew deliberately skips this one -
+    ' and it does not matter, because this macro runs MS_Set_Word_Config_For_Braille itself
+    ' further down, which is what the document ends up being. That is Piece 6's rule working:
+    ' the macro that makes a document for the transcriber configures it. Do not remove those
+    ' calls on the grounds that "opening a braille file configures Word" - nothing opened here.
     If Documents.count = 0 Then
         Documents.Add Template:="Normal", NewTemplate:=False, DocumentType:=0
     End If
@@ -9385,6 +9411,11 @@ Sub Lp_Attach_Lp_Template()
     '------------------------------------------------------------------------------------
     ' If no document is active then create a new blank document
     '------------------------------------------------------------------------------------
+    ' The screen is still on here, so Sh_HandleDocumentNew configures this blank document as an
+    ' ordinary one, and Lp_Attach_The_Template applies the large print configuration when the
+    ' attach finishes. Either way the transcriber never types in an unconfigured document. If a
+    ' screen-off region is ever put around this, configure it here instead - see Piece 6 in
+    ' Sh_HandleDocumentNew.
     If Documents.count = 0 Then
         Documents.Add DocumentType:=wdNewBlankDocument ' will trigger AutoNew
     End If
@@ -21400,6 +21431,28 @@ End Sub   '*** end of Lp_Delete_Square_Bullet macro ***
 ' Version: 1.1  Date: 8/23/2026 - Public, for the toolbar hover text
 ' Version: 1.0  Date: 8/23/2026
 '
+' What Document Settings prints on its "Word is configured for..." line.
+'
+' MS_Word_Config is a Public String, and VBA's End statement resets every module-level variable in
+' the project. This project runs End on ordinary paths - dozens of times in this module, and on
+' form Cancel buttons - so the string can be EMPTY with nothing wrong at all.
+'
+' Sh_Doc_Info reconciles before it reports, and that normally refills it: End blanks
+' Sh_ConfiguredAs too, so the reconcile finds a difference and applies a configuration. This is
+' the net for when it cannot - a machine where Word never raises the window events, which is not
+' hypothetical (they could not be made to fire once on the build box). A blank line tells the
+' transcriber nothing and reads as a fault in the screen; this tells her what to do about it.
+'
+' Version: 1.0  Date: 9/4/2026
+Public Function Sh_Word_Config_Line() As String
+    If Trim$(MS_Word_Config) = "" Then
+        Sh_Word_Config_Line = "Word's configuration is not recorded in this Word session - " _
+                            & "open the document again and it will be"
+    Else
+        Sh_Word_Config_Line = MS_Word_Config
+    End If
+End Function  '*** end of Sh_Word_Config_Line ***
+
 Public Function Sh_Config_In_Words(ByVal cfgType As String) As String
     Select Case cfgType
         Case "LP":  Sh_Config_In_Words = "a large print document"
@@ -21453,6 +21506,10 @@ Sub MS_Reset_Word_Configuration()
 '
 ' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
+' Version: 1.2  Date: 9/4/2026 - step 3 asks two questions, not one: the book record is marked
+'                               spent only when the document is ordinary AND no book configuration
+'                               is in force. A second net for a machine where the window events do
+'                               not fire - see the note at step 3
 ' Version: 1.1  Date: 8/23/2026 - all four of its messages go through Sh_Say and Sh_Ask, so they
 '                                 are 10 point Tahoma and the button says "Okay" (Jerry)
 ' Version: 1.0  Date: 8/23/2026
@@ -21535,9 +21592,24 @@ Sub MS_Reset_Word_Configuration()
     ' Nothing is lost by skipping it in a book: step 4 rewrites the record a moment later through
     ' Sh_Note_Book_Settings. Only the ordinary path ever reads it.
     '
+    ' AND IT ASKS TWO QUESTIONS FROM 9/4/2026, not one. cfgType is a fact about the DOCUMENT on
+    ' screen; Sh_ConfiguredAs is what is actually IN FORCE. They agree in the ordinary case,
+    ' because clicking into the letter reconfigures Word before she ever reaches this button - so
+    ' this is a second net rather than a repair. It matters on a machine where Word does not raise
+    ' the window events, which is not hypothetical: they could not be made to fire once on the
+    ' build box, and there the two can disagree for a whole session.
+    '
+    ' What it costs to get wrong is her settings, permanently. Clearing the record while braille's
+    ' configuration is in force leaves Word holding braille's grammar-off values with the ledger
+    ' saying no book is in force - and five of the six settings braille switches off are NOT on
+    ' Jerry's starting list, so step 1 does not put them back. Step 4 would then restore from a
+    ' ledger with no book record, decide the live values must be hers, and write braille's values
+    ' down as her preference. That is the 8/18/2026 fault exactly.
+    '
     ' Sh_Setting_Write with an empty string DELETES a key rather than emptying it, so "0" is
     ' written instead - the same as at the end of Sh_Restore_Transcriber_Settings.
-    If cfgType <> "LP" And cfgType <> "BRL" Then
+    If cfgType <> "LP" And cfgType <> "BRL" _
+       And Sh_ConfiguredAs <> "LP" And Sh_ConfiguredAs <> "BRL" Then
         Sh_Setting_Write VT_STORE_BOOK, "Saved", "0"
     End If
 
@@ -24222,7 +24294,7 @@ Sub Sh_Doc_Info()
     
     If ActiveDocument.AttachedTemplate = "LargePrintTemplate.dotx" Then
         MsgBox "Attached Template = " & ActiveDocument.AttachedTemplate & vbCr & vbCr _
-                    & MS_Word_Config & vbCr & vbCr _
+                    & Sh_Word_Config_Line() & vbCr & vbCr _
                     & " Normal Style Font Size      = " + Trim(Lp_Base_Font_Size) & vbCr _
                     & " Typeface (Normal style)     = " + Trim(Lp_Base_Font_Name) & vbCr _
                     & " Typeface recorded at attach = " + IntendedFontName & vbCr _
@@ -24283,7 +24355,7 @@ Sub Sh_Doc_Info()
 
             MsgBox "Attached Template = " & ActiveDocument.AttachedTemplate & vbCr _
                         & "DBT Translation Table = " & Sh_Dbt_Translation_Table() & vbCr & vbCr _
-                        & MS_Word_Config & vbCr & vbCr _
+                        & Sh_Word_Config_Line() & vbCr & vbCr _
                         & " Orientation                        = " + Sh_GP_String_1 & vbCr _
                         & " Paper/Screen Height        = " + PPH & vbCr _
                         & " Paper/ScreenWidth          = " + PPW & vbCr _
@@ -24294,7 +24366,7 @@ Sub Sh_Doc_Info()
                         & vbCr & BrlType & vbCr & SectionNote, , "Document Settings (101)"
         Else
             MsgBox "Attached Template = " & ActiveDocument.AttachedTemplate & vbCr & vbCr _
-                    & MS_Word_Config & vbCr & vbCr _
+                    & Sh_Word_Config_Line() & vbCr & vbCr _
                     & " Orientation                        = " + Sh_GP_String_1 & vbCr _
                     & " Paper/Screen Height        = " + PPH & vbCr _
                     & " Paper/ScreenWidth          = " + PPW & vbCr _
@@ -25415,6 +25487,16 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     Set outStream = Nothing
 
     ' --- Step 9: Final Reveal & Image Embedding ---
+    '
+    ' THE SCREEN IS STILL ON HERE, AND THAT IS LOAD-BEARING. Word raises NewDocument for this
+    ' line, Sh_HandleDocumentNew sees ScreenUpdating on, and configures the document the
+    ' transcriber is about to work in. Screen updating goes off 22 lines below.
+    '
+    ' So DO NOT move that ScreenUpdating = False line above this one to save a repaint. This
+    ' handler would skip the document and the macro configures it nowhere else, so it would fall
+    ' to the pick-up when her cursor reaches it - which sets the typing side only and never the
+    ' display. If it ever has to be created with the screen off, configure it here instead:
+    ' Sh_Apply_Word_Config "DEF". See Piece 6 in Sh_HandleDocumentNew.
     Set finalDoc = Documents.Add
     
     With finalDoc.ActiveWindow

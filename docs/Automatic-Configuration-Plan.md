@@ -3,7 +3,12 @@
 Agreed by Jerry and the beta tester, 8/20/2026, from *Automatic Configuration Table.docx*.
 Written up here before any code was touched.
 
-**Status: nothing below is built.** This supersedes the unbuilt half of
+**Status, 9/4/2026: the plan is finished, and it finished one piece short of itself.** Pieces 1,
+3, 4, 5 and 7 are built. Piece 6 was settled that day and needed no code. **Piece 2 was built,
+tested and REJECTED by Jerry the same day** — see its section below, which is now a record of why
+it must not be built again rather than a plan to build it.
+
+This supersedes the unbuilt half of
 `User-Settings-And-Word-Configuration.md` — Pieces 2 and 4 of that plan are replaced by
 Piece 4 here, which answers a question the earlier plan never asked. Piece 1, 3 and 5 of
 that document are built and stay as they are.
@@ -91,25 +96,46 @@ answers:
 Ten callers in `LPandBrlMacros` and one in a form have to be triaged one at a time: each is
 asking one of those two questions, and which one is not always obvious from the call site.
 
-### Piece 2 — switching stops reconfiguring
+### Piece 2 — REJECTED BY JERRY, 9/4/2026. Do not build it.
 
-`Sh_HandleDocumentActivated` stops calling `Sh_Apply_Word_Config`. The `VtEvents` hooks stay —
-the handler still has the Styles-pane recovery added on 8/20 — but it no longer configures
-anything.
+It was built and reverted the same day. **The rule is the opposite of what this section proposed:
+the configuration follows the document type on the screen, and it changes when she clicks into a
+document of a different kind.** Jerry, on being shown it working:
 
-That retires `Sh_Apply_Word_Config`'s `DisplayToo` argument and `Sh_Config_Skip_Display` with
-it. Their only caller passing `False` was the switch, which was the entire reason they existed
-(8/9/2026: "switching sets the typing, not the screen"). Every configuration is now a full one,
-which removes six `If Not Sh_Config_Skip_Display Then` guards from the three MS_ subs.
+> "The word configurations are to change when a different type of document is click. the
+> configuration for the 'letter' should not be forced on the braille. Configurations should match
+> the document type on the screen."
 
-`Sh_ConfiguredAs` stays. It is how the ledger in Piece 4 knows which configuration is in force,
-and that job survives.
+**What it would have done.** `Sh_HandleDocumentActivated` would stop calling
+`Sh_Apply_Word_Config`, so a configuration would follow OPENING or CREATING a document and
+nothing else.
 
-**The cost, stated plainly.** With a book and a letter open together, typing in the letter
-happens under the book's configuration — grammar checking off, tab-indent off, the fifteen
-non-Word fractions gone. It corrects itself the moment she opens or creates anything, so this
-is nothing like the 8/18 fault where one braille file turned grammar off for every session
-after. But it is real and it is the price of the rule.
+**Why he said no, and it is the sentence the plan itself had already written down as "the cost".**
+With a braille file and a letter open together, whichever was opened last held Word — so working
+in the braille file under the letter's settings was a normal Tuesday, not an edge case. The plan
+called that "real, and the price of the rule". It is not a price he is willing to pay, and the
+reason is the work rather than the principle: a braille file typed under a letter's settings gets
+Word's capitalization and its fractions, which is wrong in the file that goes to Duxbury.
+
+**Three things the attempt was worth, all of them kept:**
+
+- **A settings-loss fault it exposed in `MS_Reset_Word_Configuration`**, which is fixed and stays
+  fixed. Step 3 marked the book record spent on the strength of the DOCUMENT being ordinary; it
+  now also requires that no book configuration is in force. Those two agree while switching
+  reconfigures, so it is a second net — but on a machine where Word does not raise the window
+  events they can disagree all session, and the cost of getting it wrong is her own settings,
+  permanently. That is the 8/18/2026 fault.
+- **Document Settings could print a blank line** where "Word is configured for…" belongs, because
+  `MS_Word_Config` is wiped by any `End` statement. It goes through `Sh_Word_Config_Line` now.
+- **Two review findings that were only true under Piece 2 and are now moot**: the Reset button's
+  hover text going stale on a switch, and Styles Pane: Recommended half-working. Both were
+  symptoms of the switch not configuring, and both went back to normal with the revert.
+
+**If this is ever reconsidered**, read the whole of this section first, and know that two things
+the original text asserts are false: `Sh_Apply_Word_Config`'s `DisplayToo` argument and
+`Sh_Config_Skip_Display` **cannot** be retired with the switch. `MS_Reset_Word_Configuration`
+passes `DisplayToo:=False` deliberately, and `Dx_Attach_BANA_Template_Run` raises the flag across
+the attach so the braille display changes at its stage four and not before (Jerry, 8/29/2026).
 
 ### Piece 3 — the ordinary configuration stops configuring
 
@@ -220,23 +246,33 @@ Where each configuration lands after this:
 | Style previews | on | — | **restored from the ledger** |
 | Restrict linked styles | on | on | **restored from the ledger** |
 
-### Piece 6 — the gap Piece 2 opens, which needs an answer first
+### Piece 6 — SETTLED 9/4/2026, and it cost no code
 
-On 8/18 `Sh_HandleDocumentNew` was made to skip itself while a macro is running, because the
-scratch document `Lp_Copy_To_Temp_Doc` makes — from about 35 places — was reconfiguring Word in
-the middle of a job. The note records the handoff: a document a macro makes *for* the
-transcriber "is configured when her cursor reaches it instead." That handoff was to the activate
-handler, and Piece 2 removes it. Those documents would never be configured at all.
+**Jerry chose option 1: a document a macro makes for the transcriber is configured by the macro
+that made it.** Option 2 had died that morning anyway — `Lp_Copy_To_Temp_Doc` was removed when
+Change Picture Color came off the scratch document, so there was no "for the transcriber" route
+left in it to configure anything.
 
-Three ways out, and one has to be chosen before Piece 2 ships:
+It was written as preparation for Piece 2, which was then rejected — but **it stands on its own**.
+The pick-up when her cursor reaches such a document sets the TYPING side only (`DisplayToo`
+False), so a document left to it never gets formatting marks, the rulers, Print view or the
+Styles pane.
 
-1. configure such a document explicitly when the macro that made it finishes,
-2. have the "for the transcriber" route in `Lp_Copy_To_Temp_Doc` configure it itself,
-3. keep a narrow activate-time configuration for a document that has *never* been configured,
-   and only for that case.
+**The gap turned out to be closed already.** Checking site by site, every document a macro makes
+for the transcriber is configured, so the decision is a rule to hold to rather than a change to
+build:
 
-Option 3 is the smallest change and the easiest to reason about, but it puts back a piece of
-exactly what Piece 2 removes, so it needs Jerry's word rather than mine.
+| What makes it | Screen at that moment | What configures it |
+|---|---|---|
+| `Dx_Attach_BANA_Template_Run`, blank document when nothing is open | OFF, so `Sh_HandleDocumentNew` skips it | the macro itself, `MS_Set_Word_Config_For_Braille`, twice |
+| `Lp_Attach_Lp_Template`, blank document when nothing is open | ON | `Sh_HandleDocumentNew` as an ordinary document, then `Lp_Attach_The_Template` applies the large print configuration |
+| `Sh_Convert_XML_File_To_Word_Document`, the converted book | ON — screen updating goes off 22 lines later | `Sh_HandleDocumentNew`. **A dependency on line order, not a guarantee**, and marked as such at that `Documents.Add` |
+| `Sh_Copy_Ref_Pg_Tags_To_Temp_File`, the `$pg` validation list | OFF | the macro itself — braille or large print, matching the book it was made from |
+| the two export macros | OFF — and **that**, not the `Visible:=False`, is what makes the handler skip them; Word raises NewDocument for a hidden document too | nothing, and nothing is needed: they are saved and closed inside the macro and she never sees them |
+
+**What was written down rather than built:** the rule now stands in `Sh_HandleDocumentNew` with
+the site-by-site audit beside it, and each creation site says what configures its document and
+what would break if the screen were turned off around it.
 
 ### Piece 7 — the Styles pane when a book closes: nothing to do
 
@@ -257,8 +293,9 @@ so the next person to look at it does not re-open the question.
 3. **Piece 4** — the ledger, built and tested while the old behavior is still in place. Nothing
    depends on it yet, so it can be measured on its own.
 4. **Piece 3** — flip the ordinary configuration over to the ledger. Piece 4 must be right first.
-5. **Piece 6** — the decision, then
-6. **Piece 2** — last, because it is the one that cannot be half-done.
+5. **Piece 6** — the decision. Made 9/4/2026, option 1, and it needed no code. Then
+6. ~~**Piece 2**~~ — **rejected by Jerry on 9/4/2026 after being built and shown to him.** See its
+   section above. The plan ends at five pieces and a rule.
 
 ## What must not change
 
