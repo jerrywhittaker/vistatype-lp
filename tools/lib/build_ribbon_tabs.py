@@ -56,7 +56,8 @@ HEADER = """<?xml version="1.0" encoding="utf-8"?>
 
      The x1 namespace below is a placeholder. Merge-Qat.ps1 swaps in the real path of the
      installed add-in, and reassigns the prefix if the user already has x1 bound to something
-     else (Jerry's own machine has it bound to SWIFT). -->
+     else (Jerry's own machine and the build box both have it bound to SWIFT, which is installed on
+     both and puts its own tab, "Braille", beside VistaType LP's "Braille Macros"). -->
 <mso:customUI xmlns:x1="__VT_DOTM_PATH__" xmlns:mso="http://schemas.microsoft.com/office/2009/07/customui">
   <mso:ribbon>
     <mso:tabs>

@@ -1,9 +1,16 @@
 <customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui" onLoad="RibbonOnLoad">
+  <!-- getEnabled="VtBrailleTabShown" on the first Braille Macros button is NOT about enabling
+       anything - it always answers True. It is the only notice Word gives that the Braille
+       Macros tab has been opened: Office has no "tab was clicked" event, and a control's
+       dynamic callbacks are asked for only when Word needs to DRAW the control, which it does
+       not do until the tab is shown. VistaType LP uses that to tell a transcriber that a SWIFT
+       book has to be saved before the braille macros can work. See VtBrailleTabShown in
+       RibbonCallbacks.bas. Do not remove it thinking it is a stray. -->
   <ribbon>
     <tabs>
     <tab id="tab_Braille_Macros" label="Braille Macros" insertBeforeMso="TabInsert" getVisible="VtTabVisible">
       <group id="grp_mso_c1_18B5F8FF" label="Attach" autoScale="true">
-        <button id="btn_Dx_Attach_BANA_Template" label="Attach BANA Template" imageMso="HappyFace" onAction="RibbonAction" tag="Dx_Attach_BANA_Template"/>
+        <button id="btn_Dx_Attach_BANA_Template" label="Attach BANA Template" imageMso="HappyFace" getEnabled="VtBrailleTabShown" onAction="RibbonAction" tag="Dx_Attach_BANA_Template"/>
       </group>
       <group id="grp_mso_c1_18AD7D7A" label="File Cleanup" autoScale="true">
         <button id="btn_Dx_File_Fix_Sequence" label="Full File Cleanup" imageMso="FormatPainter" onAction="RibbonAction" tag="Dx_File_Fix_Sequence"/>

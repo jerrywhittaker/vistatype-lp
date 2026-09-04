@@ -532,9 +532,18 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - BRL - 8/27/2026 - the variable names one of four kinds. Rewriting it would, for any table
 '           - BRL - 8/27/2026 - outside the four, quietly point the book at a DIFFERENT table than was
 '           - BRL - 8/27/2026 - chosen in SWIFT. Reaching DBT with the wrong table is worse than with none.
-'           - BRL - 8/27/2026 - NOT TESTED AGAINST SWIFT ITSELF - no SWIFT install is on the build box. What
-'           - BRL - 8/27/2026 - is measured is that the property is written and reads back correctly; what
-'           - BRL - 8/27/2026 - SWIFT then does with it is inferred from the file it wrote on 8/26/2026.
+'           - BRL - 8/27/2026 - NOT TESTED AGAINST SWIFT ITSELF as of that date. What was measured is that
+'           - BRL - 8/27/2026 - the property is written and reads back correctly; what SWIFT then does with
+'           - BRL - 8/27/2026 - it was inferred from the file it wrote on 8/26/2026.
+'           - BRL - 9/3/2026 - CORRECTION, JERRY: "swift is on the build box and is invoked with the
+'           - BRL - 9/3/2026 - 'Braille' tab (Not the Braille Macros tab)". The line that stood here said
+'           - BRL - 9/3/2026 - no SWIFT install was on the build box and that was simply wrong - the QAT
+'           - BRL - 9/3/2026 - code has said the opposite all along ("Jerry's own build box has x1 bound
+'           - BRL - 9/3/2026 - to SWIFT"). SWIFT CAN THEREFORE BE TESTED AGAINST DIRECTLY, and anything
+'           - BRL - 9/3/2026 - about what SWIFT does should be measured rather than inferred.
+'           - BRL - 9/3/2026 - TWO TABS, TWO PRODUCTS, DO NOT CONFUSE THEM: SWIFT's own ribbon tab is
+'           - BRL - 9/3/2026 - "Braille". VistaType LP's is "Braille Macros". The tab callback added on
+'           - BRL - 9/3/2026 - 9/3/2026 hangs on "Braille Macros" and must stay there.
 '
 ' Notes:    - BRL - 8/27/2026 - THE SPELLING CHECKER IS QUIET IN A BRAILLE DOCUMENT AGAIN (Jerry). He
 '           - BRL - 8/27/2026 - reported red squiggles in every braille file, whether SWIFT or the braille
@@ -2204,6 +2213,14 @@ Sub Sh_HandleDocumentActivated()
 
     Sh_LastSeenDoc = docName
     Sh_LastSeenAs = Sh_ConfiguredAs
+
+    ' Re-arm the Braille Macros tab for whichever document the transcriber has just come back to.
+    ' Word caches what a control last answered, so without this the "this file has to be saved"
+    ' message would be offered once per ribbon load rather than when that tab is opened. See
+    ' VtBrailleTabShown - and note it costs nothing on a document that is in order, because
+    ' Dx_Braille_File_Not_Ready is asked again before anything is shown.
+    VtRefreshBrailleTab
+
     Exit Sub
 
 eom:
@@ -2428,6 +2445,11 @@ Sub Sh_HandleDocumentOpened()
     ' (large print, braille, or Normal). The attached-template name must not matter here, so
     ' this runs after the per-template config above rather than inside the large-print branch.
     Application.Run MacroName:="Sh_Set_Prodnote_Style_Visibility"
+
+    ' Re-arm the Braille Macros tab. Word caches what a control last answered, so without this
+    ' the "this file has to be saved" message would be offered once per ribbon load rather than
+    ' when the transcriber opens that tab. See VtBrailleTabShown.
+    VtRefreshBrailleTab
 
 eom: 'End of Macro
 
@@ -4111,6 +4133,136 @@ End Sub   '*** end of Dx_Set_BrailleType ***
 '
 ' Version: 1.0  Date: 8/27/2026
 '
+' ***** A SWIFT book that is not ready for the braille macros yet *****
+'
+' Jerry, 9/3/2026: "We know that when the braille template is attached to a document that the
+' braille macros knows that the template has been attached by SWIFT but does not know what braille
+' translation table is in force with SWIFT... The problem is that when the user does not look at
+' the Document Settings display they are unaware of the situation. And, to compound the matter,
+' the braille fix common file errors and remove multiple empty para have not been run."
+'
+' Both halves of that are the same cause. SWIFT records which translation table a book is bound
+' for when the file is SAVED, not when it attaches the template - measured on the build box on
+' 8/26/2026 - so on an unsaved SWIFT book there is nothing to read. And because SWIFT attached the
+' template, VistaType LP's own attach never ran, and it is that attach which runs Fix Common File
+' Errors and Remove Multiple Empty Paragraphs.
+'
+' Until now the only place that said so was Doc Info, which a transcriber has to go and look at.
+
+' True when this is a braille book the macros cannot work on yet.
+'
+' Version: 1.0  Date: 9/3/2026
+'
+' The same test Doc Info reports on, deliberately - one question, so the tab message and that
+' screen can never say different things about one file. As the note there puts it: no test for
+' "was it SWIFT" is needed or possible, because nothing records who attached the template, and it
+' does not have to - VistaType LP's own attach forces the Choose Translation dialog and records
+' the answer before it finishes, so a book this add-in prepared always knows. UNKNOWN AND UNSAVED
+' IS THE SWIFT CASE.
+'
+' recordIt:=False, for the reason Doc Info passes it: a test must not mark the file as changed.
+Public Function Dx_Braille_File_Not_Ready() As Boolean
+
+    On Error Resume Next
+
+    If Documents.count = 0 Then Exit Function
+    If InStr(ActiveDocument.AttachedTemplate, "BANA Braille") = 0 Then Exit Function
+
+    Dx_Braille_File_Not_Ready = (Dx_Ensure_BrailleType(False) = "") And Sh_Doc_Not_Yet_Saved()
+
+    Err.Clear
+
+End Function   '*** end of Dx_Braille_File_Not_Ready ***
+
+' Tell the transcriber, and offer to put it right.
+'
+' Version: 1.0  Date: 9/3/2026
+'
+' Reached two ways. From VtBrailleTabShown through Application.OnTime, so that the tab route runs
+' at Word's own idle moment and not part way through the ribbon being drawn; and DIRECTLY from
+' Dx_Is_BANA_Template_Attached, the one check all fifteen braille buttons run first, which is the
+' backstop for a tab whose answer Word has cached.
+'
+' Safe from either door, and safe to call on any document: it asks Dx_Braille_File_Not_Ready first
+' and does nothing whatever on a file that is in order.
+Public Sub Dx_Prompt_Save_Before_Braille()
+
+    Dim body As String
+
+    ' Asked again. OnTime fires later than the tab click, and the transcriber may have saved the
+    ' file, closed it or switched to another document in between.
+    If Not Dx_Braille_File_Not_Ready() Then Exit Sub
+
+    body = "This braille file has not been saved yet." & vbCr & vbCr _
+         & "The braille macros cannot tell which translation table this book is bound for until " _
+         & "it has been saved once, because that is when the table is written into the file. Until " _
+         & "then some of the braille macros will not do the right thing." & vbCr & vbCr _
+         & "The two cleanups that normally run when the BANA template is attached have not run on " _
+         & "this file either, because the template was attached for you." & vbCr & vbCr _
+         & "Press Okay to save this file now and then run Fix Common File Errors and Remove " _
+         & "Multiple Empty Paragraphs on it." & vbCr & vbCr _
+         & "The BANA template already attached to this document is not changed or replaced."
+
+    If Not Sh_Ask(body, "Braille Macros (321)") Then Exit Sub
+
+    ' SAVED FIRST, so that cancelling the Save As costs nothing. Doing the cleanups first and
+    ' saving afterwards would leave a transcriber who changed their mind at the file dialog with
+    ' thirty-six passes already run over the book.
+    If Not Dx_Save_Braille_File() Then Exit Sub
+
+    ' The same two, in the same order, with the same arguments as Dx_Attach_BANA_Template_Run
+    ' uses when the transcriber presses Attach - see the note there. The character count guard
+    ' comes from the same place: an empty document has nothing to clean up and two progress bars
+    ' over it would only be strange to watch.
+    If ActiveDocument.Characters.count > 10 Then
+        Dx_Fix_Common_File_Errors_Run True
+        Sh_Replace_Multiple_Para_Marks_No_Warning True
+    End If
+
+    ' Saved again, and not only for tidiness: the cleanups have just changed the document, so
+    ' without this Sh_Doc_Not_Yet_Saved is True again and the tab would offer the same message
+    ' the next time it is opened. No dialog this time - the file has a name now.
+    On Error Resume Next
+    ActiveDocument.Save
+    Err.Clear
+    On Error GoTo 0
+
+    ' Word caches what the ribbon last answered, so the tab is re-armed for whatever is opened next.
+    VtRefreshBrailleTab
+
+End Sub   '*** end of Dx_Prompt_Save_Before_Braille ***
+
+' Save the document, asking for a name if it has never had one. True when it is on disk afterwards.
+'
+' Version: 1.0  Date: 9/3/2026
+'
+' ONE Dialog object for both .Display and .Execute, which is not a style choice: a separate
+' Dialogs(wdDialogFileSaveAs) reference for .Execute ignores the name the transcriber typed and
+' re-saves under the document's current one. That cost a build on the large print side on
+' 7/18/2026 - see Lp_Attach_The_Template.
+Private Function Dx_Save_Braille_File() As Boolean
+
+    Dim dlgSaveAs As Dialog
+
+    On Error Resume Next
+
+    If ActiveDocument.Path <> "" Then
+        ActiveDocument.Save
+        Dx_Save_Braille_File = (ActiveDocument.Saved)
+        Err.Clear
+        Exit Function
+    End If
+
+    Set dlgSaveAs = Dialogs(wdDialogFileSaveAs)
+    If dlgSaveAs.Display = -1 Then          ' -1 is Save; anything else is Cancel
+        dlgSaveAs.Execute
+        Dx_Save_Braille_File = (ActiveDocument.Path <> "")
+    End If
+
+    Err.Clear
+
+End Function   '*** end of Dx_Save_Braille_File ***
+
 Public Function Dx_Ensure_BrailleType(Optional ByVal recordIt As Boolean = True) As String
     Dim held As String
     Dim derived As String
@@ -4193,6 +4345,25 @@ Sub Dx_Is_BANA_Template_Attached()
     ' translation table and calling its translation settings undefined on the same screen. One
     ' function now, so the macros and the reporting screen cannot disagree. It records what it
     ' derives, so the 26 macros that read the variable directly see it too.
+    ' A SWIFT book that has not been saved yet. The transcriber has pressed a braille button, so
+    ' what they intend is not in doubt - see Dx_Prompt_Save_Before_Braille, which asks the same
+    ' question the Braille Macros tab asks and does nothing at all on a file that is in order.
+    '
+    ' THE BACKSTOP, and it is here because the tab is not enough on its own (Jerry, 9/3/2026:
+    ' "braille template attached by SWIFT followed by clicking the braille macros tab... no
+    ' message"). Word remembers what a ribbon button last answered and does not ask again until
+    ' something refreshes the ribbon, and SWIFT attaching a template fires no document event, so
+    ' nothing re-armed it between the attach and the click. This route cannot be cached away.
+    '
+    ' BEFORE the translation question below, and the order matters: Dx_Ensure_BrailleType RECORDS
+    ' what it settles, so after that line the book knows its translation and the test is False.
+    ' Asked here, saving the file lets SWIFT write the table in - and the question below may then
+    ' not need to be asked at all.
+    '
+    ' A direct call, not the ribbon's deferred route: nothing is part way through being drawn
+    ' here, the transcriber pressed a button and is waiting.
+    Dx_Prompt_Save_Before_Braille
+
     If Dx_Ensure_BrailleType() = "" Then Dx_Choose_Translation_Form.Show
     
 End Sub   '*** end of Dx_Is_BANA_Template_Attached macro ***
