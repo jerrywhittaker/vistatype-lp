@@ -18,6 +18,30 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - LP  - 9/4/2026 - THE LEGACY VISTATYPELP LEGIBLE PROTECTION IS REMOVED. Four
+'           -                   pieces of code recognized a book set in that face and shielded
+'           -                   it from a re-attach: the attach dialog grayed both Typeface
+'           -                   buttons out and captioned the frame "this book keeps
+'           -                   VistaTypeLP Legible", AttachOkay_Click carried the face
+'           -                   forward whatever was selected, Lp_Indent_Factor_For_Font gave
+'           -                   it its own 1.054 bullet hang, and Lp_Attach_The_Template
+'           -                   skipped putting Tahoma back on its fill-in lines. The
+'           -                   LP_FONT_LEGACY_LEGIBLE constant went with them.
+'           -                   ALL OF IT PROTECTED A BOOK THAT DOES NOT EXIST. Jerry,
+'           -                   9/4/2026: "the legible type face was short lived and only with
+'           -                   the beta testers... there is no issure with it and no books
+'           -                   were produced using it." The face shipped for twelve days,
+'           -                   3.0.101 to 3.0.196, and only to testers. The note on the
+'           -                   constant saying its name must stay went too - it was written
+'           -                   believing those books were out there.
+'           -                   THE INSTALLER IS UNTOUCHED. RemoveLegacyLegibleFont still
+'           -                   takes the font off a machine that has it, and must: every
+'           -                   build from 3.0.101 installed it uninsneveruninstall, so not
+'           -                   removing it would leave it on a tester's machine for ever.
+'           -                   Fill-in lines now go back into Tahoma on EVERY book, which is
+'           -                   what both remaining faces want - in VistaTypeLP Sans a row of
+'           -                   underscores draws with holes in it.
+'
 ' Notes:    - LP  - 9/4/2026 - NOTHING IN VISTATYPE LP PUTS A SCRATCH DOCUMENT ON THE SCREEN
 '           -                   ANY MORE. Change Picture Color was the last one: "all pictures in
 '           -                   the selected range" copied the transcriber's selection into a
@@ -1864,9 +1888,10 @@ Public Lp_Base_Font_Size As String
 ' back off the document's Normal style by Lp_Get_Doc_Setup_Params, so it survives closing and
 ' reopening for free. 8/8/2026.
 '
-' From 8/20/2026 it is no longer a choice. New books are Tahoma; this still exists because an
-' older book may be set in something else and is allowed to keep it - see
-' LP_FONT_LEGACY_LEGIBLE below.
+' From 8/20/2026 it was no longer a choice, and from 8/22/2026 it is one again: Tahoma or
+' VistaTypeLP Sans, decided on the attach dialog and carried here. An EXISTING large print book's
+' own face preselects its own button, so re-attaching to change the point size does not silently
+' change the typeface as well.
 Public Lp_Base_Font_Name As String
 
 ' Deliberately UPPERCASE, and it is not a style choice. tools/lib/check_form_calls.py finds
@@ -1875,24 +1900,23 @@ Public Lp_Base_Font_Name As String
 ' would fail the build as an undefined macro. LP_ is not one of the prefixes it checks.
 Public Const LP_FONT_TAHOMA As String = "Tahoma"
 
-' The bundled typeface VistaType LP shipped from 3.0.101 (8/8/2026) to 3.0.196 (8/20/2026), and
-' no longer ships. It was Atkinson Hyperlegible rescaled so that a point size set in Word matched
-' the printed letter size, and for those twelve days it was the default face for a large print
-' book.
+' LP_FONT_LEGACY_LEGIBLE stood here until 9/4/2026, with four pieces of code behind it that
+' recognized a book set in VistaTypeLP Legible and protected it: the attach dialog grayed both
+' Typeface buttons out and said "this book keeps VistaTypeLP Legible", AttachOkay_Click carried
+' that face forward whatever was selected, Lp_Indent_Factor_For_Font gave it its own 1.054 bullet
+' hang, and Lp_Attach_The_Template skipped putting Tahoma back on its fill-in lines.
 '
-' It was dropped because its character set is a Latin one. English, French, German, Spanish and
-' Italian are fine; Latin, mathematics, the IPA, and the Greek that runs through medical work are
-' not - and a character the face has not got is substituted SILENTLY, out of some other typeface,
-' at some other size. In large print that is unacceptable: the whole promise is that every
-' character comes out at the size the reader asked for. Tahoma covers all of it. (Jerry,
-' 8/20/2026.)
+' ALL OF IT PROTECTED A BOOK THAT DOES NOT EXIST. Jerry, 9/4/2026: "the legible type face was
+' short lived and only with the beta testers... there is no issure with it and no books were
+' produced using it." The face shipped from 3.0.101 (8/8/2026) to 3.0.196 (8/20/2026) - twelve
+' days, testers only - and was dropped because its character set is a Latin one: Latin proper,
+' mathematics, the IPA and the Greek that runs through medical work all fall back to another face
+' at another size, SILENTLY, which is the one thing large print must never do.
 '
-' The NAME stays because books were produced in it - Jerry's and two testers'. This constant now
-' does one job: recognize such a book so that attaching the template again LEAVES ITS TYPEFACE
-' ALONE, instead of rewriting it to Tahoma and moving every page break in a book that may already
-' be in a reader's hands. Nothing offers this face and nothing installs it. Do not add either
-' back.
-Public Const LP_FONT_LEGACY_LEGIBLE As String = "VistaTypeLP Legible"
+' Removed rather than left, and the earlier note here saying the name must stay went with it -
+' that note was written believing books existed. If one ever turns up, it is not a disaster: it
+' opens, it sets in its own embedded copy of the face, and re-attaching now rewrites it to the
+' chosen face, which repaginates it. That is the trade Jerry accepted.
 
 ' The bundled typeface from 8/22/2026, and the answer to why the last one was dropped. It is
 ' Noto Sans, rescaled the same way Legible was so that a point size set in Word matches the
@@ -3118,14 +3142,11 @@ Function Lp_Indent_Factor_For_Font(ByVal fontName As String) As Double
 ' behavior rather than the bullet. So the table stays, and a face that is not Tahoma scales off
 ' it instead of getting a second table of guesses.
 '
-' 1.054 is the bullet glyph's advance width in VistaTypeLP Legible divided by Tahoma's, measured
-' from the two font files on 8/8/2026 (479 against 455 units per 1000-unit em). It moves an
-' 18 point hang from -0.34" to -0.358".
-'
-' That case is KEPT although the typeface was dropped on 8/20/2026, and it is not dead code.
-' A book already set in the face keeps it - that is the whole point of LP_FONT_LEGACY_LEGIBLE -
-' so Lp_Normalize_Styles can still be run on one, and it should still get the hang that face
-' needs rather than Tahoma's.
+' VistaTypeLP Legible had a case here too, 1.054 - its bullet measured 479 against Tahoma's 455
+' per 1000-unit em, moving an 18 point hang from -0.34" to -0.358". It went on 9/4/2026 with the
+' rest of the legacy-face code: no book was ever produced in that face (Jerry), so the case could
+' never be reached. The number is written down here rather than in the history so that nobody has
+' to measure a dropped font again to find out what it was.
 '
 ' 0.862 is VistaTypeLP Sans, measured the same way on 8/22/2026: 376 units on a 960-unit em
 ' against Tahoma's 931 on 2048, which is 391.7 against 454.6 per 1000. Note it goes the OTHER
@@ -3143,8 +3164,6 @@ Function Lp_Indent_Factor_For_Font(ByVal fontName As String) As Double
 ' answer, since those are the ones that have been in the field for years.
 
     Select Case UCase(Trim(fontName))
-        Case UCase(LP_FONT_LEGACY_LEGIBLE)
-            Lp_Indent_Factor_For_Font = 1.054
         Case UCase(LP_FONT_SANS)
             Lp_Indent_Factor_For_Font = 0.862
         Case Else
@@ -16775,6 +16794,10 @@ Sub Lp_Attach_The_Template()
     '                               Document.UpdateStyles instead. Re-asserts the Styles pane
     '                               afterwards, because pane visibility is application state and
     '                               does not survive the last document closing
+    ' Version: 3.6  Date: 9/4/2026 - the legacy VistaTypeLP Legible guard on Lp_Tahoma_The_Fill_Ins
+    '                               is gone: no book was ever produced in that face (Jerry), so it
+    '                               protected nothing. Fill-in lines go back into Tahoma on every
+    '                               book now
     ' Version: 3.5  Date: 8/20/2026 - the typeface is no longer a choice. Lp_Base_Font_Name arrives
     '                               as Tahoma for every new book, and as the book's own face for one
     '                               already set in the dropped VistaTypeLP Legible - see
@@ -16909,17 +16932,11 @@ DoEvents
     ' See Lp_Tahoma_The_Fill_Ins - without this, re-attaching to change the point size undoes
     ' every fill-in line in the book.
     '
-    ' NOT IN A BOOK STILL SET IN VISTATYPELP LEGIBLE, the face dropped on 8/20/2026. Such a book
-    ' is protected right through the attach - AttachOkay_Click keeps its typeface on purpose, so
-    ' that re-attaching cannot move a page break in a book that may already be in a reader's
-    ' hands - and putting its fill-in lines into Tahoma is exactly that: the two faces do not give
-    ' an underscore the same width, so a fill that only just fitted would wrap and take the page
-    ' with it. Those books' fills were made in Legible and stay in Legible, which is precisely
-    ' where they were before any of this was written. Found in review, 8/23/2026, after 3.0.238
-    ' was built with the guard missing.
-    If StrComp(Lp_Base_Font_Name, LP_FONT_LEGACY_LEGIBLE, vbTextCompare) <> 0 Then
-        Lp_Tahoma_The_Fill_Ins ActiveDocument
-    End If
+    ' Unconditional from 9/4/2026. A guard stood here skipping this for a book set in the dropped
+    ' VistaTypeLP Legible, whose underscore is not Tahoma's width; it went when Jerry said no book
+    ' was ever produced in that face. Every book this can now reach is Tahoma or VistaTypeLP Sans,
+    ' and both want their fills in Tahoma - in Sans a row of underscores draws with holes in it.
+    Lp_Tahoma_The_Fill_Ins ActiveDocument
 
     ' Keep this. The old code got here through Selection.WholeStory, which left the selection
     ' spanning the document; Sh_Set_Whole_Document_Font does not touch the selection at all, and
@@ -16937,11 +16954,11 @@ DoEvents
     ' embedding in a Tahoma book - every Windows machine has Tahoma - and leaving it off keeps
     ' those files the size they have always been.
     '
-    ' This line is what makes dropping the bundled typeface on 8/20/2026 safe. Every book attached
-    ' in VistaTypeLP Legible between 8/8 and 8/20/2026 carries its own copy of the face, so it goes
-    ' on setting and printing correctly after the installer takes that font off the machine. Do not
-    ' reduce this to a constant False because nothing bundles a font any more - a legacy book keeps
-    ' its face through a re-attach, and it must keep the embedded copy with it.
+    ' Do not reduce this to a constant False. A book set in VistaTypeLP Sans has to carry its own
+    ' copy of the face, or it sets in a substitute at another size on any machine that has not got
+    ' it - which is the whole fault large print exists to avoid. (It also carried the dropped
+    ' VistaTypeLP Legible for the twelve days that face shipped; that no longer matters, since no
+    ' book was ever produced in it - Jerry, 9/4/2026.)
     '
     ' Be clear about what this switch is, though: it is per DOCUMENT, not per font. Word embeds
     ' every embeddable non-system face the document uses, so a running head left in some other

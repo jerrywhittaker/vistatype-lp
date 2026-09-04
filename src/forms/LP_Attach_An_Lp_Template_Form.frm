@@ -17,6 +17,17 @@ Attribute VB_Exposed = False
 
 ' LP_Attach_An_Lp_Template_Form
 '
+' Version: 6.6  Date: 9/4/2026 - the legacy VistaTypeLP Legible branches are gone from both
+'                                UserForm_Initialize and AttachOkay_Click. They grayed the two
+'                                Typeface buttons out, captioned the frame "this book keeps
+'                                VistaTypeLP Legible", and carried that face forward whatever
+'                                was selected - protecting a book from being repaginated by a
+'                                re-attach. Jerry, 9/4/2026: "the legible type face was short
+'                                lived and only with the beta testers... there is no issure
+'                                with it and no books were produced using it." So there was
+'                                nothing to protect, and the test sat on the front of the one
+'                                decision this dialog makes. The face is still READ off an
+'                                existing book, which is what preselects Tahoma or Sans
 ' Version: 6.5  Date: 8/26/2026 - took out the eighteen Hold_WidthValue = PPW / Hold_HeightValue
 '                                = PPH lines, two in each of the nine media buttons. They existed
 '                                so that the revert fired by clearing CustomizeCheckBox part-way
@@ -321,30 +332,20 @@ Private Sub AttachOkay_Click()
     ' dropped because it has no Greek, no IPA and not enough mathematics, and Word fills a missing
     ' character from another face at another size without a word.
     '
-    ' The ONE exception, and the reason this is not simply an assignment: a book ALREADY set in
-    ' that face keeps it. Rewriting one to Tahoma would move every page break in a book that may
-    ' already be printed and in a reader's hands, and nothing on screen would say it had happened
-    ' - the pages would simply be different. Those books also carry the face embedded in
-    ' themselves (Lp_Attach_The_Template's EmbedTrueTypeFonts line), so they still set correctly
-    ' even though the installer now takes that font off the machine.
+    ' The face is named outright rather than carrying forward whatever is found on the document.
+    ' An LP document whose Normal style has drifted to Calibri is a document attaching is supposed
+    ' to REPAIR, and blanket carry-forward would preserve the fault instead.
     '
-    ' The test names the face outright rather than carrying forward whatever it finds. An LP
-    ' document whose Normal style has drifted to Calibri is a document attaching is supposed to
-    ' REPAIR, and blanket carry-forward would preserve the fault instead.
+    ' The constants come from LPandBrlMacros so the names live in ONE place. A form may use them
+    ' BECAUSE they are uppercase LP_: tools/lib/check_form_calls.py looks for Lp_-prefixed tokens
+    ' and its pattern is case-sensitive, so an Lp_-prefixed constant would be read as a call to a
+    ' macro that does not exist and would fail the build. That is why they were declared uppercase.
     '
-    ' The two constants come from LPandBrlMacros so the name lives in ONE place. A form may use
-    ' them BECAUSE they are uppercase LP_: tools/lib/check_form_calls.py looks for Lp_-prefixed
-    ' tokens and its pattern is case-sensitive, so LP_FONT_LEGACY_LEGIBLE is invisible to it,
-    ' while an Lp_-prefixed constant would be read as a call to a macro that does not exist and
-    ' would fail the build. That is why they were declared uppercase in the first place.
-    ' The legacy test stays FIRST, and deliberately outranks the buttons. A book already set in
-    ' the dropped VistaTypeLP Legible keeps it whatever this dialog shows: rewriting one moves
-    ' every page break in a book that may already be in a reader's hands, and nothing on screen
-    ' afterwards would say why the pages changed. UserForm_Initialize grays the choice out and
-    ' says so on the box, so no one is picking a face here that is then ignored.
-    If UCase(Lp_Doc_Font_At_Open) = UCase(LP_FONT_LEGACY_LEGIBLE) Then
-        Lp_Base_Font_Name = Lp_Doc_Font_At_Open
-    ElseIf FontSans.Value = True Then
+    ' A THIRD BRANCH STOOD FIRST HERE UNTIL 9/4/2026, carrying forward the dropped VistaTypeLP
+    ' Legible for a book already set in it, so that re-attaching could not move a page break in a
+    ' book in a reader's hands. It went when Jerry said no book was ever produced in that face -
+    ' it was protecting nothing, and it sat on the front of the one decision this dialog makes.
+    If FontSans.Value = True Then
         Lp_Base_Font_Name = LP_FONT_SANS
     Else
         Lp_Base_Font_Name = LP_FONT_TAHOMA
@@ -976,10 +977,9 @@ Private Sub UserForm_Initialize()
     FinalGutterSizeLabel.Visible = False
 
     ' ***** Typeface *****
-    ' Nothing on the form asks about the typeface any more - a large print book is Tahoma. All
-    ' this does is note what the book in front of us is ALREADY set in, so that AttachOkay_Click
-    ' can leave a book made in the dropped VistaTypeLP Legible exactly as it is rather than
-    ' repaginating it. See the comment there.
+    ' What the book in front of us is ALREADY set in, so that an existing book's own face
+    ' preselects its own button and re-attaching to change the point size does not change the
+    ' typeface behind the transcriber's back.
     '
     ' Only asked of a document that is already large print. On anything else the Normal style is
     ' whatever Word or the original author left behind, and attaching is meant to replace it.
@@ -1004,9 +1004,9 @@ Private Sub UserForm_Initialize()
 
     Lp_Doc_Font_At_Open = ""
     On Error Resume Next
-    ' The LOOSER test - 8/20/2026. A book set in the dropped VistaTypeLP Legible is exactly the
-    ' kind that may also be on an older template, and it is the FACE that must not be rewritten
-    ' here, whatever template it arrived on. See Lp_Was_Made_As_An_Lp_Book.
+    ' The LOOSER test - 8/20/2026. A book may be on an older template and still be a large print
+    ' book, and its face is worth reading whatever template it arrived on. See
+    ' Lp_Was_Made_As_An_Lp_Book.
     If Lp_Was_Made_As_An_Lp_Book() = True Then
         Lp_Doc_Font_At_Open = ActiveDocument.Styles(wdStyleNormal).Font.Name
     End If
@@ -1020,13 +1020,10 @@ Private Sub UserForm_Initialize()
     ElseIf UCase(Lp_Doc_Font_At_Open) = UCase(LP_FONT_SANS) And FontSans.Enabled = True Then
         FontSans.Value = True
         Lp_Base_Font_Name = LP_FONT_SANS
-    ElseIf UCase(Lp_Doc_Font_At_Open) = UCase(LP_FONT_LEGACY_LEGIBLE) Then
-        ' The book keeps the dropped face - AttachOkay_Click enforces that regardless of what is
-        ' selected here. Say so instead of showing a choice that will be ignored.
-        FontTahoma.Enabled = False
-        FontSans.Enabled = False
-        FontChoiceFrame.Caption = "Font Choice  --  this book keeps VistaTypeLP Legible"
     End If
+    ' A branch stood here until 9/4/2026 for a book set in the dropped VistaTypeLP Legible: it
+    ' disabled both buttons and captioned the frame "this book keeps VistaTypeLP Legible". Gone
+    ' with the rest of the legacy-face code - no book was ever produced in that face (Jerry).
     ' ***** end Typeface *****
 
     ' From: https://www.thespreadsheetguru.com/the-code-vault/launch-vba-userforms-in-correct-window-with-dual-monitors

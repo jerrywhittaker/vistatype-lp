@@ -1138,8 +1138,8 @@ does not, tell Jerry before starting other work — an unfolded hotfix is a bug 
 
 - **Typeface — VistaTypeLP Sans or Tahoma, and it IS a choice again (8/22/2026, 3.0.224)**: the
   choice is `FontChoiceFrame` on `LP_Attach_An_Lp_Template_Form`, carrying `FontSans` and
-  `FontTahoma`. Three constants name the faces: `LP_FONT_SANS` ("VistaTypeLP Sans"),
-  `LP_FONT_TAHOMA` ("Tahoma") and `LP_FONT_LEGACY_LEGIBLE` ("VistaTypeLP Legible").
+  `FontTahoma`. Two constants name the faces: `LP_FONT_SANS` ("VistaTypeLP Sans") and
+  `LP_FONT_TAHOMA` ("Tahoma").
   `UserForm_Initialize` decides what is offered, in this order:
     - **VistaTypeLP Sans is the default** when `Sh_Is_Font_Installed(LP_FONT_SANS)` says it is
       there. When it is not, `FontSans` is DISABLED, Tahoma is selected, and the button's own
@@ -1149,18 +1149,20 @@ does not, tell Jerry before starting other work — an unfolded hotfix is a bug 
       `Styles(wdStyleNormal).Font.Name`, and Tahoma or Sans selects its own button.
   Nothing stores the face — like `Lp_Base_Font_Size` it is read back off
   `Styles(wdStyleNormal).Font.Name` (`Lp_Base_Font_Name`).
-  **A book already set in the DROPPED face keeps it, and do not remove that:** a legacy
-  VistaTypeLP Legible book disables BOTH buttons and captions the frame
-  "Font Choice  --  this book keeps VistaTypeLP Legible", and `AttachOkay_Click` carries
-  `Lp_Doc_Font_At_Open` forward — so re-attaching cannot rewrite one of the books already
-  produced and move every page break. The choice is grayed out and says so, rather than being
-  offered and then ignored. Everywhere else the face is named outright rather than carried
-  forward, because an LP document whose Normal has drifted to Calibri is one attaching is meant
-  to REPAIR. `LP_FONT_LEGACY_LEGIBLE` has FIVE live uses, not one: the constant, the two tests on
-  the form above, `Lp_Indent_Factor_For_Font`'s 1.054 case (VistaTypeLP Sans's is 0.862), and the
-  guard in `Lp_Attach_The_Template` that skips the `Lp_Tahoma_The_Fill_Ins` call on a legacy book.
-  The `FontLegible` CONTROL is gone from the form; only comments mention it. `EmbedTrueTypeFonts`
-  stays on for those same books, so they carry their own copy of a face nothing installs any more.
+  The face is named outright rather than carried forward, because an LP document whose Normal has
+  drifted to Calibri is one attaching is meant to REPAIR.
+  **The legacy VistaTypeLP Legible protection is GONE (9/4/2026, 3.0.366+), and this replaces the
+  rule that used to say it must never be removed.** Five pieces of code recognized a book set in
+  that dropped face and shielded it from a re-attach — the constant, two tests on the form (gray
+  both buttons, caption the frame "this book keeps VistaTypeLP Legible"), the 1.054 case in
+  `Lp_Indent_Factor_For_Font`, and the guard in `Lp_Attach_The_Template` skipping
+  `Lp_Tahoma_The_Fill_Ins`. **All of it protected a book that does not exist.** Jerry, 9/4/2026:
+  *"the legible type face was short lived and only with the beta testers... there is no issure
+  with it and no books were produced using it."* The old rule was written believing those books
+  were in readers' hands. `EmbedTrueTypeFonts` stays on for a non-Tahoma book — a VistaTypeLP Sans
+  book must carry its own copy of the face — and the **installer is untouched**:
+  `RemoveLegacyLegibleFont` still takes that font off a machine that has it, and must, because
+  every build from 3.0.101 installed it `uninsneveruninstall`.
   **A fill-in line's underscores are the one exception, from 8/23/2026 (Jerry):** they are typed
   in Tahoma whatever face the book is set in, because in VistaTypeLP Sans a row of underscores
   draws with holes in it rather than as one unbroken rule. Only the underscores change face, and
@@ -1174,9 +1176,9 @@ does not, tell Jerry before starting other work — an unfolded hotfix is a bug 
   lays one face over every character as direct formatting — so the attach calls
   `Lp_Tahoma_The_Fill_Ins` to put it back. Without that, re-attaching to change the point size
   returns every fill-in line in the book to holes. A fill-in line is an **underlined** underscore;
-  a plain one is somebody's text and is left alone. **It skips a legacy VistaTypeLP Legible
-  book** — that book is protected all through the attach so re-attaching cannot move a page break
-  in a book already in a reader's hands, and Tahoma's underscore is not Legible's width.
+  a plain one is somebody's text and is left alone. **It runs on every book from 9/4/2026** — a
+  guard skipping it for a legacy VistaTypeLP Legible book went with the rest of that code, and
+  both remaining faces want their fills in Tahoma.
 
   **Why Tahoma works is not what it looks like**, and the numbers are in the comment on
   `Lp_Fill_Face_To_Restore`. Measured 8/23/2026: the template's `Normal` carries 1 point of
