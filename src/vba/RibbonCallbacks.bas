@@ -177,56 +177,24 @@ Public Sub Vt_Put_Tabs_Back_On_Ribbon()
     VtRefreshTabs
 End Sub
 
-' ***** The Braille Macros tab has been opened *****
+' ***** The Braille Macros tab: a technique that CANNOT work here *****
 '
-' Version: 1.0  Date: 9/3/2026
+' VtBrailleTabShown and VtRefreshBrailleTab stood here from 3.0.361 to 3.0.363. The job was to
+' notice when a transcriber opens the Braille Macros tab, so a SWIFT book that has not been saved
+' yet could be spotted at the moment the intent to use the braille tools is obvious (Jerry,
+' 9/3/2026). Office has no "tab was clicked" event, so the technique was to hang a getEnabled on
+' the first button of that tab and rely on Word asking for it when it first draws the tab.
 '
-' Jerry, 9/3/2026: "it would be great if the were triggered when the braille tab is activated...
-' When the user clicks that tab, it is obvious that they intend to some of braille macros to they
-' need to get that file saved!"
+' IT NEVER FIRED. Jerry, testing 3.0.363: "clicking the Braille Macros tab did nothing." And it
+' could not have: FROM 3.0.118 THE INSTALLER ALWAYS WRITES BOTH TABS INTO THE TRANSCRIBER'S OWN
+' Word.officeUI - the "Ribbon tabs:" task was removed because declining it was the option that
+' made Word behave abnormally - and the embedded tabs in customUI14.xml are hidden by
+' VtTabVisible whenever that is so. The tab anyone clicks is therefore never this add-in's own,
+' and Word never asks this add-in's callbacks about it. Word's caching of a control's answer,
+' which was the first suspect, never even came into it.
 '
-' ALWAYS ANSWERS TRUE. This is not really about enabling anything - it is the only notice Word
-' gives that the tab has been opened. OFFICE HAS NO "TAB WAS CLICKED" EVENT: there is no onAction
-' on a tab and nothing reports activation. What there is, is this - Word asks a control for its
-' dynamic properties only when it needs to DRAW that control, and it does not draw a tab's
-' contents until the tab is shown. So this runs when the transcriber opens the Braille Macros tab.
-'
-' Two things follow from how Word does it, and both are deliberate here:
-'
-'   * IT RUNS AT OTHER TIMES TOO - when the ribbon first loads, and whenever VistaType LP
-'     invalidates it. That is harmless, because Dx_Braille_File_Not_Ready is asked every time and
-'     is False for every file that is in order.
-'   * WORD CACHES THE ANSWER, so it may not ask again on a second click of the same tab until
-'     something invalidates the ribbon. Sh_HandleDocumentOpened and Sh_HandleDocumentActivated
-'     call VtRefreshBrailleTab for exactly that reason, so coming back to the document re-arms it.
-'
-' NOTHING IS SHOWN FROM IN HERE. Word is part way through drawing the ribbon; a dialog opened on
-' this stack can hang it. Application.OnTime Now hands the job to Word's own idle moment, which is
-' the same trick the large print attach uses through Sh_BridgeTargetMacro.
-'
-' It can also never disable the button: returnedVal is set FIRST, and everything after it is
-' inside On Error Resume Next.
-Public Sub VtBrailleTabShown(ByVal control As IRibbonControl, ByRef returnedVal)
-    returnedVal = True
+' DO NOT TRY IT AGAIN, and do not read the absence of a tab hook as an oversight. Anything that
+' must happen when a transcriber reaches for the braille tools belongs in
+' Dx_Is_BANA_Template_Attached, which all fifteen braille buttons run before they do anything -
+' that is where Dx_Prompt_Save_Before_Braille is called from now, and it cannot be cached away.
 
-    On Error Resume Next
-    If Dx_Braille_File_Not_Ready() Then
-        ' FULLY QUALIFIED, project and module. Application.OnTime resolves a macro by NAME, and
-        ' the keyboard shortcuts in src/keymap taught this project what an unqualified name costs:
-        ' they read NORMAL.NEWMACROS.<sub> and had been silently dead ever since the code left
-        ' Normal.dotm, with nothing to say so. A name that does not resolve here would fail at
-        ' fire time, out of sight of any error handler.
-        Application.OnTime Now, "LPandBRL.LPandBrlMacros.Dx_Prompt_Save_Before_Braille"
-    End If
-    Err.Clear
-End Sub
-
-' Re-arm the callback above. Word caches what a control answered, so without this the message
-' would be offered once per ribbon load rather than whenever the transcriber opens the tab.
-'
-' Version: 1.0  Date: 9/3/2026
-Public Sub VtRefreshBrailleTab()
-    On Error Resume Next
-    If Not gRibbon Is Nothing Then gRibbon.InvalidateControl "btn_Dx_Attach_BANA_Template"
-    Err.Clear
-End Sub

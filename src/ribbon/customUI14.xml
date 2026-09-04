@@ -1,16 +1,20 @@
 <customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui" onLoad="RibbonOnLoad">
-  <!-- getEnabled="VtBrailleTabShown" on the first Braille Macros button is NOT about enabling
-       anything - it always answers True. It is the only notice Word gives that the Braille
-       Macros tab has been opened: Office has no "tab was clicked" event, and a control's
-       dynamic callbacks are asked for only when Word needs to DRAW the control, which it does
-       not do until the tab is shown. VistaType LP uses that to tell a transcriber that a SWIFT
-       book has to be saved before the braille macros can work. See VtBrailleTabShown in
-       RibbonCallbacks.bas. Do not remove it thinking it is a stray. -->
+  <!-- A getEnabled="VtBrailleTabShown" hung on the first Braille Macros button from 3.0.361 to
+       3.0.363, to catch the moment a transcriber opens that tab. IT NEVER FIRED, and it cannot:
+       Office has no "tab was clicked" event, so the technique was to rely on Word asking a
+       control for its dynamic properties when it first draws the tab - but FROM 3.0.118 THE
+       INSTALLER ALWAYS WRITES BOTH TABS INTO THE TRANSCRIBER'S OWN Word.officeUI, and the
+       embedded copies here are hidden by VtTabVisible. The tab anyone clicks is therefore never
+       this one, and Word never asks this add-in's callback about it. Measured by Jerry on
+       3.0.363: "clicking the Braille Macros tab did nothing."
+       DO NOT TRY IT AGAIN. Anything that has to happen when a transcriber reaches for the
+       braille tools belongs in Dx_Is_BANA_Template_Attached, which all fifteen braille buttons
+       run first. -->
   <ribbon>
     <tabs>
     <tab id="tab_Braille_Macros" label="Braille Macros" insertBeforeMso="TabInsert" getVisible="VtTabVisible">
       <group id="grp_mso_c1_18B5F8FF" label="Attach" autoScale="true">
-        <button id="btn_Dx_Attach_BANA_Template" label="Attach BANA Template" imageMso="HappyFace" getEnabled="VtBrailleTabShown" onAction="RibbonAction" tag="Dx_Attach_BANA_Template"/>
+        <button id="btn_Dx_Attach_BANA_Template" label="Attach BANA Template" imageMso="HappyFace" onAction="RibbonAction" tag="Dx_Attach_BANA_Template"/>
       </group>
       <group id="grp_mso_c1_18AD7D7A" label="File Cleanup" autoScale="true">
         <button id="btn_Dx_File_Fix_Sequence" label="Full File Cleanup" imageMso="FormatPainter" onAction="RibbonAction" tag="Dx_File_Fix_Sequence"/>

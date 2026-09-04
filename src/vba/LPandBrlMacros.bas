@@ -2214,13 +2214,6 @@ Sub Sh_HandleDocumentActivated()
     Sh_LastSeenDoc = docName
     Sh_LastSeenAs = Sh_ConfiguredAs
 
-    ' Re-arm the Braille Macros tab for whichever document the transcriber has just come back to.
-    ' Word caches what a control last answered, so without this the "this file has to be saved"
-    ' message would be offered once per ribbon load rather than when that tab is opened. See
-    ' VtBrailleTabShown - and note it costs nothing on a document that is in order, because
-    ' Dx_Braille_File_Not_Ready is asked again before anything is shown.
-    VtRefreshBrailleTab
-
     Exit Sub
 
 eom:
@@ -2445,11 +2438,6 @@ Sub Sh_HandleDocumentOpened()
     ' (large print, braille, or Normal). The attached-template name must not matter here, so
     ' this runs after the per-template config above rather than inside the large-print branch.
     Application.Run MacroName:="Sh_Set_Prodnote_Style_Visibility"
-
-    ' Re-arm the Braille Macros tab. Word caches what a control last answered, so without this
-    ' the "this file has to be saved" message would be offered once per ribbon load rather than
-    ' when the transcriber opens that tab. See VtBrailleTabShown.
-    VtRefreshBrailleTab
 
 eom: 'End of Macro
 
@@ -4178,13 +4166,17 @@ End Function   '*** end of Dx_Braille_File_Not_Ready ***
 '
 ' Version: 1.0  Date: 9/3/2026
 '
-' Reached two ways. From VtBrailleTabShown through Application.OnTime, so that the tab route runs
-' at Word's own idle moment and not part way through the ribbon being drawn; and DIRECTLY from
-' Dx_Is_BANA_Template_Attached, the one check all fifteen braille buttons run first, which is the
-' backstop for a tab whose answer Word has cached.
+' Reached from Dx_Is_BANA_Template_Attached, the one check all fifteen braille buttons run before
+' they do anything - so the transcriber is told at the moment they reach for a braille tool.
 '
-' Safe from either door, and safe to call on any document: it asks Dx_Braille_File_Not_Ready first
-' and does nothing whatever on a file that is in order.
+' A ribbon route was tried first and removed at 3.0.364: catching the moment the Braille Macros
+' TAB is opened, which is what Jerry asked for, cannot be done in this product. See the tombstone
+' in RibbonCallbacks.bas - the installer always writes the tabs into the transcriber's own
+' Word.officeUI, so the tab anyone clicks is never this add-in's own and Word never asks its
+' callbacks about it.
+'
+' Safe to call on any document: it asks Dx_Braille_File_Not_Ready first and does nothing whatever
+' on a file that is in order.
 Public Sub Dx_Prompt_Save_Before_Braille()
 
     Dim body As String
@@ -4226,9 +4218,6 @@ Public Sub Dx_Prompt_Save_Before_Braille()
     ActiveDocument.Save
     Err.Clear
     On Error GoTo 0
-
-    ' Word caches what the ribbon last answered, so the tab is re-armed for whatever is opened next.
-    VtRefreshBrailleTab
 
 End Sub   '*** end of Dx_Prompt_Save_Before_Braille ***
 
@@ -4349,11 +4338,12 @@ Sub Dx_Is_BANA_Template_Attached()
     ' what they intend is not in doubt - see Dx_Prompt_Save_Before_Braille, which asks the same
     ' question the Braille Macros tab asks and does nothing at all on a file that is in order.
     '
-    ' THE BACKSTOP, and it is here because the tab is not enough on its own (Jerry, 9/3/2026:
-    ' "braille template attached by SWIFT followed by clicking the braille macros tab... no
-    ' message"). Word remembers what a ribbon button last answered and does not ask again until
-    ' something refreshes the ribbon, and SWIFT attaching a template fires no document event, so
-    ' nothing re-armed it between the attach and the click. This route cannot be cached away.
+    ' THE ONLY DOOR, and not the one first tried. Jerry asked for the message when the Braille
+    ' Macros TAB is opened, and that cannot be done here - the installer always writes the tabs
+    ' into the transcriber's own Word.officeUI, so the tab is never this add-in's own and Word
+    ' never asks its callbacks about it. Measured twice: "braille template attached by SWIFT
+    ' followed by clicking the braille macros tab... no message", then "clicking the Braille
+    ' Macros tab did nothing". See the tombstone in RibbonCallbacks.bas before trying it again.
     '
     ' BEFORE the translation question below, and the order matters: Dx_Ensure_BrailleType RECORDS
     ' what it settles, so after that line the book knows its translation and the test is False.
