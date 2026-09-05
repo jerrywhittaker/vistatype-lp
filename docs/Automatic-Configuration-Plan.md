@@ -3,10 +3,16 @@
 Agreed by Jerry and the beta tester, 8/20/2026, from *Automatic Configuration Table.docx*.
 Written up here before any code was touched.
 
-**Status, 9/4/2026: the plan is finished, and it finished one piece short of itself.** Pieces 1,
-3, 4, 5 and 7 are built. Piece 6 was settled that day and needed no code. **Piece 2 was built,
-tested and REJECTED by Jerry the same day** — see its section below, which is now a record of why
-it must not be built again rather than a plan to build it.
+**Status, 9/5/2026.** Pieces 1, 3, 4, 5 and 7 are built. Piece 6 was settled 9/4/2026 and needed
+no code. **Piece 2 was built, tested and REJECTED by Jerry on 9/4/2026** — see its section below,
+which is now a record of why it must not be built again rather than a plan to build it.
+
+**DECISION 3 WAS REVERSED BY JERRY ON 9/5/2026, and half of Piece 4 came out with it.** A setting
+the transcriber changes inside a large print or braille book is **not** a preference and never
+reaches the user's letters — a book's settings live and die with the book being on screen. The learning
+comparison in `Sh_Restore_Transcriber_Settings` is gone and `[BookApplied]` is now a flag and
+nothing else. Read Decision 3 and Piece 4 before touching the ledger; the mechanism that was
+removed is written out there so it does not get rebuilt.
 
 This supersedes the unbuilt half of
 `User-Settings-And-Word-Configuration.md` — Pieces 2 and 4 of that plan are replaced by
@@ -49,9 +55,24 @@ reason is on the record.
    navigation pane switched **off**. Revised 8/20/2026, later the same day: the first answer
    forced formatting marks on and left the Styles pane alone, and neither survived the question
    of what a plain letter should actually look like when it opens.
-3. **Reopening a book re-applies its configuration**, and a setting she changes *inside* a book
-   still counts as hers for her ordinary documents. She does far more in Word than large print
-   and braille, and she does not stop being an ordinary user when she opens a book.
+3. ~~**Reopening a book re-applies its configuration**, and a setting the user changes *inside* a book
+   still counts as the user's for the user's ordinary documents.~~ **THE SECOND HALF IS REVERSED — Jerry,
+   9/5/2026.** Reopening a book re-applies its configuration; that part stands. But a setting
+   changed inside a book is **not** the user's and never reaches the user's letters. His words:
+
+   > "changes in the word configuration settings for a braille file or a large print file should
+   > have no effect on the word configuration settings for a 'letter'. Changes to the word
+   > configuration settings for a large print or braille file are limited to that file and only
+   > while it is open... the settings are for here and now and never get changed for any other
+   > file or file type. Changes to the word configuration settings for a letter essetially means
+   > that the user has decided that this how word will behave for 'letters' from that point
+   > onward until they are changed again."
+
+   **A book's settings live and die with the book being on screen. Only what the user changes in a
+   letter is remembered.** The original reasoning — that the user does far more in Word than large
+   print and braille and does not stop being an ordinary user when the user opens a book — was
+   answered on its own terms: what the user does inside a book is for that book, here and now.
+   Built out on 9/5/2026; see Piece 4.
 4. **Document type is read from the attached template**, not from the `Box Black` style. That
    style test predates knowing how to test for an attached template. It is kept for one other
    job — see Piece 1.
@@ -177,17 +198,50 @@ makes inside a book has to reach her letters, and today it cannot.
 - `[BookApplied]` — for each of those settings, the value the book configuration most recently
   wrote.
 
-**How her changes are told apart from ours**, with no heuristics. When a book configuration is
-applied, record into `[BookApplied]` the value it set for every tracked setting. When an
-ordinary document takes over, compare live against `[BookApplied]`, setting by setting:
+**BUILT, THEN HALF OF IT REMOVED — Jerry's hard wall, 9/5/2026.** What follows is what was built
+on 8/20/2026 and is kept as the record of a mechanism that must not come back:
 
-- **same** — the book's value still stands, she did not touch it, and her stored preference is
-  left alone,
-- **different** — she changed it while working, and that becomes her new preference in
-  `[TranscriberSettings]`.
+> How the user's changes are told apart from VistaType's, with no heuristics. When a book configuration is
+> applied, record into `[BookApplied]` the value it set for every tracked setting. When an
+> ordinary document takes over, compare live against `[BookApplied]`, setting by setting: **same**
+> means the user did not touch it and the stored preference is left alone; **different** means the user
+> changed it while working, and that becomes the user's new preference in `[TranscriberSettings]`.
 
-Then restore from `[TranscriberSettings]`. A setting no book ever writes is not in the ledger
-at all and is trivially hers already.
+**That comparison is gone.** Under Decision 3 as revised, a change made inside a book is not a
+preference at all, so there is nothing to learn and nothing to tell apart. The learning loop came
+out of `Sh_Restore_Transcriber_Settings`, which now does one job: restore from
+`[TranscriberSettings]`, then clear the book record.
+
+**The flag is raised at the TOP of each book configuration, not the end — 9/5/2026.** Review found
+a hole that had been open since 8/20/2026 and was not caused by this change: written last, a book
+configuration that *raised part way through* never raised the flag at all. Thirty of that book's
+values were already standing in Word with no record that a book had put them there, so the next
+ordinary document read them as the user's own and stored them permanently — the 8/18/2026 fault by
+a third route, and silent, because `Sh_Apply_Word_Config` swallows the error. The flag now goes up
+before the first setting is written, immediately **below** the guarded
+`Sh_Save_Transcriber_Settings` and never above it (that save declines while the flag stands, so
+raising it first would discard the change the user had just made in a letter). A configuration that
+dies now leaves the flag standing, and saving stays suspended until a letter clears it — which is
+correct, because after a failure nobody knows whose values are in Word.
+
+**Do NOT bump `VT_STORE_STAMP_NOW` for any of this.** It stamps `[TranscriberSettings]`, whose
+shape did not change — `Sh_Tracked_Settings` is untouched at 42 names. Bumping would re-impose the
+starting AutoCorrect list on every machine in the field, and worse, the stamp-mismatch path is
+itself a known route to the 8/18 fault, so bumping for tidiness could cause the very thing this
+work prevents.
+
+**`[BookApplied]` survives as a FLAG and nothing else.** `Sh_Note_Book_Settings` writes
+`Saved=1` and no longer writes the 42 per-setting values — the learning loop was their only
+reader, checked name by name. The flag itself is load-bearing and must not be removed: it is what
+`Sh_Save_Transcriber_Settings` tests before saving, and therefore what stops Word being quit
+inside a braille file and `AutoExec` recording braille's values as the user's preferences the next
+morning. That is the 8/18/2026 fault and the flag is the whole wall.
+
+**What still catches a change the user makes in a letter**, since the restore no longer learns: both
+book configurations call `Sh_Save_Transcriber_Settings` at their top, guarded by
+`If Sh_ConfiguredAs = "DEF"`. The user's live values are written down as the user's own in the moment before a book
+takes Word over. Verified 9/5/2026 when the learning loop was removed — without it there would be
+a hole, and there is not.
 
 Two traps in that, both of which will bite silently:
 
@@ -322,7 +376,12 @@ Each of these has an expected answer that differs from what the add-in does toda
 3. In a letter, change the Styles pane sort and "Select styles to show". Close it, open it again.
    Both are as she left them.
 4. In an LP book, turn grammar checking on. Close the book, open it again — grammar is off, LP
-   won. Open a letter — grammar is **on**, her change followed her out.
+   won. Open a letter — grammar is **whatever the user last set it to in a letter**, and that change
+   inside the book did NOT follow the user out. **Rewritten 9/5/2026**; this test used to end "grammar
+   is on, the change followed the user out", which was Decision 3 before Jerry reversed it. Watch a
+   setting where the user's stored preference and the book's value actually differ — the five
+   spelling/grammar settings are a poor choice on a machine where the user already has them off,
+   because then the two values coincide and the test passes either way.
 5. Book and letter open together. Click between them. **The configuration follows the document on
    screen and changes each time** — Jerry's rule, 9/4/2026. This test used to read "nothing about
    Word's configuration changes either way", which was Piece 2 and is rejected. Capitalization and

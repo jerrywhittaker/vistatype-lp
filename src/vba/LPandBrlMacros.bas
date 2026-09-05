@@ -18,6 +18,26 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - MS - 9/5/2026 - THE HARD WALL BETWEEN THE WORD CONFIGURATIONS. Jerry, 9/5/2026:
+'           -                   "changes in the word configuration settings for a braille file or a
+'           -                   large print file should have no effect on the word configuration
+'           -                   settings for a 'letter'... the settings are for here and now and
+'           -                   never get changed for any other file or file type."
+'           -                   This REVERSES Decision 3 of docs/Automatic-Configuration-Plan.md,
+'           -                   agreed 8/20/2026, which said a setting the user changed inside a
+'           -                   book still counted as a preference for ordinary documents. The
+'           -                   LEARNING loop is out of Sh_Restore_Transcriber_Settings and
+'           -                   Sh_Note_Book_Settings writes only the Saved flag - the loop was the
+'           -                   only reader of its 42 per-setting values. The FLAG stays and is
+'           -                   the wall. What still catches a change made in a letter is the
+'           -                   guarded save at the TOP of each book configuration. Review the
+'           -                   same day found a HOLE that was not a regression - a book
+'           -                   configuration that RAISED never raised the flag, so the next
+'           -                   letter stored that book's values as the user's own. CLOSED the
+'           -                   same day, Jerry's say-so: the flag is raised at the TOP of both
+'           -                   book configurations now, below the guarded save. See
+'           -                   Sh_Note_Book_Settings.
+'
 ' Notes:    - MS - 9/4/2026 - THE MARKDOWN WRITE IS OUT OF BOTH BOOK CONFIGURATIONS. Jerry:
 '           -                   "the markdown for bold and italic are not used in any of the
 '           -                   three word configurations."
@@ -2050,10 +2070,17 @@ Public Const VT_VERSION As String = "unstamped"
 Private Const VT_STORE_FILE As String = "VistaType.ini"
 Private Const VT_STORE_MINE As String = "TranscriberSettings"
 
-' The second half of the ledger: what the large print or braille configuration most recently
-' WROTE. It is what makes "she changed it" tellable from "a book set it" - on the way back to an
-' ordinary document, a tracked setting that no longer matches this is one she changed while
-' working, and that is a preference. See Sh_Restore_Transcriber_Settings.
+' The second half of the ledger, and from 9/5/2026 it holds ONE key: "Saved". It says A BOOK
+' CONFIGURATION IS IN FORCE, and Sh_Save_Transcriber_Settings refuses to save while it stands.
+' That is the whole wall - it is what stops Word being quit inside a braille file, Word
+' remembering the live option values as its own, and AutoExec writing them down as the user's
+' preferences the next morning (the 8/18/2026 fault).
+'
+' It used to ALSO hold the value the book configuration most recently wrote for each of the 42
+' tracked settings, so the way back to an ordinary document could compare and work out what the
+' user had changed inside the book. Jerry's hard wall of 9/5/2026 says a change made inside a
+' book is not a preference at all, so there is nothing to tell apart. See
+' Sh_Restore_Transcriber_Settings.
 Private Const VT_STORE_BOOK As String = "BookApplied"
 
 ' The shape of the store, so a file written by an older build is thrown away whole rather than
@@ -21857,6 +21884,10 @@ Sub MS_Set_Word_Config_For_Large_Print()
     '
     ' Author: Jerry Whittaker -  jerry@vistatypelp.org
     '
+    ' Version: 3.0  Date: 9/5/2026 - raises the book flag at the TOP now instead of the end, so a
+    '                                run that raises still leaves it standing (Jerry). The flag is
+    '                                all Sh_Note_Book_Settings writes; the 42 values went with the
+    '                                learning loop - see Sh_Restore_Transcriber_Settings
     ' Version: 2.9  Date: 9/4/2026 - stops writing AutoFormatAsYouTypeReplacePlainTextEmphasis. It
     '                                was aimed at the "Markdown for heading, bold, italic and
     '                                strikethrough" box and never reached it - measured both ways -
@@ -21906,6 +21937,22 @@ Sub MS_Set_Word_Config_For_Large_Print()
     ' Note the settings this sub is about to take away, but only if the ORDINARY configuration
     ' is in force - see Sh_Save_Transcriber_Settings.
     If Sh_ConfiguredAs = "DEF" Then Sh_Save_Transcriber_Settings
+
+    ' AND RAISE THE BOOK FLAG NOW, before a single setting below is written. The flag says a book
+    ' configuration is in force, and it is what stops Sh_Save_Transcriber_Settings ever recording
+    ' this sub's values as the user's own preferences.
+    '
+    ' IT GOES HERE, NOT AT THE END - Jerry, 9/5/2026, closing a hole found in review the same day.
+    ' Written last, a configuration that RAISED part way through never raised the flag at all: this
+    ' book's values were left standing in Word with no record that a book had put them there, and
+    ' the next ordinary document stored them as the user's own for good - the 8/18/2026 fault by a
+    ' third route, and silent, because Sh_Apply_Word_Config swallows the error and blanks
+    ' Sh_ConfiguredAs. Raised first, a configuration that dies leaves the flag standing and the
+    ' next letter puts the user's own values back instead.
+    '
+    ' BELOW the save on the line above, NEVER above it: that save declines while the flag stands,
+    ' so raising the flag first would throw away the change the user had just made in a letter.
+    Sh_Note_Book_Settings
     
     With Options
         If .AutoFormatAsYouTypeApplyBorders <> False Then .AutoFormatAsYouTypeApplyBorders = False
@@ -22141,11 +22188,6 @@ Sub MS_Set_Word_Config_For_Large_Print()
     ' reason they do. See the braille sub for how this checkbox was identified.
     If Options.TabIndentKey <> True Then Options.TabIndentKey = True
 
-    ' Write down what this configuration has just applied, so that returning to an ordinary
-    ' document can tell a setting SHE changed from one this sub set. THE VERY LAST THING THE SUB
-    ' DOES, below the two writes above and not above them - see Sh_Note_Book_Settings 1.1.
-    Sh_Note_Book_Settings
-    
     On Error GoTo 0
 End Sub  '*** end of macro MS_Set_Word_Config_For_Large_Print ***
 
@@ -22154,6 +22196,8 @@ Sub MS_Set_Word_Config_For_Braille()
     '
     ' Author: Jerry Whittaker -  jerry@vistatypelp.org
     '
+    ' Version: 2.9  Date: 9/5/2026 - raises the book flag at the TOP now instead of the end, with
+    '                                its large print twin (Jerry). See there for the hole it closes
     ' Version: 2.8  Date: 9/4/2026 - stops writing AutoFormatAsYouTypeReplacePlainTextEmphasis,
     '                                with its large print twin (Jerry). It never reached the
     '                                Markdown box it was aimed at
@@ -22221,6 +22265,13 @@ Sub MS_Set_Word_Config_For_Braille()
     ' Note the settings this sub is about to take away, but only if the ORDINARY configuration
     ' is in force - see Sh_Save_Transcriber_Settings.
     If Sh_ConfiguredAs = "DEF" Then Sh_Save_Transcriber_Settings
+
+    ' AND RAISE THE BOOK FLAG NOW, before a single setting below is written, and BELOW the save on
+    ' the line above and never above it. Moved here from the end of the sub on 9/5/2026 to close a
+    ' hole: written last, a configuration that raised part way through never raised the flag, and
+    ' the next ordinary document stored this book's values as the user's own. The full account is
+    ' in MS_Set_Word_Config_For_Large_Print, at the same place.
+    Sh_Note_Book_Settings
 
     Dim su_Prev As Boolean
     su_Prev = Application.ScreenUpdating
@@ -22444,11 +22495,6 @@ Sub MS_Set_Word_Config_For_Braille()
     ' instead, which held True the whole time while the box sat unticked; that write is gone from
     ' both books. The name at the top of this module said TabIndentKey all along.
     If Options.TabIndentKey <> True Then Options.TabIndentKey = True
-
-    ' Write down what this configuration has just applied, so that returning to an ordinary
-    ' document can tell a setting SHE changed from one this sub set. THE VERY LAST THING THE SUB
-    ' DOES, below the six writes above and not above them - see Sh_Note_Book_Settings 1.1.
-    Sh_Note_Book_Settings
 
     ' Put the changed flag back, and ONLY back to unchanged - see wasSaved at the top. Everything
     ' this sub writes is a setting; it changes no text, no styles and no formatting, so a document
@@ -23174,24 +23220,36 @@ Sub Sh_Save_Transcriber_Settings()
 
 End Sub  '*** end of Sh_Save_Transcriber_Settings ***
 
-' Record what a book configuration just applied. Called at the END of
-' MS_Set_Word_Config_For_Large_Print and MS_Set_Word_Config_For_Braille, after every write in them
-' has run - which is deliberate and is the answer to a trap.
+' Raise the flag that says a book configuration is in force. Called at the TOP of
+' MS_Set_Word_Config_For_Large_Print and MS_Set_Word_Config_For_Braille, before either writes a
+' single setting - and immediately BELOW the guarded Sh_Save_Transcriber_Settings there.
 '
-' Every write in those two subs is guarded with If <>, so a setting that already held the book's
-' value is never written at all. Recording what the sub INTENDED, write by write, would therefore
-' have to know about writes that did not happen. Reading the live values once at the end sidesteps
-' it completely: by then the live value IS what the book asked for, whether it was written or was
-' already there.
+' It wrote the live value of all 42 tracked settings until 9/5/2026, for a comparison that
+' Jerry's hard wall removed - see Sh_Restore_Transcriber_Settings. The flag is all that is left,
+' and the flag is the wall: Sh_Save_Transcriber_Settings refuses to save while it stands.
 '
-' "The end" is no longer literally the last statement in the BRAILLE sub, from 8/27/2026: the
-' wasSaved restore sits below this call. That is harmless and does not weaken anything here - the
-' restore writes no setting, so there is nothing for it to record. What matters is that this call
-' stays below every SETTING the configuration writes.
+' IT MOVED FROM THE END TO THE TOP ON 9/5/2026 (Jerry), and that closed a real hole found in
+' review the same day. Written last, A BOOK CONFIGURATION THAT RAISED PART WAY THROUGH NEVER
+' RAISED THE FLAG AT ALL - thirty of that book's values were already standing in Word with no
+' record that a book had put them there, and the next ordinary document read them as the user's
+' own and stored them for good. That is the 8/18/2026 fault by a third route, and it was silent:
+' Sh_Apply_Word_Config swallows the error and blanks Sh_ConfiguredAs. The braille display block
+' that can raise on an odd window sat above the old call site. Not a regression - true from
+' 8/20/2026 to 9/5/2026, and the learning loop never caught it either.
 '
-' Running at the end also means a configuration that raises part way through records nothing, so
-' the next return to an ordinary document reads no book record and treats the live values as hers.
-' That is the safe way round: it can lose a restore, never her preferences.
+' Raised first, a configuration that dies leaves the flag standing, the next letter restores the
+' user's own values rather than recording the book's, and saving stays suspended until then -
+' which is the right answer, because after a failure nobody knows whose values are in Word.
+'
+' THE ONE ORDERING RULE THAT REMAINS: it must sit BELOW the guarded Sh_Save_Transcriber_Settings
+' at the top of each book configuration, never above it. That save declines while the flag
+' stands, so raising the flag first would throw away the change the user had just made in a
+' letter. The old rule about staying below the trailing spelling and grammar writes is retired
+' with the move; it existed because the flag used to mean "the book's values are recorded", and
+' it now means "a book configuration is in force", which is true from the first line.
+'
+' A comment here used to say this arrangement could lose a restore but never a preference. That
+' was never true - it is exactly what the hole above cost. Do not write it again.
 '
 ' "The end" means the END, and getting that wrong was the first fault this piece had. Both book
 ' configurations write a handful of spelling and grammar settings BELOW the line that sets
@@ -23202,24 +23260,29 @@ End Sub  '*** end of Sh_Save_Transcriber_Settings ***
 ' found them different, and wrote the BOOK's switched-off values into her preferences as though
 ' she had chosen them - the 8/18/2026 fault exactly, rebuilt by the thing meant to prevent it.
 '
+' Version: 2.1  Date: 9/5/2026 - called at the TOP of both book configurations now, not the end,
+'                                so a configuration that RAISES still leaves the flag standing
+'                                (Jerry). Closes the third route to the 8/18/2026 fault
+' Version: 2.0  Date: 9/5/2026 - writes the FLAG only. The 42 per-setting values existed solely
+'                                for the learning comparison, which Jerry's hard wall removed
 ' Version: 1.1  Date: 8/20/2026 - moved below the trailing spelling and grammar writes in both
 '                                 book configurations. See above; found before 3.0.214 was tested
 ' Version: 1.0  Date: 8/20/2026
 Sub Sh_Note_Book_Settings()
-    Dim names As Variant
-    Dim i As Long
-    Dim nm As String
 
     On Error Resume Next
 
-    names = Sh_Tracked_Settings()
-    For i = LBound(names) To UBound(names)
-        nm = names(i)
-        Sh_Setting_Write VT_STORE_BOOK, nm, Sh_Bool_To_Store(Sh_Setting_Live(nm))
-    Next i
-
-    ' Written LAST, and it is what Sh_Restore_Transcriber_Settings tests. A half-written record
-    ' is never read as a whole one.
+    ' THE FLAG IS THE WHOLE RECORD NOW. Until 9/5/2026 this also wrote the live value of all
+    ' 42 tracked settings, so Sh_Restore_Transcriber_Settings could compare against them and
+    ' work out what the transcriber had changed inside the book. That comparison is gone with
+    ' Jerry's hard wall (see there), and it was the ONLY reader of those values - checked name
+    ' by name, 9/5/2026 - so writing them was 42 file writes on every book open that nothing
+    ' ever read again.
+    '
+    ' What the flag says is unchanged and is the whole point: A BOOK CONFIGURATION IS IN
+    ' FORCE. Sh_Save_Transcriber_Settings refuses to save while it stands, which is what stops
+    ' Word being quit inside a book and AutoExec writing the book's values down as the user's,
+    ' next morning.
     Sh_Setting_Write VT_STORE_BOOK, "Saved", "1"
 
     Err.Clear
@@ -23229,20 +23292,32 @@ End Sub  '*** end of Sh_Note_Book_Settings ***
 Sub Sh_Restore_Transcriber_Settings()
 '
 ' Called by the ordinary configuration only - arriving at an ordinary document is the moment her
-' settings become hers again. Despite the name it does two jobs, and the first one is the reason
-' this piece exists at all.
+' settings become the user's again. It now does ONE job: give them back.
 '
-' LEARNING WHAT SHE CHANGED. Jerry, 8/20/2026: she does far more in Word than large print and
-' braille, and she does not stop being an ordinary user when she opens a book - so a setting she
-' changes while working IN a book is a real preference and has to follow her out to her letters.
-' Word gives us no way to be told about it, and live values alone cannot say whether a setting is
-' switched off because she switched it off or because large print did. So the book configurations
-' write down what they applied (Sh_Note_Book_Settings) and this compares against that record:
-' anything that no longer matches, she changed, and it becomes hers.
+' THE HARD WALL - Jerry, 9/5/2026, and it REVERSES Decision 3 of the automatic-configuration
+' plan. His words:
 '
-' No heuristics, and it degrades the safe way. A setting no book writes is not in the list at all
-' and is already hers; a book run that raised part way through wrote no record, and then the live
-' values are taken as hers, which can lose a restore but can never lose a preference.
+'   "changes in the word configuration settings for a braille file or a large print file
+'    should have no effect on the word configuration settings for a 'letter'. Changes to the
+'    word configuration settings for a large print or braille file are limited to that file
+'    and only while it is open... the settings are for here and now and never get changed
+'    for any other file or file type. Changes to the word configuration settings for a
+'    letter essetially means that the user has decided that this how word will behave for
+'    'letters' from that point onward until they are changed again."
+'
+' So a book's settings live and die with the book being on screen, and ONLY what the user
+' changes in an ordinary document is remembered. Until 9/5/2026 this sub opened with a
+' LEARNING loop that did the opposite: it compared live values against what the book had
+' applied and wrote every difference into the user's preferences, on the reasoning agreed 8/20/2026
+' that a change made inside a book was still a real preference. THAT LOOP IS GONE. Do not
+' put it back, and do not re-argue it from the ledger's convenience - it is a product rule,
+' not a mechanism.
+'
+' WHAT STILL CATCHES A CHANGE THE USER MAKES IN A LETTER, since this sub no longer does: the save
+' runs at the TOP of each book configuration, guarded by If Sh_ConfiguredAs = "DEF". So the
+' user's live values are written down as the user's own in the moment before a book takes Word over. Checked
+' 9/5/2026 when the learning loop came out - without it there would be a hole here, and
+' there is not.
 '
 ' The three paths, in the order they are tested:
 '
@@ -23250,17 +23325,21 @@ Sub Sh_Restore_Transcriber_Settings()
 '   values in the wrong places. Throw it away, note what is in force now, and change nothing.
 '
 '   No book has been in force since we were last in an ordinary document. Then the live values
-'   ARE hers - this covers her changing something in one letter and opening another, which the
+'   ARE the user's - this covers changing something in one letter and opening another, which the
 '   old sub got wrong by restoring over the top of it. Note them, restore nothing.
 '
-'   A book has been in force. Learn, restore, and clear the record so the next ordinary document
-'   does not compare against a book that is long gone.
+'   A book has been in force. Restore, and clear the record. NOTHING IS LEARNED on the way
+'   through any more - Jerry's hard wall, 9/5/2026, above.
 '
-' Guarded writes throughout, like everything else in that sub: her value is usually already in
-' force and Word does not need telling twice.
+' Guarded writes throughout, like everything else in that sub: the user's value is usually
+' already in force and Word does not need telling twice.
 '
 ' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
+' Version: 4.0  Date: 9/5/2026 - THE LEARNING LOOP IS GONE - Jerry's hard wall. A setting changed
+'                                inside a book is not a preference and never reaches the user's
+'                                letters, so there is nothing to tell apart. This sub now only
+'                                restores and clears the record
 ' Version: 3.7  Date: 8/22/2026 - 42 settings: the whole AutoCorrect tab. Five of the eight were dropped from
 '                                 all three configurations on 8/18/2026 and are book settings again
 ' Version: 3.6  Date: 8/22/2026 - 37 settings: AutoFormatReplacePlainTextEmphasis, which no book writes -
@@ -23284,8 +23363,6 @@ Sub Sh_Restore_Transcriber_Settings()
     Dim i As Long
     Dim nm As String
     Dim held As String
-    Dim bookHeld As String
-    Dim live As String
 
     On Error Resume Next
 
@@ -23325,24 +23402,15 @@ Sub Sh_Restore_Transcriber_Settings()
 
     names = Sh_Tracked_Settings()
 
-    ' 1. Learn. Anything that no longer matches what the book wrote, she changed while working.
-    For i = LBound(names) To UBound(names)
-        nm = names(i)
-        bookHeld = Sh_Setting_Read(VT_STORE_BOOK, nm, "")
-        If bookHeld <> "" Then
-            live = Sh_Bool_To_Store(Sh_Setting_Live(nm))
-            If live <> bookHeld Then Sh_Setting_Write VT_STORE_MINE, nm, live
-        End If
-    Next i
-
-    ' 2. Give them back. A setting with nothing stored is left alone rather than guessed at.
+    ' Give them back. A setting with nothing stored is left alone rather than guessed at.
+    ' NOTHING IS LEARNED HERE ANY MORE - see the header. A book's values die with the book.
     For i = LBound(names) To UBound(names)
         nm = names(i)
         held = Sh_Setting_Read(VT_STORE_MINE, nm, "")
         If held <> "" Then Sh_Setting_Put nm, Sh_Store_To_Bool(held)
     Next i
 
-    ' 3. The book record has been spent. Leave it marked as such - Sh_Setting_Write with an empty
+    ' The book record has been spent. Leave it marked as such - Sh_Setting_Write with an empty
     ' string DELETES a key rather than emptying it, so "0" is written instead.
     Sh_Setting_Write VT_STORE_BOOK, "Saved", "0"
 

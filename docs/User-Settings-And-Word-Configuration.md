@@ -549,7 +549,19 @@ value overriding her choice and repeats the original mistake.
    call the configuration subs directly, which is why they are worth testing specifically — then
    check the ordinary document's settings again.
 7. **Word restarted from a braille file.** End a session with a braille file open, reopen Word, open
-   an ordinary document. Her settings, not braille's.
+   an ordinary document. The user's settings, not braille's.
+   **PASSED 9/5/2026 on 3.0.372, measured rather than eyeballed.** The ledger was read over SSH at
+   five points and `[TranscriberSettings]` came out byte-identical to the baseline taken before the
+   test — the only line that changed in the whole file was the book flag. The four markers used were
+   `CorrectSentenceCaps`, `CorrectTableCells`, `AutoFormatAsYouTypeApplyBulletedLists` and
+   `AutoFormatAsYouTypeApplyHeadings`, all ticked for the user and all switched off by braille, and
+   all four were ticked again in the AutoCorrect dialog afterwards — so the values were restored into
+   Word and not merely preserved in the file.
+   **Do not use the five spelling/grammar settings as markers here.** On the build box the user's
+   stored values for all five are already `0`, which is what braille writes, so they read as correct
+   whether the guard works or not.
+   The same run also confirmed the 9/5/2026 flag move: the flag went `0` -> `1` the moment the
+   braille file was clicked into, before any setting was written, and only that one line changed.
 8. **The privacy notice does not come back.** Several new documents in a row on a machine where
    Office is unlicensed or disconnected — that is where the 7/18/2026 notice appeared.
 9. **The library.** Save a configuration, change several settings, load it back. Then load it while a
