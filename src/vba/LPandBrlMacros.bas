@@ -18,6 +18,28 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - MS - 9/4/2026 - THE MARKDOWN WRITE IS OUT OF BOTH BOOK CONFIGURATIONS. Jerry:
+'           -                   "the markdown for bold and italic are not used in any of the
+'           -                   three word configurations."
+'           -                   Both books wrote AutoFormatAsYouTypeReplacePlainTextEmphasis
+'           -                   False, aimed at the box the AutoCorrect dialog calls "Markdown for
+'           -                   heading, bold, italic and strikethrough". It is a decision about
+'           -                   what a book configuration should force, and it does not depend on
+'           -                   what that property controls - which is just as well, because
+'           -                   THAT IS NOT SETTLED. The note in
+'           -                   MS_Set_Word_Config_For_Large_Print sets out three observations
+'           -                   that disagree, including a hole in the 8/21/2026 test (3.0.217
+'           -                   wrote the property in the LARGE PRINT configuration only, so
+'           -                   looking at the box in a letter proved nothing) and Jerry's own
+'           -                   report of 9/4/2026 that the box is not ticked at all - which the
+'           -                   starting list would explain if the property DOES back the box.
+'           -                   The park-the-add-in test has never been run on this one.
+'           -                   THE NAME STAYS in Sh_Tracked_Settings and in the starting list,
+'           -                   and that is deliberate: membership is "does any configuration
+'           -                   write it, OR does the starting list state it", and the list states
+'           -                   it as 0 - one of the three boxes Jerry leaves blank for a letter.
+'           -                   So her own change to it is still saved and given back.
+'
 ' Notes:    - LP  - 9/4/2026 - THE LEGACY VISTATYPELP LEGIBLE PROTECTION IS REMOVED. Four
 '           -                   pieces of code recognized a book set in that face and shielded
 '           -                   it from a re-attach: the attach dialog grayed both Typeface
@@ -1270,7 +1292,8 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - MS - 8/20/2026 - since it is buried in File > Options > Advanced > Display. And ActiveWindow.DocumentMap = False is new,
 '           - MS - 8/20/2026 - closing the navigation pane; it is a WINDOW property so it cannot reach another document, unlike the
 '           - MS - 8/20/2026 - other half of the navigation pane that Dx_Attach_BANA_Template writes - CommandBars("Navigation") is
-'           - MS - 8/20/2026 - application-wide, and bringing the two together is still to do.
+'           - MS - 8/20/2026 - application-wide. Sh_Set_Navigation_Pane brought the two together and writes BOTH, because
+'           - MS - 8/20/2026 - DocumentMap alone does nothing during DocumentBeforeClose - measured, and recorded there.
 '           - MS - 8/20/2026 - Also gone from the ordinary configuration, and not to be put back: FormattingShowNextLevel,
 '           - MS - 8/20/2026 - StyleSortMethod and FormattingShowFilter. All three are DOCUMENT properties saved inside her file, so
 '           - MS - 8/20/2026 - writing them on every ordinary document open overwrote what that document was carrying - the 7/24/2026
@@ -21834,6 +21857,12 @@ Sub MS_Set_Word_Config_For_Large_Print()
     '
     ' Author: Jerry Whittaker -  jerry@vistatypelp.org
     '
+    ' Version: 2.9  Date: 9/4/2026 - stops writing AutoFormatAsYouTypeReplacePlainTextEmphasis. It
+    '                                was aimed at the "Markdown for heading, bold, italic and
+    '                                strikethrough" box and never reached it - measured both ways -
+    '                                so it was changing something in Word 2021 nobody has
+    '                                identified. Jerry, 9/4/2026: "the markdown for bold and italic
+    '                                are not used in any of the three word configurations"
     ' Version: 2.8  Date: 8/27/2026 - deletes 0/3 as well, the nineteenth compact fraction (Jerry)
 ' Version: 2.7  Date: 8/22/2026 - THE WHOLE AUTOCORRECT TAB, all eight boxes (Jerry). Five of them were
     '                                  dropped from all three configurations on 8/18/2026 as "identical
@@ -21903,13 +21932,35 @@ Sub MS_Set_Word_Config_For_Large_Print()
         If .AutoFormatAsYouTypeReplaceOrdinals <> True Then .AutoFormatAsYouTypeReplaceOrdinals = True
         If .AutoFormatAsYouTypeReplaceFractions <> False Then .AutoFormatAsYouTypeReplaceFractions = False
 
-        ' The box the dialog now calls "Markdown for heading, bold, italic and strikethrough".
-        ' There is no property of that name: Word relabelled the old "*Bold* and _italic_ with
-        ' real formatting" checkbox when it widened the feature, and this is still what backs it.
-        ' Confirmed against the 22 AutoFormatAsYouType properties Word 16.0 exposes - none of them
-        ' mentions Markdown. Off in a book for the same reason as the heading styles: it rewrites
-        ' the transcriber's formatting from punctuation she may have typed deliberately.
-        If .AutoFormatAsYouTypeReplacePlainTextEmphasis <> False Then .AutoFormatAsYouTypeReplacePlainTextEmphasis = False
+        ' AutoFormatAsYouTypeReplacePlainTextEmphasis was written False here until 9/4/2026, meant
+        ' for the box the dialog calls "Markdown for heading, bold, italic and strikethrough".
+        '
+        ' WHETHER IT REACHED THAT BOX IS NOT SETTLED, and do not repeat the old claim here that
+        ' it plainly did not. Three observations, and they do not agree:
+        '
+        '   * 8/21/2026 - 3.0.217 shipped this write and Jerry installed it; the box was still
+        '     ticked. THAT TEST HAS A HOLE IN IT: 3.0.217 wrote the property in the LARGE PRINT
+        '     configuration only, so if the box was looked at in an ordinary letter the write had
+        '     never applied to it. Which document he looked at is not recorded.
+        '   * The same day, unticking the box by hand was reported to leave the property False.
+        '   * 9/4/2026, Jerry: "I can't untick the markdown box because it is not ticked to begin
+        '     with!" So on his machine today it is OFF - and the starting list writes this very
+        '     property as 0 for a letter, which is exactly what would turn it off if the property
+        '     DOES back the box.
+        '
+        ' The honest position: nobody has run the park-the-add-in test on this one - snapshot,
+        ' move LPandBRL.dotm out of STARTUP, have Jerry toggle the box by hand, snapshot again and
+        ' read the property back through a fresh automation Word. That is the method that settled
+        ' three other mis-mapped checkboxes and it has not been used here.
+        '
+        ' The write is gone either way, and that is Jerry's call, 9/4/2026: "the markdown for bold
+        ' and italic are not used in any of the three word configurations." It is a decision about
+        ' what a BOOK configuration should force, which does not depend on the answer above.
+        '
+        ' The name STAYS in Sh_Tracked_Settings and in the starting list, and that is not an
+        ' oversight: the membership rule is "does any configuration write it, OR does the starting
+        ' list state it", and the list states it (0, one of the three boxes Jerry leaves blank).
+        ' So a transcriber's own change to it is still saved and given back in her letters.
 
         If .AutoFormatAsYouTypeFormatListItemBeginning <> False Then .AutoFormatAsYouTypeFormatListItemBeginning = False
 
@@ -22103,6 +22154,9 @@ Sub MS_Set_Word_Config_For_Braille()
     '
     ' Author: Jerry Whittaker -  jerry@vistatypelp.org
     '
+    ' Version: 2.8  Date: 9/4/2026 - stops writing AutoFormatAsYouTypeReplacePlainTextEmphasis,
+    '                                with its large print twin (Jerry). It never reached the
+    '                                Markdown box it was aimed at
     ' Version: 2.7  Date: 8/27/2026 - hides the proofing marks in the braille DOCUMENT -
     '                                  ShowSpellingErrors and ShowGrammaticalErrors, both False. The
     '                                  app-wide spell-check-as-you-type stays ON, because the AutoCorrect
@@ -22211,13 +22265,11 @@ Sub MS_Set_Word_Config_For_Braille()
         If .AutoFormatAsYouTypeFormatListItemBeginning <> False Then .AutoFormatAsYouTypeFormatListItemBeginning = False
 
 
-        ' The "Markdown for heading, bold, italic and strikethrough" box, off - and KNOWN NOT TO
-        ' WORK YET. Written here only so the two books stay in step and there is one place to fix.
-        ' 3.0.217 shipped this same write for large print; Jerry installed it and the box was still
-        ' checked, so ReplacePlainTextEmphasis is NOT what backs that checkbox, and Word exposes no
-        ' property matching Markdown at all. Whatever this property really does control should be
-        ' off in a book anyway, so it is harmless where it stands. See the note in large print.
-        If .AutoFormatAsYouTypeReplacePlainTextEmphasis <> False Then .AutoFormatAsYouTypeReplacePlainTextEmphasis = False
+        ' AutoFormatAsYouTypeReplacePlainTextEmphasis was written False here too, and went on
+        ' 9/4/2026 with its large print twin - Jerry: "the markdown for bold and italic are not
+        ' used in any of the three word configurations." Whether that property actually backs the
+        ' Markdown box is NOT settled; see the full account in MS_Set_Word_Config_For_Large_Print
+        ' before repeating either answer.
 
         ' Smart quotes and hyperlinks, back as BOOK settings on 8/21/2026 - Jerry. Both books
         ' forced them on until 8/18/2026, when they were dropped from all three configurations

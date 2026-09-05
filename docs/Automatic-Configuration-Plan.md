@@ -227,8 +227,11 @@ shape as the five spelling settings found on 8/18. They join Piece 4's tracked s
 `ActiveWindow.DocumentMap` line beside it. Under Decision 2 that is no longer a leak — the
 ordinary configuration closes the navigation pane anyway — so the two lines simply need to agree
 about which one does the closing. `DocumentMap` is the modern Navigation Pane and is per window;
-`CommandBars("Navigation")` is the older Document Map task pane. Use `DocumentMap` and stop
-writing the command bar.
+`CommandBars("Navigation")` is the older Document Map task pane.
+
+**Done, and NOT the way this said.** `Sh_Set_Navigation_Pane` writes **both** halves deliberately:
+`DocumentMap` alone does nothing during `DocumentBeforeClose`, which is measured and recorded at
+that sub. Do not "finish" this by dropping the command-bar write.
 
 Where each configuration lands after this:
 
@@ -320,8 +323,10 @@ Each of these has an expected answer that differs from what the add-in does toda
    Both are as she left them.
 4. In an LP book, turn grammar checking on. Close the book, open it again — grammar is off, LP
    won. Open a letter — grammar is **on**, her change followed her out.
-5. Book and letter open together. Click between them. Nothing about Word's configuration changes
-   either way.
+5. Book and letter open together. Click between them. **The configuration follows the document on
+   screen and changes each time** — Jerry's rule, 9/4/2026. This test used to read "nothing about
+   Word's configuration changes either way", which was Piece 2 and is rejected. Capitalization and
+   the fractions are the two easiest things to watch.
 6. Open a braille file, then open a letter from disk. Grammar, tab-indent and the fractions are
    all back.
 7. Open a large print book made on an obsolete template. She still gets the warning and the
@@ -340,6 +345,12 @@ Each of these has an expected answer that differs from what the add-in does toda
 - **`Lp_Is_The_Attached_Template_LP` has eleven callers asking two different questions.** Renaming
   it is what makes the triage in Piece 1 possible; leaving the old name is how one of them gets
   missed.
-- **Retiring `Sh_Config_Skip_Display` touches all three MS_ subs.** The guard appears six times
-  and one of them wraps `Application.ScreenRefresh` alone.
-- **The leak in Piece 2 will be reported as a bug.** Write it into the guide before it ships.
+- **`Sh_Config_Skip_Display` is NOT to be retired**, and neither is `Sh_Apply_Word_Config`'s
+  `DisplayToo`. This trap used to read as instructions for removing them along with Piece 2. Both
+  have live callers that have nothing to do with switching: `MS_Reset_Word_Configuration` passes
+  `DisplayToo:=False`, and `Dx_Attach_BANA_Template_Run` raises the flag across the attach so the
+  braille display changes at its stage four and not before (Jerry, 8/29/2026). The guard appears
+  six times and one of them wraps `Application.ScreenRefresh` alone.
+- ~~**The leak in Piece 2 will be reported as a bug.**~~ Moot: Piece 2 was rejected, so there is
+  no leak. It was written into `docs/How-Word-Settings-Work.md` while the change existed and taken
+  back out with it.
