@@ -21982,32 +21982,35 @@ Sub MS_Set_Word_Config_For_Large_Print()
         ' AutoFormatAsYouTypeReplacePlainTextEmphasis was written False here until 9/4/2026, meant
         ' for the box the dialog calls "Markdown for heading, bold, italic and strikethrough".
         '
-        ' WHETHER IT REACHED THAT BOX IS NOT SETTLED, and do not repeat the old claim here that
-        ' it plainly did not. Three observations, and they do not agree:
+        ' SETTLED 9/5/2026, BY MEASUREMENT, AND CLOSED: THAT BOX HAS NO VBA PROPERTY AT ALL, and
+        ' this was never it. Do not reopen this, and do not add a write for the Markdown box to any
+        ' configuration - there is nothing to write.
         '
-        '   * 8/21/2026 - 3.0.217 shipped this write and Jerry installed it; the box was still
-        '     ticked. THAT TEST HAS A HOLE IN IT: 3.0.217 wrote the property in the LARGE PRINT
-        '     configuration only, so if the box was looked at in an ordinary letter the write had
-        '     never applied to it. Which document he looked at is not recorded.
-        '   * The same day, unticking the box by hand was reported to leave the property False.
-        '   * 9/4/2026, Jerry: "I can't untick the markdown box because it is not ticked to begin
-        '     with!" So on his machine today it is OFF - and the starting list writes this very
-        '     property as 0 for a letter, which is exactly what would turn it off if the property
-        '     DOES back the box.
+        ' The park-the-add-in method, finally run on this one. The add-in was moved out of Word's
+        ' STARTUP folder so its own writes could not pollute the reading, Jerry unticked the box by
+        ' hand with the box showing TICKED, and all 38 of Word 16.0's AutoFormat* and
+        ' AutoFormatAsYouType* properties were read back through a fresh automation Word before and
+        ' after. NOT ONE OF THE 38 MOVED. The registry value HKCU\...\Word\Options\
+        ' PlainTextAutoFormat did not move either - it read 0 throughout, while the box was ticked.
+        ' The only thing that changed anywhere was Word's opaque Data\Settings blob, which is
+        ' written wholesale by Word and cannot be addressed by name.
         '
-        ' The honest position: nobody has run the park-the-add-in test on this one - snapshot,
-        ' move LPandBRL.dotm out of STARTUP, have Jerry toggle the box by hand, snapshot again and
-        ' read the property back through a fresh automation Word. That is the method that settled
-        ' three other mis-mapped checkboxes and it has not been used here.
+        ' A TRAP THAT NEARLY GAVE THE WRONG ANSWER, and the reason to distrust a first reading: an
+        ' earlier automation Word was still alive, windowless, when the second reading was taken -
+        ' Word hands a COM request to a running instance, so the values came from a process that
+        ' had loaded BEFORE the box was unticked. Kill every windowless WINWORD between readings.
+        ' A stale one can also write its own settings back on exit and undo the very change under
+        ' test.
         '
-        ' The write is gone either way, and that is Jerry's call, 9/4/2026: "the markdown for bold
-        ' and italic are not used in any of the three word configurations." It is a decision about
-        ' what a BOOK configuration should force, which does not depend on the answer above.
+        ' So whatever this property does control, it is not that checkbox: it read False all the
+        ' way through, with the box ticked and then unticked. The write is gone from both book
+        ' configurations either way - Jerry, 9/4/2026: "the markdown for bold and italic are not
+        ' used in any of the three word configurations."
         '
-        ' The name STAYS in Sh_Tracked_Settings and in the starting list, and that is not an
-        ' oversight: the membership rule is "does any configuration write it, OR does the starting
-        ' list state it", and the list states it (0, one of the three boxes Jerry leaves blank).
-        ' So a transcriber's own change to it is still saved and given back in her letters.
+        ' THE NAME STAYS in Sh_Tracked_Settings and in the starting list, and that is deliberate.
+        ' It is a real Word setting, whatever it is; membership is "does any configuration write
+        ' it, OR does the starting list state it", and the list states it as 0. So the user's own
+        ' change to it is still saved and given back.
 
         If .AutoFormatAsYouTypeFormatListItemBeginning <> False Then .AutoFormatAsYouTypeFormatListItemBeginning = False
 
