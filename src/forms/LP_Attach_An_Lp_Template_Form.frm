@@ -19,9 +19,11 @@ Attribute VB_Exposed = False
 '
 ' Version: 6.8  Date: 9/6/2026 - opens the PROGRESS BAR instead of Sh_NonModalMessageForm. The
 '                               instruction paragraph goes with it: the bar names each stage,
-'                               which says more and says it as the work happens. The warning not
-'                               to touch the mouse or keyboard moves to the title bar; "Wait for
-'                               the BEEP!" is dropped because nothing in the project beeps
+'                               which says more and says it as the work happens. The whole
+'                               instruction paragraph is dropped, the keyboard warning with it
+'                               (Jerry, asked directly): a title bar cannot be 10 point Tahoma
+'                               and truncates, and "Wait for the BEEP!" was waiting for
+'                               something that never happens - nothing in the project beeps
 ' Version: 6.7  Date: 9/6/2026 - the eleven page-size and margin checks go through Sh_Say
 '                               instead of MsgBox, so each is at least 10 point Tahoma and
 '                               its button says Okay. Every number (189-199) is the one it
@@ -376,13 +378,24 @@ Private Sub AttachOkay_Click()
     ' slice of it to each of the two counted sequences it runs inside itself - see
     ' Sh_Progress_Span.
     '
-    ' THE WARNING MOVES INTO THE TITLE BAR, where it stands for the whole run rather than
-    ' being replaced by the first stage a second later. The old paragraph said three things:
-    ' what the attach was about to do - which the bar now says stage by stage, and better;
-    ' not to touch the mouse or keyboard - kept here; and "Wait for the BEEP!", which is
-    ' DROPPED because nothing beeps. Only Dx_Type_Dashes_Form beeps in the whole project,
-    ' so that line has been telling transcribers to wait for something that never happens.
-    Sh_Progress_Open "VistaType LP is working - do not use the mouse or keyboard in Word"
+    ' THE WHOLE INSTRUCTION PARAGRAPH IS DROPPED - Jerry, 9/6/2026, asked directly. It said
+    ' three things and none of them survives, each for its own reason:
+    '
+    '   what the attach was about to do - the bar now says it stage by stage, and better;
+    '
+    '   "Wait for the BEEP!" - nothing in this project beeps. Only Dx_Type_Dashes_Form has
+    '   a Beep statement and both of its are commented out, so that line had been telling
+    '   transcribers to wait for something that never happens;
+    '
+    '   "do not use mouse or keyboard" - put in the title bar first, and Jerry dropped that
+    '   too. The reasoning is his own rule about how a message looks: a title bar is drawn
+    '   by Windows in Windows' own font, so it was the one piece of text on the dialog that
+    '   could not be 10 point Tahoma, and it truncates on a narrow form. A warning that
+    '   cannot be read is not a warning. The bar naming each stage as it happens already
+    '   says the machine is busy.
+    '
+    ' The title now names the job, which is what a progress dialog's title is for.
+    Sh_Progress_Open "Attaching the large print template"
 
     DoEvents
     
