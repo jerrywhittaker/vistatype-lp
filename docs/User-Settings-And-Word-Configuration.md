@@ -440,6 +440,19 @@ exactly the case that is broken today.
 
 ### Piece 4 — the saved-configuration library
 
+**WANTED, BUT DELIBERATELY DEFERRED — Jerry, 9/6/2026:** *"I'd like to do it but other things are
+more important now so keep it on the back burner for a later date."* Offered to him in full that
+day and put off on its merits, not forgotten. **Do not treat it as an outstanding job, and do not
+keep re-proposing it** — raise it when he asks, or when something else makes it necessary. It is
+also what test 9 below needs, so that test stays unrunnable until this is built, and that is
+expected rather than a gap.
+
+**Two things here are out of date and must be rewritten before any of it is built.** The design
+speaks of "the fifteen from Piece 1 and the twenty from Piece 2"; that split is gone and
+`Sh_Tracked_Settings` is one list of **44** names. And the account of what loading does predates
+Jerry's reversal of Decision 3 on 9/5/2026 — the learning loop it assumed no longer exists. Check
+the code, not this description.
+
 Jerry's proposal, kept as a convenience layer on top rather than as the mechanism. Three commands,
 and a store that holds any number of named configurations.
 
