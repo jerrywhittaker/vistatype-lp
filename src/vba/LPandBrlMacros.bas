@@ -17138,6 +17138,24 @@ Sub Lp_Attach_The_Template()
     Dim currentdoc As Document
     Set currentdoc = ActiveDocument 'will work with blank, unsaved documents too
     
+    ' THE MEDIUM IS RECORDED FIRST, and that is what makes the cleanup below behave.
+    ' Jerry, 9/6/2026: "urls and email address in a letter folowed by attaching the lp doc
+    ' (for a screen) does not convert them to live links".
+    '
+    ' File Cleanup asks Lp_Doc_Is_Screen whether to make addresses live, and the answer
+    ' comes from the document variable "Media" - which this macro did not write until 140
+    ' lines further down, long after the cleanup had run. So an attach always looked like
+    ' a PAPER book to the cleanup, whatever the transcriber had chosen on the form, and a
+    ' screen book got no live links. A book being RE-attached was worse: the cleanup read
+    ' the medium the book had LAST time, so changing paper to screen took two attaches.
+    '
+    ' MOVED here, not copied - there is still exactly one place that writes it. And placed
+    ' OUTSIDE the If below, not inside it: that block is skipped for a document that is
+    ' already large print, and a RE-ATTACH is exactly when the medium is most likely to be
+    ' changing - paper to screen, or back. Inside, changing the medium of an existing book
+    ' would never be recorded at all.
+    Sh_Write_Document_Variables "Media", DM
+
     If Not Lp_Doc_Was_Already_LP Then  ' this only needs to be done on docs which are not lp
         ' The message belongs INSIDE the If. It used to be set just above it as well, so a
         ' re-attach announced "Fixing common file errors" and then skipped the macro - which is
@@ -17294,8 +17312,9 @@ DoEvents
 Sh_Progress_Say 52, "Setting page orientation"
 DoEvents
 
-         ' writes a variable name (Media) and variable value (DM) into the document xml file
-         Sh_Write_Document_Variables "Media", DM
+         ' The Media variable is written at the TOP of this macro now, before File Cleanup
+         ' runs - it is what tells the cleanup whether to make web and e-mail addresses live.
+         ' Writing it here was too late for that, and a screen book got no live links.
 
          ' The typeface the transcriber ASKED for. The Normal style is the working answer and is
          ' what everything reads, but a style can be changed afterwards - "update style to match
