@@ -17166,28 +17166,6 @@ Sub Lp_Attach_The_Template()
 
     Sh_Write_Document_Variables "Media", DM
 
-    ' CHANGING THE MEDIUM OF A BOOK THAT IS ALREADY LARGE PRINT. Jerry, 9/6/2026, having
-    ' seen the letter case work: "now we need to fix the re-attach: paper to screen and
-    ' screen to paper".
-    '
-    ' File Cleanup is skipped entirely for a book that is already large print - the If below
-    ' says so - and File Cleanup is what converts web and e-mail addresses. So a re-attach
-    ' that changed paper to screen left every address dead, and screen to paper left every
-    ' link live in a book about to be printed.
-    '
-    ' ONE MACRO COVERS BOTH DIRECTIONS, which is why this is three lines and not a branch:
-    ' Lp_Convert_Hyper_To_Addresses replaces every hyperlink with its own address as plain
-    ' text, and only then makes them live again if the book is now for a screen. Going to
-    ' paper it stops after the first half; going to screen it does both.
-    '
-    ' ONLY WHEN THE MEDIUM ACTUALLY CHANGED. Re-attaching to change the font size or the
-    ' margins should not walk a whole book rewriting links that are already right, and on a
-    ' paper book it would strip any link the transcriber had put in deliberately since.
-    If Lp_Doc_Was_Already_LP And LCase$(Trim$(oldMedia)) <> LCase$(Trim$(DM)) Then
-        Sh_Progress_Say 4, "Changing web and e-mail addresses to suit " & LCase$(DM)
-        Application.Run MacroName:="Lp_Convert_Hyper_To_Addresses"
-    End If
-
     If Not Lp_Doc_Was_Already_LP Then  ' this only needs to be done on docs which are not lp
         ' The message belongs INSIDE the If. It used to be set just above it as well, so a
         ' re-attach announced "Fixing common file errors" and then skipped the macro - which is
@@ -17426,6 +17404,43 @@ DoEvents
     Sh_Progress_Span 74, 90
     Application.Run MacroName:="Lp_Normalize_Styles"
     Sh_Progress_Span 0, 100
+
+    ' MOVED HERE FROM THE TOP OF THE ATTACH, 9/6/2026, after Jerry reported: "i re-attached the
+    ' LP template for screen and word crashed in the normalize styles routine".
+    '
+    ' Going to SCREEN this makes live hyperlinks, which are FIELDS, all through the document.
+    ' Run before Lp_Normalize_Styles, that left it walking a document full of newly created
+    ' fields with the screen frozen - and Normalize Styles had never met that state before,
+    ' because a re-attach did no address conversion at all until 3.0.394.
+    '
+    ' A THEORY, NOT A MEASUREMENT. Word closing outright cannot be reproduced headlessly - the
+    ' register says so twice - so what is recorded here is what changed and what was eliminated:
+    ' the same attach to PAPER completed, and that runs Normalize Styles with the same progress
+    ' bar code, so the bar is not the cause.
+    '
+    ' Running it here is the better order anyway: the addresses are converted once the book is
+    ' in its final state, not before the template that decides that state has been attached.
+    ' CHANGING THE MEDIUM OF A BOOK THAT IS ALREADY LARGE PRINT. Jerry, 9/6/2026, having
+    ' seen the letter case work: "now we need to fix the re-attach: paper to screen and
+    ' screen to paper".
+    '
+    ' File Cleanup is skipped entirely for a book that is already large print - the If below
+    ' says so - and File Cleanup is what converts web and e-mail addresses. So a re-attach
+    ' that changed paper to screen left every address dead, and screen to paper left every
+    ' link live in a book about to be printed.
+    '
+    ' ONE MACRO COVERS BOTH DIRECTIONS, which is why this is three lines and not a branch:
+    ' Lp_Convert_Hyper_To_Addresses replaces every hyperlink with its own address as plain
+    ' text, and only then makes them live again if the book is now for a screen. Going to
+    ' paper it stops after the first half; going to screen it does both.
+    '
+    ' ONLY WHEN THE MEDIUM ACTUALLY CHANGED. Re-attaching to change the font size or the
+    ' margins should not walk a whole book rewriting links that are already right, and on a
+    ' paper book it would strip any link the transcriber had put in deliberately since.
+    If Lp_Doc_Was_Already_LP And LCase$(Trim$(oldMedia)) <> LCase$(Trim$(DM)) Then
+        Sh_Progress_Say 90, "Changing web and e-mail addresses to suit " & LCase$(DM)
+        Application.Run MacroName:="Lp_Convert_Hyper_To_Addresses"
+    End If
     
 Sh_Progress_Say 91, "Setting tabs for TOCs and reference page numbers."
 DoEvents
