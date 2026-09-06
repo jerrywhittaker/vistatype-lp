@@ -564,6 +564,11 @@ value overriding her choice and repeats the original mistake.
    braille file was clicked into, before any setting was written, and only that one line changed.
 8. **The privacy notice does not come back.** Several new documents in a row on a machine where
    Office is unlicensed or disconnected — that is where the 7/18/2026 notice appeared.
+   **PASSED 9/6/2026 on 3.0.373**, run by Jerry on the build box, whose Office is both unlicensed
+   and disconnected — the condition the notice appeared under. The banner did not appear. What this
+   confirms is the `If .X <> value Then .X = value` guards: writing every option on every new
+   document was the churn behind the notice, and only a changed value is written now. Keep those
+   guards.
 9. **The library.** Save a configuration, change several settings, load it back. Then load it while a
    braille file is active and confirm braille's typing behavior is untouched until an ordinary
    document is activated. Then delete it.
