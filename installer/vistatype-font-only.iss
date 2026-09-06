@@ -36,7 +36,7 @@
 ; ============================================================================================
 
 #define FontFamily   "VistaTypeLP Sans"
-#define FontVer      "1.0"
+#define FontVer      "1.1"
 #define OutputBase   "VistaTypeLP-Sans-Font-Setup-" + FontVer
 
 ; Where the four .ttf files and the three OFL texts are staged. `make installer` puts them in

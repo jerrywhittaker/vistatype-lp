@@ -21788,6 +21788,12 @@ Sub MS_Set_Word_Config_For_New_Install()
     '                                 True and a clean install has it False; CorrectKeyboardSetting is no longer
     '                                 written at all. The other 32 already agreed. Note the deliberate asymmetry
     '                                 that is NOT a bug: ApplyHeadings is False as you type and True on demand.
+    '                                 STALE, and left in place because it is what 2.4 DID - corrected 9/6/2026:
+    '                                 this sub writes neither of those any more. Version 2.6 removed the fixed
+    '                                 writes on 8/20/2026 under Jerry's rule that the ordinary configuration
+    '                                 decides nothing, and grep now finds ApplyHeadings nowhere in this sub but
+    '                                 in this very sentence. Both AutoFormat tabs are the transcriber's own,
+    '                                 seeded once by Sh_Seed_Default_Settings and never re-imposed.
     ' Version: 2.3  Date: 8/18/2026 - stopped DELETING the 18 compact fraction AutoCorrect entries and ADDS
     '                                 them instead, through the shared list sub - the same
     '                                 eighteen the braille configuration uses (Jerry, 8/18/2026). Fifteen of

@@ -45,7 +45,7 @@ DOTM      := LPandBRL.dotm
 DOTX      := LargePrintTemplate.dotx
 RIBBON    := Word.officeUI
 PROJNAME  := LPandBRL
-APPVER    := 3.0.374
+APPVER    := 3.0.375
 SETUP_EXE := VistaType LP and Braille Macros Setup $(APPVER).exe
 VERDATE   := $(shell date +%-m/%-d/%Y)
 
@@ -270,7 +270,7 @@ try-build: check-config build
 #
 # Neither needs `make build`: no add-in is involved. The four faces and three licenses come
 # straight from assets/, which is the source of truth for them.
-FONT_SETUP := VistaTypeLP-Sans-Font-Setup-1.0
+FONT_SETUP := VistaTypeLP-Sans-Font-Setup-1.1
 FONT_ZIP   := VistaTypeLP-Sans-Fonts.zip
 FONT_DESK  := VistaTypeLP Sans Font
 
