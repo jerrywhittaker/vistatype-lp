@@ -25717,7 +25717,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
 ' Version: 1.0  Date: 3/3/2026
 '
     Sh_Is_Doc_Open
-    Sh_Convert_Progress_Form.Hide
+    Sh_Progress_Hide
     Sh_Spin_DoEvents
 
     If MsgBox( _
@@ -25785,8 +25785,8 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     ' It has to be up from the first stage. An earlier rewrite of Step 6 removed the opening
     ' Show along with the temp-document code it was sitting in, so the box did not appear until
     ' the repaginate stage and the user watched a still screen until then (8/3/2026).
-    Sh_Convert_Progress_Form.Show vbModeless
-    Sh_Convert_Progress_Form.SetProgress 1, "Reading the " & Sh_GP_String_1 & " file."
+    Sh_Progress_Open "Converting the book"
+    Sh_Progress_Say 1, "Reading the " & Sh_GP_String_1 & " file."
     DoEvents
 
     ' --- Step 5: Read XML using UTF-8 Stream
@@ -25821,7 +25821,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     ' including [0-9A-z], which is an ASCII RANGE from "0" to "z" - it admits the punctuation
     ' between them, and always has.
 
-    Sh_Convert_Progress_Form.SetProgress 2, "Tagging reference pages with '$pg'"
+    Sh_Progress_Say 2, "Tagging reference pages with '$pg'"
     Sh_Spin_DoEvents
 
     ' everything before <dtbook is the XML prolog and is dropped, as before
@@ -25841,13 +25841,13 @@ Sub Sh_Convert_XML_File_To_Word_Document()
         fileContent = reTag.Replace(fileContent, "<p>$pg$1<p></p>")
     End If
     
-    Sh_Convert_Progress_Form.Show vbModeless
+    Sh_Progress_Show
 
     ' Start it turning. Showing the form does not: without this the spinner flag stays False
     ' and every Advance and SpinTick exits at once, so it has never moved during a conversion
     ' (Jerry, 8/3/2026). The DoEvents through the rest of this macro are Sh_Spin_DoEvents for
     ' the same reason - the OnTime tick alone fires once a second at best.
-    Sh_Convert_Progress_Form.SetProgress 3, "Creating .txt file with .xml code and creating .html file"
+    Sh_Progress_Say 3, "Creating .txt file with .xml code and creating .html file"
     Sh_Spin_DoEvents
     Sh_PauseSeconds 0.3   'brief tick so the status form paints
 
@@ -25905,8 +25905,8 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     Dim currentdoc As Document
     Set currentdoc = ActiveDocument 'will work with blank, unsaved documents too
 
-    Sh_Convert_Progress_Form.Show vbModeless
-    Sh_Convert_Progress_Form.SetProgress 4, "Importing the book into Word. The bar cannot move during this step."
+    Sh_Progress_Show
+    Sh_Progress_Say 4, "Importing the book into Word - one long step, so the bar waits and the spinner turns."
     Sh_Spin_DoEvents
     Sh_PauseSeconds 0.3   'brief tick so the status form paints
 
@@ -25960,9 +25960,9 @@ Sub Sh_Convert_XML_File_To_Word_Document()
 
     nShapes = finalDoc.InlineShapes.Count
     If Sh_GP_String_2 = "OMIT" Then
-        Sh_Convert_Progress_Form.SetProgress 6, "Removing " & Format(nShapes, "#,##0") & " images."
+        Sh_Progress_Say 6, "Removing " & Format(nShapes, "#,##0") & " images."
     Else
-        Sh_Convert_Progress_Form.SetProgress 6, "Embedding " & Format(nShapes, "#,##0") & _
+        Sh_Progress_Say 6, "Embedding " & Format(nShapes, "#,##0") & _
             " images. This is the longest part of the conversion."
     End If
 
@@ -25973,7 +25973,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
         For iShape = nShapes To 1 Step -1
             finalDoc.InlineShapes(iShape).Delete
             If iShape Mod 10 = 0 And nShapes > 0 Then
-                Sh_Convert_Progress_Form.SetProgress 6 + (71 * (nShapes - iShape) / nShapes), _
+                Sh_Progress_Say 6 + (71 * (nShapes - iShape) / nShapes), _
                     "Removing image " & Format(nShapes - iShape, "#,##0") & " of " & Format(nShapes, "#,##0") & "."
                 DoEvents
             End If
@@ -25988,7 +25988,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
             End If
             iShape = iShape + 1
             If iShape Mod 10 = 0 And nShapes > 0 Then
-                Sh_Convert_Progress_Form.SetProgress 6 + (71 * iShape / nShapes), _
+                Sh_Progress_Say 6 + (71 * iShape / nShapes), _
                     "Embedding image " & Format(iShape, "#,##0") & " of " & Format(nShapes, "#,##0") & "."
                 DoEvents
             End If
@@ -26041,7 +26041,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     Sh_PauseSeconds 0.3
     
     ' Make the document visible and active on screen
-    Sh_Convert_Progress_Form.Hide ' Hide the progress box so it doesn't block the document
+    Sh_Progress_Hide ' Hide the progress box so it doesn't block the document
     Application.Activate        ' Force the Word Application itself to the front of Windows
     currentdoc.Activate         ' Ensure the specific document is active
     Sh_Spin_DoEvents
@@ -26062,13 +26062,13 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     ' a save still follow it - done after the save, the file on disk would not match the file on
     ' screen, and the document would be left dirty. Color is not touched, so the red $pg tags
     ' and the red prodnotes survive it. (Jerry, 8/5/2026)
-    Sh_Convert_Progress_Form.Show vbModeless
-    Sh_Convert_Progress_Form.SetProgress 76, "Setting the document font to Tahoma 12"
+    Sh_Progress_Show
+    Sh_Progress_Say 76, "Setting the document font to Tahoma 12"
     Sh_Spin_DoEvents
     Sh_Set_Whole_Document_Font doc, "Tahoma", 12
 
-    Sh_Convert_Progress_Form.Show vbModeless
-    Sh_Convert_Progress_Form.SetProgress 78, "Repaginating the document"
+    Sh_Progress_Show
+    Sh_Progress_Say 78, "Repaginating the document"
     Sh_Spin_DoEvents
     Sh_PauseSeconds 0.3   'brief tick so the status form paints
 
@@ -26084,7 +26084,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     Application.Options.Pagination = pag_Prev
 
     ' Hide the progress form momentarily so Windows can cleanly shift focus to the Save As dialog
-    Sh_Convert_Progress_Form.Hide
+    Sh_Progress_Hide
 
     ' Force the Word Application and your specific document to the front
     Application.Activate
@@ -26112,7 +26112,7 @@ SaveTheFile:
                 "Save As Canceled (312)")
 
             If userChoice = vbNo Then
-                Unload Sh_Convert_Progress_Form
+                Sh_Progress_Close
                 Exit Sub
             Else
                 GoTo SaveTheFile
@@ -26120,8 +26120,8 @@ SaveTheFile:
         Else
             ' --- SUCCESSFUL FILE CHOICE ---
             ' 1. Show the non-modal form BEFORE saving
-            Sh_Convert_Progress_Form.Show vbModeless
-            Sh_Convert_Progress_Form.SetProgress 80, "Saving the document. On a book with many images this is the second longest step, and the bar cannot move during it."
+            Sh_Progress_Show
+            Sh_Progress_Say 80, "Saving the document - on a book with many images this is the second longest step, so the bar waits and the spinner turns."
             Sh_Spin_DoEvents
 
             ' 2. Execute the save on the SAME dialog object so the typed name is used
@@ -26132,20 +26132,20 @@ SaveTheFile:
         End If
     Else
         ' Named document: save it in place, exactly once.
-        Sh_Convert_Progress_Form.Show vbModeless
-        Sh_Convert_Progress_Form.SetProgress 80, "Saving the document. On a book with many images this is the second longest step, and the bar cannot move during it."
+        Sh_Progress_Show
+        Sh_Progress_Say 80, "Saving the document - on a book with many images this is the second longest step, so the bar waits and the spinner turns."
         Sh_Spin_DoEvents
         Sh_PauseSeconds 0.5   'brief tick so the status form paints
 
         doc.Save
     End If
 
-    Sh_Convert_Progress_Form.SetProgress 100, "Finished."
+    Sh_Progress_Say 100, "Finished."
     DoEvents
     Sh_PauseSeconds 0.4   ' let the full bar be seen before the box goes
 
     'Unload the progress form completely
-    Unload Sh_Convert_Progress_Form
+    Sh_Progress_Close
     Sh_Spin_DoEvents
     
     'Re-assert dominance for your saved document AFTER the form is entirely gone
