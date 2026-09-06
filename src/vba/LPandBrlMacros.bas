@@ -17130,7 +17130,10 @@ Sub Lp_Attach_The_Template()
     ' in wipes every Public, and there is one at the "template does not exist" bail-out below.
     If Len(Trim(Lp_Base_Font_Name)) = 0 Then Lp_Base_Font_Name = LP_FONT_TAHOMA
 
-    ' The medium the book carried before this attach, for the re-attach case below.
+    ' The medium the book carried before this attach, for the re-attach case below, and the
+    ' two locals for Jerry's end-of-document trick that goes with it.
+    Dim markRemoved As Boolean
+    Dim lastPara As Paragraph
     Dim oldMedia As String
 
     ' For the handler at the foot of this macro - see AttachFailed.
@@ -17439,7 +17442,49 @@ DoEvents
     ' paper book it would strip any link the transcriber had put in deliberately since.
     If Lp_Doc_Was_Already_LP And LCase$(Trim$(oldMedia)) <> LCase$(Trim$(DM)) Then
         Sh_Progress_Say 90, "Changing web and e-mail addresses to suit " & LCase$(DM)
+
+        ' THE EMPTY LAST PARAGRAPH COMES OFF FIRST AND GOES BACK AFTERWARDS, and this is
+        ' JERRY'S FINDING, 9/6/2026, tested by him: "if you delete the end of document mark
+        ' before converting from paper to screen and from screen to paper and after the
+        ' conversion put back the end of document mark, the conversions can go on forever
+        ' with no crash".
+        '
+        ' Without it the THIRD switch of a book's medium in one sitting closed Word outright,
+        ' inside Lp_Normalize_Styles, with nothing raised and nothing logged - and saving
+        ' between each made no difference, so it was not the undo stack.
+        '
+        ' WHY IT WORKS IS NOT KNOWN, and that is written here rather than guessed at. What is
+        ' known is that it does: Jerry ran the switch repeatedly with this in place and it no
+        ' longer crashes. It is his own long-standing Word trick, not something derived from
+        ' this code. Do not remove it because the reason is missing.
+        '
+        ' Only ever removes a LAST paragraph that is genuinely EMPTY, and only when there is
+        ' more than one paragraph, so nothing a transcriber typed can be lost and a
+        ' single-paragraph document is left alone. Word will not delete the document's final
+        ' mark anyway; what goes is the empty paragraph in front of it.
+        markRemoved = False
+        On Error Resume Next
+        If ActiveDocument.Paragraphs.count > 1 Then
+            Set lastPara = ActiveDocument.Paragraphs.Last
+            If Len(Replace(lastPara.Range.Text, vbCr, "")) = 0 Then
+                lastPara.Range.Delete
+                markRemoved = True
+            End If
+            Set lastPara = Nothing
+        End If
+        Err.Clear
+        On Error GoTo AttachFailed
+
         Application.Run MacroName:="Lp_Convert_Hyper_To_Addresses"
+
+        ' Put it back. The book ends as it began - a transcriber who had an empty paragraph
+        ' at the end of the book still has one.
+        If markRemoved Then
+            On Error Resume Next
+            ActiveDocument.Content.InsertParagraphAfter
+            Err.Clear
+            On Error GoTo AttachFailed
+        End If
     End If
     
 Sh_Progress_Say 91, "Setting tabs for TOCs and reference page numbers."
