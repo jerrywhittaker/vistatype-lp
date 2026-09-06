@@ -104,6 +104,19 @@ Public Sub Sh_PleaseWaitTick()
     End If
 End Sub
 
+Public Sub Sh_Progress_Tick()
+' The progress bar's own OnTime tick. One per spinner form, because OnTime can only name a
+' module-level macro - see Sh_Convert_Progress_Form.SpinTick for what sharing one costs.
+'
+' Gated on Sh_Progress_Up, the FLAG, and never on the form's .Visible: reading a property of
+' an unloaded UserForm instantiates it and runs its Initialize, and this form's Initialize
+' reads Application.Left, which hangs a Word with no desktop.
+'
+' Version: 1.0  Date: 9/6/2026
+    On Error Resume Next
+    If Sh_Progress_Up Then Sh_Convert_Progress_Form.SpinTick
+End Sub
+
 Public Sub Sh_Spin_DoEvents()
 ' A DoEvents that also moves the spinner on one frame. Use it in place of a bare DoEvents
 ' inside a long macro.
@@ -130,6 +143,11 @@ Public Sub Sh_Spin_DoEvents()
     On Error Resume Next
     If Sh_Please_Wait_Form.Visible Then Sh_Please_Wait_Form.Advance
     If Sh_NonModalMessageForm.Visible Then Sh_NonModalMessageForm.Advance
+    ' The progress bar, from 9/6/2026 - and asked a different way on purpose. The two above
+    ' are asked whether they are VISIBLE; this one is asked the FLAG, because reading any
+    ' property of Sh_Convert_Progress_Form when it is not loaded runs its Initialize, which
+    ' reads Application.Left and hangs a Word with no desktop. Same rule as Sh_Progress_Say.
+    If Sh_Progress_Up Then Sh_Convert_Progress_Form.Advance
     On Error GoTo 0
     DoEvents
 End Sub
@@ -753,6 +771,9 @@ Public Sub Sh_Progress_Open(ByVal boxTitle As String)
     Sh_Convert_Progress_Form.SetProgress 0, ""
     Sh_Convert_Progress_Form.Show vbModeless
     Sh_Progress_Up = True
+    ' Started AFTER the flag is raised: SpinTick queues Sh_Progress_Tick, which is gated on
+    ' that flag and would stop the spinner dead on its first tick if it were still False.
+    Sh_Convert_Progress_Form.StartSpinner
     Sh_Focus_Document Sh_Progress_Doc
     Err.Clear
     On Error GoTo 0
@@ -789,6 +810,11 @@ Public Sub Sh_Progress_Close()
     If Not Sh_Progress_Up Then Exit Sub
 
     On Error Resume Next
+    ' Stop the spinner BEFORE lowering the flag and unloading. A tick already queued with
+    ' Application.OnTime fires up to a second after this runs, and a tick reaching an
+    ' unloaded form would load it again - the box coming back after the macro finished.
+    ' Sh_Hide_Please_Wait has done it in this order since 8/3/2026.
+    Sh_Convert_Progress_Form.StopSpinner
     Sh_Progress_Up = False
     Unload Sh_Convert_Progress_Form
     Sh_Focus_Document Sh_Progress_Doc

@@ -13704,11 +13704,17 @@ Sub Lp_Replace_Multiple_Para_Marks_With_Warning()
     End If
     
     ' The box goes HERE, not in the cleanup menu around this whole macro: the caution
-    ' above asks "Do you wish to continue?", and a "Working - Please Wait" window sitting
-    ' over a question the user has not answered yet would be nonsense. Jerry, 8/3/2026.
-    Sh_Show_Please_Wait "Removing consecutive empty paragraph marks"
-    Application.Run MacroName:="Sh_Replace_Multiple_Para_Marks_No_Warning"
-    Sh_Hide_Please_Wait
+    ' above asks "Do you wish to continue?", and a progress window sitting over a question
+    ' the user has not answered yet would be nonsense. Jerry, 8/3/2026.
+    '
+    ' THE BAR, NOT THE PLEASE-WAIT SPINNER, from 9/6/2026 - Jerry's call: one progress
+    ' indicator across the add-in, a bar that fills with a line of text under it saying what
+    ' is happening. The worker has been able to draw a real bar since 8/29/2026 and this
+    ' route could not ask for it: Application.Run cannot pass a named argument, so
+    ' showProgress arrived False and the user got a spinner instead. Called DIRECTLY now,
+    ' which also means a failure inside it propagates to RibbonAction and is reported,
+    ' rather than being swallowed and leaving the box on screen.
+    Sh_Replace_Multiple_Para_Marks_No_Warning showProgress:=True
     
 End Sub    '***   end of  Lp_Replace_Multiple_Para_Marks_With_Warning macro ***
      

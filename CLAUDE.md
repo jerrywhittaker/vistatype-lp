@@ -325,6 +325,21 @@ tools/windows/  Export-Vba.ps1 / Import-Vba.ps1 / New-UserForm.ps1 — run in Wo
                  Height to PowerShell at all - they live on the component, through
                  Properties.Item, and must be handed over as STRINGS - and a control's font can only
                  be set from VBA. Added 8/23/2026 for the KeyHelp lines on the $pg validation menus
+                Move-FormControl.ps1 — moves and/or resizes controls ALREADY ON a form, headlessly,
+                 and rewrites the .frm/.frx pair. The fourth form tool, added 9/6/2026 while putting a
+                 spinner beside the progress bar: Add-FormControl could add it, and nothing could shift
+                 the four controls already there. A control's POSITION and SIZE live in the binary .frx,
+                 so they cannot be edited from Linux, and the .frm says nothing about where anything
+                 sits. Every bound is optional - pass only what changes. -Controls takes several at once
+                 as ONE comma-separated string, "Name:L,T,W,H;Name:...", with an empty slot meaning
+                 "leave that bound alone" (one string, not an array: PowerShell's -File never parses an
+                 argument as an expression - the same trap as Remove-FormControls.ps1). IT PRINTS THE
+                 OLD BOUNDS BEFORE CHANGING THEM, which is the only record of where a control used to be
+                 and the way back if the new position is wrong; and it REFUSES on a name that matches
+                 nothing, printing every control with its bounds. Shares the other tools' two traps: the
+                 form's own Width and Height live on the COMPONENT via Properties.Item and must be
+                 handed over as STRINGS, and a control's FONT can only be set from VBA - set fonts in
+                 the form's own code, as Sh_Convert_Progress_Form does for its spinner
                 Set-FormCaption.ps1 — changes the CAPTION of one control on an existing UserForm and
                  rewrites the .frm/.frx pair, headlessly. A caption set in the designer lives in the
                  BINARY .frx, so it cannot be edited from Linux — this is the technique Import-Vba.ps1
