@@ -779,6 +779,60 @@ is the reader's own Windows text size (Settings → Accessibility → Text size)
 everywhere. Where hover text needs to be readable at 10 point or more, the answer is to put the
 words in the dialog, which VistaType LP does control.
 
+### How VistaType LP shows that it is working
+
+Jerry's rule, 9/6/2026: **one progress indicator.** His words — *"the current state of progress
+indicators makes VistaType LP look schizophrenic... I like to have just a progress bar but i do
+like the text which indicates what is happening."*
+
+There were four of VistaType LP's own: two near-identical spinner boxes
+(`Sh_NonModalMessageForm`, `Sh_Please_Wait_Form`), the bar (`Sh_Convert_Progress_Form`), and a bar
+drawn out of pipe characters in Word's status line by the two Export Selection macros. **Every
+feature is on the bar now and both spinner boxes have no callers left** — they are still in the
+project, unused, because deleting a UserForm is a deliberate job where the code naming it has to
+go first.
+
+**The shape.** A fill that only ever goes forwards, a percentage, a line of text naming the step,
+and a spinner. Reached through four helpers in `ShNonModalMessage`, never by naming the form:
+
+```vba
+Sh_Progress_Open "Fixing common file errors"   ' modeless; starts the spinner
+Sh_Progress_Say 40, "Removing square bullets"  ' moves it and says what is happening
+Sh_Progress_Hide / Sh_Progress_Show            ' step aside for a modal dialog of Word's own
+Sh_Progress_Close                              ' every path out, including the error handler
+```
+
+- **Never touch `Sh_Convert_Progress_Form` directly.** Every helper is gated on the module flag
+  `Sh_Progress_Up`, never on the form's `.Visible`, because reading any property of an unloaded
+  UserForm instantiates it and runs its `Initialize` — and this form's `Initialize` reads
+  `Application.Left`, which hangs a Word driven over SSH with no desktop. That gating is also what
+  makes a `Say` with no bar open cost nothing, so a macro can carry these calls and still be run
+  from somewhere that shows no indicator.
+- **The spinner is for the steps where nothing can move.** `Repaginate`, `InsertFile` and the Save
+  As dialog are single calls into Word, and VBA is single-threaded. The fill says how far along;
+  the spinner says still alive. Before it existed the only answer was a message apologizing for a
+  frozen bar.
+- **`Sh_Progress_Span lo, hi` lends a slice to a sequence that counts its own work 0–100**, so one
+  counted job can run inside another. The attach hands 3–35 to File Cleanup and 74–90 to Normalize
+  Styles. **Give the bar back** (`Sh_Progress_Span 0, 100`) the moment the inner sequence returns,
+  or every later `Say` lands inside the slice and the bar stops part way along.
+- **Count with a step helper, one per sequence** — `Dx_Ffc_Step`, `Lp_Ffc_Step`, `Lp_Ns_Step`. The
+  total is **one more than the number of passes**, because each step announces itself *before* its
+  pass runs and a bar must never read 100% while work is still going on. Where stages differ
+  enormously in cost — the attach, the DAISY converter — hand-pick the percentages instead of
+  counting equal steps. Jerry's choice, 9/6/2026: rough stages that always advance, never a bar
+  that sits frozen looking like a hang.
+- **Close it on every path**, including the error handler, and **take a copy of `Err.Number` and
+  `Err.Description` first** — `Sh_Progress_Close` runs `Err.Clear` inside itself, so reporting
+  after it reports 0.
+- **Word's own indicator is not ours and cannot be removed.** Word draws a message and a bar in
+  the status line while it saves, and on OneDrive while it uploads. VistaType LP writes nothing to
+  `Application.StatusBar` any more. **Do not hide our bar to avoid the overlap** — that was tried
+  at 3.0.384 and reversed at 3.0.385: an export to a LOCAL disk gets no indicator from Word at
+  all, so hiding ours takes the indicator away from the only case that has nothing else, and on
+  OneDrive it turned one steady box into three events. Jerry: *"we need to see the bar if the
+  export is to a local disk."*
+
 ### How VistaType LP reports a macro that failed
 
 Added 8/26/2026, at Jerry's request. Before it, of 175 `On Error` statements in the project,
