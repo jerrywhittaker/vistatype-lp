@@ -574,6 +574,17 @@ value overriding her choice and repeats the original mistake.
    document is activated. Then delete it.
 10. **Reset.** Run Reset Word's Settings and confirm it says what it did, and that the following
     document switch still behaves.
+    **PASSED 9/6/2026 on 3.0.373**, run by Jerry on the build box, both halves.
+    Four markers were used - `CorrectSentenceCaps`, `CorrectTableCells`,
+    `AutoFormatAsYouTypeApplyBulletedLists` and `AutoFormatAsYouTypeApplyHeadings` - all ticked on
+    the starting list and all switched off by braille, so they show on both halves. **Do not use
+    the five spelling/grammar settings**: on the build box the stored values are already `0`, the
+    same as braille writes, so they read as correct whether the guard works or not.
+    Unticked by hand in an ordinary document, Reset put all four back; dialog 235 named the
+    document before acting and 236 reported what was in force afterwards, both correct. Then with
+    a braille file open alongside, the four went off and back on **twice each way** as the document
+    on screen changed - so a reset does not leave the switching broken behind it, and Word does
+    raise the window events on that machine.
 11. **The starting list, on a machine that has run VistaType before.** Untick several boxes on both
     AutoCorrect tabs, close Word, install this build, start Word. Both tabs read Jerry's list.
 12. **The starting list is written once and not again.** Straight after test 11, untick two of them,
