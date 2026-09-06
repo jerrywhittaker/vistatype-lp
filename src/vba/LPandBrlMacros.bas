@@ -17130,6 +17130,9 @@ Sub Lp_Attach_The_Template()
     ' in wipes every Public, and there is one at the "template does not exist" bail-out below.
     If Len(Trim(Lp_Base_Font_Name)) = 0 Then Lp_Base_Font_Name = LP_FONT_TAHOMA
 
+    ' The medium the book carried before this attach, for the re-attach case below.
+    Dim oldMedia As String
+
     ' For the handler at the foot of this macro - see AttachFailed.
     Dim failNumber As Long
     Dim failText As String
@@ -17154,7 +17157,36 @@ Sub Lp_Attach_The_Template()
     ' already large print, and a RE-ATTACH is exactly when the medium is most likely to be
     ' changing - paper to screen, or back. Inside, changing the medium of an existing book
     ' would never be recorded at all.
+    ' What the book was set for BEFORE this attach, read before the line below overwrites it.
+    ' Empty when the book has never been given a medium.
+    On Error Resume Next
+    oldMedia = ActiveDocument.Variables("Media")
+    Err.Clear
+    On Error GoTo AttachFailed
+
     Sh_Write_Document_Variables "Media", DM
+
+    ' CHANGING THE MEDIUM OF A BOOK THAT IS ALREADY LARGE PRINT. Jerry, 9/6/2026, having
+    ' seen the letter case work: "now we need to fix the re-attach: paper to screen and
+    ' screen to paper".
+    '
+    ' File Cleanup is skipped entirely for a book that is already large print - the If below
+    ' says so - and File Cleanup is what converts web and e-mail addresses. So a re-attach
+    ' that changed paper to screen left every address dead, and screen to paper left every
+    ' link live in a book about to be printed.
+    '
+    ' ONE MACRO COVERS BOTH DIRECTIONS, which is why this is three lines and not a branch:
+    ' Lp_Convert_Hyper_To_Addresses replaces every hyperlink with its own address as plain
+    ' text, and only then makes them live again if the book is now for a screen. Going to
+    ' paper it stops after the first half; going to screen it does both.
+    '
+    ' ONLY WHEN THE MEDIUM ACTUALLY CHANGED. Re-attaching to change the font size or the
+    ' margins should not walk a whole book rewriting links that are already right, and on a
+    ' paper book it would strip any link the transcriber had put in deliberately since.
+    If Lp_Doc_Was_Already_LP And LCase$(Trim$(oldMedia)) <> LCase$(Trim$(DM)) Then
+        Sh_Progress_Say 4, "Changing web and e-mail addresses to suit " & LCase$(DM)
+        Application.Run MacroName:="Lp_Convert_Hyper_To_Addresses"
+    End If
 
     If Not Lp_Doc_Was_Already_LP Then  ' this only needs to be done on docs which are not lp
         ' The message belongs INSIDE the If. It used to be set just above it as well, so a
@@ -22197,6 +22229,10 @@ Sub MS_Set_Word_Config_For_Large_Print()
     '
     ' Author: Jerry Whittaker -  jerry@vistatypelp.org
     '
+    ' Version: 3.2  Date: 9/6/2026 - records the medium BEFORE running File Cleanup, which is
+    '                                what tells the cleanup whether to make web and e-mail
+    '                                addresses live; and converts them on a RE-ATTACH that
+    '                                changes the medium, where the cleanup does not run at all
     ' Version: 3.1  Date: 9/6/2026 - hyperlinks follow the MEDIUM on BOTH AutoFormat tabs: off
     '                                for a book that will be printed, on for one read on a
     '                                screen. Jerry - the as-you-type tab first, the on-demand
