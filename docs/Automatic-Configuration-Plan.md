@@ -287,12 +287,17 @@ about which one does the closing. `DocumentMap` is the modern Navigation Pane an
 `DocumentMap` alone does nothing during `DocumentBeforeClose`, which is measured and recorded at
 that sub. Do not "finish" this by dropping the command-bar write.
 
-Where each configuration lands after this:
+Where each configuration lands after this. **The Ordinary column's formatting-marks cell said
+"on" until 9/6/2026 and was wrong** - `MS_Set_Word_Config_For_New_Install` has written
+`ShowAll = False` since 8/20/2026, when Jerry reversed it after testing 3.0.205: forcing pilcrows
+on meant a transcriber who works without them switched them off again on every letter she opened.
+Test 2 below had it right all along.
+
 
 | | Large Print | Braille | Ordinary |
 |---|---|---|---|
 | View type | Print | Draft | Print |
-| Formatting marks | on | — | on |
+| Formatting marks | on | — | **off** |
 | Horizontal ruler | on | on | on |
 | Vertical ruler | on | off | on |
 | Style area width | 24.5 | 64.5 | — |
