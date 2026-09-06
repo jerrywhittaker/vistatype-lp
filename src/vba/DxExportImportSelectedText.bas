@@ -171,16 +171,22 @@ Sub Dx_ExportSelectionToNewFile()
     '===========================================================
     Dx_UpdateProgressBar "Saving the new file", 80
 
-    ' OUR BAR STEPS ASIDE FOR THE SAVE. Word draws its OWN indicator while it writes the file
-    ' and, on OneDrive, while it uploads it - a message and a blue bar of its own in the
-    ' status line. An add-in cannot remove or restyle that one. Jerry, 9/6/2026, seeing both
-    ' at once on a large print export: two indicators for one job is the very thing this
-    ' work is undoing, so the one we control gets out of the way and lets Word's speak.
+    ' OUR BAR STAYS UP ACROSS THE SAVE, and this was tried the other way first.
     '
-    ' Hide, not Close: Close lowers the flag and every Say afterwards would do nothing, so
-    ' the last stages would never appear. Same reasoning as the Save As dialog in
-    ' Lp_Attach_The_Template.
-    Sh_Progress_Hide
+    ' Word draws its OWN indicator while it writes the file and, on OneDrive, while it
+    ' uploads - a message and a bar of its own in the status line, which an add-in cannot
+    ' remove or restyle. 3.0.384 hid our bar across the save so that only Word's would show.
+    ' Jerry, testing it: the bar "briefly appears, then closes, then the Windows generated
+    ' bar appears and finishes, then the blue progress bar appears again at 100% done".
+    '
+    ' An export is quick apart from the upload, so hiding turned one steady box into three
+    ' events. A box that flickers reads as something going wrong. One steady box plus Word's
+    ' own status line - which is where Word has always reported - is calmer than either two
+    ' boxes fighting or one blinking.
+    '
+    ' The attach still hides its bar for the Save As DIALOG, and that is a different case:
+    ' a modal dialog needs the focus, and a modeless form over it confuses Windows about
+    ' which window is in front.
 
     ' Force a screen refresh before the heavy network save
     DoEvents
@@ -188,7 +194,6 @@ Sub Dx_ExportSelectionToNewFile()
     destDoc.Save
     destDoc.Close SaveChanges:=True
 
-    Sh_Progress_Show
     Set destDoc = Nothing
     
     ' Cleanup bookmarks in the source document
