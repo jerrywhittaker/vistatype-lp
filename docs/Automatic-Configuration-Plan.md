@@ -378,8 +378,12 @@ Each of these has an expected answer that differs from what the add-in does toda
 1. Open a letter on a machine that has never run VistaType. Nothing about Word changes except
    that the 18 fractions appear.
 2. A letter opens with no pilcrows, no Styles pane, no navigation pane, both rulers, print view.
+   **PASSED 9/6/2026 on 3.0.373**, all five, run by Jerry on the build box.
 3. In a letter, change the Styles pane sort and "Select styles to show". Close it, open it again.
    Both are as she left them.
+   **PASSED 9/6/2026 on 3.0.373**, run by Jerry on the build box: set to *All styles* and
+   *Alphabetical*, document saved and reopened, both held. The pane itself was shut on reopening,
+   which is the stated behavior for a letter and not a fault.
 4. In an LP book, turn grammar checking on. Close the book, open it again — grammar is off, LP
    won. Open a letter — grammar is **whatever the user last set it to in a letter**, and that change
    inside the book did NOT follow the user out. **Rewritten 9/5/2026**; this test used to end "grammar
@@ -391,14 +395,29 @@ Each of these has an expected answer that differs from what the add-in does toda
    screen and changes each time** — Jerry's rule, 9/4/2026. This test used to read "nothing about
    Word's configuration changes either way", which was Piece 2 and is rejected. Capitalization and
    the fractions are the two easiest things to watch.
+   **COVERED IN SUBSTANCE 9/6/2026 on 3.0.373**, by test 10 of
+   `User-Settings-And-Word-Configuration.md` rather than by this test as written: with a braille
+   file and a letter both open, four AutoCorrect markers went off and back on **twice each way** as
+   the document on screen changed. That is the typing side, not capitalization and fractions
+   watched in the text, so if anyone wants this test in its own terms it is still worth ten
+   minutes. Nothing suggests it would answer differently.
 6. Open a braille file, then open a letter from disk. Grammar, tab-indent and the fractions are
    all back.
 7. Open a large print book made on an obsolete template. She still gets the warning and the
    attach dialog.
 8. Book and letter open, Styles pane up, close the book. The pane comes down — correct now,
    because a letter has no Styles pane.
+   **PASSED 9/6/2026 on 3.0.373**, run by Jerry on the build box. The pane came down on a real
+   close, and **cancelling at the "save your changes?" prompt left both panes exactly where they
+   were** — the 3.0.207 fault, checked in the same sitting. That is the `Application.OnTime` tick
+   in `Sh_HandleDocumentClosing` doing its job: nothing is hidden when the close is attempted, and
+   the tick cannot fire while the prompt is up.
 9. Close a book with a picture selected. No crash, and document-type detection still works
    afterwards.
+   **PASSED 9/6/2026 on 3.0.373**, run by Jerry on the build box. No crash, and a braille file
+   opened in the SAME Word session afterwards configured normally — so the event sink was still
+   being called back. That second half is the point of the test: a crash is obvious, an event sink
+   Word has quietly stopped calling is not.
 
 ## Traps
 
