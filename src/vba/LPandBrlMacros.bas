@@ -22178,8 +22178,10 @@ Sub MS_Set_Word_Config_For_Large_Print()
     '
     ' Author: Jerry Whittaker -  jerry@vistatypelp.org
     '
-    ' Version: 3.1  Date: 9/6/2026 - hyperlinks as you type follow the MEDIUM: off for a book
-    '                                that will be printed, on for one read on a screen. Jerry
+    ' Version: 3.1  Date: 9/6/2026 - hyperlinks follow the MEDIUM on BOTH AutoFormat tabs: off
+    '                                for a book that will be printed, on for one read on a
+    '                                screen. Jerry - the as-you-type tab first, the on-demand
+    '                                tab when asked whether it should match
     ' Version: 3.0  Date: 9/5/2026 - raises the book flag at the TOP now instead of the end, so a
     '                                run that raises still leaves it standing (Jerry). The flag is
     '                                all Sh_Note_Book_Settings writes; the 42 values went with the
@@ -22333,9 +22335,8 @@ Sub MS_Set_Word_Config_For_Large_Print()
         ' book from 3.0.221, which is right for paper and wrong for a screen book, where
         ' typing an address and having it come out dead is the transcriber's problem to undo.
         '
-        ' The on-demand tab (AutoFormatReplaceHyperlinks) is deliberately NOT changed with it.
-        ' Jerry named this tab, and that one only acts when someone runs the AutoFormat
-        ' command by hand - which is a decision, not a side effect of typing.
+        ' The ON-DEMAND tab follows the medium as well, from later the same day - Jerry, asked
+        ' whether it should. Both AutoFormat tabs therefore agree for a large print book.
         '
         ' Braille is on for both tabs, decided separately on 8/21/2026; the two books genuinely
         ' differ here and neither should be aligned to the other.
@@ -22397,12 +22398,20 @@ Sub MS_Set_Word_Config_For_Large_Print()
         If .AutoFormatReplaceFractions <> False Then .AutoFormatReplaceFractions = False
         If .AutoFormatPreserveStyles <> True Then .AutoFormatPreserveStyles = True
         If .AutoFormatPlainTextWordMail <> False Then .AutoFormatPlainTextWordMail = False
-        ' The on-demand half of the same pair - see the note above. Smart quotes only now:
-        ' "Internet and network paths with hyperlinks" is OFF here from 8/21/2026 (Jerry, 3.0.217),
-        ' which reverses half of what went in earlier the same day. The AS-YOU-TYPE hyperlink box
-        ' stays ON - he named this tab and only this tab, so the two halves differ on purpose.
+        ' The on-demand half of the same pair, and it FOLLOWS THE MEDIUM TOO from 9/6/2026 -
+        ' Jerry, asked directly, having first been told only the as-you-type tab was changing.
+        ' So both AutoFormat tabs now agree with each other for a large print book: off for
+        ' paper, on for a screen.
+        '
+        ' This box was OFF for every large print book from 8/21/2026 (Jerry, 3.0.217), which
+        ' reversed half of what went in earlier that same day. That history is worth keeping
+        ' because the two halves were deliberately DIFFERENT for a fortnight and are now
+        ' deliberately the same; neither state was an accident.
+        '
+        ' The comment above about the as-you-type box "staying ON" described 3.0.217 and was
+        ' already stale - it went off on that tab too at 3.0.221.
         If .AutoFormatReplaceQuotes <> True Then .AutoFormatReplaceQuotes = True
-        If .AutoFormatReplaceHyperlinks <> False Then .AutoFormatReplaceHyperlinks = False
+        If .AutoFormatReplaceHyperlinks <> wantLinks Then .AutoFormatReplaceHyperlinks = wantLinks
     End With
 
     If Not Sh_Config_Skip_Display Then   ' the transcriber's screen is theirs - see Sh_Config_Skip_Display
