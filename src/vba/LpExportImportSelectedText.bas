@@ -43,6 +43,12 @@ Sub Lp_Export_Selection_To_NewFile()
 
     On Error GoTo ErrHandler
 
+    ' The one progress indicator, from 9/6/2026. Opened here, before anything can fail, and
+    ' closed in CleanExit - which every path out of this macro goes through, including the
+    ' error handler. That is the whole point: an indicator left on screen over a Word that
+    ' will not repaint is what gets reported as a hang.
+    Sh_Progress_Open "Exporting the selection to a new file"
+
     ' 1. VALIDATION & MASTER SAVE
     Set srcDoc = ActiveDocument
     If srcDoc.ReadOnly Then MsgBox "Selections cannot be exported from this file because it is marked as Read-Only.", vbCritical, "VistaType LP (296)": Exit Sub
@@ -100,7 +106,7 @@ Sub Lp_Export_Selection_To_NewFile()
     Application.Options.BackgroundSave = False
     
     ' 4. THE EXPORT (INHERITING MASTER CHARACTERISTICS)
-    Lp_UpdateProgressBar "Inheriting Master DNA...", 30
+    Lp_UpdateProgressBar "Copying the large print template settings", 30
     
     ' Copy selection using FormattedText to preserve every single detail
     Dim rangeToCopy As Range
@@ -127,7 +133,7 @@ Sub Lp_Export_Selection_To_NewFile()
         Err.Raise 5, , "The export document could not be created from " & originalPath
     End If
 
-    Lp_UpdateProgressBar "Customizing Export...", 60
+    Lp_UpdateProgressBar "Setting up the new document", 60
     ' Wipe the body content of the clone (Headers/Styles remain)
     destDoc.Content.Delete
     
@@ -148,12 +154,12 @@ Sub Lp_Export_Selection_To_NewFile()
     Set destDoc = Nothing
     
     ' 5. RESTORE UI & FOCUS
-    Lp_UpdateProgressBar "Finalizing Master...", 90
+    Lp_UpdateProgressBar "Saving the new document", 90
     srcDoc.Activate
     srcDoc.Range(selStart, selEnd).Select
     
     Application.ScreenUpdating = True
-    Lp_UpdateProgressBar "Complete!", 100
+    Lp_UpdateProgressBar "Finished", 100
     DoEvents
     
     ' 6. FINAL CHOICE (STILL IN MASTER)
@@ -213,7 +219,8 @@ CleanExit:
 
     Application.ScreenUpdating = True
     ' "" and not False: in Word StatusBar is a String, so False showed the word "False".
-    Application.StatusBar = ""
+    ' The bar comes down here, on every path out of this macro.
+    Sh_Progress_Close
     Exit Sub
 
 ErrHandler:
@@ -254,51 +261,36 @@ Private Function Lp_Force_Docx_Extension(ByVal filePath As String) As String
     Lp_Force_Docx_Extension = filePath & ".docx"
 End Function '*** end of Lp_Force_Docx_Extension ***
 
-'=== PROGRESS BAR HELPER ===
-' This must exist in the same module for the main macro to find it!
+Private Sub Lp_UpdateProgressBar(ByVal msg As String, ByVal pct As Long)
 '
+' Version 2.0 Date: 9/6/2026 - THE BAR. Jerry, 9/6/2026: one progress indicator across the
+'                              add-in. This drew a bar out of pipe characters in Word's status
+'                              line - "[||||||||    ] 40%" - AND put a copy of it inside
+'                              Sh_NonModalMessageForm, so an export showed the transcriber two
+'                              indicators at once, in two places, in two shapes. Neither is
+'                              drawn now; Sh_Progress_Say moves the one bar.
 ' Version 1.1 Date: 2/13/2026
 '
-Private Sub Lp_UpdateProgressBar(msg As String, pct As Long)
-    Dim bars As String: Dim barCount As Integer
+' THE "CLOSE EVERY FORM" LOOP IS GONE, and it is worth saying why rather than just removing it.
+' At 100% this ran "For Each frm In VBA.UserForms: Unload frm", which closes every loaded
+' UserForm in the project and not merely this macro's own. Under the old two-indicator scheme it
+' was how the non-modal box got shut. It would now take the progress bar down mid-run - and
+' anything else that happened to be loaded. The bar is opened and closed by the export macro
+' itself, on every path including its error handler, which is where that responsibility belongs.
+'
+' The brief pause stays. It is what makes a jump from 30% to 60% readable rather than a flicker.
+
     Dim endTime As Double
-    Dim frm As Object ' Needed for the generic close loop
-    
-    ' 1. Construct the visual bar
-    barCount = Int(pct / 5)
-    bars = String(barCount, "|") & String(20 - barCount, " ")
-    
-    ' 2. Update the UI
-    Application.StatusBar = "[" & bars & "] " & pct & "% - " & msg
-    Call Sh_ShowNonModalMessage("VistaType LP is Working", _
-         msg & " (" & pct & "%)" & vbCrLf & "Progress: [" & bars & "]")
-    
-    ' 3. Force the pause so the user sees the update
+
+    Sh_Progress_Say pct, msg
+
     DoEvents
     endTime = Timer + 0.3
     Do While Timer < endTime
         DoEvents
     Loop
-    
-    ' 4. EXIT LOGIC: Clean up when we reach 100%
-    If pct >= 100 Then
-        ' Brief pause so they see the 100% mark
-        endTime = Timer + 0.8
-        Do While Timer < endTime: DoEvents: Loop
-        
-        ' --- THE GENERIC CLOSE LOOP ---
-        ' This closes ANY nonmodal message window currently on screen
-        On Error Resume Next
-        For Each frm In VBA.UserForms
-            Unload frm
-        Next frm
-        On Error GoTo 0
-        
-        ' Clear the Status Bar
-        Application.StatusBar = ""
-    End If
 
-End Sub '*** end of Lp_UpdateProgressBar macro ***
+End Sub '*** end of Lp_UpdateProgressBar ***
 
 '=====================================================================
 

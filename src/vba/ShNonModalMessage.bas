@@ -162,7 +162,13 @@ Public Sub Sh_Spin_DoEvents()
     ' run. The form and Sh_Show_Please_Wait / Sh_Hide_Please_Wait / Sh_PleaseWaitTick are
     ' left in place, unused, until the last spinner box goes - taking them out is a deletion
     ' to make on purpose, not a side effect of this change.
-    If Sh_NonModalMessageForm.Visible Then Sh_NonModalMessageForm.Advance
+    ' Sh_NonModalMessageForm is not asked either, from 9/6/2026 - the two Export Selection
+    ' macros were its last users and they are on the bar now. Same reason as the please-wait
+    ' form above: reading .Visible on an unloaded form LOADS it and runs its Initialize.
+    ' NEITHER FORM IS DELETED YET. Sh_Report_Error still takes both down, which costs
+    ' nothing and is the right kind of net; and deleting a UserForm is a deliberate job -
+    ' the code that names it has to go FIRST, or it reaches the transcriber as run-time
+    ' error 424 when a dialog opens.
     ' The progress bar, from 9/6/2026 - and asked a different way on purpose. The two above
     ' are asked whether they are VISIBLE; this one is asked the FLAG, because reading any
     ' property of Sh_Convert_Progress_Form when it is not loaded runs its Initialize, which

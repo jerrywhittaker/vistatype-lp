@@ -32,6 +32,12 @@ Sub Dx_ExportSelectionToNewFile()
     '
     On Error GoTo ErrHandler
 
+    ' The one progress indicator, from 9/6/2026. Opened here, before anything can fail, and
+    ' closed in CleanExit - which every path out of this macro goes through, including the
+    ' error handler. That is the whole point: an indicator left on screen over a Word that
+    ' will not repaint is what gets reported as a hang.
+    Sh_Progress_Open "Exporting the selection to a new file"
+
     Dim srcDoc As Document, destDoc As Document
     Dim rngSel As Range
     Dim undoRec As UndoRecord
@@ -78,7 +84,7 @@ Sub Dx_ExportSelectionToNewFile()
     srcDoc.Bookmarks.Add Name:="DxExportStart", Range:=srcDoc.Range(rngSel.start, rngSel.start)
     srcDoc.Bookmarks.Add Name:="DxExportEnd", Range:=srcDoc.Range(rngSel.End, rngSel.End)
     
-    Dx_UpdateProgressBar "Syncing source file...", 10
+    Dx_UpdateProgressBar "Reading the selection", 10
     srcDoc.Save ' CRITICAL: Ensures the new bookmarks are in the file used as the template
 
     '===========================================================
@@ -118,7 +124,7 @@ Sub Dx_ExportSelectionToNewFile()
     '===========================================================
     ' 4. CLONE THE FILE (OneDrive Safe Method)
     '===========================================================
-    Dx_UpdateProgressBar "Cloning document...", 30
+    Dx_UpdateProgressBar "Making the new document", 30
     
     ' FSO fails on OneDrive URLs (https://...).
     ' Instead, we create a NEW document using the current file as its Template.
@@ -126,13 +132,13 @@ Sub Dx_ExportSelectionToNewFile()
     Set destDoc = Documents.Add(Template:=srcDoc.fullName, Visible:=False)
     
     ' Save the new clone immediately to the target path
-    Dx_UpdateProgressBar "Establishing target file...", 40
+    Dx_UpdateProgressBar "Naming the new file", 40
     destDoc.SaveAs2 fileName:=exportPath, FileFormat:=wdFormatXMLDocument, AddToRecentFiles:=True
 
     '===========================================================
     ' 5. FIXED BOOKMARK-BASED DELETION
     '===========================================================
-    Dx_UpdateProgressBar "Isolating selection...", 50
+    Dx_UpdateProgressBar "Copying the selection into it", 50
     
     If destDoc.Bookmarks.Exists("DxExportEnd") And destDoc.Bookmarks.Exists("DxExportStart") Then
         
@@ -163,7 +169,7 @@ Sub Dx_ExportSelectionToNewFile()
     '===========================================================
     ' 6. SAVE AND CLOSE
     '===========================================================
-    Dx_UpdateProgressBar "Uploading to OneDrive (Please Wait)...", 80
+    Dx_UpdateProgressBar "Saving - this can take a while on OneDrive", 80
     
     ' Force a screen refresh before the heavy network save
     DoEvents
@@ -176,12 +182,14 @@ Sub Dx_ExportSelectionToNewFile()
     If srcDoc.Bookmarks.Exists("DxExportStart") Then srcDoc.Bookmarks("DxExportStart").Delete
     If srcDoc.Bookmarks.Exists("DxExportEnd") Then srcDoc.Bookmarks("DxExportEnd").Delete
     
-    Dx_UpdateProgressBar "Finalizing...", 100
+    Dx_UpdateProgressBar "Finished", 100
     
     '===========================================================
     ' 7. RETURN & UNDOABLE DELETE
     '===========================================================
-    Application.StatusBar = "Ready"
+    ' Word's status line is left alone now - the bar is the one indicator, and writing
+    ' "Ready" into a line VistaType LP no longer uses would be the last trace of the old
+    ' pipe-character bar sitting there after everything else had gone.
     srcDoc.Activate
     Application.ScreenUpdating = True
     
@@ -214,7 +222,8 @@ CleanExit:
     If bgSaveCaptured Then Application.Options.BackgroundSave = originalBackgroundSave
 
     Application.ScreenUpdating = True
-    Application.StatusBar = ""
+    ' The bar comes down here, on every path out of this macro.
+    Sh_Progress_Close
     
     ' Close destDoc if it was left open during an error
     If Not destDoc Is Nothing Then destDoc.Close SaveChanges:=False
@@ -257,46 +266,36 @@ Private Function Dx_Force_Docx_Extension(ByVal filePath As String) As String
     Dx_Force_Docx_Extension = filePath & ".docx"
 End Function '*** end of Dx_Force_Docx_Extension ***
 
-'=== PROGRESS BAR HELPER ===
-Private Sub Dx_UpdateProgressBar(msg As String, pct As Long)
-    Dim bars As String: Dim barCount As Integer
+Private Sub Dx_UpdateProgressBar(ByVal msg As String, ByVal pct As Long)
+'
+' Version 2.0 Date: 9/6/2026 - THE BAR. Jerry, 9/6/2026: one progress indicator across the
+'                              add-in. This drew a bar out of pipe characters in Word's status
+'                              line - "[||||||||    ] 40%" - AND put a copy of it inside
+'                              Sh_NonModalMessageForm, so an export showed the transcriber two
+'                              indicators at once, in two places, in two shapes. Neither is
+'                              drawn now; Sh_Progress_Say moves the one bar.
+' Version 1.1 Date: 2/13/2026
+'
+' THE "CLOSE EVERY FORM" LOOP IS GONE, and it is worth saying why rather than just removing it.
+' At 100% this ran "For Each frm In VBA.UserForms: Unload frm", which closes every loaded
+' UserForm in the project and not merely this macro's own. Under the old two-indicator scheme it
+' was how the non-modal box got shut. It would now take the progress bar down mid-run - and
+' anything else that happened to be loaded. The bar is opened and closed by the export macro
+' itself, on every path including its error handler, which is where that responsibility belongs.
+'
+' The brief pause stays. It is what makes a jump from 30% to 60% readable rather than a flicker.
+
     Dim endTime As Double
-    Dim frm As Object ' Needed for the generic close loop
-    
-    ' 1. Construct the visual bar
-    barCount = Int(pct / 5)
-    bars = String(barCount, "|") & String(20 - barCount, " ")
-    
-    ' 2. Update the UI
-    Application.StatusBar = "[" & bars & "] " & pct & "% - " & msg
-    Call Sh_ShowNonModalMessage("Braille Macros are Working", _
-         msg & " (" & pct & "%)" & vbCrLf & "Progress: [" & bars & "]")
-    
-    ' 3. Force the pause so the user sees the update
+
+    Sh_Progress_Say pct, msg
+
     DoEvents
     endTime = Timer + 0.3
     Do While Timer < endTime
         DoEvents
     Loop
-    
-    ' 4. EXIT LOGIC: Clean up when we reach 100%
-    If pct >= 100 Then
-        ' Brief pause so they see the 100% mark
-        endTime = Timer + 0.8
-        Do While Timer < endTime: DoEvents: Loop
-        
-        ' --- THE GENERIC CLOSE LOOP ---
-        ' This closes ANY nonmodal message window currently on screen
-        On Error Resume Next
-        For Each frm In VBA.UserForms
-            Unload frm
-        Next frm
-        On Error GoTo 0
-        
-        ' Clear the Status Bar
-        Application.StatusBar = ""
-    End If
-End Sub ' end of Dx_UpdateProgressBar macro ***
+
+End Sub '*** end of Dx_UpdateProgressBar ***
 
 '**************************************************************************************
 
