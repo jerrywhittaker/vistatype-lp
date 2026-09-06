@@ -218,7 +218,19 @@ Sub Dx_ExportSelectionToNewFile()
     ' pipe-character bar sitting there after everything else had gone.
     srcDoc.Activate
     Application.ScreenUpdating = True
-    
+
+    ' THE BAR COMES DOWN HERE, BEFORE THE QUESTION - Jerry, 9/6/2026: "in braille the
+    ' progress bar should be removed befor the (259) message appears". It reached 258 and
+    ' 259 with the bar still sitting behind them, because it was closed in CleanExit further
+    ' down. The export is FINISHED by this point; what follows is a question about the
+    ' parent document, not part of the job the bar was reporting.
+    '
+    ' Closed before 258 and not merely before 259, because 258 is the first of the two and
+    ' the same reasoning covers both. Sh_Progress_Close stays in CleanExit as well - it is
+    ' safe to call twice, and CleanExit is also reached by paths that never got this far.
+    Sh_Progress_Say 100, "Finished"
+    Sh_Progress_Close
+
     userChoice = MsgBox( _
         "Successful Export." & vbCrLf & vbCrLf & _
         "You are still in the parent document." & vbCrLf & vbCrLf & _

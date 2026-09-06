@@ -187,6 +187,13 @@ Sub Lp_Export_Selection_To_NewFile()
     Application.ScreenUpdating = True
     Lp_UpdateProgressBar "Finished", 100
     DoEvents
+
+    ' THE BAR COMES DOWN BEFORE THE QUESTION BELOW, the same as the braille half (Jerry,
+    ' 9/6/2026). The export is finished by this point; 227 asks about the PARENT document,
+    ' which is not part of the job the bar was reporting, and a bar sitting behind a question
+    ' reads as though something is still running. Sh_Progress_Close stays in CleanExit too -
+    ' it is safe to call twice, and CleanExit is reached by paths that never got this far.
+    Sh_Progress_Close
     
     ' 6. FINAL CHOICE (STILL IN MASTER)
     userChoice = MsgBox("Export Successful." & vbCrLf & vbCrLf & _
