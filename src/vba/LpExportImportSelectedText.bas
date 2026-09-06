@@ -148,9 +148,22 @@ Sub Lp_Export_Selection_To_NewFile()
         .Text = "^b": .Replacement.Text = "^p": .Execute Replace:=wdReplaceAll
     End With
     
+    ' OUR BAR STEPS ASIDE FOR THE SAVE. Word draws its OWN indicator while it writes the file
+    ' and, on OneDrive, while it uploads it - a message and a blue bar of its own in the
+    ' status line. An add-in cannot remove or restyle that one. Jerry, 9/6/2026, seeing both
+    ' at once on a large print export: two indicators for one job is the very thing this
+    ' work is undoing, so the one we control gets out of the way and lets Word's speak.
+    '
+    ' Hide, not Close: Close lowers the flag and every Say afterwards would do nothing, so
+    ' the last stages would never appear. Same reasoning as the Save As dialog in
+    ' Lp_Attach_The_Template.
+    Sh_Progress_Hide
+
     ' Save and close the background doc
     destDoc.SaveAs2 fileName:=exportPath, FileFormat:=wdFormatXMLDocument
     destDoc.Close SaveChanges:=wdDoNotSaveChanges
+
+    Sh_Progress_Show
     Set destDoc = Nothing
     
     ' 5. RESTORE UI & FOCUS
@@ -221,6 +234,14 @@ CleanExit:
     ' "" and not False: in Word StatusBar is a String, so False showed the word "False".
     ' The bar comes down here, on every path out of this macro.
     Sh_Progress_Close
+
+    ' AND Word's status line is cleared, still. Removing this on 9/6/2026 was a mistake:
+    ' Application.StatusBar is STICKY - whatever is written there stays until something
+    ' overwrites it or Word restarts. VistaType LP no longer writes it, but this macro
+    ' ran for months in builds that did, and clearing it costs one statement and protects
+    ' against anything else that leaves text there. "" and not False: in Word StatusBar
+    ' is a String, so False showed the word "False".
+    Application.StatusBar = ""
     Exit Sub
 
 ErrHandler:
