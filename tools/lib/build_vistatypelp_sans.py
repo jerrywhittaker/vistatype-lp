@@ -29,6 +29,7 @@ try:
     from fontTools.ttLib import TTFont
     from fontTools.varLib import instancer
     from fontTools.pens.boundsPen import BoundsPen
+    from fontTools.ttLib.tables.O_S_2f_2 import OS2_UNICODE_RANGES
 except ImportError:
     sys.exit("fontTools is required:  pip install fonttools")
 
@@ -106,13 +107,13 @@ def fetch(which: str, offline_dir: str | None, workdir: str) -> str:
         local = os.path.join(offline_dir, name)
         if not os.path.exists(local):
             raise SystemExit(f"FAIL: --offline given but {local} is not there")
-        log(f"[1/7] using local source {local}")
+        log(f"[1/8] using local source {local}")
         return local
     dst = os.path.join(workdir, name)
     if os.path.exists(dst):
-        log(f"[1/7] reusing {name}")
+        log(f"[1/8] reusing {name}")
         return dst
-    log(f"[1/7] fetching {which} source")
+    log(f"[1/8] fetching {which} source")
     urllib.request.urlretrieve(SOURCES[which], dst)
     log(f"      {os.path.getsize(dst)//1024} KB")
     return dst
@@ -139,7 +140,7 @@ def slash_zero(font: TTFont) -> None:
         if 0x30 in t.cmap:
             t.cmap[0x30] = alt
             n += 1
-    log(f"[2/7] slashed zero: U+0030 -> {alt} in {n} cmap subtable(s)")
+    log(f"[2/8] slashed zero: U+0030 -> {alt} in {n} cmap subtable(s)")
 
 
 def ink_bounds(font: TTFont) -> tuple[int, int]:
@@ -186,11 +187,104 @@ def retune_metrics(font: TTFont) -> None:
 
     typo_em = (asc - desc) / upm
     win_em = (os2.usWinAscent + os2.usWinDescent) / upm
-    log(f"[6/7] vertical metrics: {before:.4f} em -> typo {typo_em:.4f} em / win {win_em:.4f} em"
+    log(f"[6/8] vertical metrics: {before:.4f} em -> typo {typo_em:.4f} em / win {win_em:.4f} em"
         f"  (Tahoma {TARGET_LINE_EM:.4f})")
     if hi > asc:
         log(f"      note: tallest ink {hi} exceeds ascender {asc} by {hi-asc} units "
             f"({(hi-asc)/upm:.3f} em) — same as Tahoma, accents sit slightly proud")
+
+
+# The OS/2 unicode-range flags say which Unicode blocks the font claims. WORD BUILDS THE
+# "Subset" LIST IN Insert > Symbol FROM THESE FLAGS, not from the character map, so a block
+# whose flag is clear cannot be BROWSED even though every character in it is present and
+# reachable by typing its code point. Measured 8/24/2026: 16 flags were clear and 2,807 of
+# 6,450 characters - 43.5% - could not be reached through that list.
+#
+# WHY NOT JUST recalcUnicodeRanges AND BE DONE, which is what the documentation used to
+# suggest: it sets a flag for ANY character in a block, however few, and that makes the font
+# claim scripts it cannot actually set. Measured 9/6/2026 on the shipping Regular:
+#
+#     Georgian                     1 character  of 96
+#     Control Pictures             2            of 64
+#     CJK Symbols And Punctuation  2            of 64
+#     Halfwidth And Fullwidth      2            of 240
+#     Arabic                      62            of 256
+#
+# The first four are a token presence. Arabic is the dangerous one: 62 characters is enough
+# to look like coverage, and Arabic is a JOINING script - the font has no 'arab' entry in
+# GSUB or GPOS at all (its script tags are DFLT, cyrl, dev2, deva, grek, latn), so Windows
+# would be told this face sets Arabic and it would come out as unjoined isolated forms.
+# Devanagari IS claimed, and that is not an inconsistency: the block is complete, 128 of 128,
+# and the shaping tables are there.
+#
+# So the flags are set from the character map and then the refused ones are cleared, and a
+# block that is neither claimed nor refused STOPS THE BUILD. That is deliberate. Changing a
+# donor changes what is in the font, and the failure this whole typeface exists to prevent is
+# a character silently coming from somewhere else - the same reasoning as REQUIRED above.
+# A new block is a decision for a person, not something to wave through.
+
+# Blocks the font covers well enough to claim. The count is what was measured on 9/6/2026;
+# it is a note to the next reader, not a test.
+CLAIMED = {
+    37: "Arrows (330)",
+    38: "Mathematical Operators (688)",
+    39: "Miscellaneous Technical (214)",
+    42: "Enclosed Alphanumerics (160)",
+    43: "Box Drawing (10)",
+    44: "Block Elements (8)",
+    46: "Miscellaneous Symbols (161)",
+    47: "Dingbats (43)",
+    57: "Non-Plane 0 - the math alphanumerics live above U+FFFF",
+    89: "Mathematical Alphanumeric Symbols (996)",
+    15: "Devanagari (128 of 128, and deva/dev2 shaping is present)",
+}
+
+# Blocks present in the character map that must NOT be claimed, and why.
+REFUSED = {
+    13: "Arabic: 62 of 256 and NO 'arab' shaping - it would render unjoined",
+    26: "Georgian: 1 character",
+    40: "Control Pictures: 2 characters",
+    48: "CJK Symbols And Punctuation: 2 characters",
+    68: "Halfwidth And Fullwidth Forms: 2 characters",
+}
+
+
+WORDS = ("ulUnicodeRange1", "ulUnicodeRange2", "ulUnicodeRange3", "ulUnicodeRange4")
+
+
+def _range_bits(os2) -> set[int]:
+    return {i * 32 + b
+            for i, w in enumerate(WORDS)
+            for b in range(32) if getattr(os2, w) & (1 << b)}
+
+
+def set_unicode_ranges(font: TTFont) -> None:
+    """Claim the blocks the font really covers, so Word's Subset list can browse them."""
+    os2 = font["OS/2"]
+
+    # Only the blocks the MERGES added are ours to decide. Whatever the donor already claimed
+    # is Noto's own call about its own coverage, and nothing here has taken characters away.
+    before = _range_bits(os2)
+    os2.recalcUnicodeRanges(font, pruneOnly=False)
+    added = _range_bits(os2) - before
+
+    unknown = sorted(added - set(CLAIMED) - set(REFUSED))
+    if unknown:
+        names = "; ".join(f"bit {b} "
+                          + ", ".join(n for n, _ in OS2_UNICODE_RANGES[b])
+                          for b in unknown)
+        raise SystemExit(
+            f"FAIL: the character map reaches {len(unknown)} Unicode block(s) that this "
+            f"script neither claims nor refuses -> {names}. Count the characters in each "
+            f"and add it to CLAIMED or REFUSED with the reason. See the note above CLAIMED.")
+
+    for bit in REFUSED:
+        i, b = divmod(bit, 32)
+        setattr(os2, WORDS[i], getattr(os2, WORDS[i]) & ~(1 << b))
+
+    kept = sorted(added & set(CLAIMED))
+    log(f"[7/8] unicode ranges: claimed {len(kept)} newly browsable block(s), "
+        f"refused {len(set(REFUSED) & added)} the font only touches")
 
 
 def rename(font: TTFont, subfamily: str) -> None:
@@ -232,6 +326,11 @@ def verify(path: str, subfamily: str, italic: bool = False) -> bool:
         ("win metrics cover ink",        os2.usWinAscent >= max(ink_bounds(f)[0], 0)),
         ("italic bits agree",            bool(os2.fsSelection & 0x01) == italic
                                          and bool(f["head"].macStyle & 2) == italic),
+        # Word builds Insert > Symbol's Subset list from these flags, not from the character
+        # map, so a cleared one hides a whole block from browsing. 43.5% of the font was
+        # unreachable that way until 9/6/2026.
+        ("symbol blocks browsable",      _range_bits(os2) >= set(CLAIMED)),
+        ("Arabic NOT claimed",           13 not in _range_bits(os2)),
     ]
     ok = all(c[1] for c in checks)
     log(f"\n  verify {os.path.basename(path)} [{subfamily}]")
@@ -261,7 +360,7 @@ def main() -> int:
         font = TTFont(sources[which])
         slash_zero(font)
 
-        log(f"[3/7] instancing {subfamily} (wght {wght}, wdth 100)")
+        log(f"[3/8] instancing {subfamily} (wght {wght}, wdth 100)")
         font = instancer.instantiateVariableFont(
             font, {"wght": wght, "wdth": 100}, inplace=False, updateFontNames=False)
 
@@ -270,7 +369,7 @@ def main() -> int:
             raise SystemExit(f"FAIL: upm {upm} will not scale exactly by "
                              f"{RULER_NUM}/{RULER_DEN}; refusing to round")
         font["head"].unitsPerEm = upm * RULER_DEN // RULER_NUM
-        log(f"[4/7] ruler scale: upm {upm} -> {font['head'].unitsPerEm} "
+        log(f"[4/8] ruler scale: upm {upm} -> {font['head'].unitsPerEm} "
             f"({RULER_NUM}/{RULER_DEN} = {RULER_NUM/RULER_DEN:.6f}x)")
 
         # Every face gets the symbols, not just Regular. Word does NOT fall back inside a
@@ -279,10 +378,11 @@ def main() -> int:
         # size, which is the exact failure this whole font exists to prevent. A heading is bold.
         for which, label in (("math", "Noto Sans Math"), ("symbols", "Noto Sans Symbols")):
             rep = merge_glyphs(font, fetch_donor(which, a.offline, a.out), label)
-            log(f"[5/7] {label}: added {rep['added']} characters"
+            log(f"[5/8] {label}: added {rep['added']} characters"
                 + (f", skipped {rep['skipped']}" if rep["skipped"] else ""))
 
         retune_metrics(font)
+        set_unicode_ranges(font)
 
         bold = "Bold" in subfamily
         os2 = font["OS/2"]
@@ -296,7 +396,7 @@ def main() -> int:
         out = os.path.join(a.out, f"{PSPREFIX}-{subfamily.replace(' ', '')}.ttf")
         font.save(out)
         font.close()
-        log(f"[7/7] wrote {out}  ({os.path.getsize(out)//1024} KB)")
+        log(f"[8/8] wrote {out}  ({os.path.getsize(out)//1024} KB)")
 
         if not a.no_verify:
             all_ok &= verify(out, subfamily, italic)

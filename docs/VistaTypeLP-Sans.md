@@ -253,34 +253,71 @@ Three places, and they are real:
 
 ---
 
-## Known limitation — Word's Insert Symbol does not show it all
+## Word's Insert Symbol browses it — fixed 9/6/2026
 
 Open Insert → Symbol → More Symbols in Word, pick VistaTypeLP Sans, and the
-**Subset** list is missing whole ranges that the font genuinely has. Arrows,
+**Subset** list used to be missing whole ranges the font genuinely has: arrows,
 mathematical operators, the math italic and bold letters, miscellaneous
 technical, miscellaneous symbols, dingbats, circled numbers, box drawing and
-block elements are all absent from that list.
+block elements.
 
-**What was measured:** the font's OS/2 table carries a set of flags naming which
-Unicode ranges it covers, and VistaTypeLP Sans has **16 of those flags unset**
-even though it has characters in every one of the ranges they name. Those 16
-ranges are exactly the ones missing from Word's Subset list — Word builds that
-list from the flags rather than from the font's actual character map.
+**Why:** the font's OS/2 table carries flags naming which Unicode blocks it
+covers, and **Word builds that Subset list from the flags, not from the font's
+character map.** Sixteen flags were clear on a font that had characters in every
+one of the blocks they name. Tahoma has none clear, which is why Tahoma browsed
+correctly all along.
 
-**2,807 of its 6,450 characters — 43.5% — cannot be reached through the Subset
-list.** Tahoma has no unset flags, which is why Tahoma browses correctly.
+**What was done.** `set_unicode_ranges` in `tools/lib/build_vistatypelp_sans.py`
+now sets the flags from the character map after the two symbol merges, as step 7
+of 8. Measured on the Regular face:
 
-The characters themselves are all there and all reachable. Two ways to get at
-one that the Subset list will not show:
+| | browsable | unreachable |
+|---|---|---|
+| before | 2,948 of 6,450 (45.7%) | 3,502 |
+| after | 5,686 of 6,450 (88.2%) | 764 |
+
+**The four shipping faces were patched in place rather than rebuilt**, because a
+rebuild fetches the current Noto releases over the network and would change more
+than the flags. All 24 → 35 flags, and all fifteen build checks pass on each.
+
+**Eleven of the sixteen blocks were claimed and five were refused, deliberately.**
+A blanket `recalcUnicodeRanges` — which is what this page used to recommend —
+sets a flag for **any** character in a block, however few, and that makes the font
+claim scripts it cannot set:
+
+| refused | why |
+|---|---|
+| Arabic | 62 characters of 256, and **no `arab` shaping in GSUB or GPOS**. Arabic is a joining script; claiming it would tell Windows this face sets Arabic and the text would come out as unjoined isolated forms |
+| Georgian | 1 character of 96 |
+| Control Pictures | 2 of 64 |
+| CJK Symbols and Punctuation | 2 of 64 |
+| Halfwidth and Fullwidth Forms | 2 of 240 |
+
+Devanagari **is** claimed and that is not inconsistent: the block is complete,
+128 of 128, and `deva`/`dev2` shaping is present.
+
+**A block that is neither claimed nor refused stops the build.** Changing a donor
+changes what is in the font, and a new block is a decision for a person — the
+same reasoning as the required-character list.
+
+**What is still not browsable, and no flag can fix it:** 695 characters sit at
+code points that **no OS/2 block covers at all**, so there is no flag to set.
+The other 69 are the refused blocks above. Everything that can be made browsable
+now is.
+
+Two ways to reach any character the Subset list will not show, unchanged:
 
 - Type the hexadecimal code point and press **Alt+X** — `21D2` then Alt+X gives `⇒`.
 - In Insert → Symbol, set **from:** to Unicode (hex) and type the code into the
-  **Character code** box; the character is found even when its subset is not listed.
+  **Character code** box.
 
-**This is a fixable defect in the font, not in Word.** Setting those 16 flags
-correctly in `tools/lib/build_vistatypelp_sans.py` — fontTools will compute them
-from the character map in one call — would make the whole set browsable. It has
-not been done yet.
+**A note on the earlier figure.** This page used to say 2,807 characters (43.5%)
+were unreachable. The measurement above says 3,502 (54.3%) before the fix. The
+method behind the older number is not recorded, so the two are not reconciled —
+what is written here is what was measured on 9/6/2026, counting a character as
+browsable when a **set** flag's block contains it.
+
+---
 
 ---
 
