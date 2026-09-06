@@ -405,6 +405,14 @@ Each of these has an expected answer that differs from what the add-in does toda
    all back.
 7. Open a large print book made on an obsolete template. She still gets the warning and the
    attach dialog.
+   **PASSED 9/6/2026 on 3.0.373**, run by Jerry on the build box against a real book of his own.
+   Dialog 123 appeared, the attach form opened by itself when it was closed, and the ten figures
+   the message reports off the book — font size, paper height and width, the four margins,
+   mirrored margins, binding width, orientation and output media — were all right.
+   This is the path the 8/20/2026 reordering was for: document type is read from the attached
+   template now, so a book on an obsolete template is not a large print document by that test and
+   would fall straight through to the ordinary configuration with no warning at all. The looser
+   `Lp_Was_Made_As_An_Lp_Book` test, asked second, is what catches it.
 8. Book and letter open, Styles pane up, close the book. The pane comes down — correct now,
    because a letter has no Styles pane.
    **PASSED 9/6/2026 on 3.0.373**, run by Jerry on the build box. The pane came down on a real
