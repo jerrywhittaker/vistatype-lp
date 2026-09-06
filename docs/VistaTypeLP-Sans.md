@@ -280,6 +280,11 @@ of 8. Measured on the Regular face:
 rebuild fetches the current Noto releases over the network and would change more
 than the flags. All 24 → 35 flags, and all fifteen build checks pass on each.
 
+**Confirmed in Word, 9/6/2026**, by Jerry on the build box after installing 3.0.375:
+the Subset list in Insert → Symbol reads correctly for VistaTypeLP Sans. The
+installer replaced the four faces that were already on that machine with no manual
+deletion — measured by fingerprint before and after, with Word closed.
+
 **Eleven of the sixteen blocks were claimed and five were refused, deliberately.**
 A blanket `recalcUnicodeRanges` — which is what this page used to recommend —
 sets a flag for **any** character in a block, however few, and that makes the font

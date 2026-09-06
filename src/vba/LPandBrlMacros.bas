@@ -47,6 +47,13 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - LP  - 9/6/2026 - checks was tidied at the same time: they read "The size range For paper Or screen
 '           - LP  - 9/6/2026 - height Is .1 To 22", with VBA keywords capitalized mid-sentence, and two words were
 '           - LP  - 9/6/2026 - misspelled - "subracted" and "landscapt".
+'           - LP  - 9/6/2026 - TESTED BY JERRY ON THE BUILD BOX, 9/6/2026, on the 3.0.375 installer, and
+'           - LP  - 9/6/2026 - Debug > Compile came back clean on the same build. 123, 306, 201 and all
+'           - LP  - 9/6/2026 - eleven page-size and margin checks (189-199) are right. 141 and 233 are NOT
+'           - LP  - 9/6/2026 - tested and cannot be without breaking the machine on purpose - 141 needs
+'           - LP  - 9/6/2026 - LargePrintTemplate.dotx missing, 233 needs Word to fail to reopen a saved
+'           - LP  - 9/6/2026 - document. They were converted the same way as the other fourteen; say that
+'           - LP  - 9/6/2026 - rather than calling them tested.
 ' Notes:    - MS - 9/5/2026 - THE HARD WALL BETWEEN THE WORD CONFIGURATIONS. Jerry, 9/5/2026:
 '           -                   "changes in the word configuration settings for a braille file or a
 '           -                   large print file should have no effect on the word configuration

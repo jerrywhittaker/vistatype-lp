@@ -377,6 +377,11 @@ Each of these has an expected answer that differs from what the add-in does toda
 
 1. Open a letter on a machine that has never run VistaType. Nothing about Word changes except
    that the 18 fractions appear.
+   **PASSED 9/6/2026 on 3.0.375**, run by Jerry on the build box with `VistaType.ini` deleted by
+   hand first — the uninstaller leaves that file alone deliberately, so deleting it is the only way
+   to make a machine that has never run VistaType. The ordinary configuration was correct.
+   **This was the last runnable test on this list, and the list is now closed.** Test 5 is covered
+   in substance rather than as written; everything else here has a result under it.
 2. A letter opens with no pilcrows, no Styles pane, no navigation pane, both rulers, print view.
    **PASSED 9/6/2026 on 3.0.373**, all five, run by Jerry on the build box.
 3. In a letter, change the Styles pane sort and "Select styles to show". Close it, open it again.
