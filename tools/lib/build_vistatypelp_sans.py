@@ -326,6 +326,10 @@ def verify(path: str, subfamily: str, italic: bool = False) -> bool:
         ("win metrics cover ink",        os2.usWinAscent >= max(ink_bounds(f)[0], 0)),
         ("italic bits agree",            bool(os2.fsSelection & 0x01) == italic
                                          and bool(f["head"].macStyle & 2) == italic),
+        # REGULAR means neither bold nor italic. Checked because the italic test above passes
+        # happily on a face that claims to be regular AND italic at once - which shipped.
+        ("regular bit only when plain",  bool(os2.fsSelection & 0x40)
+                                         == (not italic and "Bold" not in subfamily)),
         # Word builds Insert > Symbol's Subset list from these flags, not from the character
         # map, so a cleared one hides a whole block from browsing. 43.5% of the font was
         # unreachable that way until 9/6/2026.
@@ -387,9 +391,18 @@ def main() -> int:
         bold = "Bold" in subfamily
         os2 = font["OS/2"]
         os2.usWeightClass = wght
-        # bits 0 italic, 5 bold, 6 regular - exactly one of bold/regular, italic independent
+        # bits 0 italic, 5 bold, 6 regular. REGULAR means "neither bold NOR italic" - it is not
+        # the opposite of bold. The line here read `0x20 if bold else 0x40`, which handed the
+        # regular bit to the Italic face as well as its italic bit, and fontTools warned about
+        # it on every save from 8/22/2026. Nothing decided that; it fell out of the way the line
+        # was written, and verify's "italic bits agree" looked only at the italic bit so it never
+        # caught it. What it risks is style matching: an application choosing a family member
+        # from these flags can read that face as a plain one. Found 9/6/2026 while setting the
+        # unicode ranges; fixed on Jerry's say-so the same day.
         os2.fsSelection &= ~0x61
-        os2.fsSelection |= (0x20 if bold else 0x40) | (0x01 if italic else 0x00)
+        os2.fsSelection |= ((0x20 if bold else 0)
+                            | (0x01 if italic else 0)
+                            | (0x40 if not (bold or italic) else 0))
         font["head"].macStyle = (1 if bold else 0) | (2 if italic else 0)
         rename(font, subfamily)
 

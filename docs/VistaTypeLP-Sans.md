@@ -319,6 +319,33 @@ browsable when a **set** flag's block contains it.
 
 ---
 
+## The Italic face claimed to be regular too — fixed 9/6/2026
+
+The OS/2 `fsSelection` field has a bit for italic, a bit for bold and a bit for
+**regular**, and regular means *neither bold nor italic* — it is not the opposite
+of bold. The build script set it whenever a face was not bold, so the **Italic**
+face went out claiming to be italic **and** regular at once. It shipped that way
+from 8/22/2026 and fontTools warned about it on every save.
+
+Nothing decided it; it fell out of one line, and the existing "italic bits agree"
+check looked only at the italic bit, so it never caught it.
+
+**What it risks** is style matching: an application that picks a member of a font
+family from these flags can read that face as a plain one — so it could be chosen
+for ordinary text, or Ctrl+I might not reach it. No such fault was ever reported.
+Glyphs, metrics and spacing are not involved and did not change.
+
+Fixed in the script and in the shipped face, with a check —
+`regular bit only when plain` — so it cannot come back. **A book already made
+embeds its own copy of the face and carries the old flags with it**, so it keeps
+behaving as it does until the book is remade.
+
+**Worth one minute on the build box after installing:** in a VistaTypeLP Sans
+book, type a word, press Ctrl+I, and confirm it goes italic and comes back. Same
+for bold italic.
+
+---
+
 ---
 
 ## Rebuilding it
