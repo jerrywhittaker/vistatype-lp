@@ -17,6 +17,11 @@ Attribute VB_Exposed = False
 
 ' LP_Attach_An_Lp_Template_Form
 '
+' Version: 6.8  Date: 9/6/2026 - opens the PROGRESS BAR instead of Sh_NonModalMessageForm. The
+'                               instruction paragraph goes with it: the bar names each stage,
+'                               which says more and says it as the work happens. The warning not
+'                               to touch the mouse or keyboard moves to the title bar; "Wait for
+'                               the BEEP!" is dropped because nothing in the project beeps
 ' Version: 6.7  Date: 9/6/2026 - the eleven page-size and margin checks go through Sh_Say
 '                               instead of MsgBox, so each is at least 10 point Tahoma and
 '                               its button says Okay. Every number (189-199) is the one it
@@ -365,14 +370,19 @@ Private Sub AttachOkay_Click()
 
 '+++++++++++++++++++ Call Non-Modal Message +++++++++++++++++++++++
 
-   Dim msgBody As String
-    msgBody = "Fixing common file errors for non-LP files, attaching the large print template, setting paper or screen size, " & _
-              "attaching the large print template, and adjusting font sizes and border weights." & _
-              vbCrLf & vbCrLf & "Do not use mouse or keyboard in this Word window or any other Word document! " & _
-              "Running applications other than Word is acceptable." & _
-              vbCrLf & vbCrLf & "                         Wait for the BEEP!"
-
-    Call Sh_ShowNonModalMessage("VistaType LP is Working", msgBody)
+    ' THE BAR, from 9/6/2026 - Jerry's call: one progress indicator across the add-in.
+    ' This showed Sh_NonModalMessageForm, whose spinner turned under a paragraph of
+    ' instructions. The attach now reports thirteen named stages on the bar, and hands a
+    ' slice of it to each of the two counted sequences it runs inside itself - see
+    ' Sh_Progress_Span.
+    '
+    ' THE WARNING MOVES INTO THE TITLE BAR, where it stands for the whole run rather than
+    ' being replaced by the first stage a second later. The old paragraph said three things:
+    ' what the attach was about to do - which the bar now says stage by stage, and better;
+    ' not to touch the mouse or keyboard - kept here; and "Wait for the BEEP!", which is
+    ' DROPPED because nothing beeps. Only Dx_Type_Dashes_Form beeps in the whole project,
+    ' so that line has been telling transcribers to wait for something that never happens.
+    Sh_Progress_Open "VistaType LP is working - do not use the mouse or keyboard in Word"
 
     DoEvents
     

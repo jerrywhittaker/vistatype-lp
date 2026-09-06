@@ -18,6 +18,30 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Sh  - 9/6/2026 - ONE PROGRESS INDICATOR. Jerry, 9/6/2026: "the current state of progress
+'           - Sh  - 9/6/2026 - indicators makes VistaType LP look schizophrenic... I like to have just a progress
+'           - Sh  - 9/6/2026 - bar but i do like the text which indicates what is happening." There were five, four
+'           - Sh  - 9/6/2026 - of them ours: two near-identical spinner boxes, the bar, and a bar drawn out of pipe
+'           - Sh  - 9/6/2026 - characters in Word's status bar by the two Export Selection macros. The fifth is
+'           - Sh  - 9/6/2026 - Word's own OneDrive saving indicator, which an add-in cannot restyle.
+'           - Sh  - 9/6/2026 - THE BAR GAINED A SPINNER, because three steps are one long call into Word -
+'           - Sh  - 9/6/2026 - Repaginate, InsertFile, Save As - and VBA is single-threaded, so the fill cannot
+'           - Sh  - 9/6/2026 - move during them. The fill says how far along; the spinner says still alive.
+'           - Sh  - 9/6/2026 - AND Sh_Progress_Span, so a counted sequence running INSIDE another maps its own
+'           - Sh  - 9/6/2026 - 0-100 into a slice. Without it the attach's bar would race to full and fall back
+'           - Sh  - 9/6/2026 - twice, which is worse than no bar at all.
+'           - Sh  - 9/6/2026 - MOVED SO FAR: Replace Multiple Paragraph Marks, File Cleanup (31 counted passes),
+'           - Sh  - 9/6/2026 - Normalize Styles (13) and the attach (13 hand-picked stages, because its stages
+'           - Sh  - 9/6/2026 - differ enormously in cost). STILL TO DO: the two Export Selection macros, braille's
+'           - Sh  - 9/6/2026 - Selected Cleanup - which gets no indicator at all today, and not on purpose - and
+'           - Sh  - 9/6/2026 - the DAISY converter, which drives the bar directly rather than through the helpers
+'           - Sh  - 9/6/2026 - and so gets no spinner and cannot be closed by Sh_Report_Error.
+'           - Sh  - 9/6/2026 - FOUR FAULTS FOUND IN REVIEW AND FIXED WITH IT, all of the "it hung" kind: the
+'           - Sh  - 9/6/2026 - attach had NO error handler at all and cannot be reached by RibbonAction, being
+'           - Sh  - 9/6/2026 - started off Application.OnTime; the File Cleanup menu had none between showing its
+'           - Sh  - 9/6/2026 - box and hiding it; the bar was closed before the last two stages, so they and the
+'           - Sh  - 9/6/2026 - closing "Finished" never appeared; and Sh_Spin_DoEvents read .Visible on the now
+'           - Sh  - 9/6/2026 - unused please-wait form, which LOADS it, on every one of 43 yields per cleanup run.
 ' Notes:    - LP  - 9/6/2026 - THE ATTACH-A-TEMPLATE PATH SAYS THINGS THE WAY THE REST OF VISTATYPE LP DOES.
 '           - LP  - 9/6/2026 - Sixteen messages moved from MsgBox to Sh_Say and Sh_Ask - the obsolete-template
 '           - LP  - 9/6/2026 - warning (123), the missing-template stop (141), the cancelled-save question (306),
@@ -9687,6 +9711,9 @@ Sub Lp_Fix_Common_File_Errors()
 '
 ' Lp_Fix_Common_File_Errors
 '
+' Version: 3.14  Date: 9/6/2026 - announces its 31 passes on the progress bar through
+'                               Lp_Ffc_Step, the large print twin of Dx_Ffc_Step. Its own
+'                               Sh_Spin_DoEvents calls now turn the BAR's spinner
 ' Version: 3.13  Date: 9/2/2026 - runs Lp_Convert_Multi_Column_To_Single first, so a book
 '                               scanned out of a two- or three-column original arrives as one
 '                               column before anything else touches it. That macro does nothing
@@ -9742,6 +9769,9 @@ Sub Lp_Fix_Common_File_Errors()
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
 
+    ' Counts the passes for the progress bar. See Lp_Ffc_Step.
+    Dim stepNo As Long
+
     ' Save the spot BEFORE anything runs. The old CleanupBookmark was added further down,
     ' after Selection.Collapse and Sh_Color_Dollar_PG_Red had already moved the cursor.
     Sh_Save_User_Position
@@ -9752,62 +9782,92 @@ Sub Lp_Fix_Common_File_Errors()
     ' the column count, and in the attach sequence the page size and margins are not settled
     ' until Lp_Attach_The_Template runs afterwards. It goes first because it is the one repair
     ' here that changes the shape of the page rather than the text on it. Jerry, 9/2/2026.
+    Lp_Ffc_Step stepNo, "Turning multi-column text into one column"
     Application.Run MacroName:="Lp_Convert_Multi_Column_To_Single"
 Sh_Spin_DoEvents
+    Lp_Ffc_Step stepNo, "Coloring the $pg tags red"
     Application.Run MacroName:="Sh_Color_Dollar_PG_Red"
 Sh_Spin_DoEvents
+    Lp_Ffc_Step stepNo, "Replacing underlined tabs with underscores"
     Application.Run MacroName:="Lp_Replace_Underline_Tab_With_Underlined_Underscore"
 Sh_Spin_DoEvents
+    Lp_Ffc_Step stepNo, "Removing square bullets"
     Application.Run MacroName:="Lp_Delete_Square_Bullet"  ' run before Lp_Fix_Para_Space_Errors
 Sh_Spin_DoEvents
+    Lp_Ffc_Step stepNo, "Replacing non-breaking spaces"
     Application.Run MacroName:="Sh_ReplaceNonBreakingSpacesWithNormalSpace"
 Sh_Spin_DoEvents
+    Lp_Ffc_Step stepNo, "Adding a paragraph after each image"
     Application.Run MacroName:="Lp_Add_Para_After_Image"
 Sh_Spin_DoEvents
+    Lp_Ffc_Step stepNo, "Fixing Abbyy FineReader text and headings"
     Application.Run MacroName:="Lp_Fix_Abbyy_Text_and_Headers"
 Sh_Spin_DoEvents
+    Lp_Ffc_Step stepNo, "Removing spaces before punctuation"
     Application.Run MacroName:="Sh_Remove_Spaces_Before_Punctuation"
 Sh_Spin_DoEvents
+    Lp_Ffc_Step stepNo, "Removing text boxes and frames"
     Application.Run MacroName:="Sh_Remove_Txt_Bxs_And_Frames"
 Sh_Spin_DoEvents
+    Lp_Ffc_Step stepNo, "Removing tab and space combinations"
     Application.Run MacroName:="Lp_Remove_Tab_Plus_Space_Combos"
 Sh_Spin_DoEvents
+    Lp_Ffc_Step stepNo, "Fixing paragraph spacing"
     Application.Run MacroName:="Lp_Fix_Para_Space_Errors"
 Sh_Spin_DoEvents
+    Lp_Ffc_Step stepNo, "Changing italics to a dashed underline"
     Application.Run MacroName:="Lp_Italics_To_Dashed_Underline"
 Sh_Spin_DoEvents
+    Lp_Ffc_Step stepNo, "Replacing white text with automatic color"
     Application.Run MacroName:="Sh_Replace_White_Text_With_Automatic"
 Sh_Spin_DoEvents
+    Lp_Ffc_Step stepNo, "Fixing en dash errors"
     Application.Run MacroName:="Lp_Fix_EnDash_Errors"
 Sh_Spin_DoEvents
+    Lp_Ffc_Step stepNo, "Fixing em dash spacing"
     Application.Run MacroName:="Lp_Fix_Em_Dash_Space_Errors"
 Sh_Spin_DoEvents
+    Lp_Ffc_Step stepNo, "Fixing Normal styles - the slowest step on a long book"
     Application.Run MacroName:="Lp_Fix_Normal_Styles"  'no longer ruins picture placement (left, right, center)
            'takes too long on large docs
 Sh_Spin_DoEvents
+    Lp_Ffc_Step stepNo, "Removing multiple spaces"
     Application.Run MacroName:="Sh_Remove_Multi_Spaces"
 Sh_Spin_DoEvents
+    Lp_Ffc_Step stepNo, "Fixing hyphen errors"
     Application.Run MacroName:="Lp_Fix_Hyphen_Errors"
 Sh_Spin_DoEvents
+    Lp_Ffc_Step stepNo, "Adding a paragraph before each $pg tag"
     Application.Run MacroName:="Sh_Para_Before_Dollar" 'Fixes DAISY Page Problems
 Sh_Spin_DoEvents
+    Lp_Ffc_Step stepNo, "Replacing small caps with all caps"
     Application.Run MacroName:="Sh_Replace_Small_Caps_With_All_Caps"
 Sh_Spin_DoEvents
+    Lp_Ffc_Step stepNo, "Removing tabs around paragraph marks"
     Application.Run MacroName:="Lp_Remove_Tabs_Before_and_After_Para_Marks"
 Sh_Spin_DoEvents
+    ' No step is announced here: the pass below is commented out, and a step for work that
+    ' does not happen makes the count and the bar disagree. Found in review, 9/6/2026.
     'Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
+    Lp_Ffc_Step stepNo, "Converting hyperlinks to text"
     Application.Run MacroName:="Lp_Convert_Hyperliks_To_Text"  'convert all (including hidden links) links to text (except internal links)
 Sh_Spin_DoEvents
+    Lp_Ffc_Step stepNo, "Converting hyperlinks to addresses"
     Application.Run MacroName:="Lp_Convert_Hyper_To_Addresses" 'convert all text links to active links
 Sh_Spin_DoEvents
+    Lp_Ffc_Step stepNo, "Replacing compact fractions with typed fractions"
     Application.Run MacroName:="Lp_Replace_Compact_Fractions_With_Fraction_Text"
 Sh_Spin_DoEvents
+    Lp_Ffc_Step stepNo, "Replacing Strong with bold"
     Application.Run MacroName:="Lp_Replace_Strong_With_Bold"
 Sh_Spin_DoEvents
+    Lp_Ffc_Step stepNo, "Removing headers and footers"
     Application.Run MacroName:="Lp_RemoveHeadAndFoot"
 Sh_Spin_DoEvents
+    Lp_Ffc_Step stepNo, "Converting ordinal numbers"
     Application.Run MacroName:="Lp_Convert_Ordinal_Numbers"
 Sh_Spin_DoEvents
+    Lp_Ffc_Step stepNo, "Deleting zero width spaces"
     Application.Run MacroName:="Lp_Delete_Zero_Width_Spaces"
 Sh_Spin_DoEvents
 
@@ -9819,6 +9879,7 @@ Sh_Spin_DoEvents
     ' Jerry's request; until then the only callers were the attach and the cleanup form, each
     ' running it as a step of their own. See the note in that macro about what "multiple
     ' paragraph marks replaced by a single paragraph mark" means -- every blank line goes.
+    Lp_Ffc_Step stepNo, "Removing consecutive empty paragraph marks"
     Application.Run MacroName:="Sh_Replace_Multiple_Para_Marks_No_Warning"
 Sh_Spin_DoEvents
 
@@ -9826,6 +9887,7 @@ Sh_Spin_DoEvents
     ' File Cleanup is not only a step inside the attach sequence -- a transcriber can run it by
     ' itself, with no Lp_Normalize_Styles afterwards to restore the color. The cleanups above
     ' lose the original red, and nothing else would put it back. Jerry, 8/2/2026.
+    Lp_Ffc_Step stepNo, "Coloring the $pg tags red"
     Application.Run MacroName:="Sh_Color_Dollar_PG_Red"
 Sh_Spin_DoEvents
 
@@ -9836,9 +9898,47 @@ Sh_Spin_DoEvents
 
     Sh_Return_User_To_Start_Position
 
+    Lp_Ffc_Step stepNo, "Clearing find and replace settings"
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
 
 End Sub '*** end of Lp_Fix_Common_File_Errors macro ***
+
+Private Sub Lp_Ffc_Step(ByRef stepNo As Long, ByVal what As String)
+'
+' Version: 1.0  Date: 9/6/2026
+'
+' Author: Jerry Whittaker - jerry@vistatypelp.org
+'
+' One step of Lp_Fix_Common_File_Errors's progress bar. The large print twin of Dx_Ffc_Step,
+' written to the same shape on purpose - counts, works out the percentage and says what is about
+' to happen, so a pass added to or taken out of that sequence needs no percentages rewritten,
+' only LP_FFC_STEPS below kept honest.
+'
+' NOT merged with Dx_Ffc_Step under the Lp_/Dx_ merge rule, and this is the reason: the two
+' totals differ (33 against 37) and each is a fact about its own sequence. A shared helper would
+' have to be told the total by every caller, which is the same line of code in a worse place.
+'
+' stepNo is BYREF, and deliberately: it is a counter the caller owns and this has to advance it.
+' That is the one shape the project's ByVal rule does not cover.
+'
+' LP_FFC_STEPS is ONE MORE than the 31 passes that actually run, and deliberately. A 32nd
+' announcement sat above a commented-out MS_Clear_F_and_R_Params_and_Clipboard until
+' 9/6/2026 and was removed with this count; if that pass is ever switched back on, announce
+' it again AND raise this by one. Each step announces itself
+' BEFORE its pass runs, so a total of 32 would put the bar at 100% while the last pass was still
+' working - which is the one thing a progress bar must never say. At 33 the last step reads 97%
+' and the caller sets 100 once the work is actually done.
+'
+' Says nothing and costs nothing when no bar is open - Sh_Progress_Say is gated on a flag. That
+' is what lets this sequence run unchanged from the attach, which brings its own indicator.
+
+    Const LP_FFC_STEPS As Long = 32
+
+    stepNo = stepNo + 1
+    Sh_Progress_Say 100# * stepNo / LP_FFC_STEPS, what
+
+End Sub  '*** end of Lp_Ffc_Step ***
+
 
 ' Lp_Convert_Multi_Column_To_Single
 '
@@ -16914,6 +17014,14 @@ Sub Lp_Attach_The_Template()
 
     ' Attaches the LP template with style changes
     '
+    ' Version: 3.9  Date: 9/6/2026 - thirteen named stages on the progress bar instead of the
+    '                               spinner box, and it hands a slice of the bar to each of the
+    '                               two counted sequences it runs inside itself (3-35 for file
+    '                               cleanup, 74-90 for normalize styles) so the bar only goes
+    '                               forwards. AND AN ERROR HANDLER, which this macro has never
+    '                               had: it is unreachable by RibbonAction, being started off
+    '                               Application.OnTime, so a failure left the bar frozen over a
+    '                               screen with updating off and said nothing
     ' Version: 3.8  Date: 9/6/2026 - its four messages go through Sh_Say and Sh_Ask, so they are at
     '                               least 10 point Tahoma and the button says Okay (141, 233, 201 and
     '                               the cancelled-save question 306). 306 was Yes/No and is reworded
@@ -16980,6 +17088,21 @@ Sub Lp_Attach_The_Template()
     
    'Lp_Attach_An_Lp_Template_Form.Hide ' hide the user form for fontsize and media type'+++++ new non-modal form code
 
+    ' AN ERROR HANDLER AT LAST, 9/6/2026 - found in review while moving this macro onto the
+    ' progress bar, and it is the fault the whole progress-bar job exists to remove.
+    '
+    ' This macro had none. It runs the 32 cleanup passes and the 13 style passes through
+    ' Application.Run, which NEVER hands an error back - Word shows its own Run-time error
+    ' dialog, the one offering Debug, and the caller's next line never runs. So a raw .doc
+    ' that made one pass raise left the transcriber with the bar frozen part way along, its
+    ' spinner still turning, ScreenUpdating off, and nothing said. That is the "it hung"
+    ' report exactly.
+    '
+    ' It cannot be reached by RibbonAction either: this macro is started from
+    ' Application.OnTime through Sh_StartSpinnerBridge, which runs on Word's own timer,
+    ' outside the ribbon dispatcher's handler. Nothing above it can catch anything.
+    On Error GoTo AttachFailed
+
     Unload Lp_Attach_An_Lp_Template_Form
 
     ' The form is gone by now - this macro is reached asynchronously through Sh_BridgeTargetMacro
@@ -16987,6 +17110,10 @@ Sub Lp_Attach_The_Template()
     ' typeface choice. Default it if it is empty, because an "End" statement anywhere on the way
     ' in wipes every Public, and there is one at the "template does not exist" bail-out below.
     If Len(Trim(Lp_Base_Font_Name)) = 0 Then Lp_Base_Font_Name = LP_FONT_TAHOMA
+
+    ' For the handler at the foot of this macro - see AttachFailed.
+    Dim failNumber As Long
+    Dim failText As String
 
     'save the name of the current document
     Dim currentdoc As Document
@@ -17001,13 +17128,18 @@ Sub Lp_Attach_The_Template()
         ' The spinner turns during the macro because its 28 DoEvents are now Sh_Spin_DoEvents,
         ' which advances whichever progress box is showing - this one here, or the please-wait
         ' box when File Cleanup is run from the ribbon instead.
-Sh_NonModalMessageForm.SetActivityMessage "Fixing common file errors"
+Sh_Progress_Say 3, "Fixing common file errors"
 DoEvents
 
+        ' It owns 3 to 35 of the bar. Its own 32 passes count 0 to 100 inside that slice,
+        ' so the bar goes forwards only - see Sh_Progress_Span. The slice is wide because
+        ' this is much the slowest stage of an attach.
+        Sh_Progress_Span 3, 35
         Application.Run MacroName:="Lp_Fix_Common_File_Errors"
+        Sh_Progress_Span 0, 100
     End If
     
-Sh_NonModalMessageForm.SetActivityMessage "Attaching the VistaType LP template"
+Sh_Progress_Say 36, "Attaching the VistaType LP template"
 DoEvents
  
     ' NOTE: do NOT disable Application.Options.Pagination here. It was tried on 7/26/2026 to
@@ -17044,14 +17176,14 @@ AvoidCrash:
                 .UpdateStylesOnOpen = False  ' supresses any further style updates
                 .Application.Run MacroName:="Lp_Remove_All_Styles_Except_Lp_Styles"
             Else
-                Unload Sh_NonModalMessageForm
+                Sh_Progress_Close
                 Application.ScreenUpdating = True
                 Sh_Say "Cannot continue!" & vbCr & vbCr & "The template file: " & TemplatePathandName & " does not exist." & vbCr & vbCr & "Install the file and try again.", "VistaType LP (141)"
                 End
             End If
     End With
 
-Sh_NonModalMessageForm.SetActivityMessage "Converting document font to " & Lp_Base_Font_Name
+Sh_Progress_Say 42, "Converting document font to " & Lp_Base_Font_Name
 DoEvents
 
     ' Set the whole document to the chosen face and size - styles first, then the text.
@@ -17119,7 +17251,7 @@ DoEvents
     ' Setup Page Parameters
     ' ----------------------------------------------------------------------------------------------------------------------------
     
-Sh_NonModalMessageForm.SetActivityMessage "Setting page/screen margins and gutter sizes"
+Sh_Progress_Say 48, "Setting page/screen margins and gutter sizes"
 DoEvents
 
     With ActiveDocument.PageSetup
@@ -17140,7 +17272,7 @@ DoEvents
              .Gutter = InchesToPoints(0)
         End If
         
-Sh_NonModalMessageForm.SetActivityMessage "Setting page orientation"
+Sh_Progress_Say 52, "Setting page orientation"
 DoEvents
 
          ' writes a variable name (Media) and variable value (DM) into the document xml file
@@ -17186,7 +17318,7 @@ DoEvents
 
     If Not Lp_Doc_Was_Already_LP Then  ' this only needs to be done on docs which are not lp
     
-Sh_NonModalMessageForm.SetActivityMessage "Setting table alternating color style"
+Sh_Progress_Say 56, "Setting table alternating color style"
 DoEvents
         ' all tables to default - Convert existing tables to "Yellow on White Paper Table"
          Dim Tbl_Cnt As Integer
@@ -17199,28 +17331,33 @@ DoEvents
              Next
          End If
 
-Sh_NonModalMessageForm.SetActivityMessage "Removing empty paragraphs"
+Sh_Progress_Say 60, "Removing empty paragraphs"
 DoEvents
 
         Application.Run MacroName:="Sh_Replace_Multiple_Para_Marks_No_Warning"
         
-Sh_NonModalMessageForm.SetActivityMessage "Fixing Abbyy FineReader headings and normal styles"
+Sh_Progress_Say 64, "Fixing Abbyy FineReader headings and normal styles"
 DoEvents
         
         Application.Run MacroName:="Lp_Fix_Abbyy_Text_and_Headers"
         
     End If
     
-Sh_NonModalMessageForm.SetActivityMessage "Adjusting oversize pictures to fit within margins"
+Sh_Progress_Say 68, "Adjusting oversize pictures to fit within margins"
 DoEvents
 
     Application.Run MacroName:="Lp_SetPicturesToInlineAndLockAspectRatio"
 
     Application.Run MacroName:="Lp_ResizePicturesAndShapesToFitPageWidthAndPageHeight"
     
-    Application.Run MacroName:="Lp_Normalize_Styles" 'this routine sets it's on non-modal messages
+    ' It owns 74 to 90 of the bar, its 13 passes counting 0 to 100 inside that slice.
+    ' The trailing comment here used to read "this routine sets it's on non-modal
+    ' messages" - it does still set its own, but on the bar now, through Lp_Ns_Step.
+    Sh_Progress_Span 74, 90
+    Application.Run MacroName:="Lp_Normalize_Styles"
+    Sh_Progress_Span 0, 100
     
-Sh_NonModalMessageForm.SetActivityMessage "Setting tabs for TOCs and reference page numbers."
+Sh_Progress_Say 91, "Setting tabs for TOCs and reference page numbers."
 DoEvents
 
     Application.Run MacroName:="Lp_Set_TOC_and_Print_Page_Num_Tab_Stops"
@@ -17269,23 +17406,26 @@ DoEvents
     Set doc = ActiveDocument
 
     ' Stabilize the document FIRST, then save it exactly once (attach -> stabilize -> save).
-    Sh_NonModalMessageForm.Show vbModeless
-    Sh_NonModalMessageForm.SetActivityMessage "Repaginating the document"
+    Sh_Progress_Say 92, "Repaginating the document - the bar cannot move, the spinner shows it is running"
     DoEvents
     Sh_PauseSeconds 3   'pause for nn seconds
 
     doc.Repaginate
 
-    Sh_NonModalMessageForm.Show vbModeless
-    Sh_NonModalMessageForm.SetActivityMessage "Updating document fields"
+    Sh_Progress_Say 95, "Updating document fields"
     DoEvents
     Sh_PauseSeconds 3   'pause for nn seconds
 
     doc.Fields.Update
     doc.UndoClear
 
-    ' Hide the progress form momentarily so Windows can cleanly shift focus to the Save As dialog
-    Sh_NonModalMessageForm.Hide
+    ' Hide the bar momentarily so Windows can cleanly shift focus to the Save As dialog.
+    ' Hide, not Close: closing it would lower Sh_Progress_Up and every Say from here on would
+    ' do nothing, so the last three stages would never appear. Through the guarded helper and
+    ' not the form itself - naming the form directly would instantiate it on any future route
+    ' into this macro that had not opened a bar, and this form's Initialize hangs a headless
+    ' Word. Found in review, 9/6/2026.
+    Sh_Progress_Hide
 
     ' Force the Word Application and your specific document to the front
     Application.Activate
@@ -17322,16 +17462,16 @@ SaveTheFile:
                   "VistaType LP (306)") Then
             GoTo SaveTheFile
         Else
-            Unload Sh_NonModalMessageForm
+            Sh_Progress_Close
             Application.ScreenUpdating = True
             Exit Sub
         End If
     Else
-        ' 1. Show the non-modal form BEFORE saving
-        Sh_NonModalMessageForm.Show vbModeless
+        ' 1. Put the bar back BEFORE saving
+        Sh_Progress_Show
 
         'Sh_NonModalMessageForm.LblMessage ""
-        Sh_NonModalMessageForm.SetActivityMessage "Saving the stabilized document. Activity spinner is idle."
+        Sh_Progress_Say 97, "Saving the stabilized document. Activity spinner is idle."
         DoEvents
 
         ' 2. Execute the save on the SAME dialog object so the typed name is used
@@ -17341,8 +17481,11 @@ SaveTheFile:
         Sh_PauseSeconds 3
     End If
 
-    'Unload the progress form completely
-    Unload Sh_NonModalMessageForm
+    ' The bar STAYS UP through the close-and-reopen below, which takes a visible moment and
+    ' blinks the window. It used to be taken down here, which meant the last two stages and
+    ' the closing "Finished" never appeared at all - every Say after a Close is a no-op,
+    ' because the flag is down. Corrected 9/6/2026, found in review.
+    Sh_Progress_Say 98, "Reopening the document so Word rebuilds the Quick Style gallery"
     DoEvents
 
     ' Close and reopen the saved file, which is the ONLY thing that makes Word repaint the Quick
@@ -17388,10 +17531,31 @@ SaveTheFile:
     ' document did, and Word does not always restore it from that.
     Application.Run MacroName:="Lp_Turn_on_Styles_Pane"
 
+    Sh_Progress_Say 100, "Finished"
+    Sh_Progress_Close
+
     Sh_Say "File has been stabilized and saved.", "VistaType LP (201)"
-    
-    Unload Sh_NonModalMessageForm
-    
+    Exit Sub
+
+AttachFailed:
+    ' TAKE A COPY OF THE ERROR FIRST. Every helper below runs On Error Resume Next and
+    ' Err.Clear inside itself - deliberately, so a cleanup path can never raise a second
+    ' time - and that wipes Err. Reporting Err.Number afterwards would report 0.
+    failNumber = Err.Number
+    failText = Err.Description
+
+    ' Then give the screen back and take the bar down BEFORE saying anything. A message
+    ' drawn over a frozen screen is itself reported as a hang. Sh_Progress_Close also puts
+    ' the span back to the whole bar, so the next attach does not start inside a slice.
+    Sh_Progress_Close
+    Application.ScreenUpdating = True
+    Application.ScreenRefresh
+
+    ' The document is left as it stands, not repaired and not reverted. A half-attached
+    ' book can be put right by attaching again; guessing at an undo here cannot, and this
+    ' macro keeps no record of how far it got.
+    Sh_Report_Error "Lp_Attach_The_Template", failNumber, failText
+
 'jw
     'MsgBox "The current time is: " & Time, vbInformation, "Current Time"
     
@@ -20633,6 +20797,11 @@ End Function   '*** end of Sh_Number_To_Roman ***
 
 Sub Lp_Normalize_Styles()
     '
+    ' Version: 3.7  Date: 9/6/2026 - its thirteen messages go on the progress bar through
+    '                               Lp_Ns_Step instead of into Sh_NonModalMessageForm. Usually
+    '                               runs inside a slice the attach hands it; run from an import
+    '                               with no bar open it costs nothing, where before it wrote
+    '                               thirteen messages into a form nobody had shown
     ' Version: 3.6  Date: 8/8/2026 - sets the typeface on the styles as well as their sizes, and
     '                               scales the List Paragraph hanging indents for a face wider than
     '                               Tahoma. Takes the typeface from the DOCUMENT every time, never
@@ -20649,6 +20818,9 @@ Sub Lp_Normalize_Styles()
     ' Version: 3.1  Date: 7/6/2026 - optimized style updates, preserved all status messages and DoEvents
     ' Modifies the font sizes and character spacing of the document based on Lp_Base_Font_Size
     '
+
+    ' Counts the passes for the progress bar. See Lp_Ns_Step.
+    Dim stepNo As Long
 
     Dim su_Prev As Boolean
     su_Prev = Application.ScreenUpdating
@@ -20667,7 +20839,7 @@ Sub Lp_Normalize_Styles()
     Lp_Base_Font_Name = ActiveDocument.Styles(wdStyleNormal).Font.Name
     If Len(Trim(Lp_Base_Font_Name)) = 0 Then Lp_Base_Font_Name = LP_FONT_TAHOMA
 
-    Sh_NonModalMessageForm.SetActivityMessage "Underlining Italics"
+    Lp_Ns_Step stepNo, "Underlining Italics"
     Application.Run MacroName:="Lp_Italics_To_Dashed_Underline"
 
     Dim LoopCounter As Integer
@@ -20684,11 +20856,11 @@ Sub Lp_Normalize_Styles()
     '
     ' Sh_Color_Dollar_PG_Red used to run here too. It is now the last thing the macro does
     ' to the document, and shows no message of its own - see the end of this sub.
-    Sh_NonModalMessageForm.SetActivityMessage "Removing table shadows and diagonal borders"
+    Lp_Ns_Step stepNo, "Removing table shadows and diagonal borders"
     Application.Run MacroName:="Lp_Set_Table_Border_Weights"
 
     '***** Begin Setting Automatic List Indention Size ****
-    Sh_NonModalMessageForm.SetActivityMessage "Setting list paragraph indention sizes"
+    Lp_Ns_Step stepNo, "Setting list paragraph indention sizes"
 
     ' The numbers below are Tahoma's, tuned by hand, and stay the authority for it. A wider face
     ' needs a proportionally wider hang, so it scales off them rather than getting a second table
@@ -20729,7 +20901,7 @@ Sub Lp_Normalize_Styles()
     '***** End Setting Automatic List Indention Size ****
 
     '***** Begin Setting space after para Size ****
-    Sh_NonModalMessageForm.SetActivityMessage "Setting spacing between paragraphs"
+    Lp_Ns_Step stepNo, "Setting spacing between paragraphs"
 
     ' Same value on every paragraph => one story-level assignment instead of a per-paragraph
     ' loop. On Error Resume Next preserves the original no-op behavior when Lp_Base_Font_Size
@@ -20740,7 +20912,7 @@ Sub Lp_Normalize_Styles()
     '***** End Setting space after para Size ****
 
     '**** Begin set border weights for box styles, table styles and Print Pg Num Style ****
-    Sh_NonModalMessageForm.SetActivityMessage "Setting box border weights"
+    Lp_Ns_Step stepNo, "Setting box border weights"
 
     Dim tbl As Table
     Dim targetWeight As WdLineWidth
@@ -20751,7 +20923,7 @@ Sub Lp_Normalize_Styles()
     ' how heavy a border should be. They did until 7/30/2026.
     targetWeight = Lp_Border_Weight_For_Base_Font
 
-    Sh_NonModalMessageForm.SetActivityMessage "Setting box border spacing"
+    Lp_Ns_Step stepNo, "Setting box border spacing"
 
     arrBoxStyles = Array("Box Black", "Box Blue", "Box Orange", _
                          "Box Red", "Box Violet", "Box White")
@@ -20778,7 +20950,7 @@ Sub Lp_Normalize_Styles()
         End If
     Next sName
 
-    Sh_NonModalMessageForm.SetActivityMessage "Setting reference page border weight"
+    Lp_Ns_Step stepNo, "Setting reference page border weight"
 
     If Sh_Style_In_Use(ActiveDocument, "Print Pg Num") Then
         With ActiveDocument.Styles("Print Pg Num").ParagraphFormat
@@ -20794,7 +20966,7 @@ Sub Lp_Normalize_Styles()
     End If
     On Error GoTo 0
 
-    Sh_NonModalMessageForm.SetActivityMessage "Setting table border weights"
+    Lp_Ns_Step stepNo, "Setting table border weights"
 
     For Each tbl In ActiveDocument.Tables
         With tbl.Borders
@@ -20810,7 +20982,7 @@ Sub Lp_Normalize_Styles()
     '**** End border weights ****
 
     '********* Begin Expand Font Spacing Settings ******
-    Sh_NonModalMessageForm.SetActivityMessage "Setting sizes of inter-character spacing for Normal and List Paragraph styles"
+    Lp_Ns_Step stepNo, "Setting sizes of inter-character spacing for Normal and List Paragraph styles"
 
     Dim styleName As String
     Dim i As Long
@@ -20856,7 +21028,7 @@ Sub Lp_Normalize_Styles()
     '********* End Expand Font Spacing Settings ******
 
     '********** Unified font size updates for styles ***********
-    Sh_NonModalMessageForm.SetActivityMessage "Setting font sizes for styles"
+    Lp_Ns_Step stepNo, "Setting font sizes for styles"
 
     Dim base As Long
     Dim UnifiedStyles As Variant
@@ -20884,12 +21056,12 @@ Sub Lp_Normalize_Styles()
     ' Deliberately a separate pass rather than a .Font.Name added to the loop above: that loop's
     ' Styles(...) lookup is unguarded, and widening what depends on it would widen the blast
     ' radius if a style is ever missing. Lp_Apply_Base_Font_To_Styles carries its own guard.
-    Sh_NonModalMessageForm.SetActivityMessage "Setting the typeface for styles"
+    Lp_Ns_Step stepNo, "Setting the typeface for styles"
     Lp_Apply_Base_Font_To_Styles ActiveDocument, Lp_Base_Font_Name
     '*********** end typeface for styles **************
 
     '*********** begin heading styles (size + bold + spacing) **************
-    Sh_NonModalMessageForm.SetActivityMessage "Setting font sizes and spacing for heading styles"
+    Lp_Ns_Step stepNo, "Setting font sizes and spacing for heading styles"
     
     Dim StyleNames As Variant
     Dim SizeOffsets As Variant
@@ -20926,7 +21098,7 @@ Sub Lp_Normalize_Styles()
     '*********** end heading styles **************
 
     '********** Begin Set Base Font Size for Para Styles (Normal + colored paras) ***********
-    Sh_NonModalMessageForm.SetActivityMessage "Ensuring base font size for Normal and color paragraph styles"
+    Lp_Ns_Step stepNo, "Ensuring base font size for Normal and color paragraph styles"
 
     StyleNames = Array( _
         "Normal", _
@@ -20952,6 +21124,37 @@ Sub Lp_Normalize_Styles()
      Application.ScreenUpdating = su_Prev
 
 End Sub
+
+Private Sub Lp_Ns_Step(ByRef stepNo As Long, ByVal what As String)
+'
+' Version: 1.0  Date: 9/6/2026
+'
+' Author: Jerry Whittaker - jerry@vistatypelp.org
+'
+' One step of Lp_Normalize_Styles's progress bar. Same shape as Lp_Ffc_Step and Dx_Ffc_Step -
+' counts, works out the percentage, says what is about to happen.
+'
+' LP_NS_STEPS is ONE MORE than the 13 passes, for the reason given at Lp_Ffc_Step: each step
+' announces itself BEFORE its pass runs, so a total of 13 would put the bar at 100% while the
+' last pass was still working.
+'
+' THIS SEQUENCE USUALLY RUNS INSIDE ANOTHER ONE. Lp_Attach_The_Template calls Lp_Normalize_Styles
+' as one stage of its own job and hands it a slice of the bar with Sh_Progress_Span, so these
+' percentages are mapped into that slice rather than taking over the whole bar. Counting 0 to 100
+' here regardless is exactly right: the span is the caller's business, not this sub's.
+'
+' It also runs from Lp_Import_Exported_Selection_File, where NOTHING has opened an indicator.
+' That costs nothing - Sh_Progress_Say is gated on a flag - and it is an improvement on what was
+' there before: these thirteen lines used to be written into Sh_NonModalMessageForm, and merely
+' naming that form LOADS it, so the messages ran into a form nobody had shown.
+
+    Const LP_NS_STEPS As Long = 14
+
+    stepNo = stepNo + 1
+    Sh_Progress_Say 100# * stepNo / LP_NS_STEPS, what
+
+End Sub  '*** end of Lp_Ns_Step ***
+
 
 ' ONE find-and-replace over a fresh Duplicate of the range, with every property set explicitly.
 ' Word's find settings are application-wide, so a Find object inherits whatever was left in them -

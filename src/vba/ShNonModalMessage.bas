@@ -48,6 +48,20 @@ Private Sh_PleaseWait_Doc As Document
 ' is correct here rather than a trap, because End unloads every UserForm too. Flag and form go
 ' together either way.
 Private Sh_Progress_Up As Boolean
+
+' The slice of the bar the current sequence owns, 0 to 100. Added 9/6/2026, and it is what
+' lets one counted sequence run INSIDE another without the two fighting over the bar.
+'
+' Attaching the template runs Lp_Fix_Common_File_Errors (32 counted passes) and
+' Lp_Normalize_Styles (13) inside itself. Both report 0 to 100 of their own work, and
+' without a span the bar would race to full twice and drop back twice - worse than no bar.
+' With one, the attach says "you own 3 to 35" and the inner sequence's own 0-100 is mapped
+' into it, so the bar only ever goes forwards.
+'
+' Defaults to the whole bar, and Sh_Progress_Open resets it - so a macro that knows nothing
+' about spans behaves exactly as before.
+Private Sh_Progress_Lo As Single
+Private Sh_Progress_Hi As Single
 Private Sh_Progress_Doc As Document
 
 ' Handing focus back to the document needs the Windows API. Activating the document window
@@ -141,7 +155,13 @@ Public Sub Sh_Spin_DoEvents()
 ' Version: 1.1  Date: 8/3/2026 - also advances Sh_NonModalMessageForm, for the attach sequence
 ' Version: 1.0  Date: 8/3/2026
     On Error Resume Next
-    If Sh_Please_Wait_Form.Visible Then Sh_Please_Wait_Form.Advance
+    ' Sh_Please_Wait_Form is NOT asked any more, from 9/6/2026. Its last two callers moved
+    ' onto the bar, so nothing shows it - and merely reading .Visible on an unloaded form
+    ' LOADS it and runs its Initialize, which is the very trap noted in Sh_StartSpinnerBridge
+    ' one screen above. That was happening on every one of the 43 yields in a File Cleanup
+    ' run. The form and Sh_Show_Please_Wait / Sh_Hide_Please_Wait / Sh_PleaseWaitTick are
+    ' left in place, unused, until the last spinner box goes - taking them out is a deletion
+    ' to make on purpose, not a side effect of this change.
     If Sh_NonModalMessageForm.Visible Then Sh_NonModalMessageForm.Advance
     ' The progress bar, from 9/6/2026 - and asked a different way on purpose. The two above
     ' are asked whether they are VISIBLE; this one is asked the FLAG, because reading any
@@ -215,7 +235,15 @@ Public Sub Sh_ShowNonModalMessage(sCaption As String, sMessage As String)
 End Sub
 
 Public Sub Sh_StartSpinnerBridge()
-    Sh_NonModalMessageForm.StartSpinner
+    ' It started Sh_NonModalMessageForm's spinner until 9/6/2026. Both macros reached
+    ' through this bridge - the LP attach and the DAISY converter - now show the progress
+    ' bar, which starts its own spinner in Sh_Progress_Open. Naming the old form here would
+    ' LOAD it, since touching any member of a UserForm's default instance creates it: an
+    ' invisible form running its Initialize for nothing.
+    '
+    ' The bridge itself stays exactly as it was, and must. A modeless box cannot paint until
+    ' the modal dialog's Okay handler has reached End Sub, so the work has to be handed to
+    ' Application.OnTime and started from out here.
     'Sh_NonModalMessageForm.SetActivityMessage "Attaching the LP template…"
 
     If Len(Sh_BridgeTargetMacro) > 0 Then
@@ -771,6 +799,8 @@ Public Sub Sh_Progress_Open(ByVal boxTitle As String)
     Sh_Convert_Progress_Form.SetProgress 0, ""
     Sh_Convert_Progress_Form.Show vbModeless
     Sh_Progress_Up = True
+    Sh_Progress_Lo = 0
+    Sh_Progress_Hi = 100
     ' Started AFTER the flag is raised: SpinTick queues Sh_Progress_Tick, which is gated on
     ' that flag and would stop the spinner dead on its first tick if it were still False.
     Sh_Convert_Progress_Form.StartSpinner
@@ -791,14 +821,95 @@ Public Sub Sh_Progress_Say(ByVal pct As Single, ByVal what As String)
 ' flag means a Say with no bar open costs nothing and touches nothing, which is what makes it
 ' safe to leave these calls in a macro that is sometimes run without a box.
 
+    ' The "Where:" line in the error log, recorded BEFORE the flag test and deliberately.
+    ' Lp_Normalize_Styles runs from Lp_Import_Exported_Selection_File with no bar open at
+    ' all, and its thirteen messages used to go through Sh_NonModalMessageForm, which
+    ' records this unconditionally. Testing the flag first would mean an import that failed
+    ' logged a "Where:" line belonging to whatever ran before it - worse than none, because
+    ' it points at the wrong macro.
+    If Len(what) > 0 Then Sh_Last_Activity = what
+
     If Not Sh_Progress_Up Then Exit Sub
 
     On Error Resume Next
-    Sh_Convert_Progress_Form.SetProgress pct, what
+
+    ' That line is the ONLY position marker a failure report carries - VBA gives a handler a
+    ' number and a description and nothing else. Sh_NonModalMessageForm.SetActivityMessage
+    ' has written it since the log was built; writing it here too is what stops a macro
+    ' losing its "Where:" line when it moves onto the bar, and gives one to every macro
+    ' that was already on the bar - the braille cleanups and the DAISY converter.
+
+    Sh_Convert_Progress_Form.SetProgress Sh_Progress_Lo _
+                                       + (Sh_Progress_Hi - Sh_Progress_Lo) * (pct / 100#), what
     Err.Clear
     On Error GoTo 0
 
 End Sub  '*** end of Sh_Progress_Say ***
+
+Public Sub Sh_Progress_Span(ByVal lo As Single, ByVal hi As Single)
+' Hand the next stretch of the bar to a sequence that counts its own work from 0 to 100.
+'
+'     Sh_Progress_Say 3, "Fixing common file errors"
+'     Sh_Progress_Span 3, 35
+'     Lp_Fix_Common_File_Errors           ' its own 0-100 now lands between 3 and 35
+'     Sh_Progress_Span 0, 100             ' give the whole bar back
+'
+' GIVE THE BAR BACK. A span left in place makes every later Say land inside it, so the bar
+' stops a third of the way along and stays there. Reset it the moment the inner sequence
+' returns - including on the way out of an error handler.
+'
+' Refuses a backwards or empty span rather than accepting one: hi <= lo would freeze the bar
+' at lo for the whole of the inner sequence, which reads exactly like a hang.
+'
+' Version: 1.0  Date: 9/6/2026
+
+    If hi <= lo Then Exit Sub
+    If lo < 0 Then lo = 0
+    If hi > 100 Then hi = 100
+
+    Sh_Progress_Lo = lo
+    Sh_Progress_Hi = hi
+
+End Sub  '*** end of Sh_Progress_Span ***
+
+Public Sub Sh_Progress_Hide()
+' Take the bar off the screen for a moment WITHOUT closing it, and put it back with
+' Sh_Progress_Show. Needed where a modal dialog of Word's own has to come forward - the Save As
+' dialog in Lp_Attach_The_Template - because a modeless form sitting over it confuses the focus.
+'
+' Hide, not Close, and the difference matters: Close lowers Sh_Progress_Up, and every Say after
+' that does nothing. Closing here instead of hiding is what made the attach's last two stages
+' and its "Finished" vanish before anyone saw them (found in review, 9/6/2026).
+'
+' Gated on the flag like every other helper here, so it is safe to call when no bar is open and
+' can never be the thing that instantiates the form. Reading a property of an unloaded UserForm
+' runs its Initialize, which for this form reads Application.Left and hangs a headless Word.
+'
+' Version: 1.0  Date: 9/6/2026
+
+    If Not Sh_Progress_Up Then Exit Sub
+
+    On Error Resume Next
+    Sh_Convert_Progress_Form.Hide
+    Err.Clear
+    On Error GoTo 0
+
+End Sub  '*** end of Sh_Progress_Hide ***
+
+Public Sub Sh_Progress_Show()
+' Put a hidden bar back on screen. The counterpart to Sh_Progress_Hide; see the note there.
+'
+' Version: 1.0  Date: 9/6/2026
+
+    If Not Sh_Progress_Up Then Exit Sub
+
+    On Error Resume Next
+    Sh_Convert_Progress_Form.Show vbModeless
+    Sh_Focus_Document Sh_Progress_Doc
+    Err.Clear
+    On Error GoTo 0
+
+End Sub  '*** end of Sh_Progress_Show ***
 
 Public Sub Sh_Progress_Close()
 ' Takes the bar off screen. Unload rather than Hide, so the next Open starts from a fresh form
@@ -816,6 +927,8 @@ Public Sub Sh_Progress_Close()
     ' Sh_Hide_Please_Wait has done it in this order since 8/3/2026.
     Sh_Convert_Progress_Form.StopSpinner
     Sh_Progress_Up = False
+    Sh_Progress_Lo = 0
+    Sh_Progress_Hi = 100
     Unload Sh_Convert_Progress_Form
     Sh_Focus_Document Sh_Progress_Doc
     Set Sh_Progress_Doc = Nothing
