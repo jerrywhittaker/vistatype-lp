@@ -18,6 +18,35 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - LP  - 9/6/2026 - THE ATTACH-A-TEMPLATE PATH SAYS THINGS THE WAY THE REST OF VISTATYPE LP DOES.
+'           - LP  - 9/6/2026 - Sixteen messages moved from MsgBox to Sh_Say and Sh_Ask - the obsolete-template
+'           - LP  - 9/6/2026 - warning (123), the missing-template stop (141), the cancelled-save question (306),
+'           - LP  - 9/6/2026 - the could-not-reopen notice (233), the stabilized-and-saved notice (201), and the
+'           - LP  - 9/6/2026 - eleven page-size and margin checks on LP_Attach_An_Lp_Template_Form (189-199).
+'           - LP  - 9/6/2026 - Every number is the one it has always had; no new numbers were allocated. This is
+'           - LP  - 9/6/2026 - the first batch of the conversion the file has described as pending since 8/23/2026,
+'           - LP  - 9/6/2026 - and this path was chosen because a transcriber meets it at the moment they must NOT
+'           - LP  - 9/6/2026 - carry on editing. What is gained is the three rules: at least 10 point Tahoma, a
+'           - LP  - 9/6/2026 - button that says Okay, and Alt+O to press it.
+'           - LP  - 9/6/2026 - WHAT IS LOST, and it is not nothing: 306 and 233 carried a warning ICON and 201 an
+'           - LP  - 9/6/2026 - information one, and 306's warning made a SOUND. A UserForm can draw neither and
+'           - LP  - 9/6/2026 - play neither. 306 also changes shape - it was Yes/No and Sh_Ask offers Okay and
+'           - LP  - 9/6/2026 - Cancel - so its question is reworded to name the two buttons. Okay is still the safe
+'           - LP  - 9/6/2026 - answer (go back and save), which is the way round the MsgBox had it, Yes being the
+'           - LP  - 9/6/2026 - default button. Sh_Message_Form DOES set one - New-UserForm.ps1 built it with
+'           - LP  - 9/6/2026 - Okay.Default = True and Cancel.Cancel = True - so Enter presses Okay and Esc
+'           - LP  - 9/6/2026 - presses Cancel, always, in that order and no other. That is a CONSTRAINT on
+'           - LP  - 9/6/2026 - what can be converted: the six MsgBox calls that pass vbDefaultButton2 are
+'           - LP  - 9/6/2026 - saying the SECOND button is the safe one, and this form cannot express that.
+'           - LP  - 9/6/2026 - Word such a question so Okay is the safe answer, or leave it a MsgBox.
+'           - LP  - 9/6/2026 - AND A vbYesNo GAINS AN ESCAPE HATCH WHEN IT MOVES HERE, every time: a Yes/No
+'           - LP  - 9/6/2026 - MsgBox disables its own X and ignores Esc, so the user MUST answer it, while
+'           - LP  - 9/6/2026 - this form takes both as Cancel. On 306 that means Esc now carries on WITHOUT
+'           - LP  - 9/6/2026 - saving, silently, where before it did nothing at all. Check what Cancel costs
+'           - LP  - 9/6/2026 - before converting any other Yes/No. The wording of the eleven form
+'           - LP  - 9/6/2026 - checks was tidied at the same time: they read "The size range For paper Or screen
+'           - LP  - 9/6/2026 - height Is .1 To 22", with VBA keywords capitalized mid-sentence, and two words were
+'           - LP  - 9/6/2026 - misspelled - "subracted" and "landscapt".
 ' Notes:    - MS - 9/5/2026 - THE HARD WALL BETWEEN THE WORD CONFIGURATIONS. Jerry, 9/5/2026:
 '           -                   "changes in the word configuration settings for a braille file or a
 '           -                   large print file should have no effect on the word configuration
@@ -2518,6 +2547,9 @@ Sub Sh_HandleDocumentOpened()
     ' If the document is a large print document then setting for Large Print are made - if doc is braille then brille settings are made
     '   otherwise the settings for a normal document are made.
     '
+    ' Version 1.8  Date: 9/6/2026 - the obsolete-template warning (123) goes through Sh_Say, so it is at
+    '                              least 10 point Tahoma and its button says Okay. The wording and the ten
+    '                              figures it reports are unchanged
     ' Version 1.7  Date: 8/9/2026 - the three-way config now goes through Sh_Apply_Word_Config, shared with Sh_HandleDocumentNew and with switching between open documents (Sh_HandleDocumentActivated), so the three can never drift apart. Same calls in the same order. One behavior change: a configuration that raises is now caught inside Sh_Apply_Word_Config, so this sub carries on to Sh_Set_Prodnote_Style_Visibility instead of jumping to eom and skipping it
     ' Version 1.6  Date: 7/24/2026 - Sh_Set_Prodnote_Style_Visibility now runs for EVERY opened document (any template), not just large print, so the Prodnote style is removed from the Styles pane whenever the document contains no prodnotes regardless of the attached template
     ' Version 1.5  Date: 7/23/2026 - LP documents now called the Prodnote visibility helper on open (superseded by 1.6)
@@ -2567,7 +2599,7 @@ Sub Sh_HandleDocumentOpened()
             OrientName = "Portrait"
         End If
                 
-        MsgBox " This document is using an obsolete large print template." & vbCr & vbCr _
+        Sh_Say "This document is using an obsolete large print template." & vbCr & vbCr _
                  & "YOU MUST ATTACH THE LATEST TEMPLATE IN ORDER TO CONTINUE EDITING THIS DOCUMENT!" & vbCr & vbCr _
                  & "When this message is closed, the 'Attach Lp Template & Select Output Media' form will be displayed. " _
                  & "Make note of the following information regarding this document to assist you in your media and font size selections on that form." & vbCr & vbCr _
@@ -2583,7 +2615,7 @@ Sub Sh_HandleDocumentOpened()
                  & "      Orientation                        = " + OrientName & vbCr _
                  & "      Output Media Type           = " + DM & vbCr & vbCr _
                  & "Because of the differences in character and line spacing between the templates, attaching the latest template may " _
-                 & "result in text flow changes which will require editing.", , "VistaType LP (123)"
+                 & "result in text flow changes which will require editing.", "VistaType LP (123)"
                             
             Sh_Apply_Word_Config "LP"
             Lp_GP_String_3 = "Bypass Cleanup Checks"
@@ -16862,6 +16894,11 @@ Sub Lp_Attach_The_Template()
 
     ' Attaches the LP template with style changes
     '
+    ' Version: 3.8  Date: 9/6/2026 - its four messages go through Sh_Say and Sh_Ask, so they are at
+    '                               least 10 point Tahoma and the button says Okay (141, 233, 201 and
+    '                               the cancelled-save question 306). 306 was Yes/No and is reworded
+    '                               for Okay/Cancel; what it LOSES is the warning icon and its sound,
+    '                               which a UserForm has no way to draw or play
     ' Version: 3.7  Date: 8/26/2026 - ended the On Error Resume Next that 1.8 opened around the portrait
     '                                orientation line and never closed. It had been swallowing every error in
     '                                the remaining 210-odd lines of this sub since 10/24/2023 - the page size,
@@ -16989,7 +17026,7 @@ AvoidCrash:
             Else
                 Unload Sh_NonModalMessageForm
                 Application.ScreenUpdating = True
-                MsgBox " Cannot continue!" + vbCr + vbCr + "The template file: " + TemplatePathandName + " does not exist." + vbCr + vbCr + "Install the file and try again.", , "VistaType LP (141)"
+                Sh_Say "Cannot continue!" & vbCr & vbCr & "The template file: " & TemplatePathandName & " does not exist." & vbCr & vbCr & "Install the file and try again.", "VistaType LP (141)"
                 End
             End If
     End With
@@ -17209,7 +17246,6 @@ DoEvents
     Application.Run MacroName:="Lp_Turn_on_Styles_Pane"
 
     Dim doc As Document
-    Dim userChoice As VbMsgBoxResult
     Set doc = ActiveDocument
 
     ' Stabilize the document FIRST, then save it exactly once (attach -> stabilize -> save).
@@ -17246,19 +17282,29 @@ SaveTheFile:
     ' .Display ONLY opens the window to get the file name; it does NOT save yet
     If dlgSaveAs.Display <> -1 Then
         ' User canceled the dialog
-        userChoice = MsgBox( _
-            "You have canceled the Save." & vbCrLf & vbCrLf & _
-            "Continuing without saving may result in an unstable Word document." & vbCrLf & vbCrLf & _
-            "Do you want to reconsider saving this file?", _
-            vbYesNo + vbExclamation, _
-            "VistaType LP (306)")
-
-        If userChoice = vbNo Then
+        ' Yes/No became Okay/Cancel when this moved to Sh_Ask on 9/6/2026, so the question
+        ' names the two buttons rather than asking something answerable with yes or no.
+        ' Okay is the SAFE answer - it goes back to the Save As dialog - which is the way
+        ' round the MsgBox had it too, Yes being its default button.
+        '
+        ' ESC NOW ANSWERS THIS QUESTION, AND JERRY DECIDED TO LEAVE IT SO - 9/6/2026, asked
+        ' directly. A Yes/No MsgBox disables its own X and ignores Esc, so the transcriber had
+        ' to answer it; Sh_Message_Form takes both Esc and the red X as Cancel. Cancel here
+        ' carries on WITHOUT saving, so pressing Esc at the Save As dialog and then again out
+        ' of reflex leaves the book attached, repaginated and unsaved, with nothing said. Enter
+        ' still presses Okay, which is the safe answer, and the message names what each button
+        ' does. Two other cures were offered and not taken: rewording so Cancel reads as a
+        ' deliberate choice, and a message after Cancel saying where the book stands. Do not
+        ' re-open this without asking him again.
+        If Sh_Ask("You have canceled the Save." & vbCr & vbCr _
+                & "Continuing without saving may result in an unstable Word document." & vbCr & vbCr _
+                & "Choose Okay to go back and save it, or Cancel to carry on without saving.", _
+                  "VistaType LP (306)") Then
+            GoTo SaveTheFile
+        Else
             Unload Sh_NonModalMessageForm
             Application.ScreenUpdating = True
             Exit Sub
-        Else
-            GoTo SaveTheFile
         End If
     Else
         ' 1. Show the non-modal form BEFORE saving
@@ -17295,14 +17341,14 @@ SaveTheFile:
     Set doc = Sh_Close_And_Reopen(doc)
     Set currentdoc = doc
 
-    ' Nothing means the reopen failed and the document is not on screen. Her work is on disk -
+    ' Nothing means the reopen failed and the document is not on screen. The work is on disk -
     ' the Save As above succeeded, which is the only way this line is reached - so say where it
     ' is and stop, rather than activating a document that is not there.
     If doc Is Nothing Then
         Application.ScreenUpdating = True
-        MsgBox "Your document has been saved, but Word could not reopen it." & vbCr & vbCr _
+        Sh_Say "Your document has been saved, but Word could not reopen it." & vbCr & vbCr _
              & "Open it again from where you saved it and carry on. Nothing has been lost.", _
-             vbExclamation, "VistaType LP (233)"
+               "VistaType LP (233)"
         Exit Sub
     End If
 
@@ -17322,7 +17368,7 @@ SaveTheFile:
     ' document did, and Word does not always restore it from that.
     Application.Run MacroName:="Lp_Turn_on_Styles_Pane"
 
-    MsgBox "File has been stabilized and saved", vbInformation, "VistaType LP (201)"
+    Sh_Say "File has been stabilized and saved.", "VistaType LP (201)"
     
     Unload Sh_NonModalMessageForm
     

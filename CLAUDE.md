@@ -720,9 +720,41 @@ back `False`, i.e. Cancel, and silence that quietly means "no" cannot be told ap
 having chosen "no".
 
 **Not retrofitted.** The two newest toolbar buttons — Reset Word Configuration and Styles Pane:
-Recommended — were converted on 8/23/2026, five messages. Counted the same day, what is left:
-**85 `MsgBox` calls in `LPandBrlMacros`, 48 inside the forms, 20 in the three smaller modules.**
+Recommended — were converted on 8/23/2026, five messages. **The attach-a-large-print-template path
+followed on 9/6/2026, sixteen messages** — the obsolete-template warning (123), the missing-template
+stop (141), the cancelled-save question (306), the could-not-reopen notice (233), the
+stabilized-and-saved notice (201), and the eleven page-size and margin checks on
+`LP_Attach_An_Lp_Template_Form` (189–199). Every one kept the number it already had.
 They convert a feature at a time. Nothing new uses `MsgBox`.
+
+**What is left, recounted 9/6/2026: 65 in `LPandBrlMacros`, 30 across the forms, 18 in the three
+smaller modules — 113 in all.** **Count with comment lines excluded**, or the number comes out
+around 40 too high: the changelog and the version blocks say the word `MsgBox` constantly, and so
+do commented-out calls. `grep -ah MsgBox <files> | sed 's/^[[:space:]]*//' | grep -v "^'"` is the
+count that means something. The figures this paragraph carried until 9/6/2026 (85 / 48 / 20) were
+made the unfiltered way on 8/23/2026 and were never right.
+
+**Three things a conversion cannot carry, and they decide the ORDER of the remaining work:**
+- **The icon and the sound.** Around 45 of the calls pass `vbExclamation`, `vbInformation`,
+  `vbCritical` or `vbQuestion`, and the warning ones make a noise. A UserForm draws neither and
+  plays neither. Weigh that per message rather than sweeping.
+- **Yes/No has to be reworded.** `Sh_Ask` offers Okay and Cancel. Sixteen calls are `vbYesNo`;
+  four are already `vbOKCancel` and are free. **None is three-button**, which is why this is
+  possible at all.
+- **`Sh_Message_Form` fixes which key presses which button, and it cannot be told otherwise.**
+  `New-UserForm.ps1` built it with `Okay.Default = True` and `Cancel.Cancel = True`, so **Enter is
+  always Okay and Esc is always Cancel**. Six `MsgBox` calls pass `vbDefaultButton2` — they are
+  saying the SECOND button is the safe one, which this form cannot express. Word such a question
+  so that Okay is the safe answer, or leave it a `MsgBox`.
+- **A `vbYesNo` gains an escape hatch the moment it moves here.** A Yes/No `MsgBox` disables its own
+  X and ignores Esc: the user has to answer it. `Sh_Message_Form` takes both as Cancel. On dialog
+  306 that means Esc now carries on **without saving**, silently, where before it did nothing.
+  Before converting any other Yes/No, ask what Cancel costs if it is pressed by reflex.
+
+**Twenty of the calls read an answer; the rest only tell the user something.** The tell-only ones
+convert almost mechanically. Do not attempt all of them in one sweep: nothing here compiles VBA,
+there are no automated tests, and a scripted edit across this module has already deleted code out
+of both book configurations with every guard passing and a green build.
 
 **Hover text cannot be made 10 point Tahoma, on a ribbon button or on a form.** Word draws a
 ribbon/QAT screentip and supertip itself in the Office UI font; customUI has no font attribute

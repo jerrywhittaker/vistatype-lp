@@ -17,6 +17,14 @@ Attribute VB_Exposed = False
 
 ' LP_Attach_An_Lp_Template_Form
 '
+' Version: 6.7  Date: 9/6/2026 - the eleven page-size and margin checks go through Sh_Say
+'                               instead of MsgBox, so each is at least 10 point Tahoma and
+'                               its button says Okay. Every number (189-199) is the one it
+'                               has always had. None of them carried an icon, so nothing is
+'                               lost here. The wording was tidied in the same pass: VBA
+'                               keywords had been capitalized mid-sentence ("The size range
+'                               For paper Or screen height Is .1 To 22"), and "subracted"
+'                               and "landscapt" were misspelled
 ' Version: 6.6  Date: 9/4/2026 - the legacy VistaTypeLP Legible branches are gone from both
 '                                UserForm_Initialize and AttachOkay_Click. They grayed the two
 '                                Typeface buttons out, captioned the frame "this book keeps
@@ -235,68 +243,68 @@ Private Sub AttachOkay_Click()
         ' ** Height, Width & Margins Value Range Checks**
         
         If (Round(Val(CustomHeightValue), 2) < 0.1 Or Round(Val(CustomHeightValue), 2) > 22) Or IsNumeric(CustomHeightValue) = False Then
-            MsgBox "The size range For paper Or screen height Is .1 To 22", , "VistaType LP (189)"
+            Sh_Say "The size range for paper or screen height is .1 to 22 inches.", "VistaType LP (189)"
             CustomHeightValue = PPH
             Exit Sub
         End If
         
         If (Round(Val(CustomWidthValue), 2) < 0.1 Or Round(Val(CustomWidthValue), 2) > 22) Or IsNumeric(CustomWidthValue) = False Then
-            MsgBox "The size range For paper Or screen width Is .1 To 22", , "VistaType LP (190)"
+            Sh_Say "The size range for paper or screen width is .1 to 22 inches.", "VistaType LP (190)"
             CustomWidthValue = PPW
             Exit Sub
         End If
         
         If Round(Val(LMarginSizeValue), 2) < 0.1 Or Round(Val(LMarginSizeValue), 2) > 2 Or IsNumeric(LMarginSizeValue) = False Then
-            MsgBox "The size range For the left margin Is .1 To 2 inches.", , "VistaType LP (191)"
+            Sh_Say "The size range for the left margin is .1 to 2 inches.", "VistaType LP (191)"
             LMarginSizeValue = PLM
             Exit Sub
         End If
         
         If Round(Val(RMarginSizeValue), 2) < 0.1 Or Round(Val(RMarginSizeValue), 2) > 1 Or IsNumeric(RMarginSizeValue) = False Then
-            MsgBox "The size range For the right margin Is .1 To 1 inch.", , "VistaType LP (192)"
+            Sh_Say "The size range for the right margin is .1 to 1 inch.", "VistaType LP (192)"
             RMarginSizeValue = PRM
             Exit Sub
         End If
         
         If Round(Val(TMarginSizeValue), 2) < 0.1 Or Round(Val(TMarginSizeValue), 2) > 1 Or IsNumeric(TMarginSizeValue) = False Then
-            MsgBox "The size range For the top margin Is .1 To 1 inch.", , "VistaType LP (193)"
+            Sh_Say "The size range for the top margin is .1 to 1 inch.", "VistaType LP (193)"
             TMarginSizeValue = PTM
             Exit Sub
         End If
         
         If Round(Val(BMarginSizeValue), 2) < 0.1 Or Round(Val(BMarginSizeValue), 2) > 1 Or IsNumeric(BMarginSizeValue) = False Then
-            MsgBox "The size range For the bottom margin Is .1 To 1 inch.", , "VistaType LP (194)"
+            Sh_Say "The size range for the bottom margin is .1 to 1 inch.", "VistaType LP (194)"
             BMarginSizeValue = PBM
             Exit Sub
         End If
         
         ' ** Logic Validations **
         If Round(Val(CustomWidthValue), 2) - (Val(LMarginSizeValue) + Val(RMarginSizeValue)) < 0.1 Then
-            MsgBox "The sum of the left And right margins subtracted from the paper Or screen width Is less than .1 inch", , "VistaType LP (195)"
+            Sh_Say "The sum of the left and right margins subtracted from the paper or screen width is less than .1 inch.", "VistaType LP (195)"
             CustomWidthValue = PPW
             Exit Sub
         End If
         
         If Round(Val(CustomHeightValue), 2) - (Val(TMarginSizeValue) + Val(BMarginSizeValue)) < 0.5 Then
-            MsgBox "The sum of the top And bottom margins subracted from the paper Or screen height Is less than .5 inch", , "VistaType LP (196)"
+            Sh_Say "The sum of the top and bottom margins subtracted from the paper or screen height is less than .5 inch.", "VistaType LP (196)"
             CustomHeightValue = PPH
             Exit Sub
         End If
         
         If PPO = "L" And Round(Val(CustomHeightValue), 2) > Round(Val(CustomWidthValue), 2) Then
-            MsgBox "The custom orientation Is Set For landscape but the custom height Is greater than the custom width. " & _
-                   "In landscapt mode, width must be greater than height", , "VistaType LP (197)"
+            Sh_Say "The custom orientation is set for landscape but the custom height is greater than the custom width. " & _
+                   "In landscape mode, width must be greater than height.", "VistaType LP (197)"
             Exit Sub
         End If
         
         If PPO = "P" And Round(Val(CustomWidthValue), 2) > Round(Val(CustomHeightValue), 2) Then
-            MsgBox "The custom orientation Is Set For portrait but the custom width Is greater than the custom height. " & _
-                   "In portrait mode, the height must be greater than width.", , "VistaType LP (198)"
+            Sh_Say "The custom orientation is set for portrait but the custom width is greater than the custom height. " & _
+                   "In portrait mode, the height must be greater than width.", "VistaType LP (198)"
             Exit Sub
         End If
         
         If MirroredCheckBox = True And (Round(Val(BindingWidthValue), 2) < 0.1 Or Round(Val(BindingWidthValue), 2) > 1 Or IsNumeric(BindingWidthValue) = False) Then
-            MsgBox "The size range For the Binding Margin Is .1 To 1 inch.", , "VistaType LP (199)"
+            Sh_Say "The size range for the binding margin is .1 to 1 inch.", "VistaType LP (199)"
             BindingWidthValue = LMarginSizeValue
             Exit Sub
         End If
