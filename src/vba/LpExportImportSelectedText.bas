@@ -383,7 +383,14 @@ Sub Lp_Import_Exported_Selection_File()
 
     On Error GoTo ErrorHandler
     
+    ' THE BAR, from 9/6/2026 - opened only once the file has been chosen and checked, for
+    ' the reason written at the export: nothing should report progress on a job the user has
+    ' not finished asking for, and a modeless box over Word's own file dialog confuses
+    ' Windows about which window is in front.
+    Sh_Progress_Open "Importing a file into this document"
+
     ' 3. Open Source (Hidden)
+    Sh_Progress_Say 15, "Opening the file to import"
     Application.ScreenUpdating = False
     Set sourceDoc = Documents.Open(fileName:=strFilePath, Visible:=False)
 
@@ -391,7 +398,13 @@ Sub Lp_Import_Exported_Selection_File()
     sourceDoc.Activate
     ' Using a separate function check
     If Lp_Is_The_Attached_Template_LP = True Then
+        ' Normalize Styles counts thirteen passes of its own, so it is handed a slice of the
+        ' bar rather than being allowed to drive the whole of it - see Sh_Progress_Span. This
+        ' is the slow part of an import, which is why the slice is the widest.
+        Sh_Progress_Say 30, "Normalizing the styles of the imported text"
+        Sh_Progress_Span 30, 80
         Call Lp_Normalize_Styles
+        Sh_Progress_Span 0, 100
     End If
     
     ' 5. Define Source Content (Excluding the final paragraph mark)
@@ -403,10 +416,12 @@ Sub Lp_Import_Exported_Selection_File()
     Loop
     
     ' 6. The "Fix" - Direct Range Transfer
+    Sh_Progress_Say 85, "Placing the text in your document"
     ' This replaces Copy/Paste and avoids Error 4605
     targetRange.FormattedText = sourceRange.FormattedText
     
     ' 7. Cleanup
+    Sh_Progress_Say 95, "Closing the imported file"
     sourceDoc.Close SaveChanges:=False
     Set sourceDoc = Nothing
     
@@ -417,6 +432,9 @@ Sub Lp_Import_Exported_Selection_File()
     targetRange.Select
     Selection.Collapse Direction:=wdCollapseEnd
     ActiveWindow.ScrollIntoView Selection.Range, True
+
+    Sh_Progress_Say 100, "Finished"
+    Sh_Progress_Close
     
     Exit Sub
 
@@ -427,6 +445,11 @@ ErrorHandler:
     ' docs/Reported-Errors.md is keyed on.
     errNum = Err.Number
     errText = Err.Description
+
+    ' The bar comes down before anything else is drawn. It is opened only on the working half
+    ' of this macro, so it may not be up at all - Sh_Progress_Close is gated on the flag and
+    ' costs nothing when it is not.
+    Sh_Progress_Close
 
     Application.ScreenUpdating = True
 

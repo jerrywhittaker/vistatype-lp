@@ -399,7 +399,19 @@ Sub Dx_Import_Exported_Selection_File()
 
     On Error GoTo ErrorHandler
     
+    ' THE BAR, from 9/6/2026 - opened only once the file has been chosen and checked, for
+    ' the reason written at the export: nothing should report progress on a job the user has
+    ' not finished asking for, and a modeless box over Word's own file dialog confuses
+    ' Windows about which window is in front.
+    '
+    ' FEWER STAGES THAN THE LARGE PRINT IMPORT, and that is right rather than an omission:
+    ' the large print half runs Lp_Normalize_Styles over what it imports and this one
+    ' deliberately does not - there is no braille equivalent - so there is no slow middle
+    ' stage here to report.
+    Sh_Progress_Open "Importing a file into this document"
+
     ' 3. OPEN SOURCE (HIDDEN)
+    Sh_Progress_Say 20, "Opening the file to import"
     Application.ScreenUpdating = False
     Set sourceDoc = Documents.Open(fileName:=strFilePath, Visible:=False)
     
@@ -414,11 +426,13 @@ Sub Dx_Import_Exported_Selection_File()
     Loop
     
     ' 5. DIRECT RANGE TRANSFER
+    Sh_Progress_Say 60, "Placing the text in your document"
     ' Replaces sourceRange.Copy + Selection.PasteAndFormat. Nothing goes near the
     ' clipboard, so whatever the transcriber had on it survives the import.
     targetRange.FormattedText = sourceRange.FormattedText
     
     ' 6. CLEANUP
+    Sh_Progress_Say 90, "Closing the imported file"
     sourceDoc.Close SaveChanges:=False
     Set sourceDoc = Nothing
     
@@ -429,6 +443,9 @@ Sub Dx_Import_Exported_Selection_File()
     targetRange.Select
     Selection.Collapse Direction:=wdCollapseEnd
     ActiveWindow.ScrollIntoView Selection.Range, True
+
+    Sh_Progress_Say 100, "Finished"
+    Sh_Progress_Close
     
     Exit Sub
 
@@ -439,6 +456,10 @@ ErrorHandler:
     ' docs/Reported-Errors.md is keyed on.
     errNum = Err.Number
     errText = Err.Description
+
+    ' The bar comes down before anything else is drawn. Gated on the flag, so it costs nothing
+    ' on the paths that fail before it was opened.
+    Sh_Progress_Close
 
     Application.ScreenUpdating = True
 
