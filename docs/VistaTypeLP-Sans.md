@@ -345,9 +345,11 @@ Fixed in the script and in the shipped face, with a check —
 embeds its own copy of the face and carries the old flags with it**, so it keeps
 behaving as it does until the book is remade.
 
-**Worth one minute on the build box after installing:** in a VistaTypeLP Sans
-book, type a word, press Ctrl+I, and confirm it goes italic and comes back. Same
-for bold italic.
+**Confirmed in Word, 9/6/2026**, by Jerry on the build box on the 3.0.375
+installer: italic and bold italic both behave correctly in a **new** book set in
+VistaTypeLP Sans. A new book was used deliberately — one made before that day
+embeds its own copy of the face carrying the old flags, so it could not have shown
+anything either way.
 
 ---
 
