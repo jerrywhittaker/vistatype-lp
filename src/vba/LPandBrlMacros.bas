@@ -13154,6 +13154,8 @@ Sub Lp_Convert_Hyper_To_Addresses()
 ' from: http://stackoverflow.com/questions/16493791/
 '     extract-hyperlink-address-from-hyperlink-field-code
 '
+' Version: 2.1   Date: 9/6/2026 - the addresses are made LIVE again only in a book meant for a
+'                                 SCREEN. A book for paper keeps them as plain text (Jerry)
 ' Version: 2.0   Date: 8/13/2026 - no temporary document; everything is scoped to a range.
 '
 '                                 ActiveDocument.Hyperlinks is a whole-document collection and
@@ -13213,7 +13215,24 @@ Sub Lp_Convert_Hyper_To_Addresses()
     ' "mailto:" is how Word writes an e-mail address and is not part of the address a reader
     ' wants to see
     Sh_Delete_Text_In_Range rng, "mailto:"
-    Sh_Linkify_Range rng
+
+    ' AND THEY ARE ONLY MADE LIVE AGAIN FOR A SCREEN BOOK. Jerry, 9/6/2026: "in a large
+    ' print document to be printed (Paper) on import all urls and email-address should be in
+    ' text only. for large print screen documents, text urls and email address can (and
+    ' probably should) be live links."
+    '
+    ' Until now this macro linkified every large print book, so File Cleanup turned plain
+    ' addresses into live links in books destined for PAPER - where a link is a differently
+    ' colored, underlined run that cannot be followed and that a low-vision reader has to
+    ' decode anyway.
+    '
+    ' The passes ABOVE still run for both: a hyperlink is replaced by its own address as
+    ' plain text either way, which is what makes the paper case right. Only the step that
+    ' makes them live again is conditional.
+    '
+    ' A book with no Media entry counts as paper - see Lp_Doc_Is_Screen for why that is the
+    ' safe direction.
+    If Lp_Doc_Is_Screen() Then Sh_Linkify_Range rng
 
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     Sh_Return_User_To_Start_Position
@@ -22159,6 +22178,8 @@ Sub MS_Set_Word_Config_For_Large_Print()
     '
     ' Author: Jerry Whittaker -  jerry@vistatypelp.org
     '
+    ' Version: 3.1  Date: 9/6/2026 - hyperlinks as you type follow the MEDIUM: off for a book
+    '                                that will be printed, on for one read on a screen. Jerry
     ' Version: 3.0  Date: 9/5/2026 - raises the book flag at the TOP now instead of the end, so a
     '                                run that raises still leaves it standing (Jerry). The flag is
     '                                all Sh_Note_Book_Settings writes; the 42 values went with the
@@ -22205,6 +22226,9 @@ Sub MS_Set_Word_Config_For_Large_Print()
     ' Version: 1.4  Date: 1/8/2020 - closed reading view and added on error trap
     ' Version: 1.3  Date: 4/14/2017
     '
+    ' True when this book is for a screen, so its web and e-mail addresses stay live.
+    Dim wantLinks As Boolean
+
     Application.Run MacroName:="Sh_Is_Doc_Open"
     
     ActiveDocument.ActiveWindow.View.ReadingLayout = False  'will crash if document is in reading view ... close reading view
@@ -22303,11 +22327,25 @@ Sub MS_Set_Word_Config_For_Large_Print()
         ' value comes back in her letters.
         If .AutoFormatAsYouTypeReplaceQuotes <> True Then .AutoFormatAsYouTypeReplaceQuotes = True
 
-        ' Hyperlinks, OFF as you type from 3.0.221 - Jerry. Large print is now off on BOTH tabs,
-        ' having gone off on the on-demand tab first and had this half left on because he named
-        ' that tab alone. Braille is the opposite and is on for both, decided separately the same
-        ' day; the two books genuinely differ here and neither should be aligned to the other.
-        If .AutoFormatAsYouTypeReplaceHyperlinks <> False Then .AutoFormatAsYouTypeReplaceHyperlinks = False
+        ' Hyperlinks as you type: OFF for a book that will be PRINTED, ON for one read on a
+        ' SCREEN. Jerry, 9/6/2026 - "for large print screen documents, text urls and email
+        ' address can (and probably should) be live links". It was off for every large print
+        ' book from 3.0.221, which is right for paper and wrong for a screen book, where
+        ' typing an address and having it come out dead is the transcriber's problem to undo.
+        '
+        ' The on-demand tab (AutoFormatReplaceHyperlinks) is deliberately NOT changed with it.
+        ' Jerry named this tab, and that one only acts when someone runs the AutoFormat
+        ' command by hand - which is a decision, not a side effect of typing.
+        '
+        ' Braille is on for both tabs, decided separately on 8/21/2026; the two books genuinely
+        ' differ here and neither should be aligned to the other.
+        '
+        ' This setting is application-wide, so it has to be re-decided every time the document
+        ' on screen changes - which is exactly what this sub is for. See
+        ' Sh_Apply_Word_Config and Jerry's rule of 9/4/2026 that the configuration follows the
+        ' document on screen.
+        wantLinks = Lp_Doc_Is_Screen()
+        If .AutoFormatAsYouTypeReplaceHyperlinks <> wantLinks Then .AutoFormatAsYouTypeReplaceHyperlinks = wantLinks
     End With
     
     ' Spell-check-as-you-type, ON - Jerry, 3.0.220. It is here for its own sake AND because the
@@ -25135,6 +25173,47 @@ TheVariableDoesNotExist:
     ' select settings.xml and right click and select open
  
 End Function
+
+Public Function Lp_Doc_Is_Screen(Optional ByVal targetDoc As Document) As Boolean
+'
+' Version: 1.0  Date: 9/6/2026
+'
+' Author: Jerry Whittaker - jerry@vistatypelp.org
+'
+' True when this large print document is meant to be READ ON A SCREEN rather than printed.
+'
+' Jerry's rule, 9/6/2026: a book that will be PRINTED must carry its web and e-mail addresses as
+' plain text - a live link on paper is a differently colored, underlined run of text that cannot
+' be followed and that a low-vision reader has to decode anyway. A book read on a screen should
+' have them live, because there the link is the point.
+'
+' The answer is the document variable "Media", written by Lp_Attach_The_Template and by
+' LP_Set_Doc_Background_Form, and holding "Paper" or "Screen".
+'
+' A DOCUMENT WITH NO MEDIA ENTRY COUNTS AS PAPER, and that is the safe direction rather than an
+' oversight: a book made before this variable existed, or one whose entry was lost, gets plain
+' text. Text on a screen is merely less convenient; a live link in a printed book is wrong.
+'
+' Reads the variable DIRECTLY rather than through Sh_Read_Document_Variables, which writes its
+' answer into the shared Sh_GP_String_1 - a question should not have a side effect on a public
+' string half the project reads.
+
+    Dim d As Document
+    Dim media As String
+
+    On Error Resume Next
+    If targetDoc Is Nothing Then
+        Set d = ActiveDocument
+    Else
+        Set d = targetDoc
+    End If
+    media = d.Variables("Media")
+    Err.Clear
+    On Error GoTo 0
+
+    Lp_Doc_Is_Screen = (LCase$(Trim$(media)) = "screen")
+
+End Function  '*** end of Lp_Doc_Is_Screen ***
 
 Function Sh_Read_Document_Variables(VarName As String, VarValue As String)
 
