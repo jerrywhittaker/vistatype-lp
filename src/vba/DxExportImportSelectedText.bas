@@ -32,11 +32,6 @@ Sub Dx_ExportSelectionToNewFile()
     '
     On Error GoTo ErrHandler
 
-    ' The one progress indicator, from 9/6/2026. Opened here, before anything can fail, and
-    ' closed in CleanExit - which every path out of this macro goes through, including the
-    ' error handler. That is the whole point: an indicator left on screen over a Word that
-    ' will not repaint is what gets reported as a hang.
-    Sh_Progress_Open "Exporting the selection to a new file"
 
     Dim srcDoc As Document, destDoc As Document
     Dim rngSel As Range
@@ -111,6 +106,19 @@ Sub Dx_ExportSelectionToNewFile()
             GoTo CleanExit
         End If
     Loop
+
+    ' THE BAR OPENS HERE, NOT AT THE TOP OF THE MACRO - Jerry, 9/6/2026, testing 3.0.386:
+    ' "selecting the export macro in braille immediatly brings up the progress bar (reading the
+    ' file) and that happens before the exported file gets a location or name".
+    '
+    ' Nothing should report progress on a job the user has not finished asking for. It also
+    ' avoids two real faults: a modeless box sitting over Word's own Save As dialog confuses
+    ' Windows about which window is in front, and CANCELLING that dialog leaves by a route that
+    ' does not always pass through CleanExit - the large print half exits straight out of the
+    ' loop - so a bar opened earlier could be left on screen with nothing to take it down.
+    Sh_Progress_Open "Exporting the selection to a new file"
+    Sh_Progress_Say 10, "Preparing the selection"
+
 
     '===========================================================
     ' 3. SETUP & OPTIMIZATION
