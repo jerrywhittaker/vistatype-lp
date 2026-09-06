@@ -2599,6 +2599,13 @@ Sub Sh_HandleDocumentOpened()
             OrientName = "Portrait"
         End If
                 
+        ' CHECKED ON THE BOX, 9/6/2026, 3.0.374: all ten figures show with no scrolling.
+        ' Worth re-checking if this message is ever lengthened. Sh_Message_Form caps its
+        ' height at 26 lines and scrolls past that, estimating 68 characters to a line, and
+        ' this message comes to about 24 - the closest to the fold of anything converted so
+        ' far. The ten figures are the POINT of it: the transcriber reads them off here to
+        ' choose a media type and a font size on the form that opens next, so a scroll bar
+        ' would hide the one thing it exists to say.
         Sh_Say "This document is using an obsolete large print template." & vbCr & vbCr _
                  & "YOU MUST ATTACH THE LATEST TEMPLATE IN ORDER TO CONTINUE EDITING THIS DOCUMENT!" & vbCr & vbCr _
                  & "When this message is closed, the 'Attach Lp Template & Select Output Media' form will be displayed. " _
