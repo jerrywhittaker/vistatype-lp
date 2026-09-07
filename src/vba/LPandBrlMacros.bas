@@ -18,6 +18,37 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Sh  - 9/7/2026 - $PG VALIDATION: ONE COLUMN FOR BRAILLE, THREE FOR LARGE PRINT. Jerry's
+'           - Sh  - 9/7/2026 - words: "braille=1 column, large print =3 columns". This puts back half of the
+'           - Sh  - 9/7/2026 - 8/26/2026 change, which had set BOTH sides to one column. Braille had to be
+'           - Sh  - 9/7/2026 - one: an entry there is a page number plus a Duxbury code, 37 characters at its
+'           - Sh  - 9/7/2026 - longest, and the narrow column cut every one of them off. A large print entry
+'           - Sh  - 9/7/2026 - is a page number and its context, so three across reads shorter and loses
+'           - Sh  - 9/7/2026 - nothing. THE LINE LIMIT GOES WITH THE COLUMN COUNT - 40 for one,
+'           - Sh  - 9/7/2026 - SH_PGVAL_LINE_MAX_COLS = 23 for three - because a line longer than its column
+'           - Sh  - 9/7/2026 - simply wraps, which is what made five separate paragraphs look like one line
+'           - Sh  - 9/7/2026 - in the first place. 23 is MEASURED on the build box, not derived: three evenly
+'           - Sh  - 9/7/2026 - spaced columns inside the half-inch margins this list uses are 2.17 inches
+'           - Sh  - 9/7/2026 - wide, and exactly 23 characters of Tahoma 12 fit across one.
+' Notes:    - Sh  - 9/7/2026 - THE DOCUMENT EVENTS IGNORE A DOCUMENT VISTATYPE LP MADE FOR ITSELF.
+'           - Sh  - 9/7/2026 - Five macros build a scratch document, hidden, and close it again. Word raises
+'           - Sh  - 9/7/2026 - NewDocument and DocumentBeforeClose for every one of those, and both handlers
+'           - Sh  - 9/7/2026 - read ActiveDocument - which is the transcriber's BOOK, never the scratch
+'           - Sh  - 9/7/2026 - document, because it is never activated. Closing a document she never saw
+'           - Sh  - 9/7/2026 - therefore asked whether HER book is large print and, if so, put HER window
+'           - Sh  - 9/7/2026 - into Print view: anyone working in Draft or Read Mode was moved to Print
+'           - Sh  - 9/7/2026 - Layout by a macro that only formatted a table, and a Sh_Tidy_Panes_After_Close
+'           - Sh  - 9/7/2026 - tick was scheduled on every run. VtEvents now hands the document over and both
+'           - Sh  - 9/7/2026 - handlers exit when it is not the one on screen. NOT a flag of our own: End
+'           - Sh  - 9/7/2026 - resets module variables on ordinary paths here, and a flag would have to be
+'           - Sh  - 9/7/2026 - set in five places and cleared on every error path in all five. The parameter
+'           - Sh  - 9/7/2026 - is Optional because AutoClose has no document to hand over. Jerry, 9/7/2026.
+'           - Lp  - 9/7/2026 - FORMAT TOC drops a BULLETED LINE THAT HAS NO PAGE NUMBER. Jerry: "If the
+'           - Lp  - 9/7/2026 - three-line legend is of no value, then delete it." The NIMAS book ends each
+'           - Lp  - 9/7/2026 - chapter with square Major Topic / square Supporting Topic / square Additional
+'           - Lp  - 9/7/2026 - Topic, and once the squares are stripped those lines explain nothing. It takes
+'           - Lp  - 9/7/2026 - BOTH tests on purpose: every real entry there begins with a bullet AND ends
+'           - Lp  - 9/7/2026 - with a page number, and the chapter names carry no bullet at all.
 ' Notes:    - Lp  - 9/7/2026 - FORMAT TOC: THE HIDDEN SCRATCH DOCUMENT IS BACK, AND CTRL+Z IS ONE PRESS.
 '           - Lp  - 9/7/2026 - Measured on Jerry's own file before the change: THIRTY-NINE presses. Jerry:
 '           - Lp  - 9/7/2026 - "multiple (i mean more then 3 or 4) is not an acceptable undo requirment."
@@ -1993,7 +2024,16 @@ Public Sh_GP_String_2 As String   ' the conversion's image choice, "KEEP" or "OM
 ' takes the line the cursor is on and Locate hunts for that text in the book - with "..." on the
 ' end it would never be found, because the book does not contain it. Both halves are here so they
 ' cannot drift apart.
-Public Const SH_PGVAL_LINE_MAX As Long = 40   ' was 23, when the list was in columns
+' How much of a tagged line the validation list shows, and it depends on how WIDE the column is.
+' Braille reads down ONE column and gets 40; large print is laid out in THREE and gets 23. Jerry,
+' 9/7/2026: "braille=1 column, large print =3 columns". The arithmetic behind 23: letter paper with
+' the half-inch margins this list uses is 7.5 inches of text, three evenly spaced columns leave
+' about 2.17 inches each, and that is roughly 24 characters of the Tahoma 12 the list is set in.
+' A braille entry is a page number PLUS a Duxbury code - 37 characters at its longest - which is
+' why that side must not be in columns at all; a large print entry is a page number and its
+' context, and three of them fit across.
+Public Const SH_PGVAL_LINE_MAX As Long = 40          ' braille, one column
+Public Const SH_PGVAL_LINE_MAX_COLS As Long = 23     ' large print, three columns
 Public Const SH_PGVAL_ELLIPSIS As String = "..."
 
 Public Sh_Msg_Body As String            ' the message
@@ -2312,7 +2352,16 @@ End Sub
 
 ' Version: 1.1  Date: 8/18/2026 - skip while a macro is running (Jerry, 8/18/2026)
 ' Version: 1.0  Date: 8/9/2026
-Sub Sh_HandleDocumentNew()
+Sub Sh_HandleDocumentNew(Optional ByVal Doc As Document)
+    ' AND IS IT EVEN THE DOCUMENT ON SCREEN? The screen test below catches a hidden scratch
+    ' document only when the macro that built it froze the screen first. This one catches it
+    ' either way - see the long note in Sh_HandleDocumentClosing, 9/7/2026. Both are kept.
+    On Error Resume Next
+    If Not Doc Is Nothing Then
+        If Not Doc Is ActiveDocument Then Exit Sub
+    End If
+    On Error GoTo 0
+
     ' A MACRO is running, not a transcriber. The same test, for the same reason, as the one at
     ' the top of Sh_HandleDocumentActivated - see the long note there - but it was missing here,
     ' and Word raises NewDocument for EVERY Documents.Add, including the ones macros make.
@@ -2709,7 +2758,32 @@ Sub AutoClose()
     If gEvents Is Nothing Then Sh_HandleDocumentClosing
 End Sub
 
-Sub Sh_HandleDocumentClosing()
+Sub Sh_HandleDocumentClosing(Optional ByVal Doc As Document)
+    '
+    ' A DOCUMENT VISTATYPE LP MADE FOR ITSELF IS NOT THE TRANSCRIBER'S, AND THIS IGNORES IT.
+    ' Added 9/7/2026 at Jerry's request.
+    '
+    ' Five macros build a scratch document, hidden, and close it again - Lp_Table_Convert_Hidden,
+    ' Lp_Exercise_Levels_Hidden, Dx_Exercise_Levels_Hidden, Lp_Horz_To_Vert_Hidden and
+    ' Lp_TOC_CleanAndFormat_TOC. Word raises DocumentBeforeClose for every one of those closes, and
+    ' everything below reads ActiveDocument - which is the transcriber's BOOK, never the scratch
+    ' document, because it is never activated. So closing a document she never saw asked whether
+    ' HER book is large print and, if it is, set HER window to Print view: anyone working in Draft
+    ' or Read Mode was quietly moved to Print Layout by a macro that only formatted a table. It
+    ' also scheduled a Sh_Tidy_Panes_After_Close tick on every run.
+    '
+    ' The test is "is the closing document the one on screen", not a flag of our own. A flag would
+    ' be reset by VBA's End statement, which this project runs on ordinary paths, and it would have
+    ' to be set correctly in five places and cleared on every error path in all five.
+    '
+    ' Doc is OPTIONAL because AutoClose - the back-compatibility stub used when the add-in is
+    ' loaded as Normal.dotm - has no document to hand over. Nothing passed means "act as before".
+    On Error Resume Next
+    If Not Doc Is Nothing Then
+        If Not Doc Is ActiveDocument Then Exit Sub
+    End If
+    On Error GoTo 0
+
     Sh_LastDocEvent = "DocumentClose"
     '
     ' Runs when a document is closing - via VtEvents.App_DocumentBeforeClose (STARTUP), or
@@ -21382,6 +21456,25 @@ Private Sub Lp_Ns_Step(ByRef stepNo As Long, ByVal what As String)
 End Sub  '*** end of Lp_Ns_Step ***
 
 
+Private Function Lp_TOC_Starts_With_Bullet(ByVal paraText As String) As Boolean
+    '
+    ' Does this line BEGIN with one of the marks Format TOC strips - a bullet of any of the seven
+    ' kinds, or the tofu square? Asked before anything is cleaned up, while the mark is still there.
+    '
+    ' Version: 1.0  Date: 9/7/2026
+    '
+    Dim ch As String
+
+    ch = LTrim$(Replace(Replace(paraText, vbTab, " "), Chr(160), " "))
+    If Len(ch) = 0 Then Exit Function
+    ch = Left$(ch, 1)
+
+    Lp_TOC_Starts_With_Bullet = (ch = ChrW(&H2022) Or ch = ChrW(&H2023) Or ch = ChrW(&H25AA) _
+                              Or ch = ChrW(&H25E6) Or ch = ChrW(&H25CF) Or ch = ChrW(&H25CB) _
+                              Or ch = ChrW(&HF0B7) Or ch = ChrW(&H25A1))
+
+End Function  '*** end of Lp_TOC_Starts_With_Bullet ***
+
 Private Sub Lp_TOC_Space_A_Heading(ByVal para As Paragraph)
     '
     ' A blank line BEFORE a section or chapter name, and none after it. Jerry, 9/7/2026:
@@ -21820,6 +21913,41 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     ' tabs became spaces in the very first block. Paragraph numbers are safe to hold on to - not
     ' one pass in this macro adds or removes a paragraph mark.
     '*******************************************************
+    '*******************************************************
+    ' A BULLETED LINE WITH NO PAGE NUMBER IS DROPPED. Jerry, 9/7/2026: "If the three-line legend
+    ' is of no value, then delete it."
+    '
+    ' "Big TOC from NIMAS File.docx" ends each chapter with a legend explaining what the colored
+    ' squares against the lessons mean - square Major Topic, square Supporting Topic, square
+    ' Additional Topic. Format TOC strips the squares, which is what Jerry asked for, and the
+    ' legend is then three lines that explain nothing. The color they described is not something a
+    ' large print or braille reader receives either.
+    '
+    ' NARROW ON PURPOSE. It takes BOTH: the line must begin with one of the marks this macro
+    ' strips, AND it must have no page number at the end. Every real entry in that book begins
+    ' with a bullet and ends with a page number, so none is at risk; the chapter names carry no
+    ' bullet at all, so they are not either. A line with no page number that carries no bullet -
+    ' a heading, a note, a continuation - is untouched, as it always was.
+    '
+    ' The test tolerates a DOT LEADER in front of the number as well as a space, because nothing
+    ' has been cleaned up yet and the leaders are still there. Backwards through the paragraphs,
+    ' so a deletion cannot move the ones still to be looked at.
+    '*******************************************************
+    Set regexNum = CreateObject("VBScript.RegExp")
+    With regexNum
+        .pattern = "[. ](\b(M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})|[A-Za-z]?\d+))[\r\n]{1,2}$"
+        .IgnoreCase = True
+        .Global = False
+    End With
+
+    For paraNo = workRng.Paragraphs.count To 1 Step -1
+        Set paraRange = workRng.Paragraphs(paraNo).Range
+        paraText = paraRange.Text
+        If Lp_TOC_Starts_With_Bullet(paraText) Then
+            If Not regexNum.test(paraText) Then paraRange.Delete
+        End If
+    Next paraNo
+
     If workRng.Paragraphs.count = 0 Then GoTo tidy
 
     ReDim isHeading(1 To workRng.Paragraphs.count)
@@ -26046,6 +26174,7 @@ End Sub   '*** end of Sh_Clear_Multi_Selection macro ***
 Sub Sh_Copy_Ref_Pg_Tags_To_Temp_File()
 
     Dim MsgBoxLabel As String
+    Dim lineMax As Long
     Dim tmpDoc As Document
     Dim srcDoc As Document
     Dim tagCount As Long
@@ -26082,9 +26211,25 @@ Sub Sh_Copy_Ref_Pg_Tags_To_Temp_File()
     ' revealed it. A list meant to be read as a column of page numbers must not be laid out in
     ' columns of its own.
     '
-    ' One column, and SH_PGVAL_LINE_MAX raised to 40, shows the whole of a braille entry and
-    ' cannot look like that again.
-    tmpDoc.PageSetup.TextColumns.SetCount NumColumns:=1
+    ' ONE COLUMN FOR BRAILLE, THREE FOR LARGE PRINT. Jerry, 9/7/2026: "braille=1 column, large
+    ' print =3 columns". This puts back half of the 8/26/2026 change and keeps the other half.
+    '
+    ' That change set BOTH sides to one column, and for braille it had to: each entry there is a
+    ' page number followed by a Duxbury code, 37 characters at its longest, and the narrow column
+    ' was cutting every one of them off at 23. A large print entry is a page number and its
+    ' context, so three across is a shorter list to read and nothing is lost.
+    '
+    ' The line limit goes with the column count - SH_PGVAL_LINE_MAX for one, SH_PGVAL_LINE_MAX_COLS
+    ' for three - because a line longer than the column simply wraps, which is what made five
+    ' separate paragraphs look like one line in the first place.
+    If MsgBoxLabel = "Braille Macros" Then
+        tmpDoc.PageSetup.TextColumns.SetCount NumColumns:=1
+        lineMax = SH_PGVAL_LINE_MAX
+    Else
+        tmpDoc.PageSetup.TextColumns.SetCount NumColumns:=3
+        tmpDoc.PageSetup.TextColumns.EvenlySpaced = True
+        lineMax = SH_PGVAL_LINE_MAX_COLS
+    End If
 
     ActiveWindow.ActivePane.View.Type = wdPrintView
     Application.TaskPanes(wdTaskPaneFormatting).Visible = False
@@ -26096,7 +26241,7 @@ Sub Sh_Copy_Ref_Pg_Tags_To_Temp_File()
         .RightMargin = InchesToPoints(0.5)
     End With
 
-    tagCount = Sh_PgVal_Copy_Tags_Into(srcDoc, tmpDoc)
+    tagCount = Sh_PgVal_Copy_Tags_Into(srcDoc, tmpDoc, lineMax)
 
     ' Nothing tagged. Say so and take the empty list away again, rather than opening a validation
     ' over a blank document - which is what the old route did, silently, because a Copy with
@@ -26149,7 +26294,8 @@ End Sub   '*** end of Sh_Copy_Ref_Pg_Tags_To_Temp_File macro ***
 ' Version: 1.1  Date: 8/23/2026 - a line longer than 23 characters is cut and given an ellipsis
 ' Version: 1.0  Date: 8/23/2026
 '
-Private Function Sh_PgVal_Copy_Tags_Into(ByVal srcDoc As Document, ByVal tmpDoc As Document) As Long
+Private Function Sh_PgVal_Copy_Tags_Into(ByVal srcDoc As Document, ByVal tmpDoc As Document, _
+                                         ByVal maxLine As Long) As Long
     Dim findRng As Range
     Dim outRng As Range
     Dim moved As Long
@@ -26179,7 +26325,7 @@ Private Function Sh_PgVal_Copy_Tags_Into(ByVal srcDoc As Document, ByVal tmpDoc 
             ' The found range ends WITH the paragraph mark, because the pattern does. The text of
             ' the line is therefore one character shorter than the range.
             lineLen = findRng.End - findRng.Start - 1
-            cut = SH_PGVAL_LINE_MAX
+            cut = maxLine
 
             If lineLen <= cut Then
                 outRng.FormattedText = findRng.FormattedText

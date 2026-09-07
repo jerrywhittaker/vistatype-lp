@@ -23,11 +23,11 @@ Private Sub App_DocumentOpen(ByVal Doc As Document)
 End Sub
 
 Private Sub App_NewDocument(ByVal Doc As Document)
-    Sh_HandleDocumentNew
+    Sh_HandleDocumentNew Doc
 End Sub
 
 Private Sub App_DocumentBeforeClose(ByVal Doc As Document, Cancel As Boolean)
-    Sh_HandleDocumentClosing
+    Sh_HandleDocumentClosing Doc
 End Sub
 
 ' Raised every time a document window becomes the active one - clicking another window,
