@@ -15,6 +15,10 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 'Lp_TOC_Format_And_Color_Form
 '
+' Version: 1.2  Date: 9/7/2026 - dialog 207 says ONE press again. The hidden scratch document is
+'                               back in Lp_TOC_CleanAndFormat_TOC (3.0.402) because doing the work
+'                               in the book cost 39 presses, measured. Jerry: "multiple (i mean
+'                               more then 3 or 4) is not an acceptable undo requirment."
 ' Version: 1.1  Date: 9/2/2026 - dialog 207 no longer promises a number of Ctrl+Z presses.
 '                               Lp_TOC_CleanAndFormat_TOC stopped round-tripping through a
 '                               scratch document, so the two presses that bought are gone; and
@@ -32,7 +36,7 @@ Private Sub OkayButton_Click()
     
     If FormatTheTOCButton Then
         Application.Run MacroName:="Lp_TOC_CleanAndFormat_TOC"
-        MsgBox "Press Ctrl+Z, more than once, to return to the original TOC.", , "VistaType LP (207)"
+        MsgBox "Press Ctrl+Z once to return to the original TOC.", , "VistaType LP (207)"
         Exit Sub
         
     ElseIf AddColorBarsButton Then

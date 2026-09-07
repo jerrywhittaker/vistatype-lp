@@ -18,6 +18,33 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 9/7/2026 - FORMAT TOC: THE HIDDEN SCRATCH DOCUMENT IS BACK, AND CTRL+Z IS ONE PRESS.
+'           - Lp  - 9/7/2026 - Measured on Jerry's own file before the change: THIRTY-NINE presses. Jerry:
+'           - Lp  - 9/7/2026 - "multiple (i mean more then 3 or 4) is not an acceptable undo requirment."
+'           - Lp  - 9/7/2026 - 3.0.338 deleted the round trip and did every pass in the transcriber's book,
+'           - Lp  - 9/7/2026 - which put all ~16 replaces and both paragraph loops into her undo stack. The
+'           - Lp  - 9/7/2026 - scratch document does TWO jobs and only one was ever the fault: it had to be
+'           - Lp  - 9/7/2026 - SHOWN because the passes reached the text through Selection, and it is also
+'           - Lp  - 9/7/2026 - what keeps the undo short. The passes stayed on ranges, so it is built from
+'           - Lp  - 9/7/2026 - the BOOK's template with the BOOK's Normal, never shown and never activated,
+'           - Lp  - 9/7/2026 - and ONE FormattedText assignment comes home. Same lesson as Table Tools at
+'           - Lp  - 9/7/2026 - 3.0.345: CONVERT THE PASSES, DO NOT DELETE THE ROUND TRIP. A custom undo
+'           - Lp  - 9/7/2026 - record is still impossible - wdReplaceAll inside StartCustomRecord crashes
+'           - Lp  - 9/7/2026 - Word. A selection INSIDE A TABLE is now refused (dialog 321) rather than
+'           - Lp  - 9/7/2026 - attempted: it hung Word on the old code too, measured, so it never worked.
+'           - Lp  - 9/7/2026 - A BOLD SECTION OR CHAPTER NAME gets a blank line BEFORE it and none after
+'           - Lp  - 9/7/2026 - (Jerry, same day), through Lp_TOC_Space_A_Heading - space before, not an
+'           - Lp  - 9/7/2026 - inserted empty paragraph, so a second run cannot double it up.
+' Notes:    - Lp  - 9/7/2026 - FORMAT TOC LEAVES A BOLD PARAGRAPH ALONE. Reported by Jerry against
+'           - Lp  - 9/7/2026 - "Table of Contents with Bold.docx": the bold section headings inside a table
+'           - Lp  - 9/7/2026 - of contents were formatted as though they were entries. "Section 1" and
+'           - Lp  - 9/7/2026 - "Section 2" got a tab, lost their bold and were styled TOC 1, because the
+'           - Lp  - 9/7/2026 - pattern cannot tell them from "Chapter 5 36"; "Section 3-References" has no
+'           - Lp  - 9/7/2026 - number at the end, so it fell into the other branch and was reset to Normal
+'           - Lp  - 9/7/2026 - with no space after it. Lp_TOC_Para_Is_Bold now guards both loops. It asks
+'           - Lp  - 9/7/2026 - about the paragraph WITHOUT its paragraph mark, whose formatting is its own
+'           - Lp  - 9/7/2026 - and often disagrees with the text's, and it takes only "all of it" - an entry
+'           - Lp  - 9/7/2026 - with a bold title and a plain page number is still an entry.
 ' Notes:    - Sh  - 9/6/2026 - ONE PROGRESS INDICATOR. Jerry, 9/6/2026: "the current state of progress
 '           - Sh  - 9/6/2026 - indicators makes VistaType LP look schizophrenic... I like to have just a progress
 '           - Sh  - 9/6/2026 - bar but i do like the text which indicates what is happening." There were five, four
@@ -9858,7 +9885,7 @@ Sh_Spin_DoEvents
     Lp_Ffc_Step stepNo, "Replacing compact fractions with typed fractions"
     Application.Run MacroName:="Lp_Replace_Compact_Fractions_With_Fraction_Text"
 Sh_Spin_DoEvents
-    Lp_Ffc_Step stepNo, "Replacing Strong with bold"
+    Lp_Ffc_Step stepNo, "Replacing Strong with bold and Emphasis with italic"
     Application.Run MacroName:="Lp_Replace_Strong_With_Bold"
 Sh_Spin_DoEvents
     Lp_Ffc_Step stepNo, "Removing headers and footers"
@@ -18228,35 +18255,104 @@ End Sub   '*** end of Lp_Replace_Compact_Fractions_With_Fraction_Text macro ***
 
 Sub Lp_Replace_Strong_With_Bold()
     '
-    ' Replace "Strong" style with Bold and delete "Strong"
+    ' Takes the Strong and Emphasis character styles OFF the text and leaves plain bold and plain
+    ' italic in their place.
     '
-    ' Version 1.0  Date: 10/28/2021
+    ' Version: 2.1  Date: 9/7/2026 - EMPHASIS as well, and both go through Lp_Style_To_Direct.
+    ' Version: 2.0  Date: 9/7/2026 - IT NEVER DID ANYTHING. Measured on the build box against
+    '                               Jerry's "Big TOC from NIMAS File.docx": 349 runs in Strong
+    '                               before this pass, 349 after. Two reasons, and they compound.
+    '                               (1) It applied bold ON TOP of Strong and never took the style
+    '                               off - and Strong is bold already, so nothing changed and every
+    '                               run stayed Strong. (2) Lp_Remove_All_Styles_Except_Lp_Styles,
+    '                               which it calls next to finish the job, only touches styles
+    '                               where BuiltIn = False; STRONG IS BUILT IN, so it was skipped
+    '                               by the guard that protects Heading 1-5 and TOC 1-5.
+    '                               Now: Replacement.Style = Default Paragraph Font AND bold, in
+    '                               one pass, so the run keeps its weight and loses the style.
+    '                               Also ActiveDocument.Content.Find instead of Selection.Find -
+    '                               the old one started wherever the cursor happened to be and
+    '                               moved the transcriber's selection.
+    ' Version: 1.0  Date: 10/28/2021
     '
-    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
-    ' this pass can do nothing without it - no style means nothing is formatted with it.
-    If Sh_Style_Exists(ActiveDocument, "Strong") Then
-    Selection.Find.ClearFormatting
-    Selection.Find.Style = ActiveDocument.Styles("Strong")
-    Selection.Find.Replacement.ClearFormatting
-    Selection.Find.Replacement.Font.Bold = True
-    With Selection.Find
+    ' A BUILT-IN STYLE CANNOT BE DELETED FROM WORD. Strong will always exist; what it must not do
+    ' is sit on the transcriber's text. Word's Styles pane lists built-in styles under "In current
+    ' document" only while something uses them, so taking it off every run is what makes it go
+    ' away. Jerry, 9/7/2026: "I have no strong style in my LP template and need to force strong
+    ' into bold so users don't get confused."
+    '
+    ' NIMAS and HTML are where this comes from: <strong> converts to this style, which is why a
+    ' converted book is full of it and a typed one has none.
+    '
+    ' EMPHASIS TOO, from 9/7/2026 (Jerry: "do emphasis too"). It is Strong's twin in every way
+    ' that matters: NIMAS and HTML turn <em> into it exactly as they turn <strong> into Strong, it
+    ' is built in, and it hid behind the same BuiltIn = False guard. Italic in its place, not bold.
+    Lp_Style_To_Direct "Strong", True, False
+    Lp_Style_To_Direct "Emphasis", False, True
+
+    Application.Run MacroName:="Lp_Remove_All_Styles_Except_Lp_Styles"
+
+End Sub   '*** end of Lp_Replace_Strong_With_Bold macro ***
+
+Private Sub Lp_Style_To_Direct(ByVal styleName As String, ByVal wantBold As Boolean, _
+                               ByVal wantItalic As Boolean)
+    '
+    ' Takes one CHARACTER style off every run that carries it, leaving direct bold or italic in
+    ' its place. The style itself is untouched - Strong and Emphasis are built in and cannot be
+    ' deleted from Word at all.
+    '
+    ' Version: 1.1  Date: 9/7/2026 - FIND THEN EDIT, not Replace:=wdReplaceAll. Measured on the
+    '                               build box: a replacement that sets BOTH Replacement.Style and
+    '                               Replacement.Font.Bold applies the style and throws the bold
+    '                               away - the run came back Normal and NOT BOLD, which is worse
+    '                               than leaving it alone. Word gives no way to order those two
+    '                               inside one replacement, so the loop below does them in the
+    '                               order they have to happen: style off first, weight back on
+    '                               second.
+    ' Version: 1.0  Date: 9/7/2026
+    '
+    ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and this can
+    ' do nothing without it - no style means nothing is formatted with it.
+    Dim r As Range
+    Dim guard As Long
+
+    If Not Sh_Style_Exists(ActiveDocument, styleName) Then Exit Sub
+
+    Set r = ActiveDocument.Content
+    With r.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
+        .Style = ActiveDocument.Styles(styleName)
         .Text = ""
         .Replacement.Text = ""
         .Forward = True
-        .Wrap = wdFindContinue
+        ' wdFindStop, not wdFindContinue: this walks forward through the document once. Wrapping
+        ' would send it back to the top and round again for ever.
+        .Wrap = wdFindStop
         .Format = True
         .MatchCase = False
         .MatchWholeWord = False
         .MatchWildcards = False
         .MatchSoundsLike = False
         .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    End If
- 
-    Application.Run MacroName:="Lp_Remove_All_Styles_Except_Lp_Styles"
 
-End Sub   '*** end of Lp_Replace_Strong_With_Bold macro ***
+        Do While .Execute
+            ' r is the found run. Style first - it clears direct formatting - then the weight or
+            ' the slant back on top of it.
+            r.Style = ActiveDocument.Styles(wdStyleDefaultParagraphFont)
+            If wantBold Then r.Font.Bold = True
+            If wantItalic Then r.Font.Italic = True
+            r.Collapse wdCollapseEnd
+
+            ' The run is no longer in that style, so Execute moves on by itself. The counter is
+            ' insurance only: a loop that cannot end here freezes Word with the screen off, and
+            ' the transcriber sees a hang with nothing to report.
+            guard = guard + 1
+            If guard > 20000 Then Exit Do
+        Loop
+    End With
+
+End Sub  '*** end of Lp_Style_To_Direct ***
 
 Sub Lp_Remove_All_Styles_Except_Lp_Styles()
 '
@@ -21286,6 +21382,98 @@ Private Sub Lp_Ns_Step(ByRef stepNo As Long, ByVal what As String)
 End Sub  '*** end of Lp_Ns_Step ***
 
 
+Private Sub Lp_TOC_Space_A_Heading(ByVal para As Paragraph)
+    '
+    ' A blank line BEFORE a section or chapter name, and none after it. Jerry, 9/7/2026:
+    ' "There should not be a blank para after the section names and chapter name (which are likely
+    ' in bold) but there should be a blank line before the section names and chapter name."
+    '
+    ' Space before, not an inserted empty paragraph. An empty paragraph would be one more thing
+    ' for the transcriber to keep in step, it would be counted by every later pass as a paragraph
+    ' of the TOC, and running Format TOC twice would lay in a second one. Space before cannot
+    ' double up: it is a property, so the second run sets the same value again.
+    '
+    ' ONE LINE means the paragraph's own point size. That is what a blank line of this text costs,
+    ' and it moves with the book - an 18 point book gets 18 points, a 24 point book gets 24. The
+    ' entries around it end with no space after (TOC 1 here sets 0), so the gap is one line and
+    ' not one and a half.
+    '
+    ' Version: 1.0  Date: 9/7/2026
+    '
+    Dim pts As Single
+
+    On Error Resume Next
+
+    pts = para.Range.Font.Size
+    ' wdUndefined comes back as 9999999 when the run is mixed; 0 or less cannot happen but is
+    ' cheap to rule out. Fall back to the document's Normal, then to 12.
+    If pts <= 0 Or pts > 100 Then pts = para.Range.Document.Styles(wdStyleNormal).Font.Size
+    If pts <= 0 Or pts > 100 Then pts = 12
+
+    para.SpaceBefore = pts
+    para.SpaceAfter = 0
+
+End Sub  '*** end of Lp_TOC_Space_A_Heading ***
+
+Private Function Lp_TOC_Para_Is_Bold(ByVal paraRange As Range) As Boolean
+    '
+    ' True when the WHOLE paragraph is bold, its paragraph mark not counted.
+    '
+    ' A bold line in a table of contents is a section heading - "Section 1", "Section 2" - and not
+    ' an entry, so Format TOC must leave it exactly as the transcriber typed it. Jerry, 9/7/2026.
+    '
+    ' Version: 1.0  Date: 9/7/2026
+    '
+    Dim r As Range
+    Dim ch As String
+    Dim lastEnd As Long
+
+    On Error GoTo NotBold
+
+    Set r = paraRange.Duplicate
+
+    ' TRIM THE TAIL BEFORE ASKING. Four things at the end of a paragraph carry formatting of their
+    ' own and none of them is text the transcriber can see:
+    '
+    '   the paragraph mark, Chr(13), often bold when the text is not and plain when it is;
+    '   the END-OF-CELL mark, Chr(7), which follows the paragraph mark in the last paragraph of a
+    '     table cell - so a TOC laid out in a table needs TWO characters taken off, not one;
+    '   a trailing space, and a non-breaking space, which OCR leaves behind constantly.
+    '
+    ' Any one of them left in answers wdUndefined for a heading that is plainly bold, and the
+    ' heading is then formatted as an entry - the very fault this function exists to stop.
+    '
+    ' MoveEnd BY CHARACTER, never "r.End = r.End - 1". Measured on the build box, 9/7/2026: in the
+    ' last paragraph of a table cell Word hands back the paragraph mark AND the end-of-cell mark as
+    ' ONE character - Characters.Last.Text is two characters long there - so stepping back a single
+    ' POSITION leaves one of the two marks in the range and the answer comes back wdUndefined.
+    ' MoveEnd counts in the same units Characters does, so it takes the pair off together.
+    r.MoveEnd Unit:=wdCharacter, Count:=-1
+    Do While r.End > r.start
+        ch = r.Characters.Last.Text
+        If ch <> " " And ch <> Chr(160) Then Exit Do
+        lastEnd = r.End
+        r.MoveEnd Unit:=wdCharacter, Count:=-1
+        ' A move that does not move would spin here for ever with the screen frozen, which reaches
+        ' the transcriber as "it hung". No case of MoveEnd refusing is known; the guard costs a
+        ' comparison.
+        If r.End >= lastEnd Then Exit Do
+    Loop
+
+    If r.start >= r.End Then Exit Function      ' nothing but the tail - not a heading
+
+    ' Font.Bold answers True, False, or wdUndefined (9999999) when the run is mixed, and only
+    ' "all of it" counts here: an entry whose TITLE is bold but whose page number is not is still
+    ' an entry, and must still get its tab and its TOC 1.
+    Lp_TOC_Para_Is_Bold = (r.Font.Bold = True)
+    Exit Function
+
+NotBold:
+    ' Could not tell. The safe answer is False - that is what this macro did before the test
+    ' existed, so a document that cannot answer behaves exactly as it always has.
+    Lp_TOC_Para_Is_Bold = False
+End Function
+
 ' ONE find-and-replace over a fresh Duplicate of the range, with every property set explicitly.
 ' Word's find settings are application-wide, so a Find object inherits whatever was left in them -
 ' the block this replaced never set MatchAllWordForms or MatchSoundsLike at all. Taking a
@@ -21323,6 +21511,21 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     ' into a tab, un-bolds the number, applies TOC 1, and lays a tab in front of the "pn" in each
     ' Print Pg Num paragraph.
     '
+    ' Version: 2.5  Date: 9/7/2026 - the NIMAS book: the TOFU SQUARE (U+25A1) joins the bullets,
+    '                               DOT LEADERS (runs of periods, not the ellipsis character) become
+    '                               a space, and a DOT LEADER OR TAB now outranks bold when deciding
+    '                               entry or heading. See the note where that is decided.
+    ' Version: 2.4  Date: 9/7/2026 - THE HIDDEN SCRATCH DOCUMENT IS BACK, so Ctrl+Z is ONE press
+    '                               instead of the 39 measured on Jerry's own file. Nothing is
+    '                               shown, activated or maximized. See the long note where it is
+    '                               built.
+    ' Version: 2.3  Date: 9/7/2026 - a bold section or chapter name gets a blank line BEFORE it
+    '                               and none after (Jerry, 9/7/2026), through
+    '                               Lp_TOC_Space_A_Heading.
+    ' Version: 2.2  Date: 9/7/2026 - A WHOLLY BOLD PARAGRAPH IS LEFT ALONE. Reported by Jerry
+    '                               against "Table of Contents with Bold.docx": the bold section
+    '                               headings inside a TOC were being formatted as though they
+    '                               were entries. Lp_TOC_Para_Is_Bold now guards both loops.
     ' Version: 2.1  Date: 9/2/2026 - the custom undo record is GONE. It crashed Word - see the note
 '                               where it used to be opened. Ctrl+Z takes several presses again,
 '                               and dialog 207 no longer promises a number.
@@ -21336,7 +21539,14 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     '                                indexed Characters(i) (O(n) vs O(n^2) per paragraph). Same output.
     ' Version 1.0  Date: 9/1/2025
     '
-    ' WHY THE ROUND TRIP WENT, AND WHAT WENT WITH IT (9/2/2026)
+    ' WHY THE ROUND TRIP WENT (9/2/2026) - AND WHY IT CAME BACK, HIDDEN, ON 9/7/2026
+    '
+    ' Read the whole of what follows as history with one correction: taking the scratch document
+    ' out was half right. The five faults below really did go with it and none of them has come
+    ' back - the document built on 9/7/2026 is never shown, never activated, and is made from the
+    ' BOOK's template with the BOOK's Normal. What the deletion also threw away was the short
+    ' undo, and that cost 39 presses. The rule this project settled on after Table Tools went the
+    ' same way twice: CONVERT THE PASSES, DO NOT DELETE THE ROUND TRIP.
     '
     ' Every pass in here is something a Range can be asked for directly. There are no Shapes, no
     ' Frames, no Hyperlinks, no TablesOfContents and no TabStops - the only collections walked are
@@ -21389,7 +21599,23 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     ' repeatable. They insert a non-breaking space and a tab unconditionally, so formatting the
     ' same TOC twice gives every reference page number two of each.
     '
+    ' AND WHAT "BYPASS A BOLD PARAGRAPH" MEANS HERE (9/7/2026): a wholly bold paragraph keeps its
+    ' style, its bold and its text. The ONLY thing done to it is the spacing Jerry asked for on the
+    ' same day - a blank line before it and none after, through Lp_TOC_Space_A_Heading.
+    ' The junk-character passes at the top still run across it, because they run over the whole
+    ' selection in one sweep each and because an OCR'd heading wants its ellipses and bullets
+    ' taken off just as much as an entry does. The two Print Pg Num passes at the end are keyed on
+    ' the STYLE only, so a bold reference-page line is still handled: bold is how a transcriber
+    ' marks a heading, not a reason to skip a $pg line.
+    '
     Dim doc As Document
+    Dim tempDoc As Document
+    Dim tpl As String
+    Dim homeRng As Range
+    Dim bodyRng As Range
+    Dim endClipped As Boolean
+    Dim isHeading() As Boolean
+    Dim paraNo As Long
     Dim workRng As Range
     Dim fixRng As Range
     Dim para As Paragraph
@@ -21415,6 +21641,21 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     Dim errNum As Long
     Dim errText As String
 
+    ' A SELECTION INSIDE A TABLE IS REFUSED, not attempted. Lp_Table_Tools shows this dialog
+    ' whenever the selection covers more than one paragraph, and it does that even when the cursor
+    ' is in a table - so this is reachable without anyone meaning it. Two things go wrong there and
+    ' both are silent: the scratch document's paragraph 2 is the first paragraph INSIDE a cell, so
+    ' the wrong range travels; and assigning FormattedText over a range that spans cells fills the
+    ' cells instead of replacing them, which is the fault Convert Table to List hit at 3.0.349.
+    ' Before 3.0.402 this case HUNG WORD outright - measured on the build box 9/7/2026, on the old
+    ' code as well as the new, so it was never a working path. Saying so beats either.
+    If Selection.Information(wdWithInTable) Then
+        Sh_Say "This is for a table of contents typed as ordinary paragraphs." & vbCr & vbCr & _
+               "The selection is inside a table, so there is nothing here to format. Select the " & _
+               "TOC paragraphs themselves, or use the table tools on a table.", "VistaType LP (321)"
+        End
+    End If
+
     If Not Selection.Type = wdSelectionNormal Then
         Sh_Say "Select the entire TOC including any text that does reference page numbers", "VistaType LP (206)"
         ' End, not Exit Sub, and deliberately: returning would let the form that called this go
@@ -21425,18 +21666,14 @@ Sub Lp_TOC_CleanAndFormat_TOC()
 
     Set doc = ActiveDocument
 
-    ' Both ranges are taken BEFORE anything is changed, and both are live: Word moves a Range's
-    ' end when text inside it is deleted, so they stay in step with each other all the way down.
-    '
-    ' fixRng is the selection with the paragraph mark in front of it, for the two "spaces after a
-    ' paragraph mark" passes only. workRng is the TOC itself and is what everything else works on.
-    Set fixRng = Sh_Para_Fix_Range()
-
+    ' homeRng is the landing place IN THE BOOK - the paragraphs the transcriber selected, and the
+    ' one thing this macro writes to. It is live: Word moves a Range's bounds when text inside it
+    ' changes, so it stays right until the moment the result comes home.
     selStart = Selection.Range.start
     selEnd = Selection.Range.End
     If selEnd > doc.Content.End - 1 Then selEnd = doc.Content.End - 1
     If selEnd < selStart Then selEnd = selStart
-    Set workRng = doc.Range(selStart, selEnd)
+    Set homeRng = doc.Range(selStart, selEnd)
 
     ' WHOLE PARAGRAPHS, and never one the transcriber merely clipped at the bottom.
     '
@@ -21450,15 +21687,22 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     ' first TOC line is a slip, and that line is plainly meant), and a LAST paragraph that is only
     ' clipped is dropped altogether. A single-paragraph selection is always kept - there would be
     ' nothing left otherwise.
-    Set paraRange = workRng.Paragraphs(1).Range
-    workRng.start = paraRange.start
+    Set paraRange = homeRng.Paragraphs(1).Range
+    homeRng.start = paraRange.start
 
-    Set paraRange = workRng.Paragraphs(workRng.Paragraphs.count).Range
-    If workRng.Paragraphs.count > 1 And selEnd < paraRange.End - 1 Then
-        Set paraRange = workRng.Paragraphs(workRng.Paragraphs.count - 1).Range
+    Set paraRange = homeRng.Paragraphs(homeRng.Paragraphs.count).Range
+    If homeRng.Paragraphs.count > 1 And selEnd < paraRange.End - 1 Then
+        Set paraRange = homeRng.Paragraphs(homeRng.Paragraphs.count - 1).Range
     End If
-    workRng.End = paraRange.End
-    If workRng.End > doc.Content.End - 1 Then workRng.End = doc.Content.End - 1
+    homeRng.End = paraRange.End
+    ' endClipped means the TOC runs to the END OF THE BOOK and the last line's own paragraph mark
+    ' is the document's permanent one, which cannot be replaced. Recorded here rather than worked
+    ' out later: "does homeRng.End sit at Content.End - 1" is TRUE for an ordinary TOC followed by
+    ' one empty paragraph as well, and acting on that restyled the paragraph AFTER the TOC.
+    If homeRng.End > doc.Content.End - 1 Then
+        homeRng.End = doc.Content.End - 1
+        endClipped = True
+    End If
 
     Sh_Save_User_Position
 
@@ -21479,9 +21723,114 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     ' already been cleared: driven step by step from a script against a copy of the same book with
     ' the same selection, every one of them completes.
     '
-    ' So Ctrl+Z takes several presses here, as it did before this macro was converted. Do not
-    ' "improve" that with an undo record. If one press is ever wanted, the passes have to stop
-    ' using wdReplaceAll and find-then-edit in a loop instead.
+    ' Do not "improve" the undo with a custom undo record. What DOES shorten it is the hidden
+    ' scratch document below - edits made in another document are not in this book's undo stack at
+    ' all - which is the shape Lp_Table_Convert_Hidden settled on for exactly this reason.
+
+    ' THE SCRATCH DOCUMENT IS BACK, AND HIDDEN (9/7/2026, 39 PRESSES MEASURED).
+    '
+    ' 3.0.338 took the round trip out altogether and did the passes in the transcriber's own book.
+    ' That removed the screen flash - the old route SHOWED and activated the scratch document,
+    ' because its passes reached the text through Selection - but it also put every one of those
+    ' passes into the book's undo stack. Measured on the build box, 9/7/2026, on Jerry's own
+    ' "Table of Contents with Bold.docx": Ctrl+Z THIRTY-NINE times to get the TOC back. Jerry, the
+    ' same day: "multiple (i mean more then 3 or 4) is not an acceptable undo requirment."
+    '
+    ' The scratch document does two jobs and only one of them was ever the fault. It had to be
+    ' SHOWN because of Selection; it is also what keeps the undo short. The passes were converted
+    ' onto ranges at 3.0.338 and stay that way, so the document is made hidden and never shown,
+    ' never activated and never maximized. One assignment comes home, so Ctrl+Z is ONE press.
+    '
+    ' NOT a custom undo record: a Find with Replace:=wdReplaceAll inside StartCustomRecord CRASHES
+    ' WORD, measured for this very macro on 9/2/2026 and hit again in Table Tools at 3.0.345 and
+    ' 3.0.347. That door is closed; this is the door that is open.
+    Sh_Last_Activity = "Format TOC: setting up"
+
+    On Error Resume Next
+    tpl = doc.AttachedTemplate.fullName
+    On Error GoTo eom
+
+    ' The fallback covers a template that will not OPEN, not only one that is not named. An
+    ' attached template on a network share that is gone answers a full path and then raises 5174,
+    ' and that would turn a working button into dialog 240 on a book this macro used to format.
+    Set tempDoc = Nothing
+    If Len(tpl) > 0 Then
+        On Error Resume Next
+        Set tempDoc = Documents.Add(Template:=tpl, Visible:=False)
+        On Error GoTo eom
+    End If
+    If tempDoc Is Nothing Then Set tempDoc = Documents.Add(Visible:=False)
+
+    On Error Resume Next
+    ' A document made from a .dot comes back in that template's own compatibility mode - Word 2003
+    ' where the book is Word 2015. Trapped, and never fatal.
+    If tempDoc.CompatibilityMode < doc.CompatibilityMode Then tempDoc.Convert
+
+    ' THE BOOK'S OWN NORMAL, NOT THE TEMPLATE'S. A large print book set at 20 point has a Normal
+    ' of its own that no longer matches LargePrintTemplate.dotx, and the branch below resets a
+    ' non-entry paragraph to Normal. The old route carried the TEMPLATE's idea of Normal home and
+    ' resized the transcriber's text; naming the face and the size here is what stops that.
+    tempDoc.Styles(wdStyleNormal).Font.Name = doc.Styles(wdStyleNormal).Font.Name
+    tempDoc.Styles(wdStyleNormal).Font.Size = doc.Styles(wdStyleNormal).Font.Size
+    On Error GoTo eom
+
+    ' PARAGRAPH 1 IS LEFT EMPTY on purpose, and the TOC goes under it. The two "space after a
+    ' paragraph mark" passes need a paragraph mark IN FRONT of the first TOC line or a leading
+    ' space on that line survives - which is what Sh_Para_Fix_Range's reach-back did while the
+    ' work was done in the book, and what the old route's Selection.TypeParagraph did before that.
+    ' An empty paragraph of our own is cleaner than either: it is never brought home.
+    Set paraRange = tempDoc.Range
+    paraRange.InsertParagraphBefore
+    Set paraRange = tempDoc.Paragraphs(2).Range
+    paraRange.Collapse wdCollapseStart
+    paraRange.FormattedText = homeRng.FormattedText
+
+    ' Both live, both inside the scratch document from here to the end. workRng is the TOC;
+    ' fixRng is the TOC with the empty paragraph's mark in front of it.
+    '
+    ' Content.End - 1 leaves the scratch document's own permanent final paragraph mark behind. It
+    ' is the right bound whether or not the selection ended with a paragraph mark: when it did,
+    ' the leftover empty paragraph carries the permanent mark and the TOC's own last mark is
+    ' inside the range; when it did not, the text merged into that last paragraph and there is no
+    ' trailing mark to carry home. The paragraph count home always matches the count that went out.
+    Set workRng = tempDoc.Range(tempDoc.Paragraphs(2).Range.start, tempDoc.Content.End - 1)
+    Set fixRng = tempDoc.Range(tempDoc.Paragraphs(1).Range.End - 1, tempDoc.Content.End - 1)
+
+    '*******************************************************
+    ' WHICH LINES ARE HEADINGS IS DECIDED HERE, BEFORE A SINGLE CHARACTER IS TOUCHED.
+    '
+    ' It takes TWO tests, and one book is not enough to see why. Both of Jerry's, 9/7/2026:
+    '
+    '   "Table of Contents with Bold.docx" - the section names are bold, the entries are not, and
+    '   NOTHING has a dot leader. Two of the headings, "Section 1" and "Section 2", end in a
+    '   number, so the entry pattern cannot tell them from "Chapter 5 36". Bold is the only thing
+    '   that separates them, and bold must win.
+    '
+    '   "Big TOC from NIMAS File.docx" - almost every ENTRY is in the Strong character style, and
+    '   File Cleanup turns Strong into bold (Lp_Replace_Strong_With_Bold). So after a normal
+    '   cleanup nearly the whole book is bold. Bold alone would call all 160 entries headings and
+    '   format none of them. Every one of those entries has a dot leader.
+    '
+    ' So: A DOT LEADER OR A TAB MAKES IT AN ENTRY, whatever its bold. That is what a leader is
+    ' FOR - it is how a table of contents has marked an entry since long before Word. Where there
+    ' is no leader, a wholly bold line is a section or chapter name. Jerry, 9/7/2026: "if it looks
+    ' like a chapter name followed by a page number, treat it that way."
+    '
+    ' Read NOW because the passes below destroy both signals: the leaders become spaces and the
+    ' tabs became spaces in the very first block. Paragraph numbers are safe to hold on to - not
+    ' one pass in this macro adds or removes a paragraph mark.
+    '*******************************************************
+    If workRng.Paragraphs.count = 0 Then GoTo tidy
+
+    ReDim isHeading(1 To workRng.Paragraphs.count)
+    paraNo = 0
+    For Each para In workRng.Paragraphs
+        paraNo = paraNo + 1
+        paraText = para.Range.Text
+        isHeading(paraNo) = Lp_TOC_Para_Is_Bold(para.Range) _
+                            And InStr(paraText, "..") = 0 _
+                            And InStr(paraText, vbTab) = 0
+    Next para
 
     Sh_Last_Activity = "Format TOC: cleaning up the characters"
 
@@ -21502,10 +21851,35 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     Lp_TOC_Replace workRng, ChrW(&HB7), "", False         ' middle dot
     Lp_TOC_Replace workRng, ChrW(&HFB01), "fi", False     ' fi ligature
     Lp_TOC_Replace workRng, ChrW(&HFB02), "fl", False     ' fl ligature
-    Lp_TOC_Replace workRng, "[ ]{2,}", " ", True          ' runs of spaces
+    ' BULLETS BEFORE THE SPACES, not after - the order matters and it was wrong until 9/7/2026.
+    ' Removing a bullet leaves the space that followed it, so collapsing the runs first and taking
+    ' the bullets out afterwards left a double space wherever a bullet sat mid-line.
+    '
+    ' U+25A1 WHITE SQUARE is in the class from 9/7/2026. Jerry, that day, against "Big TOC from
+    ' NIMAS File.docx": "there is square bullet (i think they are called Tofu) and it is followed
+    ' by a space... these two characters need deleting." That book has 96 of them, one in front of
+    ' every Lesson line, and 160 of U+F0B7 - the Symbol-font bullet, already in this class, which
+    ' also DRAWS as an empty box once the Symbol font is gone. Both are "tofu" on screen.
+    '
+    ' What this costs, and it is accepted: that book ends with a three-line legend - "square Major
+    ' Topic", "square Supporting Topic", "square Additional Topic" - explaining what the colored
+    ' squares mean. Those squares go too, and the legend reads "Major Topic" and so on. A colored
+    ' square is not something a large print or braille reader receives anyway.
     Lp_TOC_Replace workRng, "[" & ChrW(&H2022) & ChrW(&H2023) & ChrW(&H25AA) & _
-                            ChrW(&H25E6) & ChrW(&H25CF) & ChrW(&H25CB) & ChrW(&HF0B7) & "]", _
-                            "", True                          ' bullets
+                            ChrW(&H25E6) & ChrW(&H25CF) & ChrW(&H25CB) & ChrW(&HF0B7) & _
+                            ChrW(&H25A1) & "]", _
+                            "", True                          ' bullets, including the tofu square
+
+    ' DOT LEADERS - a run of periods, and a SPACE in their place, not nothing.
+    '
+    ' The single-character ellipsis above (U+2026) is not what a converted book contains: the
+    ' NIMAS file has 2,493 ordinary periods, fifteen at a time, between the entry and its page
+    ' number. A space rather than nothing because the page number is FOUND by the space in front
+    ' of it - delete the leader outright and "Vocabulary...2" becomes "Vocabulary2", which matches
+    ' nothing and gets no tab. Two or more, so "Lesson 1.1" and "Ch. 4" are untouched.
+    Lp_TOC_Replace workRng, "[.]{2,}", " ", True           ' dot leaders
+
+    Lp_TOC_Replace workRng, "[ ]{2,}", " ", True          ' runs of spaces
 
 
     ' EVERY CHARACTER WAS JUNK. An empty range is not a bounded search - it is a starting point,
@@ -21619,10 +21993,22 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     ' === First loop: detect and style ===
     Sh_Last_Activity = "Format TOC: styling the entry lines"
 
+    paraNo = 0
     For Each para In workRng.Paragraphs
+        paraNo = paraNo + 1
         Set paraRange = para.Range
 
-        ' Skip paragraphs that begin with "$pg" or have style "Print Pg Num"
+        ' A HEADING keeps its style, its bold and its text. The only thing done to it is the
+        ' spacing Jerry asked for - a blank line before it, none after. Decided above, before the
+        ' cleanup; see the long note there for why bold on its own is not enough.
+        If paraNo <= UBound(isHeading) Then
+            If isHeading(paraNo) Then
+                Lp_TOC_Space_A_Heading para
+                GoTo SkipPara
+            End If
+        End If
+
+        ' Skip paragraphs that begin with "$pg" or have style "Print Pg Num".
         ' Sh_Para_Style_Is, not "= ActiveDocument.Styles(...)": VBA evaluates BOTH sides of Or,
         ' so a document without the style raised 5941 here even when the text test already passed.
         If Left(paraRange.Text, 3) = "$pg" Or Sh_Para_Style_Is(paraRange, "Print Pg Num") Then
@@ -21633,9 +22019,9 @@ Sub Lp_TOC_CleanAndFormat_TOC()
         hasNumberOrRoman = regexNum.test(paraRange.Text)
 
         ' If no match, reset style to Normal but preserve bold map.
-        ' ActiveDocument is the BOOK from this version on, so this is the book's own Normal. It
-        ' used to be the scratch document's, which came from LargePrintTemplate.dotx - so a book
-        ' set at 20 point had the template's idea of Normal applied and carried home.
+        ' tempDoc.Styles(wdStyleNormal), and the scratch document's Normal was set to the BOOK's
+        ' face and size when it was made - see above. Naming ActiveDocument here would reach into
+        ' the transcriber's book for a style and apply it to a paragraph in another document.
         If Not hasNumberOrRoman Then
             charCount = paraRange.Characters.count - 1
             If charCount > 0 Then
@@ -21647,7 +22033,7 @@ Sub Lp_TOC_CleanAndFormat_TOC()
                     If i > charCount Then Exit For
                     boldMap(i) = charRange.Font.Bold
                 Next charRange
-                para.Style = ActiveDocument.Styles("Normal")
+                para.Style = tempDoc.Styles(wdStyleNormal)
                 para.SpaceAfter = 0
                 i = 0
                 For Each charRange In paraRange.Characters
@@ -21656,7 +22042,7 @@ Sub Lp_TOC_CleanAndFormat_TOC()
                     charRange.Font.Bold = boldMap(i)
                 Next charRange
             Else
-                para.Style = ActiveDocument.Styles("Normal")
+                para.Style = tempDoc.Styles(wdStyleNormal)
                 para.SpaceAfter = 0
             End If
         End If
@@ -21668,9 +22054,18 @@ SkipPara:
     Sh_Last_Activity = "Format TOC: the tab in front of each page number"
 
     Set Sel = workRng
+    paraNo = 0
     For Each para In Sel.Paragraphs
+        paraNo = paraNo + 1
         Set paraRange = para.Range
         paraText = paraRange.Text
+
+        ' AND NOT A HEADING. The pattern cannot tell "Section 1" from "Chapter 5 36" - both end in
+        ' a space and a number - so a bold section name was given a tab, had its number un-bolded
+        ' and was styled TOC 1. The decision was made before the cleanup; this only reads it.
+        If paraNo <= UBound(isHeading) Then
+            If isHeading(paraNo) Then GoTo SkipTab
+        End If
 
         If regexNum.test(paraText) Then
             Set match = regexNum.Execute(paraText)(0)
@@ -21692,6 +22087,7 @@ SkipPara:
             On Error GoTo eom
         End If
 
+SkipTab:
     Next para
     '*** End formatting ***
 
@@ -21728,6 +22124,48 @@ SkipPara:
     ' end Fix reference pages
 
 tidy:
+    Sh_Last_Activity = "Format TOC: bringing the result back"
+
+    ' HOME, IN ONE ASSIGNMENT - and that is the whole undo. Everything above happened in another
+    ' document, so none of it is in this book's undo stack. Ctrl+Z once.
+    '
+    ' Unlike Lp_Table_Convert_Hidden this can be a single step: the landing is paragraphs, not a
+    ' table, so assigning FormattedText over it REPLACES it. Assigning over a range that IS a
+    ' table fills the table's cells instead, which is why that macro has to delete first and costs
+    ' two presses.
+    Set bodyRng = tempDoc.Range(tempDoc.Paragraphs(2).Range.start, tempDoc.Content.End - 1)
+
+    ' AN EMPTY BODY IS NEVER ASSIGNED. tidy is also reached by the "every character was junk"
+    ' shortcut above, and there the body has collapsed. Assigning an empty range would delete
+    ' homeRng outright - paragraph marks and all - running the paragraph above the TOC into the
+    ' one below it. Leaving her text alone is the right answer to "there was nothing there".
+    If bodyRng.End > bodyRng.start Then
+
+        homeRng.FormattedText = bodyRng.FormattedText
+
+        ' THE LAST PARAGRAPH MARK, WHEN THE TOC ENDS THE BOOK. homeRng is clipped short of the
+        ' document's permanent final paragraph mark, which cannot be replaced, so on a TOC that
+        ' runs to the end of the book the last line's paragraph formatting - TOC 1, the space
+        ' after, a heading's space before - has nowhere to travel in. It is carried by hand here.
+        ' Never fatal: the words are already home either way. It costs three more undo presses, so
+        ' it runs ONLY when the TOC really does end the book - measured 9/7/2026: one press for an
+        ' ordinary TOC, four for one that ends the book.
+        On Error Resume Next
+        If endClipped Then
+            Set paraRange = bodyRng.Paragraphs(bodyRng.Paragraphs.count).Range
+            With doc.Paragraphs(doc.Paragraphs.count)
+                .Style = paraRange.Paragraphs(1).Style.NameLocal
+                .SpaceBefore = paraRange.Paragraphs(1).SpaceBefore
+                .SpaceAfter = paraRange.Paragraphs(1).SpaceAfter
+            End With
+        End If
+        On Error GoTo eom
+
+    End If
+
+    tempDoc.Close SaveChanges:=wdDoNotSaveChanges
+    Set tempDoc = Nothing
+
     Sh_Last_Activity = ""
 
     ' The find parameters, and NOT the clipboard. This macro never puts anything on the clipboard,
@@ -21743,12 +22181,18 @@ tidy:
     Exit Sub
 
 eom:
-    ' Put the screen back BEFORE anything else. The work happens in the book now, so a failure
-    ' part way through leaves a half-formatted TOC and the transcriber has to be told rather than
-    ' left to find it.
+    ' Put the screen back BEFORE anything else, and take the error's number and text FIRST -
+    ' everything below can clear them.
+    '
+    ' The book is untouched by anything that fails BEFORE the assignment home, which is every pass
+    ' this macro makes - they all happen in the scratch document. That is worth saying out loud
+    ' because it was NOT true while the work was done in the book. It is not a promise about the
+    ' assignment itself, or about the two statements after it: an error there lands here too, and
+    ' the TOC has been changed by then.
     errNum = Err.Number
     errText = Err.Description
     On Error Resume Next
+    If Not tempDoc Is Nothing Then tempDoc.Close SaveChanges:=wdDoNotSaveChanges
     Application.ScreenUpdating = su_Prev
     Application.ScreenRefresh
     ' Sh_Save_User_Position increments a module-level counter and Sh_Return_User_To_Start_Position

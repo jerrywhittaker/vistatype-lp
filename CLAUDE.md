@@ -65,9 +65,10 @@ Other rules:
 **FINISHED 9/4/2026 (3.0.366). No macro in VistaType LP puts a document on the screen any more.**
 Change Picture Color was the last one, and `Lp_Copy_To_Temp_Doc` was removed with it — along with
 `Sh_Is_End_Paragraph_Mark_Included`, whose only caller it was, and the two public variables only
-that macro wrote. Dialogs 294, 301 and 305 are retired. **Four macros still make a scratch
-document and all four keep it hidden**: `Lp_Table_Convert_Hidden`, `Lp_Exercise_Levels_Hidden`,
-`Dx_Exercise_Levels_Hidden` and `Lp_Horz_To_Vert_Hidden`.
+that macro wrote. Dialogs 294, 301 and 305 are retired. **Five macros still make a scratch
+document and all five keep it hidden**: `Lp_Table_Convert_Hidden`, `Lp_Exercise_Levels_Hidden`,
+`Dx_Exercise_Levels_Hidden`, `Lp_Horz_To_Vert_Hidden` and — from 3.0.402 —
+`Lp_TOC_CleanAndFormat_TOC`.
 
 The rest of this section is kept because the reasoning is what to copy the next time a macro has
 to move onto a range — the traps are not specific to the scratch document.
@@ -84,7 +85,7 @@ private workspace.
 1 & 2 — their last caller — moved onto `Dx_Exercise_Levels_Hidden` at 3.0.309, and the
 `Sh_Copy_To_Temp_Doc` / `Sh_Copy_From_Temp_Doc` route pickers went with them. No braille macro
 shows a scratch document any more; three still make one, hidden.
-`Lp_TOC_CleanAndFormat_TOC` came off it at 3.0.338 — another deletion, not a conversion.
+`Lp_TOC_CleanAndFormat_TOC` came off it at 3.0.338 — and **went back on, hidden, at 3.0.402** (9/7/2026), which is the second time this project has learned the same lesson. Doing its passes in the book cost **39 Ctrl+Z presses**, measured on Jerry's own file; Jerry, 9/7/2026: *"multiple (i mean more then 3 or 4) is not an acceptable undo requirment."* The passes stayed on ranges, so the document is made hidden and never shown, and **one** assignment comes home — one press, not the two Convert Table to List needs, because the landing is paragraphs rather than a table.
 
 **The large-print half finished at 3.0.366** (9/4/2026) with Change Picture Color, and that was a
 deletion too — the fourth. Recoloring pictures is "walk some images and set one property", so it
@@ -158,7 +159,8 @@ paragraph-mark tidy-up began at `Selection.HomeKey wdStory`, the top of the book
 **Check first whether the round trip is needed at all — and what the macro actually does.** Of the
 three settled on 9/1/2026 only one was a conversion. `Lp_Resize_Images` (3.0.321) only walks
 images and sets their scale, and an `InlineShapes` collection comes off a `Range` as readily as
-off a document. `Lp_TOC_CleanAndFormat_TOC` (3.0.338) was the third deletion: every pass is Paragraphs or
+off a document. `Lp_TOC_CleanAndFormat_TOC` (3.0.338) was the third deletion **and was reversed at 3.0.402 — the
+passes were right to convert, the round trip was wrong to delete**: every pass is Paragraphs or
 Characters off a Range, it never used the clipboard, and it turned out that on a machine which
 cannot find `LargePrintTemplate.dotx` the round trip ran all nineteen of its replaces across the
 transcriber's whole book and then closed it without saving — because `Lp_Copy_To_Temp_Doc`
