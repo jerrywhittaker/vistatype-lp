@@ -18,6 +18,20 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Sh  - 9/9/2026 - $PG VALIDATION BUILT A 137-PAGE LIST OF THE SAME PAGE NUMBER, and the
+'           - Sh  - 9/9/2026 - cause is Word's Find, not the tags. Sh_PgVal_Copy_Tags_Into ran a wildcard
+'           - Sh  - 9/9/2026 - Find for "$pg*^013" and moved the search range past each hit. WORD IGNORES
+'           - Sh  - 9/9/2026 - THE START OF A SEARCH RANGE THAT BEGINS INSIDE A TABLE CELL AND ENDS OUTSIDE
+'           - Sh  - 9/9/2026 - THE TABLE: it hands back the same hit for ever. Measured on the build box
+'           - Sh  - 9/9/2026 - against a NIMAS conversion of Amplify Core Knowledge Language, whose $pg101
+'           - Sh  - 9/9/2026 - is the first tag inside a table - the range advanced to 70643 on every pass
+'           - Sh  - 9/9/2026 - and Find answered 70636 on every pass, until the 20,000 backstop stopped it.
+'           - Sh  - 9/9/2026 - The function now WALKS THE PARAGRAPHS, which cannot get stuck. What counts
+'           - Sh  - 9/9/2026 - as a tag is unchanged: "$pg*^013" is the tail of a paragraph from the first
+'           - Sh  - 9/9/2026 - "$pg" onwards, matched case-sensitively as a wildcard Find always is. It
+'           - Sh  - 9/9/2026 - leaves the end-of-cell Chr(7) behind, which would otherwise build a table in
+'           - Sh  - 9/9/2026 - the list, and it CHECKS the paragraph-offset-to-document-position sum before
+'           - Sh  - 9/9/2026 - copying - a field or an inline shape ahead of the tag pushes the two apart.
 ' Notes:    - Sh  - 9/7/2026 - $PG VALIDATION: ONE COLUMN FOR BRAILLE, THREE FOR LARGE PRINT. Jerry's
 '           - Sh  - 9/7/2026 - words: "braille=1 column, large print =3 columns". This puts back half of the
 '           - Sh  - 9/7/2026 - 8/26/2026 change, which had set BOTH sides to one column. Braille had to be
@@ -26282,58 +26296,81 @@ End Sub   '*** end of Sh_Copy_Ref_Pg_Tags_To_Temp_File macro ***
 ' What is cut is only what is SHOWN. Sh_PgVal_TextOfCurrentTag strips the ellipsis again before
 ' Locate searches the book, so the two still find each other - see the note on SH_PGVAL_ELLIPSIS.
 '
-' THE FIND SETTINGS ARE THE OLD ONES, character for character: "$pg*^013" with wildcards on. That
-' is deliberate. The mechanism changed; what counts as a tag did not, and a list that suddenly
-' held more or fewer lines than it used to would be a change nobody asked for.
+' IT WALKS THE PARAGRAPHS. IT MUST NOT USE Find (Jerry, 9/9/2026). Up to 1.2 this ran a
+' "$pg*^013" wildcard Find and moved the search range past each hit. Word ignores the start of
+' that range once the range BEGINS INSIDE A TABLE CELL and ends outside the table: it hands back
+' the same hit for ever. Measured on the build box on a NIMAS conversion of Amplify Core
+' Knowledge Language, whose $pg101 is the first tag inside a table - the search range advanced to
+' 70643 every time and Find answered 70636 every time. The transcriber got a 137-page list of
+' the same page number, stopped only by the 20,000 backstop.
 '
-' The search range is reset explicitly after every hit rather than relying on what Find leaves
-' behind, and the loop has a backstop. A Find loop that stops moving forward does not error - it
-' runs for ever, and Word stops answering.
+' What counts as a tag is UNCHANGED. "$pg*^013" means "$pg", then anything, then the paragraph
+' mark, so it is the tail of a paragraph from the first "$pg" onwards - which is exactly what
+' this takes. The match is CASE-SENSITIVE, because a wildcard Find is: Word grays Match case out
+' when wildcards are on and searches case-sensitively regardless of what MatchCase was set to.
+' Lp_Validate_Dollar_PG's own tag count is InStr with no Option Compare, so it is case-sensitive
+' too, and the count and the list now agree; they could differ before.
 '
+' The end-of-cell marker is left behind on purpose. A cell's last paragraph ends Chr(13) then
+' Chr(7), and carrying the Chr(7) into the list would build a TABLE in it.
+'
+' Version: 1.3  Date: 9/9/2026 - walks the paragraphs; a Find range starting inside a table never advances
 ' Version: 1.2  Date: 8/26/2026 - the cut is at 40 characters, not 23 - the list is no longer in columns
 ' Version: 1.1  Date: 8/23/2026 - a line longer than 23 characters is cut and given an ellipsis
 ' Version: 1.0  Date: 8/23/2026
 '
 Private Function Sh_PgVal_Copy_Tags_Into(ByVal srcDoc As Document, ByVal tmpDoc As Document, _
                                          ByVal maxLine As Long) As Long
-    Dim findRng As Range
+    Dim par As Paragraph
+    Dim parTxt As String
     Dim outRng As Range
     Dim moved As Long
+    Dim at As Long
+    Dim tagStart As Long
+    Dim tagEnd As Long
     Dim lineLen As Long
     Dim cut As Long
     Dim lineTxt As String
 
-    Set findRng = srcDoc.Content
     Set outRng = tmpDoc.Content
     outRng.Collapse Direction:=wdCollapseEnd
 
-    With findRng.Find
-        .ClearFormatting
-        .Replacement.ClearFormatting
-        .Text = "$pg*^013"
-        .Replacement.Text = ""
-        .Forward = True
-        .Wrap = wdFindStop
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = True
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
+    For Each par In srcDoc.Paragraphs
+        parTxt = par.Range.Text
+        at = InStr(1, parTxt, "$pg", vbBinaryCompare)
 
-        Do While .Execute
-            ' The found range ends WITH the paragraph mark, because the pattern does. The text of
-            ' the line is therefore one character shorter than the range.
-            lineLen = findRng.End - findRng.Start - 1
+        If at > 0 Then
+            tagEnd = par.Range.End
+
+            ' Off the end-of-cell marker, so the list stays a list rather than becoming a table.
+            If Right$(parTxt, 1) = Chr(7) Then tagEnd = tagEnd - 1
+
+            tagStart = par.Range.start + at - 1
+
+            ' CHECK THE SUM. A position in the document and an offset into the paragraph's text
+            ' only line up while the paragraph is plain text - the same caution
+            ' Lp_Merge_One_Pg_Tag_Run writes down about these very paragraphs. A field or an
+            ' inline shape AHEAD of the tag pushes the two apart, and a start in the wrong place
+            ' puts a line in the list that begins mid-word, which Locate can then never find in
+            ' the book. Fall back to the beginning of the paragraph, which always holds the tag.
+            If tagStart + 3 > tagEnd Then
+                tagStart = par.Range.start
+            ElseIf StrComp(srcDoc.Range(tagStart, tagStart + 3).Text, "$pg", vbBinaryCompare) <> 0 Then
+                tagStart = par.Range.start
+            End If
+
+            ' The run ends WITH the paragraph mark. The text of the line is therefore one
+            ' character shorter than the run.
+            lineLen = tagEnd - tagStart - 1
             cut = maxLine
 
             If lineLen <= cut Then
-                outRng.FormattedText = findRng.FormattedText
+                outRng.FormattedText = srcDoc.Range(tagStart, tagEnd).FormattedText
                 outRng.Collapse Direction:=wdCollapseEnd
             Else
                 ' Do not cut in the middle of a run of spaces - "$pg12 Chapter ..." reads better
                 ' than "$pg12 Chapter   ...". Back up over them, never past the first character.
-                lineTxt = srcDoc.Range(findRng.start, findRng.start + cut).Text
+                lineTxt = srcDoc.Range(tagStart, tagStart + cut).Text
                 Do While cut > 1
                     If Mid$(lineTxt, cut, 1) <> " " Then Exit Do
                     cut = cut - 1
@@ -26342,20 +26379,15 @@ Private Function Sh_PgVal_Copy_Tags_Into(ByVal srcDoc As Document, ByVal tmpDoc 
                 ' The kept part with its formatting - the red on the tag among it - then the
                 ' ellipsis and a paragraph mark of its own, because the mark was cut off with the
                 ' rest of the line.
-                outRng.FormattedText = srcDoc.Range(findRng.start, findRng.start + cut).FormattedText
+                outRng.FormattedText = srcDoc.Range(tagStart, tagStart + cut).FormattedText
                 outRng.Collapse Direction:=wdCollapseEnd
                 outRng.InsertAfter SH_PGVAL_ELLIPSIS & vbCr
                 outRng.Collapse Direction:=wdCollapseEnd
             End If
 
             moved = moved + 1
-            If moved > 20000 Then Exit Do
-
-            ' Carry on from the end of what was just found, out to the end of the document.
-            If findRng.End >= srcDoc.Content.End Then Exit Do
-            findRng.SetRange findRng.End, srcDoc.Content.End
-        Loop
-    End With
+        End If
+    Next par
 
     Sh_PgVal_Copy_Tags_Into = moved
 End Function   '*** end of Sh_PgVal_Copy_Tags_Into ***
