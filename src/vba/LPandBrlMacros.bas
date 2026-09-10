@@ -18,40 +18,6 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - LP  - 9/10/2026 - BOX BLUE HAD WANDERED OUT OF THE BOX GROUP IN THE STYLES PANE, and
-'           - LP  - 9/10/2026 - the new Lp_Restore_Box_Style_Priority puts all six Box styles back
-'           - LP  - 9/10/2026 - to Priority 6 ON EVERY DOCUMENT OPEN, beside the Prodnote line in
-'           - LP  - 9/10/2026 - Sh_HandleDocumentOpened. The pane is sorted "As Recommended", which
-'           - LP  - 9/10/2026 - is Priority and then the name, and LargePrintTemplate.dotx has every
-'           - LP  - 9/10/2026 - Box style at 6. Jerry's book had Box Blue at 5 - between Text Violet
-'           - LP  - 9/10/2026 - and Heading 1, since 5 is the Heading number and "Box Blue" sorts
-'           - LP  - 9/10/2026 - ahead of "Heading 1" - with a correct template. NOTHING IN THIS
-'           - LP  - 9/10/2026 - PROJECT WRITES A STYLE'S PRIORITY except Prodnote's, and five
-'           - LP  - 9/10/2026 - candidates were each measured in real Word on the build box and each
-'           - LP  - 9/10/2026 - left Box Blue at 6: applying the style, the border pass, the
-'           - LP  - 9/10/2026 - font-size pass, the transcriber note's trip through the hidden
-'           - LP  - 9/10/2026 - scratch document, and importing text from a file whose own Box Blue
-'           - LP  - 9/10/2026 - is numbered differently. A Box Blue built from scratch comes back at
-'           - LP  - 9/10/2026 - 1, so it is not being rebuilt either. The number is changed in Word
-'           - LP  - 9/10/2026 - itself - Manage Styles, Recommend tab - so the cure re-asserts it
-'           - LP  - 9/10/2026 - rather than hunting the cause. IT WENT INTO Lp_Normalize_Styles
-'           - LP  - 9/10/2026 - FIRST AND THAT WAS TOO NARROW: that macro has two callers, and only
-'           - LP  - 9/10/2026 - the attach helps - Lp_Import_Exported_Selection_File runs it on the
-'           - LP  - 9/10/2026 - HIDDEN SOURCE FILE and closes that file without saving, so an import
-'           - LP  - 9/10/2026 - writes the number into a document that is thrown away. Re-attaching
-'           - LP  - 9/10/2026 - the template was the only repair, and nobody re-attaches often.
-'           - LP  - 9/10/2026 - It writes ONLY when the number is wrong: a property write marks the
-'           - LP  - 9/10/2026 - document modified, and on an open-time pass that would leave a book
-'           - LP  - 9/10/2026 - Word wants saving after the transcriber had changed nothing. And it
-'           - LP  - 9/10/2026 - RUNS ON A LARGE PRINT BOOK ONLY (Lp_Was_Made_As_An_Lp_Book), which
-'           - LP  - 9/10/2026 - is Jerry's rule of 8/22/2026 - "the ordinary configuration decides
-'           - LP  - 9/10/2026 - nothing". Priority is a DOCUMENT property saved in the transcriber's
-'           - LP  - 9/10/2026 - own file; three Styles pane settings came out of
-'           - LP  - 9/10/2026 - MS_Set_Word_Config_For_New_Install on 8/20/2026 for that very
-'           - LP  - 9/10/2026 - reason, and ungated this would have put the same class of write
-'           - LP  - 9/10/2026 - back on every letter and publisher's file she opens. The gate also
-'           - LP  - 9/10/2026 - keeps it off braille files, where marking one changed would reach
-'           - LP  - 9/10/2026 - her as dialog 321 and thirty-odd cleanup passes she never asked for.
 ' Notes:    - Sh  - 9/9/2026 - $PG VALIDATION BUILT A 137-PAGE LIST OF THE SAME PAGE NUMBER, and the
 '           - Sh  - 9/9/2026 - cause is Word's Find, not the tags. Sh_PgVal_Copy_Tags_Into ran a wildcard
 '           - Sh  - 9/9/2026 - Find for "$pg*^013" and moved the search range past each hit. WORD IGNORES
@@ -2702,10 +2668,6 @@ Sub Sh_HandleDocumentOpened()
     ' If the document is a large print document then setting for Large Print are made - if doc is braille then brille settings are made
     '   otherwise the settings for a normal document are made.
     '
-    ' Version 1.9  Date: 9/10/2026 - calls Lp_Restore_Box_Style_Priority, which puts the six Box styles
-    '                              back to Priority 6 so they stay together as one group in the Styles
-    '                              pane. Beside Sh_Set_Prodnote_Style_Visibility and for the same reason:
-    '                              it is about the styles the document carries, not the template on it
     ' Version 1.8  Date: 9/6/2026 - the obsolete-template warning (123) goes through Sh_Say, so it is at
     '                              least 10 point Tahoma and its button says Okay. The wording and the ten
     '                              figures it reports are unchanged
@@ -2800,16 +2762,6 @@ Sub Sh_HandleDocumentOpened()
     ' (large print, braille, or Normal). The attached-template name must not matter here, so
     ' this runs after the per-template config above rather than inside the large-print branch.
     Application.Run MacroName:="Sh_Set_Prodnote_Style_Visibility"
-
-    ' And the six Box styles back to Priority 6, so they stay together as one group in the
-    ' Styles pane. UNLIKE the line above, this one decides nothing about an ordinary document:
-    ' it gates itself on Lp_Was_Made_As_An_Lp_Book and leaves every other file alone, because a
-    ' style's Priority is saved inside the transcriber's own file. See the macro itself.
-    '
-    ' Called DIRECTLY, not through Application.Run. Word takes an error out of Application.Run
-    ' itself and shows its own Run-time error dialog - the one offering Debug - and the caller
-    ' never sees it. The neighbors here are older; new calls do not use it.
-    Lp_Restore_Box_Style_Priority
 
 eom: 'End of Macro
 
@@ -18672,97 +18624,6 @@ Sub Sh_Set_Prodnote_Style_Visibility()
     On Error GoTo 0
 
 End Sub   '*** end of Sh_Set_Prodnote_Style_Visibility macro ***
-
-Sub Lp_Restore_Box_Style_Priority()
-'
-' Puts the six Box styles back where LargePrintTemplate.dotx has them in the Styles pane.
-' Runs on every document open, beside Sh_Set_Prodnote_Style_Visibility, which is the other
-' place a style's Priority is written.
-'
-' Version: 1.0  Date: 9/10/2026
-'
-' THE PANE ORDER. Three macros in this project force the Styles pane to sort "As Recommended",
-' and that order is each style's Priority, then the name within one number. The template has all
-' six Box styles at 6, which is what holds them together as one group below the Heading styles.
-'
-' Jerry, 9/9/2026: Box Blue had left that group and was sitting between Text Violet and Heading 1
-' - which is Priority 5, the Heading number, with "Box Blue" sorting alphabetically in front of
-' "Heading 1" - in a book whose template was correct.
-'
-' NOTHING IN THIS PROJECT MOVES IT. One line besides this one writes a style's Priority and it
-' writes Prodnote's. Five candidates were each measured in real Word on the build box against a
-' document made from the template, and every one left Box Blue at 6: applying the style to a
-' paragraph; the border pass and the font-size pass in Lp_Normalize_Styles; the transcriber
-' note's trip out to Lp_Table_Convert_Hidden's scratch document and home by FormattedText; and
-' importing text from a file whose own Box Blue carried a different number, where the book keeps
-' its own. A Box Blue built from scratch comes back at Priority 1, so it is not being deleted and
-' rebuilt either. That leaves Word's own interface - Manage Styles, Recommend tab, where Move Up
-' shifts a style one place, which is exactly 6 to 5. So this re-asserts the number rather than
-' hunting whoever moved it.
-'
-' ON OPEN RATHER THAN IN Lp_Normalize_Styles, which is where it was first put (Jerry, 9/10/2026).
-' Normalize Styles has two callers and only one of them helps: Lp_Attach_The_Template runs it on
-' the book, but Lp_Import_Exported_Selection_File runs it on the HIDDEN SOURCE FILE and then
-' closes that file without saving, so an import writes the number into a document that is thrown
-' away. Re-attaching the template was therefore the only repair, and a transcriber does not
-' re-attach often. Here, opening the book is enough.
-'
-' A LARGE PRINT BOOK AND NOTHING ELSE, and that gate is not caution - it is Jerry's rule of
-' 8/22/2026, "the ordinary configuration decides nothing". A style's Priority is a DOCUMENT
-' property, saved inside the transcriber's own file and carried with it wherever she sends it.
-' Three Styles pane settings were taken out of MS_Set_Word_Config_For_New_Install on 8/20/2026
-' for exactly that reason - see the note there - and an ungated version of this would put the
-' same class of write straight back, on every letter, manuscript and publisher's file she opens.
-' "Box Blue" is a far more ordinary name than "Prodnote", and another author's own recommended
-' order is theirs.
-'
-' Lp_Was_Made_As_An_Lp_Book is the right test and is deliberately the LOOSER of the two: it asks
-' whether the book carries the large print style set, not which template is on it now. A book on
-' an obsolete template, or one Word reset to Normal when the file was mailed, still needs its
-' pane put right - and that is a book whose Box Blue can wander in the first place.
-'
-' It also settles the braille side. MS_Set_Word_Config_For_Braille notes ActiveDocument.Saved on
-' arrival and puts it back at the very bottom, so that merely configuring a braille file cannot
-' make Word ask to save a file the transcriber only looked at. This runs after that restore, so
-' a write here would stand - and Dx_Braille_File_Not_Ready reads that flag, which would put
-' dialog 321 and thirty-odd cleanup passes in front of her on a file she had not changed.
-'
-' IT WRITES ONLY WHEN THE NUMBER IS WRONG. This runs on every open, and a property write marks
-' the document modified - so writing 6 over a 6 would leave a book Word wants saving after the
-' transcriber had changed nothing. (On a large print book that is belt and braces:
-' MS_Set_Word_Config_For_Large_Print already writes two document properties on every open, so an
-' LP book comes up modified anyway. It is still the right way round to write it.)
-'
-' Nothing here may raise: it runs on the document-open path, where an unhandled error reaches the
-' transcriber as Word's own Run-time error dialog - the one offering Debug.
-'
-    Const LP_BOX_PRIORITY As Long = 6
-
-    Dim arrBoxStyles As Variant
-    Dim sName As Variant
-
-    If Not Lp_Was_Made_As_An_Lp_Book Then Exit Sub
-
-    arrBoxStyles = Array("Box Black", "Box Blue", "Box Orange", _
-                         "Box Red", "Box Violet", "Box White")
-
-    ' Sh_Style_Exists is the guard, not the On Error. A missing style raises 5941 on the test,
-    ' and Resume Next resumes at the statement AFTER the one that failed - which, when the one
-    ' that failed is a block If, is the first line INSIDE the block. So an On Error alone would
-    ' run the assignment as well and swallow a second 5941, which is right only by accident.
-    ' The On Error stays as the floor under everything else: this is the open path.
-    On Error Resume Next
-    For Each sName In arrBoxStyles
-        If Sh_Style_Exists(ActiveDocument, CStr(sName)) Then
-            If ActiveDocument.Styles(CStr(sName)).Priority <> LP_BOX_PRIORITY Then
-                ActiveDocument.Styles(CStr(sName)).Priority = LP_BOX_PRIORITY
-            End If
-        End If
-    Next sName
-    Err.Clear
-    On Error GoTo 0
-
-End Sub   '*** end of Lp_Restore_Box_Style_Priority macro ***
 
 Sub Sh_Delete_Prodnote_Paragraphs()
 '
