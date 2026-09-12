@@ -18,7 +18,50 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Sh  - 9/9/2026 - $PG VALIDATION BUILT A 137-PAGE LIST OF THE SAME PAGE NUMBER, and the
+' Notes:    - LP  - 9/12/2026 - FILL TO RIGHT MARGIN SOMETIMES PRODUCED NOTHING and had to be
+'           - LP  - 9/12/2026 - pressed twice (Jerry). It failed whenever the words in front of the
+'           - LP  - 9/12/2026 - fill reached the right margin exactly, and worked one letter either
+'           - LP  - 9/12/2026 - side of that, which is why it could not be reproduced to order.
+'           - LP  - 9/12/2026 - Lp_Type_Fill_In_Line_To_Margin stopped laying underscores when the
+'           - LP  - 9/12/2026 - cursor's line number stopped matching one read at the TOP of the
+'           - LP  - 9/12/2026 - macro - read before the rest of the sentence is parked behind a
+'           - LP  - 9/12/2026 - paragraph mark. Parking those words takes them off the line, the line
+'           - LP  - 9/12/2026 - re-wraps, and the cursor moves UP one: measured line 17 at entry,
+'           - LP  - 9/12/2026 - line 16 after. So the loop typed one underscore, saw the mismatch and
+'           - LP  - 9/12/2026 - stopped, and the closing backspace removed it. The second press
+'           - LP  - 9/12/2026 - worked because the failed one still leaves the space that goes after
+'           - LP  - 9/12/2026 - a fill, and that space moves where the line wraps. The first
+'           - LP  - 9/12/2026 - underscore is now always kept and the line is measured from where it
+'           - LP  - 9/12/2026 - lands, page as well as line. The "x" probe is gone - a TypeBackspace
+'           - LP  - 9/12/2026 - below its If had been removing the manual line break it inserted, so
+'           - LP  - 9/12/2026 - it had done nothing but type a space since 5/30/2019. Measured
+'           - LP  - 9/12/2026 - against the shipping macro over 144 cases: all identical bar the
+'           - LP  - 9/12/2026 - eighteen that produced no fill. The numbered buttons are not
+'           - LP  - 9/12/2026 - affected - Lp_Type_Counted_Fill_In_Lines never asks about lines.
+'           - LP  - 9/12/2026 - The same change adds a BACKSTOP to that loop: it had no way out if
+'           - LP  - 9/12/2026 - Word stopped moving the line number, and in READ MODE it does not
+'           - LP  - 9/12/2026 - move at all - measured, the loop ran to the 1,000 the test capped
+'           - LP  - 9/12/2026 - it at. True since the macro was written. It now stops at 500 and
+'           - LP  - 9/12/2026 - takes its own underscores out, leaving the book as it was. Three
+'           - LP  - 9/12/2026 - more of the same family went with it, all measured, all older
+'           - LP  - 9/12/2026 - than the report: a fill of exactly ONE underscore lost it when
+'           - LP  - 9/12/2026 - punctuation followed, because the give-back that makes room for
+'           - LP  - 9/12/2026 - the period took the only character there was; the extra-lines
+'           - LP  - 9/12/2026 - loop compared the PAGE against a number read at the top of the
+'           - LP  - 9/12/2026 - macro and ate a character when they disagreed, which they do -
+'           - LP  - 9/12/2026 - measured page 2 at entry and page 1 when it looked; and an
+'           - LP  - 9/12/2026 - abandoned run was removed through ActiveDocument.Range, which is
+'           - LP  - 9/12/2026 - always the BODY - from a header it would have deleted 500
+'           - LP  - 9/12/2026 - characters of the book. Found by the vba-review agent.
+'           - LP  - 9/12/2026 - AND BACKING A FILL-IN LINE OUT IS NOW ONE Ctrl+Z, not 49 - 160 for
+'           - LP  - 9/12/2026 - one with two extra lines (Jerry's rule: more than three or four is
+'           - LP  - 9/12/2026 - not acceptable). A custom undo record round both fill-in macros.
+'           - LP  - 9/12/2026 - That is the mechanism that crashed Word at 3.0.345 and 3.0.347, so
+'           - LP  - 9/12/2026 - it was tested first: what killed Word there was a Find with
+'           - LP  - 9/12/2026 - wdReplaceAll inside the open record, and neither of these macros
+'           - LP  - 9/12/2026 - runs a Find at all. Sixty consecutive fills inside a record left
+'           - LP  - 9/12/2026 - Word alive with nothing raised, and the document came back
+'           - LP  - 9/12/2026 - identical on one press every time.' Notes:    - Sh  - 9/9/2026 - $PG VALIDATION BUILT A 137-PAGE LIST OF THE SAME PAGE NUMBER, and the
 '           - Sh  - 9/9/2026 - cause is Word's Find, not the tags. Sh_PgVal_Copy_Tags_Into ran a wildcard
 '           - Sh  - 9/9/2026 - Find for "$pg*^013" and moved the search range past each hit. WORD IGNORES
 '           - Sh  - 9/9/2026 - THE START OF A SEARCH RANGE THAT BEGINS INSIDE A TABLE CELL AND ENDS OUTSIDE
@@ -2137,6 +2180,14 @@ Public Const LP_FONT_SANS As String = "VistaTypeLP Sans"
 ' Quotation marks are deliberately absent: a closing one wants no space in front and an opening
 ' one does, and in straight-quote form they are the same character.
 Public Const LP_TIGHT_PUNCTUATION As String = ".,;:!?)]}"
+
+' The most underscores a single fill-in line may lay down before it stops and takes them out
+' again. A backstop, not a limit anybody should ever meet: the widest large print page at the
+' smallest face this product sets holds nothing like this many. See the note in
+' Lp_Type_Fill_In_Line_To_Margin for what it is guarding against - Word reports the same line
+' number however much is typed when the transcriber is in Read Mode, and the filling loop has no
+' other way to know it has reached the margin.
+Public Const LP_FILL_MAX_UNDERSCORES As Integer = 500
 
 ' Set while the add-in itself opens a document that is none of the user's business -- currently
 ' only the license, from Sh_Show_Full_License. Sh_HandleDocumentOpened checks it and leaves
@@ -15893,6 +15944,28 @@ Sub Lp_Type_Fill_In_Line_To_Margin()
 
     ' Called from: Lp_Type_Fill_In_Form
     '
+    ' Version 2.6  Date: 9/12/2026 - ONE UNDO PRESS instead of 49 for a fill to the margin and 160
+    '                                for one with two extra lines (Jerry). A custom undo record
+    '                                round the whole macro - measured, and see the long note by it
+    '                                for why the wwlib.dll crash of 3.0.345 does not apply here
+    ' Version 2.5  Date: 9/12/2026 - PRESSING IT TWICE. The fill produced nothing at all when the
+    '                                words in front of it reached the right margin exactly, because
+    '                                the line number it stopped on was read before the rest of the
+    '                                sentence was parked out of the way (Jerry, 9/12/2026). The
+    '                                first underscore is now always kept and the line is measured
+    '                                from where it lands, PAGE as well as line; the "x" probe goes,
+    '                                having done nothing but type a space since 5/30/2019. Four
+    '                                more ways of producing no fill, or of eating a character, went
+    '                                with it, all measured the same day: both filling loops now
+    '                                stop at LP_FILL_MAX_UNDERSCORES, because in Read Mode the line
+    '                                number never moves and they ran for ever; a fill of exactly
+    '                                one underscore keeps it when punctuation follows, instead of
+    '                                giving its only character back; the extra-lines loop reads the
+    '                                page and the line from where the cursor IS rather than from
+    '                                the top of the macro, and its two line-ending backspaces are
+    '                                guarded the same way; and an abandoned run is taken out by
+    '                                extending the selection, so it cannot address the body of the
+    '                                book from a header or a text box
     ' Version 2.4  Date: 8/23/2026 - a handler, so a failure cannot leave her typing underlined
     '                                Tahoma; and the underscore that pushes onto the next line
     '                                states its own formatting instead of inheriting it
@@ -15939,8 +16012,8 @@ Sub Lp_Type_Fill_In_Line_To_Margin()
     ' Author: Jerry Whittaker  jerry@vistatypelp.org
 
     Dim CurrentLine As Integer
-    Dim NextLine As Integer
     Dim StartLine As Integer
+    Dim StartPage As Integer
     Dim NoOfXtraLinesWanted As Integer
     Dim LineCounter As Integer
     Dim Loop_Cntr As Integer
@@ -15951,6 +16024,11 @@ Sub Lp_Type_Fill_In_Line_To_Margin()
     Dim punctFollows As Boolean
     Dim splitPos As Long
     Dim endPos As Long
+    Dim fillLen As Long
+    Dim laidDown As Long
+    Dim fillAbandoned As Boolean
+    Dim undoRec As UndoRecord
+    Dim undoOpen As Boolean
     Dim fillBackTo As String
     
     NoOfXtraLinesWanted = Lp_GP_Counter_1
@@ -15958,6 +16036,36 @@ Sub Lp_Type_Fill_In_Line_To_Margin()
 
     ' Read BEFORE anything is typed or deleted - see Lp_Fill_Face_To_Restore.
     fillBackTo = Lp_Fill_Face_To_Restore()
+
+    ' ONE UNDO PRESS, NOT FORTY-NINE. Jerry's rule: "multiple (i mean more then 3 or 4) is not an
+    ' acceptable undo requirment" (9/7/2026). Measured on the build box 9/12/2026, backing out one
+    ' fill: 49 presses for a fill to the right margin and 160 for one with two extra lines, down to
+    ' 1 each with this record open. The document came back identical every time.
+    '
+    ' A CUSTOM UNDO RECORD IS THE THING THAT CRASHED WORD TWICE - 3.0.345 and 3.0.347, an access
+    ' violation in wwlib.dll with nothing raised and nothing logged - so it is not reached for
+    ' lightly. What killed Word there was a Find with Replace:=wdReplaceAll running inside the open
+    ' record; see docs/Reported-Errors.md. THESE TWO MACROS RUN NO FIND AT ALL. They type, they
+    ' backspace, and they read Information() - nothing else. Tested before it was written in:
+    ' sixty consecutive fills inside a record, Word alive at the end and no error raised.
+    '
+    ' It cannot use the single-TypeText trick that took Lp_Type_Counted_Fill_In_Lines to one step,
+    ' because a fill to the margin does not know its own length until it has measured the line by
+    ' typing. The record makes how it works internally invisible to the transcriber, which is the
+    ' answer for both macros and for the extra-lines path as well.
+    '
+    ' IsRecordingCustomRecord is asked first so this can never end a record somebody else opened,
+    ' and undoOpen is what decides whether to close one - never the object, which exists either way.
+    On Error Resume Next
+    Set undoRec = Application.UndoRecord
+    If Not undoRec Is Nothing Then
+        If Not undoRec.IsRecordingCustomRecord Then
+            undoRec.StartCustomRecord "VistaType LP fill-in line"
+            undoOpen = (Err.Number = 0)
+        End If
+    End If
+    Err.Clear
+    On Error GoTo 0
 
     ' Everything from here goes to Fill_Tidy_Up if it raises - see the note down there.
     On Error GoTo Fill_Tidy_Up
@@ -15973,7 +16081,6 @@ Sub Lp_Type_Fill_In_Line_To_Margin()
 
     CurrentLine = Selection.Range.Information(wdFirstCharacterLineNumber) ' get the line number where the cursor is located
     StartLine = CurrentLine
-    NextLine = CurrentLine + 1
     CurrentColumn = Selection.Range.Information(wdFirstCharacterColumnNumber)
     
     If Selection.Font.Bold = True Then
@@ -15982,8 +16089,8 @@ Sub Lp_Type_Fill_In_Line_To_Margin()
 
     ' Get the rest of the sentence out of the way while the line is being filled.
     '
-    ' The loop below stops when the CURSOR's line number changes. With text after the cursor
-    ' that happens too early: as the underscores grow, the following word stops fitting and
+    ' Both filling loops below stop when the CURSOR's line number changes. With text after the
+    ' cursor that happens too early: as the underscores grow, the following word stops fitting and
     ' wraps to the next line, and the insertion point - which sits immediately before that word -
     ' is then reported as being on the next line too. The loop reads that as "the underscores
     ' wrapped" and stops. Measured on the build box 8/10/2026: a fill with nothing after it took
@@ -16008,30 +16115,97 @@ Sub Lp_Type_Fill_In_Line_To_Margin()
         ' A space in front only when there is something for it to separate the fill from. Not at
         ' the start of a paragraph, and not when a space is already there - see
         ' Lp_Nothing_Precedes_On_Line.
+        laidDown = 0
         If Not Lp_Nothing_Precedes_On_Line() Then
-            Selection.TypeText Text:=" "  ' non-underline space (if cursor is on last column then the following line (type x) will jump to next line
-            Selection.TypeText Text:="x"  ' type the "x" to see if it is not
-            If NextLine = Selection.Range.Information(wdFirstCharacterLineNumber) Then  ' has the cursor move to the next line
-                CurrentLine = NextLine
-                StartLine = CurrentLine  ' set the new line as the current line
-                Selection.TypeBackspace  ' remove "x"
-                Selection.TypeText Text:=Chr(11)  ' manual line break
-            End If
-                Selection.TypeBackspace  ' remove "x"
+            Selection.TypeText Text:=" "  ' non-underline space
+            laidDown = 1
         End If
-        
+
         With Selection.Font
             .Underline = wdUnderlineSingle  ' turn underline on
             .Name = LP_FONT_TAHOMA          ' the underscores only - see Lp_Fill_Face_To_Restore
         End With
-        
-        Do While CurrentLine = StartLine
+
+        ' THE FIRST UNDERSCORE ALWAYS GOES IN, AND WHERE IT LANDS IS THE LINE BEING FILLED.
+        '
+        ' Reported by Jerry, 9/12/2026: the macro "sometimes requires pressing the fill to right
+        ' margin twice in order to get the fill-in line", and he could not make it happen to
+        ' order. Measured on the build box the same day by growing the words in front of the fill
+        ' one letter at a time: the fill produced NOTHING AT ALL whenever those words happened to
+        ' reach the right margin exactly, and one letter either side of that it was perfect. A
+        ' one-character target is why it looked random.
+        '
+        ' What went wrong: the old test compared the cursor's line number against one read at the
+        ' TOP of this macro - before the rest of the sentence was parked behind a paragraph mark.
+        ' Parking those words takes them off the line, so the line re-wraps and the cursor can
+        ' move UP a line. Measured: line 17 at entry, line 16 after the parking. The recorded
+        ' number was wrong before the loop ever ran, so the loop typed one underscore, saw the
+        ' disagreement, stopped, and the backspace at the bottom took that underscore away again.
+        '
+        ' And the second press worked because the failed one is not idle. It still leaves the
+        ' space that belongs between a fill and the text after it, and that space moves where the
+        ' line wraps - off the exact spot that fails. That is the whole of "press it twice".
+        '
+        ' Reading the line number AFTER the first underscore also retires the "x" probe that used
+        ' to stand above this: a space and an "x" typed to find out whether the cursor was at the
+        ' right margin, with a manual line break inserted when it was. That break never survived -
+        ' a second TypeBackspace sat below the If and removed it again - so since 5/30/2019 the
+        ' probe had been contributing nothing but its space. A first underscore that wraps now
+        ' starts the fill on the next line by itself, which is all the probe was ever for.
+        ' Measured against the shipping macro over 144 cases covering both of its paths: every one
+        ' identical, apart from the eighteen that produced no fill.
+        Selection.TypeText Chr(95)   ' the first underscore - this one is always kept
+        laidDown = laidDown + 1
+        fillLen = 1
+        StartLine = Selection.Range.Information(wdFirstCharacterLineNumber)
+        StartPage = Selection.Information(wdActiveEndPageNumber)
+
+        Do
             Selection.TypeText Chr(95)   '  underscore
-            CurrentLine = Selection.Range.Information(wdFirstCharacterLineNumber) ' get the new line number where the cursor is located
+            laidDown = laidDown + 1
+            fillLen = fillLen + 1
+
+            ' The PAGE is asked about as well as the line. Line numbers restart at 1 on a new
+            ' page, so a fill sitting on the last line of one would otherwise be compared with a
+            ' number belonging to the page before it.
+            If Selection.Range.Information(wdFirstCharacterLineNumber) <> StartLine _
+               Or Selection.Information(wdActiveEndPageNumber) <> StartPage Then
+                Selection.TypeBackspace   ' that one did not fit - take it off again
+                laidDown = laidDown - 1
+                fillLen = fillLen - 1
+                Exit Do
+            End If
+
+            ' A BACKSTOP, BECAUSE THE LINE NUMBER DOES NOT ALWAYS MOVE. Measured on the build box
+            ' 9/12/2026: in every view but one the fill stops where it should - Print Layout and
+            ' Web Layout after 44 underscores, Draft after 44, Outline after 22 - but in READ MODE
+            ' Word reports the same line number however much is typed, and this loop ran to the
+            ' 1,000 the test capped it at with no sign of stopping. That has been true of this
+            ' macro since it was written; it is not something the 9/12/2026 rewrite introduced.
+            ' A loop that types for ever into the transcriber's book is the worst thing in here,
+            ' so it stops and takes back every character it laid down - the leading space as well
+            ' as the underscores. What it CANNOT put back is a fill-in line the cursor was sitting
+            ' in, which Lp_Remove_Fill_In_Line_At_Cursor has already deleted by this point, so the
+            ' book is as it was apart from that. Nothing is said to the transcriber either; if
+            ' this is ever seen in the field it wants a message of its own.
+            ' LP_FILL_MAX_UNDERSCORES is far above any real line - the widest large print page at
+            ' the smallest face this product sets holds nothing like it - so a fill that reaches
+            ' it has not been measuring anything.
+            If fillLen >= LP_FILL_MAX_UNDERSCORES Then
+                ' Taken out by EXTENDING THE SELECTION, not by an ActiveDocument.Range built from
+                ' Selection.Start. Selection.Start in a header, a footer, a footnote or a text box
+                ' is an offset within THAT story, and ActiveDocument.Range is always the body - so
+                ' the arithmetic form would delete a 500-character span of the book from a macro
+                ' running somewhere else entirely. Extending the selection cannot address the
+                ' wrong story.
+                Selection.MoveLeft Unit:=wdCharacter, count:=laidDown, Extend:=wdExtend
+                Selection.Delete
+                fillLen = 0
+                fillAbandoned = True
+                Exit Do
+            End If
         Loop
-        
-        Selection.TypeBackspace
-        
+
     Else  ' Extra lines wanted
     
         NoOfXtraLinesWanted = NoOfXtraLinesWanted + 1
@@ -16054,30 +16228,57 @@ Sub Lp_Type_Fill_In_Line_To_Margin()
 
         Do While NoOfXtraLinesWanted > LineCounter
         
-            If Selection.Information(wdActiveEndPageNumber) <> CurrentPageNumber Then
-                CurrentPageNumber = Selection.Information(wdActiveEndPageNumber) ' reset the page number
-                StartLine = 1
-            Else
-                CurrentLine = Selection.Range.Information(wdFirstCharacterLineNumber) ' get the line number where the cursor is located
-                StartLine = CurrentLine
-            End If
+            ' BOTH READ FRESH, FROM WHERE THE CURSOR ACTUALLY IS. What stood here asked whether
+            ' the page had changed since a number read at the TOP of the macro, and if it had, set
+            ' StartLine to 1 without setting CurrentLine - so the inner loop's test failed at once,
+            ' the loop never ran, and the TypeBackspace below removed a character of the
+            ' transcriber's own. Both halves were wrong. The page number was stale for the same
+            ' reason the line number was in the branch above: Lp_Remove_Fill_In_Line_At_Cursor and
+            ' the parking split both reflow the text and can move the cursor to another page.
+            ' Measured 9/12/2026, with the cursor in an existing fill-in line near a page break:
+            ' page 2 at entry and page 1 by the time this looked, and again 3 and 2. And "the page
+            ' changed, so we must be on line 1" is a guess; asking where the cursor is is not.
+            CurrentPageNumber = Selection.Information(wdActiveEndPageNumber)
+            CurrentLine = Selection.Range.Information(wdFirstCharacterLineNumber)
+            StartLine = CurrentLine
             
             With Selection.Font
                     .Underline = wdUnderlineSingle  ' turn underline on
                     .Name = LP_FONT_TAHOMA          ' the underscores only
             End With
             
+            fillLen = 0
             Do While CurrentLine = StartLine
                 Selection.TypeText Chr(95)   '  underscore
+                fillLen = fillLen + 1
                 CurrentLine = Selection.Range.Information(wdFirstCharacterLineNumber) ' get the new line number where the cursor is located
+
+                ' The same backstop as the fill-to-margin loop above, and for the same measured
+                ' reason: in Read Mode Word reports the same line number however much is typed, so
+                ' this test can never come true. Without it the loop types into the transcriber's
+                ' book until Word runs out of memory. It stops and takes this line's underscores
+                ' out again; the lines already finished above it are left alone, because they are
+                ' whole and correct.
+                If fillLen >= LP_FILL_MAX_UNDERSCORES Then
+                    Selection.MoveLeft Unit:=wdCharacter, count:=fillLen, Extend:=wdExtend
+                    Selection.Delete
+                    fillLen = 0
+                    fillAbandoned = True
+                    Exit Do
+                End If
             Loop
+            If fillAbandoned Then Exit Do
 
             LineCounter = LineCounter + 1
                              
+            ' fillLen guards both of these. They are here to take back the one underscore that
+            ' pushed the line over, and when the loop above laid down only one there is nothing to
+            ' take back - the backspace would remove the leading space, or the transcriber's own
+            ' last character, or a paragraph mark, joining two paragraphs.
             If NoOfXtraLinesWanted = LineCounter Then
-                Selection.TypeBackspace
+                If fillLen > 1 Then Selection.TypeBackspace
             Else
-                Selection.TypeBackspace
+                If fillLen > 1 Then Selection.TypeBackspace
                 If Stubline Then
                     ' NOT underlined. Word draws an underline for an underlined line break and
                     ' runs it out to the right margin, so this line LOOKED longer than the ones
@@ -16127,7 +16328,15 @@ Sub Lp_Type_Fill_In_Line_To_Margin()
     ' above it and the period stands in that place. A period is narrower than an underscore, so
     ' the line does finish a fraction shorter than its neighbours - about a third of a character.
     ' That is the cost of keeping the period on the line, and it is the smaller of the two evils.
-    If punctFollows Then Selection.TypeBackspace
+    ' fillLen guards it. Giving a character back needs a character to give: with the run
+    ' abandoned (fillLen 0) this would eat the transcriber's own last character, and where the
+    ' words in front end within ONE underscore of the margin the fill IS one underscore and this
+    ' took it away - no fill at all, which is the reported fault again in a narrower window.
+    ' Measured 9/12/2026 with a period immediately after the cursor: two positions out of the
+    ' thirty-one swept produced nothing. A single-underscore fill keeps its underscore; the period
+    ' then stands beside it and the pair wraps together if it must, which is the trade the note
+    ' above describes.
+    If punctFollows And fillLen > 1 Then Selection.TypeBackspace
 
     ' Put the sentence back together - see the note above. Only ever removes the mark this macro
     ' put there: it has to be the very next character, and it has to be a paragraph mark.
@@ -16144,7 +16353,8 @@ Sub Lp_Type_Fill_In_Line_To_Margin()
     ' character throws the pending formatting away and takes it from what is beside it, which is
     ' an underscore, and underlined. The face is put back here for the same reason - the peek
     ' picks Tahoma up off the underscore beside it.
-    If Lp_Space_Wanted_After_Fill() Then
+    ' And nothing to separate from the next word either when the run was abandoned.
+    If Lp_Space_Wanted_After_Fill() And Not fillAbandoned Then
         With Selection.Font
             .Underline = wdUnderlineNone
             .Name = fillBackTo
@@ -16162,6 +16372,15 @@ Sub Lp_Type_Fill_In_Line_To_Margin()
     ' face (Jerry, 8/10/2026 for the underline; the face joined it 8/23/2026).
     Selection.Font.Underline = wdUnderlineNone
     Selection.Font.Name = fillBackTo
+
+    ' Close the record on every path out, this one and the handler below.
+    If undoOpen Then
+        On Error Resume Next
+        undoRec.EndCustomRecord
+        Err.Clear
+        On Error GoTo 0
+        undoOpen = False
+    End If
 
     Exit Sub
 
@@ -16183,6 +16402,8 @@ Fill_Tidy_Up:
     On Error Resume Next
     Selection.Font.Underline = wdUnderlineNone
     If fillBackTo <> "" Then Selection.Font.Name = fillBackTo
+    If undoOpen Then undoRec.EndCustomRecord   ' a record left open confuses every later undo
+    Err.Clear
 
 End Sub   '*** end of Lp_Type_Fill_In_Line_To_Margin macro ***
 
@@ -16191,6 +16412,9 @@ Sub Lp_Type_Counted_Fill_In_Lines()
 
     ' Called from: Lp_Type_Fill_In_Form
     '
+    ' Version 2.0:  Date: 9/12/2026 ONE UNDO PRESS. The run was already one TypeText, but the
+    '                               spaces either side made it up to three. See the note in
+    '                               Lp_Type_Fill_In_Line_To_Margin
     ' Version 1.9:  Date: 8/23/2026 the underscores go in with ONE TypeText instead of one call
     '                               each - 14 ms down to 2 for a long line, and one undo step
     '                               instead of twenty-one (Jerry). Measured, see the note below
@@ -16226,6 +16450,8 @@ Sub Lp_Type_Counted_Fill_In_Lines()
     
     Dim Chr_Cntr As Integer
     Dim fillBackTo As String
+    Dim undoRec As UndoRecord
+    Dim undoOpen As Boolean
 
     Chr_Cntr = Lp_GP_Counter_1
 
@@ -16238,6 +16464,21 @@ Sub Lp_Type_Counted_Fill_In_Lines()
 
     ' Read BEFORE anything is typed or deleted - see Lp_Fill_Face_To_Restore.
     fillBackTo = Lp_Fill_Face_To_Restore()
+
+    ' ONE UNDO PRESS. The run of underscores is already a single TypeText here, but the spaces on
+    ' either side of it are two more, so backing this out could take three. Same record, same
+    ' reasoning and the same measurement as Lp_Type_Fill_In_Line_To_Margin - read the long note
+    ' there, including why the wwlib.dll crash of 3.0.345 does not apply to either of these.
+    On Error Resume Next
+    Set undoRec = Application.UndoRecord
+    If Not undoRec Is Nothing Then
+        If Not undoRec.IsRecordingCustomRecord Then
+            undoRec.StartCustomRecord "VistaType LP fill-in line"
+            undoOpen = (Err.Number = 0)
+        End If
+    End If
+    Err.Clear
+    On Error GoTo 0
 
     ' Everything from here goes to Fill_Tidy_Up if it raises - see the note down there.
     On Error GoTo Fill_Tidy_Up
@@ -16313,6 +16554,15 @@ Sub Lp_Type_Counted_Fill_In_Lines()
     Selection.Font.Underline = wdUnderlineNone
     Selection.Font.Name = fillBackTo
 
+    ' Close the record on every path out, this one and the handler below.
+    If undoOpen Then
+        On Error Resume Next
+        undoRec.EndCustomRecord
+        Err.Clear
+        On Error GoTo 0
+        undoOpen = False
+    End If
+
     'Unload Lp_Type_Fill_In_Line_Form
 
     Exit Sub
@@ -16326,6 +16576,8 @@ Fill_Tidy_Up:
     On Error Resume Next
     Selection.Font.Underline = wdUnderlineNone
     If fillBackTo <> "" Then Selection.Font.Name = fillBackTo
+    If undoOpen Then undoRec.EndCustomRecord   ' a record left open confuses every later undo
+    Err.Clear
 
 End Sub   '*** end of Lp_Type_Counted_Fill_In_Lines macro ***
 
