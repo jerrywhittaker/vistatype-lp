@@ -228,15 +228,38 @@ there.
 
 ## The one thing it cannot do
 
-**If you close Word while a large print file or a braille file is still open**, Word saves that document's
-settings as its own on the way out, and loads them again next time it starts.
+First, the part that is stronger than it sounds. **A setting you change while a large print or
+braille file is on the screen stays with that file.** It is never taken to be a change to how you
+want Word to behave. Only a change you make in an ordinary document counts as yours, and that one
+is remembered from then on. VistaType LP does not learn anything from a book.
 
-VistaType LP handles this in the ordinary case: it remembers between sessions that a large print or braille document was
-in force, and does not mistake the book's settings for yours.
+**If you close Word while a large print file or a braille file is still open, Word can carry that
+file's settings over to the next time it starts.** Can, not will, and the difference is worth
+knowing. It happens when Word saves its Normal template on the way out, which it does silently
+whenever something in the session has changed that template. Changing these particular boxes does
+not change the template by itself — but a good deal of ordinary work does.
 
-There is one narrow gap it cannot cover — closing Word inside a braille file **and then
-installing a new version of VistaType LP** before you next open an ordinary document. In that
-one sequence your settings can be replaced by the braille ones.
+Measured on the build box, 9/12/2026, with six settings flipped and Word restarted:
+
+| | what came back |
+|---|---|
+| Normal template not saved | five of the six went back to your own values |
+| Normal template saved | all six carried over |
+
+One of them, *ignore words in UPPERCASE*, carries over every time. Word writes that one down the
+moment it changes and does not wait for anything.
+
+All of that is Word's own behavior. None of it is VistaType LP.
+
+VistaType LP is ready for it either way. It writes down that a book was in force, and that note
+outlives the session — so next morning it knows the values Word came up holding may be the book's
+rather than yours, and the first ordinary document you open puts your own settings back.
+
+**There is one narrow gap left.** It needs three things in a row: you quit Word with a book on the
+screen, you then install a version of VistaType LP that changes the shape of the settings file,
+and you open an ordinary document before anything else. In that one sequence the book's values can
+be written down as yours. Only a few upgrades change the settings file — most do not touch it —
+so this is rare, but it has not been closed and it is honest to say so.
 
 **Ten seconds avoids it entirely: before you close Word for the day, click into an ordinary
 document first.** That is the only thing on this page that asks anything of you, and it is a
