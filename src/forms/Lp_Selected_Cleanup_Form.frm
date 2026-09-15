@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_Selected_Cleanup_Form 
    Caption         =   "Selected Cleanup"
-   ClientHeight    =   8664.001
+   ClientHeight    =   9012.001
    ClientLeft      =   120
    ClientTop       =   450
    ClientWidth     =   8310.001
@@ -16,6 +16,8 @@ Attribute VB_Exposed = False
 
 ' Lp_Selected_Cleanup_Form
 '
+' Version: 1.9  Date: 9/15/2026 - added Compress_Linear_Math under Miscellaneous: compresses the spacing
+'                                in every text math equation in the selection, asking nothing (Jerry)
 ' Version: 1.8  Date: 7/24/2026 - no longer runs "MS_Set_Word_Config_For_Large_Print" on form open
 ' Version: 1.7 Date: 1/20/2024 - added Lp_Italics_To_Dashed_Underline
 ' Version: 1.6 Date: 10/12/2023 - Revsion of items - added msg if no selection made
@@ -36,50 +38,56 @@ Private Sub OkayButton_Click()
     Unload Lp_Selected_Cleanup_Form
     
     If Replace_Mult_Spaces_With_Single Then
-        Application.Run MacroName:="Lp_Is_Text_Selected"
-        Application.Run MacroName:="Sh_Remove_Multi_Spaces"
+        Application.Run macroName:="Lp_Is_Text_Selected"
+        Application.Run macroName:="Sh_Remove_Multi_Spaces"
     ElseIf Remove_Spaces_Before_And_After_Para_Marks Then
-        Application.Run MacroName:="Lp_Is_Text_Selected"
-        Application.Run MacroName:="Lp_Fix_Para_Space_Errors"
+        Application.Run macroName:="Lp_Is_Text_Selected"
+        Application.Run macroName:="Lp_Fix_Para_Space_Errors"
     ElseIf Clean_Auto_List_And_Tabs Then
-        Application.Run MacroName:="Lp_Is_Text_Selected"
-        Application.Run MacroName:="Lp_Convert_Auto_List_To_Text"
+        Application.Run macroName:="Lp_Is_Text_Selected"
+        Application.Run macroName:="Lp_Convert_Auto_List_To_Text"
     ElseIf Text_Boxes_And_Frames Then
-        Application.Run MacroName:="Lp_Is_Text_Selected"
-        Application.Run MacroName:="Sh_Remove_Txt_Bxs_And_Frames"
+        Application.Run macroName:="Lp_Is_Text_Selected"
+        Application.Run macroName:="Sh_Remove_Txt_Bxs_And_Frames"
     ElseIf ReplaceHyper Then
-        Application.Run MacroName:="Lp_Is_Text_Selected"
-        Application.Run MacroName:="Lp_Convert_Hyper_To_Addresses"
+        Application.Run macroName:="Lp_Is_Text_Selected"
+        Application.Run macroName:="Lp_Convert_Hyper_To_Addresses"
     ElseIf Maunal_Line_Break Then
-        Application.Run MacroName:="Lp_Is_Text_Selected"
-        Application.Run MacroName:="Sh_Replace_Manual_Line_Break"
+        Application.Run macroName:="Lp_Is_Text_Selected"
+        Application.Run macroName:="Sh_Replace_Manual_Line_Break"
     ElseIf Kill_Hyperlinks Then
-        Application.Run MacroName:="Lp_Is_Text_Selected"
-        Application.Run MacroName:="Sh_Kill_The_Hyperlinks"
+        Application.Run macroName:="Lp_Is_Text_Selected"
+        Application.Run macroName:="Sh_Kill_The_Hyperlinks"
     ElseIf Small_Caps_To_All_Caps Then
-        Application.Run MacroName:="Lp_Is_Text_Selected"
-        Application.Run MacroName:="Sh_Replace_Small_Caps_With_All_Caps"
+        Application.Run macroName:="Lp_Is_Text_Selected"
+        Application.Run macroName:="Sh_Replace_Small_Caps_With_All_Caps"
     ElseIf Replace_Tabs_With_Single_Space Then
-        Application.Run MacroName:="Lp_Is_Text_Selected"
-        Application.Run MacroName:="Lp_Replace_Tabs_With_Single_Space"
+        Application.Run macroName:="Lp_Is_Text_Selected"
+        Application.Run macroName:="Lp_Replace_Tabs_With_Single_Space"
     ElseIf Box_Bullets_Bullets_and_Numbers Then
-        Application.Run MacroName:="Lp_Is_Text_Selected"
-        Application.Run MacroName:="Lp_Remove_Box_Bullets_Bullets_and_Numbers"
+        Application.Run macroName:="Lp_Is_Text_Selected"
+        Application.Run macroName:="Lp_Remove_Box_Bullets_Bullets_and_Numbers"
     ElseIf Replace_Multi_Para_Marks_With_Single Then
-        Application.Run MacroName:="Lp_Is_Text_Selected"
-        Application.Run MacroName:="Lp_Replace_Multiple_Para_Marks_With_Warning"
+        Application.Run macroName:="Lp_Is_Text_Selected"
+        Application.Run macroName:="Lp_Replace_Multiple_Para_Marks_With_Warning"
     ElseIf Replace_Sec_Brk Then
         ' NO Lp_Is_Text_Selected here, unlike every other option on this menu. From 9/1/2026 this
         ' one always works on the WHOLE BOOK - converting half a book for a tablet and leaving
         ' half laid out for two-sided printing makes no sense (Jerry) - so demanding a selection
         ' would be asking for something that is then ignored.
-        Application.Run MacroName:="Lp_Replace_Section_Break_With_Page_Break"
+        Application.Run macroName:="Lp_Replace_Section_Break_With_Page_Break"
     ElseIf SpacesBeforePunctuation Then
-        Application.Run MacroName:="Lp_Is_Text_Selected"
-        Application.Run MacroName:="Sh_Remove_Spaces_Before_Punctuation"
+        Application.Run macroName:="Lp_Is_Text_Selected"
+        Application.Run macroName:="Sh_Remove_Spaces_Before_Punctuation"
     ElseIf ItalicsToDashedUnderline Then
-        Application.Run MacroName:="Lp_Is_Text_Selected"
-        Application.Run MacroName:="Lp_Italics_To_Dashed_Underline"
+        Application.Run macroName:="Lp_Is_Text_Selected"
+        Application.Run macroName:="Lp_Italics_To_Dashed_Underline"
+    ElseIf Compress_Linear_Math Then
+        ' Every text equation in the selection, no question asked about any of them (Jerry,
+        ' 9/15/2026). Called directly rather than through Application.Run, so a macro missing
+        ' from the module stops the build instead of the transcriber.
+        Lp_Is_Text_Selected
+        Lp_Compress_Linear_Math_In_Selection
     Else
         MsgBox "No selection made from Selected Cleanup menu!", , "VistaType LP (163)"
         Lp_Selected_Cleanup_Form.Show

@@ -628,6 +628,11 @@ Three subtleties that make it actually work:
   `installer/ribbon-button-ids.txt` is an append-only record of every id that has shipped and
   `make build` stops if one disappears. This supersedes the narrower warning about the six
   toolbar ids: it now covers all 50.
+- **To take a button OFF the ribbon, move it to the hidden `tab_VT_Retired_Buttons`** (from 9/15/2026,
+  Compress Linear Math first) rather than deleting its id. **Never park it on `tab_LP_and_BRL_QAT_Icons`**:
+  `build_qat.py` makes the icons-only toolbar out of that tab, and the installer's default `Mine` mode
+  would add the retired button to every transcriber's toolbar. `build_ribbon_tabs.py` skips the retired
+  tab as it skips the toolbar one.
 
 ## Build & edit workflow (short version)
 

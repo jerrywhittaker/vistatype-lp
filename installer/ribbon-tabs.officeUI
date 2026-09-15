@@ -73,7 +73,6 @@
           <mso:control idQ="x1:btn_Lp_Type_Fill_In_Line" visible="true"/>
           <mso:control idQ="x1:btn_Lp_Horz_List_To_Vertical" visible="true"/>
           <mso:control idQ="x1:btn_Lp_Table_Tools" visible="true"/>
-          <mso:control idQ="x1:btn_Lp_Compress_Linear_Math" visible="true"/>
           <mso:control idQ="x1:btn_Lp_Picture_Tools_Menu_Starter" visible="true"/>
         </mso:group>
         <mso:group id="vt_grp_mso_c1_13B4A91B" label="Export/Import" autoScale="true">

@@ -71,7 +71,6 @@
         <button id="btn_Lp_Type_Fill_In_Line" label="Fill-In Line" imageMso="VisibilityHidden" onAction="RibbonAction" tag="Lp_Type_Fill_In_Line"/>
         <button id="btn_Lp_Horz_List_To_Vertical" label="Horiz List to Vertical" imageMso="_3DPerspectiveIncrease" onAction="RibbonAction" tag="Lp_Horz_List_To_Vertical"/>
         <button id="btn_Lp_Table_Tools" label="Table and TOC Tools" imageMso="ViewSheetGridlines" onAction="RibbonAction" tag="Lp_Table_Tools"/>
-        <button id="btn_Lp_Compress_Linear_Math" label="Compress Linear Math" imageMso="HorizontalSpacingDecrease" onAction="RibbonAction" tag="Lp_Compress_Linear_Math"/>
         <button id="btn_Lp_Picture_Tools_Menu_Starter" label="Bkgrnd &amp;&amp; Picture Tools" imageMso="InsertDrawingCanvas" onAction="RibbonAction" tag="Lp_Picture_Tools_Menu_Starter"/>
       </group>
       <group id="grp_mso_c1_13B4A91B" label="Export/Import" autoScale="true">
@@ -111,6 +110,18 @@
         <button id="btn_Sh_Apply_Title_Case_Capitalization" label="Convert Paragraph to Title Case" imageMso="CharacterBorder" onAction="RibbonAction" tag="Sh_Apply_Title_Case_Capitalization"/>
         <button id="btn_Sh_Show_Recommended_Styles_Pane" label="Styles Pane: Recommended" screentip="Styles Pane: Recommended" supertip="Large print documents only. Opens the Styles pane, sets it to the large print template's recommended styles sorted as recommended, and ticks Show Preview and Disable Linked Styles." imageMso="QuickStylesGallery" onAction="RibbonAction" tag="Sh_Show_Recommended_Styles_Pane"/>
         <button id="btn_MS_Reset_Word_Configuration" label="Reset Word Configuration" screentip="Reset Word Configuration" getSupertip="VtResetSupertip" imageMso="TagMarkComplete" onAction="RibbonAction" tag="MS_Reset_Word_Configuration"/>
+      </group>
+    </tab>
+    <!-- RETIRED BUTTONS. An id that has shipped and been taken off every visible tab lives here, never
+         seen, so a Quick Access Toolbar that already names it still draws a working button instead of a
+         blank one. NOT the toolbar tab above: tools/lib/build_qat.py makes the icons-only toolbar out of
+         that tab, and the installer would add every button on it to every transcriber toolbar.
+         tools/lib/build_ribbon_tabs.py leaves this tab out of the user tabs too.
+         Compress Linear Math, 9/15/2026 (Jerry): it runs inside Fix Common File Errors and Selected
+         Cleanup now, and its keyboard shortcut still works. -->
+    <tab id="tab_VT_Retired_Buttons" label="VistaType LP Retired Buttons" visible="false">
+      <group id="grp_vt_retired_buttons" label=" " autoScale="true">
+          <button id="btn_Lp_Compress_Linear_Math" label="Compress Linear Math" imageMso="HorizontalSpacingDecrease" onAction="RibbonAction" tag="Lp_Compress_Linear_Math"/>
       </group>
     </tab>
     </tabs>

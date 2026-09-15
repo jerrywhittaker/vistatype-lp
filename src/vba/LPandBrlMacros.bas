@@ -18,6 +18,16 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - LP  - 9/15/2026 - COMPRESS LINEAR MATH LEAVES THE RIBBON and runs, asking nothing,
+'           - LP  - 9/15/2026 - as a step of Fix Common File Errors (the whole book) and as a new
+'           - LP  - 9/15/2026 - Miscellaneous choice on Selected Cleanup (the selection). Jerry. It now
+'           - LP  - 9/15/2026 - has to FIND the equations itself - Lp_Clm_Find_And_Compress, whose note
+'           - LP  - 9/15/2026 - says what counts as one - and leaves anything doubtful alone, because
+'           - LP  - 9/15/2026 - spaces taken out of prose are damage nobody spots. Running it twice
+'           - LP  - 9/15/2026 - changes nothing. The button's id stays on the hidden QAT tab, so a
+'           - LP  - 9/15/2026 - toolbar that already carries it does not go blank, and the keyboard
+'           - LP  - 9/15/2026 - shortcut still compresses a selection whole - through the same code,
+'           - LP  - 9/15/2026 - which cures a doubled hair space on a second press and a broken "<>".
 ' Notes:    - LP  - 9/12/2026 - FILL TO RIGHT MARGIN SOMETIMES PRODUCED NOTHING and had to be
 '           - LP  - 9/12/2026 - pressed twice (Jerry). It failed whenever the words in front of the
 '           - LP  - 9/12/2026 - fill reached the right margin exactly, and worked one letter either
@@ -9877,6 +9887,8 @@ Sub Lp_Fix_Common_File_Errors()
 '
 ' Lp_Fix_Common_File_Errors
 '
+' Version: 3.15  Date: 9/15/2026 - compresses the spacing in text math equations, the whole book,
+'                               asking nothing - Compress Linear Math off the ribbon (Jerry)
 ' Version: 3.14  Date: 9/6/2026 - announces its 31 passes on the progress bar through
 '                               Lp_Ffc_Step, the large print twin of Dx_Ffc_Step. Its own
 '                               Sh_Spin_DoEvents calls now turn the BAR's spinner
@@ -9929,6 +9941,7 @@ Sub Lp_Fix_Common_File_Errors()
     '   makes sure all images are NOT followed immediatly by a line of text
     '   Converts superscript ordinals to normal style size
     '   Delete zero width spaces - often place by AI
+    '   Compresses the spacing in text math equations (no spaces, hair space round = < > and the rest)
     '   Resize pictures in tables to comfortably fit with the cell
     
     Dim su_Prev As Boolean
@@ -10036,6 +10049,12 @@ Sh_Spin_DoEvents
     Lp_Ffc_Step stepNo, "Deleting zero width spaces"
     Application.Run MacroName:="Lp_Delete_Zero_Width_Spaces"
 Sh_Spin_DoEvents
+    ' After every pass that takes out or evens up spaces - non-breaking, multiple, zero-width, and
+    ' the ones round en dashes - so the equations are measured as they will stay. Called directly,
+    ' not through Application.Run, so an error in it reaches the caller. Jerry, 9/15/2026.
+    Lp_Ffc_Step stepNo, "Compressing the spacing in text math equations"
+    Lp_Clm_Find_And_Compress ActiveDocument.Content, True
+Sh_Spin_DoEvents
 
     ' Empty paragraphs go LAST of the repairs, and after Lp_Delete_Zero_Width_Spaces in
     ' particular: a paragraph holding nothing but a zero-width space is not empty until that
@@ -10087,9 +10106,9 @@ Private Sub Lp_Ffc_Step(ByRef stepNo As Long, ByVal what As String)
 ' stepNo is BYREF, and deliberately: it is a counter the caller owns and this has to advance it.
 ' That is the one shape the project's ByVal rule does not cover.
 '
-' LP_FFC_STEPS is ONE MORE than the 31 passes that actually run, and deliberately. A 32nd
+' LP_FFC_STEPS is ONE MORE than the 32 passes that actually run, and deliberately. An extra
 ' announcement sat above a commented-out MS_Clear_F_and_R_Params_and_Clipboard until
-' 9/6/2026 and was removed with this count; if that pass is ever switched back on, announce
+' 9/6/2026 and was removed then; if that pass is ever switched back on, announce
 ' it again AND raise this by one. Each step announces itself
 ' BEFORE its pass runs, so a total of 32 would put the bar at 100% while the last pass was still
 ' working - which is the one thing a progress bar must never say. At 33 the last step reads 97%
@@ -10098,7 +10117,7 @@ Private Sub Lp_Ffc_Step(ByRef stepNo As Long, ByVal what As String)
 ' Says nothing and costs nothing when no bar is open - Sh_Progress_Say is gated on a flag. That
 ' is what lets this sequence run unchanged from the attach, which brings its own indicator.
 
-    Const LP_FFC_STEPS As Long = 32
+    Const LP_FFC_STEPS As Long = 33
 
     stepNo = stepNo + 1
     Sh_Progress_Say 100# * stepNo / LP_FFC_STEPS, what
@@ -16728,6 +16747,10 @@ Sub Lp_Compress_Linear_Math()
 '
 '  Author: Jerry Whittaker   jerry@vistatypelp.org
 '
+'  Version: 1.6  Date:  9/15/2026 - the spacing is now done by Lp_Clm_Compress_Span, the same code
+'                                   Fix Common File Errors and Selected Cleanup use, and is ONE undo
+'                                   press instead of nine. Taken off the ribbon (Jerry); the keyboard
+'                                   shortcut still runs it. See the note above Lp_Clm_Find_And_Compress
 '  Version: 1.5  Date:  12/2/2019 - and 'End' after user respons to yes/no question - added length check for expression
 '  Version: 1.4  Date:  10/7/2019 - Added code to bypass shortcut key when LP Template not attached.
 '  Version: 1.2  Date:  1/13/2019 - added additional symbols
@@ -16764,130 +16787,630 @@ Sub Lp_Compress_Linear_Math()
     End If
     
 CompressThis:
-    Dim HS As String
-    HS = ChrW(8202)  'Hair Space or unicode 8202
-
-    ' set the find and replace parameters
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "^032{1,}"    ' the text to be found - one or more spaces (^032 is code for a space)
-                                        ' the {1,} means find one or more - more efficient code
-        .Replacement.Text = ""  ' the replacement text is nothing
-        .Forward = True
-        .Wrap = wdFindStop ' will not ask if you want to search the rest of document
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = True  ' is a wildcard search because of the {1,} in the find text
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll  ' do the replacement
-    
-    'convert normal "x" (multiply) with math x
-'    Selection.Find.ClearFormatting
-'    Selection.Find.Replacement.ClearFormatting
-'    With Selection.Find
-'        .Text = "x" 'alphabet "x"
-'        .Replacement.Text = HS + "×" + HS 'unicode 00D7 = math x
-'        .Forward = True
-'        .Wrap = wdFindContinue
-'        .Format = False
-'        .MatchCase = False
-'        .MatchWholeWord = False
-'        .MatchWildcards = False
-'        .MatchSoundsLike = False
-'        .MatchAllWordForms = False
-'    End With
-'    Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "=" ' this finds an equal sign
-        .Replacement.Text = HS + "^&" + HS
-        .Wrap = wdFindStop
-    End With
-   Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "\>" ' this finds the greater than sign
-        .Replacement.Text = HS + "^&" + HS
-        .Wrap = wdFindStop
-    End With
-   Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "\<" ' this finds the less than sign
-        .Replacement.Text = HS + "^&" + HS
-        .Wrap = wdFindStop
-    End With
-   Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "\< \>" ' this finds the not-equal sign
-        .Replacement.Text = HS + "^&" + HS
-        .Wrap = wdFindStop
-    End With
-   Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = ChrW(8805) 'unicode 2265 for underscored greater than sign (greater than or equal to)
-        .Replacement.Text = HS + "^&" + HS
-        .Wrap = wdFindStop
-    End With
-   Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = ChrW(8804) 'unicode 2264 for underscore less than sign (less than or equal to)
-        .Replacement.Text = HS + "^&" + HS
-        .Wrap = wdFindStop
-    End With
-   Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = ChrW(8800) 'unicode 2260 for slashed equal sign (not equal to)
-        .Replacement.Text = HS + "^&" + HS
-        .Wrap = wdFindStop
-    End With
-   Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = ChrW(8776) ' double tilda - approximately equal to
-        .Replacement.Text = HS + "^&" + HS
-        .Wrap = wdFindStop
-    End With
-   Selection.Find.Execute Replace:=wdReplaceAll
-    
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = " \<  \> "    ' double spaces between <> (fix for '<  >' problems created above)
-        .Replacement.Text = HS + "<>" + HS
-        .Wrap = wdFindStop
-    End With
-   Selection.Find.Execute Replace:=wdReplaceAll
-   
-    Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
+    ' Everything from here used to be nine Find passes on the selection. Two faults went with them:
+    ' a second press put a SECOND hair space either side of every sign, because the passes removed
+    ' ordinary spaces and never the hair spaces the first press had added; and "<>" came out as
+    ' "< >" with two hair spaces in the middle, because the pass meant to repair it searched for
+    ' ordinary spaces that were already gone. The selection is still compressed whole - it is the
+    ' transcriber saying "this is the equation" - but by the same code the whole-book search uses.
+    Lp_Clm_Run_As_One_Undo Selection.Range, True
 
     Sh_Return_User_To_Start_Position
 
 End Sub   ' end of Lp_Compress_Linear_Math macro ***
+
+Sub Lp_Compress_Linear_Math_In_Selection()
+'
+' Version: 1.0  Date: 9/15/2026
+'
+' Author: Jerry Whittaker - jerry@vistatypelp.org
+'
+' Selected Cleanup > Miscellaneous > "Compress the spacing in text math equations". Finds every
+' text equation inside the selection and compresses each one, without asking about any of them
+' (Jerry, 9/15/2026). The form has already checked that something is selected.
+'
+' One undo press for the lot. See Lp_Clm_Run_As_One_Undo.
+'
+    Lp_Clm_Run_As_One_Undo Selection.Range, False
+
+End Sub   '*** end of Lp_Compress_Linear_Math_In_Selection ***
+
+' COMPRESSING TEXT EQUATIONS WITHOUT BEING TOLD WHERE THEY ARE. Jerry, 9/15/2026: Compress Linear
+' Math moved off the ribbon and into Fix Common File Errors and Selected Cleanup, finding the
+' equations itself and asking nothing. Until then the transcriber selected ONE equation and
+' pressed the button, so the macro never had to decide what an equation is. This does.
+'
+' WHAT "COMPRESSED" MEANS is unchanged from the button: no spaces anywhere in the equation, and one
+' hair space (U+200A) either side of each sign of comparison - = < > <= >= <> and the four
+' single-character signs. Lp_Clm_Compress_Span is the only place that does it, for all three routes.
+'
+' WHAT COUNTS AS AN EQUATION. A paragraph is split into words at spaces, at signs of comparison
+' and at control characters (tabs, line breaks, the paragraph mark, a picture). Starting from a
+' sign of comparison, the equation takes in the words either side for as long as they are MATH:
+'
+'   * made only of digits, letters, and + - * / ^ ( ) [ ] { } | ! % ' . , : ; and the minus sign,
+'     en dash, times, divide, middle dot, degree, plus-minus, root, infinity, prime, superscript
+'     1 2 3 and the three compact fractions
+'   * no run of three or more letters - "Area", "sin", "and" are words, so they end the equation
+'   * a run of exactly two letters only beside a digit - "2xy" is math, "is" and "xy" are not
+'
+' A word ending in a comma, semicolon, colon, period or question mark ENDS the equation it
+' belongs to, so "x = 5, y = 6" is two equations and keeps its space after the comma, and the
+' "2." of a numbered exercise is never pulled into the one after it. TWO THINGS WITH A DIGIT OR A
+' LETTER IN THEM, SIDE BY SIDE WITH ONLY A SPACE BETWEEN, END IT TOO - no operator joins them, so
+' they are not one expression: "x = 2 1/2" keeps its mixed number (compressed it would read 21/2),
+' "1) x + 2 = 5" and "(b) y = 3" keep their labels, "y = 2x + 3 (2)" keeps its equation number
+' (compressed it would read as times 2), and "x = 3 a student" stops at the 3. Found in review,
+' 9/15/2026, before any build carried it. An operator stranded at either edge - the hyphen in
+' "x = 5 - see below" - is let go as well, except an opening bracket on the left and a closing
+' one on the right. There must be something with a digit or a letter on BOTH sides of the signs. "==", "=>", "<<", "->" and "<-" are not signs of comparison and nothing is
+' built around them.
+'
+' IT IS CONSERVATIVE ON PURPOSE. Taking the spaces out of prose is damage that nobody would spot
+' until a reader did, so when in doubt it leaves the text alone: "Area = 12" is not compressed,
+' because "Area" is a word and leaves nothing with a digit or a letter before the sign; nor is
+' anything inside an Office Math (equation editor) zone, nor an equation with a field or a picture
+' in the middle of it.
+'
+' RUNNING IT TWICE CHANGES NOTHING. An equation already in its compressed form is skipped before
+' anything is written; hair spaces count as spaces when it is compared. File Cleanup runs again
+' on every attach, so this is not optional.
+'
+' WALKS THE PARAGRAPHS rather than looping a Find, for the reason in the 9/9/2026 note on
+' Sh_PgVal_Copy_Tags_Into: Word hands back the same hit for ever when a search range starts inside
+' a table cell and ends outside the table, and math books are full of tables. No Find runs at all,
+' which is also what makes the one-press undo record safe - see Lp_Clm_Run_As_One_Undo.
+'
+Private Sub Lp_Clm_Find_And_Compress(ByVal target As Range, ByVal spin As Boolean)
+    Dim doc As Document
+    Dim p As Paragraph
+    Dim pr As Range
+    Dim s As String
+    Dim walked As Long
+
+    If target Is Nothing Then Exit Sub
+    Set doc = target.Document
+
+    For Each p In target.Paragraphs
+        Set pr = p.Range
+        s = pr.Text
+        If Lp_Clm_Has_Comparison(s) Then
+            If pr.OMaths.Count = 0 Then
+                ' target.Start and .End are read afresh every time: compressing an equation moves
+                ' everything after it, and the Range object follows the edits
+                Lp_Clm_Paragraph doc, pr.Start, s, target.Start, target.End
+            End If
+        End If
+        ' spin is False inside the one-press undo record: yielding to Windows there would let a
+        ' key pressed meanwhile into the record, and Ctrl+Z would take it back out with the rest
+        If spin Then
+            walked = walked + 1
+            If walked Mod 200 = 0 Then Sh_Spin_DoEvents
+        End If
+    Next p
+
+End Sub   '*** end of Lp_Clm_Find_And_Compress ***
+
+' Opens one custom undo record round a compression, so Ctrl+Z is one press however many
+' equations changed. SAFE HERE ONLY BECAUSE NO FIND RUNS INSIDE IT: what crashed Word at 3.0.345
+' and 3.0.347 was a Find with Replace:=wdReplaceAll inside an open record (docs/Reported-Errors.md).
+' This deletes and inserts through Range objects and nothing else, the same as the fill-in macros
+' that have run inside a record since 9/12/2026.
+'
+' wholeRange True compresses all of target as one equation (the keyboard shortcut); False searches
+' target for equations (Selected Cleanup). Fix Common File Errors does not come through here: it
+' clears the undo list when it finishes, so a record would buy nothing.
+'
+' Version: 1.0  Date: 9/15/2026
+Private Sub Lp_Clm_Run_As_One_Undo(ByVal target As Range, ByVal wholeRange As Boolean)
+    Dim undoRec As UndoRecord
+    Dim undoOpen As Boolean
+    Dim errNum As Long
+    Dim errDesc As String
+
+    On Error Resume Next
+    Set undoRec = Application.UndoRecord
+    If Not undoRec Is Nothing Then
+        If Not undoRec.IsRecordingCustomRecord Then
+            undoRec.StartCustomRecord "VistaType LP compress linear math"
+            undoOpen = (Err.Number = 0)
+        End If
+    End If
+    Err.Clear
+    On Error GoTo Clm_Tidy_Up
+
+    If wholeRange Then
+        Lp_Clm_Compress_Span target.Document, target.Start, Lp_Clm_Text_At(target)
+    Else
+        Lp_Clm_Find_And_Compress target, False
+    End If
+
+    If undoOpen Then undoRec.EndCustomRecord
+    Exit Sub
+
+Clm_Tidy_Up:
+    ' Copy the error before anything else touches Err, close the record - one left open confuses
+    ' every later undo - and hand the error on to whoever called, unchanged.
+    errNum = Err.Number
+    errDesc = Err.Description
+    On Error Resume Next
+    If undoOpen Then undoRec.EndCustomRecord
+    On Error GoTo 0
+    Err.Raise errNum, "Lp_Clm_Run_As_One_Undo", errDesc
+
+End Sub   '*** end of Lp_Clm_Run_As_One_Undo ***
+
+' The text of a range with ONE character for every document position, so that character i of the
+' answer is position rng.Start + i - 1. Range.Text is that already unless a field, a picture or an
+' end-of-cell mark is inside; then each position is read on its own and anything that is not a
+' single character comes back as U+FFFC, which the compression leaves where it is.
+'
+' EVERY POSITION OF A FIELD comes back as U+FFFC too, code and result alike, so the keyboard
+' shortcut can never take the spaces out of an EMBED Equation.DSMT4 or a PAGE field that happens to
+' be selected with the typed math. Raised in review, 9/15/2026.
+'
+' Version: 1.0  Date: 9/15/2026
+Private Function Lp_Clm_Text_At(ByVal rng As Range) As String
+    Dim t As String
+    Dim pos As Long
+    Dim c As String
+    Dim result As String
+    Dim f As Field
+    Dim fs As Long, fe As Long, k As Long
+
+    t = rng.Text
+    If rng.Fields.Count = 0 And Len(t) = rng.End - rng.Start Then
+        Lp_Clm_Text_At = t
+        Exit Function
+    End If
+
+    For pos = rng.Start To rng.End - 1
+        c = rng.Document.Range(pos, pos + 1).Text
+        If Len(c) = 1 Then
+            result = result & c
+        Else
+            result = result & ChrW(&HFFFC)
+        End If
+    Next pos
+
+    On Error Resume Next
+    For Each f In rng.Fields
+        fs = f.Code.Start - 1                        ' the field's opening brace
+        fe = f.Code.End + 1
+        If f.Result.End + 1 > fe Then fe = f.Result.End + 1   ' and its closing one
+        For k = fs To fe - 1
+            If k >= rng.Start And k < rng.End Then Mid$(result, k - rng.Start + 1, 1) = ChrW(&HFFFC)
+        Next k
+    Next f
+    Err.Clear
+    On Error GoTo 0
+
+    Lp_Clm_Text_At = result
+End Function   '*** end of Lp_Clm_Text_At ***
+
+' Finds the equations in one paragraph and compresses each, LAST FIRST, so that compressing one
+' never moves the ones still to be done. s is the paragraph's Range.Text and paraStart its Start.
+' Only equations wholly between lo and hi are touched - the selection, for Selected Cleanup.
+'
+' Before each equation is written, the document is read back at the position worked out from s.
+' If it does not say the same thing, a field or a picture earlier in the paragraph has pulled the
+' text and the positions apart, and the equation is left alone rather than edited in the wrong
+' place.
+'
+' Token kinds: 1 = math with a digit or a letter in it, 2 = math that is only operators,
+' 0 = not math (a word, a tab, a line break), -1 = a sign of comparison, -2 = signs that are not
+' one ("==", "->").
+'
+' Version: 1.0  Date: 9/15/2026
+Private Sub Lp_Clm_Paragraph(ByVal doc As Document, ByVal paraStart As Long, ByVal s As String, _
+                             ByVal lo As Long, ByVal hi As Long)
+    Dim sLen As Long
+    Dim tStart() As Long
+    Dim tLen() As Long
+    Dim tKind() As Long
+    Dim tEnds() As Boolean
+    Dim spS() As Long
+    Dim spE() As Long
+    Dim n As Long, m As Long
+    Dim i As Long, j As Long, k As Long
+    Dim t As Long, L As Long, R As Long, lastR As Long
+    Dim fc As Long, lc As Long
+    Dim okL As Boolean, okR As Boolean, moved As Boolean
+    Dim c As String, word As String, core As String
+    Dim spanText As String
+    Dim docS As Long, docE As Long
+
+    sLen = Len(s)
+    If sLen = 0 Then Exit Sub
+    ReDim tStart(1 To sLen)
+    ReDim tLen(1 To sLen)
+    ReDim tKind(1 To sLen)
+    ReDim tEnds(1 To sLen)
+    ReDim spS(1 To sLen)
+    ReDim spE(1 To sLen)
+
+    ' --- split the paragraph into words, signs and control characters
+    i = 1
+    Do While i <= sLen
+        c = Mid$(s, i, 1)
+        If Lp_Clm_Is_Space(c) Then
+            i = i + 1
+        ElseIf Lp_Clm_Is_Control(c) Then
+            n = n + 1
+            tStart(n) = i: tLen(n) = 1: tKind(n) = 0
+            i = i + 1
+        ElseIf Lp_Clm_Is_Comparison(c) Then
+            j = i
+            Do While j < sLen
+                If Not Lp_Clm_Is_Comparison(Mid$(s, j + 1, 1)) Then Exit Do
+                j = j + 1
+            Loop
+            n = n + 1
+            tStart(n) = i: tLen(n) = j - i + 1
+            If Lp_Clm_Sign_Ok(s, i, j) Then tKind(n) = -1 Else tKind(n) = -2
+            i = j + 1
+        Else
+            j = i
+            Do While j < sLen
+                c = Mid$(s, j + 1, 1)
+                If Lp_Clm_Is_Space(c) Or Lp_Clm_Is_Control(c) Or Lp_Clm_Is_Comparison(c) Then Exit Do
+                j = j + 1
+            Loop
+            n = n + 1
+            tStart(n) = i: tLen(n) = j - i + 1
+            word = Mid$(s, i, j - i + 1)
+            core = word
+            Do While Len(core) > 0
+                If InStr(1, ",;:.?", Right$(core, 1), vbBinaryCompare) = 0 Then Exit Do
+                core = Left$(core, Len(core) - 1)
+            Loop
+            tEnds(n) = (Len(core) < Len(word))
+            If Len(core) = 0 Then tKind(n) = 0 Else tKind(n) = Lp_Clm_Word_Kind(core)
+            i = j + 1
+        End If
+    Loop
+
+    ' --- grow an equation out from each sign of comparison
+    t = 1
+    Do While t <= n
+        If tKind(t) <> -1 Then
+            t = t + 1
+        Else
+            L = t
+            Do While L - 1 > lastR
+                k = tKind(L - 1)
+                If k = -1 Then
+                    L = L - 1
+                ElseIf k = 1 Or k = 2 Then
+                    If tEnds(L - 1) Then Exit Do     ' belongs to the clause before
+                    If k = 1 And tKind(L) = 1 Then Exit Do   ' two operands side by side: not joined
+                    L = L - 1
+                Else
+                    Exit Do
+                End If
+            Loop
+            R = t
+            Do While R < n
+                k = tKind(R + 1)
+                If k = -1 Then
+                    R = R + 1
+                ElseIf k = 1 Or k = 2 Then
+                    If k = 1 And tKind(R) = 1 Then Exit Do   ' two operands side by side: not joined
+                    R = R + 1
+                    If tEnds(R) Then Exit Do         ' ends the clause, and the equation with it
+                Else
+                    Exit Do
+                End If
+            Loop
+
+            ' --- let go of edges that are not part of it: a stray sign, or an operator with nothing
+            '     after it on the left or nothing before it on the right - but keep a bracket
+            Do
+                moved = False
+                If L < t Then
+                    If tKind(L) = -1 Then
+                        L = L + 1: moved = True
+                    ElseIf tKind(L) = 2 Then
+                        If Not Lp_Clm_Only_Chars(Mid$(s, tStart(L), tLen(L)), "([{") Then L = L + 1: moved = True
+                    End If
+                End If
+                If R > t Then
+                    If tKind(R) = -1 Then
+                        R = R - 1: moved = True
+                    ElseIf tKind(R) = 2 Then
+                        If Not Lp_Clm_Only_Chars(Mid$(s, tStart(R), tLen(R)), ")]}.,;:?!%") Then R = R - 1: moved = True
+                    End If
+                End If
+            Loop While moved
+
+            ' --- something with a digit or a letter on both sides of the signs
+            fc = 0: lc = 0
+            For k = L To R
+                If tKind(k) = -1 Then
+                    If fc = 0 Then fc = k
+                    lc = k
+                End If
+            Next k
+            okL = False: okR = False
+            For k = L To fc - 1
+                If tKind(k) = 1 Then okL = True
+            Next k
+            For k = lc + 1 To R
+                If tKind(k) = 1 Then okR = True
+            Next k
+
+            If okL And okR Then
+                m = m + 1
+                spS(m) = tStart(L)
+                spE(m) = tStart(R) + tLen(R) - 1
+                lastR = R
+                t = R + 1
+            Else
+                t = t + 1
+            End If
+        End If
+    Loop
+
+    ' --- compress them, last first
+    For k = m To 1 Step -1
+        spanText = Mid$(s, spS(k), spE(k) - spS(k) + 1)
+        docS = paraStart + spS(k) - 1
+        docE = docS + Len(spanText)
+        If docS >= lo And docE <= hi Then
+            If doc.Range(docS, docE).Text = spanText Then
+                Lp_Clm_Compress_Span doc, docS, spanText
+            End If
+        End If
+    Next k
+
+End Sub   '*** end of Lp_Clm_Paragraph ***
+
+' Makes one equation compressed: every space inside it removed, and one hair space either side of
+' each group of signs of comparison. spanText is the equation's text with one character for each
+' position from spanStart (see Lp_Clm_Text_At). Nothing is written if it is already compressed.
+'
+' Works from the END backwards, so every position still to be visited is where spanText says.
+' Spaces here are the ordinary space, the no-break space, the thin space and the hair space - the
+' hair space so that a second run takes out the one the first run put in, instead of adding to it.
+'
+' Version: 1.0  Date: 9/15/2026
+Private Sub Lp_Clm_Compress_Span(ByVal doc As Document, ByVal spanStart As Long, ByVal spanText As String)
+    Dim i As Long, a As Long, signPos As Long
+    Dim c As String
+    Dim HS As String
+
+    If Lp_Clm_Compressed_Form(spanText) = spanText Then Exit Sub
+    HS = ChrW(8202)   ' hair space
+
+    i = Len(spanText)
+    Do While i >= 1
+        c = Mid$(spanText, i, 1)
+        If Lp_Clm_Is_Space(c) Then
+            a = i
+            Do While a > 1
+                If Not Lp_Clm_Is_Space(Mid$(spanText, a - 1, 1)) Then Exit Do
+                a = a - 1
+            Loop
+            ' .Text = "", NOT .Delete. Measured 9/15/2026: with "Use smart cut and paste" on - Word's
+            ' default - Range.Delete silently refuses to remove a space that follows "!" or ")", so
+            ' "5! = 120" came out "5! =120". Assigning empty text is not subject to it, and needs no
+            ' setting of the transcriber's changed.
+            doc.Range(spanStart + a - 1, spanStart + i).Text = ""
+            i = a - 1
+        Else
+            If Lp_Clm_Is_Comparison(c) Then
+                ' after first, then before: the insert before moves the one after, not the reverse.
+                ' Each hair space is given the SIGN's formatting. Left to itself it takes the formatting
+                ' of the character before it, so the dashed underline on an italic x would run on
+                ' under the gap before the "=".
+                signPos = spanStart + i - 1
+                If Lp_Clm_Group_Edge(spanText, i, 1) Then
+                    doc.Range(signPos + 1, signPos + 1).InsertAfter HS
+                    Lp_Clm_Match_Font doc.Range(signPos + 1, signPos + 2), doc.Range(signPos, signPos + 1)
+                End If
+                If Lp_Clm_Group_Edge(spanText, i, -1) Then
+                    doc.Range(signPos, signPos).InsertAfter HS
+                    Lp_Clm_Match_Font doc.Range(signPos, signPos + 1), doc.Range(signPos + 1, signPos + 2)
+                End If
+            End If
+            i = i - 1
+        End If
+    Loop
+
+End Sub   '*** end of Lp_Clm_Compress_Span ***
+
+' Gives the hair space the sign's character formatting. Cosmetic, so a failure is not an error.
+'
+' Version: 1.0  Date: 9/15/2026
+Private Sub Lp_Clm_Match_Font(ByVal hairSpace As Range, ByVal sign As Range)
+    On Error Resume Next
+    hairSpace.Font = sign.Font.Duplicate
+    Err.Clear
+End Sub   '*** end of Lp_Clm_Match_Font ***
+
+' What Lp_Clm_Compress_Span would turn spanText into, so that an equation already in that form is
+' left untouched.
+'
+' Version: 1.0  Date: 9/15/2026
+Private Function Lp_Clm_Compressed_Form(ByVal spanText As String) As String
+    Dim i As Long
+    Dim c As String
+    Dim result As String
+
+    For i = 1 To Len(spanText)
+        c = Mid$(spanText, i, 1)
+        If Not Lp_Clm_Is_Space(c) Then
+            If Lp_Clm_Is_Comparison(c) Then
+                If Lp_Clm_Group_Edge(spanText, i, -1) Then result = result & ChrW(8202)
+                result = result & c
+                If Lp_Clm_Group_Edge(spanText, i, 1) Then result = result & ChrW(8202)
+            Else
+                result = result & c
+            End If
+        End If
+    Next i
+    Lp_Clm_Compressed_Form = result
+End Function   '*** end of Lp_Clm_Compressed_Form ***
+
+' True when the sign at character i is the outer edge of its group in direction dirn (1 = after,
+' -1 = before) AND there is something on that side to space it away from. "<=" is one group: the
+' "<" gets a hair space before it and the "=" one after. Spaces between signs are skipped, so
+' "< >" is the group "<>" once its space is gone.
+'
+' Version: 1.0  Date: 9/15/2026
+Private Function Lp_Clm_Group_Edge(ByVal spanText As String, ByVal i As Long, ByVal dirn As Long) As Boolean
+    Dim k As Long
+    Dim c As String
+
+    k = i + dirn
+    Do While k >= 1 And k <= Len(spanText)
+        c = Mid$(spanText, k, 1)
+        If Not Lp_Clm_Is_Space(c) Then
+            If Lp_Clm_Is_Comparison(c) Then Exit Function
+            If Lp_Clm_Is_Control(c) Then Exit Function
+            Lp_Clm_Group_Edge = True
+            Exit Function
+        End If
+        k = k + dirn
+    Loop
+End Function   '*** end of Lp_Clm_Group_Edge ***
+
+' Version: 1.0  Date: 9/15/2026
+Private Function Lp_Clm_Has_Comparison(ByVal s As String) As Boolean
+    If InStr(1, s, "=", vbBinaryCompare) > 0 Then Lp_Clm_Has_Comparison = True: Exit Function
+    If InStr(1, s, "<", vbBinaryCompare) > 0 Then Lp_Clm_Has_Comparison = True: Exit Function
+    If InStr(1, s, ">", vbBinaryCompare) > 0 Then Lp_Clm_Has_Comparison = True: Exit Function
+    If InStr(1, s, ChrW(8800), vbBinaryCompare) > 0 Then Lp_Clm_Has_Comparison = True: Exit Function
+    If InStr(1, s, ChrW(8804), vbBinaryCompare) > 0 Then Lp_Clm_Has_Comparison = True: Exit Function
+    If InStr(1, s, ChrW(8805), vbBinaryCompare) > 0 Then Lp_Clm_Has_Comparison = True: Exit Function
+    If InStr(1, s, ChrW(8776), vbBinaryCompare) > 0 Then Lp_Clm_Has_Comparison = True
+End Function   '*** end of Lp_Clm_Has_Comparison ***
+
+' = < > and not equal, less than or equal, greater than or equal, approximately equal.
+'
+' Version: 1.0  Date: 9/15/2026
+Private Function Lp_Clm_Is_Comparison(ByVal c As String) As Boolean
+    Select Case c
+        Case "=", "<", ">", ChrW(8800), ChrW(8804), ChrW(8805), ChrW(8776)
+            Lp_Clm_Is_Comparison = True
+    End Select
+End Function   '*** end of Lp_Clm_Is_Comparison ***
+
+' Version: 1.0  Date: 9/15/2026
+Private Function Lp_Clm_Is_Space(ByVal c As String) As Boolean
+    Select Case c
+        Case " ", ChrW(160), ChrW(8201), ChrW(8202)   ' space, no-break, thin, hair
+            Lp_Clm_Is_Space = True
+    End Select
+End Function   '*** end of Lp_Clm_Is_Space ***
+
+' A tab, a line break, a paragraph or cell mark, a picture's placeholder - anything below a space.
+' An equation never runs across one.
+'
+' Version: 1.0  Date: 9/15/2026
+Private Function Lp_Clm_Is_Control(ByVal c As String) As Boolean
+    Dim a As Long
+    If Len(c) <> 1 Then Exit Function
+    a = AscW(c)
+    Lp_Clm_Is_Control = (a >= 0 And a < 32)
+End Function   '*** end of Lp_Clm_Is_Control ***
+
+' Latin A-Z and a-z, and Greek (theta, pi and the rest).
+'
+' Version: 1.0  Date: 9/15/2026
+Private Function Lp_Clm_Is_Letter(ByVal c As String) As Boolean
+    Dim a As Long
+    If Len(c) <> 1 Then Exit Function
+    a = AscW(c)
+    Lp_Clm_Is_Letter = (a >= 65 And a <= 90) Or (a >= 97 And a <= 122) Or (a >= 913 And a <= 969)
+End Function   '*** end of Lp_Clm_Is_Letter ***
+
+' Version: 1.0  Date: 9/15/2026
+Private Function Lp_Clm_Is_Math_Char(ByVal c As String) As Boolean
+    Dim ops As String
+
+    If Len(c) <> 1 Then Exit Function
+    If c Like "[0-9]" Or Lp_Clm_Is_Letter(c) Then
+        Lp_Clm_Is_Math_Char = True
+        Exit Function
+    End If
+    ' minus, en dash, times, divide, middle dot, dot operator, degree, plus-minus, root, infinity,
+    ' prime, superscript 1 2 3, and the compact fractions one quarter, one half, three quarters
+    ops = "+-*/^()[]{}|!%'.,:;" & ChrW(8722) & ChrW(8211) & ChrW(215) & ChrW(247) & ChrW(183) _
+        & ChrW(8901) & ChrW(176) & ChrW(177) & ChrW(8730) & ChrW(8734) & ChrW(8242) _
+        & ChrW(185) & ChrW(178) & ChrW(179) & ChrW(188) & ChrW(189) & ChrW(190)
+    Lp_Clm_Is_Math_Char = (InStr(1, ops, c, vbBinaryCompare) > 0)
+End Function   '*** end of Lp_Clm_Is_Math_Char ***
+
+' 1 = math with a digit or a letter in it, 2 = math made only of operators, 0 = not math. See the
+' note above Lp_Clm_Find_And_Compress for the rules on letters.
+'
+' Version: 1.0  Date: 9/15/2026
+Private Function Lp_Clm_Word_Kind(ByVal w As String) As Long
+    Dim i As Long
+    Dim c As String
+    Dim letRun As Long, maxRun As Long
+    Dim hasDigit As Boolean, hasLetter As Boolean
+
+    For i = 1 To Len(w)
+        c = Mid$(w, i, 1)
+        If Not Lp_Clm_Is_Math_Char(c) Then Exit Function
+        If Lp_Clm_Is_Letter(c) Then
+            hasLetter = True
+            letRun = letRun + 1
+            If letRun > maxRun Then maxRun = letRun
+        Else
+            letRun = 0
+            ' superscript 1, 2 and 3 count as digits, so "r" plus a superscript 2 is math, not a word
+            If c Like "[0-9]" Or c = ChrW(185) Or c = ChrW(178) Or c = ChrW(179) Then hasDigit = True
+        End If
+    Next i
+
+    If maxRun >= 3 Then Exit Function
+    If maxRun = 2 And Not hasDigit Then Exit Function
+    If hasDigit Or hasLetter Then
+        Lp_Clm_Word_Kind = 1
+    Else
+        Lp_Clm_Word_Kind = 2
+    End If
+End Function   '*** end of Lp_Clm_Word_Kind ***
+
+' True when the signs from character i to j are a sign of comparison this compresses: one of the
+' single signs, or "<=", ">=" or "<>" typed out. Not an arrow drawn with a hyphen - "->", "<-" -
+' and not an "=" with an operator stuck to its left.
+'
+' Version: 1.0  Date: 9/15/2026
+Private Function Lp_Clm_Sign_Ok(ByVal s As String, ByVal i As Long, ByVal j As Long) As Boolean
+    Select Case Mid$(s, i, j - i + 1)
+        Case "=", "<", ">", "<=", ">=", "<>", ChrW(8800), ChrW(8804), ChrW(8805), ChrW(8776)
+        Case Else
+            Exit Function
+    End Select
+    If Mid$(s, i, 1) = ">" And i > 1 Then
+        If Mid$(s, i - 1, 1) = "-" Then Exit Function
+    End If
+    If Mid$(s, j, 1) = "<" And j < Len(s) Then
+        If Mid$(s, j + 1, 1) = "-" Then Exit Function
+    End If
+    ' "+=", "-=", "*=", "/=", "!=", ":=" - an operator in program code, not a comparison. Without this
+    ' "x != y" came out "x!", hair space, "=" (review, 9/15/2026)
+    If Mid$(s, i, 1) = "=" And i > 1 Then
+        If InStr(1, "+-*/!:%^&|", Mid$(s, i - 1, 1), vbBinaryCompare) > 0 Then Exit Function
+    End If
+    Lp_Clm_Sign_Ok = True
+End Function   '*** end of Lp_Clm_Sign_Ok ***
+
+' True when every character of w is one of allowed, and w is not empty.
+'
+' Version: 1.0  Date: 9/15/2026
+Private Function Lp_Clm_Only_Chars(ByVal w As String, ByVal allowed As String) As Boolean
+    Dim i As Long
+    If Len(w) = 0 Then Exit Function
+    For i = 1 To Len(w)
+        If InStr(1, allowed, Mid$(w, i, 1), vbBinaryCompare) = 0 Then Exit Function
+    Next i
+    Lp_Clm_Only_Chars = True
+End Function   '*** end of Lp_Clm_Only_Chars ***
 
 Sub Lp_Add_Para_After_Image()
 

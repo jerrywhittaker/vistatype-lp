@@ -42,6 +42,9 @@ import xml.etree.ElementTree as ET
 RIBBON = "src/ribbon/customUI14.xml"
 OUT = "installer/ribbon-tabs.officeUI"
 SKIP_TAB = "tab_LP_and_BRL_QAT_Icons"
+# Buttons that have shipped and been taken off every visible tab (customUI14.xml explains). Kept
+# embedded so a toolbar already naming one does not go blank; never offered as a tab of its own.
+RETIRED_TAB = "tab_VT_Retired_Buttons"
 
 # An XML comment may not contain a double hyphen. Word and PowerShell both refuse the whole
 # file if it does, and the only symptom is an install that silently leaves the ribbon alone.
@@ -92,7 +95,7 @@ def visible_tabs(ribbon_xml):
         block = m.group(0)
         head = block[: block.index(">") + 1]
         tab_id = attr(head, "id")
-        if tab_id == SKIP_TAB:
+        if tab_id in (SKIP_TAB, RETIRED_TAB):
             continue
         out.append((tab_id, attr(head, "label"), block))
     return out
@@ -223,6 +226,7 @@ def main():
     for label, vt_tab, n in counts:
         print(f"  {label:20} -> {vt_tab:28} {n} buttons")
     print(f"  (skipped {SKIP_TAB}: stays embedded, the toolbar depends on it)")
+    print(f"  (skipped {RETIRED_TAB}: retired button ids, kept embedded for toolbars that name them)")
 
     if check_only:
         return

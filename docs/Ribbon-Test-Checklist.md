@@ -119,7 +119,7 @@ somewhere else on purpose:
 - [ ] **Full File Cleanup**  `Lp_File_Fix_Sequence`  -- **RETURNS YOU**
   - opens dialog **Lp File Cleanup Sub Menu Form**: Okay Button
 - [ ] **Selection Cleanup**  `Lp_Selected_File_CleanUp`  -- **RETURNS YOU**
-  - opens dialog **Lp Selected Cleanup Form**: Okay Button
+  - opens dialog **Lp Selected Cleanup Form**: Okay Button, Compress Linear Math (moved here off the ribbon 9/15/2026)
 - [ ] **Delete Prodnotes**  `Sh_Delete_Prodnote_Paragraphs`
 
 
@@ -147,7 +147,6 @@ somewhere else on purpose:
     - opens dialog **LP Pseudo Column Info Form**: Command Button1
     - opens dialog **LP Real Column Info Form**: Command Button1
     - opens dialog **Lp Table Convert Options Form**: Cmd Okay, RCTable Image Button, Column Only Table Image Button, Row Only Image Button, No Row Column Image Button, Row And Column Table, Column Only Table, Row Only Table ... (+8 more)
-- [ ] **Compress Linear Math**  `Lp_Compress_Linear_Math`  -- **RETURNS YOU**
 - [ ] **Bkgrnd && Picture Tools**  `Lp_Picture_Tools_Menu_Starter`  -- **RETURNS YOU**
   - opens dialog **Lp Bakgrnd Picture Menu Form**: Background Color Button, Image Size Button, Pictures To Inline Button, Pictures Color Grayscale Button, Center Or Left Align Pictures Button
     - opens dialog **LP Picture Alignment Form**: Cmd Okay

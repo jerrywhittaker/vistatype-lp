@@ -42,6 +42,7 @@ quotes where I could read it out of the form's `.frx`.
 - [ ] **Selection Cleanup** &nbsp;`Lp_Selected_File_CleanUp`  **RETURNS YOU**
     - dialog **Lp Selected Cleanup Form**
         - [ ] Okay Button
+        - [ ] Compress Linear Math - "Compress the spacing in text math equations*" (9/15/2026: moved here off the ribbon; also runs in Fix Common File Errors)
 - [ ] **Delete Prodnotes** &nbsp;`Sh_Delete_Prodnote_Paragraphs`
 
 
@@ -117,7 +118,6 @@ quotes where I could read it out of the form's `.frx`.
           - [ ] Aqua Image Button
           - [ ] Green Image Button
           - [ ] Okay Button
-- [ ] **Compress Linear Math** &nbsp;`Lp_Compress_Linear_Math`  **RETURNS YOU**
 - [ ] **Bkgrnd && Picture Tools** &nbsp;`Lp_Picture_Tools_Menu_Starter`  **RETURNS YOU**
     - dialog **Lp Bakgrnd Picture Menu Form**
         - [ ] Background Color Button - "Document Backgroud Color Button"
