@@ -125,6 +125,7 @@ quotes where I could read it out of the form's `.frx`.
         - [ ] Pictures To Inline Button - "     All Pictures to Inline with fixed aspect ratio"
         - [ ] Pictures Color Grayscale Button - "Pictures Color/Grayscale Button"
         - [ ] Center Or Left Align Pictures Button - "Center or Left Align Pictures Button"
+        - [ ] Same Picture Size Button - "Resize This Picture Throughout the Book" (9/15/2026: select one picture, set its size, press it; every other copy of that picture takes the same size)
       - dialog **Lp Resize Images Form**
           - [ ] Cmd Okay
       - dialog **Lp Change Image Color Form**

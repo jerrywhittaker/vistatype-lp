@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_Bakgrnd_Picture_Menu_Form 
    Caption         =   "Background and Picture Tools"
-   ClientHeight    =   6816
+   ClientHeight    =   7770
    ClientLeft      =   120
    ClientTop       =   465
    ClientWidth     =   5070
@@ -13,7 +13,9 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
+
 ' Lp_Bakgrnd_Picture_Menu_Form
+' Version: 1.6  Date: 9/15/2026 - added SamePictureSizeButton, Resize This Picture Throughout the Book (Jerry)
 ' Version: 1.5  Date: 7/26/2026 - Pictures-to-In-Line no longer jumps to a bookmark another form left behind; records and returns to its own position
 ' Version: 1.4  Date: 7/24/2026 - no longer runs "MS_Set_Word_Config_For_Large_Print" on form open
 ' Version 1.3 Date: 4/12/2025 - added Center_Or_Left_Align_Pictures_Form
@@ -85,6 +87,17 @@ Private Sub CenterOrLeftAlignPicturesButton_Click()
     Unload Me
 End Sub
 
+Private Sub SamePictureSizeButton_Click()
+    ' Resize This Picture Throughout the Book (Jerry, 9/15/2026). The transcriber has already
+    ' selected the picture and set its size; the macro reads that picture and gives every other
+    ' copy of it in the book the same size. Hidden first so the book is what is active. Called
+    ' directly rather than through Application.Run, so a missing macro stops the build instead
+    ' of reaching the transcriber, and an error is reported by the macro's own handler.
+    Lp_Bakgrnd_Picture_Menu_Form.Hide
+    Lp_Resize_Same_Picture_Throughout
+    Unload Me
+End Sub
+
 Private Sub userform_terminate() 'red X was clicked
     Unload Me
 End Sub
@@ -99,4 +112,3 @@ Private Sub UserForm_Initialize()
     Me.Left = Application.Left + (0.5 * Application.Width) - (0.5 * Me.Width)
     Me.Top = Application.Top + (0.5 * Application.Height) - (0.5 * Me.Height)
 End Sub
-

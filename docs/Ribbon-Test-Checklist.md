@@ -148,7 +148,7 @@ somewhere else on purpose:
     - opens dialog **LP Real Column Info Form**: Command Button1
     - opens dialog **Lp Table Convert Options Form**: Cmd Okay, RCTable Image Button, Column Only Table Image Button, Row Only Image Button, No Row Column Image Button, Row And Column Table, Column Only Table, Row Only Table ... (+8 more)
 - [ ] **Bkgrnd && Picture Tools**  `Lp_Picture_Tools_Menu_Starter`  -- **RETURNS YOU**
-  - opens dialog **Lp Bakgrnd Picture Menu Form**: Background Color Button, Image Size Button, Pictures To Inline Button, Pictures Color Grayscale Button, Center Or Left Align Pictures Button
+  - opens dialog **Lp Bakgrnd Picture Menu Form**: Background Color Button, Image Size Button, Pictures To Inline Button, Pictures Color Grayscale Button, Center Or Left Align Pictures Button, Same Picture Size Button (9/15/2026)
     - opens dialog **LP Picture Alignment Form**: Cmd Okay
     - opens dialog **Lp Change Image Color Form**: Okay Button
     - opens dialog **Lp Resize Images Form**: Cmd Okay
