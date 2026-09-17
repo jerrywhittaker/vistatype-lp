@@ -18,6 +18,32 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - LP  - 9/17/2026 - TWO PICTURE DIALOGS FOLLOW WHAT THE TRANSCRIBER IS DOING. Both
+'           - LP  - 9/17/2026 - Jerry's. Align Pictures (339) opens on "Pictures in a selected text
+'           - LP  - 9/17/2026 - range, selected picture, or selected table" when something IS
+'           - LP  - 9/17/2026 - selected, and on the whole document when nothing is - it used to
+'           - LP  - 9/17/2026 - open on the whole document either way, so one click could realign
+'           - LP  - 9/17/2026 - a whole book. The test is Selection.Start <> Selection.End, NOT the
+'           - LP  - 9/17/2026 - wdWithInTable test the Okay handler uses: a cursor merely sitting
+'           - LP  - 9/17/2026 - in a table selects nothing.
+'           - LP  - 9/17/2026 - And Resize Pictures Used Throughout now ASKS whether the copies
+'           - LP  - 9/17/2026 - should be left aligned or centered, on the new
+'           - LP  - 9/17/2026 - Lp_Same_Pic_Align_Form (374), and applies it. Asked BEFORE the work
+'           - LP  - 9/17/2026 - so every question is out of the way before the bar goes up, and
+'           - LP  - 9/17/2026 - Cancel stops the macro outright, with nothing yet touched. Every
+'           - LP  - 9/17/2026 - copy now goes into the matches collection, including one already
+'           - LP  - 9/17/2026 - the right size, because it still has to be aligned; resized is
+'           - LP  - 9/17/2026 - counted back out for the closing message. Both the resize and the
+'           - LP  - 9/17/2026 - alignment sit inside the one undo record, so it is still ONE
+'           - LP  - 9/17/2026 - Ctrl+Z, and no WordOpenXML read or Find went in there with them.
+'           - LP  - 9/17/2026 - THE SELECTED PICTURE IS ALIGNED TOO, and was not at first: it was
+'           - LP  - 9/17/2026 - left out on the reasoning that the transcriber had placed it and
+'           - LP  - 9/17/2026 - the job was to make the others match. Jerry reported it the same
+'           - LP  - 9/17/2026 - day. The answer to "how should these pictures sit on the page"
+'           - LP  - 9/17/2026 - plainly means all of them. Its SIZE is still untouched - that is
+'           - LP  - 9/17/2026 - the size being copied from - and the undo record now opens even
+'           - LP  - 9/17/2026 - when no copies were found, because there is always that one
+'           - LP  - 9/17/2026 - picture to align.
 ' Notes:    - Sh  - 9/17/2026 - EVERY DIALOG NOW CARRIES A REFERENCE NUMBER. Jerry's request.
 '           - Sh  - 9/17/2026 - The MsgBox and Sh_Say messages had them all along, but NO USERFORM
 '           - Sh  - 9/17/2026 - CAPTION DID - so a transcriber describing 43 of the dialogs had
@@ -20206,6 +20232,16 @@ Sub Lp_Resize_Same_Picture_Throughout()
 '
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
+' Version: 1.1  Date: 9/17/2026 - asks whether the copies should be left aligned or centered, on
+'                                 Lp_Same_Pic_Align_Form (374), and applies it (Jerry). Every copy
+'                                 now goes into matches, including one already the right size,
+'                                 because it still has to be aligned - resized is counted back out
+'                                 of that for the closing message. THE SELECTED PICTURE IS ALIGNED
+'                                 TOO - left out at first on the reasoning that the transcriber had
+'                                 placed it, and Jerry reported that same day that it should not be.
+'                                 Its SIZE is untouched; that is what is being copied from. The undo
+'                                 record is now opened whatever the search found, since there is
+'                                 always at least that one picture to align
 ' Version: 1.0  Date: 9/15/2026
 '
 ' Jerry, 9/15/2026: DAISY and NIMAS books use the same pictures over and over - a lesson icon, a
@@ -20270,6 +20306,7 @@ Sub Lp_Resize_Same_Picture_Throughout()
     Dim errNum As Long
     Dim errText As String
     Dim msg As String
+    Dim alignWanted As Long
 
     Application.Run MacroName:="Sh_Is_Doc_Open"
 
@@ -20287,6 +20324,24 @@ Sub Lp_Resize_Same_Picture_Throughout()
              & "picture in the book is given the same size." & vbCr & vbCr _
              & "Only pictures in line with the text are resized. If the picture floats over the " _
              & "text, use All Pictures to Inline first.", "VistaType LP (322)"
+        Exit Sub
+    End If
+
+    ' HOW SHOULD THE COPIES SIT ON THE PAGE? Jerry, 9/17/2026. Asked here, before any of the
+    ' work, so every question this macro has is out of the way before the transcriber is left
+    ' watching a bar. It cannot be guessed: a lesson icon repeated through a book is usually left
+    ' aligned, a full-width illustration usually centered.
+    '
+    ' Cancel and the red X both come back empty, and both stop the macro outright - nothing has
+    ' been touched by this point, so there is nothing to put back.
+    Sh_GP_String_1 = vbNullString
+    Lp_Same_Pic_Align_Form.Show
+    If UCase$(Sh_GP_String_1) = "CENTER" Then
+        alignWanted = wdAlignParagraphCenter
+    ElseIf UCase$(Sh_GP_String_1) = "LEFT" Then
+        alignWanted = wdAlignParagraphLeft
+    Else
+        Sh_Last_Activity = ""
         Exit Sub
     End If
 
@@ -20351,11 +20406,13 @@ Sub Lp_Resize_Same_Picture_Throughout()
         If Not (refInBody And s.Range.Start = refStart) Then
             If Lp_Same_Pic_Is_Picture(s) Then
                 If Lp_Same_Pic_Matches(s, ref, refAlt, refData, reader) Then
+                    ' EVERY copy goes in the collection now, including one that is already the
+                    ' right size: it still has to be aligned. alreadySame is only counted so the
+                    ' closing message can say how many needed no resizing.
                     If Abs(s.Width - refW) < 0.5 And Abs(s.Height - refH) < 0.5 Then
                         alreadySame = alreadySame + 1
-                    Else
-                        matches.Add s
                     End If
+                    matches.Add s
                 End If
             End If
         End If
@@ -20366,26 +20423,55 @@ Sub Lp_Resize_Same_Picture_Throughout()
         Set reader = Nothing
     End If
 
-    ' --- RESIZE them, inside one undo record. Nothing in here reads WordOpenXML or runs a Find.
+    ' --- RESIZE AND ALIGN, inside one undo record. Nothing in here reads WordOpenXML or runs a
+    ' Find - that is what keeps this to a single Ctrl+Z.
+    '
+    ' The record is opened whatever the search found, because there is ALWAYS something to do:
+    ' the selected picture gets the alignment even when it turns out to be the only copy in the
+    ' book. It used to run only when copies were found.
+    Sh_Last_Activity = "Resize picture throughout: resizing"
     If matches.Count > 0 Then
-        Sh_Last_Activity = "Resize picture throughout: resizing"
         Sh_Progress_Say 95, "Resizing " & Format(matches.Count, "#,##0") _
             & IIf(matches.Count = 1, " copy", " copies")
-        Set objUndo = Application.UndoRecord
-        objUndo.StartCustomRecord "Resize Picture Throughout"
-        recording = True
+    Else
+        Sh_Progress_Say 95, "Aligning the selected picture"
+    End If
+    Set objUndo = Application.UndoRecord
+    objUndo.StartCustomRecord "Resize Picture Throughout"
+    recording = True
+
+    ' THE SELECTED PICTURE IS ALIGNED TOO - Jerry, 9/17/2026, reporting that it was not. It was
+    ' left out on the reasoning that the transcriber had placed it themselves and the job was to
+    ' make the others match it. That was wrong: the answer to "how should these pictures sit on
+    ' the page" plainly means all of them, and leaving one copy out of step is the surprising
+    ' result. Its SIZE is still untouched - that is the size being copied from.
+    ref.Range.ParagraphFormat.Alignment = alignWanted
+
+    If matches.Count > 0 Then
         For i = 1 To matches.Count
             Set s = matches(i)
-            oldLock = s.LockAspectRatio
-            s.LockAspectRatio = msoFalse
-            s.Width = refW
-            s.Height = refH
-            s.LockAspectRatio = oldLock
+            ' The size, when it is not already right. Resizing a picture that is already the
+            ' wanted size would put a pointless entry in the undo record and dirty the book.
+            If Abs(s.Width - refW) >= 0.5 Or Abs(s.Height - refH) >= 0.5 Then
+                oldLock = s.LockAspectRatio
+                s.LockAspectRatio = msoFalse
+                s.Width = refW
+                s.Height = refH
+                s.LockAspectRatio = oldLock
+            End If
+
+            ' And the alignment, on every copy. It is the copy's PARAGRAPH that is aligned, not
+            ' the picture - an in-line picture sits in a paragraph like a character does, which
+            ' is how Lp_Picture_Alignment_Form does it too.
+            s.Range.ParagraphFormat.Alignment = alignWanted
         Next i
-        objUndo.EndCustomRecord
-        recording = False
     End If
-    resized = matches.Count
+
+    objUndo.EndCustomRecord
+    recording = False
+    ' matches now holds EVERY copy, so the ones that were already the right size have to come
+    ' back out of this count - they were aligned, not resized, and the message says so.
+    resized = matches.Count - alreadySame
 
     Sh_Progress_Close
     barUp = False
@@ -20396,7 +20482,9 @@ Sub Lp_Resize_Same_Picture_Throughout()
     Sh_Last_Activity = ""
 
     If resized + alreadySame = 0 Then
-        msg = "No other copies of this picture were found in the book." & vbCr & vbCr _
+        msg = "No other copies of this picture were found in the book, so nothing was resized." _
+            & vbCr & vbCr & "The selected picture was " _
+            & IIf(alignWanted = wdAlignParagraphCenter, "centered", "left aligned") & "." & vbCr & vbCr _
             & "Only pictures in line with the text are checked."
     Else
         msg = "This picture appears " & Format(resized + alreadySame, "#,##0") _
@@ -20413,7 +20501,9 @@ Sub Lp_Resize_Same_Picture_Throughout()
             msg = msg & vbCr & vbCr & "This picture has no description, so copies were found by " _
                 & "comparing the pictures themselves."
         End If
-        If resized > 0 Then msg = msg & vbCr & vbCr & "One Ctrl+Z puts them all back."
+        msg = msg & vbCr & vbCr & "Every copy, and the picture you selected, was " _
+            & IIf(alignWanted = wdAlignParagraphCenter, "centered", "left aligned") & "."
+        msg = msg & vbCr & vbCr & "One Ctrl+Z puts them all back."
     End If
     Sh_Say msg, "VistaType LP (324)"
     Exit Sub

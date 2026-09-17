@@ -15,6 +15,15 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 ' Lp_Picture_Alignment_Form
 '
+' Version: 1.3  Date: 9/17/2026 - with anything selected, 'All pictures in the document' is now
+'                                 grayed out as well as unselected; and a WHOLE TABLE selected on
+'                                 its own also selects 'Include pictures in tables' and grays out
+'                                 'Exclude pictures in tables', which would otherwise leave the
+'                                 macro nothing to do (Jerry)
+' Version: 1.2  Date: 9/17/2026 - the scope option now follows what is selected: with a range,
+'                                 a picture or a table selected the dialog opens on 'Pictures in
+'                                 a selected text range, selected picture, or selected table'
+'                                 rather than on the whole document (Jerry)
 ' Version: 1.1  Date: 7/26/2026 - fixed a slip that called Sh_Create_Temp_Bookmark where the move-and-delete was meant, so the user was never put back and a stale bookmark was left behind; now returns the user to where the cursor was when Okay was clicked
 ' Version 1.0  Date: 4/11/2025
 '
@@ -199,6 +208,56 @@ Private Sub UserForm_Initialize()
 
     ' No position is saved here on purpose. CmdOkay_Click saves it when work actually
     ' starts, so cancelling the dialog leaves nothing behind.
+
+    ' THE DIALOG FOLLOWS WHAT IS SELECTED (Jerry, 9/17/2026). Somebody who has selected a
+    ' picture, a table or a run of text has already said what they mean, and the dialog
+    ' opening on 'All pictures in the document' invited one click that realigned the whole
+    ' book. With nothing selected the selected-range option cannot work anyway - CmdOkay_Click
+    ' stops on dialog 148 - so the whole-document option is the only sensible default there.
+    '
+    ' Selection.Start <> Selection.End covers selected text, a selected table and a selected
+    ' picture, since a picture selected by clicking it is a one-character range. The type test
+    ' beside it is belt and braces for a shape selected some other way. It is NOT the
+    ' wdWithInTable test CmdOkay_Click uses: a cursor merely sitting in a table selects
+    ' nothing, and would have flipped the default with nothing to work on.
+    '
+    ' SET THE VALUE BEFORE DISABLING THE OTHER BUTTON, both times below. Disabling an option
+    ' button that is still the selected one leaves it grayed AND chosen, which reads as the
+    ' dialog having made an impossible choice.
+    Dim selTbl As Table
+    Dim wholeTableOnly As Boolean
+
+    If Selection.Start <> Selection.End Or Selection.Type = wdSelectionInlineShape Then
+        SelectedItemOrRangeButton.Value = True
+
+        ' Nothing is selected by accident, so offering to realign the whole book from here is
+        ' offering the one thing that would undo the transcriber's own choice of scope.
+        AllPicturesInDocButton.Enabled = False
+
+        ' A WHOLE TABLE AND NOTHING ELSE. The same test CmdOkay_Click uses to recognize one:
+        ' the selection's range is exactly the table's range, so a table that is merely part
+        ' of a longer selection does not match. Guarded, because Tables(1) raises when the
+        ' selection is not in a table at all.
+        On Error Resume Next
+        If Selection.Information(wdWithInTable) Then
+            Set selTbl = Selection.Tables(1)
+            If Not selTbl Is Nothing Then
+                wholeTableOnly = (Selection.Range.Start = selTbl.Range.Start _
+                              And Selection.Range.End = selTbl.Range.End)
+            End If
+        End If
+        Err.Clear
+        On Error GoTo 0
+
+        ' Every picture in reach is inside that table, so excluding pictures in tables would
+        ' leave the macro nothing at all to do (Jerry, 9/17/2026).
+        If wholeTableOnly Then
+            IncludeTablesButton.Value = True
+            ExcludeTablesButton.Enabled = False
+        End If
+    Else
+        AllPicturesInDocButton.Value = True
+    End If
 
 End Sub
 
