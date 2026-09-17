@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_Bakgrnd_Picture_Menu_Form 
    Caption         =   "Background and Picture Tools (344)"
-   ClientHeight    =   7770
+   ClientHeight    =   6300
    ClientLeft      =   120
    ClientTop       =   465
    ClientWidth     =   5070
@@ -15,6 +15,12 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
 ' Lp_Bakgrnd_Picture_Menu_Form
+' Version: 1.7  Date: 9/17/2026 - Jerry resized the form in the VBA editor and renamed
+'                                 PicturesColorGrayscaleButton to GrayscaleButton. THE HANDLER
+'                                 WAS RENAMED TO MATCH: an event handler whose control no longer
+'                                 exists does not raise anything, it simply never fires, so
+'                                 Pictures to Color or Grayscale would have done nothing at all
+'                                 and nothing in this pipeline would have said so
 ' Version: 1.6  Date: 9/15/2026 - added SamePictureSizeButton, Resize This Picture Throughout the Book (Jerry)
 ' Version: 1.5  Date: 7/26/2026 - Pictures-to-In-Line no longer jumps to a bookmark another form left behind; records and returns to its own position
 ' Version: 1.4  Date: 7/24/2026 - no longer runs "MS_Set_Word_Config_For_Large_Print" on form open
@@ -72,7 +78,7 @@ Private Sub PicturesToInlineButton_Click()
     Unload Me
 End Sub
 
-Private Sub PicturesColorGrayscaleButton_Click()
+Private Sub GrayscaleButton_Click()
     Lp_Bakgrnd_Picture_Menu_Form.Hide
     Load Lp_Change_Image_Color_Form
     Lp_Change_Image_Color_Form.Show

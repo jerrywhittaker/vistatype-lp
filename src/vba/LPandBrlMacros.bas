@@ -42,10 +42,12 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - Sh  - 9/17/2026 - Both Jerry's. The list is read side by side with the book it came
 '           - Sh  - 9/17/2026 - out of, and a braille book is set in Times New Roman - so the list
 '           - Sh  - 9/17/2026 - was the only thing on screen in a different face. Large print keeps
-'           - Sh  - 9/17/2026 - Tahoma, and both stay 12 point: a braille book is Times New Roman
-'           - Sh  - 9/17/2026 - 14, but matching that was not asked for and nothing depends on it,
-'           - Sh  - 9/17/2026 - since the limit that decides where an entry is cut counts
-'           - Sh  - 9/17/2026 - CHARACTERS. The directions line on Sh_Valid_Ref_Pg_No_1_Form now
+'           - Sh  - 9/17/2026 - Tahoma 12. THE SIZE FOLLOWED THE FACE, same day, once Jerry saw
+'           - Sh  - 9/17/2026 - it: the braille list is Times New Roman 14, matching the book and
+'           - Sh  - 9/17/2026 - what SWIFT sets. Nothing depends on the size - the limit that
+'           - Sh  - 9/17/2026 - decides where an entry is cut counts CHARACTERS, and the single
+'           - Sh  - 9/17/2026 - column is what keeps a 37-character Duxbury code whole.
+'           - Sh  - 9/17/2026 - The directions line on Sh_Valid_Ref_Pg_No_1_Form now
 '           - Sh  - 9/17/2026 - reads "on the Ribbon" - the same dialog serves both tabs, and on
 '           - Sh  - 9/17/2026 - the braille side the tab is called Braille Macros, not VistaType.
 ' Notes:    - DN  - 9/17/2026 - THE CONVERTED BOOK NO LONGER SHIPS WITH ITS PROOFING MARKS
@@ -27535,9 +27537,9 @@ End Sub   '*** end of Sh_Clear_Multi_Selection macro ***
 ' pause, leaves no selection - and never touches the clipboard, so whatever the transcriber had
 ' copied is still there when she finishes.
 '
-' Version: 1.5  Date: 9/17/2026 - the BRAILLE list is set in Times New Roman, the face a braille
-'                                 book is itself set in, so the list and the book read alike side
-'                                 by side (Jerry). Large print keeps Tahoma; both stay 12 point
+' Version: 1.5  Date: 9/17/2026 - the BRAILLE list is set in Times New Roman 14, the face and the
+'                                 size a braille book is itself set in, so the list and the book
+'                                 read alike side by side (Jerry). Large print keeps Tahoma 12
 ' Version: 1.4  Date: 8/23/2026 - built on a range instead of by SendKeys-ing Find and Replace
 '                                 (Jerry: the dialog flashed). No clipboard, no OnTime, no
 '                                 leftover multiple selection, and it says so when there is
@@ -27638,20 +27640,22 @@ Sub Sh_Copy_Ref_Pg_Tags_To_Temp_File()
     End If
 
     Selection.WholeStory
-    ' THE BRAILLE LIST IS SET IN TIMES NEW ROMAN, the face a braille book is itself set in
-    ' (Jerry, 9/17/2026). The list and the book are read side by side, one above the other, and
-    ' two different faces made that harder than it needed to be. Large print keeps Tahoma.
+    ' THE BRAILLE LIST IS SET IN TIMES NEW ROMAN 14 - the face AND the size a braille book is
+    ' itself set in, which is what Duxbury's own SWIFT sets when it attaches a template (Jerry,
+    ' 9/17/2026). The list and the book are read side by side, one above the other, and the list
+    ' was the only thing on screen in another face at another size. Large print keeps Tahoma 12.
     '
-    ' THE SIZE STAYS 12 ON BOTH. A braille book is Times New Roman 14 - the size Duxbury's own
-    ' SWIFT sets - but matching that here was not asked for and would make the list longer to
-    ' scroll. Nothing is lost either way: the line limit that decides where an entry is cut is a
-    ' count of CHARACTERS, so neither the face nor the size moves it.
+    ' Neither the face nor the size moves where a long entry is cut: the limit that decides that
+    ' counts CHARACTERS, not width. A braille entry is a page number followed by a Duxbury code,
+    ' 37 characters at its longest, and it is SH_PGVAL_LINE_MAX and the single column that keep
+    ' it whole.
     If MsgBoxLabel = "Braille Macros" Then
         Selection.Font.Name = "Times New Roman"
+        Selection.Font.Size = 14
     Else
         Selection.Font.Name = "Tahoma"
+        Selection.Font.Size = 12
     End If
-    Selection.Font.Size = 12
     Selection.HomeKey Unit:=wdStory
 
     'The Alt+Tab instructions that used to live here are exactly what the helper replaces: it
