@@ -18,6 +18,15 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - DN  - 9/17/2026 - DECLINING THE SAVE AFTER A DAISY/NIMAS CONVERSION NO LONGER LOOKS
+'           - DN  - 9/17/2026 - LIKE THE CONVERSION WAS LOST. Reported by Jerry. Cancelling the Save
+'           - DN  - 9/17/2026 - As and then answering No to "do you want to reconsider" left the
+'           - DN  - 9/17/2026 - transcriber looking at the blank document Word opened at startup. The
+'           - DN  - 9/17/2026 - converted book was never closed - it simply was not brought to the
+'           - DN  - 9/17/2026 - front. That Exit Sub was the ONLY way out of the macro with no
+'           - DN  - 9/17/2026 - Application.Activate / doc.Activate after Sh_Progress_Close; every
+'           - DN  - 9/17/2026 - other path has them, and the order matters - the progress form must
+'           - DN  - 9/17/2026 - be entirely gone first or Windows hands focus straight back to it.
 ' Notes:    - DN  - 9/17/2026 - THE DAISY HALF OF ADD $PG TAGS TO DAISY/NIMAS HAD NEVER REPLACED
 '           - DN  - 9/17/2026 - ANYTHING. DN_Tag_Daisy_Nimas_Form's DAISY branch ran
 '           - DN  - 9/17/2026 - Execute Replace:=wdReplaceAl - one letter short. No Option Explicit on
@@ -20929,8 +20938,12 @@ Sub Sh_Remove_Hyperlinks(Optional ByVal target As Range)
 
  End Sub  '***** end of Sh_Remove_Hyperlinks macro ***
 
-Sub Sh_Color_Dollar_PG_Red()
+Sub Sh_Color_Dollar_PG_Red(Optional ByVal targetDoc As Document)
 '
+' Version: 1.6 Date: 9/17/2026 - takes an OPTIONAL targetDoc. Given one, it colours that document's
+'                                own range and never looks at Selection or ActiveDocument - see the
+'                                note in the body. Without one it behaves exactly as before, so the
+'                                five callers that work today are untouched.
 ' Version: 1.5 Date: 9/16/2026 - ActiveDocument.UndoClear REMOVED. It threw the transcriber's whole
 '                                undo history away - not undo presses, the history - in return for the
 '                                ONE find-and-replace below, and it did that to all six callers: LP File
@@ -20944,6 +20957,40 @@ Sub Sh_Color_Dollar_PG_Red()
 ' Version: 1.3 Date: 7/5/2026 - added normal style to F&R
 ' Version: 1.3 Date: 2/8/2017
 '
+    ' A NAMED DOCUMENT, when the caller has one. Everything below works through Selection, and
+    ' Selection belongs to whichever document is ACTIVE - so a caller whose document is not in
+    ' front colours the wrong book, silently, and its own tags stay black. That is what happened
+    ' in Sh_Convert_XML_File_To_Word_Document: it colours at one point and only activates the
+    ' converted book eight lines later, so the pass landed on the blank document Word opened at
+    ' startup. Reported by Jerry, 9/17/2026 - "neither file type places the $pg in red".
+    '
+    ' This arm takes no notice of Selection or ActiveDocument. It is deliberately NOT used when
+    ' targetDoc is missing: the five existing callers work today and are left exactly as they
+    ' were. wdFindStop rather than wdFindContinue, because the range already IS the whole story
+    ' and continuing past it is what the conversion checklist warns about.
+    If Not targetDoc Is Nothing Then
+        With targetDoc.Content.Find
+            .ClearFormatting
+            .Replacement.ClearFormatting
+            .Replacement.Style = targetDoc.Styles(wdStyleNormal)
+            .Replacement.Font.Color = wdColorRed
+            .Replacement.Font.Bold = False
+            .Text = "$pg"
+            .Replacement.Text = "$pg"
+            .Forward = True
+            .Wrap = wdFindStop
+            .Format = True
+            .MatchCase = False
+            .MatchWholeWord = False
+            .MatchWildcards = False
+            .MatchSoundsLike = False
+            .MatchAllWordForms = False
+            .Execute Replace:=wdReplaceAll
+        End With
+        Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
+        Exit Sub
+    End If
+
     Application.Run MacroName:="Sh_Is_Doc_Open"
     
      Selection.Find.ClearFormatting
@@ -28059,7 +28106,10 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     ' does nothing at all when the book contained no prodnotes.
     Sh_Strip_Prodnote_Enclosing_Quotes finalDoc
 
-    Sh_Color_Dollar_PG_Red
+    ' Hand it the CONVERTED BOOK by name. This used to be a bare call, which colours through
+    ' Selection - and finalDoc is not activated until eight lines below, so the pass was landing
+    ' on whatever was in front. Jerry, 9/17/2026: the tags came out black on both DAISY and NIMAS.
+    Sh_Color_Dollar_PG_Red finalDoc
 
     ' Repaint BEFORE the "conversion complete" message box: turn ScreenUpdating back on,
     ' come out of Draft into Print view, and force a refresh. Without this the message box
@@ -28148,6 +28198,20 @@ SaveTheFile:
 
             If userChoice = vbNo Then
                 Sh_Progress_Close
+
+                ' Leave the CONVERTED BOOK on the screen (Jerry, 9/17/2026). This was the only
+                ' way out of this macro that did not, so declining the save dropped the
+                ' transcriber back onto the blank document Word opened at startup - the
+                ' converted book was still there, just not in front, which reads as the
+                ' conversion having been thrown away. Same three lines the successful path
+                ' uses below, in the same order: the form has to be entirely gone first, or
+                ' Windows hands focus back to it.
+                Application.Activate
+                doc.Activate
+                On Error Resume Next
+                ActiveWindow.View.Type = wdPrintView
+                On Error GoTo 0
+
                 Exit Sub
             Else
                 GoTo SaveTheFile
