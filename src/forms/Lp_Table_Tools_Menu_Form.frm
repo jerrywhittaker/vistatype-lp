@@ -1,6 +1,6 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_Table_Tools_Menu_Form 
-   Caption         =   "Large Print Table Tools"
+   Caption         =   "Large Print Table Tools (356)"
    ClientHeight    =   8300.001
    ClientLeft      =   120
    ClientTop       =   465

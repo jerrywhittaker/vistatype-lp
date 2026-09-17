@@ -1,6 +1,6 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Sh_Validation_Choices_Form 
-   Caption         =   "Validate Reference Page Tags"
+   Caption         =   "Validate Reference Page Tags (367)"
    ClientHeight    =   4968
    ClientLeft      =   120
    ClientTop       =   465

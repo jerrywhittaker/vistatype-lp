@@ -218,7 +218,7 @@ sources) that ship or that Word loads.
 
 | Piece | What it is | Role |
 |------|-----------|------|
-| `LPandBRL.dotm` | Word add-in template (macro-enabled), built from `src/` | **The code.** The entire compiled VBA project — 236 subs/functions in `LPandBrlMacros`, plus 49 UserForms — and the embedded ribbon (below). Loaded from Word's `STARTUP` folder, so its macros are available to every document. Behavior is *authored* under `src/vba`/`src/forms`; this is where it *runs*. |
+| `LPandBRL.dotm` | Word add-in template (macro-enabled), built from `src/` | **The code.** The entire compiled VBA project — 236 subs/functions in `LPandBrlMacros`, plus 47 UserForms — and the embedded ribbon (below). Loaded from Word's `STARTUP` folder, so its macros are available to every document. Behavior is *authored* under `src/vba`/`src/forms`; this is where it *runs*. |
 | Embedded ribbon (`src/ribbon/customUI14.xml`) | Ribbon customization XML, embedded into `LPandBRL.dotm` at build time | **The UI.** Defines the custom ribbon tabs **"VistaType LP"** (large print) and **"Braille Macros"** (DBT/BANA). Every button's `tag` names a VBA sub, dispatched through one `RibbonAction` handler. Because it is *embedded* (not the old global `Word.officeUI`), it **merges** with the user's ribbon instead of replacing it. |
 | `LargePrintTemplate.dotx` | Word document template | **The style set.** The template *attached to a user's large-print document* (vs. `LPandBRL.dotm`, the global add-in loaded for every document). Supplies paragraph/character styles and page setup. The VBA references it by name in 7+ places, and treats a document as "large print" when this template is attached. |
 
@@ -671,7 +671,7 @@ runs in Word (this drove the remote-build design; see DEVELOPMENT.md).
 - **`LpExportImportSelectedText` / `DxExportImportSelectedText`** — round-tripping selected
   text to/from separate files.
 - **`ShNonModalMessage`** — shared non-modal status messaging.
-- **49 UserForms** — dialogs, prefixed by domain (see below). `Sh_Message_Form` is the shared
+- **47 UserForms** — dialogs, prefixed by domain (see below). `Sh_Message_Form` is the shared
   message dialog every `Sh_Say` / `Sh_Ask` goes through — see *How VistaType LP says things*.
 
 The built add-in's **VBA project is named `LPandBRL`** (not `Normal`): it ships in Word's

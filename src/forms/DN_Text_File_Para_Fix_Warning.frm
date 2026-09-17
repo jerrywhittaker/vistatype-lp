@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} DN_Text_File_Para_Fix_Warning 
-   Caption         =   "Caution"
-   ClientHeight    =   6288
+   Caption         =   "Caution (326)"
+   ClientHeight    =   5760
    ClientLeft      =   120
    ClientTop       =   465
    ClientWidth     =   8025
@@ -132,4 +132,3 @@ Private Sub UserForm_Initialize()
     Me.Top = Application.Top + (0.5 * Application.Height) - (0.5 * Me.Height)
 
 End Sub
-

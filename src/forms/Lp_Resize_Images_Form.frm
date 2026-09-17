@@ -1,6 +1,6 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_Resize_Images_Form 
-   Caption         =   "Resize Selected Pictures or All Pictures"
+   Caption         =   "Resize Selected Pictures or All Pictures (350)"
    ClientHeight    =   5892
    ClientLeft      =   120
    ClientTop       =   450

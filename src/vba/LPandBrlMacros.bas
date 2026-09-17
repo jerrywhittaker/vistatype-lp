@@ -18,6 +18,115 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Sh  - 9/17/2026 - EVERY DIALOG NOW CARRIES A REFERENCE NUMBER. Jerry's request.
+'           - Sh  - 9/17/2026 - The MsgBox and Sh_Say messages had them all along, but NO USERFORM
+'           - Sh  - 9/17/2026 - CAPTION DID - so a transcriber describing 43 of the dialogs had
+'           - Sh  - 9/17/2026 - nothing to quote. 325-367 went onto the form captions in
+'           - Sh  - 9/17/2026 - src/forms/*.frm (alphabetical by form name, which is the only
+'           - Sh  - 9/17/2026 - reason the order is what it is), 368-372 onto the five $pg
+'           - Sh  - 9/17/2026 - validation messages in ShNonModalMessage that took their title from
+'           - Sh  - 9/17/2026 - Sh_PgVal_TitleText, and 373 onto the progress box. In use now:
+'           - Sh  - 9/17/2026 - 203 numbers, 100 to 373. Four forms were deliberately left out.
+'           - Sh  - 9/17/2026 - Sh_Message_Form and Sh_Convert_Progress_Form have their captions
+'           - Sh  - 9/17/2026 - OVERWRITTEN at run time, so a number in the designer caption would
+'           - Sh  - 9/17/2026 - be dead text: Sh_Message_Form already shows the number its caller
+'           - Sh  - 9/17/2026 - passes, and the progress box gets 373 appended in Sh_Progress_Open.
+'           - Sh  - 9/17/2026 - Sh_NonModalMessageForm and Sh_Please_Wait_Form have no live callers
+'           - Sh  - 9/17/2026 - and cannot appear, so numbering them would only reserve numbers.
+'           - Sh  - 9/17/2026 - ONE CAPTION WAS ALSO REWORDED: Lp_About_Title_And_Agreement read
+'           - Sh  - 9/17/2026 - "UserForm1" - the designer's own default, never changed - so the
+'           - Sh  - 9/17/2026 - large print About dialog has been showing that in its title bar. It
+'           - Sh  - 9/17/2026 - now reads "Software Agreement (343)", matching its braille twin.
+' Notes:    - Sh  - 9/17/2026 - THE BRAILLE $PG VALIDATION LIST IS SET IN TIMES NEW ROMAN, and
+'           - Sh  - 9/17/2026 - the Validate $pg Tags directions no longer say "VistaType Ribbon".
+'           - Sh  - 9/17/2026 - Both Jerry's. The list is read side by side with the book it came
+'           - Sh  - 9/17/2026 - out of, and a braille book is set in Times New Roman - so the list
+'           - Sh  - 9/17/2026 - was the only thing on screen in a different face. Large print keeps
+'           - Sh  - 9/17/2026 - Tahoma, and both stay 12 point: a braille book is Times New Roman
+'           - Sh  - 9/17/2026 - 14, but matching that was not asked for and nothing depends on it,
+'           - Sh  - 9/17/2026 - since the limit that decides where an entry is cut counts
+'           - Sh  - 9/17/2026 - CHARACTERS. The directions line on Sh_Valid_Ref_Pg_No_1_Form now
+'           - Sh  - 9/17/2026 - reads "on the Ribbon" - the same dialog serves both tabs, and on
+'           - Sh  - 9/17/2026 - the braille side the tab is called Braille Macros, not VistaType.
+' Notes:    - DN  - 9/17/2026 - THE CONVERTED BOOK NO LONGER SHIPS WITH ITS PROOFING MARKS
+'           - DN  - 9/17/2026 - SWITCHED OFF. Jerry's call. The import turns ShowSpellingErrors and
+'           - DN  - 9/17/2026 - ShowGrammaticalErrors off on the new document for speed and nothing
+'           - DN  - 9/17/2026 - ever turned them back on. They are properties of the DOCUMENT, not
+'           - DN  - 9/17/2026 - of Word, so they were written into the saved .docx: the book went
+'           - DN  - 9/17/2026 - out with no red or blue underlines, on any machine that opened it,
+'           - DN  - 9/17/2026 - and nothing in the file said why. Both are set True before the save
+'           - DN  - 9/17/2026 - and in the error handler. TRUE, not a captured value - the document
+'           - DN  - 9/17/2026 - is made by Documents.Add a few steps earlier and never had a setting
+'           - DN  - 9/17/2026 - of its own. A book that goes on to braille has them hidden again by
+'           - DN  - 9/17/2026 - the braille configuration when the BANA template is attached, which
+'           - DN  - 9/17/2026 - is where that decision belongs, so this does not fight it.
+'           - DN  - 9/17/2026 - Two more from the same review: the Save As branch now activates the
+'           - DN  - 9/17/2026 - converted book before dlgSaveAs.Execute (Sh_Progress_Show, two lines
+'           - DN  - 9/17/2026 - above, focuses the document the bar was opened over, and a built-in
+'           - DN  - 9/17/2026 - dialog's .Execute acts on whatever is active - NOT measured, so the
+'           - DN  - 9/17/2026 - line is belt and braces); and a failure of the closing prodnote note
+'           - DN  - 9/17/2026 - no longer reaches the handler, because dialog 240 says "Nothing has
+'           - DN  - 9/17/2026 - been saved ... close it without saving" and by that point the file
+'           - DN  - 9/17/2026 - is on disk and dialog 313 has already said so.
+' Notes:    - DN  - 9/17/2026 - THE DAISY/NIMAS CONVERTER NOW HAS ERROR TRAPPING, AND SETS THE
+'           - DN  - 9/17/2026 - BOOK IN VISTATYPELP SANS. Both Jerry's, same day. THE FACE: the
+'           - DN  - 9/17/2026 - converted book was set in Tahoma outright; it now asks
+'           - DN  - 9/17/2026 - Sh_Is_Font_Installed(LP_FONT_SANS) - the same single test the LP
+'           - DN  - 9/17/2026 - attach dialog uses, so the two agree - and falls back to Tahoma
+'           - DN  - 9/17/2026 - only when the face is missing. THE FACE IS NOT EMBEDDED HERE -
+'           - DN  - 9/17/2026 - Jerry's call, asked and answered the same day: a non-Tahoma book
+'           - DN  - 9/17/2026 - must carry its own copy, but Lp_Attach_The_Template already does
+'           - DN  - 9/17/2026 - that when the LP template goes on, and doing it here as well only
+'           - DN  - 9/17/2026 - makes this .docx bigger and this save slower.
+'           - DN  - 9/17/2026 - THE TRAPPING: of 175 On Error statements
+'           - DN  - 9/17/2026 - in this project this macro had none, so any failure in it showed
+'           - DN  - 9/17/2026 - Word's own Run-time error dialog - with Debug, which opens this
+'           - DN  - 9/17/2026 - source on the transcriber's machine - and left Pagination, CheckSpelling
+'           - DN  - 9/17/2026 - and CheckGrammarAsYouType switched off for the rest of the session,
+'           - DN  - 9/17/2026 - because the lines that put them back sit near the end. Three things
+'           - DN  - 9/17/2026 - in the handler are not obvious and must not be tidied away: the
+'           - DN  - 9/17/2026 - optsSaved guard (the three locals are False until they are captured,
+'           - DN  - 9/17/2026 - and writing False back would switch those settings off - the very
+'           - DN  - 9/17/2026 - harm this cures); every On Error GoTo 0 in the macro re-arms the
+'           - DN  - 9/17/2026 - handler rather than switching error handling off; and the bar is
+'           - DN  - 9/17/2026 - closed BEFORE the part-converted book is brought to the front, or
+'           - DN  - 9/17/2026 - Windows hands the focus straight back to it.
+' Notes:    - DN  - 9/17/2026 - THE CONVERTED BOOK IS STABILIZED BEFORE DIALOG 295, NOT AFTER
+'           - DN  - 9/17/2026 - IT. Jerry's request. The message used to say "the document will now
+'           - DN  - 9/17/2026 - be stabilized and then saved", and pressing Okay was followed by the
+'           - DN  - 9/17/2026 - Tahoma 12 pass and the repaginate before the Save As window
+'           - DN  - 9/17/2026 - appeared - a second wait, after a message that read like the end of
+'           - DN  - 9/17/2026 - the job. The Tahoma pass and the repaginate now run first, with the
+'           - DN  - 9/17/2026 - screen still off, and 295 says the document HAS been stabilized. Two
+'           - DN  - 9/17/2026 - things deliberately did NOT move: Sh_Set_Whole_Document_Font still
+'           - DN  - 9/17/2026 - has a repaginate and a save after it (change the face after the save
+'           - DN  - 9/17/2026 - and the file on disk does not match the file on screen), and
+'           - DN  - 9/17/2026 - ScreenUpdating still comes back on immediately before the message box
+'           - DN  - 9/17/2026 - (restore it any later and the box draws over a workspace Word never
+'           - DN  - 9/17/2026 - painted, which shows BLACK). Set doc = finalDoc by name now, because
+'           - DN  - 9/17/2026 - the Activate that made ActiveDocument right is no longer above it.
+'           - DN  - 9/17/2026 - Dialog 308's closing sentence is reworded to Jerry's own text: both
+'           - DN  - 9/17/2026 - output files carry the $pg tags, which the old wording claimed only
+'           - DN  - 9/17/2026 - for the .txt.
+' Notes:    - DN  - 9/17/2026 - THE MANUAL DAISY/NIMAS ROUTE IS GONE. Jerry's call: it was a
+'           - DN  - 9/17/2026 - hold-over for adding $pg tags to an .xml file somebody had already
+'           - DN  - 9/17/2026 - converted to Word by hand, from before VistaType LP could do the
+'           - DN  - 9/17/2026 - conversion itself. Removed: DN_Auto_Or_Manual_Form (the "Choose XML
+'           - DN  - 9/17/2026 - Conversion Type" menu), DN_Add_PgNo_Tags_To_DAISY_or_NIMAS, and
+'           - DN  - 9/17/2026 - DN_Tag_Daisy_Nimas_Form, which held the two wildcard passes that
+'           - DN  - 9/17/2026 - walked the hand-converted file. Dialog 302 goes out of use with it,
+'           - DN  - 9/17/2026 - and so does the DAISY spelling fix made earlier the same day (the
+'           - DN  - 9/17/2026 - note below): that pattern had never run and now never will.
+'           - DN  - 9/17/2026 - DN_Menu_Starter keeps its name - renaming it would mean touching
+'           - DN  - 9/17/2026 - customUI14.xml, RibbonDispatch.bas and the append-only id list for no
+'           - DN  - 9/17/2026 - gain. A field toolbar would NOT have broken: those name the button
+'           - DN  - 9/17/2026 - ID, not the sub. It now runs
+'           - DN  - 9/17/2026 - Sh_Convert_XML_File_To_Word_Document directly. That is a gain as well
+'           - DN  - 9/17/2026 - as a tidy-up: the converter used to be reached through
+'           - DN  - 9/17/2026 - Application.Run on the spinner bridge, which never hands an error
+'           - DN  - 9/17/2026 - back, so a failure in it showed Word's own Run-time error dialog with
+'           - DN  - 9/17/2026 - its Debug button. Called directly it goes through RibbonAction's
+'           - DN  - 9/17/2026 - Sh_Report_Error.
 ' Notes:    - DN  - 9/17/2026 - DECLINING THE SAVE AFTER A DAISY/NIMAS CONVERSION NO LONGER LOOKS
 '           - DN  - 9/17/2026 - LIKE THE CONVERSION WAS LOST. Reported by Jerry. Cancelling the Save
 '           - DN  - 9/17/2026 - As and then answering No to "do you want to reconsider" left the
@@ -20841,29 +20950,24 @@ End Sub  '*** end of Lp_Table_Apply_Character_Case_To_Column_Headers***
 '------------------------------------------------------------------------------------
 Sub DN_Menu_Starter()
     '
+    ' Version: 2.0  Date: 9/17/2026 - THE MANUAL ROUTE IS GONE, so there is no longer a menu to
+    '                                 show. This runs the automatic conversion directly. The manual
+    '                                 route added $pg tags to an .xml file somebody had already
+    '                                 converted to Word by hand - a hold-over from before this
+    '                                 add-in could do the conversion itself (Jerry, 9/17/2026).
+    '                                 DN_Add_PgNo_Tags_To_DAISY_or_NIMAS, DN_Auto_Or_Manual_Form
+    '                                 ("Choose XML Conversion Type") and DN_Tag_Daisy_Nimas_Form
+    '                                 went with it. The NAME stays because renaming it would mean
+    '                                 touching customUI14.xml, the generated RibbonDispatch.bas and
+    '                                 the append-only id list for no gain - NOT because a field
+    '                                 toolbar would break. Those name the button ID
+    '                                 (x1:btn_DN_Menu_Starter), not this sub, and the id is unchanged.
     ' Version: 1.0  Date: 3/2/2026
     '
-    Application.Run MacroName:="Sh_Is_Doc_Open"
-    DN_Auto_Or_Manual_Form.Show
+    ' Sh_Is_Doc_Open is not called here - Sh_Convert_XML_File_To_Word_Document does it first thing.
+    Sh_Convert_XML_File_To_Word_Document
 
 End Sub
-
-Sub DN_Add_PgNo_Tags_To_DAISY_or_NIMAS()
-'
-' Version 1.2  Date: 3/3/2026 - added "Unload DN_Auto_Or_Manual_Form"
-' Version 1.1  Date: 4-9-2015
-'
-    Unload DN_Auto_Or_Manual_Form
-
-    Application.Run MacroName:="Sh_Is_Doc_Open"
-
-    Load DN_Tag_Daisy_Nimas_Form
-    DN_Tag_Daisy_Nimas_Form.Show
-    
-    Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    ActiveDocument.UndoClear
-
-End Sub   '*** end of DN_Add_PgNo_Tags_To_DAISY_or_NIMAS macro ***
 
 Sub DN_Remove_Para_Formatting_From_Text_Files()
 '
@@ -27431,6 +27535,9 @@ End Sub   '*** end of Sh_Clear_Multi_Selection macro ***
 ' pause, leaves no selection - and never touches the clipboard, so whatever the transcriber had
 ' copied is still there when she finishes.
 '
+' Version: 1.5  Date: 9/17/2026 - the BRAILLE list is set in Times New Roman, the face a braille
+'                                 book is itself set in, so the list and the book read alike side
+'                                 by side (Jerry). Large print keeps Tahoma; both stay 12 point
 ' Version: 1.4  Date: 8/23/2026 - built on a range instead of by SendKeys-ing Find and Replace
 '                                 (Jerry: the dialog flashed). No clipboard, no OnTime, no
 '                                 leftover multiple selection, and it says so when there is
@@ -27531,7 +27638,19 @@ Sub Sh_Copy_Ref_Pg_Tags_To_Temp_File()
     End If
 
     Selection.WholeStory
-    Selection.Font.Name = "Tahoma"
+    ' THE BRAILLE LIST IS SET IN TIMES NEW ROMAN, the face a braille book is itself set in
+    ' (Jerry, 9/17/2026). The list and the book are read side by side, one above the other, and
+    ' two different faces made that harder than it needed to be. Large print keeps Tahoma.
+    '
+    ' THE SIZE STAYS 12 ON BOTH. A braille book is Times New Roman 14 - the size Duxbury's own
+    ' SWIFT sets - but matching that here was not asked for and would make the list longer to
+    ' scroll. Nothing is lost either way: the line limit that decides where an entry is cut is a
+    ' count of CHARACTERS, so neither the face nor the size moves it.
+    If MsgBoxLabel = "Braille Macros" Then
+        Selection.Font.Name = "Times New Roman"
+    Else
+        Selection.Font.Name = "Tahoma"
+    End If
     Selection.Font.Size = 12
     Selection.HomeKey Unit:=wdStory
 
@@ -27789,6 +27908,9 @@ Sub Sh_Convert_XML_File_To_Word_Document()
 '
 ' Automatically converts an .xml (NIMAS or DAISY) file into a Word Document with reference pages tagged with $pg
 '
+' Version: 2.0  Date: 9/17/2026 - the converted book's OWN spelling and grammar marks are turned back on before the save (Jerry). ShowSpellingErrors and ShowGrammaticalErrors are switched off for the import and were never restored - they are document properties, so they were written into the saved .docx and the book was handed on with proofing marks suppressed and nothing saying why. Also: the Save As branch activates the converted book before .Execute, and a failure of the closing prodnote note no longer reaches the error handler, whose standing advice would be wrong after a successful save
+' Version: 1.9  Date: 9/17/2026 - the converted book is set in VistaTypeLP Sans when that face is installed and Tahoma when it is not, instead of Tahoma outright. The face is deliberately NOT embedded here - Lp_Attach_The_Template does that when the LP template goes on (Jerry). ERROR TRAPPING: the macro had none at all - every failure reached the transcriber as Word's own Run-time error dialog and left live spell check, grammar check and background pagination switched off for the session. On Error GoTo ConvertFailed now covers it from Step 1 on, every On Error GoTo 0 re-arms it rather than switching it off, and the handler restores Word's settings, closes the bar, leaves the part-converted book in front in Print view, and reports through Sh_Report_Error
+' Version: 1.8  Date: 9/17/2026 - the document is STABILIZED BEFORE dialog 295 rather than after it, so pressing Okay goes straight to the Save As instead of into another wait (Jerry). Dialog 295 now says the document has been stabilized; dialog 308's closing sentence reworded (Jerry's own text)
 ' Version: 1.7  Date: 7/23/2026 - the "Prodnote" style is set red (EE0000, same as the LP template) in the converted document, which is built from Normal and so would otherwise show prodnotes as plain body text until the LP template is attached
 ' Version: 1.6  Date: 7/22/2026 - fix black Word workspace behind the "conversion complete" message: ScreenUpdating/Print view are restored (with a ScreenRefresh) BEFORE that message box instead of after the repaginate; background pagination and live spell/grammar stay suppressed through the repaginate
 ' Version: 1.5  Date: 7/21/2026 - <prodnote> content (body text and in tables) is now emitted as <p class="Prodnote"> so it imports carrying the "Prodnote" paragraph style (see Sh_Tag_Prodnotes_As_Prodnote_Style); requires "Prodnote" in the LpStyles keep-list
@@ -27806,7 +27928,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
             "A file selection dialog window will appear after this message is closed." & vbCrLf & vbCrLf & _
             "Select or open the folder which contains the DAISY or NIMAS book to be converted into a Word Document, then click OK." & vbCrLf & vbCrLf & _
             "Your screen will show a wait message until the book has been converted into a Word document." & vbCrLf & vbCrLf & _
-            "After completion, the folder will contain two new files: The .xml in .txt format (with reference pages tagged with $pg), and an .html file which can be opened with a web browser.", _
+            "After completion, the folder will contain two new files: The .xml file in .txt format, and an .html file which can be opened with a web browser. Both files have the reference pages tagged with $pg.", _
             vbOKCancel, _
             "Convert DAISY/NIMAS to Word Document (308)") = vbOK Then
     Else
@@ -27822,6 +27944,20 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     
     Dim origState As Long, origTop As Long, origLeft As Long
     Dim su_Prev As Boolean, pag_Prev As Boolean, spell_Prev As Boolean, gram_Prev As Boolean
+    Dim optsSaved As Boolean
+    Dim errNum As Long, errText As String
+
+    ' EVERY route out of here from this point on goes through ConvertFailed (Jerry, 9/17/2026).
+    ' Until today this macro had no handler at all, so a failure anywhere in it reached the
+    ' transcriber as Word's own Run-time error dialog - the one offering Debug, which opens this
+    ' source on the transcriber's machine - and left Word with live spell check, grammar and
+    ' pagination switched off for the rest of the session, because the lines that put them back
+    ' are near the end and were never reached.
+    '
+    ' NOTE FOR ANYONE EDITING BELOW: every On Error GoTo 0 in this macro re-arms this handler
+    ' rather than switching error handling off. A plain On Error GoTo 0 would leave the rest of
+    ' the macro unguarded, and the ones here are all closing a deliberate On Error Resume Next.
+    On Error GoTo ConvertFailed
 
     ' --- Step 1: Window Setup ---
     origState = ActiveWindow.WindowState
@@ -27999,6 +28135,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     pag_Prev = Application.Options.Pagination
     spell_Prev = Application.Options.CheckSpellingAsYouType
     gram_Prev = Application.Options.CheckGrammarAsYouType
+    optsSaved = True   ' ConvertFailed restores these three ONLY if this is True - see there
     Application.ScreenUpdating = False
     Application.Options.Pagination = False
     Application.Options.CheckSpellingAsYouType = False
@@ -28008,12 +28145,14 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     Application.DisplayAlerts = wdAlertsNone
 
     ' Import + process in Draft view with proofing marks off -- far less work than Print
-    ' view / live spell+grammar checking on a large imported book.
+    ' view / live spell+grammar checking on a large imported book. BOTH ARE PUT BACK before the
+    ' save - they are properties of the DOCUMENT, so left False they are written into the .docx
+    ' and the book is handed on with no proofing marks and nothing saying why (Jerry, 9/17/2026).
     On Error Resume Next
     finalDoc.ActiveWindow.View.Type = wdNormalView
     finalDoc.ShowSpellingErrors = False
     finalDoc.ShowGrammaticalErrors = False
-    On Error GoTo 0
+    On Error GoTo ConvertFailed   ' re-arm, do not switch error handling off
 
     ' Use InsertFile instead of Copy/Paste to prevent the 0x5 Clipboard Crash
     finalDoc.Range.InsertFile fileName:=htmlPath, ConfirmConversions:=False
@@ -28098,7 +28237,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     On Error Resume Next
     finalDoc.Styles("Prodnote").Font.Color = RGB(238, 0, 0)
     Err.Clear
-    On Error GoTo 0
+    On Error GoTo ConvertFailed   ' re-arm, do not switch error handling off
 
     ' Some DAISY and NIMAS books wrap each prodnote in quotation marks. Those belong to the
     ' source markup rather than to the note, so take them off here -- after the prodnotes
@@ -28111,46 +28250,65 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     ' on whatever was in front. Jerry, 9/17/2026: the tags came out black on both DAISY and NIMAS.
     Sh_Color_Dollar_PG_Red finalDoc
 
-    ' Repaint BEFORE the "conversion complete" message box: turn ScreenUpdating back on,
-    ' come out of Draft into Print view, and force a refresh. Without this the message box
-    ' appears over a workspace Word never painted, which shows BLACK instead of the normal
-    ' gray surround (the document page itself still looks white).
-    ' Background pagination and live spell/grammar stay OFF through the repaginate below --
-    ' those are the expensive ones and they cause no painting artifacts.
-    finalDoc.Activate
-    On Error Resume Next
-    finalDoc.ActiveWindow.View.Type = wdPrintView
-    On Error GoTo 0
-    Application.ScreenUpdating = su_Prev
-    Application.ScreenRefresh
-    Sh_PauseSeconds 0.3
-    
-    ' Make the document visible and active on screen
-    Sh_Progress_Hide ' Hide the progress box so it doesn't block the document
-    Application.Activate        ' Force the Word Application itself to the front of Windows
-    currentdoc.Activate         ' Ensure the specific document is active
-    Sh_Spin_DoEvents
-    
-    MsgBox "Here is the " & Sh_GP_String_1 & " file in Word format." & _
-    vbCrLf & vbCrLf & "All reference page numbers have been tagged with $pg tags ready for validation." & _
-    vbCrLf & vbCrLf & "The document will now be stabilized and then saved as a Word document with a .docx file type.", vbInformation, "VistaType LP (295)"
-    
+    ' --- STABILIZE FIRST, THEN TELL THE USER, THEN SAVE (Jerry, 9/17/2026) ---
+    ' The order used to be: show the book, say "the document will now be stabilized and then
+    ' saved", and only THEN run the Tahoma 12 pass and the repaginate - so pressing Okay on
+    ' dialog 295 was followed by another wait before the Save As window appeared. Jerry asked
+    ' for the stabilizing to happen before that message, and it now does: the message says the
+    ' document HAS been stabilized, and the Save As comes straight after it.
+    '
+    ' Two things did NOT move, and must not. Sh_Set_Whole_Document_Font still runs with a
+    ' repaginate and a save after it (the note below says why), and the screen still comes back
+    ' on immediately before the message box rather than here (the note further down says why).
     Dim doc As Document
     Dim userChoice As VbMsgBoxResult
-    Set doc = ActiveDocument
-    
-    ' Stabilize the document FIRST, then save it exactly once (stabilize -> save).
+
+    ' finalDoc BY NAME, and this line is LOAD-BEARING - do not 'simplify' it back to
+    ' ActiveDocument. At this point ActiveDocument is NOT the converted book: Sh_Progress_Open
+    ' stored the document that was in front when the bar went up (the transcriber's own, from
+    ' before Documents.Add), and EVERY Sh_Progress_Show re-activates it through
+    ' Sh_Focus_Document. The finalDoc.Activate that used to make ActiveDocument right sat in the
+    ' repaint block, which now runs AFTER this. Read ActiveDocument here and the Tahoma pass, the
+    ' repaginate, the UndoClear and the Save As would all land on the transcriber's own document.
+    Set doc = finalDoc
     Set currentdoc = doc
 
-    ' The whole book goes to Tahoma 12 HERE, ahead of the repaginate below. Changing the font
-    ' changes where every line and every page breaks, so it has to happen while a repaginate and
-    ' a save still follow it - done after the save, the file on disk would not match the file on
-    ' screen, and the document would be left dirty. Color is not touched, so the red $pg tags
-    ' and the red prodnotes survive it. (Jerry, 8/5/2026)
+    ' Out of Draft and into Print view BEFORE the stabilizing, not after it. The font pass and
+    ' the repaginate both ran in Print view until this reorder, and pagination is the whole point
+    ' of them. Only the WINDOW's view is set here - the document is deliberately not activated
+    ' yet, because the Sh_Progress_Show below would put the focus straight back anyway.
+    On Error Resume Next
+    doc.ActiveWindow.View.Type = wdPrintView
+    On Error GoTo ConvertFailed   ' re-arm, do not switch error handling off
+
+    ' THE FACE: VistaTypeLP Sans when the machine has it, Tahoma when it has not (Jerry,
+    ' 9/17/2026). The converted book was set in Tahoma outright until today. Sh_Is_Font_Installed
+    ' is the same single test LP_Attach_An_Lp_Template_Form uses to decide what to offer, so the
+    ' two agree; and it is asked rather than assumed, because a face Word cannot find is
+    ' substituted silently, at some other size - the one thing large print must never do.
+    Dim convFont As String
+    If Sh_Is_Font_Installed(LP_FONT_SANS) Then
+        convFont = LP_FONT_SANS
+    Else
+        convFont = LP_FONT_TAHOMA
+    End If
+
+    ' The whole book goes to that face at 12 point HERE, ahead of the repaginate below. Changing
+    ' the font changes where every line and every page breaks, so it has to happen while a
+    ' repaginate and a save still follow it - done after the save, the file on disk would not
+    ' match the file on screen, and the document would be left dirty. Color is not touched, so
+    ' the red $pg tags and the red prodnotes survive it. (Jerry, 8/5/2026)
     Sh_Progress_Show
-    Sh_Progress_Say 76, "Setting the document font to Tahoma 12"
+    Sh_Progress_Say 76, "Setting the document font to " & convFont & " 12"
     Sh_Spin_DoEvents
-    Sh_Set_Whole_Document_Font doc, "Tahoma", 12
+    Sh_Set_Whole_Document_Font doc, convFont, 12
+
+    ' THE FACE IS NOT EMBEDDED HERE, and that is deliberate (Jerry, 9/17/2026). A book set in
+    ' anything but Tahoma does have to carry its own copy, or it reads at the wrong size on a
+    ' machine without the face - but Lp_Attach_The_Template sets EmbedTrueTypeFonts,
+    ' DoNotEmbedSystemFonts and SaveSubsetFonts when the LP template goes on, which is where a
+    ' converted book is headed. Doing it here as well would only make this .docx bigger and this
+    ' save slower, and the save is already the second longest step on a book with pictures.
 
     Sh_Progress_Show
     Sh_Progress_Say 78, "Repaginating the document"
@@ -28161,15 +28319,42 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     doc.UndoClear
 
     ' --- Speed: heavy work is done. Restore the background-processing options we silenced.
-    ' (ScreenUpdating and Print view were already restored before the message box above, so
-    ' the workspace paints correctly there. Fields.Unlink already made every field static
-    ' text, so the old Fields.Update pass here was redundant.) ---
+    ' (Fields.Unlink already made every field static text, so the old Fields.Update pass here
+    ' was redundant.) ---
     Application.Options.CheckGrammarAsYouType = gram_Prev
     Application.Options.CheckSpellingAsYouType = spell_Prev
     Application.Options.Pagination = pag_Prev
 
-    ' Hide the progress form momentarily so Windows can cleanly shift focus to the Save As dialog
-    Sh_Progress_Hide
+    ' And the converted book's own proofing marks, switched off for the import. True rather than
+    ' a captured value: this document was made by Documents.Add a few steps ago and never had a
+    ' setting of its own, and True is what Word gives a new document. A book that goes on to
+    ' braille has them hidden again when the BANA template is attached, which is where that
+    ' decision belongs.
+    On Error Resume Next
+    doc.ShowSpellingErrors = True
+    doc.ShowGrammaticalErrors = True
+    Err.Clear
+    On Error GoTo ConvertFailed   ' re-arm, do not switch error handling off
+
+    ' Repaint BEFORE the message box: bring ScreenUpdating back and force a refresh. Without this
+    ' the message box appears over a workspace Word never painted, which shows BLACK instead of
+    ' the normal gray surround (the document page itself still looks white). The stabilizing above
+    ' runs with the screen still off, as the rest of the conversion does - the progress bar paints
+    ' regardless, since it is a modeless form. The view was set to Print further up.
+    doc.Activate
+    Application.ScreenUpdating = su_Prev
+    Application.ScreenRefresh
+    Sh_PauseSeconds 0.3
+
+    ' Make the document visible and active on screen
+    Sh_Progress_Hide ' Hide the progress box so it doesn't block the document
+    Application.Activate        ' Force the Word Application itself to the front of Windows
+    currentdoc.Activate         ' Ensure the specific document is active
+    Sh_Spin_DoEvents
+
+    MsgBox "Here is the " & Sh_GP_String_1 & " file in Word format." & _
+    vbCrLf & vbCrLf & "All reference page numbers have been tagged with $pg tags ready for validation." & _
+    vbCrLf & vbCrLf & "The document has been stabilized and will now be saved as a Word document with a .docx file type.", vbInformation, "VistaType LP (295)"
 
     ' Force the Word Application and your specific document to the front
     Application.Activate
@@ -28210,7 +28395,7 @@ SaveTheFile:
                 doc.Activate
                 On Error Resume Next
                 ActiveWindow.View.Type = wdPrintView
-                On Error GoTo 0
+                On Error GoTo ConvertFailed   ' re-arm, do not switch error handling off
 
                 Exit Sub
             Else
@@ -28223,10 +28408,21 @@ SaveTheFile:
             Sh_Progress_Say 80, "Saving the document - on a book with many images this is the second longest step, so the bar waits and the spinner turns."
             Sh_Spin_DoEvents
 
-            ' 2. Execute the save on the SAME dialog object so the typed name is used
+            ' 2. Bring the CONVERTED BOOK to the front before executing. Sh_Progress_Show, two
+            '    lines up, ends in Sh_Focus_Document on the document the bar was opened over -
+            '    the transcriber's own, from before Documents.Add - and a Word built-in dialog's
+            '    .Execute acts on whatever is active. This is the one branch with no way to name
+            '    the document in the call itself; the named-document branch below does doc.Save.
+            '    Whether .Execute binds at .Display time or at .Execute time was NOT measured, so
+            '    this is belt and braces: if it binds early the line changes nothing, and if it
+            '    binds late it is what stops the blank startup document being saved under the
+            '    name that was typed. Same family as the Sh_Color_Dollar_PG_Red fault of 9/17/2026.
+            doc.Activate
+
+            ' 3. Execute the save on the SAME dialog object so the typed name is used
             dlgSaveAs.Execute
 
-            ' 3. Keep the message up for a brief moment so they see it finish
+            ' 4. Keep the message up for a brief moment so they see it finish
             Sh_PauseSeconds 1
         End If
     Else
@@ -28272,10 +28468,66 @@ SaveTheFile:
         doc.StyleSortMethod = wdStyleSortRecommended
         doc.FormattingShowFilter = wdShowFilterStylesAll
         Err.Clear
-        On Error GoTo 0
 
+        ' The note stays under Resume Next too, and the handler is deliberately NOT re-armed
+        ' here. Everything above this point has already happened: the file is saved and dialog
+        ' 313 has said so. Dialog 240's standing advice is "Nothing has been saved. Ctrl+Z may
+        ' put the document back; if it looks wrong, close it without saving" - all three wrong
+        ' here, and the last one would mean closing a book that is safely on disk. A courtesy
+        ' note that fails to open is worth nothing said, not a warning that reads like the
+        ' conversion was lost.
         Sh_Prodnote_Info_Form.Show
+        Err.Clear
+        On Error GoTo 0
     End If
+
+    Exit Sub
+
+ConvertFailed:
+    ' TAKE A COPY OF THE ERROR FIRST. Everything below either runs On Error Resume Next or calls
+    ' a helper that clears Err inside itself - Sh_Progress_Close does - so reading Err.Number
+    ' after any of it reports 0.
+    errNum = Err.Number
+    errText = Err.Description
+    On Error Resume Next
+
+    ' Word's own settings before anything else, and ONLY when they were actually captured.
+    ' pag_Prev, spell_Prev and gram_Prev are False until the capture further up runs, and writing
+    ' False back would switch live spell check, grammar check and background pagination OFF for
+    ' the rest of the session - exactly the harm this handler exists to prevent. optsSaved is the
+    ' guard; do not remove it on the grounds that the three are "obviously" set by then.
+    If optsSaved Then
+        Application.Options.Pagination = pag_Prev
+        Application.Options.CheckSpellingAsYouType = spell_Prev
+        Application.Options.CheckGrammarAsYouType = gram_Prev
+    End If
+    Application.DisplayAlerts = wdAlertsAll
+    Application.ScreenUpdating = True
+    Application.ScreenRefresh
+
+    ' The bar has to be entirely gone before anything is brought to the front, or Windows hands
+    ' the focus straight back to it - the same ordering the successful path and the cancelled-save
+    ' path both use.
+    Sh_Progress_Close
+
+    ' Leave the transcriber looking at the converted book if one was ever made, in Print view.
+    ' Without this they are left on whichever document the progress bar last activated - their
+    ' own, from before the conversion - and a failure then reads as the work having vanished.
+    ' finalDoc is Nothing if the run failed before Documents.Add, which is why this is guarded.
+    If Not finalDoc Is Nothing Then
+        Application.Activate
+        finalDoc.Activate
+        finalDoc.ActiveWindow.View.Type = wdPrintView
+        finalDoc.ShowSpellingErrors = True
+        finalDoc.ShowGrammaticalErrors = True
+    End If
+    Err.Clear
+    On Error GoTo 0
+
+    ' The part-converted book is left exactly as it stands, not repaired and not thrown away. It
+    ' may be most of the way there and worth keeping; this macro holds no record of how far it
+    ' got, so guessing at a cleanup would be worse than leaving it.
+    Sh_Report_Error "Sh_Convert_XML_File_To_Word_Document", errNum, errText
 
 End Sub   '*** end of Sh_Convert_XML_File_To_Word_Document macro ***
 

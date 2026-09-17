@@ -1,6 +1,6 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_File_Cleanup_Sub_Menu_Form 
-   Caption         =   "Large Print File Cleanup"
+   Caption         =   "Large Print File Cleanup (347)"
    ClientHeight    =   2388
    ClientLeft      =   120
    ClientTop       =   465

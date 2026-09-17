@@ -1,6 +1,6 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_TOC_Format_And_Color_Form 
-   Caption         =   "Format TOC - Add/Remove Color Bars"
+   Caption         =   "Format TOC - Add/Remove Color Bars (354)"
    ClientHeight    =   2628
    ClientLeft      =   105
    ClientTop       =   450

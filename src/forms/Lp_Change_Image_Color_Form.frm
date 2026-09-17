@@ -1,6 +1,6 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_Change_Image_Color_Form 
-   Caption         =   "Change Picture Color"
+   Caption         =   "Change Picture Color (345)"
    ClientHeight    =   4464
    ClientLeft      =   105
    ClientTop       =   450

@@ -1,6 +1,6 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} LP_PseudoColumnInfoForm 
-   Caption         =   "What is a pseudo column?"
+   Caption         =   "What is a pseudo column? (340)"
    ClientHeight    =   7785
    ClientLeft      =   120
    ClientTop       =   465

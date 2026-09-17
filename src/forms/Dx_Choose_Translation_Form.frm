@@ -1,6 +1,6 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Dx_Choose_Translation_Form 
-   Caption         =   "What braille translation will be used for this document?"
+   Caption         =   "What braille translation will be used for this document? (331)"
    ClientHeight    =   3144
    ClientLeft      =   120
    ClientTop       =   450

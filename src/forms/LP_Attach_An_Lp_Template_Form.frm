@@ -1,6 +1,6 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} LP_Attach_An_Lp_Template_Form 
-   Caption         =   "Attach LP Template & Select Output Media"
+   Caption         =   "Attach LP Template & Select Output Media (338)"
    ClientHeight    =   9204.001
    ClientLeft      =   120
    ClientTop       =   465

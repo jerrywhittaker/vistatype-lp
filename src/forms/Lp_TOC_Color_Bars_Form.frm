@@ -1,6 +1,6 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_TOC_Color_Bars_Form 
-   Caption         =   "TOC Color Bars"
+   Caption         =   "TOC Color Bars (353)"
    ClientHeight    =   4308
    ClientLeft      =   105
    ClientTop       =   450

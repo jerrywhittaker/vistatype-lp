@@ -1,6 +1,6 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_Picture_Alignment_Form 
-   Caption         =   "Align Pictures"
+   Caption         =   "Align Pictures (339)"
    ClientHeight    =   5172
    ClientLeft      =   105
    ClientTop       =   450

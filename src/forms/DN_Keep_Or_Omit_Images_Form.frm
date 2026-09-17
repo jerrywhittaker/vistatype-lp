@@ -1,10 +1,10 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} DN_Keep_Or_Omit_Images_Form 
-   Caption         =   "Keep or Omit Images"
-   ClientHeight    =   1836
+   Caption         =   "Keep or Omit Images (325)"
+   ClientHeight    =   1668
    ClientLeft      =   120
    ClientTop       =   465
-   ClientWidth     =   4020
+   ClientWidth     =   3255
    OleObjectBlob   =   "DN_Keep_Or_Omit_Images_Form.frx":0000
    StartUpPosition =   1  'CenterOwner
 End

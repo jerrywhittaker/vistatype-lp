@@ -1,6 +1,6 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_Table_Convert_Options_Form 
-   Caption         =   "Large Print Table Conversion Options"
+   Caption         =   "Large Print Table Conversion Options (355)"
    ClientHeight    =   7800
    ClientLeft      =   120
    ClientTop       =   450

@@ -89,7 +89,7 @@ This is the headline. Until these go, nothing else about those macros' undo matt
 
 | Macro | Line | What the clear costs |
 |---|---|---|
-| ~~**`Sh_Color_Dollar_PG_Red`**~~ **DONE 9/16/2026** | was `:20948` | **One** replace, then the history goes. Six callers: `:9981` and `:10089` (LP File Cleanup, twice), `:12734` (LP AutoTag), `:14996` (**Validate $pg** — a review button), `:22606` (Normalize Styles), `DN_Tag_Daisy_Nimas_Form.frm:80` |
+| ~~**`Sh_Color_Dollar_PG_Red`**~~ **DONE 9/16/2026** | was `:20948` | **One** replace, then the history goes. Six callers: `:9981` and `:10089` (LP File Cleanup, twice), `:12734` (LP AutoTag), `:14996` (**Validate $pg** — a review button), `:22606` (Normalize Styles), ~~`DN_Tag_Daisy_Nimas_Form.frm:80`~~ (that form was removed 9/17/2026, so five callers now) |
 | ~~**`Sh_Para_Before_Dollar`**~~ **DONE 9/16/2026** | was `:26319` | Three replaces, then the history goes. Called from `:5168` (braille File Cleanup) and `:10033` (LP File Cleanup) |
 | `Lp_Fix_Common_File_Errors` | `:10092` | plus the two above from inside it |
 | `Dx_Fix_Common_File_Errors_Run` | `:5236` | plus `:5761` and `:26319` from inside it |
@@ -103,7 +103,7 @@ This is the headline. Until these go, nothing else about those macros' undo matt
 | `Dx_Add_Color_To_Foreign_Language_Words` | `:5761` | 6 presses' worth of work |
 | `Dx_Attach_BANA_Template_Run` | `:3138` | unconditional, on every route in — see the trap below |
 | `Lp_Attach_The_Template` | `:18416`, `:18453` | **arguably fair**: it ends with a Save As and `Sh_Close_And_Reopen` (`:18537`), which ends the history anyway. Lowest priority |
-| `DN_Add_PgNo_Tags_To_DAISY_or_NIMAS` | `:20829` | 2–3 presses' worth of work, plus `:20948` |
+| ~~`DN_Add_PgNo_Tags_To_DAISY_or_NIMAS`~~ **GONE 9/17/2026** | was `:20829` | The whole manual DAISY/NIMAS route was removed — the macro, the "Choose XML Conversion Type" menu and `DN_Tag_Daisy_Nimas_Form`. Nothing left to fix |
 | `DN_Remove_Para_Formatting_From_Text_Files` | `DN_Text_File_Para_Fix_Warning.frm:109` | 5 presses' worth of work. The comment at `:112–116` of that same file records an identical clear being taken off `Lp_Replace_Section_Break_With_Page_Break` — this one was left behind |
 
 **One clear is harmless and should be left alone:** `Sh_Convert_XML_File_To_Word_Document:28074`
@@ -262,10 +262,12 @@ nobody later wraps the attach in a record.
 
 ## 4. Found while reading — not about undo
 
-**The DAISY half of "Add $pg tags to DAISY/NIMAS" has never replaced anything.**
-`DN_Tag_Daisy_Nimas_Form.frm:52` reads `Replace:=wdReplaceAl` — one letter short. The form has no
-`Option Explicit`, so that name is an empty Variant, which is 0, which is `wdReplaceNone`. The
-NIMAS branch beside it (line 77) is spelled correctly. **Verified directly.**
+**The DAISY half of "Add $pg tags to DAISY/NIMAS" has never replaced anything.** — **MOOT
+9/17/2026: the whole manual route was removed.** `DN_Tag_Daisy_Nimas_Form.frm:52` read
+`Replace:=wdReplaceAl` — one letter short. The form had no `Option Explicit`, so that name was an
+empty Variant, which is 0, which is `wdReplaceNone`. The NIMAS branch beside it (line 77) was
+spelled correctly. **Verified directly.** The spelling was fixed on 9/17/2026 and the form deleted
+later the same day, so that pattern never ran and now never will.
 
 **Compress Linear Math was retired on the large-print tab but is still live on the braille tab.**
 `btn_Lp_Compress_Linear_Math` sits on `tab_VT_Retired_Buttons`; `btn_Dx_Compress_Linear_Math` is

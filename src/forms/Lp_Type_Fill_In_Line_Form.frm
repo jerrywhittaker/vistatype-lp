@@ -1,6 +1,6 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_Type_Fill_In_Line_Form 
-   Caption         =   "Type Fill-In Lines"
+   Caption         =   "Type Fill-In Lines (357)"
    ClientHeight    =   7932
    ClientLeft      =   120
    ClientTop       =   465

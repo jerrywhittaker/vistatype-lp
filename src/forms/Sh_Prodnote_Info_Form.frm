@@ -1,6 +1,6 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Sh_Prodnote_Info_Form 
-   Caption         =   "Prodnotes in This Document"
+   Caption         =   "Prodnotes in This Document (361)"
    ClientHeight    =   6048
    ClientLeft      =   120
    ClientTop       =   465

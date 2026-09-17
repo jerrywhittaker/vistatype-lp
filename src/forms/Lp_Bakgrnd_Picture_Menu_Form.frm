@@ -1,6 +1,6 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_Bakgrnd_Picture_Menu_Form 
-   Caption         =   "Background and Picture Tools"
+   Caption         =   "Background and Picture Tools (344)"
    ClientHeight    =   7770
    ClientLeft      =   120
    ClientTop       =   465

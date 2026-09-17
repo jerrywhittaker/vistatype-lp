@@ -1,6 +1,6 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Dx_About_Title_And_Agreement 
-   Caption         =   "Software Agreement"
+   Caption         =   "Software Agreement (328)"
    ClientHeight    =   8820.001
    ClientLeft      =   120
    ClientTop       =   450

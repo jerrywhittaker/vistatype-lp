@@ -1,6 +1,6 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_Columns_Wanted_Form 
-   Caption         =   "Column Settings"
+   Caption         =   "Column Settings (346)"
    ClientHeight    =   3984
    ClientLeft      =   120
    ClientTop       =   465

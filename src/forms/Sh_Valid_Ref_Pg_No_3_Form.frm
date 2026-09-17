@@ -1,6 +1,6 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Sh_Valid_Ref_Pg_No_3_Form 
-   Caption         =   "Delete/Change/Add $pg Tags"
+   Caption         =   "Delete/Change/Add $pg Tags (365)"
    ClientHeight    =   2772
    ClientLeft      =   105
    ClientTop       =   450

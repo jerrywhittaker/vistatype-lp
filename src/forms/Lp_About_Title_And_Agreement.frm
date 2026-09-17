@@ -1,6 +1,6 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_About_Title_And_Agreement 
-   Caption         =   "UserForm1"
+   Caption         =   "Software Agreement (343)"
    ClientHeight    =   8808.001
    ClientLeft      =   105
    ClientTop       =   465

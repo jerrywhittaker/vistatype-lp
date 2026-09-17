@@ -1,6 +1,6 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Sh_Valid_Ref_Pg_No_1_Form 
-   Caption         =   "How to validate the $pg tags"
+   Caption         =   "How to validate the $pg tags (363)"
    ClientHeight    =   3264
    ClientLeft      =   105
    ClientTop       =   450
@@ -49,7 +49,7 @@ Private Sub UserForm_Initialize()
     & "'Locate the selected $pg code in the Document' button." _
     & vbCrLf & vbCrLf & "To add a missing $pg tag, select the $pg tag preceding the missing tag, " _
     & "locate it in the document and scroll the document to the point where the new tag should be located, create an empty paragraph, " _
-    & "type the page number and tag it using the 'Manual Tag Ref Page' macro on the VistaType Ribbon."
+    & "type the page number and tag it using the 'Manual Tag Ref Page' macro on the Ribbon."
 
     ' THE DIRECTIONS ARE A LABEL, AND A LABEL CLIPS SILENTLY - text past the bottom edge is
     ' simply not drawn, and there is nothing to scroll. They just gained two lines, so the label

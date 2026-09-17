@@ -301,7 +301,7 @@ Public Sub Sh_PgVal_LocateInDocument()
 
     If Len(TagText) = 0 Then
         MsgBox "Click anywhere on the line holding the $pg tag you want to find, " _
-             & "then press this button again.", vbInformation, Sh_PgVal_TitleText
+             & "then press this button again.", vbInformation, Sh_PgVal_TitleText & " (368)"
         Exit Sub
     End If
 
@@ -314,7 +314,7 @@ Public Sub Sh_PgVal_LocateInDocument()
         MsgBox "This tag is in the list but was not found in the document:" _
              & vbCrLf & vbCrLf & "    " & TagText & vbCrLf & vbCrLf _
              & "That is worth noting in itself - the tag may have been deleted or changed " _
-             & "since this list was made.", vbExclamation, Sh_PgVal_TitleText
+             & "since this list was made.", vbExclamation, Sh_PgVal_TitleText & " (369)"
         Exit Sub
     End If
 
@@ -348,7 +348,7 @@ Public Sub Sh_PgVal_ReturnToTempAndAdvance()
     If NextPara Is Nothing Then
         MsgBox "That was the last tag in the list." & vbCrLf & vbCrLf _
              & "Press 'Done - Exit validation' to close the list, or keep working through " _
-             & "it by hand.", vbInformation, Sh_PgVal_TitleText
+             & "it by hand.", vbInformation, Sh_PgVal_TitleText & " (370)"
     Else
         NextPara.Range.Select
         Selection.Collapse Direction:=wdCollapseStart
@@ -749,14 +749,14 @@ Private Function Sh_PgVal_Ready() As Boolean
     If Not Sh_PgVal_DocIsOpen(Sh_PgVal_TempDoc) Then
         MsgBox "The validation list has been closed, so there is nothing to work from." _
              & vbCrLf & vbCrLf & "Run Validate $pg Tags again to start another pass.", _
-               vbInformation, Sh_PgVal_TitleText
+               vbInformation, Sh_PgVal_TitleText & " (371)"
         Sh_PgVal_Done
         Exit Function
     End If
     If Not Sh_PgVal_DocIsOpen(Sh_PgVal_SourceDoc) Then
         MsgBox "The document being validated has been closed." & vbCrLf & vbCrLf _
              & "Run Validate $pg Tags again to start another pass.", _
-               vbInformation, Sh_PgVal_TitleText
+               vbInformation, Sh_PgVal_TitleText & " (372)"
         Sh_PgVal_Done
         Exit Function
     End If
@@ -801,7 +801,10 @@ Public Sub Sh_Progress_Open(ByVal boxTitle As String)
 
     On Error Resume Next
     Set Sh_Progress_Doc = ActiveDocument
-    Sh_Convert_Progress_Form.Caption = boxTitle
+    ' The number is appended HERE and not in the form's designer caption, because that
+    ' caption is overwritten on every open by whatever the caller names the job. 373 is
+    ' the progress box itself, whatever job it happens to be showing (Jerry, 9/17/2026).
+    Sh_Convert_Progress_Form.Caption = boxTitle & " (373)"
     Sh_Convert_Progress_Form.SetProgress 0, ""
     Sh_Convert_Progress_Form.Show vbModeless
     Sh_Progress_Up = True
