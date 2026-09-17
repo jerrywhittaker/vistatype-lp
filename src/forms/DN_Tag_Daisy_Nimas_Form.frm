@@ -18,6 +18,16 @@ Attribute VB_Exposed = False
 '
 ' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
+' Version: 1.8  Date: 9/17/2026 - THE DAISY HALF HAD NEVER REPLACED ANYTHING. Its Execute read
+'                                 Replace:=wdReplaceAl - one letter short of wdReplaceAll. This form
+'                                 has no Option Explicit, so that name was an empty Variant, which is
+'                                 0, which is wdReplaceNone: the Find ran, selected its first match,
+'                                 and replaced nothing. The NIMAS half beside it was spelled
+'                                 correctly, which is why only one of the two buttons was dead. Found
+'                                 in the undo survey of 9/16/2026, not by a report - nothing raises an
+'                                 error here and nothing is written to the log, so a transcriber could
+'                                 only see that no $pg tags appeared. THE DAISY PATTERN ITSELF HAS
+'                                 THEREFORE NEVER RUN and is unproven against a real DAISY file.
 ' Version: 1.7  Date: 11/30/2023 - optomized - removed prodnote which deleted some NIMAS book pages
 ' Version: 1.6  Date: 3/24/2023 - isolated $pg+page number into its own paragraph
 ' Version: 1.5  Date: 11/18/2021 - added remove producton notes
@@ -49,7 +59,7 @@ Private Sub CmdOkay_Click()
             .MatchSoundsLike = False
             .MatchWildcards = True
         End With
-        Selection.Find.Execute Replace:=wdReplaceAl
+        Selection.Find.Execute Replace:=wdReplaceAll
         
     End If
 

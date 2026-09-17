@@ -18,6 +18,32 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - DN  - 9/17/2026 - THE DAISY HALF OF ADD $PG TAGS TO DAISY/NIMAS HAD NEVER REPLACED
+'           - DN  - 9/17/2026 - ANYTHING. DN_Tag_Daisy_Nimas_Form's DAISY branch ran
+'           - DN  - 9/17/2026 - Execute Replace:=wdReplaceAl - one letter short. No Option Explicit on
+'           - DN  - 9/17/2026 - that form, so the name was an empty Variant = 0 = wdReplaceNone. The
+'           - DN  - 9/17/2026 - NIMAS branch beside it was spelled right, so half the button worked
+'           - DN  - 9/17/2026 - and half did nothing, silently - no error, no log line. Found by
+'           - DN  - 9/17/2026 - reading, not reported. THE DAISY PATTERN HAS NEVER RUN: fixing the
+'           - DN  - 9/17/2026 - spelling turns it on for the first time, so it needs testing against a
+'           - DN  - 9/17/2026 - real DAISY file before it is trusted. Its replacement differs from the
+'           - DN  - 9/17/2026 - NIMAS one in two ways that were never exercised - it re-emits
+'           - DN  - 9/17/2026 - </pagenum> and ends <p></p> rather than ^013, and its character class
+'           - DN  - 9/17/2026 - has no hyphen, so a page number like 12-13 will not match.
+' Notes:    - Sh  - 9/16/2026 - THE TWO SHARED HELPERS NO LONGER THROW THE UNDO HISTORY AWAY.
+'           - Sh  - 9/16/2026 - Sh_Color_Dollar_PG_Red and Sh_Para_Before_Dollar each ended with
+'           - Sh  - 9/16/2026 - ActiveDocument.UndoClear. That does not cost undo presses - it destroys
+'           - Sh  - 9/16/2026 - the whole history, including work the transcriber did BEFORE pressing
+'           - Sh  - 9/16/2026 - the button. Between them they are reached from eight places: both File
+'           - Sh  - 9/16/2026 - Cleanups, LP AutoTag Ref Pages, Lp_Normalize_Styles, the DAISY tagger,
+'           - Sh  - 9/16/2026 - and LP VALIDATE $PG - a review button, which should cost nothing at all.
+'           - Sh  - 9/16/2026 - Neither helper does more than three replaces' worth of work, so there
+'           - Sh  - 9/16/2026 - was never anything for a clear to hide. NO custom undo record was added
+'           - Sh  - 9/16/2026 - in their place: both run Find with Replace:=wdReplaceAll, and a record
+'           - Sh  - 9/16/2026 - around one of those crashes Word - access violation in wwlib.dll,
+'           - Sh  - 9/16/2026 - measured twice (3.0.345, 3.0.347). The CALLERS' own UndoClear lines are
+'           - Sh  - 9/16/2026 - untouched and still stand; those are separate macros and separate work.
+'           - Sh  - 9/16/2026 - From the undo survey, docs/Undo-Audit.md.
 '           - LP  - 9/16/2026 - RESIZE THIS PICTURE THROUGHOUT THE BOOK NOW GOES BY THE PICTURE'S
 '           - LP  - 9/16/2026 - DESCRIPTION (alt text), not by its image data. Measured on Jerry's own
 '           - LP  - 9/16/2026 - book: six copies of one picture, all described "Cardboard boxes", stored
@@ -20905,6 +20931,15 @@ Sub Sh_Remove_Hyperlinks(Optional ByVal target As Range)
 
 Sub Sh_Color_Dollar_PG_Red()
 '
+' Version: 1.5 Date: 9/16/2026 - ActiveDocument.UndoClear REMOVED. It threw the transcriber's whole
+'                                undo history away - not undo presses, the history - in return for the
+'                                ONE find-and-replace below, and it did that to all six callers: LP File
+'                                Cleanup (twice), LP AutoTag Ref Pages, Lp_Normalize_Styles, the DAISY
+'                                tagger, and Lp_Validate_Dollar_PG - a REVIEW button, which should cost
+'                                nothing at all. NO custom undo record was put in its place: the replace
+'                                below is wdReplaceAll, and a record around one of those crashes Word
+'                                (access violation in wwlib.dll, measured twice). One press is already
+'                                well inside Jerry's limit, so there is nothing left to solve here.
 ' Version: 1.4 Date: 8/23/2026 - the tag is set NOT BOLD as well (Jerry). Three characters only
 ' Version: 1.3 Date: 7/5/2026 - added normal style to F&R
 ' Version: 1.3 Date: 2/8/2017
@@ -20945,7 +20980,6 @@ Sub Sh_Color_Dollar_PG_Red()
     Selection.Find.Execute Replace:=wdReplaceAll
     
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    ActiveDocument.UndoClear
     
 End Sub  '*** Sh_Color_Dollar_PG_Red Macro ***
 
@@ -26249,6 +26283,10 @@ Sub Sh_Para_Before_Dollar()
 '
 ' Sh_Para_Before_Dollar macro
 '
+' Version 1.1 9/16/2026 - ActiveDocument.UndoClear REMOVED. Three replaces never justified throwing
+'                         the whole undo history away, and BOTH File Cleanups call this one. No custom
+'                         undo record in its place - the replaces are wdReplaceAll, and a record around
+'                         one of those crashes Word.
 ' Version 1.0 3/2/2016
 '
 ' places a para mark before each $pg then removes
@@ -26316,7 +26354,6 @@ Sub Sh_Para_Before_Dollar()
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
     
-    ActiveDocument.UndoClear
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     Application.ScreenUpdating = su_Prev ' Turn screen updating on
     

@@ -1,6 +1,56 @@
 # Undo audit — every macro on both tabs, 9/16/2026
 
-**Status: survey only. Nothing has been changed.** Read at build **3.0.432** (commit `70fc8d4`).
+**Status: CLOSED by Jerry, 9/16/2026. No undo work is wanted on any macro in VistaType LP.**
+Read at build **3.0.432** (commit `70fc8d4`).
+
+He closed it in three steps, reading this file:
+
+1. *"there is no need to have an undo on the file cleanups, autotag ref pages and normalize styles.
+   they do their job and the user should not undo them."*
+2. On Format $pg Tags and Attach BANA Template: *"both are whole book jobs, no undo needed."*
+3. On everything that remained — Selection Clean Up, the TOC color bars, the two picture dialogs,
+   table border weights, title case, delete prodnotes, Embed/UnEmbed $pg, braille Remove Bullets,
+   Spelling List, Compress Linear Math: **none of them need any undo either.**
+
+**So every `UndoClear` stays where it is, and no macro is to be converted onto a hidden scratch
+document for the sake of its undo.** Two clears were removed at his request before he closed the
+question — `Sh_Color_Dollar_PG_Red` and `Sh_Para_Before_Dollar` — and that stands. No more.
+
+**The press counts below are still accurate and worth keeping.** It is the verdicts that are void:
+read "NEEDS WORK" as "costs this many presses, and that is accepted". The one part of this file
+that still asks for anything is **section 4**, which is not about undo at all.
+
+**Jerry's ruling, 9/16/2026, reads out a large part of this file.** His words: *"there is no need
+to have an undo on the file cleanups, autotag ref pages and normalize styles. they do their job and
+the user should not undo them."* So **both File Cleanups, both AutoTags, Normalize Styles and — by
+extension — the template attach are SETTLED and off the list**, and their `UndoClear` lines stay
+exactly where they are. They were the most expensive items here, at 75 to 104 passes each. He was
+told plainly that `UndoClear` also erases hand edits made *before* the button was pressed; it did
+not change his answer, and it should not be raised again for these.
+
+Asked the same day where **Format $pg Tags** and **Attach BANA Template** sat, he said: *"both are
+whole book jobs, no undo needed."* So `Lp_Format_Page_Numbers`, `Dx_Format_Tagged_Page_Numbers` and
+`Dx_Attach_BANA_Template_Run` are settled too, clears and all.
+
+`Sh_Fix_Ref_Pages_Before_and_After_Tables` comes off with them — the two AutoTags are its only
+callers.
+
+**Nine of the eighteen clears are therefore deliberate**, and section 1 should be read with that in
+mind. The ones still worth questioning are the small macros: Background Color, Foreign Lang in
+Color, the DAISY tagger, and Remove Para Formatting from Text Files — each does between one and six
+replaces and then empties the list.
+
+**One case Jerry's rule does not cover, still open.** `Dx_Is_BANA_Template_Attached` (`:4734`) runs
+the whole attach by itself when no BANA template is on the document. So pressing a *small* braille
+button — Dashes/Primes/Fractions, Spelling List, Exercise Levels — can empty the undo list without
+the transcriber ever asking for an attach. That is not a whole-book job they chose.
+
+**The line to work to:** a macro that works on the **whole book** to put it into shape needs no
+undo. A macro the transcriber points at a **selection** to make one specific change does.
+
+**Two of it are now done.** On 9/16/2026 Jerry asked for the clears in the two shared helpers to
+come out, and they did — `Sh_Color_Dollar_PG_Red` and `Sh_Para_Before_Dollar`. Both rows below are
+struck through and marked DONE. **Everything else in this file is still a survey and untouched.**
 
 What this covers: every button on the VistaType LP and Braille Macros tabs, everything the menu
 dialogs reach behind them, and the eight keyboard shortcuts in `src/keymap`. Line numbers are
@@ -39,8 +89,8 @@ This is the headline. Until these go, nothing else about those macros' undo matt
 
 | Macro | Line | What the clear costs |
 |---|---|---|
-| **`Sh_Color_Dollar_PG_Red`** | `:20948` | **One** replace, then the history goes. Six callers: `:9981` and `:10089` (LP File Cleanup, twice), `:12734` (LP AutoTag), `:14996` (**Validate $pg** — a review button), `:22606` (Normalize Styles), `DN_Tag_Daisy_Nimas_Form.frm:80` |
-| **`Sh_Para_Before_Dollar`** | `:26319` | Three replaces, then the history goes. Called from `:5168` (braille File Cleanup) and `:10033` (LP File Cleanup) |
+| ~~**`Sh_Color_Dollar_PG_Red`**~~ **DONE 9/16/2026** | was `:20948` | **One** replace, then the history goes. Six callers: `:9981` and `:10089` (LP File Cleanup, twice), `:12734` (LP AutoTag), `:14996` (**Validate $pg** — a review button), `:22606` (Normalize Styles), `DN_Tag_Daisy_Nimas_Form.frm:80` |
+| ~~**`Sh_Para_Before_Dollar`**~~ **DONE 9/16/2026** | was `:26319` | Three replaces, then the history goes. Called from `:5168` (braille File Cleanup) and `:10033` (LP File Cleanup) |
 | `Lp_Fix_Common_File_Errors` | `:10092` | plus the two above from inside it |
 | `Dx_Fix_Common_File_Errors_Run` | `:5236` | plus `:5761` and `:26319` from inside it |
 | `Lp_AutoTag_Page_Numbers` | `:12736` | plus `:20948` |
@@ -263,10 +313,25 @@ follows, but the intent in the comment is not what the code does.
 
 ## 5. If this turns into work
 
-**The cheapest real improvement in the whole survey is two lines** — the clears in
-`Sh_Color_Dollar_PG_Red` (`:20948`) and `Sh_Para_Before_Dollar` (`:26319`). Between them they leak
-into Validate $pg, both AutoTags, both File Cleanups, Normalize Styles and the DAISY tagger, and
-neither macro does more than three replaces' worth of work.
+~~**The cheapest real improvement in the whole survey is two lines**~~ — **DONE 9/16/2026.** The
+clears in `Sh_Color_Dollar_PG_Red` and `Sh_Para_Before_Dollar` are out, at Jerry's word. Between
+them they had leaked into Validate $pg, both AutoTags, both File Cleanups, Normalize Styles and
+the DAISY tagger, and neither macro does more than three replaces' worth of work.
+
+No custom undo record was put in their place: both run `wdReplaceAll`, which is the shape that
+crashes Word. Neither needed one — one press and three presses are both inside the limit.
+
+**Their callers' own clears still stand** and are untouched — and after Jerry's ruling above, five
+of the six are meant to. **Validate $pg is the button this change actually rescues**; it is the one
+caller with no clear of its own.
+
+**Honest note on the second line.** `Sh_Para_Before_Dollar` is called only from the two File
+Cleanups, and both of those clear the undo list themselves. So removing its clear **changes nothing
+a transcriber can see**. It is still the right shape — a shared helper should not decide policy for
+its callers — but it bought nothing, and this file said otherwise when it was first written.
+
+**Not yet tested in Word.** The four guards that run without Word pass. It has had no
+Debug → Compile and no `make try`.
 
 Then the picture divides cleanly:
 
