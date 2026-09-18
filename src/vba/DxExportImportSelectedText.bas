@@ -13,6 +13,12 @@ Sub Dx_ExportSelectionToNewFile()
     ' Exports selection to a new document preserving formatting/settings
     ' Works with Local drives and OneDrive personal and OnDrive Enterprise
     '
+    ' Version: 1.3 Date: 9/18/2026
+    '   - says so when no document is open, instead of failing on its first line. It read
+    '     ActiveDocument straight away, which with nothing on screen is run-time error 4248.
+    '     The handler was already set, so what the transcriber saw was dialog 260, "Export
+    '     failed in Dx_ExportSelectionToNewFile. Error 4248" - true, and no use at all.
+    '     Message 293 now, the same one every other button gives (Jerry, 9/18/2026)
     ' Version: 1.2 Date: 8/30/2026
     '   - the "file must be saved" test now runs BEFORE the two bookmarks are added.
     '     It leaves by Exit Sub, which skips CleanExit, so on an unsaved document it was
@@ -45,7 +51,11 @@ Sub Dx_ExportSelectionToNewFile()
     Dim startPos As Long, endPos As Long
     Dim errNum As Long
     Dim errText As String
-    
+
+    ' A DOCUMENT HAS TO BE ON SCREEN, and this comes before everything else, because step 1
+    ' reads ActiveDocument. Sh_Is_Doc_Open stops the macro itself.
+    Application.Run MacroName:="Sh_Is_Doc_Open"
+
     '===========================================================
     ' 1. VALIDATE, READ-ONLY CHECK & ANCHOR SELECTION
     '===========================================================
@@ -347,6 +357,12 @@ End Sub '*** end of Dx_UpdateProgressBar ***
 
 Sub Dx_Import_Exported_Selection_File()
     '
+    ' Version: 1.6  Date: 9/18/2026
+    '   - says so when no document is open, instead of failing on its first line. It read
+    '     ActiveDocument straight away, which with nothing on screen is run-time error 4248.
+    '     No handler was set yet, so RibbonAction caught it and the transcriber got the error
+    '     report dialog 240 and a line in the log. Message 293 now, the same one every other
+    '     button gives (Jerry, 9/18/2026)
     ' Version: 1.5  Date: 8/30/2026
     '   - one failure message shared with the large print macro: it now names the macro
     '     AND carries the error number, and goes through Sh_Say rather than MsgBox
@@ -374,7 +390,11 @@ Sub Dx_Import_Exported_Selection_File()
     Dim targetRange As Range
     Dim errNum As Long
     Dim errText As String
-    
+
+    ' A DOCUMENT HAS TO BE ON SCREEN, and this is the first thing the macro does, because the
+    ' very next statement reads ActiveDocument. Sh_Is_Doc_Open stops the macro itself.
+    Application.Run MacroName:="Sh_Is_Doc_Open"
+
     Set destDoc = ActiveDocument
     
     ' 1. ANCHOR THE DESTINATION IMMEDIATELY

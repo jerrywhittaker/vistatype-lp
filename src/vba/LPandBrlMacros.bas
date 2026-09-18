@@ -18,6 +18,29 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 9/18/2026 - NO-DOCUMENT CHECK ON THREE MORE LP BUTTONS. AutoTag Ref Pages had
+'           - Lp  - 9/18/2026 - one, eleven lines down behind Sh_Clear_Multi_Selection and
+'           - Lp  - 9/18/2026 - Sh_Save_User_Position, both of which read ActiveDocument themselves,
+'           - Lp  - 9/18/2026 - so it never ran; it is the first statement now. Export Sel to New Doc
+'           - Lp  - 9/18/2026 - and Import to Current Doc (LpExportImportSelectedText) had none at
+'           - Lp  - 9/18/2026 - all and read ActiveDocument on their first working line. All three
+'           - Lp  - 9/18/2026 - now give message 293. Jerry, 9/18/2026. Reset Word Configuration was
+'           - Lp  - 9/18/2026 - asked for too and needed nothing - it has stopped on its own message
+'           - Lp  - 9/18/2026 - 234 since 8/23/2026.
+' Notes:    - Lp  - 9/18/2026 - ERROR 5843 ATTACHING A LARGE PRINT TEMPLATE, at the progress step
+'           - Lp  - 9/18/2026 - "Setting table border weights". Reported by Jerry. Lp_Normalize_Styles
+'           - Lp  - 9/18/2026 - carried its own copy of the loop in Lp_Set_Table_Border_Weights, with
+'           - Lp  - 9/18/2026 - no error handling; that sub has guarded each table since 1/9/2024
+'           - Lp  - 9/18/2026 - because A TABLE OF ONE CELL HAS NO INSIDE BORDERS. Measured on the
+'           - Lp  - 9/18/2026 - build box: a 1x1 table raises on .InsideLineWidth and on nothing
+'           - Lp  - 9/18/2026 - else; 1x2, 2x1 and 2x2 are all fine. The copy is deleted and the sub
+'           - Lp  - 9/18/2026 - called, so one place sets table border weights again.
+' Notes:    - Dx  - 9/18/2026 - THE SAME THREE BRAILLE BUTTONS, straight after. AutoTag Ref Pages gets
+'           - Dx  - 9/18/2026 - the check first thing - Dx_Is_BANA_Template_Attached already ran it,
+'           - Dx  - 9/18/2026 - but Sh_Clear_Multi_Selection sat above that call and reads the
+'           - Dx  - 9/18/2026 - document itself. Export Sel to New Doc and Import to Current Doc
+'           - Dx  - 9/18/2026 - (DxExportImportSelectedText) had no check at all. All three now give
+'           - Dx  - 9/18/2026 - message 293. Jerry, 9/18/2026.
 ' Notes:    - Lp  - 9/18/2026 - FORMAT TOC READ ITS HEADING LIST ONE LINE OUT on a table of
 '           - Lp  - 9/18/2026 - contents whose FIRST line begins with a space. Reported by Jerry
 '           - Lp  - 9/18/2026 - against "Problem TOC.docx": "Module Review 203" came out Normal
@@ -6106,6 +6129,11 @@ End Sub   '***** End of Dx_Spelling_List Macro *****
 
 Sub Dx_AutoTag_Page_Numbers()
 '
+' Version: 3.1 Date: 9/18/2026 - says so when no document is open. Dx_Is_BANA_Template_Attached runs
+'                                Sh_Is_Doc_Open, but Sh_Clear_Multi_Selection sat above it and reads
+'                                ActiveDocument.Content itself, so the macro raised run-time error
+'                                4248 first and the transcriber got the error report dialog 240 and a
+'                                log line instead of being told what was wrong (Jerry, 9/18/2026)
 ' Version: 3.0 Date: 8/26/2026 - roman page numbers no longer stop at 387. The paragraph window was 11
 '                                characters, so CCCLXXXVIII (388) and everything above it was skipped;
 '                                it is 16 now, which covers every numeral below 4000
@@ -6130,7 +6158,12 @@ Sub Dx_AutoTag_Page_Numbers()
 ' Also locates continuation pages ##-## and enters the [[*lec*]][[*i*]] code
 '
 
-    ' FIRST, before anything reads or moves the cursor. Validation can leave every $pg
+    ' BEFORE ANYTHING ELSE. Dx_Is_BANA_Template_Attached runs this check too, but it is two
+    ' lines down and Sh_Clear_Multi_Selection reads ActiveDocument.Content on its own, so with
+    ' no document open the macro never got that far.
+    Application.Run MacroName:="Sh_Is_Doc_Open"
+
+    ' Then, before anything reads or moves the cursor. Validation can leave every $pg
     ' paragraph selected at once, and Word then refuses most Selection work with error 4605.
     Sh_Clear_Multi_Selection
 
@@ -12504,6 +12537,10 @@ End Function   '*** end of Lp_Is_Hyphen_Char function ***
 
 Sub Lp_AutoTag_Page_Numbers()
 '
+' Version: 2.8  Date: 9/18/2026 - the no-document check runs FIRST. It used to sit eleven lines down,
+'                                behind two calls that reach for ActiveDocument themselves, so with no
+'                                document open the transcriber got the error report dialog 240 and a
+'                                log line instead of being told what was wrong (Jerry, 9/18/2026)
 ' Version: 2.7  Date: 8/26/2026 - roman page numbers no longer stop at 387: the paragraph window was 11
 '                                characters and is 16 now, covering every numeral below 4000
 ' Version: 2.6  Date: 8/26/2026 - ended the On Error Resume Next set inside the roman-numeral loop.
@@ -12518,7 +12555,15 @@ Sub Lp_AutoTag_Page_Numbers()
 ' Locates potential reference page numbers and tags with $pg
 '
 
-    ' FIRST, before anything reads or moves the cursor. Validation can leave every $pg
+    ' BEFORE ANYTHING ELSE, because the two calls below reach for the document themselves:
+    ' Sh_Clear_Multi_Selection reads ActiveDocument.Content and Sh_Save_User_Position reads
+    ' ActiveDocument.Name. With no document open this macro therefore raised run-time error
+    ' 4248 before it ever reached the check, which used to sit eleven lines further down -
+    ' RibbonAction caught it and reported it as dialog 240, which names the button and not
+    ' the one thing the transcriber needs to be told.
+    Application.Run MacroName:="Sh_Is_Doc_Open"
+
+    ' Then, before anything reads or moves the cursor. Validation can leave every $pg
     ' paragraph selected at once, and Word then refuses most Selection work with error 4605.
     Sh_Clear_Multi_Selection
 
@@ -12530,7 +12575,6 @@ Sub Lp_AutoTag_Page_Numbers()
 
     Sh_Save_User_Position
 
-    Application.Run MacroName:="Sh_Is_Doc_Open"
     Application.Run MacroName:="MS_Set_Word_Config_For_Large_Print"
     Application.Run MacroName:="Lp_Fix_Para_Space_Errors"
     Application.Run MacroName:="Lp_Fix_Hyphen_Errors"
@@ -22613,6 +22657,12 @@ End Function   '*** end of Sh_Number_To_Roman ***
 
 Sub Lp_Normalize_Styles()
     '
+    ' Version: 3.8  Date: 9/18/2026 - RUN-TIME ERROR 5843 AT "Setting table border weights" on a book
+    '                               holding a SINGLE-CELL table, reported by Jerry attaching a large
+    '                               print template. The loop here was an unguarded copy of
+    '                               Lp_Set_Table_Border_Weights, which has guarded each table since
+    '                               1/9/2024 because a one-cell table has no inside borders. The copy
+    '                               is gone and the sub is called instead
     ' Version: 3.7  Date: 9/6/2026 - its thirteen messages go on the progress bar through
     '                               Lp_Ns_Step instead of into Sh_NonModalMessageForm. Usually
     '                               runs inside a slice the attach hands it; run from an import
@@ -22730,7 +22780,6 @@ Sub Lp_Normalize_Styles()
     '**** Begin set border weights for box styles, table styles and Print Pg Num Style ****
     Lp_Ns_Step stepNo, "Setting box border weights"
 
-    Dim tbl As Table
     Dim targetWeight As WdLineWidth
     Dim sName As Variant
     Dim arrBoxStyles As Variant
@@ -22784,17 +22833,24 @@ Sub Lp_Normalize_Styles()
 
     Lp_Ns_Step stepNo, "Setting table border weights"
 
-    For Each tbl In ActiveDocument.Tables
-        With tbl.Borders
-            .InsideLineStyle = wdLineStyleSingle
-            .OutsideLineStyle = wdLineStyleSingle
-            .InsideColorIndex = wdAuto
-            .OutsideColorIndex = wdAuto
-
-            .InsideLineWidth = targetWeight
-            .OutsideLineWidth = targetWeight
-        End With
-    Next tbl
+    ' ONE PLACE SETS TABLE BORDER WEIGHTS, and this is no longer a second copy of it.
+    '
+    ' What stood here was a hand-written duplicate of the loop inside
+    ' Lp_Set_Table_Border_Weights - and the duplicate never learned what that sub learned on
+    ' 1/9/2024: A TABLE OF ONE CELL HAS NO INSIDE BORDERS, and setting an inside border on it
+    ' raises. The sub guards each table with On Error Resume Next for exactly that; the copy
+    ' had no handler at all, and the On Error GoTo 0 a few lines above left the error live, so
+    ' it reached the transcriber as run-time error 5843. Reported by Jerry, 9/18/2026,
+    ' attaching a large print template to a book with a single-cell table in it.
+    '
+    ' MEASURED on the build box, 9/18/2026, on 1x1, 1x2, 2x1 and 2x2 tables: only the 1x1
+    ' raises, and only on .InsideLineWidth. .InsideLineStyle, both ColorIndex properties and
+    ' .OutsideLineWidth all succeed on it, which is why this went unnoticed - the statement
+    ' that fails is the sixth of six.
+    '
+    ' A DIRECT call, not Application.Run: Word keeps an error raised inside Application.Run to
+    ' itself and shows its own Debug dialog, so the caller could never report one.
+    Lp_Set_Table_Border_Weights
     '**** End border weights ****
 
     '********* Begin Expand Font Spacing Settings ******

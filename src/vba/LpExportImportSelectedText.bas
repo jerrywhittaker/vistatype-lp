@@ -12,6 +12,12 @@ Sub Lp_Export_Selection_To_NewFile()
     '
     ' copies selected text to a new file - Exact Clone of Master DNA
     '
+    ' Version 1.3 Date: 9/18/2026
+    '   - says so when no document is open, instead of failing on its first line. It read
+    '     ActiveDocument straight away, which with nothing on screen is run-time error 4248.
+    '     The handler was already set, so what the transcriber saw was dialog 253, "Export
+    '     failed in Lp_Export_Selection_To_NewFile. Error 4248" - true, and no use at all.
+    '     Message 293 now, the same one every other button gives (Jerry, 9/18/2026)
     ' Version 1.2 Date: 8/30/2026
     '   - HAS AN ERROR HANDLER. It had none: CleanExit was never jumped to, so any
     '     failure left Application.Options.BackgroundSave switched OFF for Word itself,
@@ -40,6 +46,10 @@ Sub Lp_Export_Selection_To_NewFile()
     Dim undoRec As UndoRecord
     Dim errNum As Long
     Dim errText As String
+
+    ' A DOCUMENT HAS TO BE ON SCREEN, and this is the first thing the macro does, because the
+    ' very next statement reads ActiveDocument. Sh_Is_Doc_Open stops the macro itself.
+    Application.Run MacroName:="Sh_Is_Doc_Open"
 
     On Error GoTo ErrHandler
 
@@ -339,6 +349,12 @@ Sub Lp_Import_Exported_Selection_File()
     '
     ' Imports another Word file into this one at the cursor.
     '
+    ' Version: 1.3  Date: 9/18/2026
+    '   - says so when no document is open, instead of failing on its first line. It read
+    '     ActiveDocument straight away, which with nothing on screen is run-time error 4248.
+    '     No handler was set yet, so RibbonAction caught it and the transcriber got the error
+    '     report dialog 240 and a line in the log. Message 293 now, the same one every other
+    '     button gives (Jerry, 9/18/2026)
     ' Version: 1.2  Date: 8/30/2026
     '   - one failure message shared with the braille macro: it now names the macro AND
     '     carries the error number, and goes through Sh_Say rather than MsgBox
@@ -354,7 +370,11 @@ Sub Lp_Import_Exported_Selection_File()
     Dim targetRange As Range
     Dim errNum As Long
     Dim errText As String
-    
+
+    ' A DOCUMENT HAS TO BE ON SCREEN, and this is the first thing the macro does, because the
+    ' very next statement reads ActiveDocument. Sh_Is_Doc_Open stops the macro itself.
+    Application.Run MacroName:="Sh_Is_Doc_Open"
+
     Set destDoc = ActiveDocument
     
     ' 1. Anchor the destination immediately
