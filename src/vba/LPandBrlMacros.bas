@@ -18,6 +18,40 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 9/17/2026 - FORMAT TOC READS A CONTENTS PAGE WHOSE PAGE NUMBERS STAND ON THEIR
+'           - Lp  - 9/17/2026 - OWN LINE. Jerry's "Problem TOC.docx", a NIMAS file in which the
+'           - Lp  - 9/17/2026 - entry text is one paragraph and its page number is the NEXT one, by
+'           - Lp  - 9/17/2026 - itself. Measured: 29 paragraphs, 13 of them nothing but a number,
+'           - Lp  - 9/17/2026 - and NOT ONE ending in a page number - no tabs, no dot leaders, no
+'           - Lp  - 9/17/2026 - styles, no TOC field. This macro finds an entry one way only, a
+'           - Lp  - 9/17/2026 - space then a number at the END of the paragraph, so it found none
+'           - Lp  - 9/17/2026 - of them and gave all 13 numbers a blank line before them as though
+'           - Lp  - 9/17/2026 - each were a section heading - worse than the file it was given.
+'           - Lp  - 9/17/2026 - Lp_TOC_Join_Orphan_Page_Numbers pulls each one up onto the line
+'           - Lp  - 9/17/2026 - above, JOINED WITH A TAB, before anything else runs. The tab is not
+'           - Lp  - 9/17/2026 - decoration: the 9/7/2026 rule says a dot leader or a tab outranks
+'           - Lp  - 9/17/2026 - bold, so the joined line is read as an entry even though it is
+'           - Lp  - 9/17/2026 - WHOLLY bold - which six of that file's thirteen entries are, number
+'           - Lp  - 9/17/2026 - included. Then the existing ^t -> space pass turns it back and the
+'           - Lp  - 9/17/2026 - line formats like any other. Jerry's call, same day: a page number
+'           - Lp  - 9/17/2026 - this macro pulled up itself wins over bold. IT RUNS FIRST BECAUSE
+'           - Lp  - 9/17/2026 - THE LEGEND PASS WOULD OTHERWISE DELETE REAL ENTRIES: that pass drops
+'           - Lp  - 9/17/2026 - any bulleted line with no page number at its end, which on a file of
+'           - Lp  - 9/17/2026 - this shape is every entry in the book - 160 of them in "Big TOC from
+'           - Lp  - 9/17/2026 - NIMAS File.docx". Never reported; found by reading the file. THE
+'           - Lp  - 9/17/2026 - LEGEND PASS'S OWN TEST HAD TO BE WIDENED TOO: it asked for a period
+'           - Lp  - 9/17/2026 - or a space in front of the number and not a tab, so a line this
+'           - Lp  - 9/17/2026 - macro had just joined still read as "bulleted, no page number" and
+'           - Lp  - 9/17/2026 - was deleted anyway - running first bought nothing on its own.
+'           - Lp  - 9/17/2026 - Caught in review; it could not have shown up in "Problem TOC.docx",
+'           - Lp  - 9/17/2026 - which carries no bullets. Measured after the fix on a made-up
+'           - Lp  - 9/17/2026 - bulleted TOC: three entries kept with their numbers, two legend
+'           - Lp  - 9/17/2026 - lines dropped. And
+'           - Lp  - 9/17/2026 - Lp_TOC_Para_Is_Bold now trims a LEADING space as well as a trailing
+'           - Lp  - 9/17/2026 - one: ' MODULE 8 Dollar Amounts' answered "not bold" on one space
+'           - Lp  - 9/17/2026 - while 'MODULE 9 Time' answered bold, so the same file's two headings
+'           - Lp  - 9/17/2026 - were treated opposite ways. No new undo cost - it all happens in the
+'           - Lp  - 9/17/2026 - hidden scratch document, so Format TOC is still ONE Ctrl+Z press.
 ' Notes:    - LP  - 9/17/2026 - TWO PICTURE DIALOGS FOLLOW WHAT THE TRANSCRIBER IS DOING. Both
 '           - LP  - 9/17/2026 - Jerry's. Align Pictures (339) opens on "Pictures in a selected text
 '           - LP  - 9/17/2026 - range, selected picture, or selected table" when something IS
@@ -22979,11 +23013,14 @@ Private Function Lp_TOC_Para_Is_Bold(ByVal paraRange As Range) As Boolean
     ' A bold line in a table of contents is a section heading - "Section 1", "Section 2" - and not
     ' an entry, so Format TOC must leave it exactly as the transcriber typed it. Jerry, 9/7/2026.
     '
+    ' Version: 1.1  Date: 9/17/2026 - trims a LEADING space or non-breaking space as well as a
+    '                               trailing one. See the note in the body.
     ' Version: 1.0  Date: 9/7/2026
     '
     Dim r As Range
     Dim ch As String
     Dim lastEnd As Long
+    Dim lastStart As Long
 
     On Error GoTo NotBold
 
@@ -23017,7 +23054,23 @@ Private Function Lp_TOC_Para_Is_Bold(ByVal paraRange As Range) As Boolean
         If r.End >= lastEnd Then Exit Do
     Loop
 
-    If r.start >= r.End Then Exit Function      ' nothing but the tail - not a heading
+    ' AND TRIM THE HEAD THE SAME WAY. A leading space is no more something the transcriber can
+    ' see than a trailing one, and it answers the same wdUndefined when it is not bold while the
+    ' words are. Jerry's "Problem TOC.docx", 9/17/2026, has both module headings in it and one
+    ' plain space between them: ' MODULE 8 Dollar Amounts' came back False and was reset to
+    ' Normal, while 'MODULE 9 Time' came back True and was left alone - two headings in one file
+    ' treated opposite ways. The "^p " pass does take that space off, but it runs long after the
+    ' heading list has been decided.
+    Do While r.End > r.start
+        ch = r.Characters.First.Text
+        If ch <> " " And ch <> Chr(160) Then Exit Do
+        lastStart = r.start
+        r.MoveStart Unit:=wdCharacter, Count:=1
+        ' The same no-progress guard the tail loop carries, and for the same reason.
+        If r.start <= lastStart Then Exit Do
+    Loop
+
+    If r.start >= r.End Then Exit Function      ' nothing but the trimmings - not a heading
 
     ' Font.Bold answers True, False, or wdUndefined (9999999) when the run is mixed, and only
     ' "all of it" counts here: an entry whose TITLE is bold but whose page number is not is still
@@ -23030,6 +23083,146 @@ NotBold:
     ' existed, so a document that cannot answer behaves exactly as it always has.
     Lp_TOC_Para_Is_Bold = False
 End Function
+
+' A PAGE NUMBER STANDING ALONE ON ITS OWN LINE IS PULLED UP ONTO THE LINE ABOVE.
+'
+' Jerry, 9/17/2026, reporting "Problem TOC.docx" - a NIMAS contents page in which the entry text
+' is one paragraph and its page number is the NEXT one, by itself:
+'
+'     Module Opener
+'     187
+'     Are You Ready?
+'     188
+'
+' Measured in that file: 29 paragraphs, 13 of them nothing but a number, and NOT ONE ending in a
+' page number. No tabs, no dot leaders, no styles, no TOC field. This macro finds an entry one way
+' only - a space, then a number, at the END of the paragraph - so before this pass it found none of
+' them, gave all 13 numbers a blank line before them as though each were a section heading, and
+' handed back a contents page further from finished than the one it was given.
+'
+' THE JOIN IS MADE WITH A TAB, AND THE TAB IS DOING REAL WORK. Three steps follow from it, all of
+' them machinery that was already here:
+'
+'   1. The heading test below reads the tab and says "not a heading" - the rule set on 9/7/2026,
+'      a dot leader or a tab outranks bold. That rule is what makes this work on this book: both
+'      "Module Opener" and "187" are bold, so the joined line is WHOLLY bold and would otherwise be
+'      read as a section name and left alone. Six of that file's thirteen entries are like that.
+'      A page number this macro pulled up itself is evidence of an entry in exactly the way a
+'      leader is. Jerry's call, 9/17/2026.
+'   2. The unconditional "^t" -> " " pass turns the tab back into a space before any detection.
+'   3. The entry pattern then finds " 187" at the end and the line formats like any other.
+'
+' A tab rather than a flag ON PURPOSE. The heading list is an array indexed by paragraph ordinal,
+' and both this pass and the bullet-legend pass below change the paragraph count - an array of
+' "lines I joined" would have to survive both and could silently slip out of step. A tab travels
+' with the text and cannot.
+'
+' WHY IT MUST RUN BEFORE THE BULLET-LEGEND PASS. That pass drops any line that begins with a bullet
+' and has no page number at its end. On a NIMAS file shaped like this one that is true of every
+' real entry - "square Lesson 1.1 Place Value Patterns" followed by "3" on its own line - so it
+' would DELETE them. "Big TOC from NIMAS File.docx" has 160 such entries. Nothing has reported it
+' because that book's numbers happen to sit on the right lines; this pass is what keeps it that way.
+' It must also run before the heading list is built, for the counting reason above.
+'
+' RUNNING FIRST IS NOT ENOUGH ON ITS OWN, and the first draft of this got it wrong. That pass asked
+' for "[. ]" in front of the number - a period or a space, NOT a tab - so a line this pass had just
+' joined still read as "bulleted, no page number" and was deleted anyway. Its class now takes a tab
+' as well. Caught in review, 9/17/2026, and it would not have shown up in "Problem TOC.docx", which
+' carries no bullets at all.
+'
+' WHAT COUNTS AS A NUMBER STANDING ALONE is deliberately tighter than the end-of-line pattern. A
+' whole paragraph made of one word is a far easier false match than a word at the end of a
+' sentence, and the end-of-line pattern runs with IgnoreCase on, where the roman alternation also
+' matches "Mix", "Did" and "Civic". So: digits with at most one leading letter (187, E1, G1), or a
+' roman numeral in ONE CASE throughout - "iv" or "IV", never "Mix". "MIX" in capitals would still
+' pass, which is a lone all-caps word in a contents page, and is accepted.
+'
+' Backwards through the paragraphs, as the legend pass goes, so a join cannot move the ones still
+' to be looked at. A paragraph mark and a tab are both one character, so the range bounds do not
+' shift either.
+'
+Private Sub Lp_TOC_Join_Orphan_Page_Numbers(ByVal workRng As Range)
+    '
+    ' Version: 1.0  Date: 9/17/2026 - new. See the note above.
+    '
+    Dim regexLone As Object
+    Dim regexTail As Object
+    Dim paraNo As Long
+    Dim paraRange As Range
+    Dim prevRange As Range
+    Dim markRng As Range
+    Dim prevText As String
+    Dim prevBody As String
+
+    ' Nothing here may raise. This runs before a single character has been cleaned up, and a book
+    ' that cannot answer must come out exactly as it went in - which is what this macro did before
+    ' the pass existed.
+    On Error GoTo NoJoin
+
+    ' The whole paragraph is a page number and nothing else. IgnoreCase deliberately OFF, which
+    ' refuses the MIXED-case words the end-of-line pattern accepts - "Mix", "Did", "Civic". It does
+    ' NOT refuse them in one case throughout: "mix", "did", "civil" and "mild" all still match, as
+    ' does a lone "C" or "I". Said plainly because the first draft of this comment claimed more
+    ' than the code does. The exposure is a paragraph that is NOTHING BUT such a word, in a table
+    ' of contents, which is why it is accepted rather than chased.
+    Set regexLone = CreateObject("VBScript.RegExp")
+    With regexLone
+        .pattern = "^[ \t\xA0]*([A-Za-z]?\d+|[ivxlcdm]+|[IVXLCDM]+)[ \t\xA0]*[\r\n]{1,2}$"
+        .IgnoreCase = False
+        .Global = False
+    End With
+
+    ' The line above already ends in a page number - the same test the legend pass uses, tolerating
+    ' a dot leader as well as a space because nothing has been cleaned up yet. A line that already
+    ' has its number is not waiting for one.
+    Set regexTail = CreateObject("VBScript.RegExp")
+    With regexTail
+        .pattern = "[. \t](\b(M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})|[A-Za-z]?\d+))[\r\n]{1,2}$"
+        .IgnoreCase = True
+        .Global = False
+    End With
+
+    For paraNo = workRng.Paragraphs.count To 2 Step -1
+        Set paraRange = workRng.Paragraphs(paraNo).Range
+        ' AND THE NUMBER'S OWN LINE MUST NOT BE A REFERENCE PAGE LINE. A Print Pg Num paragraph
+        ' normally carries "pn", which cannot match, but the pass at the end of this macro tolerates
+        ' one without it - and such a paragraph, reading literally "187", would be pulled up and its
+        ' marker lost. Caught in review, 9/17/2026.
+        If regexLone.test(paraRange.Text) _
+           And Not Sh_Para_Style_Is(paraRange, "Print Pg Num") Then
+            Set prevRange = workRng.Paragraphs(paraNo - 1).Range
+            prevText = prevRange.Text
+            prevBody = Trim$(Replace(Replace(Replace(prevText, vbCr, ""), vbLf, ""), Chr(160), " "))
+
+            ' Six things must all hold before a number is moved. Each one is a line that is NOT
+            ' waiting for a page number: an empty line, a second number, a line that already has
+            ' one, a line that already carries a tab, the last line of a TABLE CELL, and a
+            ' reference-page line.
+            '
+            ' Chr(7) is the end-of-cell mark. A selection inside a table is refused at the top of
+            ' Lp_TOC_CleanAndFormat_TOC, so this should be out of reach - but where it is not,
+            ' Word hands back the paragraph mark and the cell mark as ONE character (measured
+            ' 9/7/2026, see Lp_TOC_Para_Is_Bold), so "End - 1" would land on the cell mark and
+            ' writing a tab over it raises. One comparison closes the whole class.
+            If Len(prevBody) > 0 _
+               And Not regexLone.test(prevText) _
+               And Not regexTail.test(prevText) _
+               And InStr(prevText, vbTab) = 0 _
+               And InStr(prevText, Chr(7)) = 0 _
+               And Left$(prevText, 3) <> "$pg" _
+               And Not Sh_Para_Style_Is(prevRange, "Print Pg Num") Then
+
+                ' Replace the paragraph mark of the line above with a tab, which merges the two.
+                Set markRng = prevRange.Duplicate
+                markRng.start = prevRange.End - 1
+                markRng.End = prevRange.End
+                markRng.Text = vbTab
+            End If
+        End If
+    Next paraNo
+
+NoJoin:
+End Sub
 
 ' ONE find-and-replace over a fresh Duplicate of the range, with every property set explicitly.
 ' Word's find settings are application-wide, so a Find object inherits whatever was left in them -
@@ -23068,6 +23261,17 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     ' into a tab, un-bolds the number, applies TOC 1, and lays a tab in front of the "pn" in each
     ' Print Pg Num paragraph.
     '
+    ' Version: 2.6  Date: 9/17/2026 - a PAGE NUMBER STANDING ALONE ON ITS OWN LINE is pulled up onto
+    '                               the line above, joined with a tab, before anything else runs -
+    '                               the shape "Problem TOC.docx" arrives in, where the entry text is
+    '                               one paragraph and its number the next. It runs first because the
+    '                               legend pass would otherwise DELETE a bulleted entry whose number
+    '                               stands on the next line - and that pass's own "has a page
+    '                               number" test now accepts a TAB as well as a space or a dot
+    '                               leader, without which running first bought nothing and the
+    '                               joined entry was deleted anyway (caught in review, same day).
+    '                               Lp_TOC_Para_Is_Bold also trims a LEADING space now.
+    '                               See Lp_TOC_Join_Orphan_Page_Numbers.
     ' Version: 2.5  Date: 9/7/2026 - the NIMAS book: the TOFU SQUARE (U+25A1) joins the bullets,
     '                               DOT LEADERS (runs of periods, not the ellipsis character) become
     '                               a space, and a DOT LEADER OR TAB now outranks bold when deciding
@@ -23353,6 +23557,13 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     Set workRng = tempDoc.Range(tempDoc.Paragraphs(2).Range.start, tempDoc.Content.End - 1)
     Set fixRng = tempDoc.Range(tempDoc.Paragraphs(1).Range.End - 1, tempDoc.Content.End - 1)
 
+    Sh_Last_Activity = "Format TOC: page numbers left on their own line"
+
+    ' FIRST, AND IT HAS TO BE FIRST. See the long note on the sub itself: the legend pass
+    ' below would DELETE a bulleted entry whose page number stands on the next line, and the
+    ' heading list below is counted by paragraph position, which this pass changes.
+    Lp_TOC_Join_Orphan_Page_Numbers workRng
+
     '*******************************************************
     ' WHICH LINES ARE HEADINGS IS DECIDED HERE, BEFORE A SINGLE CHARACTER IS TOUCHED.
     '
@@ -23374,8 +23585,11 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     ' like a chapter name followed by a page number, treat it that way."
     '
     ' Read NOW because the passes below destroy both signals: the leaders become spaces and the
-    ' tabs became spaces in the very first block. Paragraph numbers are safe to hold on to - not
-    ' one pass in this macro adds or removes a paragraph mark.
+    ' tabs became spaces in the very first block. Paragraph numbers are safe to hold on to FROM
+    ' HERE ON - no pass below this point adds or removes a paragraph mark. Two ABOVE it do, and
+    ' that is why they are above it: Lp_TOC_Join_Orphan_Page_Numbers merges a stranded page number
+    ' into the line before it, and the legend pass drops a line. Anything else that changes the
+    ' count has to go above this block too, or every heading after it is read off the wrong line.
     '*******************************************************
     '*******************************************************
     ' A BULLETED LINE WITH NO PAGE NUMBER IS DROPPED. Jerry, 9/7/2026: "If the three-line legend
@@ -23396,10 +23610,18 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     ' The test tolerates a DOT LEADER in front of the number as well as a space, because nothing
     ' has been cleaned up yet and the leaders are still there. Backwards through the paragraphs,
     ' so a deletion cannot move the ones still to be looked at.
+    '
+    ' AND A TAB. Caught in review, 9/17/2026, not by a report - the class was "[. ]", and
+    ' Lp_TOC_Join_Orphan_Page_Numbers above joins with a TAB. So a bulleted NIMAS entry whose page
+    ' number had been pulled up - "square Lesson 1.1 Place Value Patterns<tab>3" - read as a
+    ' bulleted line with NO page number and was DELETED, which is the opposite of what running the
+    ' join first was meant to buy, and worse than before it: the number used to survive as a stray
+    ' paragraph, and now it goes with the line. A tab in front of a number means a page number
+    ' whoever put it there, so the class takes all three.
     '*******************************************************
     Set regexNum = CreateObject("VBScript.RegExp")
     With regexNum
-        .pattern = "[. ](\b(M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})|[A-Za-z]?\d+))[\r\n]{1,2}$"
+        .pattern = "[. \t](\b(M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})|[A-Za-z]?\d+))[\r\n]{1,2}$"
         .IgnoreCase = True
         .Global = False
     End With
