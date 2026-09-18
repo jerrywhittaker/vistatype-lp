@@ -18,6 +18,24 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 9/18/2026 - FORMAT TOC READ ITS HEADING LIST ONE LINE OUT on a table of
+'           - Lp  - 9/18/2026 - contents whose FIRST line begins with a space. Reported by Jerry
+'           - Lp  - 9/18/2026 - against "Problem TOC.docx": "Module Review 203" came out Normal
+'           - Lp  - 9/18/2026 - with no tab while everything else was right. Cause, found in his
+'           - Lp  - 9/18/2026 - SAVED RESULT rather than by reasoning: the two fixRng passes reach
+'           - Lp  - 9/18/2026 - back to the empty paragraph in front of the TOC and rewrite its
+'           - Lp  - 9/18/2026 - paragraph mark, and Word does that by deleting the mark and putting
+'           - Lp  - 9/18/2026 - a new one in. workRng started immediately after the old mark, so it
+'           - Lp  - 9/18/2026 - ended up starting BEFORE the new one and swallowed that empty
+'           - Lp  - 9/18/2026 - paragraph - one extra item AT THE FRONT of workRng.Paragraphs,
+'           - Lp  - 9/18/2026 - filled in after isHeading had been built, so every lookup in both
+'           - Lp  - 9/18/2026 - loops was one out. "Module Review 203" read MODULE 9's flag and was
+'           - Lp  - 9/18/2026 - treated as a heading; MODULE 8 and MODULE 9 read the flags of the
+'           - Lp  - 9/18/2026 - entries after them. Cured by re-anchoring workRng from
+'           - Lp  - 9/18/2026 - Paragraphs(2) before the loops, the same way the tidy block already
+'           - Lp  - 9/18/2026 - derives bodyRng. It needs a TOC whose first line begins with a
+'           - Lp  - 9/18/2026 - space, which is the only thing that makes "^p " match at that
+'           - Lp  - 9/18/2026 - boundary, so nothing could have hit it before 9/17/2026.
 ' Notes:    - Lp  - 9/17/2026 - FORMAT TOC READS A CONTENTS PAGE WHOSE PAGE NUMBERS STAND ON THEIR
 '           - Lp  - 9/17/2026 - OWN LINE. Jerry's "Problem TOC.docx", a NIMAS file in which the
 '           - Lp  - 9/17/2026 - entry text is one paragraph and its page number is the NEXT one, by
@@ -23261,6 +23279,12 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     ' into a tab, un-bolds the number, applies TOC 1, and lays a tab in front of the "pn" in each
     ' Print Pg Num paragraph.
     '
+    ' Version: 2.7  Date: 9/18/2026 - THE HEADING LIST WAS READ ONE LINE OUT on a TOC whose first
+    '                               line begins with a space. The fixRng passes rewrite the empty
+    '                               paragraph's own mark, and workRng then absorbs that paragraph,
+    '                               so every isHeading lookup below was off by one. workRng is
+    '                               re-anchored from Paragraphs(2) before the loops. Measured in
+    '                               Jerry's saved result; see the note where it is re-anchored.
     ' Version: 2.6  Date: 9/17/2026 - a PAGE NUMBER STANDING ALONE ON ITS OWN LINE is pulled up onto
     '                               the line above, joined with a tab, before anything else runs -
     '                               the shape "Problem TOC.docx" arrives in, where the entry text is
@@ -23764,6 +23788,30 @@ Sub Lp_TOC_CleanAndFormat_TOC()
         .MatchWildcards = True
         .Execute Replace:=wdReplaceAll
     End With
+
+    '*******************************************************
+    ' RE-ANCHOR workRng BEFORE THE HEADING LIST IS USED. Every fixRng pass above rewrites the
+    ' paragraph mark of the EMPTY paragraph in front of the TOC - that is what fixRng reaches back
+    ' for - and Word does that by deleting the mark and inserting a new one. workRng began
+    ' immediately AFTER the old mark, so it ends up starting BEFORE the new one and the empty
+    ' paragraph falls inside it. From that moment workRng.Paragraphs has one more item AT THE
+    ' FRONT than it had when isHeading was filled in, and every isHeading(paraNo) lookup in the two
+    ' loops below is one out.
+    '
+    ' MEASURED on Jerry's own "Problem TOC.docx", 9/18/2026, in the saved result: "Module Review
+    ' 203" read MODULE 9's flag, so it was treated as a heading - given a blank line before it
+    ' (SpaceBefore 18pt) and left with no tab and no TOC 1 - while MODULE 8 and MODULE 9 read the
+    ' flags of the entries after them and were reset to Normal with no blank line. Every other line
+    ' still came out right, which is what made it look like one stray fault instead of a shift.
+    '
+    ' It needs a TOC whose FIRST line begins with a space, which is the only thing that makes
+    ' "^p " match at that boundary at all - so it was not reachable before 9/17/2026, when this
+    ' macro first started formatting a book of this shape.
+    '
+    ' Re-derived from Paragraphs(2) exactly as the tidy block below derives bodyRng, and safe
+    ' because no pass between there and here adds or removes a paragraph of the TOC itself.
+    '*******************************************************
+    Set workRng = tempDoc.Range(tempDoc.Paragraphs(2).Range.start, tempDoc.Content.End - 1)
 
     'start remove nonbreaking space for all except style "Print Pg Num"
     Sh_Last_Activity = "Format TOC: removing the non-breaking spaces"
