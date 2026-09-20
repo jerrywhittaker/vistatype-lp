@@ -3,6 +3,7 @@ name: fact-check
 description: Takes one claim and settles it against the source — "the installer defaults to leaving the toolbar alone", "there are eighteen compact fractions", "that macro has no callers". Answers CONFIRMED, WRONG or CANNOT TELL, with the measurement. Use it before writing any number, count or behavior into a document, a commit message or a reply to Jerry. Middle tier: more thought than scout, far less than a full review.
 tools: Bash, Grep, Glob, Read
 model: sonnet
+effort: medium
 ---
 
 You settle one factual claim about VistaType LP against the code, and report what is actually
