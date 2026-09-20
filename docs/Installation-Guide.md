@@ -55,6 +55,18 @@ So you know exactly what changed on your computer:
 | The typeface’s license | `%AppData%\VistaType LP Sans Fonts` | Three SIL Open Font License texts, one per typeface it is built from |
 | Removed the **VistaTypeLP Legible** typeface | Your personal **Fonts** folder | If an earlier version had installed it — see below |
 
+Two things VistaType LP writes **itself**, the first time it runs rather than during the
+install, and **leaves behind when you uninstall** — so a reinstall does not cost you them:
+
+| It writes | Where | What it holds |
+|---|---|---|
+| `VistaType.ini` | `%AppData%\VistaType LP Settings` | Your own Word settings, so VistaType LP can put them back after a book has changed them |
+| `AutoCorrect-DEF.txt`, `-LP.txt`, `-BRL.txt` | the same folder | **Three separate AutoCorrect lists, one per kind of document.** Word keeps only one AutoCorrect list for the whole program, so until 9/19/2026 the fraction entries a braille or large-print book removes came off your own letters too, permanently. Now each kind of document gets its own list and yours is left alone. Document Settings shows which one is in use |
+| `VistaType-Errors.log` | the same folder | The last 50 faults, newest first. If a macro fails, the message offers to open this folder |
+
+Formatted AutoCorrect entries of your own are never touched — their content lives inside
+`Normal.dotm` and cannot be read back — so those stay shared across all three lists.
+
 ---
 
 ## Confirm it’s working
@@ -147,9 +159,11 @@ Greek that runs all through medical material.
 - **Nothing to do.** Install the new version over the old one in the usual way.
 - **Books you already made in it are safe, and are left alone.** Word stored a complete copy
   of the typeface inside each of those documents, so they still open, set and print exactly as
-  they did. If you attach the template to one of them again, VistaType LP recognizes it and
-  **keeps the typeface the book is already in** — it will not convert your book or move your
-  page breaks. The Font Choice reads *this book keeps VistaTypeLP Legible* and is grayed out.
+  they did. **If you attach the template to such a book again it will be reset into the
+  typeface you choose in the dialog, and its page breaks will move.** VistaType LP used to
+  shield those books automatically; that was removed on 9/4/2026 once it was confirmed the
+  face never went beyond beta testers and no finished book was ever produced in it. If you
+  do have one, do not re-attach the template to it.
 - **The typeface is removed from your computer.** Leaving a face on the machine that VistaType
   LP no longer supports invites it being picked by hand for the very documents it cannot set.
   The removal finishes the next time you sign in to Windows — Windows will not release a
@@ -170,7 +184,7 @@ But some people spend years building their own, so from version 3.0.33 the insta
 | Choice | What happens |
 |---|---|
 | **Replace my toolbar with the standard VistaType LP and Braille Macros toolbar** *(default)* | You get VistaType’s full toolbar, laid out for transcription work. Your own toolbar is saved first, and you can have it back at any time. |
-| **Keep my toolbar exactly as it is, and add the VistaType LP and Braille Macros icons on the end** | Nothing of yours is moved, hidden, or reordered. VistaType’s six icons are added after your own, with a divider before them. |
+| **Keep my toolbar exactly as it is, and add the VistaType LP and Braille Macros icons on the end** | Nothing of yours is moved, hidden, or reordered. VistaType’s eight icons are added after your own, with a divider before them. |
 | **Put back the toolbar I had before VistaType LP and Braille Macros was installed** | Offered only if we are holding a saved copy — that is, an earlier VistaType version had rewritten your toolbar. One click undoes that. |
 
 Untick the box at the top of that page and VistaType will not touch your toolbar at all.
@@ -208,7 +222,7 @@ is gone and the tabs are always yours to arrange.
 ### Restoring a VistaType icon you removed
 
 Run the installer again and choose **Keep my toolbar exactly as it is, and add the
-VistaType LP and Braille Macros icons on the end**. It puts back any of the six that are
+VistaType LP and Braille Macros icons on the end**. It puts back any of the eight that are
 missing and leaves everything else alone. Running it twice changes nothing the second time.
 
 ---
@@ -235,6 +249,11 @@ anything you added *after* installing VistaType.
 **The VistaTypeLP Sans typeface stays on the computer**, along with its license — see
 *Uninstalling leaves the typeface behind* above.
 
+**Your settings folder stays too.** `%AppData%\VistaType LP Settings` — your saved Word
+settings, your three AutoCorrect lists and the error log — is deliberately left alone, so
+reinstalling does not cost you any of it. Delete that folder by hand if you really want a
+clean slate.
+
 If you had chosen VistaType’s standard toolbar, uninstalling puts back the toolbar you
 had before — and keeps any icons you added on top of ours in the meantime.
 
@@ -259,7 +278,7 @@ This usually means the icons are there but hidden — not that the install faile
 - **Give the toolbar more room.** Right-click the toolbar → **Show Quick Access Toolbar
   Below the Ribbon.** Below the ribbon it spans the full width and hides fewer icons.
 - **Still missing one?** Run the installer again and choose **Keep my toolbar exactly as
-  it is, and add VistaType’s icons on the end.** It restores any of the six that are
+  it is, and add VistaType’s icons on the end.** It restores any of the eight that are
   missing and leaves the rest of your toolbar alone.
 
 ### “The VistaType LP / Braille Macros tabs don’t appear”
@@ -305,8 +324,9 @@ alphabet and almost no mathematics, and Word substitutes a missing character sil
 the wrong size. VistaTypeLP Sans carries all three.
 
 Books you have already produced in Legible are untouched and keep working: each one carries its
-own copy of the typeface inside the file, and attaching the template again keeps that book in
-the typeface it is already in.
+own copy of the typeface inside the file. **But attaching the template to one again will reset
+it into Tahoma or VistaTypeLP Sans and move its page breaks** — the protection that used to
+prevent that was removed on 9/4/2026, because the face only ever reached beta testers.
 
 If Word still lists Legible after installing the new version, **sign out of Windows and back
 in**. Windows does not release a personal typeface in the middle of a session.

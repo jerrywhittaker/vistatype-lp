@@ -469,7 +469,12 @@ prints every `signtool.exe` it can find, with versions; the SDK moves on and thi
 (The two numbers looking almost alike — installer `10.0.28000.2526`, folder `10.0.28000.0` — are
 both right and neither is a typo, so resist tidying one to match the other.)
 
-### When the card arrives — in this order
+### The card is here. What is left, in this order
+
+**Status, 9/20/2026.** The Certum card and its ACR40T reader are on the build box and reachable
+from an SSH session — the whole point of moving the VM from Hyper-V to VirtualBox that day. The
+card is **blank**: Certum identity verification is unfinished, so no certificate exists yet and
+nothing can be signed. The steps below are what remains, not a list to start from scratch.
 
 1. **Reader driver first, then proCertum CardManager, then reboot.** Expect to hunt for the reader's
    own driver; Certum does not always supply it.
@@ -480,8 +485,10 @@ both right and neither is a typo, so resist tidying one to match the other.)
    bill, and the project's URL — or the automated route (IDNow: photograph the ID, record some head
    movements), which came back in about two days for one developer.
 
-   **Ask Certum about this one now, before the card arrives — it is free and it is the item most
-   likely to stall for days.** Their open source certificate is issued on the strength of a
+   **PARKED BY JERRY, 9/5/2026 — "i'll cross that bridge at a later date."** Do not re-open this
+   without asking him; the research below is already done and the decision is his alone.
+   Certum's requirements page says the project must be publicly identifiable. Their open source
+   certificate is issued on the strength of a
    *visible* open source project, and **this repository is private**: only Jerry's account can
    reach it, which was a deliberate decision while the installer was being deleted by antivirus
    (see *Deferred until signing is settled* above). vistatypelp.org is public and can be offered

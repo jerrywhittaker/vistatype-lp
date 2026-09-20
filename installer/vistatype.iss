@@ -322,7 +322,7 @@ Source: "{#SrcDir}\OFL-NotoSansSymbols.txt"; DestDir: "{#FontLicenseDir}"; Flags
 ; Leaving the parent UNCHECKED means "do not touch my toolbar at all", which is only safe
 ; because the six VistaType macros are also reachable by keyboard shortcut and from the
 ; VistaType LP ribbon tab.
-; The wording deliberately names BOTH halves of the product. The six icons on this toolbar
+; The wording deliberately names BOTH halves of the product. The eight icons on this toolbar
 ; are Lp_, Dx_ and Sh_ macros - it serves large print and braille alike - so calling it
 ; "VistaType" alone reads as if braille users need not bother. (Jerry, 7/30/2026.)
 Name: "qat";          GroupDescription: "Quick Access Toolbar (the small row of icons at the top of the Word window):"; \

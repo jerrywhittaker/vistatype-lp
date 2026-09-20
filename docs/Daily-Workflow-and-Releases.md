@@ -114,12 +114,28 @@ ever. Pushing just backs up your work to GitHub; it does **not** release anythin
 
 | You want to… | Type this in the terminal |
 |---|---|
+| **Test a code change quickly** | **`make try`** |
 | Build the add-in from source | `make build` |
 | Put the built add-in in the repo root | `make deploy` |
 | Build the actual installer `.exe` | `make installer` |
 | Read the compiled code (no Windows needed) | `make read` |
 
-Or just ask Claude: **"build the installer"**.
+Or just ask Claude: **"try this"** or **"build the installer"**.
+
+**`make try` is the short loop, and most days it is the one you want.** It builds the
+add-in and drops it straight into Word's STARTUP folder on the build box — no installer,
+no wizard. Close Word, run it, open Word, test. The `.dotm` it puts there is the *same
+file* the installer would package, so it is not a lesser test of the code.
+
+Two things it cannot test, because they are not in that file: anything in the installer
+itself (the toolbar, trust settings, the license page, uninstalling), the ribbon tabs on a
+machine the installer has already set up, the keyboard shortcuts, and the large-print
+template. Claude will tell you when a change needs a real installer instead — it is
+supposed to say so every time.
+
+It also refuses to run if Word is open on the build box, or if you have edited a dialog's
+layout there and it has not been brought back into the source yet. Both are protections,
+not faults.
 
 `make installer` does everything — rebuilds the add-in from `src/` on the Windows box,
 compiles `VistaType LP and Braille Macros Setup <version>.exe`, and drops it in `dist/` and on the VM Desktop.
@@ -193,8 +209,12 @@ updates all four:
 
 1. `Makefile` — names the installer file
 2. `installer/vistatype.iss` — what Windows shows in *Programs & Features*
-3. The **About dialog** caption — both the LP and the Braille About boxes
-4. `CLAUDE.md` — Claude's own notes
+3. The **LP About dialog** caption
+4. The **Braille About dialog** caption
+
+(The two About captions are separate places even though Claude stamps them in one pass.
+`CLAUDE.md` used to be listed here as the fourth; it never held a live number and does not
+need editing.)
 
 ### Step 3 — Build the installer
 

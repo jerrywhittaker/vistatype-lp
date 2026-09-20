@@ -48,7 +48,7 @@ real.
 
 ## What was changed from stock Noto Sans
 
-Seven steps, all of them repeatable from an upstream release by
+Eight steps, all of them repeatable from an upstream release by
 `tools/lib/build_vistatypelp_sans.py`.
 
 | Step | What it does | Why |
@@ -59,6 +59,7 @@ Seven steps, all of them repeatable from an upstream release by
 | **scale** | Units-per-em 1000 → 960, an exact 25/24 enlargement | Measured: 37.5 point matched the VistaType ruler's 36. Rescaling makes the nominal size honest |
 | **symbols** | Folds Noto Sans Math and Noto Sans Symbols into every face | See the note above about Word not falling back inside a family |
 | metrics | Retunes vertical metrics to 1.20729 em | So Word's "Single" line spacing lands on Tahoma's 1.20703 em. The two differ by 0.0003 em — about a quarter of a thousandth of a line |
+| **ranges** | Sets the OS/2 unicode-range flags | Word builds Insert Symbol's subset list from these flags, not from the character map. Eleven blocks are claimed and five refused on purpose — see *What Insert Symbol will show* below |
 | rename | Renames per the OFL Reserved Font Name clause | Required by the license once the font has been modified |
 
 ---
@@ -229,9 +230,13 @@ percent less text on a line**. Across a book that is more line breaks, more
 pages, and different pagination. It is not a defect — the face is a little
 larger on the body, which is the point — but a book reset from Tahoma into
 VistaTypeLP Sans at the same point size **will repaginate**, and a book already
-in a reader's hands must not be reset. That is exactly why
-`Lp_Attach_The_Template` protects a book already set in the old face rather than
-carrying it forward.
+in a reader's hands must not be reset.
+
+(This paragraph used to end by saying `Lp_Attach_The_Template` protects a book set
+in the old VistaTypeLP Legible face. **It does not, since 9/4/2026.** All five pieces
+of that protection were deleted once Jerry confirmed no book was ever produced in
+that face — it was shipped to beta testers only. The repagination warning above
+stands on its own; it is about Tahoma against Sans.)
 
 ### Where Tahoma still wins
 
@@ -278,7 +283,7 @@ of 8. Measured on the Regular face:
 
 **The four shipping faces were patched in place rather than rebuilt**, because a
 rebuild fetches the current Noto releases over the network and would change more
-than the flags. All 24 → 35 flags, and all fifteen build checks pass on each.
+than the flags. All 24 → 35 flags, and all sixteen build checks pass on each.
 
 **Confirmed in Word, 9/6/2026**, by Jerry on the build box after installing 3.0.375:
 the Subset list in Insert → Symbol reads correctly for VistaTypeLP Sans. The
@@ -362,7 +367,7 @@ python3 tools/lib/build_vistatypelp_sans.py --out assets/fonts/vistatypelp-sans
 ```
 
 It fetches the current Noto Sans, Noto Sans Math and Noto Sans Symbols from
-Google, applies the seven steps in the table above, and checks that every face
+Google, applies the eight steps in the table above, and checks that every face
 can set the required character list — Latin, Greek, the IPA and the math
 operators — before writing anything. A face that cannot set them fails the build
 rather than reaching a transcriber.
