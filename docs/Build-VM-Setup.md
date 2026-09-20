@@ -143,6 +143,12 @@ It always comes up **with a window**, never headless — Jerry, 9/20/2026: he dr
 by hand to test it, and a VM that came up headless is no use when he goes to look at Word. A
 build does not need the window; he does. There is no headless option, on purpose.
 
+**Measured 9/20/2026**, by shutting the VM down and letting a build bring it back: ACPI
+shutdown to powered off took about ten seconds; `make vm-up` then took **33 seconds** in
+total — eight of those are the first SSH attempt timing out, and the machine was answering
+**16 seconds** after it was started. `make vba-test` then ran against it straight away, 29
+tests, all passing. So a cold VM costs well under a minute and needs nothing from you.
+
 This works because WSL can run Windows programs and the VM is on the same Windows host, so
 `VBoxManage.exe` is reachable from the Linux side. On a machine with no VirtualBox, `vm-up`
 says so and asks you to start the box yourself rather than failing with a connection error.
