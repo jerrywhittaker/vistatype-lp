@@ -20,6 +20,14 @@ WIN_DIR = C:/build/vistatype
 # Path to powershell on the Windows box (Windows PowerShell 5.1 or pwsh 7+).
 WIN_PWSH = powershell
 
+# OPTIONAL. If the box is a VirtualBox VM on the SAME Windows host as this WSL, every target
+# that touches it starts it first when it is not already answering (`make vm-up`). The name is
+# the one VirtualBox shows, not the SSH host name. Leave these out and the defaults are used:
+# the VM called VistaBuild, and VBoxManage.exe in its usual place under Program Files. If there
+# is no VirtualBox here, nothing is started and you are told to start the box yourself.
+# VM_NAME = VistaBuild
+# VBOXMANAGE = /mnt/c/Program Files/Oracle/VirtualBox/VBoxManage.exe
+
 # OPTIONAL. Free VirusTotal API key, used only by `make scan` to check the built Setup.exe
 # against about seventy antivirus engines. Get one from a virustotal.com account: sign in,
 # click your name, API key. Leave it out and `make scan` simply says so.

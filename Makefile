@@ -39,6 +39,10 @@
 #   make vba-test  Run the VBA unit tests (tests/vba) on the build box, invisibly, against a
 #                throwaway document. Nothing is installed and nothing is left behind. Word must
 #                be CLOSED on the box. It tests the SOURCE in src/vba, not the last build.
+#   make vm-up   Start the Windows build VM if it is not already up and answering. Runs as
+#                part of every target that touches the box, so you should never have to think
+#                about it. `make vm-up GUI=1` starts it WITH A WINDOW, which is what you want
+#                for anything that has to SEE Word.
 #   make test    Run the test suite in tests/ over the build's own checkers and file
 #                generators, against fixtures. No Word, no build box, about half a second.
 #                Needs pytest:  sudo apt install python3-pytest
@@ -95,7 +99,13 @@ check-config:
 # (Sh_License_Form) since 8/3/2026, and nothing said so: the build log lists what it REMOVES
 # from the .dotm, not what it re-imports. Wipe the two pushed trees first so the box is always
 # an exact copy of src/. Only src and tools go - dist/ holds the .dotm being built.
-push-src: check-config check-dotm-unsigned
+# Everything that touches the box comes through here, so this is where the VM gets started.
+# Without it an off VM fails at the SSH with a connection error that says nothing about why.
+# It does nothing at all when the box already answers - see the script.
+vm-up:
+	@python3 tools/lib/vm_up.py --host "$(WIN_HOST)" $(if $(VM_NAME),--name "$(VM_NAME)",) $(if $(VBOXMANAGE),--vboxmanage "$(VBOXMANAGE)",) $(if $(GUI),--gui,)
+
+push-src: check-config vm-up check-dotm-unsigned
 	$(SSH) "if not exist \"$(WIN_DIR)\" mkdir \"$(WIN_DIR)\""
 	$(SSH) '$(WIN_PWSH) -NoProfile -Command "Remove-Item -Recurse -Force \"$(WIN_DIR)/src\", \"$(WIN_DIR)/tools\" -ErrorAction SilentlyContinue; exit 0"'
 	scp -q -r src tools $(DOTM) "$(WIN_HOST):$(WIN_DIR)/"
@@ -460,4 +470,4 @@ scan:
 clean:
 	rm -rf dist build
 
-.PHONY: help check-config push-src pull build build-dispatch ribbon qat check-qat check-tabs check-frm-eol check-vba-lines read try try-build check-startup-unpulled check-startup-unpulled-soft deploy stage branding check-branding bump font-installer installer installer-build scan test vba-test clean
+.PHONY: help check-config push-src pull build build-dispatch ribbon qat check-qat check-tabs check-frm-eol check-vba-lines read try try-build check-startup-unpulled check-startup-unpulled-soft deploy stage branding check-branding bump font-installer installer installer-build scan test vba-test vm-up clean

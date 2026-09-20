@@ -133,6 +133,20 @@ make build              # import src/ -> dist/ .dotm, embed ribbon
 
 ## Snapshots
 
+## Starting it
+
+You should not have to. Every target that touches the box runs `make vm-up` first, which
+starts the VM when it is not already answering and waits for SSH. It does nothing when the box
+is already up.
+
+`make vm-up GUI=1` starts it **with a window**. Headless is right for a build; a window is what
+anything that has to *see* Word needs — screenshots, or working the ribbon by hand.
+
+This works because WSL can run Windows programs and the VM is on the same Windows host, so
+`VBoxManage.exe` is reachable from the Linux side. On a machine with no VirtualBox, `vm-up`
+says so and asks you to start the box yourself rather than failing with a connection error.
+`VM_NAME` and `VBOXMANAGE` in `build.config` override the defaults.
+
 VirtualBox has its own snapshot mechanism; the `Checkpoint-VM` recipe that stood here was
 Hyper-V's and has been removed.
 

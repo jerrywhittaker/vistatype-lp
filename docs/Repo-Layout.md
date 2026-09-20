@@ -249,7 +249,13 @@ tools/windows/  Export-Vba.ps1 / Import-Vba.ps1 / New-UserForm.ps1 / Run-VbaTest
                 VT_API_KEY. SKIP_SECRETS_CHECK=1 overrides, for a verified false positive
                 only. Tested both ways 9/20/2026: passes clean, blocks a staged PIN and a
                 tracked .pfx.
-tools/lib/      build_vba_test_bundle.py (gathers the VBA procedures tests/vba names, plus what they
+tools/lib/      vm_up.py (starts the VirtualBox VM when the box is not answering - WSL can run
+                Windows programs and the VM is on the same host, so VBoxManage.exe is reachable.
+                Hooked into push-src, so every target that touches the box gets it. Does NOTHING
+                when SSH already answers, and says so plainly when there is no VirtualBox here
+                rather than failing. `make vm-up GUI=1` starts it WITH A WINDOW - headless is
+                right for a build, a window is what anything that has to SEE Word needs);
+                build_vba_test_bundle.py (gathers the VBA procedures tests/vba names, plus what they
                 call and the declarations those need, into one importable module - `make vba-test`);
                 check_style_guards.py (refuses to build when an ActiveDocument.Styles("name") lookup is
                 not behind Sh_Style_Exists / Sh_Style_In_Use. Styles(name) raises run-time error 5941 on a
@@ -446,7 +452,7 @@ assets/fonts/vistatypelp-sans/   the bundled typeface, VistaTypeLP Sans — four
                 They complement tools/lib's guards rather than repeat them — each file says
                 what the guards already cover.
 Makefile        pull / build / build-dispatch / ribbon / qat / read / fonts / try / test /
-                vba-test / deploy /
+                vba-test / vm-up / deploy /
                 branding / stage /
                 installer / font-installer / scan
                 (`make fonts` rebuilds VistaTypeLP Sans from the current Noto Sans, Noto Sans Math
