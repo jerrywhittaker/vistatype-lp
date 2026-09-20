@@ -30,27 +30,27 @@ in a terminal between Word sessions.
 
 ## How to work here
 
-**Check the open issues at the start of a session.** Defects are GitHub issues from 9/20/2026:
-run `gh issue list` and tell Jerry briefly what is open, as things he could pick up — but do
-not start on one unless he asks. **Record any new defect the same way**, rather than as a note
-buried in a document, saying what was verified and what was not.
+**Check the open issues at the start of a session** — `gh issue list`. Defects are GitHub
+issues from 9/20/2026. Tell Jerry briefly what is open as things he could pick up, but do not
+start on one unless he asks. **Record any new defect the same way**, not as a note buried in a
+document, saying what was verified and what was not.
 
 **Delegate the work, not just the looking.** Getting back to Jerry quickly matters more than
-doing it yourself, and a transcript in the main session slows every later turn. Delegate when
-the job needs more than a command or two — a single `grep` is faster done here.
+doing it yourself, and a transcript in the main session slows every later turn.
+**The trigger, so it cannot be argued away: three or more tool calls, or output you will not
+read in full. Either one means an agent.** Below that, do it here — a single `grep` is faster
+than a round trip. On 20/9/2026 the one job that was properly delegated, the pre-public sweep,
+caught a leak the main session had missed.
 
 - **`scout`** (Sonnet/low) — where is X, what calls Y, how many Z, is this claim still true.
-- **`build-runner`** (Sonnet/low) — runs a make target; knows the five ways a build fails
-  silently and cures them.
-- **`vba-test`** (Sonnet/high) — runs a macro headlessly on the box; reports the text, not the
-  transcript. Owns the seven traps.
+- **`build-runner`** (Sonnet/low) — runs a make target; knows the five silent build failures.
+- **`vba-test`** (Sonnet/high) — runs a macro headlessly; reports the text, not the transcript.
 - **`diagnose`** (Opus/high) — a fault Jerry reported. Reads the error register first,
   reproduces before theorising.
 - **`secrets-check`** (Opus/high) — **before any push touching signing, and before the repo is
   ever made public.**
 - **`issue-triage`** (Sonnet/medium) — one issue: real? reachable? what would a fix disturb?
-- **`vba-review`, `braille-lp-review`, `ship-safety`, `release-check`** — for a change rather
-  than a question.
+- **`vba-review`, `braille-lp-review`, `ship-safety`, `release-check`** — for a change.
 
 Send independent jobs in **one message** so they run at once, and never do a search yourself
 *and* delegate it.
@@ -88,7 +88,7 @@ is a **human step** before any release; say so whenever a change touches VBA. Gi
 
 ## Building and testing
 
-`make try` bumps, builds and drops the add-in into Word's STARTUP folder on the build box.
+`make try` bumps, builds and drops the add-in into Word's STARTUP folder on the build box;
 `make build` builds without deploying; `make installer` bumps and produces the `Setup.exe`.
 Word must be closed on the box. Hand these to `build-runner`.
 **`make try` cannot test** `installer/**`, `src/ribbon/**`, `src/keymap/**`, or `*.dotx`.
@@ -108,8 +108,8 @@ carries a dated changelog. Bump both when changing behavior.
 **Version numbers:** the third digit — `3.0.460` — is a private build counter, bumped freely,
 never published. `X.Y` — `3.1` — is a real release. A fourth digit — `3.1.0.1` — is a hotfix
 to a released version, in a separate lane so it can never collide with `dev`'s counter.
-**Only Jerry starts a release, and he starts it by name** — "let's release 3.1". A clean build
-is the normal end of a day's work, not a cue. Checklist, hotfix and documentation-only routes:
+**Only Jerry starts a release, and by name** — "let's release 3.1". A clean build is the
+normal end of a day's work, not a cue. Checklist, hotfix and documentation-only routes are in
 `docs/Daily-Workflow-and-Releases.md`.
 
 **Documentation-only changes go straight to `main`**, so Jerry's bookmark is never stale.
@@ -121,25 +121,25 @@ merge `main` into `dev`.
 
 - **Never push code until Jerry says the word "push."** Not `dev`, not `main`, not tags.
   Documentation-only changes are exempt — push those freely.
-- **Never commit code on `main`.** Check `git branch --show-current` first.
-- **Never force-push, never rewrite or delete a `v*` tag.** The tags are the recovery points.
+- **Never commit code on `main`** (check `git branch --show-current` first), never force-push,
+  and never rewrite or delete a `v*` tag — the tags are the recovery points.
 - **Never publish a release without its `.exe`.** GitHub's source zip cannot be installed by a
   transcriber, so a release without the installer delivers nothing. Verify with
   `gh release view <tag> --json assets`; it must not be `[]`.
-- **Never hand-edit `LPandBRL.dotm` or `src/vba/RibbonDispatch.bas`** — both are generated.
+- **Never hand-edit `LPandBRL.dotm` or `RibbonDispatch.bas`** — both are generated.
 - **Never rename or remove a `btn_*` id** in `src/ribbon/customUI14.xml` — toolbars in the
   field reference them by id and a renamed one draws blank, silently. Retire a button by moving
   it to the hidden `tab_VT_Retired_Buttons`.
 - **A `.frm` must stay CRLF**, or Word dumps the designer header into the form's code module —
   and it fails only on the transcriber's machine.
-- **A signed `.dotm` must never reach the repo root**; it is the base every build starts from.
-  `make deploy` and `push-src` refuse one.
+- **A signed `.dotm` must never reach the repo root** — it is the base every build starts
+  from. `make deploy` and `push-src` refuse one.
 - **Never merge this project with `~/projects/vistatypelp-org`, or suggest it, or edit the
   site from here.** On a release, hand Jerry the prompt from the daily-workflow guide.
 - **Messages go through `Sh_Say` / `Sh_Ask`**, never a bare `MsgBox`: 10 point Tahoma or more,
   the button says `Okay`, Alt+O and Alt+C. One progress indicator, the bar.
-- **Say what actually happened.** If a test failed, show the output. If a step was skipped, say
-  so. If a number was guessed rather than measured, say which.
+- **Say what actually happened.** Show failing output, name skipped steps, and say whether a
+  number was measured or guessed.
 
 ## Keeping this file honest
 
