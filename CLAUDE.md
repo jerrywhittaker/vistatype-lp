@@ -18,27 +18,36 @@ DAISY/NIMAS, `MS_` Word configuration. Grep by prefix to find a feature area.
 
 The full rules are in `~/.claude/CLAUDE.md` and apply everywhere. In short:
 
-**Speak Word and VBA to him freely** — subs, modules, UserForms, `.frx`, ranges, styles,
-section breaks, DBT tables. He wrote all of this himself over twenty years.
+**Speak Word and VBA to him freely** — subs, UserForms, `.frx`, ranges, styles, section breaks,
+DBT tables. He wrote all ~16,500 lines himself over twenty years.
 
-**Strip the process jargon**, because he never needed it: branch, merge, rebase, HEAD,
-upstream, checkout, staging, diff, CI, artifact, refactor, regression. Say the effect, not the
-mechanism. Never say "just". Lead with what happened or what he should do, then why. Short
-paragraphs. He is reading in a terminal between Word sessions.
+**Strip the process jargon**, which he never needed: branch, merge, rebase, HEAD, upstream,
+checkout, diff, CI, artifact, refactor, regression. Say the effect, not the mechanism. Never
+say "just". Lead with what happened or what to do, then why. Short paragraphs — he is reading
+in a terminal between Word sessions.
 
-**American spellings everywhere** — in replies, dialogs, installer text, code comments alike.
-license, color, behavior, recognize, gray, dialog. Periods not full stops, parentheses not
-brackets. The one exempt file is `LICENSE`, which quotes the GPL verbatim.
+**American spellings everywhere**, in replies and in the product alike. The one exempt file is
+`LICENSE`, which quotes the GPL verbatim.
 
-## Start of a session: check the open issues
+## How to work here
 
-**Defects are recorded as GitHub issues** (from 9/20/2026). At the start of a session run
-`gh issue list` and tell Jerry briefly what is open, as things he could pick up. Do not start
-on one unless he asks.
+**Check the open issues at the start of a session.** Defects are GitHub issues from 9/20/2026:
+run `gh issue list` and tell Jerry briefly what is open, as things he could pick up — but do
+not start on one unless he asks. **Record any new defect the same way**, rather than as a note
+buried in a document, saying what was verified and what was not.
 
-**Record new defects the same way.** Anything found while working on something else — a bug, a
-dead macro, an untested path — becomes an issue rather than a note buried in a document. Say
-what was verified and what was not.
+**Delegate the looking.** Getting back to Jerry quickly matters more than searching yourself,
+and a file dump in the main session slows every later turn. Hand off anything shaped like
+*find it*, *count it* or *is this still true*:
+
+- **`scout`** (Haiku) — where is X, what mentions Y, how many Z. Lines, not opinions.
+- **`fact-check`** (Sonnet) — settles one claim against the source. Use it before writing any
+  number or behavior into a document, a commit message or a reply.
+- **`vba-review`, `braille-lp-review`, `ship-safety`, `release-check`** — for a change rather
+  than a question.
+
+Send independent lookups in **one message** so they run at once, and never search yourself
+*and* delegate it.
 
 ## Where things are written down
 
@@ -68,21 +77,18 @@ what was verified and what was not.
 time and tokens on re-investigating errors that have already been fixed."* It is keyed on
 version, error number, macro and step. Add the row in the **same change** as the fix.
 
-**Nothing here compiles VBA, and a compile gate is impossible.** Measured 8/26/2026: VBA
-compiles lazily per procedure, a probe macro proves nothing, and `Debug > Compile` cannot be
-reached by automation. So the compile is a **human step** before any release. Say so whenever
-a change touches VBA. Give every helper `ByVal` parameters — the fault that proved this was a
-Variant passed to a ByRef `String`.
+**Nothing here compiles VBA, and a compile gate is impossible** — measured 8/26/2026: VBA
+compiles lazily per procedure and `Debug > Compile` is unreachable by automation. The compile
+is a **human step** before any release; say so whenever a change touches VBA. Give every helper
+`ByVal` parameters — the fault that proved this was a Variant passed to a ByRef `String`.
 
 **Read the mechanism you are about to introduce, not only the feature you were asked about.**
 More than one fault here was walked past because it was already written down elsewhere.
-
 ## Building and testing
 
 `make try` is the short loop: it bumps the build number, builds, and drops the add-in straight
 into Word's STARTUP folder on the build box. `make build` builds without deploying.
 `make installer` bumps and produces the `Setup.exe`. Word must be closed on the box.
-
 **`make try` cannot test** `installer/**`, `src/ribbon/**`, `src/keymap/**`, or `*.dotx`.
 `tools/lib/check_try_scope.py` prints this after every try — **say it in the reply too**
 (Jerry, 8/23/2026). He should never have to work out for himself that what he is about to test
@@ -99,8 +105,7 @@ carries a dated changelog. Bump both when changing behavior.
 
 **Version numbers:** the third digit — `3.0.460` — is a private build counter, bumped freely,
 never published. `X.Y` — `3.1` — is a real release. A fourth digit — `3.1.0.1` — is a hotfix
-to a released version, kept in a separate lane so it can never collide with `dev`'s counter.
-
+to a released version, in a separate lane so it can never collide with `dev`'s counter.
 **Only Jerry starts a release, and he starts it by name** — "let's release 3.1". A clean build
 is the normal end of a day's work, not a cue to release. The full checklist, the hotfix route
 and the documentation-only route are in `docs/Daily-Workflow-and-Releases.md`.
@@ -116,25 +121,22 @@ merge `main` into `dev`.
   Documentation-only changes are exempt — push those freely.
 - **Never commit code on `main`.** Check `git branch --show-current` first.
 - **Never force-push, never rewrite or delete a `v*` tag.** The tags are the recovery points.
-- **Never publish a release without its `.exe`.** GitHub's automatic source zip cannot be
-  installed by a transcriber, so a release without the installer delivers nothing. Verify with
-  `gh release view <tag> --json assets` and confirm it is not `[]`.
-- **Never edit `LPandBRL.dotm` by hand**, and never hand-edit `src/vba/RibbonDispatch.bas` —
-  it is generated.
-- **Never rename or remove a `btn_*` id** in `src/ribbon/customUI14.xml`. Every toolbar already
-  installed in the field references them by id, and a renamed one draws blank with no error.
-  To retire a button, move it to the hidden `tab_VT_Retired_Buttons`.
-- **A `.frm` must stay CRLF.** LF endings make Word dump the designer header into the form's
-  code module, and it fails only on the transcriber's machine.
-- **A signed `.dotm` must never reach the repo root** — it is the base every build starts from.
+- **Never publish a release without its `.exe`.** GitHub's source zip cannot be installed by a
+  transcriber, so a release without the installer delivers nothing. Verify with
+  `gh release view <tag> --json assets`; it must not be `[]`.
+- **Never hand-edit `LPandBRL.dotm` or `src/vba/RibbonDispatch.bas`** — both are generated.
+- **Never rename or remove a `btn_*` id** in `src/ribbon/customUI14.xml`. Toolbars in the field
+  reference them by id and a renamed one draws blank with no error. To retire a button, move it
+  to the hidden `tab_VT_Retired_Buttons`.
+- **A `.frm` must stay CRLF**, or Word dumps the designer header into the form's code module —
+  and it fails only on the transcriber's machine.
+- **A signed `.dotm` must never reach the repo root**; it is the base every build starts from.
   `make deploy` and `push-src` refuse one.
-- **Never merge this project with `~/projects/vistatypelp-org`, and never suggest it.** The
-  website is separate, permanently. On a real release, remind Jerry and hand him the prompt
-  from `docs/Daily-Workflow-and-Releases.md` to paste into a session there. Do not edit it
-  from here.
-- **Messages go through `Sh_Say` / `Sh_Ask`**, never a bare `MsgBox`: at least 10 point Tahoma,
-  the button says `Okay`, Alt+O and Alt+C. One progress indicator, the bar. See
-  `docs/UI-Conventions.md`.
+- **Never merge this project with `~/projects/vistatypelp-org`, or suggest it, or edit the site
+  from here.** On a real release, hand Jerry the prompt from
+  `docs/Daily-Workflow-and-Releases.md` to paste into a session there.
+- **Messages go through `Sh_Say` / `Sh_Ask`**, never a bare `MsgBox`: 10 point Tahoma or more,
+  the button says `Okay`, Alt+O and Alt+C. One progress indicator, the bar.
 - **Say what actually happened.** If a test failed, show the output. If a step was skipped, say
   so. If a number was guessed rather than measured, say which.
 
