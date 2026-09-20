@@ -267,6 +267,29 @@ Installed by the Inno Setup installer (`installer/vistatype.iss`):
   (34 times in `LPandBrlMacros` alone, plus dialog Cancel buttons and `Sh_Is_Doc_Open`), so anything
   held in memory would be lost mid-session — and the next save would record VistaType's own value as
   the transcriber's choice. See `docs/User-Settings-And-Word-Configuration.md`.
+- `%AppData%\VistaType LP Settings\AutoCorrect-DEF.txt`, `-LP.txt`, `-BRL.txt` — **the three
+  AutoCorrect tables, one per kind of document.** Also written by the add-in, never by the
+  installer, and in the same folder the uninstaller leaves alone. **Word keeps ONE AutoCorrect list
+  for the whole application** and nothing in VBA can make a second, so until 9/19/2026 the nineteen
+  compact fractions large print and braille delete came off the transcriber's own letters too, and
+  for good — reported that day by a transcriber on Office 365 who worked the mechanism out herself.
+  Jerry's call: *"build a firewall between the autocorrect tables."* `Sh_AutoCorrect_Switch` swaps
+  them at the top of the three configuration subs; `MS_Set_Word_Config_For_New_Install` deletes
+  nothing now, and the two books still delete the nineteen, from their own table. Plain Unicode text,
+  one entry per line, `name<TAB>value`, read and written with `Scripting.FileSystemObject` — **not**
+  `System.PrivateProfileString`, because there are ~900 entries and one API call each would take
+  minutes. **Rich text entries are never touched** (their content lives in `Normal.dotm` and cannot
+  be read back as a string), so a formatted entry of hers stays shared between the three — the same
+  reasoning that already keeps VistaType LP away from the four AutoCorrect exception lists. Measured
+  on the build box 9/19/2026: 926 entries, 913 plain and 13 rich; a blind rebuild costs 4.6s, so the
+  load applies only the differences and a switch costs about a second. Which table is loaded is
+  **recorded** in `VistaType.ini`, never inferred from `Sh_ConfiguredAs`: Word writes its list to the
+  `.acl` when it closes, so a session begun after quitting inside a book starts with that book's
+  table already standing in Word.
+  **Document Settings says which table is in use** — `Sh_AutoCorrect_Line`, on the line below the
+  configuration. Every failure path in `Sh_AutoCorrect_Switch` is a silent exit, deliberately, so
+  without that line a machine where the settings folder cannot be reached would go on stripping
+  the transcriber's letters with nothing to say so. It reads `not recorded` there.
 - The **Quick Access Toolbar** is set up per the user's choice on the install wizard (append VistaType's icons / install VistaType's toolbar whole / restore their pre-VistaType one / leave it alone), written to `Word.officeUI` in **both** Roaming and Local; their ribbon is never touched and the embedded ribbon supplies the tabs
 
 ## Repo layout

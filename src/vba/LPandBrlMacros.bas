@@ -18,6 +18,27 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - MS  - 9/19/2026 - THREE AUTOCORRECT TABLES, ONE PER KIND OF DOCUMENT - a firewall,
+'           - MS  - 9/19/2026 - Jerry's word. WORD KEEPS ONE AUTOCORRECT LIST FOR THE WHOLE
+'           - MS  - 9/19/2026 - APPLICATION and nothing in VBA can make a second, so the nineteen
+'           - MS  - 9/19/2026 - compact fractions large print and braille delete were coming off
+'           - MS  - 9/19/2026 - the transcriber's own letters as well, permanently. Reported
+'           - MS  - 9/19/2026 - 9/19/2026 by a transcriber on Office 365 who worked the mechanism
+'           - MS  - 9/19/2026 - out herself: her fraction entries vanished in ordinary documents
+'           - MS  - 9/19/2026 - she had never used VistaType LP on, and came back the moment she
+'           - MS  - 9/19/2026 - took LPandBRL.dotm out of Word's STARTUP folder. VistaType LP now
+'           - MS  - 9/19/2026 - keeps three tables of its own beside VistaType.ini and swaps them
+'           - MS  - 9/19/2026 - at the top of the three configuration subs (Sh_AutoCorrect_Switch).
+'           - MS  - 9/19/2026 - MS_Set_Word_Config_For_New_Install DELETES NOTHING NOW. Measured on
+'           - MS  - 9/19/2026 - the build box: 926 entries, 913 plain and 13 rich text; a blind
+'           - MS  - 9/19/2026 - rebuild costs 4.6 s, so the load applies only the DIFFERENCES and a
+'           - MS  - 9/19/2026 - switch costs about the one second the capture takes. RICH TEXT
+'           - MS  - 9/19/2026 - ENTRIES ARE NEVER TOUCHED - their content lives in Normal.dotm and
+'           - MS  - 9/19/2026 - cannot be read back as a string, so deleting one would destroy what
+'           - MS  - 9/19/2026 - this code cannot rebuild. Which table is loaded is RECORDED in the
+'           - MS  - 9/19/2026 - store, not inferred, because Word writes its list to the .acl when
+'           - MS  - 9/19/2026 - it closes and a session begun after quitting inside a book starts
+'           - MS  - 9/19/2026 - with that book's table standing in Word.
 ' Notes:    - Lp  - 9/18/2026 - NO-DOCUMENT CHECK ON THREE MORE LP BUTTONS. AutoTag Ref Pages had
 '           - Lp  - 9/18/2026 - one, eleven lines down behind Sh_Clear_Multi_Selection and
 '           - Lp  - 9/18/2026 - Sh_Save_User_Position, both of which read ActiveDocument themselves,
@@ -2544,6 +2565,20 @@ Private Const VT_STORE_MINE As String = "TranscriberSettings"
 ' book is not a preference at all, so there is nothing to tell apart. See
 ' Sh_Restore_Transcriber_Settings.
 Private Const VT_STORE_BOOK As String = "BookApplied"
+
+' --- The three AutoCorrect tables -----------------------------------------------------------
+' Which of the three tables is standing in Word right now: "DEF", "LP" or "BRL". Written every
+' time one is loaded, and read before the next switch.
+'
+' IT IS RECORDED, NOT INFERRED FROM Sh_ConfiguredAs, and the difference matters across sessions.
+' Word writes its AutoCorrect list into the .acl file when it closes, so a transcriber who quits
+' Word inside a braille file starts the next morning with the BRAILLE table standing in Word
+' before a line of this project runs. Keyed on Sh_ConfiguredAs, the first capture of that session
+' would write the braille table into her ordinary one and lose hers for good - the same fault the
+' book flag above exists to prevent, by the same route. The recorded name survives in the file,
+' so it is right whatever Word loaded. See Sh_AutoCorrect_Switch.
+Private Const VT_STORE_AC As String = "AutoCorrectTables"
+Private Const VT_AC_LOADED As String = "Loaded"
 
 ' The shape of the store, so a file written by an older build is thrown away whole rather than
 ' half-read. Bump it whenever Sh_Tracked_Settings changes. "1" was the six spelling and grammar
@@ -24254,6 +24289,10 @@ End Sub   '*** end of Lp_Delete_Square_Bullet macro ***
 ' hypothetical (they could not be made to fire once on the build box). A blank line tells the
 ' transcriber nothing and reads as a fault in the screen; this tells her what to do about it.
 '
+' IT RETURNS TWO LINES from 9/19/2026 - the configuration, and which of the three AutoCorrect
+' tables is in use. All three Document Settings dialogs get both, because all three call this.
+'
+' Version: 1.1  Date: 9/19/2026 - the AutoCorrect table line (Jerry, on review of the firewall)
 ' Version: 1.0  Date: 9/4/2026
 Public Function Sh_Word_Config_Line() As String
     If Trim$(MS_Word_Config) = "" Then
@@ -24262,7 +24301,44 @@ Public Function Sh_Word_Config_Line() As String
     Else
         Sh_Word_Config_Line = MS_Word_Config
     End If
+
+    Sh_Word_Config_Line = Sh_Word_Config_Line & vbCr & Sh_AutoCorrect_Line()
 End Function  '*** end of Sh_Word_Config_Line ***
+
+' What Document Settings prints about which of the three AutoCorrect tables is in use.
+'
+' IT IS A DIAGNOSTIC, AND THAT IS THE WHOLE REASON IT EXISTS. Every failure path in
+' Sh_AutoCorrect_Switch is a silent Exit Sub - deliberately, because leaving Word's list alone is
+' the safe direction - so on a machine where the settings folder cannot be reached the firewall
+' quietly does nothing at all and a book goes on stripping the transcriber's own letters, exactly
+' as it did before any of this was built. NOTHING ELSE WOULD EVER SAY SO. This line turns that
+' into one question anyone can ask her. Jerry, 9/19/2026, on review.
+'
+' It reports what is RECORDED rather than what it can see in Word, and that is deliberate: the
+' record is what the next switch acts on, so if the two ever disagreed the record is the one worth
+' knowing. See Sh_AC_Remember, which exists to stop them disagreeing in the first place.
+'
+' It survives VBA's End statement, unlike the configuration line above it, because the answer is
+' in a file rather than a module variable.
+'
+' Version: 1.0  Date: 9/19/2026
+Public Function Sh_AutoCorrect_Line() As String
+    Dim loadedNow As String
+
+    On Error Resume Next
+    loadedNow = Sh_Setting_Read(VT_STORE_AC, VT_AC_LOADED, "")
+    Err.Clear
+    On Error GoTo 0
+
+    Select Case loadedNow
+        Case "LP":  Sh_AutoCorrect_Line = "AutoCorrect list in use: large print"
+        Case "BRL": Sh_AutoCorrect_Line = "AutoCorrect list in use: braille"
+        Case "DEF": Sh_AutoCorrect_Line = "AutoCorrect list in use: ordinary documents"
+        Case Else
+            Sh_AutoCorrect_Line = "AutoCorrect list in use: not recorded - VistaType LP is NOT " _
+                                & "keeping a separate list for each kind of document on this computer"
+    End Select
+End Function  '*** end of Sh_AutoCorrect_Line ***
 
 Public Function Sh_Config_In_Words(ByVal cfgType As String) As String
     Select Case cfgType
@@ -24333,7 +24409,7 @@ Sub MS_Reset_Word_Configuration()
     Dim whatItIs As String
 
     ' A document has to be on screen: this sets up the one in front of her, and
-    ' MS_Set_Word_Config_For_New_Install reaches for ActiveDocument on its very first line.
+    ' MS_Set_Word_Config_For_New_Install reaches for ActiveDocument in its first few lines.
     If Documents.count = 0 Then
         Sh_Say "Open a document first." & vbCr & vbCr _
              & "Reset Word Configuration sets Word up for the document you are looking at, so " _
@@ -24467,6 +24543,11 @@ Sub MS_Set_Word_Config_For_New_Install()
     '
     ' Author: Jerry Whittaker -  jerry@vistatypelp.org
     '
+    ' Version: 3.0  Date: 9/19/2026 - puts HER OWN AutoCorrect table up and STOPS DELETING the
+    '                                nineteen compact fractions. Word keeps one AutoCorrect list
+    '                                for the whole application, so this sub was taking entries off
+    '                                letters that had nothing to do with VistaType LP - reported by
+    '                                a transcriber on Office 365. See Sh_AutoCorrect_Switch
     ' Version: 2.9  Date: 8/22/2026 - writes NO fixed setting at all, which is Jerry's rule for the ordinary
     '                                 configuration. The four that stood here come out - the spelling-checker
     '                                 pair of 2.7 and the hyperlink pair of 2.8, which was never built - and
@@ -24518,6 +24599,14 @@ Sub MS_Set_Word_Config_For_New_Install()
     ' Version: 1.7  Date: 4/14/2017
     '
     
+
+    ' HER OWN AUTOCORRECT TABLE, put up before anything else this sub does. Word keeps ONE
+    ' AutoCorrect list for the whole application, so a large print or braille book used to take
+    ' entries away from her letters and for good. VistaType LP keeps three tables of its own and
+    ' swaps them here. A no-op when this table is already the one loaded. See the section note
+    ' above Sh_AC_Table_File.
+    Sh_AutoCorrect_Switch "DEF"
+
     ActiveDocument.ActiveWindow.View.ReadingLayout = False  'will crash if document is in reading view ... close reading view
 
     ' 8/20/2026 - three Styles pane settings are no longer written here, and must not be put
@@ -24620,28 +24709,28 @@ Sub MS_Set_Word_Config_For_New_Install()
     ' rule above is untouched - a value written HERE would be rewritten on every letter she opens,
     ' and that is the thing that cannot be told from her own choice.
 
-    ' The compact fractions, and this line has now been both ways round.
+    ' THE COMPACT FRACTIONS ARE NOT DELETED HERE ANY MORE, from 9/19/2026, and this line has now
+    ' been three ways round. Until 8/18/2026 this sub deleted all eighteen. On 8/18/2026 Jerry's
+    ' call was that an ordinary document should HAVE them, so it added them instead. On 8/29/2026
+    ' it went back to deleting, for a measured reason: an AutoCorrect entry named "1/2" fires on
+    ' any delimiter after it, a slash included, so typing 1/2/2026 gave one character followed by
+    ' /2026.
     '
-    ' Until 8/18/2026 this sub DELETED all eighteen. On 8/18/2026 Jerry's call was that an ordinary
-    ' document should HAVE them, so it added them instead. ON 8/29/2026 IT IS BACK TO DELETING, and
-    ' this time the reason is measured rather than a preference: an AutoCorrect entry named "1/2"
-    ' fires on any delimiter after it, a slash included, so typing 1/2/2026 gave ½/2026. Jerry hit
-    ' it in an ordinary document. No entry can be written that tells a date from a fraction.
+    ' WHAT WAS WRONG WITH ALL THREE is that they reached out of the ordinary document. Word keeps
+    ' ONE AutoCorrect list for the whole application, so deleting an entry here took it off every
+    ' document on the machine, permanently - and a transcriber running Office 365 reported exactly
+    ' that on 9/19/2026: her own fraction entries vanishing from letters she had never used
+    ' VistaType LP on, and coming back the moment she took the add-in out of Word's STARTUP folder.
+    ' Sh_AutoCorrect_Switch, at the top of this sub, puts HER table up instead; the two books keep
+    ' their own and take nothing away from it. See the section note above Sh_AC_Table_File.
     '
-    ' What is NOT lost: Word itself does three - one half, one quarter, three quarters - through
-    ' AutoFormatAsYouTypeReplaceFractions, which is a DIFFERENT mechanism, not an AutoCorrect
-    ' entry, and which this sub does not write at all (it is hers, and in the ledger). Those three
-    ' have been on all along and have never touched a date. The other fifteen stay as typed in an
-    ' ordinary document, exactly as they did before 8/18/2026.
+    ' The date is no longer this sub's business either. VistaType LP never ADDS a compact fraction
+    ' entry now, so "1/2" is in her list only if she typed it in herself - and what that then does
+    ' to 1/2/2026 in her own letters is hers to decide, not this sub's.
     '
-    ' The delete matters as much as dropping the add: an entry, once written, STAYS in the
-    ' transcriber's own AutoCorrect list. Every machine that has run a 3.0.2xx build already has
-    ' all nineteen, and this is the only thing that reaches one.
-    '
-    ' Runs LAST, below Sh_Restore_Transcriber_Settings, on purpose: if it ever raised,
-    ' Sh_Apply_Word_Config's handler would blank Sh_ConfiguredAs and Document Settings would report the
-    ' previous document's setup.
-    Sh_Delete_Compact_Fractions
+    ' Word's own three - one half, one quarter, three quarters - are a DIFFERENT mechanism,
+    ' AutoFormatAsYouTypeReplaceFractions, which this sub does not write at all: it is hers, and
+    ' it is in the ledger.
 
 End Sub '*** end of MS_Set_Word_Config_For_New_Install ***
 
@@ -24651,6 +24740,9 @@ Sub MS_Set_Word_Config_For_Large_Print()
     '
     ' Author: Jerry Whittaker -  jerry@vistatypelp.org
     '
+    ' Version: 3.3  Date: 9/19/2026 - puts LARGE PRINT'S OWN AutoCorrect table up, so the nineteen
+    '                                compact fractions deleted below no longer come off the
+    '                                transcriber's letters too. Jerry - see Sh_AutoCorrect_Switch
     ' Version: 3.2  Date: 9/6/2026 - records the medium BEFORE running File Cleanup, which is
     '                                what tells the cleanup whether to make web and e-mail
     '                                addresses live; and converts them on a RE-ATTACH that
@@ -24731,6 +24823,14 @@ Sub MS_Set_Word_Config_For_Large_Print()
     ' BELOW the save on the line above, NEVER above it: that save declines while the flag stands,
     ' so raising the flag first would throw away the change the user had just made in a letter.
     Sh_Note_Book_Settings
+
+    ' THE LARGE PRINT AUTOCORRECT TABLE. Word keeps ONE AutoCorrect list for the whole
+    ' application, so until 9/19/2026 the nineteen compact fractions this sub deletes further down
+    ' were taken off the transcriber's own letters as well, permanently. This puts large print's
+    ' own table up and leaves hers standing in its file. A no-op when it is already the one
+    ' loaded, so it costs nothing on a second large print book. See the section note above
+    ' Sh_AC_Table_File.
+    Sh_AutoCorrect_Switch "LP"
     
     With Options
         If .AutoFormatAsYouTypeApplyBorders <> False Then .AutoFormatAsYouTypeApplyBorders = False
@@ -24998,6 +25098,9 @@ Sub MS_Set_Word_Config_For_Braille()
     '
     ' Author: Jerry Whittaker -  jerry@vistatypelp.org
     '
+    ' Version: 3.0  Date: 9/19/2026 - puts BRAILLE'S OWN AutoCorrect table up, and stops taking the
+    '                                transcriber's entries off her letters. Jerry - see
+    '                                Sh_AutoCorrect_Switch
     ' Version: 2.9  Date: 9/5/2026 - raises the book flag at the TOP now instead of the end, with
     '                                its large print twin (Jerry). See there for the hole it closes
     ' Version: 2.8  Date: 9/4/2026 - stops writing AutoFormatAsYouTypeReplacePlainTextEmphasis,
@@ -25074,6 +25177,11 @@ Sub MS_Set_Word_Config_For_Braille()
     ' the next ordinary document stored this book's values as the user's own. The full account is
     ' in MS_Set_Word_Config_For_Large_Print, at the same place.
     Sh_Note_Book_Settings
+
+    ' THE BRAILLE AUTOCORRECT TABLE - see MS_Set_Word_Config_For_Large_Print, and the section
+    ' note above Sh_AC_Table_File. A no-op when this table is already the one loaded, so it costs
+    ' nothing on a second braille file.
+    Sh_AutoCorrect_Switch "BRL"
 
     Dim su_Prev As Boolean
     su_Prev = Application.ScreenUpdating
@@ -25348,9 +25456,14 @@ Sub Sh_Delete_Compact_Fractions()
 '    and lifting it out would change what happens after it.
 '
 ' Deleting an entry that is not there raises, which is trapped per entry, so a machine that never
-' had them costs 19 failed lookups and no writes at all. That matters because this runs on every
-' ordinary document opened: needless writes to Word's AutoCorrect store are the churn that brought
-' on Office's "restart to apply your privacy settings" notice.
+' had them costs 19 failed lookups and no writes at all. Needless writes to Word's AutoCorrect
+' store are the churn that brought on Office's "restart to apply your privacy settings" notice.
+'
+' 9/19/2026 - BRAILLE IS NOW THE ONLY CALLER. This ran on every ordinary document opened as well
+' until the three AutoCorrect tables went in; MS_Set_Word_Config_For_New_Install deletes nothing
+' at all now, because Word keeps ONE AutoCorrect list and deleting here took entries off letters
+' that had nothing to do with VistaType LP. Large print has always had its own inline copy of the
+' list and still does. See the section above Sh_AC_Table_File.
 '
     Sh_Delete_One_Compact_Fraction "1/2"
     Sh_Delete_One_Compact_Fraction "1/3"
@@ -25410,6 +25523,491 @@ Private Sub Sh_Delete_One_Compact_Fraction(ByVal fractionTyped As String)
 
 End Sub  '*** end of Sh_Delete_One_Compact_Fraction ***
 
+
+' --- The three AutoCorrect tables -----------------------------------------------------------
+'
+' WORD KEEPS ONE AUTOCORRECT LIST FOR THE WHOLE APPLICATION. There is no per-document list and
+' nothing in VBA can make one, so an entry the transcriber adds in a letter is the same entry a
+' large print book sees - and when the book deleted it, it was gone everywhere and for good.
+'
+' Reported 9/19/2026 by a transcriber running Office 365: her own fraction entries vanished from
+' AutoCorrect in ordinary documents she had never used VistaType LP on, and came back the moment
+' she took LPandBRL.dotm out of Word's STARTUP folder. She was right, and she worked out the
+' mechanism herself - moving between document types is what strips them. Jerry's call the same
+' day: "build a firewall between the autocorrect tables... one for braille, one for large print
+' and one for regular documents... we will just have to pay the time price for that action."
+'
+' So VistaType LP keeps three tables of its own and swaps them as the document on screen changes
+' kind. Each is a plain Unicode text file beside VistaType.ini, one entry per line, the typed
+' name and its replacement separated by a tab:
+'
+'   AutoCorrect-DEF.txt    ordinary documents - the transcriber's own
+'   AutoCorrect-LP.txt     large print books
+'   AutoCorrect-BRL.txt    braille files
+'
+' MEASURED ON THE BUILD BOX, 9/19/2026, against a stock Word: 926 entries, of which 913 are plain
+' text and 13 are rich text. READING THE LIST OVER COM IS THE WHOLE COST - 1.0 s for 926 entries -
+' so it is read ONCE, by Sh_AC_Snapshot, and both the file that is written and the comparison that
+' follows are made from that one result. Nothing else enumerates Word's list. Entries are deleted
+' and added BY NAME, which Word does directly. A first version walked the list twice and so cost
+' twice as much on every switch, and that matters because a switch happens on a window click,
+' inside Sh_HandleDocumentActivated, with the screen live and no progress bar on it.
+'
+' A Unicode round trip through Scripting.FileSystemObject was measured too, and is exact: U+2150
+' and U+2189 came back unchanged, and the tab separator with them.
+'
+' FOUR RULES, and every one of them exists because a failure here is silent and permanent.
+' Nothing in this design can put an entry back, so losses only ever go one way.
+'
+'  1. A PARTIAL READ STOPS EVERYTHING. Sh_AC_Snapshot returns False if any entry will not read,
+'     and the switch then does nothing at all. A snapshot that quietly dropped what it could not
+'     read would be written out as the whole table, and the next load of that file would delete
+'     the missing entries out of Word for good.
+'
+'  2. A TABLE IS NEVER TRUNCATED IN PLACE. Sh_AC_Write builds the new file beside the old one and
+'     moves it over only when it is closed. CreateTextFile truncates, so writing straight to the
+'     real file would destroy the only copy of that table before a line went in - and a write
+'     that died part way through would leave a SHORT file that parses perfectly, which the next
+'     switch would read as the whole truth.
+'
+'  3. ONE BAD ENTRY COSTS THAT ENTRY. Sh_AC_Apply traps each delete and each add on its own. A
+'     handler round the whole loop would abandon the rest half way and leave Word holding a list
+'     that is neither table.
+'
+'  4. THE MARKER IS READ BACK. Which table is up is recorded in VistaType.ini, and Sh_AC_Remember
+'     checks that the record actually took. See there: it is the one place in this section where
+'     a silent failure would not be in the safe direction.
+'
+' RICH TEXT ENTRIES ARE NEVER TOUCHED, and that is a safety rule, not an omission. A formatted
+' entry's content lives in Normal.dotm and cannot be read back as a string - measured, the .Value
+' of all 13 comes back as the placeholder "[*]" or "[**]". Deleting one would destroy something
+' this code cannot rebuild, and neither is one ever written over: Sh_AC_Apply refuses to add a
+' plain entry whose name is a rich text entry in Word, however the file came by that name. All 13
+' on a stock Word are Word's own (the emoticons and the five arrows), so nothing of the
+' transcriber's is affected unless she has made a formatted entry herself - and if she has, it
+' stays SHARED between the three tables rather than being lost. That is a known hole in the
+' firewall, deliberately left open, and it is the same reasoning that already keeps this project
+' away from the four AutoCorrect exception lists.
+'
+' WHICH TABLE IS LOADED IS RECORDED, NOT INFERRED FROM Sh_ConfiguredAs, and the difference matters
+' across sessions. Word writes its AutoCorrect list into the .acl file when it closes, so a
+' transcriber who quits Word inside a braille file starts the next morning with the BRAILLE table
+' standing in Word before a line of this project runs. Keyed on Sh_ConfiguredAs, the first capture
+' of that session would write the braille table into her ordinary one and lose hers for good.
+'
+' NOT MEASURED, AND WORTH WATCHING: Outlook reads and writes the same .acl file and keeps its own
+' copy in memory while it runs. Whether an open Outlook can put its copy back over a table this
+' code has just loaded could not be tested on a build box that has no mail account. Rule 3 is what
+' limits the damage if a concurrent write makes an add or a delete raise.
+'
+' Version: 2.0  Date: 9/19/2026 - one pass over Word's list instead of two; the four rules above,
+'                                 each closing a way the first version could shorten a table
+'                                 silently or leave Word and the record disagreeing
+' Version: 1.0  Date: 9/19/2026
+'
+
+Private Function Sh_AC_Table_File(ByVal cfgType As String) As String
+'
+' The full path of one table, creating the folder the first time. "" if it cannot be had - every
+' caller treats that as "do nothing", which leaves Word's list alone.
+'
+' Version: 1.0  Date: 9/19/2026
+'
+    Dim folder As String
+
+    folder = Sh_Store_Folder()
+    If folder = "" Then Exit Function
+
+    Sh_AC_Table_File = folder & "\AutoCorrect-" & cfgType & ".txt"
+
+End Function  '*** end of Sh_AC_Table_File ***
+
+Private Function Sh_AC_Escape(ByVal s As String) As String
+'
+' Make one name or replacement safe to write on a line of its own. The separator is a tab and the
+' terminator a carriage return and line feed, so those three characters - and the backslash that
+' escapes them - are the only ones that need it.
+'
+' Version: 1.0  Date: 9/19/2026
+'
+    Dim t As String
+
+    t = Replace(s, "\", "\\")
+    t = Replace(t, vbTab, "\t")
+    t = Replace(t, vbCr, "\r")
+    t = Replace(t, vbLf, "\n")
+
+    Sh_AC_Escape = t
+
+End Function  '*** end of Sh_AC_Escape ***
+
+Private Function Sh_AC_Unescape(ByVal s As String) As String
+'
+' The way back from Sh_AC_Escape. Walks the string rather than running four Replace passes,
+' because a replacement done in the wrong order turns "\\t" - a backslash followed by a t - into
+' a tab.
+'
+' Version: 1.0  Date: 9/19/2026
+'
+    Dim out As String
+    Dim i As Long
+    Dim ch As String
+
+    i = 1
+    Do While i <= Len(s)
+        ch = Mid$(s, i, 1)
+        If ch = "\" And i < Len(s) Then
+            i = i + 1
+            Select Case Mid$(s, i, 1)
+                Case "\": out = out & "\"
+                Case "t": out = out & vbTab
+                Case "r": out = out & vbCr
+                Case "n": out = out & vbLf
+                Case Else: out = out & Mid$(s, i, 1)
+            End Select
+        Else
+            out = out & ch
+        End If
+        i = i + 1
+    Loop
+
+    Sh_AC_Unescape = out
+
+End Function  '*** end of Sh_AC_Unescape ***
+
+Private Function Sh_AC_Snapshot(ByRef outPlain As Object, ByRef outRich As Object) As Boolean
+'
+' Everything in Word's AutoCorrect list right now, read in ONE pass: the plain entries as name to
+' replacement, and the names of the rich text ones on their own.
+'
+' This is the expensive call and the only thing in this section that enumerates Word's list - see
+' rule 1 and the measurement in the section note above. The two out-parameters are ByRef because
+' that is what an out-parameter is; every value parameter in this section is ByVal, per the rule
+' set on 8/26/2026.
+'
+' FALSE MEANS AN ENTRY COULD NOT BE READ, and the caller then does nothing whatever. Rule 1.
+'
+' Version: 1.0  Date: 9/19/2026
+'
+    Dim i As Long
+    Dim total As Long
+    Dim acEntry As AutoCorrectEntry
+    Dim nm As String
+
+    Set outPlain = CreateObject("Scripting.Dictionary")
+    Set outRich = CreateObject("Scripting.Dictionary")
+    If outPlain Is Nothing Or outRich Is Nothing Then Exit Function
+    ' TextCompare. An AutoCorrect name is not case sensitive, and two keys differing only in case
+    ' would make Sh_AC_Apply delete an entry and add it straight back on every single switch.
+    outPlain.CompareMode = 1
+    outRich.CompareMode = 1
+
+    On Error GoTo Failed
+
+    total = AutoCorrect.Entries.Count
+    For i = 1 To total
+        Set acEntry = AutoCorrect.Entries(i)
+        nm = acEntry.Name
+        If acEntry.RichText Then
+            outRich.Item(nm) = True
+        Else
+            outPlain.Item(nm) = acEntry.Value
+        End If
+    Next i
+
+    Sh_AC_Snapshot = (outPlain.Count > 0)
+    Exit Function
+
+Failed:
+    On Error Resume Next
+    Set outPlain = Nothing
+    Set outRich = Nothing
+    Err.Clear
+
+End Function  '*** end of Sh_AC_Snapshot ***
+
+Private Function Sh_AC_Write(ByVal cfgType As String, ByVal plainList As Object) As Boolean
+'
+' Write one table to its file, beside the old one and then over it. Rule 2 in the section note
+' says why, and the short of it is that CreateTextFile truncates: writing straight to the real
+' file destroys the only copy of that table before a single line goes in.
+'
+' If the move itself fails, the finished file is still there as "<name>.txt.new" and this returns
+' False, so the switch does not happen and Word is left as it was.
+'
+' Version: 1.0  Date: 9/19/2026
+'
+    Dim fso As Object
+    Dim ts As Object
+    Dim storePath As String
+    Dim tempPath As String
+    Dim buf As String
+    Dim k As Variant
+
+    On Error GoTo Failed
+
+    If plainList Is Nothing Then Exit Function
+    If plainList.Count = 0 Then Exit Function   ' never write an empty table over a good one
+
+    storePath = Sh_AC_Table_File(cfgType)
+    If storePath = "" Then Exit Function
+
+    For Each k In plainList.Keys
+        buf = buf & Sh_AC_Escape(CStr(k)) & vbTab & Sh_AC_Escape(CStr(plainList.Item(k))) & vbCrLf
+    Next k
+
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    If fso Is Nothing Then Exit Function
+
+    tempPath = storePath & ".new"
+    If fso.FileExists(tempPath) Then fso.DeleteFile tempPath, True
+    Set ts = fso.CreateTextFile(tempPath, True, True)   ' overwrite, Unicode
+    ts.Write buf
+    ts.Close
+    Set ts = Nothing
+
+    ' Only now does the old one go.
+    If fso.FileExists(storePath) Then fso.DeleteFile storePath, True
+    fso.MoveFile tempPath, storePath
+
+    Sh_AC_Write = fso.FileExists(storePath)
+    Exit Function
+
+Failed:
+    On Error Resume Next
+    If Not ts Is Nothing Then ts.Close
+    Err.Clear
+
+End Function  '*** end of Sh_AC_Write ***
+
+Private Function Sh_AC_Read(ByVal cfgType As String, ByRef outWanted As Object) As Boolean
+'
+' Read one table off disk. False means there is no file, or it holds no entry that parses - and
+' then Word is not touched at all; the caller seeds that table instead.
+'
+' Version: 1.0  Date: 9/19/2026
+'
+    Dim fso As Object
+    Dim ts As Object
+    Dim storePath As String
+    Dim whole As String
+    Dim rows As Variant
+    Dim i As Long
+    Dim tabAt As Long
+    Dim nm As String
+
+    On Error GoTo Failed
+
+    storePath = Sh_AC_Table_File(cfgType)
+    If storePath = "" Then Exit Function
+
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    If fso Is Nothing Then Exit Function
+    If Not fso.FileExists(storePath) Then Exit Function
+
+    Set ts = fso.OpenTextFile(storePath, 1, False, -1)   ' ForReading, Unicode
+    whole = ts.ReadAll
+    ts.Close
+    Set ts = Nothing
+    If Len(whole) = 0 Then Exit Function
+
+    Set outWanted = CreateObject("Scripting.Dictionary")
+    If outWanted Is Nothing Then Exit Function
+    outWanted.CompareMode = 1
+
+    rows = Split(whole, vbCrLf)
+    For i = LBound(rows) To UBound(rows)
+        tabAt = InStr(rows(i), vbTab)
+        If tabAt > 1 Then
+            nm = Sh_AC_Unescape(Left$(rows(i), tabAt - 1))
+            If Len(nm) > 0 Then outWanted.Item(nm) = Sh_AC_Unescape(Mid$(rows(i), tabAt + 1))
+        End If
+    Next i
+
+    Sh_AC_Read = (outWanted.Count > 0)
+    Exit Function
+
+Failed:
+    On Error Resume Next
+    If Not ts Is Nothing Then ts.Close
+    Set outWanted = Nothing
+    Err.Clear
+
+End Function  '*** end of Sh_AC_Read ***
+
+Private Sub Sh_AC_Apply(ByVal wanted As Object, ByVal plainList As Object, ByVal richList As Object)
+'
+' Make Word's list match the table just read, working from the snapshot already in hand. Nothing
+' here enumerates Word's list: an entry is found, deleted and added BY NAME, which is also why
+' there is no deleting-while-walking trap to get wrong.
+'
+' PER-ENTRY TRAPS - rule 3. One entry that will not delete or will not add costs that entry and
+' nothing else.
+'
+' A NAME THAT IS A RICH TEXT ENTRY IN WORD IS LEFT ALONE, however the file came by it. Adding over
+' one would replace a formatted entry with plain text, which is exactly what the rule above says
+' must never happen.
+'
+' Version: 1.0  Date: 9/19/2026
+'
+    Dim k As Variant
+    Dim nm As String
+
+    ' Take away what this table does not have.
+    For Each k In plainList.Keys
+        nm = CStr(k)
+        If Not wanted.Exists(nm) Then
+            On Error Resume Next
+            AutoCorrect.Entries(nm).Delete
+            Err.Clear
+            On Error GoTo 0
+        End If
+    Next k
+
+    ' Put up what it has and Word has not, or has differently. Adding a name that already exists
+    ' REPLACES it silently rather than raising - measured on the build box 9/19/2026.
+    For Each k In wanted.Keys
+        nm = CStr(k)
+        If Not richList.Exists(nm) Then
+            If Not plainList.Exists(nm) Then
+                On Error Resume Next
+                AutoCorrect.Entries.Add nm, CStr(wanted.Item(nm))
+                Err.Clear
+                On Error GoTo 0
+            ElseIf CStr(plainList.Item(nm)) <> CStr(wanted.Item(nm)) Then
+                On Error Resume Next
+                AutoCorrect.Entries.Add nm, CStr(wanted.Item(nm))
+                Err.Clear
+                On Error GoTo 0
+            End If
+        End If
+    Next k
+
+End Sub  '*** end of Sh_AC_Apply ***
+
+Private Sub Sh_AC_Remember(ByVal cfgType As String, ByVal cameFrom As String)
+'
+' Record which table is now up - and if the record will not stick, put the old one back.
+'
+' THE MARKER IS THE WHOLE FIREWALL, and this is the one place in this section where a silent
+' failure would not be in the safe direction. Sh_Setting_Write swallows its own errors, so a
+' VistaType.ini that has gone read-only - a backup tool, a restore out of OneDrive - would leave
+' the large print table standing in Word while the store still said "DEF". The next switch would
+' read "DEF", capture the BOOK's list into her own file, and replace her AutoCorrect list with a
+' book's, permanently and with nothing said.
+'
+' So it is read back. If it did not take, Word goes back to the table it came from and the
+' firewall simply does not work on that machine - which is how Word behaved before any of this
+' existed, and is the only acceptable way for it to fail.
+'
+' It re-reads Word's list rather than reusing the caller's snapshot, because by this point the
+' caller has changed Word and that snapshot describes how things were before. This path is rare
+' enough to pay for a second read.
+'
+' Version: 1.0  Date: 9/19/2026
+'
+    Dim nowPlain As Object
+    Dim nowRich As Object
+    Dim wentBack As Object
+
+    On Error GoTo Failed
+
+    Sh_Setting_Write VT_STORE_AC, VT_AC_LOADED, cfgType
+    If Sh_Setting_Read(VT_STORE_AC, VT_AC_LOADED, "") = cfgType Then Exit Sub
+
+    If Not Sh_AC_Snapshot(nowPlain, nowRich) Then Exit Sub
+    If Sh_AC_Read(cameFrom, wentBack) Then Sh_AC_Apply wentBack, nowPlain, nowRich
+    Exit Sub
+
+Failed:
+    On Error Resume Next
+    Err.Clear
+
+End Sub  '*** end of Sh_AC_Remember ***
+
+Sub Sh_AutoCorrect_Switch(ByVal cfgType As String)
+'
+' Put up the AutoCorrect table belonging to the kind of document now being configured, having
+' first written down what is standing in Word as belonging to the table it came from.
+'
+' CALLED AT THE TOP OF ALL THREE CONFIGURATION SUBS, and it is a no-op when the table asked for is
+' already the one up. The test is on what the store says is loaded and NOT on who the caller is -
+' about a dozen places in this project run the configuration subs directly, the same reason
+' Sh_Save_Transcriber_Settings gates on Sh_ConfiguredAs rather than on its caller.
+'
+' EVERY STEP CAN DECLINE, AND DECLINING MEANS WORD IS LEFT EXACTLY AS IT IS. If the list cannot be
+' read whole, if what is standing in Word cannot be written down, or if the table asked for has no
+' file and one cannot be written, the switch does not happen. That is no worse than the behavior
+' this replaced - the book below still takes the nineteen compact fractions off - and it is the
+' only direction in which a failure here is harmless.
+'
+' FIRST RUN ON A MACHINE: nothing is recorded, so what is standing in Word is taken to be the
+' transcriber's own and is written to the ordinary table. The other two are seeded from it the
+' first time she opens a book of that kind, so she keeps every entry she has - including the nine
+' hundred of Word's own - rather than starting a book with an empty list. The nineteen compact
+' fractions go out of a book's live list a moment later, because both book configurations still
+' call for them to be deleted after this; the seeded file catches up the first time she leaves
+' that book, when the live list is written back into it.
+'
+' WHAT IT CANNOT DO is give back entries already lost. Every machine that has run a 3.0.2xx build
+' has had all nineteen taken off it, and this records what is there now, not what used to be. She
+' adds the ones she wants once, in an ordinary document, and from then on they stay.
+'
+' A CHANGE MADE INSIDE A BOOK BELONGS TO THAT BOOK'S TABLE and comes back the next time she opens
+' one of that kind. That is the opposite of the hard wall of 9/5/2026, which says a change made to
+' a SETTING inside a book is not a preference and dies with the book - and the difference is
+' deliberate: three tables that did not remember what was put in them would not be three tables.
+' One thing follows that is worth expecting: choosing AutoCorrect from the spelling checker's
+' right-click menu while a book is on screen now files that entry in the book's table only.
+'
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
+'
+' Version: 2.0  Date: 9/19/2026 - one read of Word's list instead of two, and every step can
+'                                 decline without changing anything
+' Version: 1.0  Date: 9/19/2026
+'
+    Dim livePlain As Object
+    Dim liveRich As Object
+    Dim wanted As Object
+    Dim loadedNow As String
+
+    On Error GoTo Failed
+
+    If Len(cfgType) = 0 Then Exit Sub
+
+    loadedNow = Sh_Setting_Read(VT_STORE_AC, VT_AC_LOADED, "")
+    If loadedNow = cfgType Then Exit Sub        ' this table is already up - nothing to pay
+
+    ' Nothing recorded, so this is the first switch on this machine and what is in Word is hers.
+    If Len(loadedNow) = 0 Then loadedNow = "DEF"
+
+    ' The one read of Word's list. Rule 1: anything short of a complete one stops here.
+    If Not Sh_AC_Snapshot(livePlain, liveRich) Then Exit Sub
+
+    ' Write down what is standing in Word BEFORE replacing it.
+    If Not Sh_AC_Write(loadedNow, livePlain) Then Exit Sub
+
+    ' Seed rather than empty: no file for the table being asked for means she has never had a
+    ' document of that kind, so it starts as a copy of what she already has - and Word already
+    ' holds exactly that, so there is nothing to apply.
+    If Not Sh_AC_Read(cfgType, wanted) Then
+        If Not Sh_AC_Write(cfgType, livePlain) Then Exit Sub
+        Sh_AC_Remember cfgType, loadedNow
+        Exit Sub
+    End If
+
+    Sh_AC_Apply wanted, livePlain, liveRich
+    Sh_AC_Remember cfgType, loadedNow
+    Exit Sub
+
+Failed:
+    ' Nothing here may raise on to the caller: this runs at the top of the three configuration
+    ' subs, and Sh_Apply_Word_Config's handler blanks Sh_ConfiguredAs on any error that reaches
+    ' it, which would make Document Settings report the previous document's setup.
+    On Error Resume Next
+    Err.Clear
+
+End Sub  '*** end of Sh_AutoCorrect_Switch ***
 ' --- The settings store -------------------------------------------------------------------
 ' One small file, written and read with Word's own System.PrivateProfileString, so no file
 ' handling has to be written here. RibbonCallbacks.bas already uses the same call.
