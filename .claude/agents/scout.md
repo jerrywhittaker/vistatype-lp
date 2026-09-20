@@ -43,16 +43,19 @@ Measured 9/20/2026, when a first run of this agent returned 124 for a figure tha
 each, so `-o` gave 69 where the answer was 67. Decide which you are counting and say which.
 
 **A multi-file search prefixes every line with `filename:`, which breaks any line-anchored
-filter.** `rg MsgBox src/forms/*.frm | rg -v "^\s*'"` excludes nothing at all, because the
+filter.** `rg MsgBox src/forms/*.frm | grep -v "^'"` excludes nothing at all, because the
 apostrophe is no longer at the start of the line — it now sits after `Lp_Whatever.frm:`. That
-turned 28 into 35. Either pass `--no-filename`, or strip the prefix before filtering, or run
-the files one at a time.
+turned 28 into 35.
 
-The safe shape for "count non-comment lines matching X":
+**Use this command. Do not compose your own.**
 
 ```bash
-rg --no-filename X <paths> | sed 's/^[[:space:]]*//' | grep -v "^'" | wc -l
+rg --no-filename PATTERN <paths> | sed 's/^[[:space:]]*//' | grep -v "^'" | wc -l
 ```
+
+**`-I` is `--no-filename`. `-N` is `--no-line-number` and is NOT the flag you want** — it
+leaves the filename prefix in place and the count comes out wrong. Two runs of this agent
+picked `-N` and reported 35 for a figure that is 28. If you shorten the command, `-I`.
 
 **Sanity-check any count against a figure already written down.** If a document says 113 and
 you get 124, you are probably wrong, not the document — find out which before reporting.
