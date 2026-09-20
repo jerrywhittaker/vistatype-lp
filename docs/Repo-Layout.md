@@ -253,8 +253,9 @@ tools/lib/      vm_up.py (starts the VirtualBox VM when the box is not answering
                 Windows programs and the VM is on the same host, so VBoxManage.exe is reachable.
                 Hooked into push-src, so every target that touches the box gets it. Does NOTHING
                 when SSH already answers, and says so plainly when there is no VirtualBox here
-                rather than failing. `make vm-up GUI=1` starts it WITH A WINDOW - headless is
-                right for a build, a window is what anything that has to SEE Word needs);
+                rather than failing. ALWAYS starts it with a window, never headless - Jerry,
+                9/20/2026, drives every setup by hand to test it, so a headless VM is no use to
+                him. No headless option exists; do not add one back as a flag);
                 build_vba_test_bundle.py (gathers the VBA procedures tests/vba names, plus what they
                 call and the declarations those need, into one importable module - `make vba-test`);
                 check_style_guards.py (refuses to build when an ActiveDocument.Styles("name") lookup is

@@ -139,8 +139,9 @@ You should not have to. Every target that touches the box runs `make vm-up` firs
 starts the VM when it is not already answering and waits for SSH. It does nothing when the box
 is already up.
 
-`make vm-up GUI=1` starts it **with a window**. Headless is right for a build; a window is what
-anything that has to *see* Word needs — screenshots, or working the ribbon by hand.
+It always comes up **with a window**, never headless — Jerry, 9/20/2026: he drives every setup
+by hand to test it, and a VM that came up headless is no use when he goes to look at Word. A
+build does not need the window; he does. There is no headless option, on purpose.
 
 This works because WSL can run Windows programs and the VM is on the same Windows host, so
 `VBoxManage.exe` is reachable from the Linux side. On a machine with no VirtualBox, `vm-up`

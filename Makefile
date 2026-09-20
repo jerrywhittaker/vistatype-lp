@@ -41,8 +41,8 @@
 #                be CLOSED on the box. It tests the SOURCE in src/vba, not the last build.
 #   make vm-up   Start the Windows build VM if it is not already up and answering. Runs as
 #                part of every target that touches the box, so you should never have to think
-#                about it. `make vm-up GUI=1` starts it WITH A WINDOW, which is what you want
-#                for anything that has to SEE Word.
+#                about it. It always comes up WITH A WINDOW, so it is ready to be driven by
+#                hand - which is how every setup here gets tested.
 #   make test    Run the test suite in tests/ over the build's own checkers and file
 #                generators, against fixtures. No Word, no build box, about half a second.
 #                Needs pytest:  sudo apt install python3-pytest
@@ -103,7 +103,7 @@ check-config:
 # Without it an off VM fails at the SSH with a connection error that says nothing about why.
 # It does nothing at all when the box already answers - see the script.
 vm-up:
-	@python3 tools/lib/vm_up.py --host "$(WIN_HOST)" $(if $(VM_NAME),--name "$(VM_NAME)",) $(if $(VBOXMANAGE),--vboxmanage "$(VBOXMANAGE)",) $(if $(GUI),--gui,)
+	@python3 tools/lib/vm_up.py --host "$(WIN_HOST)" $(if $(VM_NAME),--name "$(VM_NAME)",) $(if $(VBOXMANAGE),--vboxmanage "$(VBOXMANAGE)",)
 
 push-src: check-config vm-up check-dotm-unsigned
 	$(SSH) "if not exist \"$(WIN_DIR)\" mkdir \"$(WIN_DIR)\""

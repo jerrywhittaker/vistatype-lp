@@ -64,7 +64,9 @@ def test_an_unknown_machine_name_lists_what_there_is(monkeypatch, capsys):
     assert "VistaBuild" in err
 
 
-def test_a_stopped_machine_is_started_headless_by_default(monkeypatch, capsys):
+def test_a_stopped_machine_is_always_started_with_a_window(monkeypatch, capsys):
+    """Jerry, 9/20/2026: he drives every setup by hand to test it, so a VM that came up
+    headless is no use to him. There is no headless mode."""
     calls = []
 
     def fake_vbox(vb, *a):
@@ -79,27 +81,24 @@ def test_a_stopped_machine_is_started_headless_by_default(monkeypatch, capsys):
     monkeypatch.setattr("sys.argv", ["vm_up.py", "--host", "vistabuild"])
 
     assert mod.main() == 0
-    assert ("startvm", "VistaBuild", "--type", "headless") in calls
-    assert "after 42 seconds" in capsys.readouterr().out
-
-
-def test_gui_starts_it_with_a_window(monkeypatch):
-    """What you want for anything that has to SEE Word -- screenshots, or the ribbon by hand."""
-    calls = []
-
-    def fake_vbox(vb, *a):
-        calls.append(a)
-        out = LIST_VMS if a[:2] == ("list", "vms") else ""
-        return type("R", (), {"stdout": out, "returncode": 0, "stderr": ""})()
-
-    monkeypatch.setattr(mod, "ssh_ok", lambda host, timeout=8: False)
-    monkeypatch.setattr(mod, "find_vboxmanage", lambda explicit=None: "/fake/VBoxManage.exe")
-    monkeypatch.setattr(mod, "vbox", fake_vbox)
-    monkeypatch.setattr(mod, "wait_for_ssh", lambda host, seconds, tick=5: 1)
-    monkeypatch.setattr("sys.argv", ["vm_up.py", "--host", "vistabuild", "--gui"])
-
-    assert mod.main() == 0
     assert ("startvm", "VistaBuild", "--type", "gui") in calls
+    out = capsys.readouterr().out
+    assert "with a window" in out
+    assert "after 42 seconds" in out
+
+
+def test_there_is_no_way_to_ask_for_headless(monkeypatch):
+    """Deleted rather than left as an option nobody should take. If it comes back, so does a
+    VM Jerry cannot look at."""
+    import io, contextlib
+    monkeypatch.setattr("sys.argv", ["vm_up.py", "--host", "vistabuild", "--headless"])
+    with contextlib.redirect_stderr(io.StringIO()):
+        try:
+            mod.main()
+        except SystemExit as exc:
+            assert exc.code == 2      # argparse refuses the unknown flag
+        else:
+            raise AssertionError("--headless was accepted")
 
 
 def test_a_running_machine_that_is_not_answering_yet_is_not_started_again(monkeypatch, capsys):

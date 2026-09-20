@@ -18,11 +18,12 @@ THE ORDER MATTERS, and it is deliberately cautious:
   3. If there is no VirtualBox here, say so plainly rather than failing with a stack trace -
      the box may be somebody else's machine entirely.
 
-Headless by default: a build wants no window. `--gui` starts it with one, which is what you
-want for anything that has to SEE Word - screenshots, or driving the ribbon by hand. A headless
-VM is still fully booted and still reachable over SSH; it just has no window on the host.
+ALWAYS WITH A WINDOW - Jerry, 9/20/2026: "we can always start it with a head, not headless.
+Jerry drives every setup to test it manually." A build does not need the window, but he does,
+and a VM that came up headless is no use to him when he goes to look at Word. There is no
+headless option, on purpose; if one is ever wanted it is one word here.
 
-Usage:  python3 tools/lib/vm_up.py --host vistabuild [--name VistaBuild] [--gui] [--wait 180]
+Usage:  python3 tools/lib/vm_up.py --host vistabuild [--name VistaBuild] [--wait 180]
 """
 import argparse
 import os
@@ -90,8 +91,6 @@ def main():
     ap.add_argument("--host", required=True, help="the SSH host name for the box")
     ap.add_argument("--name", default=os.environ.get("VM_NAME") or DEFAULT_NAME)
     ap.add_argument("--vboxmanage", default=os.environ.get("VBOXMANAGE"))
-    ap.add_argument("--gui", action="store_true",
-                    help="start it with a window, for anything that has to SEE Word")
     ap.add_argument("--wait", type=int, default=180,
                     help="seconds to wait for SSH after starting it")
     args = ap.parse_args()
@@ -117,9 +116,9 @@ def main():
     if args.name in parse_vm_list(vbox(vboxmanage, "list", "runningvms").stdout):
         print("%s is already running but not answering on SSH yet - waiting." % args.name)
     else:
-        mode = "gui" if args.gui else "headless"
-        print("%s is not answering. Starting the %s VM (%s)..." % (args.host, args.name, mode))
-        r = vbox(vboxmanage, "startvm", args.name, "--type", mode)
+        print("%s is not answering. Starting the %s VM, with a window..."
+              % (args.host, args.name))
+        r = vbox(vboxmanage, "startvm", args.name, "--type", "gui")
         if r.returncode != 0:
             print("could not start it:\n%s" % (r.stderr.strip() or r.stdout.strip()),
                   file=sys.stderr)
