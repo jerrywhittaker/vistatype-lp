@@ -389,6 +389,17 @@ docs/           Reported-Errors.md (the register of reported faults and what fix
                 BEFORE INVESTIGATING ANY REPORTED ERROR; see the rule below);
                 Daily-Workflow-and-Releases.md (Jerry's plain-language guide to dev/main, building, releasing, and what to ask Claude); Installation-Guide.md (end-user install); Build-VM-Setup.md (the Windows build/test box; VirtualBox since 9/20/2026); Software-Agreement.md (GPLv3 About-dialog text); Code-Signing.md (why Defender deleted the unsigned Setup.exe on 8/13-14/2026, what in the installer scores against it, how to test with `make scan` and MpCmdRun, and the signing options — note Azure Artifact Signing does NOT sign VBA projects, and EV no longer skips SmartScreen. Jerry bought the Certum open source card on 8/17/2026; the last section is the step-by-step for the day it arrives, what the build box already has, and the five things the card-free rehearsal proved); VistaTypeLP-Sans.md (what the bundled typeface covers and does not - languages, mathematics, science, medicine - measured face by face against Tahoma, plus the width and pagination trade-off. The Insert Symbol subset-list defect is FIXED (9/6/2026): Word builds that list from the OS/2 unicode-range flags, not from the character map, and 16 were unset - 11 are now claimed and 5 REFUSED on purpose, Arabic among them because the font has 62 of its characters and no arab shaping. Browsable went 45.7% -> 88.2%; the 695 characters still out of reach sit at code points no OS/2 block covers, so no flag can reach them. A block that is neither claimed nor refused now STOPS the font build)
 reference/      generated read aids (gitignored mirror + interim form-code dump)
+tests/          the Python test suite over tools/lib - the build's own checkers and the files it
+                generates into a transcriber's Word.officeUI. Run with `make test`; needs pytest
+                (`sudo apt install python3-pytest`), takes about half a second, and never opens
+                Word or reaches the build box. Added 9/20/2026, because until then the eight
+                checks that gate every build were themselves untested. Each test file ends with a
+                canary over the REAL source, so a failure there means `make build` is already
+                refusing. Two rules for anything added: a test must never write into the
+                repository (build_ribbon_tabs.py appends to the shipped-ids ledger even with
+                --check-only, so canaries copy first), and fixtures are CRLF, because
+                check_vba_structure.py splits on CRLF and a bare-LF .frm is itself a defect.
+                tests/README.md has the table of what each file protects.
 assets/fonts/vistatypelp-sans/   the bundled typeface, VistaTypeLP Sans — four tracked .ttf faces
                 plus the THREE OFL texts it needs (Noto Sans, Noto Sans Math, Noto Sans Symbols).
                 Built by `make fonts` from the current Noto releases; the built faces are what
@@ -412,7 +423,7 @@ assets/fonts/vistatypelp-sans/   the bundled typeface, VistaTypeLP Sans — four
                 a hotfix reached dev). All four are READ-ONLY and report; none edits or pushes.
                 They complement tools/lib's guards rather than repeat them — each file says
                 what the guards already cover.
-Makefile        pull / build / build-dispatch / ribbon / qat / read / fonts / try / deploy /
+Makefile        pull / build / build-dispatch / ribbon / qat / read / fonts / try / test / deploy /
                 branding / stage /
                 installer / font-installer / scan
                 (`make fonts` rebuilds VistaTypeLP Sans from the current Noto Sans, Noto Sans Math

@@ -36,6 +36,9 @@
 #                ~70 engines flag it, and as what. Fails if Microsoft flags it (that is
 #                Defender, which is what a transcriber has) or if more than 3 do. Needs
 #                VT_API_KEY in build.config. NOTE: uploads are PUBLIC. See docs/Code-Signing.md.
+#   make test    Run the test suite in tests/ over the build's own checkers and file
+#                generators, against fixtures. No Word, no build box, about half a second.
+#                Needs pytest:  sudo apt install python3-pytest
 #   make hooks   Point git at .githooks so the pre-push secrets check runs. Once per clone.
 #                It refuses a push that would publish a card PIN, a private key, a tracked
 #                .pfx/.p12/.pem, or build.config - and runs gitleaks over the whole history,
@@ -171,6 +174,16 @@ check-style-guards:
 # naming the cause. Cost a build on 8/18/2026.
 check-vba-structure:
 	@python3 tools/lib/check_vba_structure.py
+
+# The checks above are the only thing between a VBA mistake and a transcriber's machine, and
+# until 9/20/2026 nothing tested THEM. tests/ does, against fixtures built to look like the
+# real source - plus the file generators, whose output goes into the user's own Word.officeUI.
+#
+# Deliberately NOT part of `make build`: it needs pytest, which a fresh clone may not have, and
+# a build that fails for a missing test tool teaches people to skip the tool. Run it after
+# changing anything under tools/lib.
+test:
+	@python3 -m pytest tests/ -q
 
 # The ribbon dispatch table (src/vba/RibbonDispatch.bas), generated from customUI14.xml.
 # MUST run before the VBA checks and before push-src, because it WRITES a file into src/vba.
@@ -423,4 +436,4 @@ scan:
 clean:
 	rm -rf dist build
 
-.PHONY: help check-config push-src pull build build-dispatch ribbon qat check-qat check-tabs check-frm-eol check-vba-lines read try try-build check-startup-unpulled check-startup-unpulled-soft deploy stage branding check-branding bump font-installer installer installer-build scan clean
+.PHONY: help check-config push-src pull build build-dispatch ribbon qat check-qat check-tabs check-frm-eol check-vba-lines read try try-build check-startup-unpulled check-startup-unpulled-soft deploy stage branding check-branding bump font-installer installer installer-build scan test clean
