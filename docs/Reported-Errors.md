@@ -52,6 +52,16 @@ Record a fault here whether it arrived through the error log or Jerry found it h
 question this file answers is "has this already been dealt with", and where it came from does
 not change that.
 
+**And a test goes in with the fix, wherever the fault is testable** — Jerry, 9/20/2026. This
+register says what went wrong; a test is what stops it coming back. `make build` runs the
+Python suite and `make installer` also runs the VBA suite, so a test written here is a test
+that runs from then on.
+
+Much of what lands in this register cannot be tested: anything needing a Document, a
+UserForm, a dialog or the event path hangs an invisible Word rather than failing.
+`tests/vba/README.md` has the measured list. **When a fault is one of those, say so in the
+Cause column** — "not unit-testable: needs a real document" — so nobody works it out twice.
+
 ---
 
 ## The register

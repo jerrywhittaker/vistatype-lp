@@ -79,7 +79,8 @@ Send independent jobs in **one message** so they run at once, and never do a sea
 
 **Read `docs/Reported-Errors.md` first** — Jerry's rule, 8/26/2026: *"I don't want to spend
 time and tokens on re-investigating errors that have already been fixed."* Keyed on version,
-error number, macro and step. Add the row in the **same change** as the fix.
+error number, macro and step. Add the row **and a test, wherever the fault is testable**, in
+the same change as the fix — Jerry, 9/20/2026. A fix with no test is how a fault comes back.
 
 **Nothing here compiles VBA, and a compile gate is impossible** — measured 8/26/2026: VBA
 compiles lazily per procedure and `Debug > Compile` is unreachable by automation. The compile
@@ -88,6 +89,9 @@ is a **human step** before any release; say so whenever a change touches VBA. Gi
 
 ## Building and testing
 
+**`make build` runs `make test`** (the Python suite, half a second), so every `try` and every
+`installer` does too; **`make installer` also runs `make vba-test`** (the VBA suite, on the
+box). A failing test stops the build. What each covers: `tests/README.md`, `tests/vba/README.md`.
 `make try` bumps, builds and drops the add-in into Word's STARTUP folder on the build box;
 `make build` builds without deploying; `make installer` bumps and produces the `Setup.exe`.
 Word must be closed on the box. Hand these to `build-runner`.
@@ -102,20 +106,17 @@ carries a dated changelog. Bump both when changing behavior.
 ## Git and releases
 
 **`dev` is all day-to-day work. `main` is the last released version.** Work only ever moves
-`dev` → `main`, fast-forward only, one tag per release. (`main` was called `master` until
-9/20/2026.)
+`dev` → `main`, fast-forward only, one tag per release. (`main` was `master` until 9/20/2026.)
 
 **Version numbers:** the third digit — `3.0.460` — is a private build counter, bumped freely,
-never published. `X.Y` — `3.1` — is a real release. A fourth digit — `3.1.0.1` — is a hotfix
-to a released version, in a separate lane so it can never collide with `dev`'s counter.
-**Only Jerry starts a release, and by name** — "let's release 3.1". A clean build is the
-normal end of a day's work, not a cue. Checklist, hotfix and documentation-only routes are in
-`docs/Daily-Workflow-and-Releases.md`.
+never published. `X.Y` — `3.1` — is a real release. A fourth digit — `3.1.0.1` — is a hotfix in
+a separate lane so it can never collide with `dev`'s counter. **Only Jerry starts a release, and
+by name** — "let's release 3.1"; a clean build is the normal end of a day, not a cue. Checklist,
+hotfix and documentation-only routes are in `docs/Daily-Workflow-and-Releases.md`.
 
 **Documentation-only changes go straight to `main`**, so Jerry's bookmark is never stale.
-Qualifies only if the change touches nothing outside `docs/**`, `CLAUDE.md`, `DEVELOPMENT.md`
-and `README*` — verify with `git diff --name-only`, never by eye. Write it on `main`, then
-merge `main` into `dev`.
+Only if the change touches nothing outside `docs/**`, `CLAUDE.md`, `DEVELOPMENT.md` and
+`README*` — verify with `git diff --name-only`, never by eye. Write it on `main`, then merge.
 
 ## Hard rules
 
@@ -124,8 +125,7 @@ merge `main` into `dev`.
 - **Never commit code on `main`** (check `git branch --show-current` first), never force-push,
   and never rewrite or delete a `v*` tag — the tags are the recovery points.
 - **Never publish a release without its `.exe`.** GitHub's source zip cannot be installed by a
-  transcriber, so a release without the installer delivers nothing. Verify with
-  `gh release view <tag> --json assets`; it must not be `[]`.
+  transcriber. Verify with `gh release view <tag> --json assets`; it must not be `[]`.
 - **Never hand-edit `LPandBRL.dotm` or `RibbonDispatch.bas`** — both are generated.
 - **Never rename or remove a `btn_*` id** in `src/ribbon/customUI14.xml` — toolbars in the
   field reference them by id and a renamed one draws blank, silently. Retire a button by moving

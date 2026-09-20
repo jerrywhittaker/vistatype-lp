@@ -272,6 +272,22 @@ It is also the only true copy: the VBA build is not byte-reproducible (Word rege
 p-code), so checking out an old tag and rebuilding does **not** give back the binary that
 shipped. The uploaded installer is the real rollback.
 
+## Tests run as part of the build
+
+`make build` runs `make test` first — the Python suite over the build's own checkers and file
+generators. It takes about half a second, needs no Word, and a failure stops the build before
+it goes anywhere near the box. So every `make try` and every `make installer` runs it too.
+It needs pytest: `sudo apt install python3-pytest`.
+
+`make installer` additionally runs `make vba-test` — the VBA unit tests, on the build box,
+against a throwaway invisible document. About a minute. That gate is on the installer rather
+than on every build because it starts Word, and `make try` is the fast loop.
+
+Write the test in the **same change** as the fix. `docs/Reported-Errors.md` records what the
+fault was; the test is what stops it coming back. Where a fault cannot be tested — anything
+that needs a Document, a UserForm or a dialog — say so in the register row.
+`tests/README.md` and `tests/vba/README.md` say what each suite covers and what it cannot.
+
 ## Always smoke-test a build
 
 `make build` produces a `.dotm` but does not prove it runs. Before `make deploy`,

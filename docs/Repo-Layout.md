@@ -403,6 +403,11 @@ tests/          the Python test suite over tools/lib - the build's own checkers 
                 --check-only, so canaries copy first), and fixtures are CRLF, because
                 check_vba_structure.py splits on CRLF and a bare-LF .frm is itself a defect.
                 tests/README.md has the table of what each file protects.
+                WIRED INTO THE BUILD 9/20/2026 (Jerry): `make build` runs `make test` first, so
+                every try and every installer does too, and a failure stops it before the box is
+                touched. `make installer` also runs `make vba-test`. That one is on the installer
+                and not on every build because it starts Word and `make try` is the fast loop -
+                say so if that trade should change.
 tests/vba/      the VBA unit tests - `make vba-test`. They do NOT reference the built add-in:
                 tools/lib/build_vba_test_bundle.py lifts the procedures each test names out of
                 src/vba as they stand, follows what they call, and the runner imports that into

@@ -204,6 +204,9 @@ vba-test: check-config push-src
 # a build that fails for a missing test tool teaches people to skip the tool. Run it after
 # changing anything under tools/lib.
 test:
+	@python3 -c "import pytest" 2>/dev/null || { \
+	  echo "ERROR: pytest is not installed, so the tests cannot run."; \
+	  echo "       sudo apt install python3-pytest"; exit 1; }
 	@python3 -m pytest tests/ -q
 
 # The ribbon dispatch table (src/vba/RibbonDispatch.bas), generated from customUI14.xml.
@@ -235,7 +238,7 @@ branding:
 check-branding:
 	@python3 tools/lib/build_branding.py --check-only
 
-build: check-config build-dispatch check-frm-eol check-vba-lines check-vba-structure check-form-calls check-style-guards check-qat check-tabs push-src
+build: check-config test build-dispatch check-frm-eol check-vba-lines check-vba-structure check-form-calls check-style-guards check-qat check-tabs push-src
 	$(SSH) '$(WIN_PWSH) -ExecutionPolicy Bypass -File $(WSCRIPTS)/Import-Vba.ps1 -Shell "$(WIN_DIR)/$(DOTM)" -SrcRoot "$(WIN_DIR)/src" -OutDotm "$(WIN_DIR)/dist/$(DOTM)" -ProjectName $(PROJNAME) -AppVer $(APPVER) -VerDate "$(VERDATE)"'
 	@# The two About forms carry the version in their binary .frx, so bring them home if the
 	@# stamp changed them. -u: only if newer, so an unchanged build copies nothing.
@@ -405,7 +408,7 @@ installer: check-startup-unpulled-soft
 	@$(MAKE) --no-print-directory bump
 	@$(MAKE) --no-print-directory installer-build
 
-installer-build: check-config check-branding stage
+installer-build: check-config check-branding stage vba-test
 	$(SSH) "if not exist \"$(WIN_DIR)\" mkdir \"$(WIN_DIR)\""
 	$(SSH) "if not exist \"$(WIN_DIR)\\dist\" mkdir \"$(WIN_DIR)\\dist\""
 	@# Wipe installer/ on the box first, for the same reason push-src does it: scp only ADDS
