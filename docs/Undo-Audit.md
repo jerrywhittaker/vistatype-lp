@@ -68,6 +68,14 @@ TOC were measured on Jerry's own file on 9/7/2026.
 Jerry's limit, 9/7/2026: *"multiple (i mean more then 3 or 4) is not an acceptable undo
 requirment."*
 
+> **Every line number in this file is wrong.** It was read at build 3.0.432; `LPandBrlMacros.bas`
+> has grown since, and the drift runs from roughly +280 lines near the top to +580 near the
+> bottom. Spot-checked 9/20/2026: `Lp_Normalize_Styles` cited at `:22285` is now at `:22693`,
+> `Lp_TOC_CleanAndFormat_TOC` cited at `:22787` is now at `:23366`. **Find macros by name, not by
+> the numbers here.** They are left in place because in several rows the number is the only thing
+> distinguishing one caller from another; stripping them mangled the prose when it was tried.
+
+
 ## The doctrine this audit is measured against
 
 - A custom undo record is **safe only where the macro runs no `Find`**. A `Find` with
@@ -262,104 +270,23 @@ nobody later wraps the attach in a record.
 
 ## 4. Found while reading — not about undo
 
-**The DAISY half of "Add $pg tags to DAISY/NIMAS" has never replaced anything.** — **MOOT
-9/17/2026: the whole manual route was removed.** `DN_Tag_Daisy_Nimas_Form.frm:52` read
-`Replace:=wdReplaceAl` — one letter short. The form had no `Option Explicit`, so that name was an
-empty Variant, which is 0, which is `wdReplaceNone`. The NIMAS branch beside it (line 77) was
-spelled correctly. **Verified directly.** The spelling was fixed on 9/17/2026 and the form deleted
-later the same day, so that pattern never ran and now never will.
+These were defects noticed while reading every macro, none of them about undo. **They are now
+GitHub issues**, which is where this project records defects from 9/20/2026. They were lifted
+out of here because a closed survey is the wrong place to keep live work.
 
-**Compress Linear Math was retired on the large-print tab but is still live on the braille tab.**
-`btn_Lp_Compress_Linear_Math` sits on `tab_VT_Retired_Buttons`; `btn_Dx_Compress_Linear_Math` is
-on `tab_Braille_Macros` at `customUI14.xml:39`, costing 11 presses. **Verified directly.**
+| What | Issue |
+|---|---|
+| `Lp_Set_Table_Border_Weights` writes the Word-wide `Options.DefaultBorderLineWidth` and never puts it back | #2 |
+| Braille Remove Section Breaks still carries the book-corrupting `^b` delete (no callers) | #3 |
+| `Lp_Italics_To_Dashed_Underline` uses `wdFindContinue` on all 13 passes, though offered as a selection repair | #4 |
+| `Lp_TOC_Color_Bars_Form` selects the whole document before its remove-leaders loop | #5 |
+| Compress Linear Math retired on the large-print tab, still live on the braille tab | #7 |
+| `Dx_Is_BANA_Template_Attached` runs the whole attach, so a small button empties the undo list | #8 |
+| Five macros with no callers | #9 |
+| Three more that need a read to confirm | #10 |
 
-**`Lp_Set_Table_Border_Weights:18779` writes `Options.DefaultBorderLineWidth`** — a Word-wide
-setting, not a document one, never put back. It changes what the transcriber gets the next time
-they draw a border by hand, in any document.
-
-**Three braille macros have no caller anywhere** — `Dx_Remove_Page_Breaks` (`:7905`),
-`Dx_Remove_Section_Breaks` (`:7929`), `Dx_Red_Border_Images` (`:8622`). Each has exactly one
-mention in the whole repo: its own definition. Confirm before spending effort on their undo.
-**`Dx_Remove_Section_Breaks` carries the fault the large-print side was cured of at 3.0.326** — it
-replaces `^b` with nothing, which collapses the book to one section and discards every section's
-page setup. Dead today, so nobody has been bitten. It must not be woken up in that form.
-
-**Two more dead macros on the large-print side:** `Lp_Make_All_Pictures_In_Selected_Table_Inline`
-(`:18597`) and `Lp_Picture_Color_Change_Menu` (`:20985`) — no caller, no ribbon tag, no shortcut.
-
-**`Lp_Italics_To_Dashed_Underline` uses `wdFindContinue` on all 13 passes** (`:10373`, `:10397`,
-`:10418`, `:10436`, …). It is offered on the Selected Cleanup menu as a selection-only repair, so
-it reaches the whole book. Same trap as the conversion checklist records.
-
-**`Lp_TOC_Color_Bars_Form.frm:204` does `ActiveDocument.Content.Select`** before its
-remove-tab-leaders loop, so it strips leaders from every TOC-styled paragraph in the book, not
-just the selected range.
-
-**`Dx_Selected_Cleanup_Form` runs several whole-document macros against a selection** — items 8
-and 13 (`Dx_Delete_Images`, `Sh_ReplaceNonBreakingSpacesWithNormalSpace`) and item 5
-(`Dx_Replace_Tabs_With_Single_Space`) work on `ActiveDocument.Content` regardless of what is
-selected. This decides the shape of any scratch-document fix for that form: a scratch document can
-only hold what the macro actually confines itself to.
-
-**`Lp_SetPicturesToInlineAndLockAspectRatio` (`:20671`)** has the identical
-`If shp.Type = msoPicture ... ConvertToInlineShape` block written twice inside the same
-`For Each shp` loop.
-
-**`Sh_Convert_XML_File_To_Word_Document` saves the wrong "current document."**
-`Set currentdoc = ActiveDocument` at `:27904` runs *after* `Documents.Add` at `:27896`, and
-`Documents.Add` activates the new document — so `currentdoc` is `finalDoc`, not the book the user
-was in. The later `currentdoc.Activate` calls therefore do nothing useful. Nothing destructive
-follows, but the intent in the comment is not what the code does.
-
----
-
-## 5. If this turns into work
-
-~~**The cheapest real improvement in the whole survey is two lines**~~ — **DONE 9/16/2026.** The
-clears in `Sh_Color_Dollar_PG_Red` and `Sh_Para_Before_Dollar` are out, at Jerry's word. Between
-them they had leaked into Validate $pg, both AutoTags, both File Cleanups, Normalize Styles and
-the DAISY tagger, and neither macro does more than three replaces' worth of work.
-
-No custom undo record was put in their place: both run `wdReplaceAll`, which is the shape that
-crashes Word. Neither needed one — one press and three presses are both inside the limit.
-
-**Their callers' own clears still stand** and are untouched — and after Jerry's ruling above, five
-of the six are meant to. **Validate $pg is the button this change actually rescues**; it is the one
-caller with no clear of its own.
-
-**Honest note on the second line.** `Sh_Para_Before_Dollar` is called only from the two File
-Cleanups, and both of those clear the undo list themselves. So removing its clear **changes nothing
-a transcriber can see**. It is still the right shape — a shared helper should not decide policy for
-its callers — but it bought nothing, and this file said otherwise when it was first written.
-
-**Not yet tested in Word.** The four guards that run without Word pass. It has had no
-Debug → Compile and no `make try`.
-
-Then the picture divides cleanly:
-
-**A custom undo record is safe and sufficient** (these run no `Find` at all): the two table
-border macros, `Sh_Apply_Title_Case_Capitalization`, `Sh_Delete_Prodnote_Paragraphs` (both loops
-inside **one** record, or Ctrl+Z leaves half-restyled paragraphs), the two TOC color-bar paths,
-the two picture dialog handlers, and `Sh_Replace_Multiple_Para_Marks_No_Warning` — that last is
-the biggest single win, hundreds of presses to one. Copy the guarded
-`IsRecordingCustomRecord` / close-on-every-path pattern from `Lp_Clm_Run_As_One_Undo` (`:16919`).
-
-**Only the hidden scratch document will do** (these run replace-all passes, so a record crashes
-Word): both File Cleanups, both AutoTags, both Format $pg, `Dx_Spelling_List`,
-`Sh_Remove_Spaces_Before_Punctuation`, `Lp_Italics_To_Dashed_Underline`, `Dx_Remove_Bullets`,
-`Dx_Compress_Linear_Math`. Convert the passes onto ranges as you go, and **every `Find` must
-become `wdFindStop`** — nearly all of these are `wdFindContinue` today (`:9638`, `:5826`, `:8344`,
-`:8730`, and others).
-
-**Neither technique fits three of them.** `Lp_Fix_Common_File_Errors`, `Lp_Normalize_Styles` and
-`Lp_Attach_The_Template` cannot be got to 3 or 4 presses by anything in this project — the work is
-a hundred whole-book passes plus style-object edits, and style edits do not travel home in a
-`FormattedText` assignment. The honest answer there is to drop the clears and accept a long stack,
-and to put the question to Jerry rather than assume.
-
-**`Lp_Set_Page_To_Black` / `_White` need care.** Removing the two clears is safe and is already an
-improvement. Do **not** then wrap them in a record — both run `wdReplaceAll` (`:11429`, `:11545`),
-which is the mechanism that kills Word.
+The one item that closed itself: the DAISY `Replace:=wdReplaceAl` typo went with the manual
+DAISY route on 9/17/2026.
 
 ## Before any of this ships
 

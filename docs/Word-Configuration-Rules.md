@@ -1,11 +1,16 @@
-# Automatic Word configuration: the plan
+# How VistaType LP configures Word, and why
 
-Agreed by Jerry and the beta tester, 8/20/2026, from *Automatic Configuration Table.docx*.
-Written up here before any code was touched.
+**This is a finished record, not a plan. All of it is built.** It is kept because it holds the
+reasoning — which parts were tried and rejected, and which rules must not be undone by someone
+tidying up later. Read it before touching document-type detection, the settings ledger or the
+display side.
 
-**Status, 9/5/2026.** Pieces 1, 3, 4, 5 and 7 are built. Piece 6 was settled 9/4/2026 and needed
-no code. **Piece 2 was built, tested and REJECTED by Jerry on 9/4/2026** — see its section below,
-which is now a record of why it must not be built again rather than a plan to build it.
+Agreed by Jerry and the beta tester, 8/20/2026, from *Automatic Configuration Table.docx*, and
+written up before any code was touched — which is why it still reads as a set of "pieces". The
+build order and the test list were removed on 9/20/2026, both finished.
+
+**Piece 2 was built, tested and REJECTED by Jerry on 9/4/2026.** Its section below is the record
+of why it must never be built again. Decision 1 says the same thing and is struck through.
 
 **DECISION 3 WAS REVERSED BY JERRY ON 9/5/2026, and half of Piece 4 came out with it.** A setting
 the transcriber changes inside a large print or braille book is **not** a preference and never
@@ -80,14 +85,24 @@ reason is on the record.
 4. **Document type is read from the attached template**, not from the `Box Black` style. That
    style test predates knowing how to test for an attached template. It is kept for one other
    job — see Piece 1.
-5. **An ordinary document still gets the 18 compact fractions.** Large print deletes them, so
-   returning to a letter has to put them back or she has lost them for the session.
+5. ~~**An ordinary document still gets the 18 compact fractions.** Large print deletes them, so
+   returning to a letter has to put them back or she has lost them for the session.~~
+   **SUPERSEDED TWICE, and nothing adds compact fractions any more.** First on 8/29/2026:
+   `Sh_Add_Compact_Fractions` became `Sh_Delete_Compact_Fractions`, and an ordinary document now
+   relies on Word's own AutoFormat-as-you-type, which gives three (½ ¼ ¾); braille gets the rest
+   later, from `Dx_Replace_Fraction_Text_With_Compact_Fractions` during Full File Cleanup. Then
+   on 9/19/2026 the whole worry behind this decision — that a book's changes cost the transcriber
+   their own letters — was answered properly by giving each kind of document its own AutoCorrect
+   table. The count is **nineteen**, not eighteen: the eighteen standard fractions plus `0/3`.
 6. **The Styles pane's sort and its filter are left alone in ordinary documents.** Both are
    saved inside her file, so forcing them overwrites what that document was carrying. The pane's
    *visibility* is a separate matter and is not left alone — see Decision 2.
-7. **There is no first-run configuring pass.** Thirty-two of the thirty-four default settings
+7. ~~**There is no first-run configuring pass.** Thirty-two of the thirty-four default settings
    already match Word's factory values, so on a fresh machine the only thing that needs doing
-   is adding the fractions.
+   is adding the fractions.~~ **SUPERSEDED 8/22/2026 by `Sh_Seed_Default_Settings`**, which is
+   exactly a first-run pass: it writes the starting list once, on a machine that has never run
+   VistaType LP. The reasoning above no longer holds either, since nothing adds fractions now
+   (see Decision 5).
 
 ## What is actually changing
 
@@ -352,89 +367,19 @@ Now that a letter is defined as having no Styles pane, the pane coming down when
 is simply correct — and it is what the 8/20/2026 code already does. **No change.** Recorded here
 so the next person to look at it does not re-open the question.
 
-## Build order
-
-1. **Piece 1** — independent of everything else, and the smallest.
-2. **Piece 7** — independent, finishes the 8/20 work.
-3. **Piece 4** — the ledger, built and tested while the old behavior is still in place. Nothing
-   depends on it yet, so it can be measured on its own.
-4. **Piece 3** — flip the ordinary configuration over to the ledger. Piece 4 must be right first.
-5. **Piece 6** — the decision. Made 9/4/2026, option 1, and it needed no code. Then
-6. ~~**Piece 2**~~ — **rejected by Jerry on 9/4/2026 after being built and shown to him.** See its
-   section above. The plan ends at five pieces and a rule.
-
 ## What must not change
 
 - **The four `AutoAdd` properties and the four AutoCorrect exception lists are never written**,
   by anything, in any configuration. They are her accumulated work and cannot be rebuilt.
-- **Large print still deletes the 18 compact fractions.** A large print book keeps `1/2` as it
-  was typed, and that is not a preference.
+- **Large print still deletes the nineteen compact fractions** — the eighteen standard ones plus
+  `0/3`. A large print book keeps `1/2` as it was typed, and that is not a preference. Since
+  9/19/2026 it deletes them from **its own** AutoCorrect table, so the transcriber's own letters
+  keep theirs.
 - **The store stays a file**, not module variables. VBA's `End` runs on ordinary paths here — 34
   times in `LPandBrlMacros` alone — and wipes module state.
 - **`UpdateStylesOnOpen = False`** after an attach. `Sh_Close_And_Reopen` depends on it.
 - **Nothing in an application event may raise.** An error inside the `VtEvents` sink can stop
   Word calling back for the rest of the session, which kills document-type detection silently.
-
-## What to test, in order
-
-Each of these has an expected answer that differs from what the add-in does today.
-
-1. Open a letter on a machine that has never run VistaType. Nothing about Word changes except
-   that the 18 fractions appear.
-   **PASSED 9/6/2026 on 3.0.375**, run by Jerry on the build box with `VistaType.ini` deleted by
-   hand first — the uninstaller leaves that file alone deliberately, so deleting it is the only way
-   to make a machine that has never run VistaType. The ordinary configuration was correct.
-   **This was the last runnable test on this list, and the list is now closed.** Test 5 is covered
-   in substance rather than as written; everything else here has a result under it.
-2. A letter opens with no pilcrows, no Styles pane, no navigation pane, both rulers, print view.
-   **PASSED 9/6/2026 on 3.0.373**, all five, run by Jerry on the build box.
-3. In a letter, change the Styles pane sort and "Select styles to show". Close it, open it again.
-   Both are as she left them.
-   **PASSED 9/6/2026 on 3.0.373**, run by Jerry on the build box: set to *All styles* and
-   *Alphabetical*, document saved and reopened, both held. The pane itself was shut on reopening,
-   which is the stated behavior for a letter and not a fault.
-4. In an LP book, turn grammar checking on. Close the book, open it again — grammar is off, LP
-   won. Open a letter — grammar is **whatever the user last set it to in a letter**, and that change
-   inside the book did NOT follow the user out. **Rewritten 9/5/2026**; this test used to end "grammar
-   is on, the change followed the user out", which was Decision 3 before Jerry reversed it. Watch a
-   setting where the user's stored preference and the book's value actually differ — the five
-   spelling/grammar settings are a poor choice on a machine where the user already has them off,
-   because then the two values coincide and the test passes either way.
-5. Book and letter open together. Click between them. **The configuration follows the document on
-   screen and changes each time** — Jerry's rule, 9/4/2026. This test used to read "nothing about
-   Word's configuration changes either way", which was Piece 2 and is rejected. Capitalization and
-   the fractions are the two easiest things to watch.
-   **COVERED IN SUBSTANCE 9/6/2026 on 3.0.373**, by test 10 of
-   `User-Settings-And-Word-Configuration.md` rather than by this test as written: with a braille
-   file and a letter both open, four AutoCorrect markers went off and back on **twice each way** as
-   the document on screen changed. That is the typing side, not capitalization and fractions
-   watched in the text, so if anyone wants this test in its own terms it is still worth ten
-   minutes. Nothing suggests it would answer differently.
-6. Open a braille file, then open a letter from disk. Grammar, tab-indent and the fractions are
-   all back.
-7. Open a large print book made on an obsolete template. She still gets the warning and the
-   attach dialog.
-   **PASSED 9/6/2026 on 3.0.373**, run by Jerry on the build box against a real book of his own.
-   Dialog 123 appeared, the attach form opened by itself when it was closed, and the ten figures
-   the message reports off the book — font size, paper height and width, the four margins,
-   mirrored margins, binding width, orientation and output media — were all right.
-   This is the path the 8/20/2026 reordering was for: document type is read from the attached
-   template now, so a book on an obsolete template is not a large print document by that test and
-   would fall straight through to the ordinary configuration with no warning at all. The looser
-   `Lp_Was_Made_As_An_Lp_Book` test, asked second, is what catches it.
-8. Book and letter open, Styles pane up, close the book. The pane comes down — correct now,
-   because a letter has no Styles pane.
-   **PASSED 9/6/2026 on 3.0.373**, run by Jerry on the build box. The pane came down on a real
-   close, and **cancelling at the "save your changes?" prompt left both panes exactly where they
-   were** — the 3.0.207 fault, checked in the same sitting. That is the `Application.OnTime` tick
-   in `Sh_HandleDocumentClosing` doing its job: nothing is hidden when the close is attempted, and
-   the tick cannot fire while the prompt is up.
-9. Close a book with a picture selected. No crash, and document-type detection still works
-   afterwards.
-   **PASSED 9/6/2026 on 3.0.373**, run by Jerry on the build box. No crash, and a braille file
-   opened in the SAME Word session afterwards configured normally — so the event sink was still
-   being called back. That second half is the point of the test: a crash is obvious, an event sink
-   Word has quietly stopped calling is not.
 
 ## Traps
 

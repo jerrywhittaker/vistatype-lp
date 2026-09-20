@@ -489,7 +489,7 @@ Attribute VB_Name = "LPandBrlMacros"
 '           -                   large print file should have no effect on the word configuration
 '           -                   settings for a 'letter'... the settings are for here and now and
 '           -                   never get changed for any other file or file type."
-'           -                   This REVERSES Decision 3 of docs/Automatic-Configuration-Plan.md,
+'           -                   This REVERSES Decision 3 of docs/Word-Configuration-Rules.md,
 '           -                   agreed 8/20/2026, which said a setting the user changed inside a
 '           -                   book still counted as a preference for ordinary documents. The
 '           -                   LEARNING loop is out of Sh_Restore_Transcriber_Settings and
@@ -1788,7 +1788,7 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - MS - 8/20/2026 - stand, because nothing can replace them until the settings ledger of Piece 4 exists. Until then,
 '           - MS - 8/20/2026 - clearing an AutoFormat box and reopening the document still puts it back, and that is not a saving
 '           - MS - 8/20/2026 - fault - it is this sub rewriting it, exactly as it always has.
-' Notes:    - LP - 8/20/2026 - PIECE 1 of the automatic-configuration plan (docs/Automatic-Configuration-Plan.md, agreed with the beta
+' Notes:    - LP - 8/20/2026 - PIECE 1 of the automatic-configuration plan (docs/Word-Configuration-Rules.md, agreed with the beta
 '           - LP - 8/20/2026 - tester the same day): document type is read from the ATTACHED TEMPLATE and not from the style "Box Black".
 '           - LP - 8/20/2026 - Jerry: the style test was written before he knew how to test for an attached template. The function that
 '           - LP - 8/20/2026 - did it is named Lp_Is_The_Attached_Template_LP, so the name was right all along and only the implementation
