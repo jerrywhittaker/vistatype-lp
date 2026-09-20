@@ -1,95 +1,58 @@
-# Build/test VM setup (Hyper-V on Windows 11 Pro)
+# Build/test VM setup
 
-A clean, snapshottable Windows + Word VM to run the build/test pipeline, so it never
-touches your daily-driver Word. The Linux box that runs `make` drives this VM over SSH.
+The VistaType LP build runs Word on a Windows virtual machine, driven from Linux over SSH.
+Word is the only step that cannot happen on this side: only its own VBA engine can regenerate
+the compiled p-code inside a `.dotm`.
 
-All commands here run **on the Windows machine** (host or guest as noted) in an
-**elevated PowerShell**, unless it says "on the Linux box." They are not run through
-Claude — you run them yourself.
+> **This VM moved from Hyper-V to VirtualBox on 20 September 2026**, done by Todd. The reason
+> was the code-signing hardware: the Certum card reader is an **ACR40T ICC Reader**, a CCID
+> smart card reader (USB class 0x0B), and under Hyper-V the only way into the guest was RDP
+> smart card redirection — which is per-session and therefore invisible to an SSH session, so
+> unattended signing was impossible. VirtualBox does real USB passthrough and the reader is
+> visible to every guest session, Session 0 included.
+>
+> **The host-side creation steps in this file were written for Hyper-V and have been removed**
+> — `Enable-WindowsOptionalFeature`, `New-VMSwitch`, `New-VM`, `Enable-VMTPM`, the
+> `netsh portproxy` recipe and `Checkpoint-VM`. None of them applies now, and writing
+> VirtualBox equivalents from memory would be guessing. **If you ever build a second box, write
+> that section then, from what you actually did.** Everything below is inside the guest or on
+> the Linux side, so it is hypervisor-independent and still correct.
 
-Target: **Hyper-V** guest running **Windows 11 Enterprise (Evaluation)** with Word and
-Inno Setup installed.
+## What the box must end up with
 
----
+| | |
+|---|---|
+| Windows | 11, any edition — VirtualBox does not need Pro, which Hyper-V did |
+| Office | Word, 64-bit. Verified 9/20/2026 as Office Pro Plus 2021 |
+| Reachable as | `ssh vistabuild` (<build box address>, user `jerry`, key `~/.ssh/id_vistatype_build`) |
+| SSH session | gets a full admin token, so no elevation step is needed |
+| Inno Setup 6 | `C:\Program Files (x86)\Inno Setup 6\ISCC.exe`, for `make installer` |
+| Windows SDK signing tools | `C:\Program Files (x86)\Windows Kits\10\bin\<ver>\x64\signtool.exe` |
+| Office signing libraries | `C:\vt-signing\officesips-x64` and `-x86`, registered machine-wide |
+| `AccessVBOM` | `1`, under `HKCU\Software\Microsoft\Office\16.0\Word\Security` |
 
-## 0. Prerequisites
+Sizing that has been enough: **6 GB RAM, 64 GB disk, 2 CPUs.**
 
-- **Windows 11 Pro** host with virtualization enabled in UEFI/BIOS (usually on by default).
-- **Windows 11 Enterprise Evaluation ISO** — free, 90 days, from the Microsoft Evaluation
-  Center (search "Windows 11 Enterprise evaluation"). The eval expires; see
-  [Keeping the eval alive](#keeping-the-eval-alive).
-- **Your Word installer** (the separate installable Word you have for the VM).
-- **Inno Setup 6** installer (jrsoftware.org) — for building the `Setup.exe`.
-- The **public SSH key** of the Linux box that will drive the build
-  (`cat ~/.ssh/id_ed25519.pub` on the Linux box; create one with `ssh-keygen -t ed25519`
-  if needed).
-- Free disk for a ~64 GB dynamic VHDX; plan ~6 GB RAM for the guest.
+## The smart card, and what is not a fault
 
----
+Measured on 9/20/2026, from an ordinary SSH session (Session 0):
 
-## 1. Enable Hyper-V (host)
+- **The card layer works.** `SCardEstablishContext`, `SCardListReaders` and `SCardConnect` all
+  return `0x00000000`, and the ATR comes back carrying `Certum01`.
+- **`certutil -scinfo` fails** with `0x80070005` on `SCardAccessStartedEvent`. That is a Session 0
+  artifact, **not** a passthrough failure. Probe through `winscard.dll` instead.
+- **Microsoft's two smart card providers are refused** from Session 0 — both
+  `Microsoft Base Smart Card Crypto Provider` and `Microsoft Smart Card Key Storage Provider`
+  return `0x80090010 NTE_PERM`. A software CSP enumerates fine in the same session, so it is
+  those providers specifically. **`cryptoCertum3 CSP` works**, and is what the signing plan
+  should name. See `docs/Code-Signing.md`.
+- **The card shows as "Unknown Smart Card" in Device Manager.** Cosmetic.
+- **The Windows host cannot see the reader while the VM is running.** USB passthrough is
+  exclusive. Expected; do not try to fix it.
+- **BitLocker was decrypted on C:** as part of the move, deliberately. Do not re-enable it.
 
-```powershell
-Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -All
-# reboot when prompted
-```
 
-If it errors that virtualization is off, enable Intel VT-x / AMD-V in UEFI first.
-
----
-
-## 2. Create a virtual switch (host)
-
-Pick ONE, based on how the Linux box reaches this machine (yours is *routable but not the
-same LAN*):
-
-**A. Bridged / External switch** — the VM gets its own IP on the host's network. Use this
-if that network is the one routable from the Linux box.
-
-```powershell
-Get-NetAdapter          # note your physical NIC name, e.g. "Ethernet"
-New-VMSwitch -Name "ExternalLAN" -NetAdapterName "Ethernet" -AllowManagementOS $true
-```
-
-**B. NAT + port-forward** — use this if only the *host's* IP is routable (single routable
-address). The VM stays behind the host; you forward a port to it (set up in step 6 once
-you know the guest IP). Use Hyper-V's built-in **Default Switch** for the VM in step 3.
-
----
-
-## 3. Create the VM (host)
-
-Windows 11 requires a Generation-2 VM with Secure Boot **and a virtual TPM**.
-
-```powershell
-$vm = "VistaBuild"
-New-VM -Name $vm -Generation 2 -MemoryStartupBytes 6GB `
-       -NewVHDPath "C:\Hyper-V\$vm\$vm.vhdx" -NewVHDSizeBytes 64GB `
-       -SwitchName "ExternalLAN"        # or "Default Switch" for option 2B
-
-Set-VM -Name $vm -ProcessorCount 2 `
-       -DynamicMemory -MemoryMinimumBytes 4GB -MemoryMaximumBytes 8GB
-
-# Virtual TPM (required by Windows 11)
-Set-VMKeyProtector -VMName $vm -NewLocalKeyProtector
-Enable-VMTPM -VMName $vm
-
-# Attach the Windows 11 Enterprise Eval ISO and boot from it first
-Add-VMDvdDrive -VMName $vm -Path "C:\ISOs\Windows11_Enterprise_Eval.iso"
-Set-VMFirmware -VMName $vm -FirstBootDevice (Get-VMDvdDrive -VMName $vm)
-
-Start-VM -Name $vm
-vmconnect.exe localhost $vm
-```
-
-Install Windows 11 in the console window. Tips:
-- Enterprise Eval lets you create a **local account** (no Microsoft account needed).
-- Name the machine something obvious like `VISTABUILD`.
-- Create the **build user** you'll SSH in as (e.g., `builduser`).
-
----
-
-## 4. Configure the guest
+## Configure the guest
 
 Inside the running guest, elevated PowerShell:
 
@@ -136,23 +99,7 @@ Then `Restart-Service sshd`.
 
 ---
 
-## 5. (Option 2B only) Port-forward on the host
-
-If you used the NAT/Default Switch, forward a host port to the guest's SSH so the Linux
-box can reach it via the host's routable IP:
-
-```powershell
-netsh interface portproxy add v4tov4 `
-  listenport=2222 listenaddress=0.0.0.0 connectport=22 connectaddress=<guest-ip>
-New-NetFirewallRule -DisplayName "SSH to VistaBuild VM" -Direction Inbound `
-  -Action Allow -Protocol TCP -LocalPort 2222
-```
-
-Now the VM's SSH is reachable at `<host-routable-ip>:2222`.
-
----
-
-## 6. Wire up the Linux side
+## Wire up the Linux side
 
 On the **Linux box**, add an SSH alias so port/user are handled cleanly (works for both
 bridged and NAT). Edit `~/.ssh/config`:
@@ -184,20 +131,19 @@ make build              # import src/ -> dist/ .dotm, embed ribbon
 
 ---
 
-## 7. Snapshot the clean state
+## Snapshots
 
-Once Word + SSH + Inno are set up and a build works, checkpoint the VM so installer tests
-can revert to a pristine Word:
+VirtualBox has its own snapshot mechanism; the `Checkpoint-VM` recipe that stood here was
+Hyper-V's and has been removed.
 
-```powershell
-Checkpoint-VM -Name VistaBuild -SnapshotName "clean-word"
-```
+The idea behind it is still worth keeping: **take a snapshot of the clean state before testing
+an installer**, so the Quick Access Toolbar merge can be tried repeatedly from a known start.
+Take one *after* importing a customized `Word.officeUI`, not before — testing the merge against
+a toolbar the transcriber has already changed is the case that has actually caused trouble.
 
-For installer validation (Issue #1), also make a checkpoint *after* importing a customized
-`Word.officeUI`, so you can test the QAT merge against a machine that already has one.
-Revert anytime with `Restore-VMCheckpoint -VMName VistaBuild -Name clean-word -Confirm:$false`.
+**The VM is disposable by design.** Nothing on it is a source of truth; everything it builds
+comes from `src/` on the Linux side.
 
----
 
 ## Keeping the eval alive
 

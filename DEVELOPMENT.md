@@ -109,7 +109,7 @@ the tabs live where Word will let the user edit them; it is the trade.
 1. On the **Windows box**: enable OpenSSH Server, set up key login so `ssh WIN_HOST`
    works with no password. In Word: *Options → Trust Center → Macro Settings →
    ☑ Trust access to the VBA project object model*.
-   - Building the Windows box as a clean Hyper-V VM? Follow
+   - Building the Windows box from scratch? (it runs on VirtualBox since 9/20/2026) Follow
      [`docs/Build-VM-Setup.md`](docs/Build-VM-Setup.md) — recommended, so the pipeline
      never touches your daily-driver Word and you can snapshot a pristine Word for
      installer testing.
