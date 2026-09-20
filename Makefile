@@ -36,6 +36,9 @@
 #                ~70 engines flag it, and as what. Fails if Microsoft flags it (that is
 #                Defender, which is what a transcriber has) or if more than 3 do. Needs
 #                VT_API_KEY in build.config. NOTE: uploads are PUBLIC. See docs/Code-Signing.md.
+#   make vba-test  Run the VBA unit tests (tests/vba) on the build box, invisibly, against a
+#                throwaway document. Nothing is installed and nothing is left behind. Word must
+#                be CLOSED on the box. It tests the SOURCE in src/vba, not the last build.
 #   make test    Run the test suite in tests/ over the build's own checkers and file
 #                generators, against fixtures. No Word, no build box, about half a second.
 #                Needs pytest:  sudo apt install python3-pytest
@@ -174,6 +177,24 @@ check-style-guards:
 # naming the cause. Cost a build on 8/18/2026.
 check-vba-structure:
 	@python3 tools/lib/check_vba_structure.py
+
+# The VBA unit tests. Nothing on Linux can run VBA, so these go to the build box - but they do
+# NOT need the add-in installed and do not touch Word's STARTUP folder. build_vba_test_bundle.py
+# lifts the procedures the tests name out of src/vba (following what they call), and the runner
+# imports that plus tests/vba into a throwaway invisible document and calls VtRunAllTests.
+#
+# So it tests the source you are looking at, and it can reach the Private helpers, which a test
+# document that merely referenced the add-in could not call at all.
+#
+# Only pure helpers belong here. A procedure that reaches a Document, a Selection, a UserForm or
+# a MsgBox HANGS an invisible Word - see tests/vba/README.md for the list of what cannot be
+# tested this way and why.
+vba-test: check-config push-src
+	@python3 tools/lib/build_vba_test_bundle.py
+	$(SSH) '$(WIN_PWSH) -NoProfile -Command "Remove-Item -Recurse -Force \"$(WIN_DIR)/vbatests\" -ErrorAction SilentlyContinue; exit 0"'
+	scp -q -r tests/vba "$(WIN_HOST):$(WIN_DIR)/vbatests"
+	scp -q build/vbatests/VtFunctionsUnderTest.bas "$(WIN_HOST):$(WIN_DIR)/vbatests/"
+	$(SSH) '$(WIN_PWSH) -ExecutionPolicy Bypass -File $(WSCRIPTS)/Run-VbaTests.ps1 -TestRoot "$(WIN_DIR)/vbatests"'
 
 # The checks above are the only thing between a VBA mistake and a transcriber's machine, and
 # until 9/20/2026 nothing tested THEM. tests/ does, against fixtures built to look like the
@@ -436,4 +457,4 @@ scan:
 clean:
 	rm -rf dist build
 
-.PHONY: help check-config push-src pull build build-dispatch ribbon qat check-qat check-tabs check-frm-eol check-vba-lines read try try-build check-startup-unpulled check-startup-unpulled-soft deploy stage branding check-branding bump font-installer installer installer-build scan test clean
+.PHONY: help check-config push-src pull build build-dispatch ribbon qat check-qat check-tabs check-frm-eol check-vba-lines read try try-build check-startup-unpulled check-startup-unpulled-soft deploy stage branding check-branding bump font-installer installer installer-build scan test vba-test clean

@@ -87,11 +87,15 @@ make installer# build the Setup.exe
 
 ## Testing your change
 
-Run `make test` first. It covers the build's own checkers and file generators — not the VBA —
-and takes about half a second (it needs pytest: `sudo apt install python3-pytest`).
+Run `make test` first. It covers the build's own checkers and file generators and takes about
+half a second (it needs pytest: `sudo apt install python3-pytest`).
 
-The VBA itself is not compiled by anything in this build, so **exercise the change in real
-Word** before submitting. After `make build`, open `dist/LPandBRL.dotm` and confirm:
+If you changed a pure helper — a string or a number in, a string or a number out — run
+`make vba-test` too. That runs the VBA unit tests against the source, on the build box, with
+Word closed. `tests/vba/README.md` says what can and cannot be tested that way.
+
+Everything else still has to be exercised in real Word, because nothing in this build compiles
+VBA. After `make build`, open `dist/LPandBRL.dotm` and confirm:
 
 - the VBA project **compiles** (VBE → *Debug → Compile*);
 - the **ribbon loads** — the *VistaType LP* / *Braille Macros* tabs appear and buttons run;

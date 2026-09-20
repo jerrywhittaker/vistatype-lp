@@ -158,7 +158,8 @@ src/keymap/     lp-template-keymap.xml — keyboard shortcuts, injected into Lar
 LPandBRL.dotm   the .dotm shell/base (tracked): project references + non-VBA parts; build base
 LargePrintTemplate.dotx   the attached large-print template (styles/page setup)
 Word.officeUI   legacy global ribbon (no longer shipped; kept for reference)
-tools/windows/  Export-Vba.ps1 / Import-Vba.ps1 / New-UserForm.ps1 — run in Word on the build box
+tools/windows/  Export-Vba.ps1 / Import-Vba.ps1 / New-UserForm.ps1 / Run-VbaTests.ps1 — run in
+                Word on the build box
                 (New-UserForm.ps1 creates a BRAND-NEW UserForm and exports a valid .frm/.frx
                  pair: the binary .frx cannot be written by hand from Linux and `make pull`
                  must never be used to seed one. Builds it in a throwaway blank document, so
@@ -248,7 +249,9 @@ tools/windows/  Export-Vba.ps1 / Import-Vba.ps1 / New-UserForm.ps1 — run in Wo
                 VT_API_KEY. SKIP_SECRETS_CHECK=1 overrides, for a verified false positive
                 only. Tested both ways 9/20/2026: passes clean, blocks a staged PIN and a
                 tracked .pfx.
-tools/lib/      check_style_guards.py (refuses to build when an ActiveDocument.Styles("name") lookup is
+tools/lib/      build_vba_test_bundle.py (gathers the VBA procedures tests/vba names, plus what they
+                call and the declarations those need, into one importable module - `make vba-test`);
+                check_style_guards.py (refuses to build when an ActiveDocument.Styles("name") lookup is
                 not behind Sh_Style_Exists / Sh_Style_In_Use. Styles(name) raises run-time error 5941 on a
                 document that does not carry the style, and documents legitimately do not: RefPageNemeth
                 comes from the Nemeth braille templates, Print Pg Num from the LP one. The macro dies
@@ -400,6 +403,20 @@ tests/          the Python test suite over tools/lib - the build's own checkers 
                 --check-only, so canaries copy first), and fixtures are CRLF, because
                 check_vba_structure.py splits on CRLF and a bare-LF .frm is itself a defect.
                 tests/README.md has the table of what each file protects.
+tests/vba/      the VBA unit tests - `make vba-test`. They do NOT reference the built add-in:
+                tools/lib/build_vba_test_bundle.py lifts the procedures each test names out of
+                src/vba as they stand, follows what they call, and the runner imports that into
+                a throwaway invisible document on the build box. So they test the SOURCE, and
+                they can reach the Private helpers, which a referencing project could not call.
+                lib/ is vba-test (Tim Hall, MIT), with TestCase.cls modified in one marked place
+                to late-bind its Dictionary - early binding hangs, see tests/vba/README.md -
+                plus VtFileReporter.cls, ours, because vba-test reports to the Immediate Window
+                and nothing can read that out of a Word started over SSH. Rubberduck was
+                considered and cannot be used: archived March 2026, and it only ever ran tests
+                from its own window inside the VBA editor.
+                ONLY PURE HELPERS belong here. Anything that reaches a Document, a UserForm or a
+                MsgBox hangs an invisible Word; the table of what cannot be tested this way, all
+                of it measured, is in tests/vba/README.md.
 assets/fonts/vistatypelp-sans/   the bundled typeface, VistaTypeLP Sans — four tracked .ttf faces
                 plus the THREE OFL texts it needs (Noto Sans, Noto Sans Math, Noto Sans Symbols).
                 Built by `make fonts` from the current Noto releases; the built faces are what
@@ -423,7 +440,8 @@ assets/fonts/vistatypelp-sans/   the bundled typeface, VistaTypeLP Sans — four
                 a hotfix reached dev). All four are READ-ONLY and report; none edits or pushes.
                 They complement tools/lib's guards rather than repeat them — each file says
                 what the guards already cover.
-Makefile        pull / build / build-dispatch / ribbon / qat / read / fonts / try / test / deploy /
+Makefile        pull / build / build-dispatch / ribbon / qat / read / fonts / try / test /
+                vba-test / deploy /
                 branding / stage /
                 installer / font-installer / scan
                 (`make fonts` rebuilds VistaTypeLP Sans from the current Noto Sans, Noto Sans Math

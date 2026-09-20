@@ -37,7 +37,9 @@ temporary folder first.
 itself a defect. A fixture written with plain LF tests something the build never sees. Use
 `write_crlf` from `conftest.py`.
 
-## What is not covered here
+## The VBA tests are separate
 
-The VBA itself. That needs Word, so it has to run on the build box, and it is the next piece
-of work rather than something this suite does.
+They need Word, so they run on the build box: `make vba-test`, and `tests/vba/README.md`. This
+suite covers one piece of that machinery — `test_build_vba_test_bundle.py`, which checks that
+the right VBA source is gathered for them. If it gathers the wrong thing the VBA tests do not
+fail, they hang, so it is worth testing here where there is no Word to hang.
