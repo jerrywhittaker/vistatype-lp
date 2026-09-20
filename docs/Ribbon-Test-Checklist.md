@@ -1,6 +1,20 @@
 # VistaType LP - Ribbon Test Checklist
 
-Generated 7/26/2026, for the "return the cursor where I left it" change.
+**The single ribbon test document.** Every button on both tabs, the Quick Access Toolbar
+icons and the retired-buttons tab, with the dialogs each one opens.
+
+Built 7/26/2026 from `src/ribbon/customUI14.xml` and the UserForms, originally for the
+"return the cursor where I left it" change - which is why the **RETURNS YOU** marking runs
+through it. `LP-Ribbon-Test-List.md` was a second rendering of the same data covering only
+the large-print half; it was merged in here and deleted on 9/20/2026, since two copies of
+one inventory had already drifted apart.
+
+> **This ought to be generated, not maintained by hand.** Every stale entry found on
+> 9/20/2026 - a dialog that no longer exists, two QAT buttons that were never listed, a form
+> named for the wrong tab - is the kind of drift `build_ribbon_dispatch.py` and
+> `build_ribbon_tabs.py` already prevent for their own outputs. A
+> `tools/lib/build_ribbon_test_list.py` beside them would end it. The dialog button lists
+> below are also still truncated ("+22 more"), which a generator would fix for free.
 
 ## How to test the cursor fix
 
@@ -74,7 +88,7 @@ somewhere else on purpose:
 - [ ] **Format Spelling List**  `Dx_Spelling_List`  -- *should not land at the top*
   - opens dialog **Dx Spelling List Options Form**: Cmd Ok
 - [ ] **Horiz List to Vertical**  `Lp_Horz_List_To_Vertical`  -- **RETURNS YOU** (shared with the LP tab from 3.0.140)
-  - opens dialog **Dx Horz To Vert List Form**: Cmd Ok
+  - opens dialog **Lp Horz To Vert List Form**: Cmd Ok  (the braille button uses the large-print form)
 - [ ] **Exercise Levels 1 && 2**  `Dx_Format_Exercise_Lv_1_and_Lv_2`  -- **RETURNS YOU**
   - opens dialog **Dx UEB EBAE Fill In YN Form**: Cmd NO, Cmd YES
 - [ ] **Dashes/Primes/Fractions**  `Dx_Type_Dashes`  -- *should not land at the top*
@@ -91,7 +105,8 @@ somewhere else on purpose:
 ### DAISY, NIMAS, and Text Tools
 
 - [ ] **DAISY or NIMAS to Word**  `DN_Menu_Starter`
-  - opens dialog **DN Auto Or Manual Form**: Automatic Button, Manual Button
+  - opens dialog **DN XML Type Form**, then **DN Keep Or Omit Images Form**
+    (the manual route and `DN Auto Or Manual Form` were removed 9/17/2026)
 - [ ] **Text File Para Fix**  `DN_Remove_Para_Formatting_From_Text_Files`
   - opens dialog **DN Text File Para Fix Warning**: Continue Button
 
@@ -109,80 +124,161 @@ somewhere else on purpose:
 
 ### Attach
 
-- [ ] **Attach LP Template**  `Lp_Attach_Lp_Template`
-  - opens dialog **Lp Re Attach Warning Form**: Cmd No Button, Cmd Yes Button
-    - opens dialog **LP Attach An Lp Template Form**: Attach Okay, Mirrored Check Box, Attach Okay, Custom Orient Landscape, Custom Orient Portrait, Customize Check Box, Margin Half Inch, Margin Thee Fourths Inch ... (+22 more)
+- [ ] **Attach LP Template** &nbsp;`Lp_Attach_Lp_Template`
+    - dialog **Lp Re Attach Warning Form**
+        - [ ] Cmd No Button
+        - [ ] Cmd Yes Button - "Yes Buttonon"
+      - dialog **LP Attach An Lp Template Form**
+          - [ ] Attach Okay
+          - [ ] Mirrored Check Box
+          - [ ] Attach Okay
+          - [ ] Custom Orient Landscape
+          - [ ] Custom Orient Portrait
+          - [ ] Customize Check Box - "Customize paper or screen settings check box"
+          - [ ] Margin Half Inch - "8.5 x 11 Paper - portrait orientation with 1/2 inch margin"
+          - [ ] Margin Thee Fourths Inch - "8.5 x 11 Paper - portrait orientation with 3/4 inch margin"
+          - [ ] Margin One Inch - "8.5 x 11 Paper - portrait orientation with 1 inch margin"
+          - [ ] Nine Point Seven Tablet
+          - [ ] ...and 20 more buttons on this dialog
 
 
 ### File Cleanup
 
-- [ ] **Full File Cleanup**  `Lp_File_Fix_Sequence`  -- **RETURNS YOU**
-  - opens dialog **Lp File Cleanup Sub Menu Form**: Okay Button
-- [ ] **Selection Cleanup**  `Lp_Selected_File_CleanUp`  -- **RETURNS YOU**
-  - opens dialog **Lp Selected Cleanup Form**: Okay Button, Compress Linear Math (moved here off the ribbon 9/15/2026)
-- [ ] **Delete Prodnotes**  `Sh_Delete_Prodnote_Paragraphs`
+- [ ] **Full File Cleanup** &nbsp;`Lp_File_Fix_Sequence`  **RETURNS YOU**
+    - dialog **Lp File Cleanup Sub Menu Form**
+        - [ ] Okay Button - "Okay Button"
+- [ ] **Selection Cleanup** &nbsp;`Lp_Selected_File_CleanUp`  **RETURNS YOU**
+    - dialog **Lp Selected Cleanup Form**
+        - [ ] Okay Button
+        - [ ] Compress Linear Math - "Compress the spacing in text math equations*" (9/15/2026: moved here off the ribbon; also runs in Fix Common File Errors)
+- [ ] **Delete Prodnotes** &nbsp;`Sh_Delete_Prodnote_Paragraphs`
 
 
 ### Reference Page Numbers
 
-- [ ] **AutoTag Ref Pages**  `Lp_AutoTag_Page_Numbers`  -- **RETURNS YOU**
-- [ ] **Validate $pg Tags**  `Lp_Validate_Dollar_PG`
-  - opens dialog **Sh Validation Choices Form**: Navigation Button, Temp File Button, Show More Button
-    - opens dialog **Sh Pg Validation Overview Form**
-- [ ] **Manual Tag Ref Page**  `Lp_Manual_Tag_with_Dollar_pg`
-- [ ] **Format $pg Tags**  `Lp_Format_Page_Numbers`  -- **RETURNS YOU**
+- [ ] **AutoTag Ref Pages** &nbsp;`Lp_AutoTag_Page_Numbers`  **RETURNS YOU**
+- [ ] **Validate $pg Tags** &nbsp;`Lp_Validate_Dollar_PG`
+    - dialog **Sh Validation Choices Form**
+        - [ ] Navigation Button
+        - [ ] Temp File Button - "Validate by copying the tags to a temporary document"
+        - [ ] Show More Button - "Show me more information"
+      - dialog **Sh Pg Validation Overview Form**
+          - [ ] Close Button
+- [ ] **Manual Tag Ref Page** &nbsp;`Lp_Manual_Tag_with_Dollar_pg`
+- [ ] **Format $pg Tags** &nbsp;`Lp_Format_Page_Numbers`  **RETURNS YOU**
 
 
 ### Other Formatting Tools
 
-- [ ] **Format Exercise**  `Lp_Format_Exercise_Lv_1_and_Lv_2`  -- **RETURNS YOU**
-- [ ] **Fill-In Line**  `Lp_Type_Fill_In_Line`
-  - opens dialog **Lp Type Fill In Line Form**: Command Button1, Command Button2, Command Button3, Command Button4, Command Button5, Command Button6, Command Button7, Command Button8 ... (+14 more)
-- [ ] **Horiz List to Vertical**  `Lp_Horz_List_To_Vertical`  -- **RETURNS YOU**
-  - opens dialog **Lp Horz To Vert List Form**: Cmd Ok
-- [ ] **Table and TOC Tools**  `Lp_Table_Tools`  -- **RETURNS YOU**
-  - opens dialog **Lp TOC Format And Color Form**: Okay Button
-    - opens dialog **Lp TOC Color Bars Form**: Yellow Image Button, Pink Image Button, Tan Image Button, Blue Image Button, Aqua Image Button, Green Image Button, Okay Button
-  - opens dialog **Lp Table Tools Menu Form**: Default Color Selected, Yellow Color Selected, Gray Color Selected, Black And White Selected, List Button, Pseudo Button, Pseudo Question, Real Button ... (+6 more)
-    - opens dialog **LP Pseudo Column Info Form**: Command Button1
-    - opens dialog **LP Real Column Info Form**: Command Button1
-    - opens dialog **Lp Table Convert Options Form**: Cmd Okay, RCTable Image Button, Column Only Table Image Button, Row Only Image Button, No Row Column Image Button, Row And Column Table, Column Only Table, Row Only Table ... (+8 more)
-- [ ] **Bkgrnd && Picture Tools**  `Lp_Picture_Tools_Menu_Starter`  -- **RETURNS YOU**
-  - opens dialog **Lp Bakgrnd Picture Menu Form**: Background Color Button, Image Size Button, Pictures To Inline Button, Pictures Color Grayscale Button, Center Or Left Align Pictures Button, Same Picture Size Button (9/15/2026)
-    - opens dialog **LP Picture Alignment Form**: Cmd Okay
-    - opens dialog **Lp Change Image Color Form**: Okay Button
-    - opens dialog **Lp Resize Images Form**: Cmd Okay
+- [ ] **Format Exercise** &nbsp;`Lp_Format_Exercise_Lv_1_and_Lv_2`  **RETURNS YOU**
+- [ ] **Fill-In Line** &nbsp;`Lp_Type_Fill_In_Line`
+    - dialog **Lp Type Fill In Line Form**
+        - [ ] Command Button1
+        - [ ] Command Button2 - "Type 2 fill-in characters"
+        - [ ] Command Button3 - "Type 3 fill-in characters"
+        - [ ] Command Button4 - "Type 4 fill-in characters"
+        - [ ] Command Button5 - "Type 5 fill-in characters"
+        - [ ] Command Button6 - "Type 6 fill-in characters"
+        - [ ] Command Button7 - "Type 7 fill-in characters"
+        - [ ] Command Button8 - "Type 8 fill-in characters"
+        - [ ] Command Button9 - "Type 9 fill-in charactersM"
+        - [ ] Command Button10 - "Type 10 fill-in characters"
+        - [ ] ...and 12 more buttons on this dialog
+- [ ] **Horiz List to Vertical** &nbsp;`Lp_Horz_List_To_Vertical`  **RETURNS YOU**
+    - dialog **Lp Horz To Vert List Form**
+        - [ ] Cmd Ok
+- [ ] **Table and TOC Tools** &nbsp;`Lp_Table_Tools`  **RETURNS YOU**
+    - dialog **Lp Table Tools Menu Form**
+        - [ ] Default Color Selected
+        - [ ] Yellow Color Selected
+        - [ ] Gray Color Selected
+        - [ ] Black And White Selected - "Change selected table to plain black and white."
+        - [ ] List Button
+        - [ ] Pseudo Button - "Pseudo Columns: A Table With no Borders"
+        - [ ] Pseudo Question - "Information about pseudo columns button"
+        - [ ] Real Button - "Convert Table to Real Columns Button"
+        - [ ] Real Question
+        - [ ] Rotate Button - "Rotate Table 90 Degrees  button"
+        - [ ] ...and 4 more buttons on this dialog
+      - dialog **Lp Table Convert Options Form**
+          - [ ] Cmd Okay - "Okay ButtonB"
+          - [ ] RCTable Image Button
+          - [ ] Column Only Table Image Button - "Table has column headers only"
+          - [ ] Row Only Image Button
+          - [ ] No Row Column Image Button - "Table has row headers only"
+          - [ ] Row And Column Table - "Table has row and columns headings radio button"
+          - [ ] Column Only Table - "Tabel has column heading only radio button3"
+          - [ ] Row Only Table - "Table has row headings only radio button"
+          - [ ] No Row Or Column
+          - [ ] Use Colors
+          - [ ] ...and 6 more buttons on this dialog
+      - dialog **LP Pseudo Column Info Form**
+          - [ ] Command Button1
+      - dialog **LP Real Column Info Form**
+          - [ ] Command Button1
+    - dialog **Lp TOC Format And Color Form**
+        - [ ] Okay Button
+      - dialog **Lp TOC Color Bars Form**
+          - [ ] Yellow Image Button
+          - [ ] Pink Image Button
+          - [ ] Tan Image Button
+          - [ ] Blue Image Button
+          - [ ] Aqua Image Button
+          - [ ] Green Image Button
+          - [ ] Okay Button
+- [ ] **Bkgrnd && Picture Tools** &nbsp;`Lp_Picture_Tools_Menu_Starter`  **RETURNS YOU**
+    - dialog **Lp Bakgrnd Picture Menu Form**
+        - [ ] Background Color Button - "Document Backgroud Color Button"
+        - [ ] Image Size Button - "Resize Pictures Buttonor"
+        - [ ] Pictures To Inline Button - "     All Pictures to Inline with fixed aspect ratio"
+        - [ ] Pictures Color Grayscale Button - "Pictures Color/Grayscale Button"
+        - [ ] Center Or Left Align Pictures Button - "Center or Left Align Pictures Button"
+        - [ ] Same Picture Size Button - "Resize This Picture Throughout the Book" (9/15/2026: select one picture, set its size, press it; every other copy of that picture takes the same size)
+      - dialog **Lp Resize Images Form**
+          - [ ] Cmd Okay
+      - dialog **Lp Change Image Color Form**
+          - [ ] Okay Button
+      - dialog **LP Picture Alignment Form**
+          - [ ] Cmd Okay
 
 
 ### Export/Import
 
-- [ ] **Export Sel to New Doc**  `Lp_Export_Selection_To_NewFile`
-- [ ] **Import to Current Doc**  `Lp_Import_Exported_Selection_File`
+- [ ] **Export Sel to New Doc** &nbsp;`Lp_Export_Selection_To_NewFile`
+- [ ] **Import to Current Doc** &nbsp;`Lp_Import_Exported_Selection_File`
 
 
 ### DAISY, NIMAS and Text Tools
 
-- [ ] **DAISY or NIMAS to Word**  `DN_Menu_Starter`
-  - opens dialog **DN Auto Or Manual Form**: Automatic Button, Manual Button
-- [ ] **Text File Para Fix**  `DN_Remove_Para_Formatting_From_Text_Files`
-  - opens dialog **DN Text File Para Fix Warning**: Continue Button
+- [ ] **DAISY or NIMAS to Word** &nbsp;`DN_Menu_Starter`
+    - dialog **DN XML Type Form**
+        - [ ] (the manual route and `DN Auto Or Manual Form` were removed 9/17/2026;
+              `DN_Menu_Starter` now calls `Sh_Convert_XML_File_To_Word_Document` directly)
+    - dialog **DN Keep Or Omit Images Form**
+- [ ] **Text File Para Fix** &nbsp;`DN_Remove_Para_Formatting_From_Text_Files`
+    - dialog **DN Text File Para Fix Warning**
+        - [ ] Continue Button - "Continue Button"
 
 
 ### Help
 
-- [ ] **Videos and Practice Files**  `Lp_Video_Links`
-  - opens dialog **Lp Video Download Link Page**: View the Page
-- [ ] **Version && Updates**  `Lp_About`
-  - opens dialog **Lp About Title And Agreement**: View Version
+- [ ] **Videos and Practice Files** &nbsp;`Lp_Video_Links`
+    - dialog **Lp Video Download Link Page**
+        - [ ] View the Page - "View/Download Link Page"
+- [ ] **Version && Updates** &nbsp;`Lp_About`
+    - dialog **Lp About Title And Agreement**
+        - [ ] Label6
+        - [ ] View Version
 
 
 ## Tab: LP and BRL QAT Icons
 
 > Hidden by design (`visible="false"`) — it will not appear on the ribbon. It exists only
 > so the Quick Access Toolbar's entries have ribbon controls to resolve against. Test these
-> six from the **Quick Access Toolbar** (or by keyboard shortcut), not from a tab.
+> **eight** from the Quick Access Toolbar (or by keyboard shortcut), not from a tab.
+> Document Settings is Ctrl+Alt+Shift+I.
 
-### (no label - QAT icons)
+### QAT icons
 
 - [ ] **Document Settings**  `Sh_Doc_Info`
 - [ ] **No Space After this Paragraph**  `Lp_Toggle_Space_After_Current_Para`
@@ -190,3 +286,13 @@ somewhere else on purpose:
 - [ ] **Move Paragraph to Next Page**  `Sh_Move_Paragraph_To_Next_Page`
 - [ ] **Do Not Split Paragraph Across Pages**  `Sh_Keep_Lines_Of_Para_Together`
 - [ ] **Convert Paragraph to Title Case**  `Sh_Apply_Title_Case_Capitalization`
+- [ ] **Styles Pane: Recommended**  `Sh_Show_Recommended_Styles_Pane`
+- [ ] **Reset Word Configuration**  `MS_Reset_Word_Configuration`
+
+## Tab: VistaType LP Retired Buttons
+
+> Also hidden. A button is moved here rather than deleted, because every toolbar already
+> installed in the field references it by id and a deleted id draws as a blank button.
+> **The test is that a retired button still works when pressed from an old toolbar.**
+
+- [ ] **Compress Linear Math** (large print)  `Lp_Compress_Linear_Math` — retired 9/15/2026
