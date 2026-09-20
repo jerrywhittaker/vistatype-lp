@@ -72,7 +72,15 @@ Run `make help` for the full target list (`build`, `pull`, `ribbon`, `qat`, `rea
 - **[Developing](DEVELOPMENT.md)** — the Linux-first source/build workflow, the remote
   Word build, the embedded ribbon, and the QAT merge.
 - **[Building the installer](installer/README.md)** — what the installer automates.
-- **[CLAUDE.md](CLAUDE.md)** — architecture and conventions overview.
+- **[Repo layout](docs/Repo-Layout.md)** — what every file, folder and tool is for, and
+  where the installer puts things on a transcriber's machine.
+- **[Domain concepts](docs/Domain-Concepts.md)** — large print, braille and DBT, the
+  typeface, reference page numbers.
+- **[Dialogs and messages](docs/UI-Conventions.md)** — how VistaType LP talks to the
+  transcriber, shows progress, and reports a failure.
+- **[Reported errors](docs/Reported-Errors.md)** — the register of faults and what fixed
+  them. Read before investigating anything.
+- **[CLAUDE.md](CLAUDE.md)** — the process rules, and an index of the above.
 
 ---
 
