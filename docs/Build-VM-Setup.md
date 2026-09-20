@@ -24,7 +24,7 @@ the compiled p-code inside a `.dotm`.
 |---|---|
 | Windows | 11, any edition — VirtualBox does not need Pro, which Hyper-V did |
 | Office | Word, 64-bit. Verified 9/20/2026 as Office Pro Plus 2021 |
-| Reachable as | `ssh vistabuild` (<build box address>, user `jerry`, key `~/.ssh/id_vistatype_build`) |
+| Reachable as | `ssh vistabuild` — the alias in `~/.ssh/config` carries the address, user and key, so none of it is written down here |
 | SSH session | gets a full admin token, so no elevation step is needed |
 | Inno Setup 6 | `C:\Program Files (x86)\Inno Setup 6\ISCC.exe`, for `make installer` |
 | Windows SDK signing tools | `C:\Program Files (x86)\Windows Kits\10\bin\<ver>\x64\signtool.exe` |
