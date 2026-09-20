@@ -497,3 +497,183 @@ wrong.
 
 *The technical version of all this — exact commands, why fast-forward-only merges, the
 hotfix procedure — lives in `DEVELOPMENT.md` and `CLAUDE.md` at the top of the repo.*
+
+---
+
+# The exact commands
+
+**Jerry does not need this section** — everything above is the version written for you, and
+Claude runs these for you. It is here so the commands live in one place rather than in a file
+loaded at the start of every session.
+
+Moved from `CLAUDE.md` on 20 September 2026. Where this and the plain-language guide above
+disagree, the guide above is what Jerry agreed to and wins.
+
+### Why fast-forward only (do not "just merge")
+
+`LPandBRL.dotm`, `LargePrintTemplate.dotx`, and every form `.frx` are tracked **binaries**.
+Git cannot merge them — a real merge conflicts, and a wrongly-resolved `.frx` silently
+corrupts a dialog's layout. `--ff-only` never runs the merge algorithm, so binaries can never
+conflict, and history stays linear. If a fast-forward is ever *refused*, something committed
+onto `main` directly — stop and ask Jerry rather than forcing a merge.
+
+
+### Documentation-only changes go straight to `main`
+
+Jerry reads the guide from a bookmark that points at `main`
+(`github.com/jerrywhittaker/vistatype-lp/blob/main/docs/Daily-Workflow-and-Releases.md`).
+Holding a doc fix until the next release means he reads stale instructions in the meantime,
+which is backwards — documentation ships no code and cannot break a release.
+
+**Qualifies only if the change touches nothing outside these paths:**
+`docs/**`, `CLAUDE.md`, `DEVELOPMENT.md`, `README*`.
+One file under `src/`, the `Makefile`, `installer/`, or any `.dotm`/`.dotx`/`.frx` disqualifies
+it — that is a code change and goes through `dev` like everything else.
+
+**Verify before committing, every time** — do not eyeball it:
+
+```bash
+git diff --name-only HEAD          # and/or --cached; must list only the paths above
+```
+
+**Procedure — write it on `main`, then carry it into `dev`:**
+
+```bash
+git checkout main
+# make the edits, or cherry-pick them if they were already written on dev
+git commit ...
+git push origin main             # push freely: docs only. Code still waits for "push".
+git checkout dev && git merge main
+```
+
+That last line is not optional. It keeps `main` an ancestor of `dev` so the next release
+still fast-forwards. **Authoring on `main` and merging into `dev` is strictly better than
+committing on `dev` and cherry-picking to `main`** — cherry-picking leaves the two branches
+permanently diverged and the next release fails.
+
+The "never commit on `main`" rule below still holds for everything else.
+
+
+### Cutting a release (the checklist — walk Jerry through it, one step at a time)
+
+0. **Jerry has said "let's release 3.1"** (or the equivalent). Without that, stop — there is
+   no release. See *Version numbering* above.
+1. **Confirm `dev` is ready** — `git status` clean, the change-set smoke-tested in Word.
+2. **Renumber from the working `3.0.X` to the release `X.Y` in all four places** above (the
+   `.frx` captions are edited headless over SSH via the VBA object model, *not* the form
+   designer — see `DEVELOPMENT.md`).
+3. **`make installer`** — rebuilds the `.dotm` from `src/` so the new `.frx`/ribbon/VBA compile
+   in, compiles `Setup.exe`, copies it to `dist/` and the VM Desktop. Verify the built `.dotm`'s
+   About caption reads the new version.
+3a. **DEBUG → COMPILE, BY HAND, ON THE BUILD BOX.** Open the STARTUP `.dotm` *directly*
+   (right-click → Open in `%AppData%\Microsoft\Word\STARTUP`, not the loaded add-in), then
+   **Alt+F11 → Debug → Compile LPandBRL**. Nothing happens if it is clean; it stops on the
+   offending line if it is not. **This is the only full compile that exists** — see the section
+   below — and it is the last chance to catch a "Compile error in hidden module" before a
+   transcriber does. Ten seconds; it caught nothing on 8/26/2026 only because the fault had
+   already been found the expensive way.
+4. **Jerry installs and tests from the Setup.exe.** **Word must be fully closed first** — Word
+   locks the STARTUP `.dotm` and the install silently no-ops otherwise (symptom: About still
+   shows the old version).
+5. **Commit the bump and the rebuilt `.dotm` on `dev`.**
+6. **Confirm the installer exists before going near git** — `ls -l dist/"VistaType LP and Braille Macros Setup <ver>.exe"`.
+   No `.exe`, no release. Go back to step 3.
+7. **Only when Jerry says the build is good**, move `main` and tag:
+
+   ```bash
+   git checkout main
+   git merge --ff-only dev
+   git tag -a v3.1 -m "VistaType LP 3.1"
+   git checkout dev            # go straight back to dev; never linger on main
+   ```
+
+8. **Publish — only when Jerry explicitly says "push"** (see below). The push and the
+   `.exe`-bearing release are **one step**; never do the first without immediately doing the
+   second:
+
+   ```bash
+   git push origin main dev --follow-tags
+   gh release create v3.1 "dist/VistaType LP and Braille Macros Setup 3.1.exe" \
+       --title "VistaType LP 3.1" --notes "<what changed, in transcriber-facing terms>"
+   gh release view v3.1 --json assets      # VERIFY: must list the .exe, not []
+   ```
+
+9. Delete the superseded `"VistaType LP and Braille Macros Setup *.exe"` from `dist/` and the VM Desktop (keep old
+   real releases).
+10. **Remind Jerry to update the website — and do not touch it yourself.** See *The website is a
+    separate project* immediately below. Give him the paste-able prompt from
+    `docs/Daily-Workflow-and-Releases.md` → *Step 7*.
+
+
+### The `.exe` IS the release — non-negotiable
+
+**A GitHub release without the `"VistaType LP and Braille Macros Setup <ver>.exe"` attached is not a release.**
+GitHub auto-attaches a "Source code (zip)" to every release; that is a tarball of VBA text
+files and **cannot be installed by a transcriber**. A release with no asset therefore looks
+official and delivers nothing.
+
+This also matters because the build is **not byte-reproducible** — Word regenerates p-code on
+every compile, so checking out an old tag and rebuilding does *not* give back the binary that
+shipped. The uploaded `.exe` is the only true copy of a release, and the only real rollback.
+
+Hard rules:
+- Never run `gh release create` without an `.exe` path as an argument in the **same** command.
+- Never push a `v*` tag unless the release-with-asset follows immediately in the same sitting.
+  A pushed tag already renders as a downloadable "release" in GitHub's UI.
+- Always verify with `gh release view <tag> --json assets` and confirm it is not `[]`.
+- **Known gap:** the existing **v3.0** release has no asset (`assets: []`) and the 3.0
+  installer is not in `dist/`; it cannot be regenerated byte-identically. If Jerry still has
+  `VistaType-LP-Setup-3.0.exe` archived anywhere, upload it with
+  `gh release upload v3.0 <path>`. `v2.2.3` has an installer in `dist/` but no GitHub release.
+
+### Recovering from a bad release
+
+- **For a transcriber, right now:** have them reinstall the previous `Setup.exe` from its
+  GitHub release. Fastest fix; no rebuild involved.
+- **For the source:** `git checkout v3.1 && make build`.
+
+
+### Hotfix — an emergency fix for the *released* version
+
+Use when someone in the field needs a fix now and `dev` holds half-finished work that must
+not ship. Jerry's plain-language version is in `docs/Daily-Workflow-and-Releases.md`.
+
+**Part 1 — ship the fix from the released line.** Branch from the **tag**, never from `dev`:
+
+A hotfix takes the **fourth** number off the released one: `3.1` → `3.1.0.1` → `3.1.0.2`.
+Never a third number — that lane belongs to `dev`'s internal builds.
+
+```bash
+git checkout -b hotfix/3.1.0.1 v3.1     # the TAG — an exact copy of what shipped
+# fix, bump the version, make installer, Jerry installs and tests
+git checkout main && git merge --ff-only hotfix/3.1.0.1
+git tag -a v3.1.0.1 -m "VistaType LP 3.1.0.1"
+git push origin main --follow-tags    # only when Jerry says "push"
+gh release create v3.1.0.1 "dist/VistaType LP and Braille Macros Setup 3.1.0.1.exe" --title "VistaType LP 3.1.0.1"
+git branch -d hotfix/3.1.0.1            # merged; the tag is the permanent record
+```
+
+**Part 2 — fold the fix back into `dev`. Do not skip this.** The fix exists only on the
+released line; without this step the next release from `dev` silently reintroduces the bug.
+
+```bash
+git checkout dev && git merge main   # dev gains the fix; main stays an ancestor of dev
+```
+
+**Merge, not rebase, here.** Rebasing `dev` rewrites commits Jerry may already have pushed as
+his backup, which would demand a force-push — forbidden below. The merge commit on `dev` is
+cosmetic and costs nothing: `main` remains an ancestor of `dev`, so the next release still
+fast-forwards. (Rebase is fine *only* if `dev` has never been pushed.)
+
+Two things that bite:
+- **Version numbers do *not* collide** under this scheme — the hotfix uses the fourth slot
+  (`3.1.0.1`) and `dev`'s working builds use the third (`3.1.4`). Leave `dev`'s number alone
+  after the merge; it still becomes the next `X.Y` when Jerry calls the release. Only the
+  four version locations *on the hotfix branch* get touched.
+- **Binary conflicts.** `LPandBRL.dotm` is a build output — never hand-resolve it; take either
+  side and `make build` to regenerate. A conflicting `.frx` is *source* (form layout) and does
+  need real attention — surface it to Jerry rather than guessing.
+
+**Claude's standing duty:** after a hotfix is released, verify `dev` contains it
+(`git branch --contains <hotfix-commit>` or `git merge-base --is-ancestor main dev`). If it
+does not, tell Jerry before starting other work — an unfolded hotfix is a bug that comes back.

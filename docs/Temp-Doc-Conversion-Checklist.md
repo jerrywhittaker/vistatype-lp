@@ -599,3 +599,142 @@ large part of the list between them.
 `..._Replace_Small_Caps_With_All_Caps`, `..._Replace_Tabs_With_Single_Space`,
 `Lp_Remove_Box_Bullets_Bullets_and_Numbers`, `Lp_Resize_Images`, `Lp_TOC_CleanAndFormat_TOC`,
 and the forms `Lp_Change_Image_Color_Form` and `Lp_Section_Brk_Caution`.
+
+---
+
+# Why this was done, and what to copy next time
+
+Moved here from `CLAUDE.md` on 20 September 2026. Same text. It is the reasoning behind the
+checklist above — which traps are specific to the scratch document and which are not, and why
+the round trip came back hidden after being deleted.
+
+
+**FINISHED 9/4/2026 (3.0.366). No macro in VistaType LP puts a document on the screen any more.**
+Change Picture Color was the last one, and `Lp_Copy_To_Temp_Doc` was removed with it — along with
+`Sh_Is_End_Paragraph_Mark_Included`, whose only caller it was, and the two public variables only
+that macro wrote. Dialogs 294, 301 and 305 are retired. **Five macros still make a scratch
+document and all five keep it hidden**: `Lp_Table_Convert_Hidden`, `Lp_Exercise_Levels_Hidden`,
+`Dx_Exercise_Levels_Hidden`, `Lp_Horz_To_Vert_Hidden` and — from 3.0.402 —
+`Lp_TOC_CleanAndFormat_TOC`.
+
+The rest of this section is kept because the reasoning is what to copy the next time a macro has
+to move onto a range — the traps are not specific to the scratch document.
+
+`Lp_Copy_To_Temp_Doc` created the scratch document hidden and then deliberately showed, maximized
+and activated it — four statements, not an accident. That was the screen flashing. It had to,
+because its callers worked through `Selection`, and `Selection` only reaches the active document.
+Converting a macro means moving its passes onto a **range**, so the window is never needed. The
+round trip itself stays where it earns its place: it is what gives the single undo and the
+private workspace.
+
+**The braille half of this is finished** (3.0.318, 8/31/2026). `Dx_Copy_To_Temp_Doc`,
+`Dx_Copy_From_Temp_Doc` and `Dx_Attach_Same_BANA_Template` were removed once Exercise Levels
+1 & 2 — their last caller — moved onto `Dx_Exercise_Levels_Hidden` at 3.0.309, and the
+`Sh_Copy_To_Temp_Doc` / `Sh_Copy_From_Temp_Doc` route pickers went with them. No braille macro
+shows a scratch document any more; three still make one, hidden.
+`Lp_TOC_CleanAndFormat_TOC` came off it at 3.0.338 — and **went back on, hidden, at 3.0.402** (9/7/2026), which is the second time this project has learned the same lesson. Doing its passes in the book cost **39 Ctrl+Z presses**, measured on Jerry's own file; Jerry, 9/7/2026: *"multiple (i mean more then 3 or 4) is not an acceptable undo requirment."* The passes stayed on ranges, so the document is made hidden and never shown, and **one** assignment comes home — one press, not the two Convert Table to List needs, because the landing is paragraphs rather than a table.
+
+**The large-print half finished at 3.0.366** (9/4/2026) with Change Picture Color, and that was a
+deletion too — the fourth. Recoloring pictures is "walk some images and set one property", so it
+needs a `Range`, not a document. Five faults went with the round trip and none had ever been
+reported: the transcriber's clipboard, emptied by the `Copy` and `Paste` that carried the text
+home; cells the user had not selected, because `Lp_Copy_To_Temp_Doc` widened any selection made
+inside a table to the whole table; the selection replaced by a paste rather than edited where it
+stood; the demand that the selection end with a paragraph mark, which existed only to make the
+text travel whole; and, on a machine without `LargePrintTemplate.dotx`, **the user's own book
+closed without saving** — the missing-template `Exit Sub` that `Application.Run` never hands
+back, followed by `Sh_Is_End_Paragraph_Mark_Included` doing
+`ActiveDocument.Close SaveChanges:=False` on that book. **Equations are out of reach now, and that is Jerry's call** — *"I don't want equations
+(from MathType) touched."* A MathType equation is an embedded OLE object and so an inline shape
+like any other, and all three of the old loops tested nothing; the recolor takes
+`wdInlineShapePicture` and `wdInlineShapeLinkedPicture` only. What Word does when asked to gray an
+embedded object could **not** be measured — embedding one into an invisible Word fails outright
+over SSH, the same family as `Tables.Add` hanging — and the type test means it never has to be
+answered.
+
+A **sixth** thing was about forms rather than scratch documents: the Okay button read its radio
+buttons *after* `Unload Me`, and touching any member of a UserForm's default instance is what
+creates the form, so those lines might have been reading a brand new form's design-time values.
+**They were not** — put to Jerry, 9/4/2026: choosing grayscale has always given him grayscale.
+Read the choices before unloading anyway; it is the right order, not a repair. **Ask him before
+writing a fault into the record**: a UserForm cannot be exercised headlessly, so the only
+measurement available was his own Word, and one sentence from him settled it.
+
+**Table Tools came off it at 3.0.345** (9/3/2026), reported by Jerry testing 3.0.339: flashes of
+the table's yellow rows during Convert to List and Rotate Table, and a full-screen blink at the
+end of a rotation. The blink was deliberate — the rotation finished by minimizing and maximizing
+the Word window "to force Windows OS to repaint the pixels". Ten macros now take the table they
+are to work on (`Lp_Table_Cleanup_For_Roation_And_List`, `Lp_Table_Transpose_Table` — now a
+Function returning the new table — `Lp_Table_Fill_Empty_Cells`, `Lp_Table_Row_Column_Header_Setup`,
+the two `Lp_Table_Apply_Character_Case_To_*_Headers`, `Lp_Table_Style_InCell_Para_And_Image`,
+`Lp_Table_Mark_Keep_With_Next`, `Lp_Table_Is_R1C1_Empty` and the three `Lp_Table_Convert_*_To_List`),
+and `Lp_Table_Note_Above` opens the transcriber note in a new paragraph above the result instead of
+at `Selection.HomeKey wdStory`. The clipboard round trip went with it, so the transcriber's own
+clipboard is no longer emptied.
+
+**And then the round trip came back, hidden — which is the lesson.** 3.0.345 removed the scratch
+document altogether and did the work in the transcriber's book. That made Ctrl+Z **30 to 50
+presses** (Jerry: *"not tollerable for anyone"*), and a custom undo record to cure that
+**crashed Word outright** at 3.0.345 and again at 3.0.347 — the defect already recorded for
+Format TOC: **a `Find` with `Replace:=wdReplaceAll` inside an open `StartCustomRecord` kills
+Word**, access violation in `wwlib.dll`, nothing raised, nothing logged.
+
+**The scratch document does two jobs and only one of them was ever the fault.** It had to be
+*shown* because the passes reached their table through `Selection` — that is the flashing, and
+converting the passes onto ranges is what fixes it. But it is also **what keeps the undo short**:
+edits made in another document are not in this book's undo stack at all, so only the one
+assignment home is. That is what the rule at the top of this section means by *"the round trip
+itself stays"*. `Lp_Table_Convert_Hidden` (3.0.348) is the shape to copy — hidden
+`Documents.Add`, passes on ranges, result home by `FormattedText`, no undo record. **Two presses,
+not one, and that is as good as it gets when the original is a table:** assigning `FormattedText`
+to a range that *is* a table fills that table's cells instead of replacing it (3.0.349 shipped
+the list back inside its own table), so the table has to be deleted first — one step for the
+delete, one for the result. Jerry's own words when it went wrong: *"why not save the original table and restore it
+with one undo?"*
+
+Two things follow. **Convert the passes, do not delete the round trip** unless the macro provably
+needs no private workspace (Resize Images, Replace Section Breaks and Format TOC did not).
+And **read `docs/Reported-Errors.md` for the mechanism you are about to introduce, not only for
+the feature you were asked about** — the undo-record row was already there and was walked past.
+**Three faults could not have survived the move**, and finding them is the argument for reading
+what a macro does rather than only how it gets there: two `Find` passes used `wdFindContinue`,
+which against a real book is every colon in the chapter rather than one table;
+`Lp_Table_Mark_Keep_With_Next` read a table variable the half above it had never set (run-time
+error 91 on any row-and-column list run without *keep list groups on same page*); and its
+paragraph-mark tidy-up began at `Selection.HomeKey wdStory`, the top of the book.
+
+**Check first whether the round trip is needed at all — and what the macro actually does.** Of the
+three settled on 9/1/2026 only one was a conversion. `Lp_Resize_Images` (3.0.321) only walks
+images and sets their scale, and an `InlineShapes` collection comes off a `Range` as readily as
+off a document. `Lp_TOC_CleanAndFormat_TOC` (3.0.338) was the third deletion **and was reversed at 3.0.402 — the
+passes were right to convert, the round trip was wrong to delete**: every pass is Paragraphs or
+Characters off a Range, it never used the clipboard, and it turned out that on a machine which
+cannot find `LargePrintTemplate.dotx` the round trip ran all nineteen of its replaces across the
+transcriber's whole book and then closed it without saving — because `Lp_Copy_To_Temp_Doc`
+reports a missing template with a `MsgBox` and a plain `Exit Sub`, and `Application.Run` never
+hands that back to the caller. **Every `Find` in a converted macro must be `wdFindStop`**; the
+scratch-document versions use `wdFindContinue`, which on a range means the whole book.
+`Lp_Section_Brk_Caution` (3.0.326) turned out to be **corrupting books**: replacing
+every section break with a page break collapses the document to one section and discards every
+section's page setup, which had been true since long before the conversion work. It was cured by
+changing each section's `SectionStart` property instead of deleting anything. Reading what a macro
+does to the scratch document, rather than only how it gets there, is what found that — see
+`docs/Reported-Errors.md`.
+
+`Lp_Format_Exercise_Lv_1_and_Lv_2` was the sixth and was converted at 3.0.319 (9/1/2026), onto
+`Lp_Exercise_Levels_Hidden` / `Lp_Ex_Passes` / `Lp_Ex_Repl`. **It was NOT merged with the braille
+twin**, and that is worth recording because the merge rule below made it look likely: the two
+apply different styles and produce different output — `List` and `List 2` with underlined Tahoma
+fill-in lines here, `Exercise1`/`Exercise2`/`Ex2Nemeth2` with `[[*kps*]]` and `[[*kpe*]]` markers
+there. `Lp_Fix_Para_Space_Errors` and `Sh_Remove_Spaces_Before_Punctuation` took an optional range
+so they could be run against the hidden document.
+
+**Jerry's rule, 8/12/2026: whenever converting a pair leaves the `Lp_` and `Dx_` versions
+identical, merge them into one `Sh_` macro.** That is not a coincidence when it happens —
+everything that differed between a pair usually existed to serve the round trip, and goes with
+it. Merging as we go makes the second half of the list shorter rather than longer.
+
+Worked examples: `Lp_Horz_List_To_Vertical` (3.0.147, hidden scratch document) and
+`Sh_Remove_Multi_Spaces` (3.0.149, no scratch document at all, and the first merge under the
+rule). The full list, what to test, and the two paragraph-mark traps are in
+`docs/Temp-Doc-Conversion-Checklist.md`.

@@ -369,3 +369,13 @@ edits to pipeline-defining files — this file, the `Makefile`, and anything und
 `tools/`, `src/ribbon/`, or `installer/` — and reminds Claude Code to reconcile
 `CLAUDE.md` in the same change. It only nudges; the actual edit is Claude's. Disable or
 review it via `/hooks`.
+
+## Practical notes for changes
+
+- To inspect or diff logic, extract `vbaProject.bin` as above; do **not** try to read
+  `LPandBRL.dotm` directly as text.
+- Re-packaging edited VBA back into a `.dotm` cannot be done reliably by hand on this
+  (Linux) box — real edits are made in Word's VBA editor on Windows and the `.dotm` re-saved.
+- `src/ribbon/customUI14.xml` and `LargePrintTemplate.dotx` are plain XML / zip+XML and can
+  be edited directly, but keep control `tag` names in sync with the VBA subs, and keep style
+  IDs stable (documents in the field reference them).
