@@ -481,6 +481,20 @@ tools/lib/      check_style_guards.py (refuses to build when an ActiveDocument.S
                 changed files need a real installer instead. Ignores the version bump in
                 installer/vistatype.iss, which `make try` itself makes: a warning that fires
                 every time is a warning nobody reads);
+                check_dotm_unsigned.py (refuses to build from, or promote, a .dotm whose VBA project
+                is SIGNED. Wired into `push-src` (checks the repo-root base) and into `make deploy`
+                (checks the dist/ file being promoted, which is the single place a signed one can
+                get in). The root .dotm is the base every build starts from, so a signed file
+                landing there is not a one-build problem. Measured 9/20/2026 by signing a real copy
+                of the base with a throwaway certificate: the signature is NOT inside
+                vbaProject.bin — that part came back byte-identical, all 302 OLE streams the same
+                size — it is its own package part, word/vbaProjectSignature{,Agile,V3}.bin. The
+                first version of this guard searched the OLE streams, the way the old binary .doc
+                format stored it, and passed a genuinely signed file. And the consequence is NOT a
+                stale signature: Word RE-SIGNS on import with whatever code-signing certificate the
+                build user holds — one signature part went in, three came out, over completely
+                re-imported code, and signtool's only complaint was the untrusted self-signed root.
+                See docs/Code-Signing.md);
                 extract_qat.py (obsolete/reference — QAT is now qat-template.officeUI)
                 (rescale_font.py stood here until 8/20/2026, when the bundled typeface was
                 dropped — see assets/fonts/ below)

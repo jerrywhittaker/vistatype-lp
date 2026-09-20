@@ -45,7 +45,7 @@ DOTM      := LPandBRL.dotm
 DOTX      := LargePrintTemplate.dotx
 RIBBON    := Word.officeUI
 PROJNAME  := LPandBRL
-APPVER    := 3.0.459
+APPVER    := 3.0.460
 SETUP_EXE := VistaType LP and Braille Macros Setup $(APPVER).exe
 VERDATE   := $(shell date +%-m/%-d/%Y)
 
@@ -84,7 +84,7 @@ check-config:
 # (Sh_License_Form) since 8/3/2026, and nothing said so: the build log lists what it REMOVES
 # from the .dotm, not what it re-imports. Wipe the two pushed trees first so the box is always
 # an exact copy of src/. Only src and tools go - dist/ holds the .dotm being built.
-push-src: check-config
+push-src: check-config check-dotm-unsigned
 	$(SSH) "if not exist \"$(WIN_DIR)\" mkdir \"$(WIN_DIR)\""
 	$(SSH) '$(WIN_PWSH) -NoProfile -Command "Remove-Item -Recurse -Force \"$(WIN_DIR)/src\", \"$(WIN_DIR)/tools\" -ErrorAction SilentlyContinue; exit 0"'
 	scp -q -r src tools $(DOTM) "$(WIN_HOST):$(WIN_DIR)/"
@@ -96,6 +96,13 @@ pull: check-config push-src
 	scp -q -r "$(WIN_HOST):$(WIN_DIR)/src/vba/*"   src/vba/   || true
 	scp -q -r "$(WIN_HOST):$(WIN_DIR)/src/forms/*" src/forms/ || true
 	@echo "Pulled canonical VBA source into src/ (review with 'git diff')."
+
+# The repo-root .dotm is the base every build starts from, and `make deploy` is what puts a
+# file there. Once signing is wired in, dist/ holds a SIGNED .dotm - and promoting that would
+# seed every later build with a signature that stops matching the moment the modules are
+# re-imported. Nothing else here would notice. See docs/Code-Signing.md.
+check-dotm-unsigned:
+	@python3 tools/lib/check_dotm_unsigned.py $(DOTM)
 
 # --- build the shipping .dotm from src/ via Word, then embed the ribbon ---
 # A .frm rewritten with LF endings still builds, but Word mis-parses the designer header and
@@ -298,6 +305,9 @@ font-installer: check-config check-branding
 
 deploy:
 	@test -f dist/$(DOTM) || { echo "ERROR: run 'make build' first."; exit 1; }
+	@# Check the file being PROMOTED, not the one already at the root. This is the single
+	@# place a signed .dotm can get in, so stopping it here beats noticing afterwards.
+	@python3 tools/lib/check_dotm_unsigned.py dist/$(DOTM)
 	cp dist/$(DOTM) $(DOTM)
 	@echo "Promoted dist/$(DOTM) (embedded ribbon) to repo root."
 

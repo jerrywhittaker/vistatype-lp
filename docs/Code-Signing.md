@@ -547,6 +547,42 @@ correct. **Do not "improve" this by copying the signed file back down.** The con
 difference is the safe side of the trade, and the signed copy gets tested by installing the
 `Setup.exe`, which is how it should be tested anyway.
 
+#### Measured 9/20/2026 — what actually happens, and it is not what this page assumed
+
+A real copy of the build base was signed on the box with a throwaway self-signed certificate,
+pushed through `Import-Vba.ps1`, and the result examined. Three findings, and the third changes
+the shape of the risk.
+
+1. **The signature is not inside `vbaProject.bin`.** That part came back byte-identical — all 302
+   OLE streams, every size the same. It is its own part in the Office package:
+   `word/vbaProjectSignature.bin`, plus `...SignatureAgile.bin` and `...SignatureV3.bin` for the
+   other two formats. Anything looking for it among the OLE streams, the way the old binary `.doc`
+   format stored it, will report a signed file as clean. The first version of
+   `tools/lib/check_dotm_unsigned.py` did exactly that and passed a genuinely signed file.
+
+2. **`offsign.bat` stops at its first verify.** With an untrusted certificate it signs the legacy
+   format, fails `verify /pa` on the trust chain, and exits 5 without writing the other two. The
+   signing itself is fine — this is the trust chain, not the card and not the file. Adding a
+   self-signed certificate to `CurrentUser\Root` over SSH is refused ("The request is not
+   supported"), so a full three-pass rehearsal needs an interactive session or a trusted cert.
+
+3. **Word does not leave a stale signature — it RE-SIGNS.** One signature part went in; three came
+   out, over code in which every module had been removed and re-imported. `signtool verify /pa /v`
+   on the result complained only that the root was untrusted: no hash mismatch, no invalid
+   signature. Word found the certificate in the user's store and signed the rebuilt project with
+   it.
+
+   **So the danger of a signed base is not a broken signature. It is that the build box quietly
+   acquires a signing step on every build** — including plain `make build` and `make try`, which
+   this page requires to stay unattended and card-free. What Word does when the certificate is
+   *not* reachable (card out of the reader, PIN not supplied) was not measured, and the likely
+   answer is the PIN window with nowhere to go that is warned about above: `make build` hanging
+   with no error.
+
+`tools/lib/check_dotm_unsigned.py` now refuses to promote or build from a signed `.dotm`, and is
+wired into `push-src` and `make deploy`. It matches on the package part name by prefix, so a
+fourth signature format is caught rather than ignored.
+
 ### Still unknown until the card is here
 
 - **Whether Word accepts it.** Set Word's macro settings on the test box to require a digital
