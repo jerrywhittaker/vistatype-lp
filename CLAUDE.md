@@ -17,7 +17,6 @@ DAISY/NIMAS, `MS_` Word configuration. Grep by prefix to find a feature area.
 ## Talking to Jerry
 
 The full rules are in `~/.claude/CLAUDE.md` and apply everywhere. In short:
-
 **Speak Word and VBA to him freely** — subs, UserForms, `.frx`, ranges, styles, section breaks,
 DBT tables. He wrote all ~16,500 lines himself over twenty years.
 
@@ -36,17 +35,24 @@ run `gh issue list` and tell Jerry briefly what is open, as things he could pick
 not start on one unless he asks. **Record any new defect the same way**, rather than as a note
 buried in a document, saying what was verified and what was not.
 
-**Delegate the looking.** Getting back to Jerry quickly matters more than searching yourself,
-and a file dump in the main session slows every later turn. Hand off anything shaped like
-*find it*, *count it* or *is this still true*:
+**Delegate the work, not just the looking.** Getting back to Jerry quickly matters more than
+doing it yourself, and a transcript in the main session slows every later turn. Delegate when
+the job needs more than a command or two — a single `grep` is faster done here.
 
-- **`scout`** (Haiku) — where is X, what mentions Y, how many Z. Lines, not opinions.
-- **`fact-check`** (Sonnet) — settles one claim against the source. Use it before writing any
-  number or behavior into a document, a commit message or a reply.
+- **`scout`** (Sonnet/low) — where is X, what calls Y, how many Z, is this claim still true.
+- **`build-runner`** (Sonnet/low) — runs a make target; knows the five ways a build fails
+  silently and cures them.
+- **`vba-test`** (Sonnet/high) — runs a macro headlessly on the box; reports the text, not the
+  transcript. Owns the seven traps.
+- **`diagnose`** (Opus/high) — a fault Jerry reported. Reads the error register first,
+  reproduces before theorising.
+- **`secrets-check`** (Opus/high) — **before any push touching signing, and before the repo is
+  ever made public.**
+- **`issue-triage`** (Sonnet/medium) — one issue: real? reachable? what would a fix disturb?
 - **`vba-review`, `braille-lp-review`, `ship-safety`, `release-check`** — for a change rather
   than a question.
 
-Send independent lookups in **one message** so they run at once, and never search yourself
+Send independent jobs in **one message** so they run at once, and never do a search yourself
 *and* delegate it.
 
 ## Where things are written down
@@ -59,9 +65,7 @@ Send independent lookups in **one message** so they run at once, and never searc
 | What do the domain words mean? | `docs/Domain-Concepts.md` |
 | How do I build, and what are the tooling traps? | `DEVELOPMENT.md` |
 | How does a release work? (Jerry's own guide) | `docs/Daily-Workflow-and-Releases.md` |
-| How does Word configuration and the settings ledger work? | `docs/Word-Configuration-Rules.md` |
-| What does VistaType do to the transcriber's own settings? | `docs/User-Settings-And-Word-Configuration.md` |
-| The transcriber-facing explanation of the same | `docs/How-Word-Settings-Work.md` |
+| Word configuration and the settings ledger | `docs/Word-Configuration-Rules.md`, then `docs/User-Settings-And-Word-Configuration.md`; the transcriber-facing version is `docs/How-Word-Settings-Work.md` |
 | Installing, updating, troubleshooting (for transcribers) | `docs/Installation-Guide.md` |
 | Code signing, and why antivirus eats the installer | `docs/Code-Signing.md` |
 | The bundled typeface: coverage, and what it will not set | `docs/VistaTypeLP-Sans.md` |
@@ -74,21 +78,19 @@ Send independent lookups in **one message** so they run at once, and never searc
 ## Before you change anything
 
 **Read `docs/Reported-Errors.md` first** — Jerry's rule, 8/26/2026: *"I don't want to spend
-time and tokens on re-investigating errors that have already been fixed."* It is keyed on
-version, error number, macro and step. Add the row in the **same change** as the fix.
+time and tokens on re-investigating errors that have already been fixed."* Keyed on version,
+error number, macro and step. Add the row in the **same change** as the fix.
 
 **Nothing here compiles VBA, and a compile gate is impossible** — measured 8/26/2026: VBA
 compiles lazily per procedure and `Debug > Compile` is unreachable by automation. The compile
 is a **human step** before any release; say so whenever a change touches VBA. Give every helper
 `ByVal` parameters — the fault that proved this was a Variant passed to a ByRef `String`.
 
-**Read the mechanism you are about to introduce, not only the feature you were asked about.**
-More than one fault here was walked past because it was already written down elsewhere.
 ## Building and testing
 
-`make try` is the short loop: it bumps the build number, builds, and drops the add-in straight
-into Word's STARTUP folder on the build box. `make build` builds without deploying.
-`make installer` bumps and produces the `Setup.exe`. Word must be closed on the box.
+`make try` bumps, builds and drops the add-in into Word's STARTUP folder on the build box.
+`make build` builds without deploying; `make installer` bumps and produces the `Setup.exe`.
+Word must be closed on the box. Hand these to `build-runner`.
 **`make try` cannot test** `installer/**`, `src/ribbon/**`, `src/keymap/**`, or `*.dotx`.
 `tools/lib/check_try_scope.py` prints this after every try — **say it in the reply too**
 (Jerry, 8/23/2026). He should never have to work out for himself that what he is about to test
@@ -107,8 +109,8 @@ carries a dated changelog. Bump both when changing behavior.
 never published. `X.Y` — `3.1` — is a real release. A fourth digit — `3.1.0.1` — is a hotfix
 to a released version, in a separate lane so it can never collide with `dev`'s counter.
 **Only Jerry starts a release, and he starts it by name** — "let's release 3.1". A clean build
-is the normal end of a day's work, not a cue to release. The full checklist, the hotfix route
-and the documentation-only route are in `docs/Daily-Workflow-and-Releases.md`.
+is the normal end of a day's work, not a cue. Checklist, hotfix and documentation-only routes:
+`docs/Daily-Workflow-and-Releases.md`.
 
 **Documentation-only changes go straight to `main`**, so Jerry's bookmark is never stale.
 Qualifies only if the change touches nothing outside `docs/**`, `CLAUDE.md`, `DEVELOPMENT.md`
@@ -125,16 +127,15 @@ merge `main` into `dev`.
   transcriber, so a release without the installer delivers nothing. Verify with
   `gh release view <tag> --json assets`; it must not be `[]`.
 - **Never hand-edit `LPandBRL.dotm` or `src/vba/RibbonDispatch.bas`** — both are generated.
-- **Never rename or remove a `btn_*` id** in `src/ribbon/customUI14.xml`. Toolbars in the field
-  reference them by id and a renamed one draws blank with no error. To retire a button, move it
-  to the hidden `tab_VT_Retired_Buttons`.
+- **Never rename or remove a `btn_*` id** in `src/ribbon/customUI14.xml` — toolbars in the
+  field reference them by id and a renamed one draws blank, silently. Retire a button by moving
+  it to the hidden `tab_VT_Retired_Buttons`.
 - **A `.frm` must stay CRLF**, or Word dumps the designer header into the form's code module —
   and it fails only on the transcriber's machine.
 - **A signed `.dotm` must never reach the repo root**; it is the base every build starts from.
   `make deploy` and `push-src` refuse one.
-- **Never merge this project with `~/projects/vistatypelp-org`, or suggest it, or edit the site
-  from here.** On a real release, hand Jerry the prompt from
-  `docs/Daily-Workflow-and-Releases.md` to paste into a session there.
+- **Never merge this project with `~/projects/vistatypelp-org`, or suggest it, or edit the
+  site from here.** On a release, hand Jerry the prompt from the daily-workflow guide.
 - **Messages go through `Sh_Say` / `Sh_Ask`**, never a bare `MsgBox`: 10 point Tahoma or more,
   the button says `Okay`, Alt+O and Alt+C. One progress indicator, the bar.
 - **Say what actually happened.** If a test failed, show the output. If a step was skipped, say
@@ -144,7 +145,6 @@ merge `main` into `dev`.
 
 It is loaded in full at the start of every session, so it is capped at **150 lines**. Anything
 longer belongs in `docs/` with a pointer added to the table above.
-
 When you change the build — `Makefile`, `DEVELOPMENT.md`, `tools/`, `src/ribbon/`,
 `installer/` — update `docs/Repo-Layout.md` in the **same** change. A `PostToolUse` hook
 (`.claude/hooks/claude-md-sync.py`) reminds you.
