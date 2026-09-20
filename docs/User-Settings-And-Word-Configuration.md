@@ -1,5 +1,26 @@
 # AutoCorrect: keeping the transcriber's own settings, and still configuring Word per document
 
+> **Read this first — status, 9/20/2026.** This page was written while the work was being planned
+> and has been corrected in place rather than rewritten, so it still reads as a plan. What is
+> actually true now:
+>
+> - **The ledger is 42 names, store stamp `13`** (`Sh_Tracked_Settings`, `VT_STORE_STAMP_NOW`).
+>   Every count below that says thirty-six, twenty, fifteen or forty-four is a stage this went
+>   through, not the state today.
+> - **Nothing adds compact fractions anywhere**, since 8/29/2026. `Sh_Add_Compact_Fractions`
+>   became `Sh_Delete_Compact_Fractions`. Ordinary documents rely on Word's own three (½ ¼ ¾);
+>   braille gets the rest from Full File Cleanup, not from AutoCorrect.
+> - **Each kind of document has its own AutoCorrect table**, since 9/19/2026 — `AutoCorrect-DEF.txt`,
+>   `-LP.txt`, `-BRL.txt` beside `VistaType.ini`. Word keeps one AutoCorrect list for the whole
+>   application, so until then a book's deletions came off the transcriber's own letters and stayed
+>   off. This page predates that entirely; see CLAUDE.md and `docs/Installation-Guide.md`.
+> - **The per-document save and restore IS built** — as Piece 4 of
+>   `docs/Word-Configuration-Rules.md`, on 9/5/2026. The banner further down saying "Pieces 2 and 4
+>   are NOT built" refers to this page's own numbering and is corrected there.
+> - **The saved-configuration library is still not built**, and Jerry deferred it on 9/6/2026.
+>   Do not re-propose it.
+
+
 A plan. Written 8/17/2026, revised the same day after Jerry's proposal of a saved-configuration
 library.
 
@@ -14,7 +35,7 @@ leave the tracked list or the next save will record VistaType's own value as her
 reasoning is correct and it is not what went wrong. The mistake was forcing the setting in the
 ordinary configuration in the first place; once that is done, taking the name out of the ledger is
 the only consistent thing left to do. Keep the reasoning. Never use it to justify a fixed write
-there. The ledger is thirty-six settings, store stamp "10".
+there. The ledger is **42 settings, store stamp `13`** (it read thirty-six and `10` when this was written).
 
 **Status, 8/18/2026 — Piece 1 is built, and so is the spelling-and-grammar half of the fault
 found while measuring.** The fifteen settings all three configurations wrote identically are
@@ -25,9 +46,11 @@ written with `System.PrivateProfileString` exactly as recommended below. Every r
 the large print and braille configurations is guarded, which was not in this plan and came out of
 the same measurement.
 
-**Pieces 2 and 4 are NOT built.** The twenty settings that genuinely differ are still written to
-fixed values on an ordinary document, and there is no saved-configuration library. Piece 3 is built
-for the five spelling settings only; extending it to the twenty is Piece 2 and uses the same store.
+~~**Pieces 2 and 4 are NOT built.**~~ **HALF OF THIS IS NOW WRONG.** Piece 2's substance — save
+what the transcriber had and put it back — **was built on 9/5/2026**, as Piece 4 of
+`docs/Word-Configuration-Rules.md`, over one 42-name ledger rather than the twenty/fifteen split
+this page describes. **Piece 4 here, the saved-configuration library, is still not built** and was
+deferred by Jerry on 9/6/2026.
 
 Two things learned while building it, both worth keeping in mind for Piece 2:
 
@@ -69,10 +92,13 @@ sentence or a table cell. These decide what the DBT receives and what a low-visi
 the page. The braille configuration **adds** the AutoCorrect entries that turn `1/2` into `½`,
 because that is what translates correctly; large print **deletes** them, because a large print book
 should keep `1/2` as it was typed. Opposite requirements, and neither is the transcriber's to choose
-— she is not the one they are for. An **ordinary** document now adds them as well (Jerry, 8/18/2026):
-outside braille and large print they are simply Word's own behavior, and stripping them out of a
-transcriber's own documents was never the add-in's business. **Twenty settings and eighteen
-fraction entries are in this group, and they must keep switching per document.**
+— she is not the one they are for. ~~An **ordinary** document now adds them as well (Jerry,
+8/18/2026).~~ **REVERSED 8/29/2026: nothing adds compact fractions anywhere.** An ordinary document
+relies on Word's own AutoFormat-as-you-type, which gives three (½ ¼ ¾); braille gets the rest from
+`Dx_Replace_Fraction_Text_With_Compact_Fractions` during Full File Cleanup. And since 9/19/2026 the
+worry behind this whole paragraph — that a book's changes cost the transcriber her own letters — is
+answered by giving each kind of document its own AutoCorrect table. The count, where it still
+matters, is **nineteen** deletions: the eighteen standard fractions plus `0/3`.
 
 **Settings that belong to the transcriber.** "Replace text as you type", smart quotes, hyperlinks,
 two initial capitals, days of the week, cAPS LOCK, tab-as-indent, and the rest. Nothing in braille
@@ -371,6 +397,13 @@ Three **display** settings are also written identically — `FormattingShowNextL
 
 ### Piece 2 — save and restore the twenty that do differ
 
+> **BUILT, but not like this.** The mechanism shipped on 9/5/2026 as Piece 4 of
+> `docs/Word-Configuration-Rules.md`, over a single 42-name ledger rather than the twenty below.
+> **The two helper names this section goes on to use, `Sh_Save_User_Typing_Settings` and
+> `Sh_Restore_User_Typing_Settings`, do not exist in the code** — the real ones are
+> `Sh_Save_Transcriber_Settings` and `Sh_Restore_Transcriber_Settings`. The table is kept because
+> it is the only written record of which settings were measured as genuinely differing.
+
 The complete list. The helpers below work over exactly it:
 
 | Setting | Ordinary | Large print | Braille |
@@ -449,7 +482,7 @@ expected rather than a gap.
 
 **Two things here are out of date and must be rewritten before any of it is built.** The design
 speaks of "the fifteen from Piece 1 and the twenty from Piece 2"; that split is gone and
-`Sh_Tracked_Settings` is one list of **44** names. And the account of what loading does predates
+`Sh_Tracked_Settings` is one list of **42** names. And the account of what loading does predates
 Jerry's reversal of Decision 3 on 9/5/2026 — the learning loop it assumed no longer exists. Check
 the code, not this description.
 
@@ -527,8 +560,9 @@ on, and she has no reason to connect it to VistaType.
 Switching them off is right for braille: the grammar checker and the contextual speller flag braille
 formatting endlessly. The fault is only that they are never restored.
 
-**Decision needed:** the consistent answer is to treat these exactly like the twenty — note what she
-had, and put it back on return to an ordinary document. Five more entries in the same list, no new
+~~**Decision needed:**~~ **DECIDED AND BUILT, 8/18/2026** — see the status note near the top of this
+page, which records the same five settings as done. The answer taken was the consistent one: treat
+these exactly like the twenty — note what she had, and put it back on return to an ordinary document. Five more entries in the same list, no new
 mechanism. The alternative, having the ordinary configuration turn them all on, is another fixed
 value overriding her choice and repeats the original mistake.
 
@@ -544,65 +578,31 @@ value overriding her choice and repeats the original mistake.
   deletes them, and they keep switching per document. Worth a line in the guide that these particular entries are
   managed, in case a transcriber ever adds one by hand.
 
-### What to test in Word, in order
+### What to test in Word — removed 9/20/2026
 
-1. **The reported fault.** Ordinary document → turn off "Capitalize first letter of sentences" and
-   turn off "Replace text as you type" → close Word → reopen → open a blank document. Both still as
-   she left them.
-2. **Switching still works.** With that ordinary document open, open a braille file. Fractions
-   should give `½`, capitalization as braille needs it. **Document Settings** says braille.
-3. **Coming back.** Click to the ordinary document. Sentence capitals off again, "Replace text as you
-   type" still off. `1/2` now becomes `½` here too, as of 8/18/2026 — see the fractions note below.
-   Document Settings says ordinary.
-4. **Large print in the mix.** Three documents open — ordinary, braille, large print — clicking round
-   all three. Fractions on in braille and in the ordinary document, off in large print.
-5. **The master switch is never touched.** With "Replace text as you type" off, work in braille and
-   large print and come back. Still off, every time.
-6. **A macro run does not disturb it.** Full File Cleanup and Selection Cleanup on both tabs — both
-   call the configuration subs directly, which is why they are worth testing specifically — then
-   check the ordinary document's settings again.
-7. **Word restarted from a braille file.** End a session with a braille file open, reopen Word, open
-   an ordinary document. The user's settings, not braille's.
-   **PASSED 9/5/2026 on 3.0.372, measured rather than eyeballed.** The ledger was read over SSH at
-   five points and `[TranscriberSettings]` came out byte-identical to the baseline taken before the
-   test — the only line that changed in the whole file was the book flag. The four markers used were
-   `CorrectSentenceCaps`, `CorrectTableCells`, `AutoFormatAsYouTypeApplyBulletedLists` and
-   `AutoFormatAsYouTypeApplyHeadings`, all ticked for the user and all switched off by braille, and
-   all four were ticked again in the AutoCorrect dialog afterwards — so the values were restored into
-   Word and not merely preserved in the file.
-   **Do not use the five spelling/grammar settings as markers here.** On the build box the user's
-   stored values for all five are already `0`, which is what braille writes, so they read as correct
-   whether the guard works or not.
-   The same run also confirmed the 9/5/2026 flag move: the flag went `0` -> `1` the moment the
-   braille file was clicked into, before any setting was written, and only that one line changed.
-8. **The privacy notice does not come back.** Several new documents in a row on a machine where
-   Office is unlicensed or disconnected — that is where the 7/18/2026 notice appeared.
-   **PASSED 9/6/2026 on 3.0.373**, run by Jerry on the build box, whose Office is both unlicensed
-   and disconnected — the condition the notice appeared under. The banner did not appear. What this
-   confirms is the `If .X <> value Then .X = value` guards: writing every option on every new
-   document was the churn behind the notice, and only a changed value is written now. Keep those
-   guards.
-9. **The library.** Save a configuration, change several settings, load it back. Then load it while a
-   braille file is active and confirm braille's typing behavior is untouched until an ordinary
-   document is activated. Then delete it.
-10. **Reset.** Run Reset Word's Settings and confirm it says what it did, and that the following
-    document switch still behaves.
-    **PASSED 9/6/2026 on 3.0.373**, run by Jerry on the build box, both halves.
-    Four markers were used - `CorrectSentenceCaps`, `CorrectTableCells`,
-    `AutoFormatAsYouTypeApplyBulletedLists` and `AutoFormatAsYouTypeApplyHeadings` - all ticked on
-    the starting list and all switched off by braille, so they show on both halves. **Do not use
-    the five spelling/grammar settings**: on the build box the stored values are already `0`, the
-    same as braille writes, so they read as correct whether the guard works or not.
-    Unticked by hand in an ordinary document, Reset put all four back; dialog 235 named the
-    document before acting and 236 reported what was in force afterwards, both correct. Then with
-    a braille file open alongside, the four went off and back on **twice each way** as the document
-    on screen changed - so a reset does not leave the switching broken behind it, and Word does
-    raise the window events on that machine.
-11. **The starting list, on a machine that has run VistaType before.** Untick several boxes on both
-    AutoCorrect tabs, close Word, install this build, start Word. Both tabs read Jerry's list.
-12. **The starting list is written once and not again.** Straight after test 11, untick two of them,
-    close Word, start Word, open an ordinary document. They are still unticked — the list must not
-    come back.
+The numbered test list that stood here was finished. Its one unrunnable item, test 9, tested the
+saved-configuration library, which Jerry deferred on 9/6/2026 and which does not exist.
+
+Three results from running it are worth keeping, and are kept here because they are measurements,
+not tests:
+
+- **The ledger is genuinely untouched by a book, measured 9/5/2026 on 3.0.372.** Read over SSH at
+  five points, `[TranscriberSettings]` came out byte-identical to the baseline taken before the
+  test — the only line in the whole file that changed was the book flag. The four markers used
+  were `CorrectSentenceCaps`, `CorrectTableCells`, `AutoFormatAsYouTypeApplyBulletedLists` and
+  `AutoFormatAsYouTypeApplyHeadings`: all ticked for the user, all switched off by braille, and
+  all four ticked again in the AutoCorrect dialog afterwards — so the values were restored *into
+  Word*, not merely preserved in the file.
+
+- **Do not use the five spelling and grammar settings as markers on the build box.** The stored
+  values for all five are already `0` there, which is exactly what braille writes, so they read as
+  correct whether the guard works or not.
+
+- **The 9/5/2026 flag move is confirmed.** The book flag went `0` → `1` the moment the braille
+  file was clicked into, before any setting was written, and only that one line changed.
+
+Word's own settings surviving a quit only when `Normal.dotm` is saved is measured in
+`docs/How-Word-Settings-Work.md`, which carries the table.
 
 ### Traps
 

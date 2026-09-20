@@ -61,15 +61,19 @@ Opening or creating a document is different: that is the moment VistaType LP set
 for the kind of document it is. After that, the screen is yours.
 
 So with a large print document, a braille document and an ordinary document all open side by side, you can move between them all afternoon and each
-one behaves correctly according their AutoCorrect option settings. You will not notice it happening.
+one behaves correctly according to their AutoCorrect option settings. You will not notice it happening.
 
 ---
 
 ### Which one is in force?
 
-The **Document Settings** macro on the Quick Access Toolbar (looks like and circle with the letter "i" in it) tells you what the settings for the current are. It has a line reading *"Word is configured for..."*
-— large print, braille, or default (ordinary document) settings. If Word is ever behaving oddly, that line is the
-first thing to look at.
+The **Document Settings** macro on the Quick Access Toolbar (it looks like a circle with the letter
+"i" in it) tells you what the settings for the current document are. It has a line reading *"Word is
+configured for..."* — large print, braille, or default (ordinary document) settings. If Word is ever
+behaving oddly, that line is the first thing to look at.
+
+Below it is a second line, *"AutoCorrect list in use:"*, which says which of the three replacement
+lists is loaded. See *Your AutoCorrect list is your own again* below.
 
 ## How typing settings get created
 
@@ -97,11 +101,11 @@ tabs across the top. Three of them matter here:
 | **AutoFormat** | What Word changes when you run the **AutoFormat** command on a whole document |
 
 Every checkbox on those three tabs is one Word uses — **thirty-four of them** —
-along with eight more about spelling, grammar and the the display of the Styles pane. **Forty-two in all.**
+along with eight more about spelling, grammar and the display of the Styles pane. **Forty-two in all.**
 
 The **AutoFormat** command is the odd one out. It reformats a whole document in one go, and while
 Word does not put it on the ribbon, VistaType has placed it on the full Vista Type LP Quick Access Toolbar... 
-it looks like a little rectangle with a lightening bolt. If you let the installer put VistaType's 
+it looks like a little rectangle with a lightning bolt. If you let the installer put VistaType's 
 own Quick Access then you will see it. You can generally ignore its use... it's there for the power-users.  — nothing runs it on its own.
 
 ---
@@ -113,7 +117,7 @@ Here is the part most people would not expect.
 You can do far more in Word than just editing braille or large print documents, so, when you are working in an ordinary document,
 and when you change one or more of these settings, VistaType LP remembers the changes. When you create or open an
 ordinary document those changed settings will be used. Keep in mind that the settings are not part of the document and 
-changes in the settings from one edited document to another may not look the same when they wee created with different typing settings.
+changes in the settings from one edited document to another may not look the same as when they were created with different typing settings.
 
 **You never have to say "save this".** Change a checkbox in any of the settings and it is
 yours until you change it again.
@@ -122,16 +126,23 @@ yours until you change it again.
 
 ## What actually differs between braille and large print
 
-Most of the AutoCoreect Options are set the same way for both. Only a few things genuinely differ, and
+Most of the AutoCorrect Options are set the same way for both. Only a few things genuinely differ, and
 every one of them is about what the reader receives:
 
 | When you type | In a large print book | In a braille file |
 |---|---|---|
-| `1/2` | stays `1/2` | becomes `½` |
+| `1/2`, `1/4`, `3/4` | stay as typed | become `½`, `¼`, `¾` |
+| any other fraction — `1/3`, `2/3`, `5/8` … | stay as typed | **also stay as typed** |
 | a web or network address | stays plain text | becomes a clickable link |
 
+The second row changed on 29 August 2026 and is worth knowing. Those three are Word's own
+conversion, which large print switches off and braille switches on. **Every other fraction used to
+convert as you typed as well, and no longer does.** Braille still needs them, but it gets them when
+you run Full File Cleanup rather than while you are typing — so what you typed stays what you typed
+until you ask for it to be changed.
+
 And if you run the **AutoFormat** command on a whole large print document, `1st` is left alone but in a large
-braille document ist is raised to `1ˢᵗ`.
+braille document it is raised to `1ˢᵗ`.
 
 Neither of those may be your preference... They decide what the
 Duxbury translator receives, and what a low-vision reader sees on the page. They belong to the
@@ -168,6 +179,48 @@ Three things worth knowing about it:
 - **You never need to open it**, and nothing is lost if you delete it — VistaType LP simply
   starts learning your settings again.
 
+Three more files sit beside it, one per kind of document:
+
+```
+%AppData%\VistaType LP Settings\AutoCorrect-DEF.txt     your ordinary documents
+%AppData%\VistaType LP Settings\AutoCorrect-LP.txt      large print
+%AppData%\VistaType LP Settings\AutoCorrect-BRL.txt     braille
+```
+
+And a log, `VistaType-Errors.log`, holding the last fifty faults, newest first. If a macro ever
+fails, the message offers to open that folder for you.
+
+---
+
+## Your AutoCorrect list is your own again
+
+This is the change most worth knowing about, and it arrived on 19 September 2026.
+
+**Word keeps one AutoCorrect replacement list for the whole program.** Not one per document — one,
+shared by everything you open. Nothing in VBA can make a second.
+
+That had a consequence nobody intended. Braille and large print both delete nineteen compact
+fraction entries — the ones that turn `1/2` into `½` — because a braille or large print book must
+keep `1/2` as it was typed. But because the list is shared, those entries came off **your own
+letters too, and stayed off**. A transcriber on Office 365 worked the mechanism out for herself and
+reported it on that date.
+
+**Each kind of document now has its own list**, in the three files above. Opening a book loads the
+book's list; going back to a letter loads yours. Your own entries are not touched by anything a
+book does.
+
+Two details:
+
+- **Formatted entries are never touched.** An AutoCorrect entry carrying bold, a picture or special
+  characters lives inside `Normal.dotm` and cannot be read back as plain text, so those stay shared
+  across all three. They were never the problem.
+- **Switching takes about a second.** Measured on a list of 926 entries: only the differences are
+  applied, not the whole list.
+
+If the *"AutoCorrect list in use:"* line ever reads **not recorded**, VistaType LP could not reach
+the settings folder, and the old shared-list behavior is what you have. That line exists precisely
+so a machine in that state says so instead of quietly stripping your entries.
+
 ---
 
 ## The first time, and what to expect
@@ -184,12 +237,12 @@ and they will keep coming back.
 
 ---
 
-## What do do if you've changed typing settings and need change back to the default settings
+## What to do if you've changed typing settings and need to change back
 
-Even while you are in the middle of editing a document, you can reset the the default settings for that document type
-by using the Reset Document Settings icon on the Quick Access Toolbar. The icon is a checkmark and is located at the right end of the QAT.
+Even while you are in the middle of editing a document, you can reset to the default settings for that document type
+by using the **Reset Word Configuration** icon on the Quick Access Toolbar. The icon is a checkmark and is located at the right end of the QAT.
 
-Keep in mind that if you are in an ordinary document, the typing settings will revert to the typing settings of a newley installed version of Word
+Keep in mind that if you are in an ordinary document, the typing settings will revert to the typing settings of a newly installed version of Word
 
 ---
 
@@ -273,7 +326,7 @@ good habit regardless.
 
 - Braille, large print, and ordinary documents need different typing settings, so VistaType LP switches them to match whichever  document you are looking at.
 - For ordinary documents, VistaType LP remembers your settings and uses them the next time you create or open one.
-- For braille and large print you can chane the settings and they will remain in effect until the document is closed. Any new or opened braille 
+- For braille and large print you can change the settings and they will remain in effect until the document is closed. Any new or opened braille 
 or large print documents will revert to the initial settings.
 - Typing settings always switch to match the type of document you are working on.
 - Typing settings settings can be reset for the document type even when you are looking at it on the screen.
