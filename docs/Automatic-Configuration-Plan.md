@@ -47,9 +47,13 @@ Each of these was asked and answered on 8/20/2026. They are written down because
 them reverse something the code does deliberately today, and the reversal is only safe if the
 reason is on the record.
 
-1. **Switching between open documents never reconfigures Word.** Clicking from a book to a
+1. ~~**Switching between open documents never reconfigures Word.** Clicking from a book to a
    letter leaves the book's configuration in force. This reverses the 8/9/2026 "the
-   configuration follows the document" work.
+   configuration follows the document" work.~~ **REVERSED — Jerry, 9/4/2026. The rule is the
+   OPPOSITE of this.** The configuration follows the document type on the screen and changes
+   when the user clicks into a document of a different kind. This was built as Piece 2, shown
+   to Jerry, and reverted the same day. See *Piece 2 — REJECTED* below, which carries his own
+   words. Do not build it again.
 2. **The display side is in scope, not only AutoCorrect and AutoFormat.** An ordinary document
    gets both rulers on and print view; it gets formatting marks, the Styles pane and the
    navigation pane switched **off**. Revised 8/20/2026, later the same day: the first answer

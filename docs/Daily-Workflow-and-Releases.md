@@ -51,7 +51,7 @@ Skim this once. Come back to it whenever a word trips you up — that's all it's
 - **`dev`** — your workbench branch. Everything in progress. Can be half-finished; that's the
   point of it.
 - **`main`** — the branch holding **the last version you actually released**. Never worked
-  on directly. (Some projects call this one "main" — same idea.)
+  on directly. (It was called `master` until 9/20/2026, and older writing may still say so.)
 
 ### The things you do
 
