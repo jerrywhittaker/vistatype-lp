@@ -123,9 +123,17 @@ fi
 # the license text, and prufrock.co.uk - an attribution comment in LPandBrlMacros.bas
 # crediting the author of an early routine. Jerry has looked at that one and accepts it
 # (20/9/2026), so it is not worth a warning on every push.
+#
+# The second filter is ONE WHOLE ADDRESS, not a domain: the author's own attribution line inside
+# tests/vba/lib/TestCase.cls, which is vendored from vba-test under the MIT license and is his to
+# have there. It is matched in full on purpose - its domain is a public mail provider, and
+# allowing the domain would wave through every address at it, which is most of them.
+# This file is excluded from its own scan (see scan_list), so the address here does not match
+# itself.
 mail_hits=$(printf '%s\n' "$scan_list" | xargs -r grep -ohEI -- \
     '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' 2>/dev/null \
     | grep -viE '@(vistatypelp\.org|thewhittakers\.org|example\.(com|org)|gnu\.org|prufrock\.co\.uk)$' \
+    | grep -vixF -e 'tim.hall.engr@gmail.com' \
     | sort -u | head -5)
 if [ -n "$mail_hits" ]; then
     echo "" >&2
