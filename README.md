@@ -1,105 +1,90 @@
-# VistaType LP + Braille Macros
+# VistaType LP
 
-Microsoft Word tools for producing **large-print documents** for visually impaired
-readers, and **braille source files** for the [Duxbury Braille Translator](https://www.duxburysystems.com/)
+**[vistatypelp.org](https://vistatypelp.org/)**
+
+Microsoft Word tools for producing **large-print books** for readers with low vision, and
+**braille source files** for the [Duxbury Braille Translator](https://www.duxburysystems.com/)
 (DBT) via its BANA template.
 
-VistaType LP ships as a Word add-in (a macro-enabled template loaded at startup) plus a
-large-print styles template. It adds two ribbon tabs — **VistaType LP** and **Braille
-Macros** — with one-click tools for cleaning up source files, formatting reference page
-numbers, converting lists and tables, handling images, tagging DAISY/NIMAS text, and more.
+VistaType LP is written for transcribers — the people who take an ordinary book and turn it
+into an edition someone can actually read. It is free software, and it has been in real
+production use since 2015.
 
-- **Version:** 3.0
 - **Author:** Jerry Whittaker · jerry@vistatypelp.org
 - **License:** [GNU General Public License v3.0](LICENSE) · © 2015–2026 Jerry Whittaker
 
 ---
 
-## What's in the box
+## What it does
 
-The product is three Office artifacts that work together:
+VistaType LP loads with Word and adds two ribbon tabs — **VistaType LP** and
+**Braille Macros** — alongside your own. They hold the jobs a transcriber does over and
+over, as single buttons.
 
-| Artifact | Role |
-|---|---|
-| `LPandBRL.dotm` (built from `src/` onto the tracked `.dotm` shell) | **The engine.** The whole VBA project — ~208 subs/functions in `LPandBrlMacros` plus 45+ UserForms — and the embedded ribbon. Loaded from Word's `STARTUP` folder. |
-| `LargePrintTemplate.dotx` | **The styles.** The large-print paragraph/character styles and page setup, attached to each large-print document. |
-| Embedded ribbon (`customUI14.xml`) | **The UI.** The two ribbon tabs, embedded in the `.dotm` so they *merge* with the user's ribbon instead of replacing it. |
+**Large print.** Page size, margins and fonts set to the size a reader needs; colored
+callout boxes; table of contents formatting; image resizing and recoloring; fill-in lines;
+multi-column layouts. The rule the whole large-print side is built on: **every character
+appears at the size the reader asked for** — nothing is shrunk to make it fit.
 
-## Feature areas
+**Braille and DBT.** Preparing a file so Duxbury translates it correctly — Nemeth math,
+UEB and EBAE, BANA bullets, and attaching the right translation template.
 
-- **Large print** — custom page size / margins / fonts, colored callout boxes, TOC
-  formatting, image resize & recolor, fill-in lines, multi-column layouts.
-- **Braille / DBT** — prep for the Duxbury Braille Translator: Nemeth math, UEB/EBAE,
-  BANA bullets, and the target `.dxt` translation template.
-- **Reference page numbers** (`$pg` tags) — auto-tag, manual-tag, validate, embed /
-  un-embed, and format the print-book page numbers cited in the output.
-- **File cleanup / normalization** — strip stray formatting and normalize raw source docs.
-- **DAISY / NIMAS / text tools** — import and fix text-based source formats.
+**Reference page numbers.** The print book's page numbers, cited in the large-print or
+braille edition so a reader can follow a class or a citation. Tag them automatically or by
+hand, check them, and embed or lift them back out.
 
----
+**File cleanup.** Stripping the stray formatting out of a raw source document and
+normalizing its styles, before any of the above is worth attempting.
 
-## How this repo is built
-
-The **text source of truth** lives under `src/`; the binary `.dotm` is a build output.
-VBA can only be compiled by Word itself, so builds run on a **remote Windows + Word box
-driven over SSH** — you edit text and run `make` from Linux and never open Word by hand.
-
-```
-edit src/vba/*.bas ──▶ make build ──▶ [Windows+Word: import + compile]
-                                  └─▶ embed ribbon (Linux) ──▶ dist/LPandBRL.dotm
-```
-
-```
-src/vba/        VBA modules — *.bas (standard), *.cls (class/document)
-src/forms/      UserForms — *.frm + *.frx
-src/ribbon/     customUI14.xml (embedded ribbon) + legacy Word.officeUI
-installer/      Inno Setup installer + QAT-merge scripts
-tools/          extract / build / ribbon helpers (Python + PowerShell)
-docs/           end-user installation guide
-LPandBRL.dotm   the .dotm shell (tracked; project references + non-VBA parts; the build base)
-LargePrintTemplate.dotx   the large-print styles template
-```
-
-Run `make help` for the full target list (`build`, `pull`, `ribbon`, `qat`, `read`,
-`deploy`, `installer`).
-
----
-
-## Documentation
-
-- **[Installing (for users)](docs/Installation-Guide.md)** — the one-click installer,
-  updating, uninstalling, and troubleshooting.
-- **[Developing](DEVELOPMENT.md)** — the Linux-first source/build workflow, the remote
-  Word build, the embedded ribbon, and the QAT merge.
-- **[Building the installer](installer/README.md)** — what the installer automates.
-- **[Repo layout](docs/Repo-Layout.md)** — what every file, folder and tool is for, and
-  where the installer puts things on a transcriber's machine.
-- **[Domain concepts](docs/Domain-Concepts.md)** — large print, braille and DBT, the
-  typeface, reference page numbers.
-- **[Dialogs and messages](docs/UI-Conventions.md)** — how VistaType LP talks to the
-  transcriber, shows progress, and reports a failure.
-- **[Reported errors](docs/Reported-Errors.md)** — the register of faults and what fixed
-  them. Read before investigating anything.
-- **[CLAUDE.md](CLAUDE.md)** — the process rules, and an index of the above.
+**DAISY, NIMAS and text sources.** Importing and repairing text-based source formats.
 
 ---
 
 ## Installing
 
-End users install with a single per-user `Setup.exe` (no admin required) — see the
-[Installation Guide](docs/Installation-Guide.md). It places the add-in and template,
-embeds the ribbon (merging non-destructively with the user's own), pre-stocks the
-Quick Access Toolbar icons, and configures Word's trust settings so the macros run.
+Transcribers install with a single `Setup.exe`. It installs for one user only and needs no
+administrator rights.
+
+It places the add-in and the large-print template, adds the two ribbon tabs (merging with
+your own ribbon rather than replacing it), stocks the Quick Access Toolbar, and sets Word's
+trust settings so the macros are allowed to run.
+
+- **[Installation Guide](docs/Installation-Guide.md)** — installing, updating, uninstalling,
+  and what to do when something is wrong.
+- **[Download](https://vistatypelp.org/#download)** — the current release.
+- **[Why antivirus sometimes eats the installer](docs/Code-Signing.md)** — and what to do
+  about it.
+
+---
+
+## What gets installed
+
+| Piece | Role |
+|---|---|
+| `LPandBRL.dotm` | The add-in itself — the macros and the two ribbon tabs. Word loads it at startup, so the tools are there for every document. |
+| `LargePrintTemplate.dotx` | The large-print styles and page setup, attached to each large-print document. VistaType LP treats a document as large print when this template is attached. |
+| VistaTypeLP Sans | A typeface chosen for low vision and bundled with the add-in. See **[the coverage notes](docs/VistaTypeLP-Sans.md)** for what it does and does not set. |
+
+---
+
+## The source
+
+Roughly 16,500 lines of VBA, written by one person over twenty years, kept here as text
+rather than locked inside the `.dotm`. Word is the only thing that can compile VBA, so
+builds run on a Windows machine with Word on it, driven from Linux.
+
+If you want to build it yourself, that is all in **[DEVELOPMENT.md](DEVELOPMENT.md)**; the
+installer has its own **[notes](installer/README.md)**.
 
 ---
 
 ## License
 
-VistaType LP is free software licensed under the **GNU General Public License v3.0** —
-see [`LICENSE`](LICENSE). You may use, study, share, and modify it; if you distribute a
-modified version, you must also make your source available under the GPL.
+VistaType LP is free software under the **GNU General Public License v3.0** — see
+[`LICENSE`](LICENSE). You may use, study, share and modify it; if you pass on a modified
+version, its source has to go with it under the same license.
 
-© 2015–2026 Jerry Whittaker. The Software is provided "as is", without warranty of any kind.
+© 2015–2026 Jerry Whittaker. The software is provided "as is", without warranty of any kind.
 
 ---
 
