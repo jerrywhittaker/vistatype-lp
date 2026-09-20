@@ -116,11 +116,16 @@ if [ -n "$ip_hits" ]; then
     printf '%s\n' "$ip_hits" | sed 's/^/      /' >&2
 fi
 
-# grep -E has no negative lookahead, so match every address then drop Jerry's two.
+# grep -E has no negative lookahead, so match every address then drop the known ones.
 # The first version of this used (?!...) with -E and silently matched nothing.
+#
+# The allowed domains are Jerry's own two, the documentation placeholders, gnu.org from
+# the license text, and prufrock.co.uk - an attribution comment in LPandBrlMacros.bas
+# crediting the author of an early routine. Jerry has looked at that one and accepts it
+# (20/9/2026), so it is not worth a warning on every push.
 mail_hits=$(printf '%s\n' "$scan_list" | xargs -r grep -ohEI -- \
     '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' 2>/dev/null \
-    | grep -viE '@(vistatypelp\.org|thewhittakers\.org|example\.(com|org)|gnu\.org)$' \
+    | grep -viE '@(vistatypelp\.org|thewhittakers\.org|example\.(com|org)|gnu\.org|prufrock\.co\.uk)$' \
     | sort -u | head -5)
 if [ -n "$mail_hits" ]; then
     echo "" >&2
