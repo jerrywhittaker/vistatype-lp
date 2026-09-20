@@ -66,8 +66,10 @@ stabilized-and-saved notice (201), and the eleven page-size and margin checks on
 `LP_Attach_An_Lp_Template_Form` (189–199). Every one kept the number it already had.
 They convert a feature at a time. Nothing new uses `MsgBox`.
 
-**What is left, recounted 9/6/2026: 65 in `LPandBrlMacros`, 30 across the forms, 18 in the three
-smaller modules — 113 in all.** **Count with comment lines excluded**, or the number comes out
+**What is left, recounted 9/20/2026: 67 in `LPandBrlMacros`, 28 across the forms, 18 in the
+three smaller modules — 113 in all.** The total has not moved since 9/6/2026, but the split has:
+two fewer in the forms and two more in the module. Worth knowing that the total staying still
+does not mean nothing changed. **Count with comment lines excluded**, or the number comes out
 around 40 too high: the changelog and the version blocks say the word `MsgBox` constantly, and so
 do commented-out calls. `grep -ah MsgBox <files> | sed 's/^[[:space:]]*//' | grep -v "^'"` is the
 count that means something. The figures this paragraph carried until 9/6/2026 (85 / 48 / 20) were

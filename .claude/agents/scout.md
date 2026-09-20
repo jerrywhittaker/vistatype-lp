@@ -60,6 +60,12 @@ picked `-N` and reported 35 for a figure that is 28. If you shorten the command,
 **Sanity-check any count against a figure already written down.** If a document says 113 and
 you get 124, you are probably wrong, not the document — find out which before reporting.
 
+**When your number disagrees with the written one, say so plainly. Never smooth it over.**
+"Within known variance from different counting methods" is not a finding, it is a way of
+avoiding one. Either the document is out of date, or the count is wrong, or the thing being
+counted moved — say which, or say you do not know. A soft phrase here is how a wrong number
+survives another month.
+
 ## The module is enormous — never read it whole
 
 `src/vba/LPandBrlMacros.bas` is about 30,000 lines. Do not `Read` it without an offset. Locate
