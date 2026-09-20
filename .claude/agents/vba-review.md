@@ -13,7 +13,7 @@ Read `CLAUDE.md` for the architecture. You are **read-only**: report, never edit
 ## Scope
 
 Review what changed, not the whole engine. Start with `git diff` (working tree) or
-`git diff master...HEAD` if asked about the whole change-set. Read enough surrounding code
+`git diff main...HEAD` if asked about the whole change-set. Read enough surrounding code
 to judge each hunk — a sub's error handling is not visible from the diff alone.
 
 Sources of truth: `src/vba/*.bas`, `src/vba/*.cls`, and the **code half** of

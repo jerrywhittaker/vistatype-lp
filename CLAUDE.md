@@ -43,8 +43,8 @@ Say the **effect**, not the mechanism:
 
 | Instead of | Say |
 |---|---|
-| "I'll cherry-pick this onto `master` and rebase `dev`." | "I'll put this on the released version, then copy it into your working copy." |
-| "`master` is an ancestor of `dev`, so it'll fast-forward." | "Your working copy already contains everything that's released, so releasing is just moving a marker." |
+| "I'll cherry-pick this onto `main` and rebase `dev`." | "I'll put this on the released version, then copy it into your working copy." |
+| "`main` is an ancestor of `dev`, so it'll fast-forward." | "Your working copy already contains everything that's released, so releasing is just moving a marker." |
 | "This commit is a no-op." | "This one changes nothing — it's already in there." |
 | "Resolve the conflict in the `.frx`." | "Two edits touched the same dialog's layout; I need you to look at it." |
 | "I'll stage and commit the diff." | "I'll save these changes into the history." |
@@ -543,7 +543,7 @@ installer/      vistatype.iss is the product installer. From 8/24/2026 its [Code
                 user's machine with no warning.
 docs/           Reported-Errors.md (the register of reported faults and what fixed them - READ IT
                 BEFORE INVESTIGATING ANY REPORTED ERROR; see the rule below);
-                Daily-Workflow-and-Releases.md (Jerry's plain-language guide to dev/master, building, releasing, and what to ask Claude); Installation-Guide.md (end-user install); Build-VM-Setup.md (Hyper-V build/test box); Software-Agreement.md (GPLv3 About-dialog text); Code-Signing.md (why Defender deleted the unsigned Setup.exe on 8/13-14/2026, what in the installer scores against it, how to test with `make scan` and MpCmdRun, and the signing options — note Azure Artifact Signing does NOT sign VBA projects, and EV no longer skips SmartScreen. Jerry bought the Certum open source card on 8/17/2026; the last section is the step-by-step for the day it arrives, what the build box already has, and the five things the card-free rehearsal proved); VistaTypeLP-Sans.md (what the bundled typeface covers and does not - languages, mathematics, science, medicine - measured face by face against Tahoma, plus the width and pagination trade-off. The Insert Symbol subset-list defect is FIXED (9/6/2026): Word builds that list from the OS/2 unicode-range flags, not from the character map, and 16 were unset - 11 are now claimed and 5 REFUSED on purpose, Arabic among them because the font has 62 of its characters and no arab shaping. Browsable went 45.7% -> 88.2%; the 695 characters still out of reach sit at code points no OS/2 block covers, so no flag can reach them. A block that is neither claimed nor refused now STOPS the font build)
+                Daily-Workflow-and-Releases.md (Jerry's plain-language guide to dev/main, building, releasing, and what to ask Claude); Installation-Guide.md (end-user install); Build-VM-Setup.md (Hyper-V build/test box); Software-Agreement.md (GPLv3 About-dialog text); Code-Signing.md (why Defender deleted the unsigned Setup.exe on 8/13-14/2026, what in the installer scores against it, how to test with `make scan` and MpCmdRun, and the signing options — note Azure Artifact Signing does NOT sign VBA projects, and EV no longer skips SmartScreen. Jerry bought the Certum open source card on 8/17/2026; the last section is the step-by-step for the day it arrives, what the build box already has, and the five things the card-free rehearsal proved); VistaTypeLP-Sans.md (what the bundled typeface covers and does not - languages, mathematics, science, medicine - measured face by face against Tahoma, plus the width and pagination trade-off. The Insert Symbol subset-list defect is FIXED (9/6/2026): Word builds that list from the OS/2 unicode-range flags, not from the character map, and 16 were unset - 11 are now claimed and 5 REFUSED on purpose, Arabic among them because the font has 62 of its characters and no arab shaping. Browsable went 45.7% -> 88.2%; the 695 characters still out of reach sit at code points no OS/2 block covers, so no flag can reach them. A block that is neither claimed nor refused now STOPS the font build)
 reference/      generated read aids (gitignored mirror + interim form-code dump)
 assets/fonts/vistatypelp-sans/   the bundled typeface, VistaTypeLP Sans — four tracked .ttf faces
                 plus the THREE OFL texts it needs (Noto Sans, Noto Sans Math, Noto Sans Symbols).
@@ -673,7 +673,7 @@ Three subtleties that make it actually work:
 
 ## Build & edit workflow (short version)
 
-Full detail in **`DEVELOPMENT.md`**. In brief: **on the `dev` branch** (never `master` — see
+Full detail in **`DEVELOPMENT.md`**. In brief: **on the `dev` branch** (never `main` — see
 *Git workflow and releases* below) edit text under `src/`, then `make build` ships it to the
 remote Windows+Word box over SSH, which imports the source into `dist/LPandBRL.dotm` (Word
 regenerates p-code) and copies it back; the ribbon (`inject_customui.py`) and the keyboard
@@ -681,7 +681,7 @@ shortcuts (`inject_keymap.py`) are then injected on this side by plain zip surge
 needed; smoke-test in Word, then `make deploy`. Never edit
 `LPandBRL.dotm` by hand. `make pull` refreshes `src/` from the `.dotm` (canonical export,
 needed to (re)seed valid `.frx`); `make read` dumps readable source with the Linux
-decompressor without needing Windows. Releases go out from `master` via `make installer`.
+decompressor without needing Windows. Releases go out from `main` via `make installer`.
 
 **Keep this file in sync.** When you change the build pipeline or architecture —
 `Makefile`, `DEVELOPMENT.md`, anything under `tools/`, `src/ribbon/`, or `installer/`,
@@ -976,7 +976,7 @@ caption — `VersionLabel` in LP, `Label5` in Braille — so the stamper matches
 text (`"This computer is running Version…"`), not the control name. Nothing else needs editing —
 this file describes the scheme but stores no live number. The bump is left **uncommitted**;
 commit it with the work it belongs to. **What actually shipped
-is the newest `v*` tag on `master`** — not whatever these files say. Those four normally read
+is the newest `v*` tag on `main`** — not whatever these files say. Those four normally read
 a working `3.0.X` number that has never been released; see *Version numbering* below. (The
 `VistaType LP (NNN)` numbers in MsgBox titles
 are per-dialog IDs, *not* version numbers.) When changing behavior, follow the existing
@@ -1034,12 +1034,12 @@ Two branches, fast-forward only, one tag per release.
 > Jerry's plain-language version of this section is **`docs/Daily-Workflow-and-Releases.md`**.
 > Keep the two in step, and point him there when he asks how any of this works.
 
-- **`master` = the last released version.** Always shippable. **Never commit to it directly**
+- **`main` = the last released version.** Always shippable. **Never commit to it directly**
   and never run `make deploy` while sitting on it.
 - **`dev` = all day-to-day work.** Small, focused commits, exactly as before.
-- **A release is `dev` fast-forwarded into `master`, then tagged.**
+- **A release is `dev` fast-forwarded into `main`, then tagged.**
 
-Work only ever moves `dev` → `master`, never the reverse. Hold to that and the fast-forward
+Work only ever moves `dev` → `main`, never the reverse. Hold to that and the fast-forward
 always succeeds. **One sanctioned exception: documentation** — see immediately below.
 
 ### Version numbering — the third number is internal, not a release
@@ -1049,7 +1049,7 @@ version.** Do not confuse a version bump with a release.
 
 - **Third number — `3.0.6`, `3.0.7`, `3.0.8` …** — day-to-day builds on `dev`. Bump freely,
   build the installer, have Jerry install and test it, commit. **Nothing is tagged, nothing
-  is pushed to `master`, nothing is published.** These numbers exist so Jerry can tell one
+  is pushed to `main`, nothing is published.** These numbers exist so Jerry can tell one
   test build from the next in the About box. After `3.1` ships, the counter carries on as
   `3.1.1`, `3.1.2`, … — still internal.
 - **`X.Y` — `3.1`, `3.2`, `3.3` …** — actual releases. A release takes the next `X.Y`, never
@@ -1060,7 +1060,7 @@ version.** Do not confuse a version bump with a release.
   is the whole reason for the fourth number.
 
 **Only Jerry starts a release, and he starts it by name** — "let's release 3.1". Until he
-says that, `master` does not move, no `v*` tag is created, and nothing is published, no
+says that, `main` does not move, no `v*` tag is created, and nothing is published, no
 matter how many builds have accumulated on `dev`. Do not propose a release just because a
 build tested clean; a clean build is the *normal* end of a day's work here.
 
@@ -1071,10 +1071,10 @@ installer, and only then run the release checklist below.
 The two lanes never interfere, so — unlike the old scheme — a hotfix never forces `dev`'s
 working number to move.
 
-### Documentation-only changes go straight to `master`
+### Documentation-only changes go straight to `main`
 
-Jerry reads the guide from a bookmark that points at `master`
-(`github.com/jerrywhittaker/vistatype-lp/blob/master/docs/Daily-Workflow-and-Releases.md`).
+Jerry reads the guide from a bookmark that points at `main`
+(`github.com/jerrywhittaker/vistatype-lp/blob/main/docs/Daily-Workflow-and-Releases.md`).
 Holding a doc fix until the next release means he reads stale instructions in the meantime,
 which is backwards — documentation ships no code and cannot break a release.
 
@@ -1089,22 +1089,22 @@ it — that is a code change and goes through `dev` like everything else.
 git diff --name-only HEAD          # and/or --cached; must list only the paths above
 ```
 
-**Procedure — write it on `master`, then carry it into `dev`:**
+**Procedure — write it on `main`, then carry it into `dev`:**
 
 ```bash
-git checkout master
+git checkout main
 # make the edits, or cherry-pick them if they were already written on dev
 git commit ...
-git push origin master             # push freely: docs only. Code still waits for "push".
-git checkout dev && git merge master
+git push origin main             # push freely: docs only. Code still waits for "push".
+git checkout dev && git merge main
 ```
 
-That last line is not optional. It keeps `master` an ancestor of `dev` so the next release
-still fast-forwards. **Authoring on `master` and merging into `dev` is strictly better than
-committing on `dev` and cherry-picking to `master`** — cherry-picking leaves the two branches
+That last line is not optional. It keeps `main` an ancestor of `dev` so the next release
+still fast-forwards. **Authoring on `main` and merging into `dev` is strictly better than
+committing on `dev` and cherry-picking to `main`** — cherry-picking leaves the two branches
 permanently diverged and the next release fails.
 
-The "never commit on `master`" rule below still holds for everything else.
+The "never commit on `main`" rule below still holds for everything else.
 
 ### Why fast-forward only (do not "just merge")
 
@@ -1112,7 +1112,7 @@ The "never commit on `master`" rule below still holds for everything else.
 Git cannot merge them — a real merge conflicts, and a wrongly-resolved `.frx` silently
 corrupts a dialog's layout. `--ff-only` never runs the merge algorithm, so binaries can never
 conflict, and history stays linear. If a fast-forward is ever *refused*, something committed
-onto `master` directly — stop and ask Jerry rather than forcing a merge.
+onto `main` directly — stop and ask Jerry rather than forcing a merge.
 
 ### Cutting a release (the checklist — walk Jerry through it, one step at a time)
 
@@ -1138,13 +1138,13 @@ onto `master` directly — stop and ask Jerry rather than forcing a merge.
 5. **Commit the bump and the rebuilt `.dotm` on `dev`.**
 6. **Confirm the installer exists before going near git** — `ls -l dist/"VistaType LP and Braille Macros Setup <ver>.exe"`.
    No `.exe`, no release. Go back to step 3.
-7. **Only when Jerry says the build is good**, move `master` and tag:
+7. **Only when Jerry says the build is good**, move `main` and tag:
 
    ```bash
-   git checkout master
+   git checkout main
    git merge --ff-only dev
    git tag -a v3.1 -m "VistaType LP 3.1"
-   git checkout dev            # go straight back to dev; never linger on master
+   git checkout dev            # go straight back to dev; never linger on main
    ```
 
 8. **Publish — only when Jerry explicitly says "push"** (see below). The push and the
@@ -1152,7 +1152,7 @@ onto `master` directly — stop and ask Jerry rather than forcing a merge.
    second:
 
    ```bash
-   git push origin master dev --follow-tags
+   git push origin main dev --follow-tags
    gh release create v3.1 "dist/VistaType LP and Braille Macros Setup 3.1.exe" \
        --title "VistaType LP 3.1" --notes "<what changed, in transcriber-facing terms>"
    gh release view v3.1 --json assets      # VERIFY: must list the .exe, not []
@@ -1224,9 +1224,9 @@ Never a third number — that lane belongs to `dev`'s internal builds.
 ```bash
 git checkout -b hotfix/3.1.0.1 v3.1     # the TAG — an exact copy of what shipped
 # fix, bump the version, make installer, Jerry installs and tests
-git checkout master && git merge --ff-only hotfix/3.1.0.1
+git checkout main && git merge --ff-only hotfix/3.1.0.1
 git tag -a v3.1.0.1 -m "VistaType LP 3.1.0.1"
-git push origin master --follow-tags    # only when Jerry says "push"
+git push origin main --follow-tags    # only when Jerry says "push"
 gh release create v3.1.0.1 "dist/VistaType LP and Braille Macros Setup 3.1.0.1.exe" --title "VistaType LP 3.1.0.1"
 git branch -d hotfix/3.1.0.1            # merged; the tag is the permanent record
 ```
@@ -1235,12 +1235,12 @@ git branch -d hotfix/3.1.0.1            # merged; the tag is the permanent recor
 released line; without this step the next release from `dev` silently reintroduces the bug.
 
 ```bash
-git checkout dev && git merge master   # dev gains the fix; master stays an ancestor of dev
+git checkout dev && git merge main   # dev gains the fix; main stays an ancestor of dev
 ```
 
 **Merge, not rebase, here.** Rebasing `dev` rewrites commits Jerry may already have pushed as
 his backup, which would demand a force-push — forbidden below. The merge commit on `dev` is
-cosmetic and costs nothing: `master` remains an ancestor of `dev`, so the next release still
+cosmetic and costs nothing: `main` remains an ancestor of `dev`, so the next release still
 fast-forwards. (Rebase is fine *only* if `dev` has never been pushed.)
 
 Two things that bite:
@@ -1253,19 +1253,19 @@ Two things that bite:
   need real attention — surface it to Jerry rather than guessing.
 
 **Claude's standing duty:** after a hotfix is released, verify `dev` contains it
-(`git branch --contains <hotfix-commit>` or `git merge-base --is-ancestor master dev`). If it
+(`git branch --contains <hotfix-commit>` or `git merge-base --is-ancestor main dev`). If it
 does not, tell Jerry before starting other work — an unfolded hotfix is a bug that comes back.
 
 ### Rules for Claude
 
 - **Never start a release Jerry did not ask for.** Bumping `3.0.6` → `3.0.7` and building an
-  installer is ordinary work; moving `master`, tagging, and publishing happen *only* after he
+  installer is ordinary work; moving `main`, tagging, and publishing happen *only* after he
   says "let's release 3.1". A build that tests clean is not a cue to release it.
-- **Never push code** — not `master`, not `dev`, not tags — until Jerry says the word "push".
+- **Never push code** — not `main`, not `dev`, not tags — until Jerry says the word "push".
   He reviews and installs the Setup.exe first. Honor this every time. *Documentation-only
   changes are exempt* (see above): push those freely so his bookmark stays current.
-- **Never commit code on `master`.** Check `git branch --show-current` before committing; if
-  it says `master`, switch to `dev` first. The lone exception is a documentation-only change,
+- **Never commit code on `main`.** Check `git branch --show-current` before committing; if
+  it says `main`, switch to `dev` first. The lone exception is a documentation-only change,
   verified with `git diff --name-only`.
 - **Never force-push, never rewrite a published tag**, and never delete a `v*` tag without
   being asked — the tags are the recovery points.

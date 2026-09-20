@@ -15,13 +15,13 @@ There are two branches — think of them as two shelves.
 ```
 dev  ──●──●──●──●──●   <-- everything you're working on now
        \
-master ●                <-- the last version you actually released
+main   ●                <-- the last version you actually released
        │
        v3.1             <-- a tag: a permanent bookmark of exactly what shipped
 ```
 
 - **`dev`** is your workbench. All edits, experiments, and fixes go here. It can be messy.
-- **`master`** is the shelf holding **the last version you released to transcribers**. It
+- **`main`** is the shelf holding **the last version you released to transcribers**. It
   only ever changes on release day.
 - A **tag** (`v3.1`, `v3.2`, …) is a permanent bookmark. Tags are how you go back.
 
@@ -29,7 +29,7 @@ master ●                <-- the last version you actually released
 sitting there, untouched and clearly labeled — and you can put a transcriber back on it in
 about a minute.
 
-> **You are on `dev` essentially all the time.** Claude will never commit to `master` and
+> **You are on `dev` essentially all the time.** Claude will never commit to `main` and
 > will tell you if you somehow end up there.
 
 ---
@@ -50,7 +50,7 @@ Skim this once. Come back to it whenever a word trips you up — that's all it's
   You have two.
 - **`dev`** — your workbench branch. Everything in progress. Can be half-finished; that's the
   point of it.
-- **`master`** — the branch holding **the last version you actually released**. Never worked
+- **`main`** — the branch holding **the last version you actually released**. Never worked
   on directly. (Some projects call this one "main" — same idea.)
 
 ### The things you do
@@ -77,7 +77,7 @@ Skim this once. Come back to it whenever a word trips you up — that's all it's
 - **Release** — a published version on GitHub: a tag, plus the `Setup.exe` attached to it,
   plus notes. **Without the `.exe` attached it isn't a release** — see the rule further down.
 - **Merge / fast-forward** — combining branches. A **fast-forward** is the easy case:
-  `master` simply slides forward to catch up with `dev`, with nothing to reconcile. That's the
+  `main` simply slides forward to catch up with `dev`, with nothing to reconcile. That's the
   only kind used at release time, deliberately — it can't go wrong.
 - **Hotfix** — an emergency repair to the version people already have installed, shipped
   *without* waiting for the half-finished work on `dev`. It gets its own section below.
@@ -163,7 +163,7 @@ gets renumbered to `3.1` and *that* is what ships.
 > *"Let's release 3.1."*
 
 Until you say that, Claude will build and bump as much as you want but will not move
-`master`, will not tag anything, and will not publish. A build that tests clean is not a
+`main`, will not tag anything, and will not publish. A build that tests clean is not a
 reason to release it — that's just a normal day's work here.
 
 > **Why a hotfix gets a fourth number.** An emergency repair to 3.1 goes out as **3.1.0.1** —
@@ -176,7 +176,7 @@ reason to release it — that's just a normal day's work here.
 
 ## Cutting a release
 
-A release is: move `master` forward, bookmark it with a tag, and publish the `.exe` on
+A release is: move `main` forward, bookmark it with a tag, and publish the `.exe` on
 GitHub. Claude walks you through it — you can simply say **"let's release 3.1"** — but
 here is what's happening.
 
@@ -210,7 +210,7 @@ the things you changed.
 When you're happy: **"looks good, release it and push"**.
 
 Claude then:
-- moves `master` forward to match `dev`
+- moves `main` forward to match `dev`
 - creates the tag `v3.1`
 - puts you back on `dev`
 - pushes to GitHub
@@ -310,13 +310,13 @@ there, gets built and tested, and is released as **3.1.0.1** — *"3.1, with one
 ```
    dev     ●──●──●          <-- your half-finished work: untouched throughout
           /
-   master ●
+   main   ●
           v3.1              <-- what the transcriber has
 ```
 ```
    dev     ●──●──●            <-- STILL untouched (your build number: 3.1.4)
           /
-   master ●─────────●         <-- just the one fix
+   main   ●─────────●         <-- just the one fix
                     v3.1.0.1  <-- released; transcriber installs this today
 ```
 
@@ -331,7 +331,7 @@ So the fix gets folded into `dev`:
 ```
    dev     ●──●──●──●         <-- your work, now WITH the fix in it
           /        ↑
-   master ●─────────●         (the fix, copied forward into your workbench)
+   main   ●─────────●         (the fix, copied forward into your workbench)
                     v3.1.0.1
 ```
 
@@ -432,7 +432,7 @@ Often the right fix is deleting something rather than adding a condition around 
 - Walk you through release steps one at a time
 
 **Never**
-- Commit to `master`
+- Commit to `main`
 - Push to GitHub unless you say "push"
 - Delete a version tag
 - Force-push or rewrite published history

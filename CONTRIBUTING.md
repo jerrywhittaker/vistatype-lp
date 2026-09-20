@@ -101,7 +101,7 @@ can't build (no Word), say so in your PR so a maintainer runs this pass.
 
 ## Submitting
 
-1. Branch from `master` (`git switch -c fix-something`).
+1. Branch from `main` (`git switch -c fix-something`).
 2. Make focused commits with clear messages explaining **why**, not just what.
 3. Push to your fork and open a **pull request** describing the change, how you tested it
    (or that it needs a maintainer's Word test), and any docs updated.

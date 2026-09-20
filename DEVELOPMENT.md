@@ -228,7 +228,7 @@ free fixes, reporting a false positive to Microsoft, and the code-signing option
 
 ## Everyday loop
 
-**Work on `dev`, never on `master`.** `master` holds the last *released* version and only ever
+**Work on `dev`, never on `main`.** `main` holds the last *released* version and only ever
 moves forward by a fast-forward at release time. Check with `git branch --show-current`.
 
 ```
@@ -246,7 +246,7 @@ git add -A && git commit
 
 ## Cutting a release
 
-`master` = last released, `dev` = work in progress, one annotated `vX.Y.Z` tag per release,
+`main` = last released, `dev` = work in progress, one annotated `vX.Y.Z` tag per release,
 merges are **`--ff-only`** (the tracked `.dotm`/`.dotx`/`.frx` binaries cannot be merged by
 git — a fast-forward never tries). The full step-by-step checklist, the hotfix procedure, and
 how to revert a bad release live in **`CLAUDE.md` → "Git workflow and releases"**, with a
@@ -254,11 +254,11 @@ plain-language walkthrough in **`docs/Daily-Workflow-and-Releases.md`**. Short f
 
 ```
 # on dev: bump the version in all four places, make installer, install & test, commit
-git checkout master
+git checkout main
 git merge --ff-only dev
 git tag -a v3.0.7 -m "VistaType LP 3.0.7"
 git checkout dev
-git push origin master dev --follow-tags      # only when you're ready to publish
+git push origin main dev --follow-tags      # only when you're ready to publish
 gh release create v3.0.7 "dist/VistaType LP and Braille Macros Setup 3.0.7.exe" --title "VistaType LP 3.0.7"
 gh release view v3.0.7 --json assets          # verify: must list the .exe, not []
 ```

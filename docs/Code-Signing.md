@@ -373,7 +373,7 @@ twice:
 - **Published with GitHub's pre-release flag**, which is excluded from "the newest release" — so
   a candidate can never become the public download by accident, which is what the website
   follows.
-- **Tagged on `dev`; `master` never moves.** That keeps "master is the last released version"
+- **Tagged on `dev`; `main` never moves.** That keeps "main is the last released version"
   true.
 - **Never put "rc" in `AppName`.** With no `AppId`, Inno derives product identity from it, so a
   renamed one looks like a different product and leaves a second entry in Programs and Features.
