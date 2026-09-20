@@ -20,6 +20,10 @@ and returns the line. Other `.frm` files can fall into the same trap as their co
 
 If you must use `grep` for something `rg` cannot do, pass `-a`.
 
+**And pass `--hidden`.** `rg` skips dot-directories by default, so `.claude/` and `.githooks/`
+do not exist as far as it is concerned. A search for a string that was sitting in two files
+under `.claude/` returned zero on 20/9/2026.
+
 ## Never quote text out of a `.frx` as if it were words on screen
 
 `rg` **will** search `.frx` files, and they are binary. The format packs strings end to end with

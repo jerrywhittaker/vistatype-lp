@@ -95,6 +95,39 @@ if printf '%s\n' "$tracked" | grep -qx 'build.config'; then
     failed=1
 fi
 
+# ---------------------------------------------------- 3. warn, but do not block
+#
+# These are not credentials, and blocking on them would fire on a documentation
+# example and teach everyone to reach for SKIP_SECRETS_CHECK=1 - which would destroy
+# the hook for the things above that DO matter. Warn, list, let the push through.
+# The deliberate pre-public sweep (the secrets-check agent) is where these get judged.
+
+# Exclude this hook itself - it necessarily contains the patterns it searches for.
+scan_list=$(printf '%s\n' "$tracked" | grep -v '^\.githooks/pre-push$')
+
+# A full dotted quad, not a loose prefix. An earlier version used `10\.` and matched
+# every version number in the repo, which is how a warning becomes noise.
+ip_hits=$(printf '%s\n' "$scan_list" | xargs -r grep -nEIl -- \
+    '\b(192\.168\.[0-9]{1,3}\.[0-9]{1,3}|10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}|172\.(1[6-9]|2[0-9]|3[01])\.[0-9]{1,3}\.[0-9]{1,3})\b' 2>/dev/null | head -5)
+if [ -n "$ip_hits" ]; then
+    echo "" >&2
+    echo "  NOTE - a private-range IP address is committed." >&2
+    echo "  Fine as a documentation example; not fine if it is the real build box." >&2
+    printf '%s\n' "$ip_hits" | sed 's/^/      /' >&2
+fi
+
+# grep -E has no negative lookahead, so match every address then drop Jerry's two.
+# The first version of this used (?!...) with -E and silently matched nothing.
+mail_hits=$(printf '%s\n' "$scan_list" | xargs -r grep -ohEI -- \
+    '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' 2>/dev/null \
+    | grep -viE '@(vistatypelp\.org|thewhittakers\.org|example\.(com|org)|gnu\.org)$' \
+    | sort -u | head -5)
+if [ -n "$mail_hits" ]; then
+    echo "" >&2
+    echo "  NOTE - an email address that is not Jerry's is committed:" >&2
+    printf '%s\n' "$mail_hits" | sed 's/@.*/@.../; s/^/      /' >&2
+fi
+
 if [ "$failed" -ne 0 ]; then
     echo "" >&2
     echo "  Nothing was pushed." >&2

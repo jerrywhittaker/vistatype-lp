@@ -32,9 +32,10 @@ your job may be over in a minute — say which row and whether the build in ques
 the fix. Also check the open GitHub issues (`gh issue list`); a known defect may already be
 logged.
 
-**2. Establish which machine, by name.** Jerry's PC is **<Jerry's PC>**; the build box is
-**vistabuild**. On 6/8/2026 he pasted logs three times that were actually vistabuild's — left
-there by earlier SSH test runs. Ask, or make the diagnostic print the machine name.
+**2. Establish which machine, by name.** Jerry's own PC and the build box (`vistabuild`) are
+different machines with different faults. On 6/8/2026 he pasted logs three times that were
+actually the build box's — left there by earlier SSH test runs. **Ask him which machine, and
+make every diagnostic print the machine name**, so a stray log cannot be mistaken again.
 
 **3. Get state from the broken machine before theorising.** If it is Jerry's PC, you cannot
 reach it — so **give him one pasteable line**, not a script to copy across. Two rounds were

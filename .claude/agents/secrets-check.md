@@ -84,8 +84,11 @@ Certum's open source certificate needs a publicly identifiable project, so this 
 
 Going public exposes **all 306 commits**, not just the current files. Beyond secrets, look for:
 
-- Real machine names and local paths. Jerry's PC is *<Jerry's PC>*; the build box is *vistabuild* at
-  <build box address>. Internal addresses and hostnames become public.
+- **Real machine names, internal addresses and local paths.** Jerry's own PC has a short
+  alphanumeric name and the build box has a private-range address on his LAN. **Do not write
+  either of them into this file** — a document that lists the strings it is meant to catch is
+  the thing that publishes them. Search for the shapes: `\b\d{1,3}(\.\d{1,3}){3}\b` for
+  addresses, and ask Jerry for the PC name rather than recording it.
 - Anything identifying a transcriber or a tester, or any excerpt of a real book. This software
   is used on other people's material.
 - The Braille Institute licence PDF, which lives in `~/reference/vistatype-lp/` and **must
