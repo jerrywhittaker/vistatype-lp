@@ -237,6 +237,17 @@ tools/windows/  Export-Vba.ps1 / Import-Vba.ps1 / New-UserForm.ps1 — run in Wo
                  library must match); and the ribbon injection does NOT break a macro signature,
                  so signing can sit on either side of it. Full write-up, including what to do the
                  day the card arrives, is docs/Code-Signing.md)
+.githooks/      pre-push - refuses a push that would publish a secret. Version controlled
+                so a fresh clone gets it; `make hooks` points git at this directory, since
+                .git/hooks cannot be tracked. Two passes: gitleaks over the whole history
+                (307 commits in ~1.6s), and patterns gitleaks cannot know about. The real
+                exposure in this project is NOT a credential shape - it is the smart card
+                PIN, which the planned unattended signing command puts on a command line
+                where it reaches process listings, shell history and any build log. Also
+                blocks a tracked .pfx/.p12/.pem/.key and build.config, which holds
+                VT_API_KEY. SKIP_SECRETS_CHECK=1 overrides, for a verified false positive
+                only. Tested both ways 9/20/2026: passes clean, blocks a staged PIN and a
+                tracked .pfx.
 tools/lib/      check_style_guards.py (refuses to build when an ActiveDocument.Styles("name") lookup is
                 not behind Sh_Style_Exists / Sh_Style_In_Use. Styles(name) raises run-time error 5941 on a
                 document that does not carry the style, and documents legitimately do not: RefPageNemeth

@@ -36,6 +36,11 @@
 #                ~70 engines flag it, and as what. Fails if Microsoft flags it (that is
 #                Defender, which is what a transcriber has) or if more than 3 do. Needs
 #                VT_API_KEY in build.config. NOTE: uploads are PUBLIC. See docs/Code-Signing.md.
+#   make hooks   Point git at .githooks so the pre-push secrets check runs. Once per clone.
+#                It refuses a push that would publish a card PIN, a private key, a tracked
+#                .pfx/.p12/.pem, or build.config - and runs gitleaks over the whole history,
+#                which takes about 1.6 seconds. Better than GitHub's own scanning for
+#                prevention: that alerts AFTER the secret is published.
 #   make clean   Remove dist/ and build/ scratch.
 
 -include build.config
@@ -96,6 +101,14 @@ pull: check-config push-src
 	scp -q -r "$(WIN_HOST):$(WIN_DIR)/src/vba/*"   src/vba/   || true
 	scp -q -r "$(WIN_HOST):$(WIN_DIR)/src/forms/*" src/forms/ || true
 	@echo "Pulled canonical VBA source into src/ (review with 'git diff')."
+
+# Point git at the tracked hooks directory. Needed once per clone - .git/hooks is not
+# version controlled, so the pre-push secrets check cannot live there and be shared.
+hooks:
+	@git config core.hooksPath .githooks
+	@chmod +x .githooks/* 2>/dev/null || true
+	@echo "git hooks -> .githooks (pre-push runs the secrets check)"
+	@command -v gitleaks >/dev/null || echo "  NOTE: gitleaks is not installed - the history pass will be skipped."
 
 # The repo-root .dotm is the base every build starts from, and `make deploy` is what puts a
 # file there. Once signing is wired in, dist/ holds a SIGNED .dotm - and promoting that would

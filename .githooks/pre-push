@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+#
+# Refuse a push that would publish a secret.
+#
+# Lives in .githooks/ so it is version controlled and Todd gets it too; git is pointed
+# here by `git config core.hooksPath .githooks`, which `make hooks` sets up.
+#
+# Two passes, because they catch different things:
+#
+#   1. gitleaks over the whole history. Credential SHAPES - API keys, tokens, private
+#      keys. 307 commits scan in about 1.6 seconds, so there is no reason to narrow it.
+#
+#   2. Patterns gitleaks cannot know about. This project's real exposure is not a
+#      credential shape: it is the smart card PIN, which the planned unattended signing
+#      command puts on a COMMAND LINE, where it reaches process listings, shell history
+#      and any build log. See docs/Code-Signing.md.
+#
+# This is better than GitHub's own secret scanning for prevention: that alerts you after
+# the secret is already published. This stops it leaving the machine.
+#
+# To push anyway - only for a verified false positive, never to "deal with it later":
+#     SKIP_SECRETS_CHECK=1 git push ...
+
+set -uo pipefail
+
+if [ "${SKIP_SECRETS_CHECK:-0}" = "1" ]; then
+    echo "pre-push: secrets check SKIPPED by SKIP_SECRETS_CHECK=1" >&2
+    exit 0
+fi
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root" || exit 1
+failed=0
+
+# ---------------------------------------------------------------- 1. gitleaks
+
+if command -v gitleaks >/dev/null 2>&1; then
+    if ! gitleaks git . --no-banner --redact --exit-code 1 >/tmp/gl-prepush.$$ 2>&1; then
+        echo "" >&2
+        echo "  PUSH BLOCKED - gitleaks found a secret in the history." >&2
+        echo "" >&2
+        grep -vE '^\s*$' /tmp/gl-prepush.$$ | tail -25 >&2
+        echo "" >&2
+        echo "  A secret already committed is NOT fixed by deleting the file - the" >&2
+        echo "  commit still carries it. Rotate the credential, then decide what to do" >&2
+        echo "  about the history. Ask before rewriting anything." >&2
+        failed=1
+    fi
+    rm -f /tmp/gl-prepush.$$
+else
+    echo "" >&2
+    echo "  WARNING: gitleaks is not installed, so the history was NOT scanned." >&2
+    echo "  Install it (no administrator rights needed):" >&2
+    echo "    curl -sL https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_\$(curl -s https://api.github.com/repos/gitleaks/gitleaks/releases/latest | grep -oP '\"tag_name\": \"v\\K[^\"]+')_linux_x64.tar.gz | tar xz -C /tmp gitleaks && install -m755 /tmp/gitleaks ~/bin/gitleaks" >&2
+    echo "" >&2
+fi
+
+# ------------------------------------------- 2. what gitleaks cannot know about
+
+# Only files about to be pushed, not the working tree - build.config is gitignored
+# and holds the VirusTotal key legitimately, so scanning the tree would always fire.
+tracked=$(git ls-files)
+
+check() {
+    local label="$1" pattern="$2"
+    local hits
+    hits=$(printf '%s\n' "$tracked" | xargs -r grep -nEil -- "$pattern" 2>/dev/null | head -5)
+    if [ -n "$hits" ]; then
+        echo "" >&2
+        echo "  PUSH BLOCKED - $label" >&2
+        printf '%s\n' "$hits" | sed 's/^/      /' >&2
+        failed=1
+    fi
+}
+
+check "a smart card PIN or PUK looks like it is written down"  'p(in|uk)[[:space:]]*[:=][[:space:]]*[0-9]{4,}'
+check "a private key block is committed"                        'BEGIN (RSA |EC |OPENSSH |PGP )?PRIVATE KEY'
+check "a Certum password or passphrase"                         'certum.{0,40}(password|passphrase)[[:space:]]*[:=]'
+
+# Key and certificate files should never be tracked at all.
+keyfiles=$(printf '%s\n' "$tracked" | grep -Ei '\.(pfx|p12|pem|snk|key)$' || true)
+if [ -n "$keyfiles" ]; then
+    echo "" >&2
+    echo "  PUSH BLOCKED - key or certificate files are tracked:" >&2
+    printf '%s\n' "$keyfiles" | sed 's/^/      /' >&2
+    failed=1
+fi
+
+# build.config holds the VirusTotal key and must never become tracked.
+if printf '%s\n' "$tracked" | grep -qx 'build.config'; then
+    echo "" >&2
+    echo "  PUSH BLOCKED - build.config is tracked. It holds VT_API_KEY." >&2
+    echo "      git rm --cached build.config     (it is already in .gitignore)" >&2
+    echo "      Then rotate the key at VirusTotal - assume it is compromised." >&2
+    failed=1
+fi
+
+if [ "$failed" -ne 0 ]; then
+    echo "" >&2
+    echo "  Nothing was pushed." >&2
+    echo "  If this is a verified false positive: SKIP_SECRETS_CHECK=1 git push ..." >&2
+    echo "" >&2
+    exit 1
+fi
+
+exit 0
