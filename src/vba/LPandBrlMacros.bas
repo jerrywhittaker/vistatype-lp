@@ -18,6 +18,16 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 9/20/2026 - NINE SECONDS OF SLEEP TAKEN OUT OF RE-ATTACH LP TEMPLATE. Jerry,
+'           - Lp  - 9/20/2026 - 9/20/2026: "the pauses were for an old word version, remove
+'           - Lp  - 9/20/2026 - them." Two of the three three-second pauses in
+'           - Lp  - 9/20/2026 - Lp_Attach_The_Template ran BEFORE the work they announced, so the
+'           - Lp  - 9/20/2026 - bar read "Repaginating the document" for three seconds before the
+'           - Lp  - 9/20/2026 - repaginate was called; the third was a dwell after the save. The
+'           - Lp  - 9/20/2026 - DoEvents that lets the bar paint stays. Issue 13. NEW STAGE
+'           - Lp  - 9/20/2026 - TIMING: create an empty VistaType-Timing.log in %AppData%\VistaType
+'           - Lp  - 9/20/2026 - LP Settings and every progress-bar stage is logged with what it
+'           - Lp  - 9/20/2026 - cost (ShNonModalMessage, Sh_Timing_*). Off unless that file exists.
 ' Notes:    - Lp  - 9/20/2026 - A TITLE THAT ENDS IN A NUMBER NO LONGER STEALS THE PAGE NUMBER.
 '           - Lp  - 9/20/2026 - Reported by Jerry against "Problem TOC 2.docx": "Lesson 2 Add and
 '           - Lp  - 9/20/2026 - Subtract 10 or 100" is on page 143 and Format TOC gave it 100.
@@ -18251,6 +18261,11 @@ Sub Lp_Attach_The_Template()
 
     ' Attaches the LP template with style changes
     '
+    ' Version: 4.0  Date: 9/20/2026 - the three three-second pauses are gone. Jerry, 9/20/2026:
+    '                                 "the pauses were for an old word version, remove them."
+    '                                 Nine seconds of every run were spent asleep, and two of the
+    '                                 pauses ran BEFORE the work they announced. Issue 13. Timed
+    '                                 afterwards on the whole book: about 16 seconds of work.
     ' Version: 3.9  Date: 9/6/2026 - thirteen named stages on the progress bar instead of the
     '                               spinner box, and it hands a slice of the bar to each of the
     '                               two counted sequences it runs inside itself (3-35 for file
@@ -18754,17 +18769,23 @@ DoEvents
     Set doc = ActiveDocument
 
     ' Stabilize the document FIRST, then save it exactly once (attach -> stabilize -> save).
+    '
+    ' THE THREE-SECOND PAUSES ARE GONE. Jerry, 9/20/2026: "the pauses were for an old word
+    ' version, remove them." They sat in front of the work rather than after it, so the bar
+    ' read "Repaginating the document" for three seconds before the repaginate was called, and
+    ' nine seconds of every run were spent asleep. The DoEvents that lets the bar paint stays;
+    ' that is what the pause was doing for a Word that needed longer to catch up.
     Sh_Progress_Say 92, "Repaginating the document - the bar cannot move, the spinner shows it is running"
     DoEvents
-    Sh_PauseSeconds 3   'pause for nn seconds
 
     doc.Repaginate
 
+    ' Measured 9/20/2026 on "Modules 21-22.docx", a book with no fields: 0.1 seconds. Not worth a
+    ' condition, so it runs every time as it always has.
     Sh_Progress_Say 95, "Updating document fields"
     DoEvents
-    Sh_PauseSeconds 3   'pause for nn seconds
-
     doc.Fields.Update
+
     doc.UndoClear
 
     ' Hide the bar momentarily so Windows can cleanly shift focus to the Save As dialog.
@@ -18773,6 +18794,11 @@ DoEvents
     ' not the form itself - naming the form directly would instantiate it on any future route
     ' into this macro that had not opened a bar, and this form's Initialize hangs a headless
     ' Word. Found in review, 9/6/2026.
+    '
+    ' A stage of its own so the stage timing (VistaType-Timing.log, 9/20/2026) can tell the
+    ' repaginate from the time the transcriber spends in the Save As dialog. Without it the two
+    ' land in one figure, and the dialog is a wait for a person, not a cost to cut.
+    Sh_Progress_Say 96, "Asking where to save the book"
     Sh_Progress_Hide
 
     ' Force the Word Application and your specific document to the front
@@ -18824,9 +18850,6 @@ SaveTheFile:
 
         ' 2. Execute the save on the SAME dialog object so the typed name is used
         dlgSaveAs.Execute
-
-        ' 3. Keep the message up for a brief moment so they see it finish
-        Sh_PauseSeconds 3
     End If
 
     ' The bar STAYS UP through the close-and-reopen below, which takes a visible moment and

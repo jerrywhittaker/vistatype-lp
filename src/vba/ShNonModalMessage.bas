@@ -64,6 +64,23 @@ Private Sh_Progress_Lo As Single
 Private Sh_Progress_Hi As Single
 Private Sh_Progress_Doc As Document
 
+' STAGE TIMING, for finding out where a slow macro spends its time. Added 9/20/2026 for issue 13:
+' Re-attach LP Template took 75 seconds of fixed cost on any book, whatever its length, and
+' reading the code could not say which stage paid for it.
+'
+' OFF unless the file VistaType-Timing.log already exists in %AppData%\VistaType LP Settings.
+' Create an empty one to switch it on, delete it to switch it off. Nothing here ever creates it,
+' so a transcriber never gets one. Every stage the bar announces is appended to it with the
+' clock time and the seconds since the stage before - which is what the stage before COST.
+'
+' Asked ONCE, when the bar opens, and remembered. Sh_Progress_Say is called inside counted loops,
+' and a file check on every call would be the very kind of cost this is here to find.
+Private Const SH_TIMING_FOLDER As String = "VistaType LP Settings"
+Private Const SH_TIMING_FILE As String = "VistaType-Timing.log"
+Private Sh_Timing_Path As String       ' "" when timing is off
+Private Sh_Timing_Start As Double      ' Timer when the bar opened
+Private Sh_Timing_Last As Double       ' Timer at the stage before
+
 ' Handing focus back to the document needs the Windows API. Activating the document window
 ' through the object model is NOT enough: a modeless UserForm keeps the keyboard focus, so
 ' Word draws no caret and the arrow keys walk the form's buttons instead of the text
@@ -810,6 +827,7 @@ Public Sub Sh_Progress_Open(ByVal boxTitle As String)
     Sh_Progress_Up = True
     Sh_Progress_Lo = 0
     Sh_Progress_Hi = 100
+    Sh_Timing_Begin boxTitle
     ' Started AFTER the flag is raised: SpinTick queues Sh_Progress_Tick, which is gated on
     ' that flag and would stop the spinner dead on its first tick if it were still False.
     Sh_Convert_Progress_Form.StartSpinner
@@ -839,6 +857,10 @@ Public Sub Sh_Progress_Say(ByVal pct As Single, ByVal what As String)
     If Len(what) > 0 Then Sh_Last_Activity = what
 
     If Not Sh_Progress_Up Then Exit Sub
+
+    ' Written with the percentage the CALLER gave, not the mapped one, so a stage inside a span
+    ' reads the way its own code numbers it. Costs nothing when timing is off.
+    If Len(what) > 0 Then Sh_Timing_Write pct, what
 
     On Error Resume Next
 
@@ -929,6 +951,9 @@ Public Sub Sh_Progress_Close()
 
     If Not Sh_Progress_Up Then Exit Sub
 
+    Sh_Timing_Write -1, "Finished"
+    Sh_Timing_Path = ""
+
     On Error Resume Next
     ' Stop the spinner BEFORE lowering the flag and unloading. A tick already queued with
     ' Application.OnTime fires up to a second after this runs, and a tick reaching an
@@ -945,4 +970,88 @@ Public Sub Sh_Progress_Close()
     On Error GoTo 0
 
 End Sub  '*** end of Sh_Progress_Close ***
+
+Private Sub Sh_Timing_Begin(ByVal boxTitle As String)
+' Decides whether this run is timed, and if so starts the clock and writes a header line.
+' See the note on SH_TIMING_FILE at the top of the module.
+'
+' Version: 1.0  Date: 9/20/2026 - new, for issue 13.
+
+    Dim fso As Object
+    Dim logPath As String
+
+    Sh_Timing_Path = ""
+    On Error GoTo NoTiming
+
+    logPath = Environ$("APPDATA")
+    If Len(logPath) = 0 Then Exit Sub
+    logPath = logPath & "\" & SH_TIMING_FOLDER & "\" & SH_TIMING_FILE
+
+    ' FileSystemObject rather than Dir(): Dir is stateful, and a Dir loop running anywhere else
+    ' would be silently restarted by a call from here.
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    If Not fso.FileExists(logPath) Then Exit Sub
+
+    Sh_Timing_Path = logPath
+    Sh_Timing_Start = Timer
+    Sh_Timing_Last = Sh_Timing_Start
+    Sh_Timing_Append ""
+    Sh_Timing_Append Format$(Now, "yyyy-mm-dd hh:nn:ss") & "  " & boxTitle _
+                     & "  (" & ActiveDocument.Name & ")"
+    Exit Sub
+
+NoTiming:
+    Sh_Timing_Path = ""
+End Sub  '*** end of Sh_Timing_Begin ***
+
+Private Sub Sh_Timing_Write(ByVal pct As Single, ByVal what As String)
+' One line per stage: the clock, seconds since the bar opened, seconds since the stage before,
+' and the stage now starting. The "since the stage before" figure is what that stage COST.
+' pct below zero means "no percentage" and is left blank.
+'
+' Version: 1.0  Date: 9/20/2026 - new, for issue 13.
+
+    Dim nowT As Double
+    Dim pctText As String
+
+    If Len(Sh_Timing_Path) = 0 Then Exit Sub
+    On Error Resume Next
+
+    nowT = Timer
+    ' Timer goes back to zero at midnight. A run that crosses it reads one wrong gap, which is
+    ' not worth more code in a diagnostic.
+    If pct >= 0 Then pctText = Format$(pct, "0") & "%" Else pctText = ""
+
+    Sh_Timing_Append Format$(Now, "hh:nn:ss") _
+                     & "  total " & Format$(nowT - Sh_Timing_Start, "0.0") & "s" _
+                     & "  step " & Format$(nowT - Sh_Timing_Last, "0.0") & "s" _
+                     & "  " & pctText & "  " & what
+    Sh_Timing_Last = nowT
+    Err.Clear
+End Sub  '*** end of Sh_Timing_Write ***
+
+Private Sub Sh_Timing_Append(ByVal lineText As String)
+' Appends one line and closes the file again at once, so a run that dies part way through still
+' leaves every stage it reached on disk - the same reason the VBA test runner writes its results
+' a line at a time.
+'
+' Version: 1.0  Date: 9/20/2026 - new, for issue 13.
+
+    Dim fh As Integer
+
+    If Len(Sh_Timing_Path) = 0 Then Exit Sub
+    On Error GoTo Failed
+
+    fh = FreeFile
+    Open Sh_Timing_Path For Append As #fh
+    Print #fh, lineText
+    Close #fh
+    Exit Sub
+
+Failed:
+    ' A log that cannot be written must never stop the macro it is timing.
+    On Error Resume Next
+    If fh <> 0 Then Close #fh
+    Sh_Timing_Path = ""
+End Sub  '*** end of Sh_Timing_Append ***
 '*** end of the progress bar helpers ***
