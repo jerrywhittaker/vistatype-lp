@@ -228,6 +228,12 @@ two presses.
 `Lp_Convert_Table_To_Pseudo_Columns` (`:17632`), `Lp_Convert_Table_To_Real_Columns` (`:17787`),
 both Export Selection macros.
 
+**Tried and rejected, 9/21/2026: an `UndoClear` at the start of `Lp_Resize_Same_Picture_Throughout`.**
+It stopped a third Ctrl+Z from going on into earlier edits, but it also wiped the transcriber's
+hand resize of the model picture, which comes just before the macro and must stay undoable.
+Word cannot empty only part of the undo list, so Jerry had it taken out (3.0.473 → reverted).
+Do not add it again.
+
 **One real edit, nothing needed:** `Lp_Keep_With_Next_Para`, `Lp_Toggle_Space_After_Current_Para`,
 `Sh_Keep_Lines_Of_Para_Together`, `Sh_Move_Paragraph_To_Next_Page`, both Manual Tag macros (3–4),
 `Dx_Change_Prodnotes_To_Transcriber_Notes`, `Dx_Set_Whole_Document_To_Times_New_Roman_14`,
