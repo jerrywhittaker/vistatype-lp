@@ -18,6 +18,17 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 9/21/2026 - A BLUE PAGE NUMBER MAKES A TOC LINE AN ENTRY. Jerry, 9/21/2026,
+'           - Lp  - 9/21/2026 - on "TOC Table 2 Formatting.docx": lines in blue, underlined, with
+'           - Lp  - 9/21/2026 - page numbers came out with no tab and no TOC 1. Measured: the blue
+'           - Lp  - 9/21/2026 - and underline are direct formatting, not links, and 77 of those
+'           - Lp  - 9/21/2026 - lines are wholly bold, so Format the TOC read them as section
+'           - Lp  - 9/21/2026 - headings and left them alone. A blue page number now makes a line
+'           - Lp  - 9/21/2026 - an entry, as a dot leader or a tab does (Lp_TOC_Line_Is_Link_Entry,
+'           - Lp  - 9/21/2026 - Lp_TOC_Last_Char_Color), and blue text in the TOC becomes Automatic
+'           - Lp  - 9/21/2026 - with no underline (Lp_TOC_Unblue). New tests,
+'           - Lp  - 9/21/2026 - tests/vba/TestTocLinkEntry.bas and
+'           - Lp  - 9/21/2026 - tests/test_toc_blue_page_numbers.py.
 ' Notes:    - Lp  - 9/21/2026 - A BLANK LINE BEFORE EVERY TOC LINE WITH NO PAGE NUMBER. Jerry,
 '           - Lp  - 9/21/2026 - 9/21/2026: "the blank line goes before any line that has no
 '           - Lp  - 9/21/2026 - associated page number." Format the TOC gave the blank line only
@@ -23965,6 +23976,107 @@ Private Sub Lp_TOC_Replace(ByVal target As Range, ByVal findText As String, _
     End With
 End Sub
 
+' A LINE WHOSE PAGE NUMBER IS BLUE IS AN ENTRY, HOWEVER BOLD IT IS. Jerry, 9/21/2026, on
+' "TOC Table 2 Formatting.docx": "There are items in blue which are underlined and have page
+' numbers. The page numbers have been ignored... the page number should be recognized (and marked
+' with a tab before the page numbers) and styled as TOC 1."
+'
+' Measured in a copy of that file on the build box, 9/21/2026: 94 lines are blue (0000FF) and
+' underlined, as a link is shown on a web page - but they are NOT links. There is no HYPERLINK
+' field, no w:hyperlink and no Hyperlink character style in the file; the color and the
+' underline are plain direct formatting, left behind by whatever the text was copied out of. 77
+' of those lines are bold from end to end, page number included, and Word answers Font.Bold =
+' True for them even across the plain spaces between the words. So the heading test read all 77
+' as SECTION HEADINGS - the 9/7/2026 rule, "a wholly bold line with no dot leader or tab is a
+' heading" - and the macro did what it does for a heading: kept its style, gave it no tab, and
+' left its page number alone.
+'
+' The bold rule stays, because "Table of Contents with Bold.docx" needs it: its "Section 1" and
+' "Section 2" are bold headings that end in a number. What tells these lines apart is the
+' page number itself. A blue page number is a page number shown as a link, and a link in a
+' contents page points at the page an entry starts on. So a blue page number is evidence of an
+' entry in the same way a dot leader or a tab is.
+'
+' The question is asked of the text and the color separately so that it can be tested without a
+' document; Lp_TOC_Last_Char_Color reads the color.
+'
+' Version: 1.0  Date: 9/21/2026 - new.
+'
+Private Function Lp_TOC_Line_Is_Link_Entry(ByVal lineText As String, ByVal numberColor As Long) As Boolean
+    If numberColor <> wdColorBlue Then Exit Function
+    Lp_TOC_Line_Is_Link_Entry = Lp_TOC_Line_Ends_In_Page_Number(lineText)
+End Function
+
+' THE COLOR OF THE LAST CHARACTER THE TRANSCRIBER CAN SEE on a line - its page number, when it
+' has one. The paragraph mark and any trailing spaces or non-breaking spaces are stepped over, the
+' same way Lp_TOC_Para_Is_Bold steps over them and for the same reason: they carry formatting of
+' their own. Anything that cannot answer answers Automatic, which is never taken as a link.
+'
+' Version: 1.0  Date: 9/21/2026 - new. See Lp_TOC_Line_Is_Link_Entry.
+'
+Private Function Lp_TOC_Last_Char_Color(ByVal paraRange As Range) As Long
+    Dim r As Range
+    Dim lastEnd As Long
+
+    Lp_TOC_Last_Char_Color = wdColorAutomatic
+    On Error GoTo CannotTell
+
+    Set r = paraRange.Duplicate
+    r.MoveEnd Unit:=wdCharacter, Count:=-1
+    Do While r.End > r.start
+        If r.Characters.Last.Text <> " " And r.Characters.Last.Text <> Chr(160) Then Exit Do
+        lastEnd = r.End
+        r.MoveEnd Unit:=wdCharacter, Count:=-1
+        If r.End >= lastEnd Then Exit Do
+    Loop
+    If r.End <= r.start Then Exit Function
+
+    Lp_TOC_Last_Char_Color = r.Characters.Last.Font.Color
+    Exit Function
+
+CannotTell:
+    Lp_TOC_Last_Char_Color = wdColorAutomatic
+End Function
+
+' BLUE TEXT IN THE TOC BECOMES AUTOMATIC, AND LOSES ITS UNDERLINE. Jerry, 9/21/2026: "the blue
+' underlines should be automatic color with no underlines". Direct formatting in "TOC Table 2
+' Formatting.docx", not links - see Lp_TOC_Line_Is_Link_Entry. Only BLUE text is touched: the
+' same file carries dashed underlines on book titles in ordinary black lines (Pygmalion,
+' Othello), which are the transcriber's to keep, and red $pg markers. Measured on a copy on the
+' build box: 94 blue lines before, no blue character after, all 669 black dashed underlines
+' still there, and the paragraph count unchanged.
+'
+' ONE find-and-replace on formatting only - empty find text, empty replacement text - so no
+' character is added or removed. wdFindStop: the range is the TOC, never the whole book.
+'
+' Version: 1.0  Date: 9/21/2026 - new.
+'
+Private Sub Lp_TOC_Unblue(ByVal target As Range)
+    Dim r As Range
+
+    If target.start >= target.End Then Exit Sub
+
+    Set r = target.Duplicate
+    With r.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
+        .Text = ""
+        .Replacement.Text = ""
+        .Font.Color = wdColorBlue
+        .Replacement.Font.Color = wdColorAutomatic
+        .Replacement.Font.Underline = wdUnderlineNone
+        .Forward = True
+        .Wrap = wdFindStop
+        .Format = True
+        .MatchCase = False
+        .MatchWholeWord = False
+        .MatchAllWordForms = False
+        .MatchSoundsLike = False
+        .MatchWildcards = False
+        .Execute Replace:=wdReplaceAll
+    End With
+End Sub
+
 Sub Lp_TOC_CleanAndFormat_TOC()
     '
     ' Cleans up a table of contents that was typed or scanned in as plain text and formats it:
@@ -23972,6 +24084,12 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     ' into a tab, un-bolds the number, applies TOC 1, and lays a tab in front of the "pn" in each
     ' Print Pg Num paragraph.
     '
+    ' Version: 3.0  Date: 9/21/2026 - A BLUE PAGE NUMBER MAKES A LINE AN ENTRY, and blue text is
+    '                               made Automatic with no underline. Jerry, 9/21/2026, on "TOC
+    '                               Table 2 Formatting.docx": 77 wholly bold lines with blue,
+    '                               underlined page numbers were read as section headings, so they
+    '                               got no tab and no TOC 1. The color is direct formatting, not a
+    '                               link. See Lp_TOC_Line_Is_Link_Entry and Lp_TOC_Unblue.
     ' Version: 2.9  Date: 9/21/2026 - A BLANK LINE BEFORE EVERY LINE WITH NO PAGE NUMBER. Jerry,
     '                               9/21/2026: "the blank line goes before any line that has no
     '                               associated page number." Until now only a WHOLLY BOLD line got
@@ -24321,6 +24439,12 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     ' is no leader, a wholly bold line is a section or chapter name. Jerry, 9/7/2026: "if it looks
     ' like a chapter name followed by a page number, treat it that way."
     '
+    ' AND SO DOES A BLUE PAGE NUMBER (9/21/2026). "TOC Table 2 Formatting.docx" has 77 entries
+    ' that are bold from end to end with no leader and no tab, their page numbers blue and
+    ' underlined the way a link is shown. Read by bold alone they were all headings, and not one
+    ' got its tab or its TOC 1. See Lp_TOC_Line_Is_Link_Entry. The color is read here, before
+    ' Lp_TOC_Unblue below takes it off.
+    '
     ' Read NOW because the passes below destroy both signals: the leaders become spaces and the
     ' tabs became spaces in the very first block. Paragraph numbers are safe to hold on to FROM
     ' HERE ON - no pass below this point adds or removes a paragraph mark. One ABOVE it does, and
@@ -24343,8 +24467,14 @@ Sub Lp_TOC_CleanAndFormat_TOC()
         paraText = para.Range.Text
         isHeading(paraNo) = Lp_TOC_Para_Is_Bold(para.Range) _
                             And InStr(paraText, "..") = 0 _
-                            And InStr(paraText, vbTab) = 0
+                            And InStr(paraText, vbTab) = 0 _
+                            And Not Lp_TOC_Line_Is_Link_Entry(paraText, Lp_TOC_Last_Char_Color(para.Range))
     Next para
+
+    ' BLUE TEXT TO AUTOMATIC, NO UNDERLINE - after the heading list, which reads the blue, and
+    ' before anything else. Formatting only; no character or paragraph mark moves.
+    Sh_Last_Activity = "Format TOC: taking off the link coloring"
+    Lp_TOC_Unblue workRng
 
     Sh_Last_Activity = "Format TOC: cleaning up the characters"
 

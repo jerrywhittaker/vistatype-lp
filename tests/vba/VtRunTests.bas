@@ -42,6 +42,10 @@ Public Sub VtRunAllTests()
     Set Suite = TestTocBlankLine_Suite()
     Reporter.ListenTo Suite
 
+    Reporter.Trace "building Contents lines with a blue page number"
+    Set Suite = TestTocLinkEntry_Suite()
+    Reporter.ListenTo Suite
+
     Reporter.Trace "building Shared text helpers"
     Set Suite = TestTextHelpers_Suite()
     Reporter.ListenTo Suite
