@@ -18,6 +18,17 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 9/21/2026 - FORMAT THE TOC NEVER DELETES A LINE. Jerry, 9/21/2026. The
+'           - Lp  - 9/21/2026 - bullet-legend pass in Lp_TOC_CleanAndFormat_TOC (3.0.410) deleted
+'           - Lp  - 9/21/2026 - every line that began with a bullet and had no page number at its
+'           - Lp  - 9/21/2026 - end. On "TOC Table 2 Formatting.docx" - page numbers behind a
+'           - Lp  - 9/21/2026 - non-breaking space, which its pattern did not take, and about 98
+'           - Lp  - 9/21/2026 - bulleted reading titles with no page number at all - it cut 202
+'           - Lp  - 9/21/2026 - paragraphs to 10. Measured on 3.0.474; every build from 3.0.410 had
+'           - Lp  - 9/21/2026 - it. The pass and Lp_TOC_Starts_With_Bullet are removed, not guarded.
+'           - Lp  - 9/21/2026 - The NIMAS book's three-line legend now stays in the TOC, bullets
+'           - Lp  - 9/21/2026 - stripped, and that is accepted. New test,
+'           - Lp  - 9/21/2026 - tests/test_toc_never_deletes_a_line.py.
 ' Notes:    - Sh  - 9/21/2026 - THREE FORM HANDLERS WITH NO CONTROL, found by a new test,
 '           - Sh  - 9/21/2026 - tests/test_form_handlers_match_controls.py, which reads each
 '           - Sh  - 9/21/2026 - form's control names out of its .frx. (1) Pictures to Color or
@@ -23557,25 +23568,6 @@ Private Sub Lp_Ns_Step(ByRef stepNo As Long, ByVal what As String)
 End Sub  '*** end of Lp_Ns_Step ***
 
 
-Private Function Lp_TOC_Starts_With_Bullet(ByVal paraText As String) As Boolean
-    '
-    ' Does this line BEGIN with one of the marks Format TOC strips - a bullet of any of the seven
-    ' kinds, or the tofu square? Asked before anything is cleaned up, while the mark is still there.
-    '
-    ' Version: 1.0  Date: 9/7/2026
-    '
-    Dim ch As String
-
-    ch = LTrim$(Replace(Replace(paraText, vbTab, " "), Chr(160), " "))
-    If Len(ch) = 0 Then Exit Function
-    ch = Left$(ch, 1)
-
-    Lp_TOC_Starts_With_Bullet = (ch = ChrW(&H2022) Or ch = ChrW(&H2023) Or ch = ChrW(&H25AA) _
-                              Or ch = ChrW(&H25E6) Or ch = ChrW(&H25CF) Or ch = ChrW(&H25CB) _
-                              Or ch = ChrW(&HF0B7) Or ch = ChrW(&H25A1))
-
-End Function  '*** end of Lp_TOC_Starts_With_Bullet ***
-
 Private Sub Lp_TOC_Space_A_Heading(ByVal para As Paragraph)
     '
     ' A blank line BEFORE a section or chapter name, and none after it. Jerry, 9/7/2026:
@@ -23716,22 +23708,13 @@ End Function
 '   3. The entry pattern then finds " 187" at the end and the line formats like any other.
 '
 ' A tab rather than a flag ON PURPOSE. The heading list is an array indexed by paragraph ordinal,
-' and both this pass and the bullet-legend pass below change the paragraph count - an array of
-' "lines I joined" would have to survive both and could silently slip out of step. A tab travels
-' with the text and cannot.
+' and this pass changes the paragraph count - an array of "lines I joined" could silently slip
+' out of step. A tab travels with the text and cannot.
 '
-' WHY IT MUST RUN BEFORE THE BULLET-LEGEND PASS. That pass drops any line that begins with a bullet
-' and has no page number at its end. On a NIMAS file shaped like this one that is true of every
-' real entry - "square Lesson 1.1 Place Value Patterns" followed by "3" on its own line - so it
-' would DELETE them. "Big TOC from NIMAS File.docx" has 160 such entries. Nothing has reported it
-' because that book's numbers happen to sit on the right lines; this pass is what keeps it that way.
-' It must also run before the heading list is built, for the counting reason above.
-'
-' RUNNING FIRST IS NOT ENOUGH ON ITS OWN, and the first draft of this got it wrong. That pass asked
-' for "[. ]" in front of the number - a period or a space, NOT a tab - so a line this pass had just
-' joined still read as "bulleted, no page number" and was deleted anyway. Its class now takes a tab
-' as well. Caught in review, 9/17/2026, and it would not have shown up in "Problem TOC.docx", which
-' carries no bullets at all.
+' It must run before the heading list is built, for that counting reason. From 9/17/2026 to
+' 9/21/2026 it also had to run before the bullet-legend pass, which deleted any bulleted line with
+' no page number at its end. That pass is gone - Format the TOC never deletes a line (Jerry,
+' 9/21/2026; see Version 2.8 of Lp_TOC_CleanAndFormat_TOC).
 '
 ' WHAT COUNTS AS A NUMBER STANDING ALONE is deliberately tighter than the end-of-line pattern. A
 ' whole paragraph made of one word is a far easier false match than a word at the end of a
@@ -23740,7 +23723,7 @@ End Function
 ' roman numeral in ONE CASE throughout - "iv" or "IV", never "Mix". "MIX" in capitals would still
 ' pass, which is a lone all-caps word in a contents page, and is accepted.
 '
-' Backwards through the paragraphs, as the legend pass goes, so a join cannot move the ones still
+' Backwards through the paragraphs, so a join cannot move the ones still
 ' to be looked at. A paragraph mark and a tab are both one character, so the range bounds do not
 ' shift either.
 '
@@ -23905,6 +23888,15 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     ' into a tab, un-bolds the number, applies TOC 1, and lays a tab in front of the "pn" in each
     ' Print Pg Num paragraph.
     '
+    ' Version: 2.8  Date: 9/21/2026 - FORMAT THE TOC NEVER DELETES A LINE. The bullet-legend pass
+    '                               (3.0.410) deleted every line that began with a bullet and had
+    '                               no page number at its end. On "TOC Table 2 Formatting.docx" -
+    '                               page numbers behind a NON-BREAKING space, which its pattern did
+    '                               not take, and about 98 bulleted reading titles with no page
+    '                               number at all - it cut 202 paragraphs to 10. Measured 9/21/2026
+    '                               on 3.0.474. Jerry: the macro must never delete a line. The pass
+    '                               and Lp_TOC_Starts_With_Bullet are removed; the NIMAS legend
+    '                               stays in the TOC, bullets stripped, and that is accepted.
     ' Version: 2.7  Date: 9/18/2026 - THE HEADING LIST WAS READ ONE LINE OUT on a TOC whose first
     '                               line begins with a space. The fixRng passes rewrite the empty
     '                               paragraph's own mark, and workRng then absorbs that paragraph,
@@ -24209,9 +24201,10 @@ Sub Lp_TOC_CleanAndFormat_TOC()
 
     Sh_Last_Activity = "Format TOC: page numbers left on their own line"
 
-    ' FIRST, AND IT HAS TO BE FIRST. See the long note on the sub itself: the legend pass
-    ' below would DELETE a bulleted entry whose page number stands on the next line, and the
-    ' heading list below is counted by paragraph position, which this pass changes.
+    ' FIRST, AND IT HAS TO BE FIRST: the heading list below is counted by paragraph position,
+    ' which this pass changes. (It also used to have to beat the bullet-legend pass, which would
+    ' have deleted a bulleted entry whose page number stood on the next line. That pass went on
+    ' 9/21/2026 - see Version 2.8.)
     Lp_TOC_Join_Orphan_Page_Numbers workRng
 
     '*******************************************************
@@ -24236,54 +24229,17 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     '
     ' Read NOW because the passes below destroy both signals: the leaders become spaces and the
     ' tabs became spaces in the very first block. Paragraph numbers are safe to hold on to FROM
-    ' HERE ON - no pass below this point adds or removes a paragraph mark. Two ABOVE it do, and
-    ' that is why they are above it: Lp_TOC_Join_Orphan_Page_Numbers merges a stranded page number
-    ' into the line before it, and the legend pass drops a line. Anything else that changes the
-    ' count has to go above this block too, or every heading after it is read off the wrong line.
+    ' HERE ON - no pass below this point adds or removes a paragraph mark. One ABOVE it does, and
+    ' that is why it is above it: Lp_TOC_Join_Orphan_Page_Numbers merges a stranded page number
+    ' into the line before it. Anything else that changes the count has to go above this block
+    ' too, or every heading after it is read off the wrong line.
+    '
+    ' NOTHING IN THIS MACRO DELETES A LINE. Jerry, 9/21/2026. The bullet-legend pass that stood
+    ' here from 3.0.410 dropped every bulleted line with no page number at its end, and on
+    ' "TOC Table 2 Formatting.docx" that cut 202 paragraphs to 10. It is gone, not narrowed; a
+    ' legend left in the TOC is the transcriber's to delete. tests/test_toc_never_deletes_a_line.py
+    ' fails if a .Delete comes back into this macro or any Lp_TOC_ helper it calls.
     '*******************************************************
-    '*******************************************************
-    ' A BULLETED LINE WITH NO PAGE NUMBER IS DROPPED. Jerry, 9/7/2026: "If the three-line legend
-    ' is of no value, then delete it."
-    '
-    ' "Big TOC from NIMAS File.docx" ends each chapter with a legend explaining what the colored
-    ' squares against the lessons mean - square Major Topic, square Supporting Topic, square
-    ' Additional Topic. Format TOC strips the squares, which is what Jerry asked for, and the
-    ' legend is then three lines that explain nothing. The color they described is not something a
-    ' large print or braille reader receives either.
-    '
-    ' NARROW ON PURPOSE. It takes BOTH: the line must begin with one of the marks this macro
-    ' strips, AND it must have no page number at the end. Every real entry in that book begins
-    ' with a bullet and ends with a page number, so none is at risk; the chapter names carry no
-    ' bullet at all, so they are not either. A line with no page number that carries no bullet -
-    ' a heading, a note, a continuation - is untouched, as it always was.
-    '
-    ' The test tolerates a DOT LEADER in front of the number as well as a space, because nothing
-    ' has been cleaned up yet and the leaders are still there. Backwards through the paragraphs,
-    ' so a deletion cannot move the ones still to be looked at.
-    '
-    ' AND A TAB. Caught in review, 9/17/2026, not by a report - the class was "[. ]", and
-    ' Lp_TOC_Join_Orphan_Page_Numbers above joins with a TAB. So a bulleted NIMAS entry whose page
-    ' number had been pulled up - "square Lesson 1.1 Place Value Patterns<tab>3" - read as a
-    ' bulleted line with NO page number and was DELETED, which is the opposite of what running the
-    ' join first was meant to buy, and worse than before it: the number used to survive as a stray
-    ' paragraph, and now it goes with the line. A tab in front of a number means a page number
-    ' whoever put it there, so the class takes all three.
-    '*******************************************************
-    Set regexNum = CreateObject("VBScript.RegExp")
-    With regexNum
-        .pattern = "[. \t](\b(M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})|[A-Za-z]?\d+))[\r\n]{1,2}$"
-        .IgnoreCase = True
-        .Global = False
-    End With
-
-    For paraNo = workRng.Paragraphs.count To 1 Step -1
-        Set paraRange = workRng.Paragraphs(paraNo).Range
-        paraText = paraRange.Text
-        If Lp_TOC_Starts_With_Bullet(paraText) Then
-            If Not regexNum.test(paraText) Then paraRange.Delete
-        End If
-    Next paraNo
-
     If workRng.Paragraphs.count = 0 Then GoTo tidy
 
     ReDim isHeading(1 To workRng.Paragraphs.count)
@@ -24328,7 +24284,8 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     ' What this costs, and it is accepted: that book ends with a three-line legend - "square Major
     ' Topic", "square Supporting Topic", "square Additional Topic" - explaining what the colored
     ' squares mean. Those squares go too, and the legend reads "Major Topic" and so on. A colored
-    ' square is not something a large print or braille reader receives anyway.
+    ' square is not something a large print or braille reader receives anyway. The three lines
+    ' themselves STAY from 9/21/2026 - this macro never deletes a line (see Version 2.8).
     Lp_TOC_Replace workRng, "[" & ChrW(&H2022) & ChrW(&H2023) & ChrW(&H25AA) & _
                             ChrW(&H25E6) & ChrW(&H25CF) & ChrW(&H25CB) & ChrW(&HF0B7) & _
                             ChrW(&H25A1) & "]", _
