@@ -16,6 +16,7 @@ nothing tested them.
 | `test_check_style_guards.py` | An `ActiveDocument.Styles("X")` lookup that is not guarded — run-time error 5941 on a document that does not carry the style. |
 | `test_check_form_calls.py` | A UserForm calling a macro that has been renamed or removed. |
 | `test_form_handlers_match_controls.py` | A UserForm event handler whose control is not on the form — renamed or removed — which never runs and raises nothing. Reads the control names out of each `.frx`. Needs `python3-olefile`; skipped without it. |
+| `test_undo_clear_placement.py` | Where Resize Pictures Used Throughout empties the undo list: after every point the transcriber can still back out, and before the first change to the book. Too high and cancelling throws the undo list away for nothing; too low and that change cannot be taken back. Reads the real `LPandBrlMacros.bas`. |
 | `test_check_frm_eol.py` | A `.frm` that has lost its CRLF endings, which makes Word dump the designer header into the form's code module. |
 | `test_check_vba_line_length.py` | A VBA line over 1023 characters, which makes `make build` hang with no error. |
 | `test_trim_frm_blanks.py` | The blank lines Word piles up on every form export — and that trimming them keeps CRLF. |

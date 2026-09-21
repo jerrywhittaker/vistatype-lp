@@ -112,6 +112,7 @@ This is the headline. Until these go, nothing else about those macros' undo matt
 | `Dx_Attach_BANA_Template_Run` | `:3138` | unconditional, on every route in — see the trap below |
 | `Lp_Attach_The_Template` | `:18416`, `:18453` | **arguably fair**: it ends with a Save As and `Sh_Close_And_Reopen` (`:18537`), which ends the history anyway. Lowest priority |
 | ~~`DN_Add_PgNo_Tags_To_DAISY_or_NIMAS`~~ **GONE 9/17/2026** | was `:20829` | The whole manual DAISY/NIMAS route was removed — the macro, the "Choose XML Conversion Type" menu and `DN_Tag_Daisy_Nimas_Form`. Nothing left to fix |
+| `Lp_Resize_Same_Picture_Throughout` — **ADDED 9/21/2026, Jerry's request** | after the 323 check, before `refW = ref.Width` | Not in the survey: added after it closed. Jerry, 9/21/2026: *"The undo stack should be cleared before 'Resize Pictures Used Throughout', otherwise pressing Ctrl+Z more than once will undo changes made before the macro was run."* The macro's own work stays one press (its undo record, section 3); the clear stops a second press going on into earlier edits. It sits after every way out (322, Cancel on the alignment question, 323) so backing out costs nothing, and clears `ref.Range.Document` — the book — not whatever is active. Placement is held by `tests/test_undo_clear_placement.py` |
 | `DN_Remove_Para_Formatting_From_Text_Files` | `DN_Text_File_Para_Fix_Warning.frm:109` | 5 presses' worth of work. The comment at `:112–116` of that same file records an identical clear being taken off `Lp_Replace_Section_Break_With_Page_Break` — this one was left behind |
 
 **One clear is harmless and should be left alone:** `Sh_Convert_XML_File_To_Word_Document:28074`
@@ -227,6 +228,10 @@ two presses.
 `Lp_Replace_Section_Break_With_Page_Break` (`Lp_Section_Brk_Caution.frm`),
 `Lp_Convert_Table_To_Pseudo_Columns` (`:17632`), `Lp_Convert_Table_To_Real_Columns` (`:17787`),
 both Export Selection macros.
+
+**Resize Pictures Used Throughout also empties the undo list first, from 3.0.473** (Jerry,
+9/21/2026) — still one press for its own work, and nothing before it to go back into. See its
+row in section 1.
 
 **One real edit, nothing needed:** `Lp_Keep_With_Next_Para`, `Lp_Toggle_Space_After_Current_Para`,
 `Sh_Keep_Lines_Of_Para_Together`, `Sh_Move_Paragraph_To_Next_Page`, both Manual Tag macros (3–4),
