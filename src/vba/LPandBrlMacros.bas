@@ -18,13 +18,6 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Lp  - 9/21/2026 - RESIZE PICTURES USED THROUGHOUT EMPTIES THE UNDO LIST FIRST. Jerry,
-'           - Lp  - 9/21/2026 - 9/21/2026: "The undo stack should be cleared before 'Resize Pictures
-'           - Lp  - 9/21/2026 - Used Throughout', otherwise pressing Ctrl+Z more than once will undo
-'           - Lp  - 9/21/2026 - changes made before the macro was run." Lp_Resize_Same_Picture_Throughout
-'           - Lp  - 9/21/2026 - now calls UndoClear on the selected picture's document after its last
-'           - Lp  - 9/21/2026 - way out (dialogs 322 and 323, Cancel on the alignment question) and
-'           - Lp  - 9/21/2026 - before its first change. Its own work is still ONE Ctrl+Z.
 ' Notes:    - Sh  - 9/21/2026 - THREE FORM HANDLERS WITH NO CONTROL, found by a new test,
 '           - Sh  - 9/21/2026 - tests/test_form_handlers_match_controls.py, which reads each
 '           - Sh  - 9/21/2026 - form's control names out of its .frx. (1) Pictures to Color or
@@ -20864,9 +20857,6 @@ Sub Lp_Resize_Same_Picture_Throughout()
 '
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
-' Version: 1.2  Date: 9/21/2026 - the undo list is emptied before the first change, so a second
-'                                 Ctrl+Z cannot go on into edits made before the macro ran (Jerry).
-'                                 Placed after every way out, so backing out costs nothing
 ' Version: 1.1  Date: 9/17/2026 - asks whether the copies should be left aligned or centered, on
 '                                 Lp_Same_Pic_Align_Form (374), and applies it (Jerry). Every copy
 '                                 now goes into matches, including one already the right size,
@@ -21009,21 +20999,6 @@ Sub Lp_Resize_Same_Picture_Throughout()
              & "Nothing has been changed.", "VistaType LP (323)"
         Exit Sub
     End If
-
-    ' THE UNDO LIST IS EMPTIED HERE - Jerry, 9/21/2026: "The undo stack should be cleared before
-    ' 'Resize Pictures Used Throughout', otherwise pressing Ctrl+Z more than once will undo changes
-    ' made before the macro was run." The macro's own work is still ONE Ctrl+Z - the undo record
-    ' below - but a second press used to carry on into the transcriber's earlier edits. This is a
-    ' whole-book job, like File Cleanup, and ends the history the same way.
-    '
-    ' HERE, and not higher: every way out comes before this line - no picture selected (322),
-    ' Cancel or the red X on the alignment question, no description and nothing readable (323) -
-    ' and each of them leaves the book untouched, so backing out must not cost the undo list too.
-    ' And not lower: nothing below changes the book until the undo record opens.
-    '
-    ' The SELECTED PICTURE'S document, named outright rather than through ActiveDocument: the
-    ' hidden reader document may be open by now, and this leaves no doubt which history is emptied.
-    ref.Range.Document.UndoClear
 
     refW = ref.Width
     refH = ref.Height
