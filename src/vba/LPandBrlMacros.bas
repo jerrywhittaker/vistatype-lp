@@ -18,6 +18,17 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 9/21/2026 - A SHORT TOC TITLE GETS A SECOND TAB, so its dot leader shows.
+'           - Lp  - 9/21/2026 - Jerry, 9/21/2026, on "TOC Table 1 Formatting.docx", build 3.0.480:
+'           - Lp  - 9/21/2026 - "Index<tab>18" came out right, in TOC 1, and showed as "Index 18"
+'           - Lp  - 9/21/2026 - with no leader. TOC 1-5 hang by 0.75", and Word treats a hanging
+'           - Lp  - 9/21/2026 - indent as a tab stop, so a title that ends before it sends its tab
+'           - Lp  - 9/21/2026 - to the indent, not the leader. Jerry: "put in a second tab next to
+'           - Lp  - 9/21/2026 - the first one." Format the TOC now measures each entry after the
+'           - Lp  - 9/21/2026 - style goes on, in the scratch document, and adds the second tab where
+'           - Lp  - 9/21/2026 - the page number sits at the indent (Lp_TOC_Tab_Stops_At_Indent,
+'           - Lp  - 9/21/2026 - Lp_TOC_Tab_Falls_Short). New tests, tests/vba/TestTocShortTitle.bas
+'           - Lp  - 9/21/2026 - and tests/test_toc_short_title_second_tab.py.
 ' Notes:    - Lp  - 9/21/2026 - A BLUE PAGE NUMBER MAKES A TOC LINE AN ENTRY. Jerry, 9/21/2026,
 '           - Lp  - 9/21/2026 - on "TOC Table 2 Formatting.docx": lines in blue, underlined, with
 '           - Lp  - 9/21/2026 - page numbers came out with no tab and no TOC 1. Measured: the blue
@@ -24077,6 +24088,85 @@ Private Sub Lp_TOC_Unblue(ByVal target As Range)
     End With
 End Sub
 
+' A SHORT TITLE'S TAB STOPS AT THE HANGING INDENT, NOT AT THE DOT LEADER. Jerry, 9/21/2026, on
+' "TOC Table 1 Formatting.docx", build 3.0.480: Format the TOC made "Index<tab>18" in TOC 1, and
+' the page showed "Index 18" with no leader. TOC 1 through TOC 5 in LargePrintTemplate.dotx all
+' hang by 0.75" (1080 twips) and carry a right dot-leader tab at 10598. Word treats a hanging
+' indent as a tab stop of its own, so when the title ends BEFORE the left indent the tab goes to
+' the indent and stops there. "Index" at 18 point Tahoma ends at 51 pt, the indent is at 54 pt,
+' and the 18 was drawn at 54.4 pt. "Glossary", which ends at 77 pt, reached the leader. Any short
+' title does the same - "Quiz", "Map 5" - on any line of the TOC, not only the last.
+'
+' Jerry's cure, in his words: "if the ellipses are not present after applying the TOC style put
+' in a second tab next to the first one." The second tab starts past the indent, so it goes on to
+' the leader tab.
+'
+' This is the decision, asked of numbers so it can be tested without a document; the positions
+' are read by Lp_TOC_Tab_Falls_Short. All positions are points from the left edge of the text,
+' which is what Information(wdHorizontalPositionRelativeToTextBoundary) returns, and indentX is
+' the paragraph's LeftIndent - where the hanging indent's own tab stop is.
+'
+'   * No layout (a position of -1) answers No. Never add a tab on a guess.
+'   * No hanging indent (hangingBy, the FirstLineIndent, not below zero): there is no trap.
+'   * The tab and the number on different lines: a wrapped title is not this fault.
+'   * A tab already after the tab: it has its second one. Format the TOC turns every tab into a
+'     space before it starts, so a second run cannot stack them either way.
+'   * The tab must START short of the indent - Word's own rule - AND the number must be sitting
+'     at the indent. A title that wraps puts its tab on a later line, which starts AT the indent,
+'     so that tab can never start short of it.
+'
+' Version: 1.0  Date: 9/21/2026 - new.
+'
+Private Function Lp_TOC_Tab_Stops_At_Indent(ByVal tabX As Single, ByVal numberX As Single, _
+                                            ByVal indentX As Single, ByVal hangingBy As Single, _
+                                            ByVal onOneLine As Boolean, _
+                                            ByVal afterTab As String) As Boolean
+    If tabX < 0 Or numberX < 0 Or indentX <= 0 Then Exit Function
+    If hangingBy >= 0 Then Exit Function
+    If Not onOneLine Then Exit Function
+    If Len(afterTab) = 0 Or afterTab = vbTab Or afterTab = vbCr Then Exit Function
+    If tabX >= indentX Then Exit Function
+    ' 3 points either side of the indent. Measured on Jerry's file the 18 sat at 54.4 pt against
+    ' an indent of 54; a number that reached the leader tab was at 425 pt or more.
+    Lp_TOC_Tab_Stops_At_Indent = (Abs(numberX - indentX) < 3)
+End Function
+
+' Reads the layout for Lp_TOC_Tab_Stops_At_Indent: where the tab starts, where the character after
+' it starts, whether both are on one line, and the paragraph's indents. tabRng is the tab itself.
+' Anything that cannot answer answers No, so a fault here never adds a tab.
+'
+' MEASURED 9/21/2026 ON THE BUILD BOX: these positions read correctly in the macro's hidden
+' scratch document, with the screen frozen, and agree to the hundredth of a point with the same
+' text opened as an ordinary document. So this runs there, before the text comes home, and the
+' book's undo stays at one press.
+'
+' Version: 1.0  Date: 9/21/2026 - new. See Lp_TOC_Tab_Stops_At_Indent.
+'
+Private Function Lp_TOC_Tab_Falls_Short(ByVal tabRng As Range) As Boolean
+    Dim numRng As Range
+    Dim para As Paragraph
+
+    On Error GoTo CannotTell
+    If tabRng.Text <> vbTab Then Exit Function
+
+    Set numRng = tabRng.Duplicate
+    numRng.Collapse wdCollapseEnd
+    numRng.MoveEnd Unit:=wdCharacter, Count:=1
+    Set para = tabRng.Paragraphs(1)
+
+    Lp_TOC_Tab_Falls_Short = Lp_TOC_Tab_Stops_At_Indent( _
+        tabRng.Information(wdHorizontalPositionRelativeToTextBoundary), _
+        numRng.Information(wdHorizontalPositionRelativeToTextBoundary), _
+        para.LeftIndent, para.FirstLineIndent, _
+        tabRng.Information(wdVerticalPositionRelativeToPage) = _
+            numRng.Information(wdVerticalPositionRelativeToPage), _
+        numRng.Text)
+    Exit Function
+
+CannotTell:
+    Lp_TOC_Tab_Falls_Short = False
+End Function
+
 Sub Lp_TOC_CleanAndFormat_TOC()
     '
     ' Cleans up a table of contents that was typed or scanned in as plain text and formats it:
@@ -24084,6 +24174,15 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     ' into a tab, un-bolds the number, applies TOC 1, and lays a tab in front of the "pn" in each
     ' Print Pg Num paragraph.
     '
+    ' Version: 3.1  Date: 9/21/2026 - A SHORT TITLE GETS A SECOND TAB, so its dot leader shows.
+    '                               Jerry, 9/21/2026, on "TOC Table 1 Formatting.docx", build
+    '                               3.0.480: "Index<tab>18" was right, in TOC 1, and the page showed
+    '                               "Index 18" with no leader - a title that ends before TOC 1's
+    '                               0.75" hanging indent sends its tab to the indent, not to the
+    '                               leader tab. Jerry: "if the ellipses are not present after
+    '                               applying the TOC style put in a second tab next to the first
+    '                               one." Measured on each line after the style is applied, in the
+    '                               scratch document. See Lp_TOC_Tab_Stops_At_Indent.
     ' Version: 3.0  Date: 9/21/2026 - A BLUE PAGE NUMBER MAKES A LINE AN ENTRY, and blue text is
     '                               made Automatic with no underline. Jerry, 9/21/2026, on "TOC
     '                               Table 2 Formatting.docx": 77 wholly bold lines with blue,
@@ -24251,6 +24350,9 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     Dim selStart As Long
     Dim selEnd As Long
     Dim su_Prev As Boolean
+    Dim tabStarts() As Long
+    Dim tabCount As Long
+    Dim tabRng As Range
     ' errNum, not eNum: VBA identifiers are case-insensitive, so a variable called eNum IS the
     ' reserved word Enum as far as the compiler is concerned, and the Dim will not compile.
     Dim errNum As Long
@@ -24750,6 +24852,12 @@ SkipPara:
             ' Replace the space before the pattern with a tab
             paraRange.Characters(matchStart).Text = vbTab
 
+            ' Where the tab is, for the short-title pass below. A space became a tab, so no
+            ' position in the TOC moves between here and there.
+            tabCount = tabCount + 1
+            ReDim Preserve tabStarts(1 To tabCount)
+            tabStarts(tabCount) = paraRange.start + matchStart - 1
+
             ' Select and un-bold the matched number/roman/letter+number
             Set numberRng = paraRange.Duplicate
             numberRng.start = paraRange.start + matchStart
@@ -24764,6 +24872,30 @@ SkipPara:
 
 SkipTab:
     Next para
+
+    '*******************************************************
+    ' A SECOND TAB WHERE THE FIRST ONE STOPPED SHORT OF THE LEADER (9/21/2026).
+    '
+    ' Every TOC style from TOC 1 to TOC 5 hangs by 0.75", and Word treats a hanging indent as a
+    ' tab stop. A title that ends before it - "Index", "Quiz", "Map 5" - sends its tab only as far
+    ' as the indent, and the page number is drawn there with no dot leader. Jerry's cure: "if the
+    ' ellipses are not present after applying the TOC style put in a second tab next to the first
+    ' one." Lp_TOC_Tab_Falls_Short reads the layout; Lp_TOC_Tab_Stops_At_Indent decides.
+    '
+    ' HERE, in the scratch document, and NOT after the text comes home: done in the book, every
+    ' tab added would be one more Ctrl+Z. The positions were measured on the build box 9/21/2026
+    ' and read the same here as in an ordinary document.
+    '
+    ' FROM THE BOTTOM UP, so a tab added lower down never moves a position still to be read.
+    ' Before the reference page passes below, which insert characters and would move them all.
+    ' Not stacked on a second run: the first cleanup pass turned every tab back into a space.
+    '*******************************************************
+    Sh_Last_Activity = "Format TOC: a second tab after a short title"
+
+    For i = tabCount To 1 Step -1
+        Set tabRng = tempDoc.Range(tabStarts(i), tabStarts(i) + 1)
+        If Lp_TOC_Tab_Falls_Short(tabRng) Then tabRng.InsertAfter vbTab
+    Next i
     '*** End formatting ***
 
 

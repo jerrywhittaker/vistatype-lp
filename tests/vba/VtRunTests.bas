@@ -46,6 +46,10 @@ Public Sub VtRunAllTests()
     Set Suite = TestTocLinkEntry_Suite()
     Reporter.ListenTo Suite
 
+    Reporter.Trace "building Contents entries shorter than the hanging indent"
+    Set Suite = TestTocShortTitle_Suite()
+    Reporter.ListenTo Suite
+
     Reporter.Trace "building Shared text helpers"
     Set Suite = TestTextHelpers_Suite()
     Reporter.ListenTo Suite
