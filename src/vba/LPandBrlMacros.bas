@@ -18,6 +18,17 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 9/21/2026 - A BLANK LINE BEFORE EVERY TOC LINE WITH NO PAGE NUMBER. Jerry,
+'           - Lp  - 9/21/2026 - 9/21/2026: "the blank line goes before any line that has no
+'           - Lp  - 9/21/2026 - associated page number." Format the TOC gave the blank line only
+'           - Lp  - 9/21/2026 - to a wholly bold line; on "TOC Table 2 Formatting.docx" the bullet
+'           - Lp  - 9/21/2026 - in front of each title is never bold, so no unnumbered line got
+'           - Lp  - 9/21/2026 - one. There since 3.0.407, hidden 3.0.410-3.0.474 because those
+'           - Lp  - 9/21/2026 - lines were deleted. Now every line with no page number gets it,
+'           - Lp  - 9/21/2026 - except an empty line and a $pg line (Lp_TOC_Line_Gets_Blank_Before,
+'           - Lp  - 9/21/2026 - Lp_TOC_Line_Ends_In_Page_Number). New tests,
+'           - Lp  - 9/21/2026 - tests/vba/TestTocBlankLine.bas and
+'           - Lp  - 9/21/2026 - tests/test_toc_blank_line_before_unnumbered.py.
 ' Notes:    - Lp  - 9/21/2026 - FORMAT THE TOC NEVER DELETES A LINE. Jerry, 9/21/2026. The
 '           - Lp  - 9/21/2026 - bullet-legend pass in Lp_TOC_CleanAndFormat_TOC (3.0.410) deleted
 '           - Lp  - 9/21/2026 - every line that began with a bullet and had no page number at its
@@ -23851,6 +23862,79 @@ Private Function Lp_TOC_Line_Has_Page_Number(ByVal lineText As String) As Boolea
     Lp_TOC_Line_Has_Page_Number = regexTail.test(lineText)
 End Function
 
+' THE PATTERN FORMAT THE TOC USES TO FIND AN ENTRY'S PAGE NUMBER: a space, then a number, a
+' roman numeral or a letter and a number, at the very end of the line. One place, because two
+' questions are asked with it and they must get the same answer - "does this line get a blank
+' line in front of it" (Lp_TOC_Line_Ends_In_Page_Number) and "where does its tab go" (the second
+' loop of Lp_TOC_CleanAndFormat_TOC). A line that got neither would come out as neither an entry
+' nor a spaced-off line.
+'
+' Used with IgnoreCase ON, which is how the macro has always used it. So a title that ends in a
+' word made only of roman letters - "Part II", "Mix" - reads as ending in a page number, and has
+' done since 9/1/2025. Accepted, not chased; said here so nobody has to find it again.
+'
+' Version: 1.0  Date: 9/21/2026 - new, out of Lp_TOC_CleanAndFormat_TOC. Pattern unchanged.
+'
+Private Function Lp_TOC_Page_Number_Pattern() As String
+    Lp_TOC_Page_Number_Pattern = _
+        " (\b(M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})|[A-Za-z]?\d+))[\r\n]{1,2}$"
+End Function
+
+' DOES THIS LINE END IN ITS PAGE NUMBER? The question Format the TOC asks of every line that is
+' not a heading, to decide entry (tab, TOC 1) or not (Normal, and a blank line in front of it).
+'
+' A NON-BREAKING SPACE COUNTS AS A SPACE. "TOC Table 2 Formatting.docx" puts one in front of
+' every page number - "1.2<NBSP>Perception Is Everything<NBSP>6". Inside the macro they have
+' already been turned into ordinary spaces by the time this is asked; it does the same itself so
+' that it answers a line straight out of the book the same way, and so it can be tested.
+'
+' A string with no paragraph mark is answered the same way. An empty one is False.
+'
+' Version: 1.0  Date: 9/21/2026 - new. See Version 2.9 of Lp_TOC_CleanAndFormat_TOC.
+'
+Private Function Lp_TOC_Line_Ends_In_Page_Number(ByVal lineText As String) As Boolean
+    Dim t As String
+    Dim regexEnd As Object
+
+    t = Replace(lineText, Chr(160), " ")
+    If Len(t) = 0 Then Exit Function
+    If Right$(t, 1) <> vbCr And Right$(t, 1) <> vbLf Then t = t & vbCr
+
+    Set regexEnd = CreateObject("VBScript.RegExp")
+    With regexEnd
+        .pattern = Lp_TOC_Page_Number_Pattern()
+        .IgnoreCase = True
+        .Global = False
+    End With
+
+    Lp_TOC_Line_Ends_In_Page_Number = regexEnd.test(t)
+End Function
+
+' DOES THIS LINE GET A BLANK LINE IN FRONT OF IT? Jerry, 9/21/2026: "the blank line goes before
+' any line that has no associated page number." A wholly bold heading gets one as well, but
+' that is decided from its formatting, before the cleanup, and not here.
+'
+' Three kinds of line with no page number do NOT get one:
+'
+'   an empty line, or one that is nothing but spaces - there is nothing to set off;
+'   a "$pg" reference page line - it marks where a print page begins, and is not a title
+'     (the formatting loop passes over it too, and a Print Pg Num paragraph never reaches this);
+'   and, by definition, any line that ends in its page number.
+'
+' Version: 1.0  Date: 9/21/2026 - new. See Version 2.9 of Lp_TOC_CleanAndFormat_TOC.
+'
+Private Function Lp_TOC_Line_Gets_Blank_Before(ByVal lineText As String) As Boolean
+    Dim body As String
+
+    body = Replace(Replace(lineText, vbCr, ""), vbLf, "")
+    body = Trim$(Replace(Replace(body, Chr(160), " "), Chr(7), ""))
+
+    If Len(body) = 0 Then Exit Function
+    If Left$(body, 3) = "$pg" Then Exit Function
+
+    Lp_TOC_Line_Gets_Blank_Before = Not Lp_TOC_Line_Ends_In_Page_Number(lineText)
+End Function
+
 ' ONE find-and-replace over a fresh Duplicate of the range, with every property set explicitly.
 ' Word's find settings are application-wide, so a Find object inherits whatever was left in them -
 ' the block this replaced never set MatchAllWordForms or MatchSoundsLike at all. Taking a
@@ -23888,6 +23972,16 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     ' into a tab, un-bolds the number, applies TOC 1, and lays a tab in front of the "pn" in each
     ' Print Pg Num paragraph.
     '
+    ' Version: 2.9  Date: 9/21/2026 - A BLANK LINE BEFORE EVERY LINE WITH NO PAGE NUMBER. Jerry,
+    '                               9/21/2026: "the blank line goes before any line that has no
+    '                               associated page number." Until now only a WHOLLY BOLD line got
+    '                               one, and on "TOC Table 2 Formatting.docx" the leading bullet is
+    '                               never bold, so none of its ~98 unnumbered reading titles did.
+    '                               The no-page-number branch now calls Lp_TOC_Space_A_Heading too,
+    '                               through Lp_TOC_Line_Gets_Blank_Before - not an empty line, not a
+    '                               $pg line. The page number test is Lp_TOC_Line_Ends_In_Page_Number,
+    '                               asked AFTER the non-breaking spaces become ordinary ones. The
+    '                               bold-heading path is unchanged.
     ' Version: 2.8  Date: 9/21/2026 - FORMAT THE TOC NEVER DELETES A LINE. The bullet-legend pass
     '                               (3.0.410) deleted every line that began with a bullet and had
     '                               no page number at its end. On "TOC Table 2 Formatting.docx" -
@@ -24425,12 +24519,9 @@ Sub Lp_TOC_CleanAndFormat_TOC()
 
     '*** begin formatting ***
     ' === Unified regex pattern ===
-    Const unifiedPattern As String = _
-        " (\b(M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})|[A-Za-z]?\d+))[\r\n]{1,2}$"
-
     Set regexNum = CreateObject("VBScript.RegExp")
     With regexNum
-        .pattern = unifiedPattern
+        .pattern = Lp_TOC_Page_Number_Pattern()
         .IgnoreCase = True
         .Global = False
     End With
@@ -24460,8 +24551,10 @@ Sub Lp_TOC_CleanAndFormat_TOC()
             GoTo SkipPara
         End If
 
-        ' Test for number/roman/letter+number
-        hasNumberOrRoman = regexNum.test(paraRange.Text)
+        ' Test for number/roman/letter+number. The non-breaking spaces went above, and the bullets
+        ' and the leading spaces before that, so "<bullet> 1.2<NBSP>Perception Is Everything<NBSP>6"
+        ' is "1.2 Perception Is Everything 6" by now and is found. The same pattern as regexNum.
+        hasNumberOrRoman = Lp_TOC_Line_Ends_In_Page_Number(paraRange.Text)
 
         ' If no match, reset style to Normal but preserve bold map.
         ' tempDoc.Styles(wdStyleNormal), and the scratch document's Normal was set to the BOOK's
@@ -24490,6 +24583,13 @@ Sub Lp_TOC_CleanAndFormat_TOC()
                 para.Style = tempDoc.Styles(wdStyleNormal)
                 para.SpaceAfter = 0
             End If
+
+            ' AND A BLANK LINE IN FRONT OF IT - the same one a bold heading gets. Jerry, 9/21/2026:
+            ' "the blank line goes before any line that has no associated page number." Before
+            ' this only a wholly bold line got it, and a bullet in front of a title is never bold.
+            ' After the style, because setting Normal resets the space before. Not an empty line
+            ' and not a $pg line - see Lp_TOC_Line_Gets_Blank_Before.
+            If Lp_TOC_Line_Gets_Blank_Before(paraRange.Text) Then Lp_TOC_Space_A_Heading para
         End If
 
 SkipPara:

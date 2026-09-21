@@ -24,6 +24,7 @@ nothing tested them.
 | `test_inject_customui.py` | Embedding the ribbon in the built `.dotm`, and that doing it twice replaces rather than duplicates. |
 | `test_check_try_scope.py` | Saying when `make try` cannot test what was changed — including that a version bump on its own does not count. |
 | `test_toc_never_deletes_a_line.py` | Format the TOC deleting a line of the contents page — a `.Delete`, a `.Cut` or a replace that loses a paragraph mark in `Lp_TOC_CleanAndFormat_TOC` or any `Lp_TOC_` helper it calls. The bullet-legend pass cut one TOC from 202 paragraphs to 10 (9/21/2026). |
+| `test_toc_blank_line_before_unnumbered.py` | Format the TOC leaving out the blank line before a contents line with no page number — the no-page-number branch of `Lp_TOC_CleanAndFormat_TOC` must call `Lp_TOC_Space_A_Heading` through `Lp_TOC_Line_Gets_Blank_Before`, and the page number must be looked for after the non-breaking spaces are gone. The text decision itself is `tests/vba/TestTocBlankLine.bas` (9/21/2026). |
 
 Each test file also ends with a canary that runs the real checker over the real source. If
 one of those fails, `make build` is already refusing.

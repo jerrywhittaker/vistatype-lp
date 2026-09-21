@@ -38,6 +38,10 @@ Public Sub VtRunAllTests()
     Set Suite = TestTocPageNumbers_Suite()
     Reporter.ListenTo Suite
 
+    Reporter.Trace "building Contents lines that get a blank line in front"
+    Set Suite = TestTocBlankLine_Suite()
+    Reporter.ListenTo Suite
+
     Reporter.Trace "building Shared text helpers"
     Set Suite = TestTextHelpers_Suite()
     Reporter.ListenTo Suite
