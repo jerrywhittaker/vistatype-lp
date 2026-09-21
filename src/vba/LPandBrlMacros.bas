@@ -18,6 +18,18 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 9/20/2026 - A TITLE THAT ENDS IN A NUMBER NO LONGER STEALS THE PAGE NUMBER.
+'           - Lp  - 9/20/2026 - Reported by Jerry against "Problem TOC 2.docx": "Lesson 2 Add and
+'           - Lp  - 9/20/2026 - Subtract 10 or 100" is on page 143 and Format TOC gave it 100.
+'           - Lp  - 9/20/2026 - Lp_TOC_Join_Orphan_Page_Numbers asked whether the line above
+'           - Lp  - 9/20/2026 - already had a page number, and a BARE SPACE in front of trailing
+'           - Lp  - 9/20/2026 - digits counted - so the join was refused and 143 was left on its
+'           - Lp  - 9/20/2026 - own line. That test is now Lp_TOC_Line_Has_Page_Number, and it
+'           - Lp  - 9/20/2026 - takes DOT LEADERS OR A TAB as the evidence, never a bare space.
+'           - Lp  - 9/20/2026 - Jerry, 9/20/2026: a contents page may mix the two shapes, some
+'           - Lp  - 9/20/2026 - entries carrying the number on the same line and some on the line
+'           - Lp  - 9/20/2026 - below, and a raw contents page may or may not have leader dots -
+'           - Lp  - 9/20/2026 - so a space cannot be evidence. Covered by TestTocPageNumbers.
 ' Notes:    - MS  - 9/19/2026 - THREE AUTOCORRECT TABLES, ONE PER KIND OF DOCUMENT - a firewall,
 '           - MS  - 9/19/2026 - Jerry's word. WORD KEEPS ONE AUTOCORRECT LIST FOR THE WHOLE
 '           - MS  - 9/19/2026 - APPLICATION and nothing in VBA can make a second, so the nineteen
@@ -23252,10 +23264,12 @@ End Function
 '
 Private Sub Lp_TOC_Join_Orphan_Page_Numbers(ByVal workRng As Range)
     '
+    ' Version: 1.1  Date: 9/20/2026 - the "the line above already has its number" guard moved
+    '                                 out into Lp_TOC_Line_Has_Page_Number, which no longer
+    '                                 takes a bare space as evidence. Reported 9/20/2026.
     ' Version: 1.0  Date: 9/17/2026 - new. See the note above.
     '
     Dim regexLone As Object
-    Dim regexTail As Object
     Dim paraNo As Long
     Dim paraRange As Range
     Dim prevRange As Range
@@ -23281,15 +23295,11 @@ Private Sub Lp_TOC_Join_Orphan_Page_Numbers(ByVal workRng As Range)
         .Global = False
     End With
 
-    ' The line above already ends in a page number - the same test the legend pass uses, tolerating
-    ' a dot leader as well as a space because nothing has been cleaned up yet. A line that already
-    ' has its number is not waiting for one.
-    Set regexTail = CreateObject("VBScript.RegExp")
-    With regexTail
-        .pattern = "[. \t](\b(M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})|[A-Za-z]?\d+))[\r\n]{1,2}$"
-        .IgnoreCase = True
-        .Global = False
-    End With
+    ' Whether the line above already has its own page number is asked of
+    ' Lp_TOC_Line_Has_Page_Number, which takes DOT LEADERS as the evidence and a bare space as
+    ' nothing. A tab counts as well, and is tested for separately below. See the note on that
+    ' function: a bare space was what took the "100" out of "Lesson 2 Add and Subtract 10 or
+    ' 100" and left its real page number stranded.
 
     For paraNo = workRng.Paragraphs.count To 2 Step -1
         Set paraRange = workRng.Paragraphs(paraNo).Range
@@ -23304,9 +23314,9 @@ Private Sub Lp_TOC_Join_Orphan_Page_Numbers(ByVal workRng As Range)
             prevBody = Trim$(Replace(Replace(Replace(prevText, vbCr, ""), vbLf, ""), Chr(160), " "))
 
             ' Six things must all hold before a number is moved. Each one is a line that is NOT
-            ' waiting for a page number: an empty line, a second number, a line that already has
-            ' one, a line that already carries a tab, the last line of a TABLE CELL, and a
-            ' reference-page line.
+            ' waiting for a page number: an empty line, a second number, a line whose number is
+            ' marked out by dot leaders, a line that already carries a tab, the last line of a
+            ' TABLE CELL, and a reference-page line.
             '
             ' Chr(7) is the end-of-cell mark. A selection inside a table is refused at the top of
             ' Lp_TOC_CleanAndFormat_TOC, so this should be out of reach - but where it is not,
@@ -23315,7 +23325,7 @@ Private Sub Lp_TOC_Join_Orphan_Page_Numbers(ByVal workRng As Range)
             ' writing a tab over it raises. One comparison closes the whole class.
             If Len(prevBody) > 0 _
                And Not regexLone.test(prevText) _
-               And Not regexTail.test(prevText) _
+               And Not Lp_TOC_Line_Has_Page_Number(prevText) _
                And InStr(prevText, vbTab) = 0 _
                And InStr(prevText, Chr(7)) = 0 _
                And Left$(prevText, 3) <> "$pg" _
@@ -23332,6 +23342,49 @@ Private Sub Lp_TOC_Join_Orphan_Page_Numbers(ByVal workRng As Range)
 
 NoJoin:
 End Sub
+
+' DOES THIS LINE ALREADY CARRY ITS OWN PAGE NUMBER?
+'
+' Asked of the line ABOVE a paragraph that is nothing but a number, to decide whether that
+' number belongs to it. A line that already has its number is not waiting for one.
+'
+' THE EVIDENCE IS DOT LEADERS, NEVER A BARE SPACE. A tab counts too, but this function does not
+' test for one - see below. Reported by Jerry 9/20/2026 against
+' "Problem TOC 2.docx": "Lesson 2 Add and Subtract 10 or 100" is on page 143, and the entry came
+' out carrying 100. The test used to accept a space in front of the trailing number, so a TITLE
+' that merely ends in a digit read as a line that already had its page number; the join was
+' refused, 143 was left standing on its own line, and the entry pattern later took the 100 out of
+' the title. "Lesson 5 Place Value to 1,000" escaped only because the comma was not in the class.
+'
+' A bare space cannot be evidence, because Jerry's books mix the two shapes on ONE contents page
+' - some entries carry their page number on the same line, some on the line below - and a raw
+' contents page may or may not have leader dots. What decides it is that a lone number FOLLOWS:
+' this function is only ever asked about a line with such a number under it, so unless the line
+' marks its own number out with leaders or a tab, the digits at its end are title text.
+'
+' The tab is not tested here. The caller already refuses any line containing one, and the tab is
+' what the TOC styles use to draw their own leaders.
+'
+' Two dots are required, spaced or not - ". . . 143" and "...143" both count, "Lesson 2." does
+' not. The number vocabulary is the one the lone-number test uses, with IgnoreCase OFF: digits
+' with at most one leading letter, or a roman numeral in one case throughout.
+'
+' A string with no paragraph mark is answered the same way, so this can be tested.
+'
+' Version: 1.0  Date: 9/20/2026 - new, out of Lp_TOC_Join_Orphan_Page_Numbers.
+'
+Private Function Lp_TOC_Line_Has_Page_Number(ByVal lineText As String) As Boolean
+    Dim regexTail As Object
+
+    Set regexTail = CreateObject("VBScript.RegExp")
+    With regexTail
+        .pattern = "\.[ .\xA0]*\.[ \xA0]*([A-Za-z]?\d+|[ivxlcdm]+|[IVXLCDM]+)[ \t\xA0]*[\r\n]{0,2}$"
+        .IgnoreCase = False
+        .Global = False
+    End With
+
+    Lp_TOC_Line_Has_Page_Number = regexTail.test(lineText)
+End Function
 
 ' ONE find-and-replace over a fresh Duplicate of the range, with every property set explicitly.
 ' Word's find settings are application-wide, so a Find object inherits whatever was left in them -

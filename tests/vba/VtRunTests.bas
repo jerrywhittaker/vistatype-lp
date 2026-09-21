@@ -34,6 +34,10 @@ Public Sub VtRunAllTests()
     Set Suite = TestPageNumbers_Suite()
     Reporter.ListenTo Suite
 
+    Reporter.Trace "building Contents lines and their page numbers"
+    Set Suite = TestTocPageNumbers_Suite()
+    Reporter.ListenTo Suite
+
     Reporter.Trace "building Shared text helpers"
     Set Suite = TestTextHelpers_Suite()
     Reporter.ListenTo Suite
