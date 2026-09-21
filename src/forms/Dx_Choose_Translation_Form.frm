@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Dx_Choose_Translation_Form 
    Caption         =   "What braille translation will be used for this document? (331)"
-   ClientHeight    =   3144
+   ClientHeight    =   3870
    ClientLeft      =   120
    ClientTop       =   450
    ClientWidth     =   5355
@@ -14,6 +14,11 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 'Dx_Choose_Translation_Form
+' Version: 1.3 Date: 9/21/2026 - a Cancel button, at last. Cmd_Cancel_Click has been here since
+'                               at least 3/9/2024, but no Cmd_Cancel was on the form, so the only
+'                               way out was the X. Added in Word's designer on the build box: Cancel,
+'                               Alt+C, Tahoma 12 like the four table buttons, Cancel = True so
+'                               Esc closes the dialog. Under BANA EBAE Nemeth; form 36 points taller
 ' Version: 1.2 Date: 8/27/2026 - the four translation buttons call Dx_Set_BrailleType instead of
 '                               writing the BrailleType document variable themselves, so the type
 '                               and SWIFT's own DBTTemplate property are recorded together and in

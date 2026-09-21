@@ -16,6 +16,7 @@ Attribute VB_Exposed = False
 
 'Author: Jerry Whittaker -  jerry@vistatypelp.org
  
+' Version: 1.6  Date: 9/21/2026 - removed an empty Label6_Click; there is no Label6 on the form
 ' Version: 1.5  Date: 8/2/2026 - old permissive agreement replaced by the GPLv3 summary (Sh_Software_Agreement_Text) in a scrollable box, plus a View Full License button
 ' Version: 1.4  Date: 7/24/2026 - VersionLabel caption bumped 3.0.5 -> 3.0.6 (caption lives in the .frx)
 ' Version: 1.3  Date: 12/10/2019 - added alternative short url
@@ -25,10 +26,6 @@ Private Sub ExitAgreement_Click()
     Unload Me
 End Sub
 
-
-Private Sub Label6_Click()
-
-End Sub
 
 Private Sub ViewVersion_Click()
     Application.Run macroName:="Sh_Is_Doc_Open"

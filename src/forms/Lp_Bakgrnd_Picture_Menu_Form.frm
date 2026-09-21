@@ -15,12 +15,17 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
 ' Lp_Bakgrnd_Picture_Menu_Form
-' Version: 1.7  Date: 9/17/2026 - Jerry resized the form in the VBA editor and renamed
-'                                 PicturesColorGrayscaleButton to GrayscaleButton. THE HANDLER
-'                                 WAS RENAMED TO MATCH: an event handler whose control no longer
-'                                 exists does not raise anything, it simply never fires, so
-'                                 Pictures to Color or Grayscale would have done nothing at all
-'                                 and nothing in this pipeline would have said so
+' Version: 1.8  Date: 9/21/2026 - Pictures to Color or Grayscale works again. The handler is
+'                                 PicturesColorGrayscaleButton_Click once more, the name of the
+'                                 control actually on the form. It had been GrayscaleButton_Click
+'                                 since 1.7 (3.0.448), so the button did nothing, with no error,
+'                                 in every build from 3.0.448 to 3.0.471. Caught by
+'                                 tests/test_form_handlers_match_controls.py
+' Version: 1.7  Date: 9/17/2026 - Jerry resized the form in the VBA editor. (This note used to say
+'                                 he also renamed PicturesColorGrayscaleButton to GrayscaleButton
+'                                 and the handler was renamed to match. The rename never reached
+'                                 the .frx - the control is still PicturesColorGrayscaleButton -
+'                                 so the renamed handler never ran. Corrected in 1.8.)
 ' Version: 1.6  Date: 9/15/2026 - added SamePictureSizeButton, Resize This Picture Throughout the Book (Jerry)
 ' Version: 1.5  Date: 7/26/2026 - Pictures-to-In-Line no longer jumps to a bookmark another form left behind; records and returns to its own position
 ' Version: 1.4  Date: 7/24/2026 - no longer runs "MS_Set_Word_Config_For_Large_Print" on form open
@@ -78,7 +83,7 @@ Private Sub PicturesToInlineButton_Click()
     Unload Me
 End Sub
 
-Private Sub GrayscaleButton_Click()
+Private Sub PicturesColorGrayscaleButton_Click()
     Lp_Bakgrnd_Picture_Menu_Form.Hide
     Load Lp_Change_Image_Color_Form
     Lp_Change_Image_Color_Form.Show

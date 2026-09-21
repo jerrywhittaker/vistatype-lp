@@ -18,6 +18,15 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Sh  - 9/21/2026 - THREE FORM HANDLERS WITH NO CONTROL, found by a new test,
+'           - Sh  - 9/21/2026 - tests/test_form_handlers_match_controls.py, which reads each
+'           - Sh  - 9/21/2026 - form's control names out of its .frx. (1) Pictures to Color or
+'           - Sh  - 9/21/2026 - Grayscale on Lp_Bakgrnd_Picture_Menu_Form did nothing from 3.0.448
+'           - Sh  - 9/21/2026 - to 3.0.471: its handler was renamed GrayscaleButton_Click but the
+'           - Sh  - 9/21/2026 - control is still PicturesColorGrayscaleButton. Handler renamed
+'           - Sh  - 9/21/2026 - back. (2) Dx_Choose_Translation_Form had Cmd_Cancel_Click and no
+'           - Sh  - 9/21/2026 - Cancel button; the button is added (Alt+C, Esc). (3) An empty
+'           - Sh  - 9/21/2026 - Label6_Click on Lp_About_Title_And_Agreement, no Label6, removed.
 ' Notes:    - Lp  - 9/21/2026 - A BLANK LINE AFTER EVERY TABLE. Jerry, 9/21/2026: "in the fix common
 '           - Lp  - 9/21/2026 - file errors there should always be a blank line following a
 '           - Lp  - 9/21/2026 - table... that should be done before deleting multi para marks".
