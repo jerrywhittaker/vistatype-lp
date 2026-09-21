@@ -18,6 +18,41 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 9/21/2026 - A BLANK LINE AFTER EVERY TABLE. Jerry, 9/21/2026: "in the fix common
+'           - Lp  - 9/21/2026 - file errors there should always be a blank line following a
+'           - Lp  - 9/21/2026 - table... that should be done before deleting multi para marks".
+'           - Lp  - 9/21/2026 - New stage in Lp_Fix_Common_File_Errors, "Adding a blank line after
+'           - Lp  - 9/21/2026 - each table" (Lp_Add_Blank_After_Tables), just before "Removing
+'           - Lp  - 9/21/2026 - consecutive empty paragraph marks". The blank line is Normal with
+'           - Lp  - 9/21/2026 - no direct formatting, so a heading after a table does not leave an
+'           - Lp  - 9/21/2026 - empty heading; a blank or "1 point" paragraph already there counts.
+'           - Lp  - 9/21/2026 - Sh_Replace_Multiple_Para_Marks_No_Warning takes a new
+'           - Lp  - 9/21/2026 - keepBlankAfterTable, passed True from File Cleanup only, so it
+'           - Lp  - 9/21/2026 - keeps ONE blank line after every table and deletes the extras.
+'           - Lp  - 9/21/2026 - Braille and the other callers are unchanged. 34 passes, bar at 35.
+' Notes:    - Lp  - 9/20/2026 - FILE CLEANUP ON A FINISHED LP BOOK, six changes from Jerry's review.
+'           - Lp  - 9/20/2026 - (1) Lp_Add_Para_After_Image runs with the LP template attached. His
+'           - Lp  - 9/20/2026 - 8/5/2026 rule is REVERSED: "fix common file errors should be able to
+'           - Lp  - 9/20/2026 - run on any file regardless of whether it is the attached template lp
+'           - Lp  - 9/20/2026 - or normal.dotm". (2) The multi-column guard and the re-attach skip
+'           - Lp  - 9/20/2026 - are kept as they were. (3) Sh_Replace_Multiple_Para_Marks_No_Warning
+'           - Lp  - 9/20/2026 - never deletes a "1 point" paragraph, and keeps ONE blank paragraph
+'           - Lp  - 9/20/2026 - between two tables so Word cannot join them - both sides, braille
+'           - Lp  - 9/20/2026 - too. (4) Lp_Fix_Normal_Styles leaves font sizes in tables alone in an
+'           - Lp  - 9/20/2026 - LP book: "that is a technique we use make tables fit the screen
+'           - Lp  - 9/20/2026 - size". (5) Lp_Italics_To_Dashed_Underline no longer strips the bold
+'           - Lp  - 9/20/2026 - off bold italic: "bold italic should stay bold". (6) Strong and
+'           - Lp  - 9/20/2026 - Emphasis are replaced BEFORE the italics stage, so one run of File
+'           - Lp  - 9/20/2026 - Cleanup gives the same page as two.
+' Notes:    - Lp  - 9/20/2026 - EVERY IMAGE IN A PARAGRAPH OF ITS OWN. Lp_Add_Para_After_Image only
+'           - Lp  - 9/20/2026 - ever split off text AFTER an image; text in FRONT of one stayed
+'           - Lp  - 9/20/2026 - in the same paragraph. Found on "Problem TOC 6.docx": a contents
+'           - Lp  - 9/20/2026 - line reading "467 " and then a full-width picture. Jerry, 9/20/2026:
+'           - Lp  - 9/20/2026 - "add a paragraph before each picture too but that operation it
+'           - Lp  - 9/20/2026 - should come before multiple para marks are deleted" - it does, in
+'           - Lp  - 9/20/2026 - Lp_Fix_Common_File_Errors. It now runs with the LP template attached
+'           - Lp  - 9/20/2026 - too - the 8/5/2026 rule is reversed, see the note above. The stage
+'           - Lp  - 9/20/2026 - now reads "Putting each image in a paragraph of its own".
 ' Notes:    - Lp  - 9/20/2026 - NINE SECONDS OF SLEEP TAKEN OUT OF RE-ATTACH LP TEMPLATE. Jerry,
 '           - Lp  - 9/20/2026 - 9/20/2026: "the pauses were for an old word version, remove
 '           - Lp  - 9/20/2026 - them." Two of the three three-second pauses in
@@ -10214,6 +10249,14 @@ Sub Lp_Fix_Common_File_Errors()
 '
 ' Lp_Fix_Common_File_Errors
 '
+' Version: 3.17  Date: 9/21/2026 - a blank line after every table: new stage "Adding a blank line
+'                               after each table" (Lp_Add_Blank_After_Tables), just before the
+'                               empty paragraphs are removed, and that removal now keeps ONE
+'                               blank line after every table - 34 passes now (Jerry)
+' Version: 3.16  Date: 9/20/2026 - Strong and Emphasis are replaced BEFORE the italics pass, so
+'                               Emphasis is dashed on the first run, not the second. The style
+'                               removal that went with them stays where it was, as a step of its
+'                               own - 33 passes now. See the notes at both places (Jerry)
 ' Version: 3.15  Date: 9/15/2026 - compresses the spacing in text math equations, the whole book,
 '                               asking nothing - Compress Linear Math off the ribbon (Jerry)
 ' Version: 3.14  Date: 9/6/2026 - announces its 31 passes on the progress bar through
@@ -10266,6 +10309,7 @@ Sub Lp_Fix_Common_File_Errors()
     '   Places a paragraph mark before each $pg and turns them red
     '   Remove tabs before and after para marks
     '   makes sure all images are NOT followed immediatly by a line of text
+    '   Puts a blank line after every table, and keeps it when empty paragraphs are removed
     '   Converts superscript ordinals to normal style size
     '   Delete zero width spaces - often place by AI
     '   Compresses the spacing in text math equations (no spaces, hair space round = < > and the rest)
@@ -10303,7 +10347,7 @@ Sh_Spin_DoEvents
     Lp_Ffc_Step stepNo, "Replacing non-breaking spaces"
     Application.Run MacroName:="Sh_ReplaceNonBreakingSpacesWithNormalSpace"
 Sh_Spin_DoEvents
-    Lp_Ffc_Step stepNo, "Adding a paragraph after each image"
+    Lp_Ffc_Step stepNo, "Putting each image in a paragraph of its own"
     Application.Run MacroName:="Lp_Add_Para_After_Image"
 Sh_Spin_DoEvents
     Lp_Ffc_Step stepNo, "Fixing Abbyy FineReader text and headings"
@@ -10320,6 +10364,19 @@ Sh_Spin_DoEvents
 Sh_Spin_DoEvents
     Lp_Ffc_Step stepNo, "Fixing paragraph spacing"
     Application.Run MacroName:="Lp_Fix_Para_Space_Errors"
+Sh_Spin_DoEvents
+    ' Strong and Emphasis come off BEFORE the italics pass, from 9/20/2026. Until then this
+    ' stage ran near the end, after the italics pass, so Emphasis turned into plain italic too
+    ' late to be dashed: one run of File Cleanup left it italic and a second run dashed it, and
+    ' the page changed between the two. Now the first run gives the finished page.
+    '
+    ' ONLY the Strong and Emphasis part moves. Lp_Replace_Strong_With_Bold also calls
+    ' Lp_Remove_All_Styles_Except_Lp_Styles, which turns foreign custom paragraph styles into
+    ' Normal - and a custom style that is italic loses that italic when it becomes Normal. Run
+    ' here, before the italics pass, it would take the italic off that text instead of letting
+    ' the italics pass dash it. So the style removal stays where it always ran, further down.
+    Lp_Ffc_Step stepNo, "Replacing Strong with bold and Emphasis with italic"
+    Lp_Strong_And_Emphasis_To_Direct
 Sh_Spin_DoEvents
     Lp_Ffc_Step stepNo, "Changing italics to a dashed underline"
     Application.Run MacroName:="Lp_Italics_To_Dashed_Underline"
@@ -10364,8 +10421,10 @@ Sh_Spin_DoEvents
     Lp_Ffc_Step stepNo, "Replacing compact fractions with typed fractions"
     Application.Run MacroName:="Lp_Replace_Compact_Fractions_With_Fraction_Text"
 Sh_Spin_DoEvents
-    Lp_Ffc_Step stepNo, "Replacing Strong with bold and Emphasis with italic"
-    Application.Run MacroName:="Lp_Replace_Strong_With_Bold"
+    ' Where Lp_Replace_Strong_With_Bold used to run whole. Its Strong and Emphasis half now runs
+    ' before the italics pass - see the note there - and this is the other half, left in place.
+    Lp_Ffc_Step stepNo, "Removing styles that are not large print styles"
+    Application.Run MacroName:="Lp_Remove_All_Styles_Except_Lp_Styles"
 Sh_Spin_DoEvents
     Lp_Ffc_Step stepNo, "Removing headers and footers"
     Application.Run MacroName:="Lp_RemoveHeadAndFoot"
@@ -10386,13 +10445,26 @@ Sh_Spin_DoEvents
     ' Empty paragraphs go LAST of the repairs, and after Lp_Delete_Zero_Width_Spaces in
     ' particular: a paragraph holding nothing but a zero-width space is not empty until that
     ' pass has run. Nothing above this line creates a blank paragraph that is meant to stay --
-    ' Lp_Add_Para_After_Image splits an image away from the text stuck to it, and
+    ' Lp_Add_Para_After_Image splits an image away from the text on either side of it, and
     ' Sh_Para_Before_Dollar already reduces its own runs to a single mark. Added 8/13/2026 at
     ' Jerry's request; until then the only callers were the attach and the cleanup form, each
     ' running it as a step of their own. See the note in that macro about what "multiple
-    ' paragraph marks replaced by a single paragraph mark" means -- every blank line goes.
+    ' paragraph marks replaced by a single paragraph mark" means -- every blank line goes, except
+    ' a "1 point" paragraph and the one blank line that keeps two tables apart (9/20/2026).
+    '
+    ' A blank line after every table goes in FIRST, and the removal below is told to keep it.
+    ' Jerry, 9/21/2026: "in the fix common file errors there should always be a blank line
+    ' following a table... that should be done before deleting multi para marks". Put in first so
+    ' the removal can settle the count: where a table already had two or more blank lines under
+    ' it, the removal takes them down to the one, and never to none.
+    Lp_Ffc_Step stepNo, "Adding a blank line after each table"
+    Lp_Add_Blank_After_Tables
+Sh_Spin_DoEvents
+    ' Called DIRECTLY now, not through Application.Run, so it can be handed keepBlankAfterTable -
+    ' the same reason the braille attach calls it directly (see Dx_Attach_BANA_Template_Run).
+    ' showProgress stays False: this sequence has its own bar.
     Lp_Ffc_Step stepNo, "Removing consecutive empty paragraph marks"
-    Application.Run MacroName:="Sh_Replace_Multiple_Para_Marks_No_Warning"
+    Sh_Replace_Multiple_Para_Marks_No_Warning showProgress:=False, keepBlankAfterTable:=True
 Sh_Spin_DoEvents
 
     ' Color the $pg tags red LAST, so they are still red when this macro is run ON ITS OWN.
@@ -10417,6 +10489,9 @@ End Sub '*** end of Lp_Fix_Common_File_Errors macro ***
 
 Private Sub Lp_Ffc_Step(ByRef stepNo As Long, ByVal what As String)
 '
+' Version: 1.2  Date: 9/21/2026 - 35, for 34 passes: "Adding a blank line after each table" is new
+' Version: 1.1  Date: 9/20/2026 - 34, for 33 passes: the style removal that used to run inside
+'                               the Strong and Emphasis stage is now a step of its own
 ' Version: 1.0  Date: 9/6/2026
 '
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
@@ -10427,29 +10502,103 @@ Private Sub Lp_Ffc_Step(ByRef stepNo As Long, ByVal what As String)
 ' only LP_FFC_STEPS below kept honest.
 '
 ' NOT merged with Dx_Ffc_Step under the Lp_/Dx_ merge rule, and this is the reason: the two
-' totals differ (33 against 37) and each is a fact about its own sequence. A shared helper would
+' totals differ (35 against 37) and each is a fact about its own sequence. A shared helper would
 ' have to be told the total by every caller, which is the same line of code in a worse place.
 '
 ' stepNo is BYREF, and deliberately: it is a counter the caller owns and this has to advance it.
 ' That is the one shape the project's ByVal rule does not cover.
 '
-' LP_FFC_STEPS is ONE MORE than the 32 passes that actually run, and deliberately. An extra
+' LP_FFC_STEPS is ONE MORE than the 34 passes that actually run, and deliberately. An extra
 ' announcement sat above a commented-out MS_Clear_F_and_R_Params_and_Clipboard until
 ' 9/6/2026 and was removed then; if that pass is ever switched back on, announce
 ' it again AND raise this by one. Each step announces itself
-' BEFORE its pass runs, so a total of 32 would put the bar at 100% while the last pass was still
-' working - which is the one thing a progress bar must never say. At 33 the last step reads 97%
+' BEFORE its pass runs, so a total of 34 would put the bar at 100% while the last pass was still
+' working - which is the one thing a progress bar must never say. At 35 the last step reads 97%
 ' and the caller sets 100 once the work is actually done.
 '
 ' Says nothing and costs nothing when no bar is open - Sh_Progress_Say is gated on a flag. That
 ' is what lets this sequence run unchanged from the attach, which brings its own indicator.
 
-    Const LP_FFC_STEPS As Long = 33
+    Const LP_FFC_STEPS As Long = 35
 
     stepNo = stepNo + 1
     Sh_Progress_Say 100# * stepNo / LP_FFC_STEPS, what
 
 End Sub  '*** end of Lp_Ffc_Step ***
+
+Private Sub Lp_Add_Blank_After_Tables()
+'
+' Version: 1.1  Date: 9/21/2026 - a blank line already after a table is made plain Normal too,
+'                               not only a new one - an empty Heading 2 or numbered line left
+'                               there by a converter used to be deleted and would now be kept
+' Version: 1.0  Date: 9/21/2026
+'
+' Author: Jerry Whittaker - jerry@vistatypelp.org
+'
+' A stage of Lp_Fix_Common_File_Errors. Jerry, 9/21/2026: "in the fix common file errors there
+' should always be a blank line following a table... that should be done before deleting multi
+' para marks". It runs just before "Removing consecutive empty paragraph marks", which is told to
+' keep the blank line this puts in - see keepBlankAfterTable in
+' Sh_Replace_Multiple_Para_Marks_No_Warning.
+'
+' Looks at the paragraph straight after each TOP-LEVEL table (ActiveDocument.Tables - a table
+' nested in a cell is left alone). If that paragraph is already an empty line - blank, or a
+' "1 point" paragraph, by Sh_Para_Is_Empty_Line - nothing is done. Otherwise an empty paragraph
+' goes in front of it.
+'
+' The new paragraph is NORMAL with no direct formatting, not a copy of the paragraph it was split
+' from - Word gives a new paragraph mark the formatting of the one it went into, so a heading
+' straight after a table would otherwise leave an empty heading (and a list item an empty
+' numbered line).
+'
+' The cases that need no code of their own:
+'   * A table at the very end of the document. Word always keeps a paragraph after a table, so
+'     there is always one to look at - normally the empty last mark, and then nothing is done.
+'   * A table straight before another table. There is always exactly one paragraph between them
+'     or Word would have joined them. If it is blank it already is the blank line and nothing is
+'     added; if it holds text a blank goes in above that text. Either way one blank, not two.
+'
+' Walked from the LAST table to the first: an insert only shifts what comes after it, so the
+' tables still to be visited keep their places and their index numbers.
+'
+    Dim doc As Document
+    Dim i As Long
+    Dim tEnd As Long
+    Dim nextP As Paragraph
+    Dim newP As Paragraph
+
+    Set doc = ActiveDocument
+
+    For i = doc.Tables.count To 1 Step -1
+        tEnd = doc.Tables(i).Range.End
+        Set nextP = doc.Range(tEnd, tEnd).Paragraphs(1)
+
+        ' Defensive only: the paragraph after a top-level table is never in a table. If Word
+        ' ever says otherwise, adding nothing is the safe answer.
+        If Not nextP.Range.Information(wdWithInTable) Then
+            Set newP = Nothing
+            If Not Sh_Para_Is_Empty_Line(nextP) Then
+                nextP.Range.InsertParagraphBefore
+                ' The empty paragraph now starts where the table ends.
+                Set newP = doc.Range(tEnd, tEnd).Paragraphs(1)
+            ElseIf Sh_IsBlankParaMark(nextP) Then
+                ' A blank already there is the one the removal pass keeps - make it plain too,
+                ' or an empty heading or numbered line left by a converter would survive.
+                ' A "1 point" paragraph is left exactly as it is.
+                Set newP = nextP
+            End If
+            If Not newP Is Nothing Then
+                newP.Style = doc.Styles(wdStyleNormal)
+                newP.Reset                          ' direct paragraph formatting
+                newP.Range.Font.Reset               ' direct character formatting on the mark
+                newP.Range.ListFormat.RemoveNumbers ' direct list numbering, if any came with it
+            End If
+        End If
+
+        If i Mod 25 = 0 Then Sh_Spin_DoEvents
+    Next i
+
+End Sub  '*** end of Lp_Add_Blank_After_Tables ***
 
 
 ' Lp_Convert_Multi_Column_To_Single
@@ -10661,6 +10810,9 @@ Sub Lp_Italics_To_Dashed_Underline()
 '
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
+' Version: 1.3  Date: 9/20/2026 - bold italic KEEPS its bold and becomes bold with a dashed underline.
+'                                 Jerry, 9/20/2026: "all italics should underlined with the underline
+'                                 dashes but bold italic should stay bold." See the note below
 ' Version: 1.2  Date: 2/12/2024 - removed dashed underlines from spaces and punctuation marks -
 '                                 removed ".MatchWholeWord = True" replaces with ".MatchWholeWord = False"
 ' Version: 1.1  Date: 1/30/2024 - converted all forms (Bold, Underlined) of italics with dashed underlines - words only
@@ -10669,30 +10821,17 @@ Sub Lp_Italics_To_Dashed_Underline()
 ' Description:  changes italics to dashed underline
 '               Works on whole file - converts Italics with bold and/or underline
 
-
-    Selection.Find.ClearFormatting
-    With Selection.Find.Font
-        .Bold = True
-        .Italic = True
-    End With
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find.Replacement.Font
-        .Bold = False
-        .Italic = True
-    End With
-    With Selection.Find
-        .Text = ""
-        .Replacement.Text = ""
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = True
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
+    ' NO BOLD PASS, from 9/20/2026. Until then the first pass here found bold italic and replaced
+    ' it with Bold = False, Italic = True, so the italic pass below underlined it with the bold
+    ' gone. That pass is taken out rather than changed: the italic pass below sets only Italic and
+    ' Underline, so the bold on bold italic is never touched and simply stays. Jerry, 9/20/2026:
+    ' "bold italic should stay bold."
+    '
+    ' Italic that comes from a STYLE - Caption, Quote - is dashed too, and that is what Jerry
+    ' wants: Find with Format = True matches the italic the reader sees, whether it is typed on
+    ' or comes from the style, and the replacement puts "not italic" plus the dashed underline on
+    ' as direct formatting over it. Issue 4 - the scope of this pass - is a separate fault and
+    ' is not touched here.
 
     Selection.Find.ClearFormatting
     With Selection.Find.Font
@@ -11083,6 +11222,9 @@ Sub Lp_Fix_Normal_Styles()
 '
 ' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
+' Version: 2.2  Date: 9/20/2026 - in an LP book the Normal font size is no longer put on text in
+'                               TABLES - "leave table sizes alone in all lp books" (Jerry). The
+'                               indent pass is unchanged and still covers tables
 ' Version: 2.1  Date: 2/12/2024 - added many styles from "Normal" template
 ' Version: 2.0  Date: 8/27/2021 - added "Normal Indent" and "Normal Indent 2" to Normal
 ' version: 1.9  Date:  6/4/2021 - added remove left indent from normal style para
@@ -11581,6 +11723,24 @@ Sub Lp_Fix_Normal_Styles()
     On Error GoTo Next2
     'Application.Run MacroName:="Lp_Get_Doc_Setup_Params"  ' Places size of normal style font in public variable "Lp_Base_Font_Size"
     Normal_Style_Font_Size = ActiveDocument.Styles(wdStyleNormal).Font.Size
+
+    ' TABLES KEEP THEIR FONT SIZES IN AN LP BOOK, from 9/20/2026. Jerry: "font sizes in tables
+    ' should not be changed in lp documents for screens... that is a technique we use make tables
+    ' fit the screen size and it shifts the burden to the reader to enlarge (zoom) the table to
+    ' read it", and "yes, leave table sizes alone in all lp books". The pass below sets the
+    ' Normal size on every Normal character in the book, table cells included, which undid that.
+    '
+    ' Word's Find cannot be told to skip tables, so in an LP book the same replacement runs once
+    ' on each stretch of text BETWEEN the tables instead of once over the whole book - one
+    ' replacement per table, not one per paragraph, so a long book costs no more than it did.
+    ' The first-line indent pass at the top of this macro still runs everywhere, tables too:
+    ' "we don't want any indented paragraphs". A raw file, before the template is on, is sized
+    ' the old way, tables and all.
+    If Lp_Is_The_Attached_Template_LP = True Then
+        Lp_Fns_Size_Normal_Outside_Tables Normal_Style_Font_Size
+        GoTo Next2
+    End If
+
     Selection.Find.ClearFormatting
     Selection.Find.Style = ActiveDocument.Styles("Normal")
     Selection.Find.Replacement.ClearFormatting
@@ -11608,6 +11768,61 @@ On Error GoTo 0
 Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
 
 End Sub  '******* Lp_Fix_Normal_Styles Macro ************************
+
+Private Sub Lp_Fns_Size_Normal_Outside_Tables(ByVal sz As Single)
+    '
+    ' Version: 1.0  Date: 9/20/2026
+    '
+    ' Puts the Normal size on every Normal character of the main text that is NOT in a table -
+    ' Lp_Fix_Normal_Styles's last pass, for an LP book, where table sizes are left alone (Jerry,
+    ' 9/20/2026). See the note there.
+    '
+    ' ActiveDocument.Tables lists only the TOP-LEVEL tables, in order, so a table nested inside
+    ' another is skipped with its parent. Each stretch between one table's end and the next one's
+    ' start gets its own replacement, confined to that stretch by wdFindStop.
+    '
+    ' An EMPTY stretch - two tables with nothing between them - is skipped, and has to be: Find on
+    ' a collapsed range does not stay put, it searches on from there to the end of the book, and
+    ' would size the tables that follow.
+    Dim tbl As Table
+    Dim gapStart As Long
+
+    gapStart = ActiveDocument.Content.Start
+    For Each tbl In ActiveDocument.Tables
+        Lp_Fns_Size_Normal_In ActiveDocument.Range(gapStart, tbl.Range.Start), sz
+        gapStart = tbl.Range.End
+    Next tbl
+    Lp_Fns_Size_Normal_In ActiveDocument.Range(gapStart, ActiveDocument.Content.End), sz
+
+End Sub   '*** end of Lp_Fns_Size_Normal_Outside_Tables ***
+
+Private Sub Lp_Fns_Size_Normal_In(ByVal r As Range, ByVal sz As Single)
+    '
+    ' Version: 1.0  Date: 9/20/2026
+    '
+    ' One stretch of Lp_Fns_Size_Normal_Outside_Tables: the Normal size on every Normal character
+    ' in r, and nowhere else. Nothing to do on an empty range - see the note there.
+    If r.End <= r.Start Then Exit Sub
+
+    With r.Find
+        .ClearFormatting
+        .Style = ActiveDocument.Styles("Normal")
+        .Replacement.ClearFormatting
+        .Replacement.Font.Size = sz
+        .Text = ""
+        .Replacement.Text = ""
+        .Forward = True
+        .Wrap = wdFindStop
+        .Format = True
+        .MatchCase = False
+        .MatchWholeWord = False
+        .MatchWildcards = False
+        .MatchSoundsLike = False
+        .MatchAllWordForms = False
+        .Execute Replace:=wdReplaceAll
+    End With
+
+End Sub   '*** end of Lp_Fns_Size_Normal_In ***
 
 Sub Lp_Is_Text_Selected()
 '
@@ -14315,6 +14530,7 @@ Sub Lp_Replace_Section_Break_With_Page_Break()
 End Sub  '*** end of Lp_Replace_Section_Break_With_Page_Break Macro ***
 Sub Lp_Replace_Multiple_Para_Marks_With_Warning()
 '
+' Version: 2.1  Date: 9/21/2026 - keeps ONE blank line after every table, as File Cleanup does (Jerry)
 ' Version: 2.0  Date: 8/3/2026 - shows the please-wait box while the replacement runs; placed AFTER the caution prompt, not around it
 ' Version: 1.9  Date: 5/7/2025 - altered message content
 ' Version: 1.8  Date:  1/8/2019
@@ -14356,7 +14572,10 @@ Sub Lp_Replace_Multiple_Para_Marks_With_Warning()
     ' showProgress arrived False and the user got a spinner instead. Called DIRECTLY now,
     ' which also means a failure inside it propagates to RibbonAction and is reported,
     ' rather than being swallowed and leaving the box on screen.
-    Sh_Replace_Multiple_Para_Marks_No_Warning showProgress:=True
+    '
+    ' keepBlankAfterTable from 9/21/2026 - Jerry: the button keeps the one blank line after a
+    ' table, as File Cleanup does, rather than taking it back out.
+    Sh_Replace_Multiple_Para_Marks_No_Warning showProgress:=True, keepBlankAfterTable:=True
     
 End Sub    '***   end of  Lp_Replace_Multiple_Para_Marks_With_Warning macro ***
      
@@ -14395,16 +14614,27 @@ End Function   '*** end of Dx_Para_Marks_Message ***
 ' generate if a button's macro stops being a plain no-argument Sub, and this is not one. Checked
 ' against src/ribbon, src/keymap and RibbonDispatch.bas before the change.
 '
-' Its other four callers still reach it through Application.Run as a STATEMENT, which works
-' unchanged on a Function and discards the number. Only the two braille callers that report it
+' The Dx Selected Cleanup form still reaches it by name, as a STATEMENT, which works unchanged on
+' a Function and discards the number. File Cleanup and the LP attach call it directly as a
+' statement, to pass keepBlankAfterTable (9/21/2026). Only the two braille callers that report it
 ' ask for the value, and they call it DIRECTLY - a direct call returns the value and lets an error
 ' propagate, where Application.Run does neither.
 '
 ' deCount is NOT the answer and was never meant to be: it counts paragraphs WALKED, to throttle
 ' DoEvents to one in 200. removed is the new one and only moves on an actual delete.
 '
-Public Function Sh_Replace_Multiple_Para_Marks_No_Warning(Optional ByVal showProgress As Boolean = False) As Long
+Public Function Sh_Replace_Multiple_Para_Marks_No_Warning(Optional ByVal showProgress As Boolean = False, _
+                                                          Optional ByVal keepBlankAfterTable As Boolean = False) As Long
 '
+'  Version: 2.6  Date: 9/21/2026 - keepBlankAfterTable, OFF by default: when True, ONE blank
+'                                 paragraph stays straight after EVERY table, not only between two
+'                                 tables, and any more below it go. Only Lp_Fix_Common_File_Errors
+'                                 passes True - it has just put that blank line there with
+'                                 Lp_Add_Blank_After_Tables (Jerry, 9/21/2026). Braille and every
+'                                 other caller get exactly what they got before
+'  Version: 2.5  Date: 9/20/2026 - never deletes a "1 point" paragraph, and keeps ONE blank
+'                                 paragraph between two tables, so Word cannot join them (Jerry).
+'                                 Every caller, braille too. See the note above the walk
 '  Version: 2.4  Date: 8/29/2026 - will show a PROGRESS BAR when asked (Jerry). Optional and OFF by
 '                                 default, so the six existing callers are untouched: the two large
 '                                 print routes already put their own please-wait box up and a second
@@ -14455,8 +14685,17 @@ Public Function Sh_Replace_Multiple_Para_Marks_No_Warning(Optional ByVal showPro
     Dim removed As Long
     Dim spanEnd As Long
     Dim spanLen As Long
+    Dim hasTables As Boolean
+    Dim isCandidate As Boolean
+    Dim inCell As Boolean
+    Dim pending As Paragraph        ' topmost blank so far of the run being walked - see below
+    Dim belowIsTable As Boolean     ' the run's lower neighbor is in a table
+    Dim belowIsEmpty As Boolean     ' ... or is itself an empty line - see keepAfter
+    Dim keepAfter As Boolean        ' keepBlankAfterTable, and there is a table to keep one after
 
     Set doc = ActiveDocument
+    hasTables = (doc.Tables.count > 0)
+    keepAfter = keepBlankAfterTable And hasTables
 
     If Selection.Type = wdSelectionNormal Then
         Set rng = Selection.Range
@@ -14491,17 +14730,86 @@ Public Function Sh_Replace_Multiple_Para_Marks_No_Warning(Optional ByVal showPro
     ' Walk backward via the linked .Previous so we never random-index the (slow) Paragraphs
     ' collection. Capture prevP BEFORE any delete: deleting p invalidates p, not prevP.
     ' Every empty paragraph goes, however many there are in a row and whether or not it has a
-    ' blank neighbor. DoEvents only every 200 paragraphs.
+    ' blank neighbor - with the two exceptions below. DoEvents only every 200 paragraphs.
+    '
+    ' TWO EXCEPTIONS, from 9/20/2026 (Jerry):
+    '
+    ' (1) A paragraph in the "1 point" style is NEVER deleted. "bypass the 1 point style that
+    '     should be used between same color boxes when the user wants to keep the seperate (that
+    '     is why the style was created)". It is blank on purpose. It also counts as a neighbor
+    '     below, so blank lines next to it still go.
+    '
+    ' (2) Between two TABLES exactly ONE blank paragraph stays, and two or more come down to one.
+    '     "A para mark between tables should not be a problem as there is only one and if there
+    '     are two or more they should be replaced by one." Take the only paragraph out from
+    '     between two tables and Word joins them into one table.
+    '
+    ' How (2) stays one walk and not two: a run of blank lines is met from the BOTTOM up, so
+    ' its upper neighbor is not known until the walk reaches it. So the topmost blank seen so
+    ' far is held back in pending instead of deleted. Each further blank above it means the
+    ' held one is not the top after all - it goes, and the new one is held. When the walk
+    ' reaches a paragraph that is not blank, that is the upper neighbor, and Sh_Rmp_Settle
+    ' decides the held one: kept if the run's neighbors above AND below are both in a table,
+    ' deleted otherwise. The one kept is therefore the one straight after the upper table.
+    ' "In a table" is asked only of blank lines and the two ends of a run, never of every
+    ' paragraph, and not at all in a document with no tables - which then runs as it always did.
+    '
+    ' Every caller gets both exceptions, braille included: a braille file never carries the
+    ' "1 point" style, and two tables run together into one is wrong in either kind of book.
+    '
+    ' A THIRD, only when the caller passes keepBlankAfterTable - Lp_Fix_Common_File_Errors alone,
+    ' from 9/21/2026. Jerry: "in the fix common file errors there should always be a blank line
+    ' following a table". The held blank is then kept whenever its upper neighbor is a table,
+    ' whatever is below it - UNLESS the run's lower neighbor is already an empty line (a "1 point"
+    ' paragraph, or the document's own blank last mark, neither of which this can delete), so a
+    ' table never ends up with two blank lines under it. Same walk, same held paragraph; only
+    ' Sh_Rmp_Settle's rule widens.
     Do While Not (p Is Nothing)
         Set prevP = p.Previous          ' Nothing at the first paragraph of the document
 
         ' The document's own final paragraph mark cannot be removed - Word always keeps one -
         ' so leave it alone rather than ask and be refused.
+        isCandidate = False
         If p.Range.End < doc.Content.End Then
             If Sh_IsBlankParaMark(p) Then
+                If Not Sh_Para_Style_Is(p.Range, "1 point") Then isCandidate = True
+            End If
+        End If
+
+        If isCandidate Then
+            If hasTables Then
+                inCell = p.Range.Information(wdWithInTable)
+            Else
+                inCell = False
+            End If
+
+            If inCell Then
+                ' A blank line INSIDE a table cell goes at once, as it always has - the
+                ' between-tables rule is about the text between them, not inside them.
                 p.Range.Delete
                 removed = removed + 1
+            Else
+                If pending Is Nothing Then
+                    ' The bottom of a run. Nothing below it has been deleted in this run, so
+                    ' p.Next is its real lower neighbor. It exists: p is not the last paragraph.
+                    belowIsTable = False
+                    If hasTables Then belowIsTable = p.Next.Range.Information(wdWithInTable)
+                    ' Asked only when keeping a blank after every table, and never of a table
+                    ' paragraph - a blank line inside the first cell below is not an empty line
+                    ' between the two tables.
+                    belowIsEmpty = False
+                    If keepAfter And Not belowIsTable Then belowIsEmpty = Sh_Para_Is_Empty_Line(p.Next)
+                Else
+                    ' A blank above the held one, so the held one is not the top of the run.
+                    pending.Range.Delete
+                    removed = removed + 1
+                End If
+                Set pending = p
             End If
+        Else
+            ' Text, a "1 point" paragraph or the document's last mark - the top of any run.
+            removed = removed + Sh_Rmp_Settle(pending, belowIsTable, p, keepAfter, belowIsEmpty)
+            Set pending = Nothing
         End If
 
         If Not (prevP Is Nothing) Then
@@ -14527,6 +14835,12 @@ Public Function Sh_Replace_Multiple_Para_Marks_No_Warning(Optional ByVal showPro
         End If
     Loop
 
+    ' A run still held when the walk stops. prevP is its upper neighbor either way: the
+    ' paragraph just above the selection when the walk stopped at its edge, or Nothing at the
+    ' top of the document - and a run with nothing above it is not between two tables.
+    removed = removed + Sh_Rmp_Settle(pending, belowIsTable, prevP, keepAfter, belowIsEmpty)
+    Set pending = Nothing
+
     If showProgress Then
         Sh_Progress_Say 100, Format(removed, "#,##0") & " removed."
         Sh_Progress_Close
@@ -14535,6 +14849,39 @@ Public Function Sh_Replace_Multiple_Para_Marks_No_Warning(Optional ByVal showPro
     Sh_Replace_Multiple_Para_Marks_No_Warning = removed
 
 End Function   '***** Sh_Replace_Multiple_Para_Marks_No_Warning ********
+
+Private Function Sh_Rmp_Settle(ByVal pending As Paragraph, ByVal belowIsTable As Boolean, _
+                               ByVal aboveP As Paragraph, ByVal keepAfter As Boolean, _
+                               ByVal belowIsEmpty As Boolean) As Long
+    '
+    ' Version: 1.1  Date: 9/21/2026 - keepAfter: with it, the held blank is also KEPT when only
+    '                                the neighbor ABOVE is a table - the blank line after every
+    '                                table that Lp_Fix_Common_File_Errors wants (Jerry, 9/21/2026) -
+    '                                unless the neighbor below is already an empty line
+    '                                (belowIsEmpty), so the table gets one blank line, not two.
+    '                                False from every other caller, which get the 1.0 rule
+    ' Version: 1.0  Date: 9/20/2026
+    '
+    ' Decides the one blank paragraph Sh_Replace_Multiple_Para_Marks_No_Warning held back at the
+    ' top of a run of blank lines, now that the walk has reached the run's upper neighbor, aboveP.
+    ' KEPT when the neighbors above and below are both in a table - the one blank line that stops
+    ' Word joining the two tables (Jerry, 9/20/2026). Deleted otherwise, as every blank line was
+    ' before. Returns 1 for a delete and 0 for none, for the caller's count.
+    '
+    ' The table question is asked of aboveP only when the lower end was a table, so a run below
+    ' ordinary text costs no more than it did.
+    If pending Is Nothing Then Exit Function
+
+    If belowIsTable Or (keepAfter And Not belowIsEmpty) Then
+        If Not (aboveP Is Nothing) Then
+            If aboveP.Range.Information(wdWithInTable) Then Exit Function
+        End If
+    End If
+
+    pending.Range.Delete
+    Sh_Rmp_Settle = 1
+
+End Function   '*** end of Sh_Rmp_Settle ***
 
 Private Function Sh_IsBlankParaMark(p As Paragraph) As Boolean
     '
@@ -14561,6 +14908,24 @@ Private Function Sh_IsBlankParaMark(p As Paragraph) As Boolean
 
     Sh_IsBlankParaMark = (Len(txt) = 0)
 End Function   '***** Sh_IsBlankParaMark ********
+
+Private Function Sh_Para_Is_Empty_Line(ByVal p As Paragraph) As Boolean
+    '
+    ' Version: 1.0  Date: 9/21/2026
+    '
+    ' Does this paragraph already give a blank line on the page? True when it is blank by
+    ' Sh_IsBlankParaMark, or is in the "1 point" style - the same two tests
+    ' Sh_Replace_Multiple_Para_Marks_No_Warning uses, in one place. Asked of the paragraph straight
+    ' after a table by Lp_Add_Blank_After_Tables, and of the line below a run of blanks by
+    ' Sh_Replace_Multiple_Para_Marks_No_Warning when it is keeping a blank after every table.
+    '
+    If Sh_IsBlankParaMark(p) Then
+        Sh_Para_Is_Empty_Line = True
+    Else
+        Sh_Para_Is_Empty_Line = Sh_Para_Style_Is(p.Range, "1 point")
+    End If
+
+End Function   '*** end of Sh_Para_Is_Empty_Line ***
 
 Function Sh_Close_And_Reopen(ByVal targetDoc As Document) As Document
 '
@@ -17754,22 +18119,44 @@ Sub Lp_Add_Para_After_Image()
 
     ' place a para mark following each image - following text is sometime part of the image paragraph,
     '     fixes common problem with DAISY and NIMAS Files
+    ' and, from 9/20/2026, a para mark in FRONT of each image as well, so every image ends up in a
+    '     paragraph of its own
     '
     '  Author: Jerry Whittaker   jerry@vistatypelp.org
+    '  Version: 1.6  Date: 9/20/2026 - only PICTURES are split away: MathType equations and every
+    '                                  other inline object are left in place (Jerry). The mark
+    '                                  after an image is asked of its paragraph, so an image at
+    '                                  the foot of a table cell no longer grows the cell a line;
+    '                                  a page or column break after an image gets no mark, and
+    '                                  a line break after one becomes the paragraph mark.
+    '  Version: 1.5  Date: 9/20/2026 - runs on EVERY document again, LP template attached or not.
+    '                                  The 8/5/2026 guard is gone - see the note below (Jerry)
+    '  Version: 1.4  Date: 9/20/2026 - a para mark BEFORE each image too, unless the image already
+    '                                  starts its paragraph. Jerry, 9/20/2026: "add a paragraph
+    '                                  before each picture too". Found on "Problem TOC 6.docx",
+    '                                  where a contents line read "467 " and then a full-width
+    '                                  picture, all one paragraph - text IN FRONT of an image was
+    '                                  never split away, only text after it. The name still says
+    '                                  "After" because Application.Run calls it by that name.
     '  Version: 1.3  Date: 8/5/2026 - does nothing once the LP template is attached (Jerry)
     '  Version: 1.2  Date: 1/22/2026 - full rewrite
     '  Version: 1.1  Date: 4/9/2024 - complete rewrite - Much faster
     '  Version: 1.0  Date: 5/14/2019
 
     ' This repairs raw DAISY and NIMAS files, where text that belongs after an image is stuck in
-    ' the image's own paragraph. That is a BEFORE-the-template job. Once the LP template is on,
-    ' the images have been placed and sized and the paragraphs around them are styled, so adding
-    ' more paragraph marks only damages a document that is already right.
+    ' the image's own paragraph - and the same fault in a book the LP template is already on.
     '
-    ' The guard has to live HERE rather than at the caller. Lp_Fix_Common_File_Errors skips this
-    ' whole macro during the attach sequence, but File Cleanup on the LP ribbon runs the same
-    ' sequence on demand, and by then the template usually IS attached.
-    If Lp_Is_The_Attached_Template_LP = True Then Exit Sub
+    ' NO TEMPLATE GUARD, from 9/20/2026. From 8/5/2026 this macro stopped at once when the LP
+    ' template was attached, on the reasoning that an LP book's images were already placed and
+    ' more paragraph marks could only damage it. Jerry reversed that rule, 9/20/2026: "fix common
+    ' file errors should be able to run on any file regardless of whether it is the attached
+    ' template lp or normal.dotm", and "it seems rediculous to have the ability to run fix common
+    ' file error on the ribbon if it will do nothing". File Cleanup on the LP ribbon runs this
+    ' on a finished LP book, and it now does the work there too. It adds a mark only where an
+    ' image shares its paragraph with text, so a book that is already right is left as it is.
+    '
+    ' The attach still does not run it on a RE-attach - Lp_Attach_The_Template skips the whole
+    ' Lp_Fix_Common_File_Errors sequence then, because it ran on the first attach. Unchanged.
 
     Dim ils As inlineShape
     Dim rng As Range
@@ -17781,20 +18168,64 @@ Sub Lp_Add_Para_After_Image()
 
         Set ils = ActiveDocument.InlineShapes(i)
 
-        ' Create a range immediately after the image
-        Set rng = ils.Range.Duplicate
-        rng.Collapse Direction:=wdCollapseEnd
+        ' EQUATIONS ARE NOT IMAGES. A MathType equation - or an old Equation 3.0 one - is an
+        ' inline OLE OBJECT, and it sits in the middle of a sentence on purpose. Jerry, 9/20/2026:
+        ' "equations from MathType should not be touched... we configure Mathtype to produce
+        ' equations to match the lp base font size." Until this date the after-only split broke
+        ' every sentence at the end of an inline equation on a raw file; with the mark before as
+        ' well it would have broken it in three.
+        '
+        ' So the test NAMES the two picture types rather than excluding the OLE ones: a chart, a
+        ' form control or a horizontal line is left where it is too. What it cannot catch is an
+        ' equation that arrived as a PICTURE - NIMAS math delivered as an image, or a MathType
+        ' equation exported to GIF - which nothing in the file tells apart from a figure. Jerry,
+        ' 9/20/2026: pictures inside a sentence are rare in the books.
+        If ils.Type <> wdInlineShapePicture _
+           And ils.Type <> wdInlineShapeLinkedPicture Then GoTo NextShape
 
-        ' If the next character is NOT a paragraph mark, insert one
-        If rng.Characters.count > 0 Then
-            If rng.Characters(1).Text <> vbCr Then
-                rng.InsertAfter vbCr
-            End If
-        Else
-            ' Image is at the very end of the document
-            rng.InsertAfter vbCr
+        ' A mark AFTER the image, unless it already ends its paragraph. Asked of the paragraph,
+        ' as the mark before is, and for the same kind of reason: at the foot of a TABLE CELL the
+        ' next character is the end-of-cell mark, which Word hands back as vbCr and Chr(7) in
+        ' ONE character (measured 9/7/2026, see Lp_TOC_Para_Is_Bold) - so the old "is the next
+        ' character a vbCr" test answered no and wrote a mark in front of it. That left an
+        ' empty last line in the cell which "Removing consecutive empty paragraph marks" can
+        ' never take out, and every such cell grew a line. Found in review, 9/20/2026, the day
+        ' the template guard came off and finished books started getting this pass.
+        If ils.Range.End < ils.Range.Paragraphs(1).Range.End - 1 Then
+            Set rng = ils.Range.Duplicate
+            rng.Collapse Direction:=wdCollapseEnd
+            Select Case rng.Characters(1).Text
+                Case Chr(12), Chr(14)
+                    ' A page, section or column break straight after the image already starts
+                    ' what follows somewhere else. A mark in front of it would only leave an
+                    ' empty line at the top of the next page, which the blank-line pass keeps.
+                Case Chr(11)
+                    ' A line break: make it a paragraph mark, rather than adding one and leaving
+                    ' the text below starting with an empty line.
+                    rng.Characters(1).Text = vbCr
+                Case Else
+                    rng.InsertAfter vbCr
+            End Select
         End If
 
+        ' And a mark BEFORE the image, unless it already starts its paragraph. Asked of the
+        ' paragraph rather than of the character in front, because an image at the top of a
+        ' table cell has the previous cell's end mark in front of it, not a vbCr - and a
+        ' paragraph mark written there would land in the wrong cell.
+        '
+        ' Two images side by side in one paragraph come out as two paragraphs: walking
+        ' backwards, the second is split from the first here, and the first then finds a mark
+        ' already after it and itself at the start of its paragraph.
+        '
+        ' Any blank paragraph this leaves is removed by "Removing consecutive empty paragraph
+        ' marks", which Lp_Fix_Common_File_Errors runs AFTER this - Jerry's condition, 9/20/2026.
+        If ils.Range.Paragraphs(1).Range.Start < ils.Range.Start Then
+            Set rng = ils.Range.Duplicate
+            rng.Collapse Direction:=wdCollapseStart
+            rng.InsertBefore vbCr
+        End If
+
+NextShape:
     Next i
 
 End Sub   '*** end of Lp_Add_Para_After_Image macro ***
@@ -18261,6 +18692,9 @@ Sub Lp_Attach_The_Template()
 
     ' Attaches the LP template with style changes
     '
+    ' Version: 4.1  Date: 9/21/2026 - "Removing empty paragraphs" keeps ONE blank line after every
+    '                                 table, as File Cleanup now does, so the blank it puts in is not
+    '                                 taken back out a few steps later (Jerry)
     ' Version: 4.0  Date: 9/20/2026 - the three three-second pauses are gone. Jerry, 9/20/2026:
     '                                 "the pauses were for an old word version, remove them."
     '                                 Nine seconds of every run were spent asleep, and two of the
@@ -18343,7 +18777,7 @@ Sub Lp_Attach_The_Template()
     ' AN ERROR HANDLER AT LAST, 9/6/2026 - found in review while moving this macro onto the
     ' progress bar, and it is the fault the whole progress-bar job exists to remove.
     '
-    ' This macro had none. It runs the 32 cleanup passes and the 13 style passes through
+    ' This macro had none. It runs the 34 cleanup passes and the 13 style passes through
     ' Application.Run, which NEVER hands an error back - Word shows its own Run-time error
     ' dialog, the one offering Debug, and the caller's next line never runs. So a raw .doc
     ' that made one pass raise left the transcriber with the bar frozen part way along, its
@@ -18414,7 +18848,7 @@ Sub Lp_Attach_The_Template()
 Sh_Progress_Say 3, "Fixing common file errors"
 DoEvents
 
-        ' It owns 3 to 35 of the bar. Its own 32 passes count 0 to 100 inside that slice,
+        ' It owns 3 to 35 of the bar. Its own 34 passes count 0 to 100 inside that slice,
         ' so the bar goes forwards only - see Sh_Progress_Span. The slice is wide because
         ' this is much the slowest stage of an attach.
         Sh_Progress_Span 3, 35
@@ -18618,7 +19052,7 @@ DoEvents
 Sh_Progress_Say 60, "Removing empty paragraphs"
 DoEvents
 
-        Application.Run MacroName:="Sh_Replace_Multiple_Para_Marks_No_Warning"
+        Sh_Replace_Multiple_Para_Marks_No_Warning showProgress:=False, keepBlankAfterTable:=True
         
 Sh_Progress_Say 64, "Fixing Abbyy FineReader headings and normal styles"
 DoEvents
@@ -19472,6 +19906,10 @@ Sub Lp_Replace_Strong_With_Bold()
     ' Takes the Strong and Emphasis character styles OFF the text and leaves plain bold and plain
     ' italic in their place.
     '
+    ' Version: 2.2  Date: 9/20/2026 - the two style passes moved into
+    '                               Lp_Strong_And_Emphasis_To_Direct, so File Cleanup can run them
+    '                               BEFORE its italics pass and the style removal where it always
+    '                               ran. Run on its own, this macro does exactly what it did (Jerry)
     ' Version: 2.1  Date: 9/7/2026 - EMPHASIS as well, and both go through Lp_Style_To_Direct.
     ' Version: 2.0  Date: 9/7/2026 - IT NEVER DID ANYTHING. Measured on the build box against
     '                               Jerry's "Big TOC from NIMAS File.docx": 349 runs in Strong
@@ -19501,12 +19939,24 @@ Sub Lp_Replace_Strong_With_Bold()
     ' EMPHASIS TOO, from 9/7/2026 (Jerry: "do emphasis too"). It is Strong's twin in every way
     ' that matters: NIMAS and HTML turn <em> into it exactly as they turn <strong> into Strong, it
     ' is built in, and it hid behind the same BuiltIn = False guard. Italic in its place, not bold.
-    Lp_Style_To_Direct "Strong", True, False
-    Lp_Style_To_Direct "Emphasis", False, True
+    Lp_Strong_And_Emphasis_To_Direct
 
     Application.Run MacroName:="Lp_Remove_All_Styles_Except_Lp_Styles"
 
 End Sub   '*** end of Lp_Replace_Strong_With_Bold macro ***
+
+Private Sub Lp_Strong_And_Emphasis_To_Direct()
+    '
+    ' Version: 1.0  Date: 9/20/2026
+    '
+    ' Strong becomes plain bold and Emphasis plain italic - the first half of
+    ' Lp_Replace_Strong_With_Bold, on its own. Lp_Fix_Common_File_Errors calls this BEFORE its
+    ' italics pass, so the italic Emphasis leaves behind is dashed on the same run, and runs
+    ' Lp_Remove_All_Styles_Except_Lp_Styles later as a step of its own. See the note there.
+    Lp_Style_To_Direct "Strong", True, False
+    Lp_Style_To_Direct "Emphasis", False, True
+
+End Sub   '*** end of Lp_Strong_And_Emphasis_To_Direct ***
 
 Private Sub Lp_Style_To_Direct(ByVal styleName As String, ByVal wantBold As Boolean, _
                                ByVal wantItalic As Boolean)

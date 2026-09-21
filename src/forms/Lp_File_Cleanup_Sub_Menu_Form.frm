@@ -45,7 +45,7 @@ Private Sub OkayButton_Click()
     If FixCommonErrors Then
         ' THE BAR, from 9/6/2026 - Jerry's call: one progress indicator across the add-in.
         ' This showed Sh_Please_Wait_Form from 8/3/2026, which turned a spinner and said one
-        ' fixed sentence. The bar counts the 32 passes and names each one as it starts, and
+        ' fixed sentence. The bar counts the passes and names each one as it starts, and
         ' its own spinner keeps turning through the slow ones - Lp_Fix_Normal_Styles above
         ' all. Modeless, so the macro carries straight on.
         '
