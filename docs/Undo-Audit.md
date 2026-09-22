@@ -228,6 +228,12 @@ two presses.
 `Lp_Convert_Table_To_Pseudo_Columns` (`:17632`), `Lp_Convert_Table_To_Real_Columns` (`:17787`),
 both Export Selection macros.
 
+**Resize Pictures Used Throughout a Selected Range, 9/22/2026: one press of Ctrl+Z per press of
+Apply, and a session cannot be fewer.** The box stays open while the transcriber works, so an undo
+record held open across it would swallow her own typing and her own hand resize of the next
+picture. Each Apply opens and closes its own record; dialog 381 says how many presses it will
+take to put a whole session back, rather than promising one.
+
 **Tried and rejected, 9/21/2026: an `UndoClear` at the start of `Lp_Resize_Same_Picture_Throughout`.**
 It stopped a third Ctrl+Z from going on into earlier edits, but it also wiped the transcriber's
 hand resize of the model picture, which comes just before the macro and must stay undoable.

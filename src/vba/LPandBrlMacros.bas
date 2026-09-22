@@ -18,6 +18,40 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 9/22/2026 - RESIZE PICTURES USED THROUGHOUT A SELECTED RANGE - a new loop, and
+'           - Lp  - 9/22/2026 - Jerry's own design. Select a stretch of the book and start it; a
+'           - Lp  - 9/22/2026 - box (375) stays open while you click each picture in turn, size it
+'           - Lp  - 9/22/2026 - by hand, choose Left, Center or Leave as is, tick whether the text
+'           - Lp  - 9/22/2026 - below should run up beside it, and press Apply. The choices carry
+'           - Lp  - 9/22/2026 - over between pictures: "often the pictures are the same except for
+'           - Lp  - 9/22/2026 - fill color." His obstacle was that Word allows one selection at a
+'           - Lp  - 9/22/2026 - time, so a picture inside a selected range cannot be selected. The
+'           - Lp  - 9/22/2026 - answer is that the range stops being a selection: Selection.Range
+'           - Lp  - 9/22/2026 - is taken once into Lp_Rst_Range, a live Range that follows her own
+'           - Lp  - 9/22/2026 - edits, and Selection is never read again. A picture clicked outside
+'           - Lp  - 9/22/2026 - the range is refused (379), not used. Each press of Apply is its own
+'           - Lp  - 9/22/2026 - undo record - a record cannot be held open across the box without
+'           - Lp  - 9/22/2026 - swallowing her typing and her own hand resize.
+'           - Lp  - 9/22/2026 - The finding and the changing are now Lp_Same_Pic_Find and
+'           - Lp  - 9/22/2026 - Lp_Same_Pic_Apply, which the whole-book macro calls too, so there is
+'           - Lp  - 9/22/2026 - ONE rule for what counts as the same picture (3.0.429 and 3.0.430
+'           - Lp  - 9/22/2026 - were spent on having two). Order inside: size, then the mark, then
+'           - Lp  - 9/22/2026 - the alignment - a paragraph's formatting lives in its mark, so a
+'           - Lp  - 9/22/2026 - joined picture takes the following paragraph's style, and aligning
+'           - Lp  - 9/22/2026 - first would throw the choice away. Jerry, asked: a picture above a
+'           - Lp  - 9/22/2026 - heading joins the heading anyway.
+'           - Lp  - 9/22/2026 - F6 and Shift+F6 reach the box, and it stands aside while a $pg
+'           - Lp  - 9/22/2026 - validation is running, since both want the same key.
+'           - Lp  - 9/22/2026 - The decisions are pure helpers now (Lp_Rst_In_Range,
+'           - Lp  - 9/22/2026 - Lp_Same_Pic_Mark_May_Go, _Alt_Matches, _Ratio_Close, _Size_Differs,
+'           - Lp  - 9/22/2026 - _Align_Value) with tests in tests/vba/TestSamePicture.bas.
+' Notes:    - Sh  - 9/22/2026 - THE $pg WINDOW TITLES IN THE CODE HAD LOST THEIR NUMBERS - issue 16.
+'           - Sh  - 9/22/2026 - The forms read "Validate $pg Tags (364)" and "Delete/change/add $pg
+'           - Sh  - 9/22/2026 - (366)"; the constants did not. Windows matches the whole window
+'           - Sh  - 9/22/2026 - title, so the handle came back 0, that read as "no menu on screen",
+'           - Sh  - 9/22/2026 - and F6 gave itself up on the first press. Found by reading, not
+'           - Sh  - 9/22/2026 - pressed in Word. tests/test_form_caption_constants_match.py now
+'           - Sh  - 9/22/2026 - holds every such constant to its form's caption.
 ' Notes:    - Lp  - 9/22/2026 - RESIZE PICTURES USED THROUGHOUT NO LONGER ALIGNS. Jerry: "Drop the
 '           - Lp  - 9/22/2026 - Left align and Center options... drop the 374 message entirely."
 '           - Lp  - 9/22/2026 - Lp_Same_Pic_Align_Form is gone. Every copy, and the selected
@@ -2516,6 +2550,41 @@ Public Sh_Start_Pos As Long        ' Selection.Start when the outermost macro be
 Public Sh_Start_Doc As String      ' the document it was measured in
 Public Sh_Pos_Depth As Long        ' nesting level; only the outermost macro returns the user
 Public Sh_Pos_Saved As Boolean     ' guards against a return with no matching save (would jump to a stale spot)
+
+' HOW MANY PICTURES THE LAST RUN OF Lp_Same_Pic_Apply CHANGED. Module-level rather than handed
+' back through the parameters, because every helper in this project takes ByVal parameters - the
+' fault that settled that rule was a Variant passed to a ByRef String. Lp_Same_Pic_Apply clears
+' all four as it starts, so a caller reads them straight afterward.
+Public Lp_Same_Pic_Resized As Long     ' copies given the model's size
+Public Lp_Same_Pic_Already As Long     ' copies that were already that size
+Public Lp_Same_Pic_Joined As Long      ' pictures whose following paragraph mark became a space
+Public Lp_Same_Pic_Aligned As Long     ' pictures whose paragraph was left aligned or centered
+
+' RESIZE PICTURES USED THROUGHOUT A SELECTED RANGE - the state one run holds while its box is up.
+' Jerry, 9/22/2026. The range is a LIVE Range object: it follows the transcriber's own edits
+' between presses, where two saved numbers would go wrong silently, and unlike a bookmark it is
+' not a change to her book and leaves nothing behind if Word dies.
+Private Lp_Rst_Doc As Document        ' the book the range was taken in
+Private Lp_Rst_Range As Range         ' the held range
+Private Lp_Rst_Story As Long          ' its story, so a header picture can never read as "in range"
+Private Lp_Rst_IsOn As Boolean        ' the box is up. NEVER ask the form's .Visible - that creates it
+Private Lp_Rst_Busy As Boolean        ' an Apply is running; refuses a second one
+Private Lp_Rst_KeysBound As Boolean   ' F6 was taken, and has to be given back
+Private Lp_Rst_Applies As Long        ' presses of Apply, for the closing message
+Private Lp_Rst_Resized As Long        ' pictures resized across the whole run
+Private Lp_Rst_Joined As Long         ' paragraph marks replaced across the whole run
+Private Lp_Rst_Pictures As Long       ' pictures changed across the whole run, for the closing message
+Private Lp_Rst_LastW As Single        ' the size the last press used, for Use Last Size
+Private Lp_Rst_LastH As Single
+Private Lp_Rst_HasLast As Boolean     ' a size has been used, so Use Last Size has one to give
+
+' The box's whole window title, written out here rather than read off the form, because touching
+' the form to read its caption is what creates the form. Windows matches the WHOLE title when it
+' looks a window up, so this and the form's caption must stay identical - the test
+' tests/test_form_caption_constants_match.py holds them together.
+Private Const LP_RST_TITLE As String = "Resize Pictures in a Selected Range (375)"
+Private Const LP_RST_KEY_MACRO As String = "LPandBRL.LPandBrlMacros.Lp_Rst_ToggleFocus"
+Private Const LP_RST_BAR_MIN As Long = 25    ' below this many pictures in the range, no bar
 
 ' Large Print Page and Font Settings
 Public Lp_Base_Font_Size As String
@@ -20909,6 +20978,10 @@ Sub Lp_Resize_Same_Picture_Throughout()
 '
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
+' Version: 1.3  Date: 9/22/2026 - the finding and the changing moved into Lp_Same_Pic_Find and
+'                                 Lp_Same_Pic_Apply, which the selected-range macro calls too, so
+'                                 there is one rule for what counts as the same picture. What this
+'                                 macro does is unchanged
 ' Version: 1.2  Date: 9/22/2026 - NO ALIGNMENT AT ALL, and no dialog 374 (Jerry). Instead, each copy
 '                                 has the paragraph mark straight after it replaced with a space
 '                                 (Lp_Same_Pic_Join_Next_Para), so the text that was on the next
@@ -20973,16 +21046,14 @@ Sub Lp_Resize_Same_Picture_Throughout()
 ' docs/Reported-Errors.md).
 '
     Dim ref As InlineShape
-    Dim s As InlineShape
     Dim refData As String
     Dim refAlt As String
     Dim byAlt As Boolean
     Dim refW As Single, refH As Single
     Dim refStart As Long
-    Dim refInBody As Boolean
-    Dim total As Long, seen As Long, resized As Long, alreadySame As Long, i As Long
+    Dim refStory As Long
+    Dim resized As Long, alreadySame As Long
     Dim matches As Collection
-    Dim oldLock As Long
     Dim su_Prev As Boolean, barUp As Boolean, recording As Boolean, saved As Boolean
     Dim objUndo As UndoRecord
     Dim reader As Document
@@ -21045,8 +21116,7 @@ Sub Lp_Resize_Same_Picture_Throughout()
     refStart = ref.Range.Start
     ' A position means nothing across stories: a picture selected in a header or a footnote must not
     ' make the body picture that happens to start at the same number be skipped as "itself"
-    refInBody = (ref.Range.StoryType = wdMainTextStory)
-    total = ActiveDocument.InlineShapes.Count
+    refStory = ref.Range.StoryType
 
     su_Prev = Application.ScreenUpdating
     On Error GoTo eom
@@ -21057,32 +21127,13 @@ Sub Lp_Resize_Same_Picture_Throughout()
     Sh_Progress_Open "Resizing this picture throughout the book"
     barUp = True
 
-    ' --- FIND the copies. No undo record is open yet - see the note at the top.
+    ' --- FIND the copies, in the whole book. No undo record is open yet - see the note at the top.
+    ' The finding and the changing are two separate procedures, and the selected-range macro calls
+    ' the same two, so there is ONE rule for what counts as the same picture. Two rules is the
+    ' fault 3.0.429 and 3.0.430 were spent on (docs/Reported-Errors.md).
     Sh_Last_Activity = "Resize picture throughout: comparing pictures"
-    Set matches = New Collection
-    For Each s In ActiveDocument.InlineShapes
-        seen = seen + 1
-        If seen Mod 10 = 0 Then
-            ' 90 at most: the resizing still has to happen after the last picture is checked
-            Sh_Progress_Say 90# * seen / total, _
-                "Checking picture " & Format(seen, "#,##0") & " of " & Format(total, "#,##0")
-        End If
-
-        If Not (refInBody And s.Range.Start = refStart) Then
-            If Lp_Same_Pic_Is_Picture(s) Then
-                If Lp_Same_Pic_Matches(s, ref, refAlt, refData, reader) Then
-                    ' EVERY copy goes in the collection, including one already the right size:
-                    ' the paragraph mark after it is still replaced (Jerry, 9/22/2026).
-                    ' alreadySame is only counted so the closing message can say how many
-                    ' needed no resizing.
-                    If Abs(s.Width - refW) < 0.5 And Abs(s.Height - refH) < 0.5 Then
-                        alreadySame = alreadySame + 1
-                    End If
-                    matches.Add s
-                End If
-            End If
-        End If
-    Next s
+    Set matches = Lp_Same_Pic_Find(ActiveDocument.InlineShapes, ref, refAlt, refData, reader, _
+                                   refStart, refStory)
 
     If Not reader Is Nothing Then
         reader.Close SaveChanges:=False
@@ -21104,32 +21155,16 @@ Sub Lp_Resize_Same_Picture_Throughout()
     objUndo.StartCustomRecord "Resize Picture Throughout"
     recording = True
 
-    ' THE SELECTED PICTURE TOO, and every copy already the right size - Jerry, 9/22/2026, asked
-    ' whether only the resized copies should lose the mark after them: "yes" to all of them. The
-    ' selected picture's SIZE is still untouched - that is the size being copied from.
-    If Lp_Same_Pic_Join_Next_Para(ref) Then joined = joined + 1
-
-    For i = 1 To matches.Count
-        Set s = matches(i)
-        ' The size, when it is not already right. Resizing a picture that is already the wanted
-        ' size would put a pointless entry in the undo record and dirty the book.
-        If Abs(s.Width - refW) >= 0.5 Or Abs(s.Height - refH) >= 0.5 Then
-            oldLock = s.LockAspectRatio
-            s.LockAspectRatio = msoFalse
-            s.Width = refW
-            s.Height = refH
-            s.LockAspectRatio = oldLock
-        End If
-
-        ' And the paragraph mark straight after it becomes a space, so the text below runs on
-        ' beside the picture. Anything else after it is left alone.
-        If Lp_Same_Pic_Join_Next_Para(s) Then joined = joined + 1
-    Next i
+    ' No alignment here (Jerry, 9/22/2026), so 0 goes in for it. The selected picture is included:
+    ' its SIZE is untouched - that is what is being copied from - but the mark after it is replaced
+    ' like every other copy's.
+    Lp_Same_Pic_Apply matches, ref, refW, refH, 0, True, True, False
 
     objUndo.EndCustomRecord
     recording = False
-    ' matches holds EVERY copy, so the ones already the right size come back out of this count
-    resized = matches.Count - alreadySame
+    resized = Lp_Same_Pic_Resized
+    alreadySame = Lp_Same_Pic_Already
+    joined = Lp_Same_Pic_Joined
 
     Sh_Progress_Close
     barUp = False
@@ -21186,6 +21221,838 @@ eom:
 
 End Sub  '***** end of Lp_Resize_Same_Picture_Throughout *****
 
+' FINDS every copy of ref in a collection of in-line shapes, and hands them back in a Collection.
+'
+' NO UNDO RECORD MAY BE OPEN while this runs. It reads a picture's WordOpenXML when the picture
+' has no description, and that read inside an open record is what cost the single Ctrl+Z on
+' 9/15/2026 (see the note at the head of Lp_Resize_Same_Picture_Throughout).
+'
+' The collection it is given is what decides the scope: ActiveDocument.InlineShapes for the whole
+' book, a Range's InlineShapes for one stretch of it. One procedure, so there is only ever ONE
+' rule for what counts as the same picture - the whole of what went wrong in 3.0.429 and 3.0.430
+' was two rules in one run.
+'
+' The model picture itself is left out, matched on its start AND its story: a position means
+' nothing across stories, so a picture in a header that happens to start at the same number as the
+' one in the body is not mistaken for it.
+'
+' Version: 1.0  Date: 9/22/2026
+Private Function Lp_Same_Pic_Find(ByVal pics As InlineShapes, ByVal ref As InlineShape, _
+                                  ByVal refAlt As String, ByVal refData As String, _
+                                  ByVal reader As Document, _
+                                  ByVal refStart As Long, ByVal refStory As Long) As Collection
+    Dim found As Collection
+    Dim s As InlineShape
+    Dim total As Long, seen As Long
+
+    Set found = New Collection
+    Set Lp_Same_Pic_Find = found
+    If pics Is Nothing Then Exit Function
+
+    total = pics.count
+    If total = 0 Then Exit Function
+
+    For Each s In pics
+        seen = seen + 1
+        If seen Mod 10 = 0 Then
+            ' 90 at most: the resizing still has to happen after the last picture is checked
+            Sh_Progress_Say 90# * seen / total, _
+                "Checking picture " & Format(seen, "#,##0") & " of " & Format(total, "#,##0")
+        End If
+
+        If Not (s.Range.StoryType = refStory And s.Range.Start = refStart) Then
+            If Lp_Same_Pic_Is_Picture(s) Then
+                If Lp_Same_Pic_Matches(s, ref, refAlt, refData, reader) Then found.Add s
+            End If
+        End If
+    Next s
+End Function  '***** end of Lp_Same_Pic_Find *****
+
+' GIVES every picture in matches the model's size, replaces the paragraph mark after it with a
+' space, and sets its paragraph's alignment - whichever of those the caller asked for.
+'
+' THE CALLER OPENS THE UNDO RECORD, and this runs inside it. Nothing in here runs a Find or reads
+' WordOpenXML, which is what keeps a run to one Ctrl+Z.
+'
+' THE ORDER IS THE POINT: size, then the mark, then the alignment. A paragraph's formatting lives
+' in its paragraph mark, so replacing the picture's mark puts the picture into the FOLLOWING
+' paragraph - it takes that paragraph's style and alignment. Aligning first would throw the
+' alignment away; aligning last sets the paragraph the picture actually ended up in.
+'
+' alignMode: 0 leave the position alone, 1 left, 2 center. joinNext: replace the mark after each
+' picture. includeRef: do the same to the model picture. resizeRef: give the model picture the size
+' too, which is right only when the size came from somewhere other than the model itself.
+'
+' The four counts come back in the module variables Lp_Same_Pic_Resized, _Already, _Joined and
+' _Aligned, cleared here on the way in.
+'
+' Version: 1.0  Date: 9/22/2026
+Private Sub Lp_Same_Pic_Apply(ByVal matches As Collection, ByVal ref As InlineShape, _
+                              ByVal refW As Single, ByVal refH As Single, _
+                              ByVal alignMode As Long, ByVal joinNext As Boolean, _
+                              ByVal includeRef As Boolean, ByVal resizeRef As Boolean)
+    Dim s As InlineShape
+    Dim i As Long
+    Dim oldLock As Long
+    Dim alignWanted As Long
+
+    Lp_Same_Pic_Resized = 0
+    Lp_Same_Pic_Already = 0
+    Lp_Same_Pic_Joined = 0
+    Lp_Same_Pic_Aligned = 0
+
+    alignWanted = Lp_Same_Pic_Align_Value(alignMode)
+
+    If includeRef And Not ref Is Nothing Then
+        ' The model picture's SIZE is normally untouched - it is what is being copied from. It is
+        ' resized only when the size came from somewhere else, which is Use Last Size.
+        If resizeRef Then
+            If Lp_Same_Pic_Size_Differs(ref.Width, ref.Height, refW, refH) Then
+                oldLock = ref.LockAspectRatio
+                ref.LockAspectRatio = msoFalse
+                ref.Width = refW
+                ref.Height = refH
+                ref.LockAspectRatio = oldLock
+                Lp_Same_Pic_Resized = Lp_Same_Pic_Resized + 1
+            Else
+                Lp_Same_Pic_Already = Lp_Same_Pic_Already + 1
+            End If
+        End If
+        If joinNext Then
+            If Lp_Same_Pic_Join_Next_Para(ref) Then Lp_Same_Pic_Joined = Lp_Same_Pic_Joined + 1
+        End If
+        If alignWanted >= 0 Then
+            ref.Range.ParagraphFormat.Alignment = alignWanted
+            Lp_Same_Pic_Aligned = Lp_Same_Pic_Aligned + 1
+        End If
+    End If
+
+    If matches Is Nothing Then Exit Sub
+
+    For i = 1 To matches.count
+        Set s = matches(i)
+
+        ' The size, when it is not already right. Resizing a picture that is already the wanted
+        ' size would put a pointless entry in the undo record and dirty the book.
+        If Lp_Same_Pic_Size_Differs(s.Width, s.Height, refW, refH) Then
+            oldLock = s.LockAspectRatio
+            s.LockAspectRatio = msoFalse
+            s.Width = refW
+            s.Height = refH
+            s.LockAspectRatio = oldLock
+            Lp_Same_Pic_Resized = Lp_Same_Pic_Resized + 1
+        Else
+            Lp_Same_Pic_Already = Lp_Same_Pic_Already + 1
+        End If
+
+        If joinNext Then
+            If Lp_Same_Pic_Join_Next_Para(s) Then Lp_Same_Pic_Joined = Lp_Same_Pic_Joined + 1
+        End If
+
+        If alignWanted >= 0 Then
+            ' It is the picture's PARAGRAPH that is aligned, not the picture - an in-line picture
+            ' sits in a paragraph like a character does, which is how Align Pictures does it too.
+            s.Range.ParagraphFormat.Alignment = alignWanted
+            Lp_Same_Pic_Aligned = Lp_Same_Pic_Aligned + 1
+        End If
+    Next i
+End Sub  '***** end of Lp_Same_Pic_Apply *****
+
+' The Word alignment a dialog's choice means: 0 leave the position alone, 1 left, 2 center.
+' -1 comes back for "do not touch it", and for a number nobody recognizes, because a wrong number
+' must not silently left-align a book.
+'
+' Version: 1.0  Date: 9/22/2026
+Private Function Lp_Same_Pic_Align_Value(ByVal alignMode As Long) As Long
+    Select Case alignMode
+        Case 1: Lp_Same_Pic_Align_Value = wdAlignParagraphLeft
+        Case 2: Lp_Same_Pic_Align_Value = wdAlignParagraphCenter
+        Case Else: Lp_Same_Pic_Align_Value = -1
+    End Select
+End Function  '***** end of Lp_Same_Pic_Align_Value *****
+
+' True when a picture is not already the size wanted. Half a point of slack, because Word keeps a
+' picture's size in points to several decimal places and an exact comparison would resize pictures
+' that are already right - a pointless entry in the undo record, and a dirtied book.
+'
+' Version: 1.0  Date: 9/22/2026
+Private Function Lp_Same_Pic_Size_Differs(ByVal w As Single, ByVal h As Single, _
+                                          ByVal refW As Single, ByVal refH As Single) As Boolean
+    Lp_Same_Pic_Size_Differs = (Abs(w - refW) >= 0.5 Or Abs(h - refH) >= 0.5)
+End Function  '***** end of Lp_Same_Pic_Size_Differs *****
+
+' True when two pictures carry the same description. Case is ignored and the ends are trimmed,
+' because a description typed twice is rarely typed identically. AN EMPTY DESCRIPTION MATCHES
+' NOTHING, not even another empty one: a book that leaves pictures undescribed would otherwise
+' have every one of them count as the same picture.
+'
+' Version: 1.0  Date: 9/22/2026
+Private Function Lp_Same_Pic_Alt_Matches(ByVal alt As String, ByVal refAlt As String) As Boolean
+    If Len(Trim$(alt)) = 0 Then Exit Function
+    If Len(Trim$(refAlt)) = 0 Then Exit Function
+    Lp_Same_Pic_Alt_Matches = (StrComp(Trim$(alt), Trim$(refAlt), vbTextCompare) = 0)
+End Function  '***** end of Lp_Same_Pic_Alt_Matches *****
+
+' True when two pictures are within 5 per cent of the same shape - width against height. Scaling
+' does not change a shape, so a copy shown at any size still answers yes.
+'
+' Version: 1.0  Date: 9/22/2026
+Private Function Lp_Same_Pic_Ratio_Close(ByVal wa As Single, ByVal ha As Single, _
+                                         ByVal wb As Single, ByVal hb As Single) As Boolean
+    Dim ra As Double, rb As Double
+
+    If ha <= 0 Or hb <= 0 Then Exit Function
+    If wa <= 0 Or wb <= 0 Then Exit Function
+    ra = wa / ha
+    rb = wb / hb
+    Lp_Same_Pic_Ratio_Close = (Abs(ra - rb) <= 0.05 * ra)
+End Function  '***** end of Lp_Same_Pic_Ratio_Close *****
+
+' True when the paragraph mark straight after a picture may be replaced with a space. The facts
+' are handed in as numbers and flags rather than read off a Range, so this can be tested headlessly
+' (tests/vba/README.md: anything reaching a Range hangs the runner).
+'
+'   afterText    the one character after the picture, as Word hands it back
+'   afterEnd     where that character ends
+'   storyLength  the end of the story it sits in
+'   picInTable   the picture is inside a table
+'   nextInTable  the paragraph after the mark is inside a table
+'   sameCell     both are in the SAME cell
+'
+' Version: 1.0  Date: 9/22/2026
+Private Function Lp_Same_Pic_Mark_May_Go(ByVal afterText As String, ByVal afterEnd As Long, _
+                                         ByVal storyLength As Long, _
+                                         ByVal picInTable As Boolean, ByVal nextInTable As Boolean, _
+                                         ByVal sameCell As Boolean) As Boolean
+    ' The last mark in the story: Word puts it straight back.
+    If afterEnd >= storyLength Then Exit Function
+    ' A lone paragraph mark and nothing else. The end of a table cell reads back as two characters,
+    ' Chr(13) & Chr(7), so it fails this test and is left alone.
+    If afterText <> vbCr Then Exit Function
+    ' A mark in front of a table would try to pull a table row up into the paragraph. A table
+    ' NESTED in the picture's own cell counts: both sides read as "in a table", so the cells have
+    ' to be compared as well.
+    If nextInTable Then
+        If Not picInTable Then Exit Function
+        If Not sameCell Then Exit Function
+    End If
+    Lp_Same_Pic_Mark_May_Go = True
+End Function  '***** end of Lp_Same_Pic_Mark_May_Go *****
+
+' ============================================================================================
+' RESIZE PICTURES USED THROUGHOUT A SELECTED RANGE - the loop, Jerry, 9/22/2026
+'
+' The same job as Resize Pictures Used Throughout, but inside one stretch of the book, and over
+' and over without starting again.
+'
+' JERRY'S OBSTACLE, IN HIS WORDS: "when a range is selected a picture in that range cannot be
+' selected because the two selections conflict... one selection at a time." That goes away the
+' moment the range stops being a SELECTION. This takes Selection.Range once, at the start, into
+' Lp_Rst_Range, and never reads or writes Selection again. From then on the only selection in
+' Word is the picture the transcriber just clicked, which is what it has to be.
+'
+' WHY A LIVE Range OBJECT AND NOT A BOOKMARK OR TWO NUMBERS: the dialog stays open, so she can
+' type in her book between presses. A Range follows her edits; saved character positions would be
+' wrong the moment she typed, and wrong silently. A bookmark would be a change to her book - it
+' dirties the file, shows in Word's bookmark list, and is left behind if Word dies. The retired
+' TempPlaceholder bookmark failed three ways for reasons written up at the top of this module.
+' A Range object leaves nothing behind to clean up.
+'
+' EACH PRESS OF APPLY IS ONE Ctrl+Z, and a whole session cannot be one: an undo record held open
+' across the dialog would swallow her own typing and her own hand resize of the next picture. Her
+' hand resize has to stay her own undo step - docs/Undo-Audit.md, 9/21/2026, where an UndoClear
+' here was tried and rejected for wiping exactly that.
+'
+' THE SETTINGS CARRY OVER between pictures, Jerry: "often the pictures are the same except for
+' fill color." The form stays loaded, so its buttons hold their own state; nothing stores them.
+' ============================================================================================
+
+' Bkgrnd & Picture Tools - Resize Pictures Used Throughout a Selected Range
+'
+' Author: Jerry Whittaker - jerry@vistatypelp.org
+'
+' Version: 1.0  Date: 9/22/2026
+Public Sub Lp_Resize_Pictures_In_Range()
+    Dim r As Range
+
+    Application.Run MacroName:="Sh_Is_Doc_Open"
+
+    ' Already running. A second start would hold a second range and nobody could tell which one
+    ' Apply was working in. Bring the box she already has back to the front instead.
+    If Lp_Rst_IsOn Then
+        On Error Resume Next
+        Lp_Same_Pic_Range_Form.Show vbModeless
+        Err.Clear
+        On Error GoTo 0
+        Exit Sub
+    End If
+
+    ' A RANGE IS NEEDED, and this says so rather than guessing - Jerry, 9/22/2026. Two characters
+    ' is the floor: one clicked picture is a one-character range, and as a stretch of book to work
+    ' in it would mean nothing.
+    Set r = Selection.Range
+    If r.End - r.Start < 2 Then
+        Sh_Say "Select the part of the book you want to work in first - drag across it, or hold " _
+             & "Shift and use the arrow keys." & vbCr & vbCr _
+             & "Then choose Resize Pictures Used Throughout a Selected Range. A box stays open " _
+             & "while you click each picture in turn, set its size by hand, and press Apply." & vbCr & vbCr _
+             & "Pictures outside the part you picked are never touched.", "VistaType LP (376)"
+        Exit Sub
+    End If
+
+    If r.InlineShapes.count = 0 Then
+        Sh_Say "There are no pictures in line with the text in the part of the book you " _
+             & "selected." & vbCr & vbCr _
+             & "If the pictures there float over the text, use All Pictures to Inline first.", _
+               "VistaType LP (377)"
+        Exit Sub
+    End If
+
+    Set Lp_Rst_Doc = ActiveDocument
+    Set Lp_Rst_Range = r.Duplicate
+    Lp_Rst_Story = Lp_Rst_Range.StoryType
+    Lp_Rst_Applies = 0
+    Lp_Rst_Resized = 0
+    Lp_Rst_Joined = 0
+    Lp_Rst_Busy = False
+
+    ' The flag goes up BEFORE the box does. Raised afterward, the first thing the box calls back
+    ' would read it as False - the lesson Sh_Progress_Open carries.
+    Lp_Rst_IsOn = True
+    Lp_Rst_BindKeys
+
+    Lp_Same_Pic_Range_Form.Show vbModeless
+    Lp_Rst_Say_Step "Click a picture inside your range, set its size by hand, then press Apply."
+
+    ' THE CURSOR GOES TO THE TOP OF THE RANGE and the book gets the keyboard - Jerry, 9/22/2026.
+    ' Putting the cursor there also takes the highlight off the range, which is what makes the
+    ' first picture clickable. The range itself is held in Lp_Rst_Range and is not a selection,
+    ' so nothing is lost by moving the cursor.
+    On Error Resume Next
+    ActiveDocument.Range(Lp_Rst_Range.Start, Lp_Rst_Range.Start).Select
+    ActiveWindow.ScrollIntoView Lp_Rst_Range, True
+    Err.Clear
+    On Error GoTo 0
+    Sh_Focus_Document Lp_Rst_Doc
+End Sub  '***** end of Lp_Resize_Pictures_In_Range *****
+
+' What the Apply button runs. One picture, its copies inside the held range, one undo record.
+'
+' Version: 1.0  Date: 9/22/2026
+Public Sub Lp_Rst_Apply()
+    Lp_Rst_Run False
+End Sub  '***** end of Lp_Rst_Apply *****
+
+' What the Use Last Size button runs. The clicked picture and its copies are given the size the
+' LAST press used, instead of the size the clicked picture happens to be - Jerry, 9/22/2026, so a
+' run of pictures that all want the same size needs one hand resize, not one for each.
+'
+' The clicked picture is resized here too, which it never is on a plain Apply: there it is the
+' picture the size is being copied FROM.
+'
+' Version: 1.0  Date: 9/22/2026
+Public Sub Lp_Rst_Apply_Last_Size()
+    Lp_Rst_Run True
+End Sub  '***** end of Lp_Rst_Apply_Last_Size *****
+
+' Version: 1.0  Date: 9/22/2026
+Private Sub Lp_Rst_Run(ByVal useLastSize As Boolean)
+    Dim ref As InlineShape
+    Dim refAlt As String, refData As String
+    Dim byAlt As Boolean
+    Dim refW As Single, refH As Single
+    Dim refStart As Long, refStory As Long
+    Dim alignMode As Long
+    Dim joinNext As Boolean
+    Dim matches As Collection
+    Dim reader As Document
+    Dim objUndo As UndoRecord
+    Dim su_Prev As Boolean, barUp As Boolean, recording As Boolean
+    Dim errNum As Long, errText As String
+    Dim msg As String
+
+    If Not Lp_Rst_IsOn Then Exit Sub
+
+    ' NOT TIDINESS: the progress bar's spinner runs on Application.OnTime, which pumps the message
+    ' queue, so a second click on this modeless button can land inside the first one.
+    If Lp_Rst_Busy Then Exit Sub
+    Lp_Rst_Busy = True
+
+    If Not Lp_Rst_Ready() Then
+        Lp_Rst_Busy = False
+        Exit Sub
+    End If
+
+    If useLastSize And Not Lp_Rst_HasLast Then
+        Lp_Rst_Busy = False
+        Sh_Say "No size has been used yet in this run." & vbCr & vbCr _
+             & "Click a picture, set its size by hand, and press Apply. After that, Use Last " _
+             & "Size gives the next picture you click that same size.", "VistaType LP (384)"
+        Sh_Focus_Document Lp_Rst_Doc
+        Exit Sub
+    End If
+
+    alignMode = Lp_Rst_Align_Mode()
+    joinNext = Lp_Rst_Join_Wanted()
+
+    ' ONE picture, clicked so its handles show.
+    If Selection.Type = wdSelectionInlineShape Then
+        If Selection.InlineShapes.count = 1 Then
+            If Lp_Same_Pic_Is_Picture(Selection.InlineShapes(1)) Then Set ref = Selection.InlineShapes(1)
+        End If
+    End If
+    If ref Is Nothing Then
+        Lp_Rst_Busy = False
+        Sh_Say "Click ONE picture first - click it once so its handles show - and set it to the " _
+             & "size you want." & vbCr & vbCr _
+             & "Then press Apply, and every other copy of that picture inside your range is " _
+             & "given the same size." & vbCr & vbCr _
+             & "Only pictures in line with the text are resized.", "VistaType LP (378)"
+        Sh_Focus_Document Lp_Rst_Doc
+        Exit Sub
+    End If
+
+    ' INSIDE THE RANGE, or it is not honored at all - Jerry, 9/22/2026.
+    If Not Lp_Rst_In_Range(ref.Range.Start, ref.Range.End, ref.Range.StoryType, _
+                           Lp_Rst_Range.Start, Lp_Rst_Range.End, Lp_Rst_Story) Then
+        Lp_Rst_Busy = False
+        Sh_Say "That picture is not inside the part of the book you picked when you started." _
+             & vbCr & vbCr _
+             & "Only pictures inside that part can be resized here." & vbCr & vbCr _
+             & "Click a picture inside it and press Apply, or press Done to finish.", _
+               "VistaType LP (379)"
+        Sh_Focus_Document Lp_Rst_Doc
+        Exit Sub
+    End If
+
+    On Error Resume Next
+    refAlt = Trim$(ref.AlternativeText)
+    Err.Clear
+    On Error GoTo 0
+    byAlt = (Len(refAlt) > 0)
+
+    If Not byAlt Then
+        ' No description to go on, so the pictures themselves have to be compared. One hidden
+        ' document reads every picture in this press - see Lp_Same_Pic_Data.
+        On Error Resume Next
+        Set reader = Documents.Add(Visible:=False)
+        Err.Clear
+        On Error GoTo 0
+        refData = Lp_Same_Pic_Data(ref, reader)
+    End If
+
+    If Not byAlt And Len(refData) = 0 Then
+        On Error Resume Next
+        If Not reader Is Nothing Then reader.Close SaveChanges:=False
+        Set reader = Nothing
+        Err.Clear
+        On Error GoTo 0
+        Lp_Rst_Busy = False
+        Sh_Say "This picture has no description, and VistaType LP could not read the picture " _
+             & "itself, so it cannot tell which other pictures are the same one." & vbCr & vbCr _
+             & "Nothing has been changed.", "VistaType LP (383)"
+        Sh_Focus_Document Lp_Rst_Doc
+        Exit Sub
+    End If
+
+    If useLastSize Then
+        refW = Lp_Rst_LastW
+        refH = Lp_Rst_LastH
+    Else
+        refW = ref.Width
+        refH = ref.Height
+    End If
+    refStart = ref.Range.Start
+    refStory = ref.Range.StoryType
+
+    su_Prev = Application.ScreenUpdating
+    On Error GoTo eom
+
+    Application.ScreenUpdating = False
+    ' The bar is a window of its own and it covers this box for a moment, so it is only worth it
+    ' on a range big enough for the work to take a visible time.
+    If Lp_Rst_Range.InlineShapes.count >= LP_RST_BAR_MIN Then
+        Sh_Progress_Open "Resizing this picture in the range you picked"
+        barUp = True
+    End If
+
+    ' --- FIND, with no undo record open. The same two procedures the whole-book macro uses, so
+    ' there is one rule for what counts as the same picture.
+    Sh_Last_Activity = "Resize pictures in range: comparing pictures"
+    Set matches = Lp_Same_Pic_Find(Lp_Rst_Range.InlineShapes, ref, refAlt, refData, reader, _
+                                   refStart, refStory)
+
+    If Not reader Is Nothing Then
+        reader.Close SaveChanges:=False
+        Set reader = Nothing
+    End If
+
+    ' --- CHANGE, inside one undo record. One press of Apply, one Ctrl+Z.
+    Sh_Last_Activity = "Resize pictures in range: resizing"
+    If barUp Then Sh_Progress_Say 95, "Resizing " & Format(matches.count, "#,##0") _
+        & IIf(matches.count = 1, " copy", " copies")
+    Set objUndo = Application.UndoRecord
+    objUndo.StartCustomRecord "Resize Pictures in Range"
+    recording = True
+
+    Lp_Same_Pic_Apply matches, ref, refW, refH, alignMode, joinNext, True, useLastSize
+
+    objUndo.EndCustomRecord
+    recording = False
+
+    If barUp Then
+        Sh_Progress_Close
+        barUp = False
+    End If
+    Application.ScreenUpdating = su_Prev
+    Application.ScreenRefresh
+    Sh_Last_Activity = ""
+
+    Lp_Rst_Applies = Lp_Rst_Applies + 1
+    Lp_Rst_Resized = Lp_Rst_Resized + Lp_Same_Pic_Resized
+    Lp_Rst_Joined = Lp_Rst_Joined + Lp_Same_Pic_Joined
+    Lp_Rst_Pictures = Lp_Rst_Pictures + matches.count + 1
+
+    ' Remembered for Use Last Size, and that button comes alive the moment there is a size.
+    Lp_Rst_LastW = refW
+    Lp_Rst_LastH = refH
+    Lp_Rst_HasLast = True
+    Lp_Rst_Offer_Last_Size
+
+    ' The result goes on the box's own line, not in a dialog. A message to dismiss on every turn
+    ' of a loop is what would make this unusable.
+    msg = Format(Lp_Same_Pic_Resized, "#,##0") _
+        & IIf(Lp_Same_Pic_Resized = 1, " copy resized", " copies resized")
+    If Lp_Same_Pic_Already > 0 Then
+        msg = msg & ", " & Format(Lp_Same_Pic_Already, "#,##0") & " already that size"
+    End If
+    If joinNext Then
+        msg = msg & ", " & Format(Lp_Same_Pic_Joined, "#,##0") _
+            & IIf(Lp_Same_Pic_Joined = 1, " paragraph mark replaced", " paragraph marks replaced")
+    End If
+    Lp_Rst_Say_Step msg & ". Click the next picture, or press Done."
+
+    Sh_Focus_Document Lp_Rst_Doc
+    Lp_Rst_Busy = False
+    Exit Sub
+
+eom:
+    ' Copy the error FIRST - Sh_Progress_Close runs Err.Clear inside itself. The BOX IS LEFT
+    ' STANDING: nothing is half open, the range is intact, and she can press Apply again or Done.
+    errNum = Err.Number
+    errText = Err.Description
+    On Error Resume Next
+    If Not reader Is Nothing Then reader.Close SaveChanges:=False
+    If recording Then objUndo.EndCustomRecord
+    If barUp Then Sh_Progress_Close
+    Application.ScreenUpdating = su_Prev
+    Application.ScreenRefresh
+    Lp_Rst_Busy = False
+    On Error GoTo 0
+    Sh_Report_Error "Lp_Rst_Run", errNum, errText
+End Sub  '***** end of Lp_Rst_Run *****
+
+' What the Done button runs, and what the title bar's X runs through UserForm_QueryClose.
+'
+' Version: 1.0  Date: 9/22/2026
+Public Sub Lp_Rst_Done()
+    ' NOT while an Apply is running. The progress bar's spinner runs on Application.OnTime, which
+    ' pumps the message queue, so this button can be reached mid-press - and finishing there would
+    ' unload the box and zero the counts while the work was still going on behind it. The press is
+    ' ignored; the work takes a moment and Done can be pressed again.
+    If Lp_Rst_Busy Then Exit Sub
+    Lp_Rst_Finish True
+End Sub  '***** end of Lp_Rst_Done *****
+
+' The one way out. Every path - Done, the X, a book that has been closed, a range that has gone -
+' comes through here, so there is one order and one place to read it.
+'
+' THE ORDER MATTERS. The flag goes down first, so nothing can re-enter while the box is being
+' taken apart. The form is hidden before it is unloaded, because this is reached from a button on
+' the form being closed. The closing message comes LAST, because it is modal.
+'
+' Version: 1.0  Date: 9/22/2026
+Private Sub Lp_Rst_Finish(ByVal saySummary As Boolean)
+    Dim msg As String
+    Dim applies As Long, resized As Long, joined As Long, pictures As Long
+    Dim backTo As Document
+
+    applies = Lp_Rst_Applies
+    resized = Lp_Rst_Resized
+    joined = Lp_Rst_Joined
+    pictures = Lp_Rst_Pictures
+    Set backTo = Lp_Rst_Doc
+
+    On Error Resume Next
+    Lp_Rst_IsOn = False
+    Lp_Rst_Busy = False
+    Lp_Rst_UnbindKeys
+    Sh_Progress_Close
+
+    Lp_Same_Pic_Range_Form.Hide
+    Unload Lp_Same_Pic_Range_Form
+
+    Set Lp_Rst_Range = Nothing
+    Set Lp_Rst_Doc = Nothing
+    Lp_Rst_Story = 0
+    Lp_Rst_Applies = 0
+    Lp_Rst_Resized = 0
+    Lp_Rst_Joined = 0
+    Lp_Rst_Pictures = 0
+    Lp_Rst_HasLast = False
+    Lp_Rst_LastW = 0
+    Lp_Rst_LastH = 0
+    Sh_Last_Activity = ""
+    Application.ScreenRefresh
+    If Lp_Rst_Doc_Is_Open(backTo) Then
+        ' THE LAST PICTURE IS LET GO - Jerry, 9/22/2026. Leaving it selected means her next
+        ' keystroke types over a picture. The cursor is left sitting after it.
+        If Selection.Type = wdSelectionInlineShape Then Selection.Collapse wdCollapseEnd
+        Sh_Focus_Document backTo
+    End If
+    Err.Clear
+    On Error GoTo 0
+
+    If Not saySummary Then Exit Sub
+    If applies = 0 Then Exit Sub
+
+    msg = "You changed " & Format(pictures, "#,##0") _
+        & IIf(pictures = 1, " picture", " pictures") & " in the selected range of the book." _
+        & vbCr & vbCr _
+        & Format(resized, "#,##0") & IIf(resized = 1, " picture was", " pictures were") _
+        & " given a new size"
+    If joined > 0 Then
+        msg = msg & ", and " & Format(joined, "#,##0") _
+            & IIf(joined = 1, " paragraph mark was", " paragraph marks were") _
+            & " replaced with a space"
+    End If
+    msg = msg & "." & vbCr & vbCr & "Each press of Apply is one Ctrl+Z, so " _
+        & Format(applies, "#,##0") & IIf(applies = 1, " press puts", " presses put") _
+        & " all of it back."
+    Sh_Say msg, "VistaType LP (381)"
+End Sub  '***** end of Lp_Rst_Finish *****
+
+' True when the book and the range are still there to work in. When they are not, it says so and
+' ends the run tidily - the box would otherwise sit there pointing at nothing.
+'
+' Version: 1.0  Date: 9/22/2026
+Private Function Lp_Rst_Ready() As Boolean
+    Dim ok As Boolean
+
+    On Error Resume Next
+    ok = Lp_Rst_Doc_Is_Open(Lp_Rst_Doc)
+    If ok Then ok = Not (Lp_Rst_Range Is Nothing)
+    If ok Then ok = (Lp_Rst_Range.End > Lp_Rst_Range.Start)
+    Err.Clear
+    On Error GoTo 0
+
+    If ok Then
+        ' ANOTHER BOOK IN FRONT IS NOT A REASON TO END THE RUN. She may have clicked into a
+        ' reference file to look something up - the box is always on top, so Apply is easy to
+        ' press from there. Say which book this works in, put her back in it, and leave the range
+        ' held. Only a book that has been CLOSED ends a run.
+        If Not (ActiveDocument Is Lp_Rst_Doc) Then
+            Sh_Say "This works in " & Lp_Rst_Doc.Name & ", which is not the book on screen." _
+                 & vbCr & vbCr _
+                 & "Nothing has been changed. Click in " & Lp_Rst_Doc.Name & ", click the " _
+                 & "picture you want, and press Apply again." & vbCr & vbCr _
+                 & "The part of the book you picked is still being held.", "VistaType LP (382)"
+            Sh_Focus_Document Lp_Rst_Doc
+            Exit Function
+        End If
+        Lp_Rst_Ready = True
+        Exit Function
+    End If
+
+    Sh_Say "The book this was working in is no longer the one on screen, or it has been closed." _
+         & vbCr & vbCr _
+         & "Nothing has been changed. Select the part of a book you want to work in and start " _
+         & "again.", "VistaType LP (380)"
+    Lp_Rst_Finish False
+End Function  '***** end of Lp_Rst_Ready *****
+
+' Touching a closed Document object raises an error rather than coming back Nothing, so the only
+' way to ask is to touch one and see.
+'
+' Version: 1.0  Date: 9/22/2026
+Private Function Lp_Rst_Doc_Is_Open(ByVal d As Document) As Boolean
+    Dim n As String
+
+    If d Is Nothing Then Exit Function
+    On Error Resume Next
+    n = d.Name
+    Lp_Rst_Doc_Is_Open = (Err.Number = 0 And Len(n) > 0)
+    Err.Clear
+    On Error GoTo 0
+End Function  '***** end of Lp_Rst_Doc_Is_Open *****
+
+' True when a picture sits inside the held range. Numbers rather than Range.InRange: a pure
+' function can be tested headlessly (tests/vba/README.md - anything reaching a Range hangs the
+' runner), and where its edges fall is arithmetic anyone can read.
+'
+' The story has to match as well. A picture in a header can start at the same number as one in the
+' body, and they are nowhere near each other.
+'
+' Version: 1.0  Date: 9/22/2026
+Private Function Lp_Rst_In_Range(ByVal picStart As Long, ByVal picEnd As Long, _
+                                 ByVal picStory As Long, _
+                                 ByVal rngStart As Long, ByVal rngEnd As Long, _
+                                 ByVal rngStory As Long) As Boolean
+    If picStory <> rngStory Then Exit Function
+    If rngEnd <= rngStart Then Exit Function
+    If picStart < rngStart Then Exit Function
+    If picEnd > rngEnd Then Exit Function
+    Lp_Rst_In_Range = True
+End Function  '***** end of Lp_Rst_In_Range *****
+
+' The three position buttons as a number: 0 leave it alone, 1 left, 2 center. Read here rather
+' than in Lp_Rst_Apply so the form is touched in one place only.
+'
+' Version: 1.0  Date: 9/22/2026
+Private Function Lp_Rst_Align_Mode() As Long
+    On Error Resume Next
+    If Lp_Same_Pic_Range_Form.LeftAlignButton.Value Then
+        Lp_Rst_Align_Mode = 1
+    ElseIf Lp_Same_Pic_Range_Form.CenterButton.Value Then
+        Lp_Rst_Align_Mode = 2
+    End If
+    Err.Clear
+    On Error GoTo 0
+End Function  '***** end of Lp_Rst_Align_Mode *****
+
+' Version: 1.0  Date: 9/22/2026
+Private Function Lp_Rst_Join_Wanted() As Boolean
+    On Error Resume Next
+    Lp_Rst_Join_Wanted = (Lp_Same_Pic_Range_Form.JoinNextParaButton.Value = True)
+    Err.Clear
+    On Error GoTo 0
+End Function  '***** end of Lp_Rst_Join_Wanted *****
+
+' Writes the line at the top of the box. Guarded by the flag: touching any member of a UserForm
+' creates it and runs its Initialize on that very line, so this must never be reached when the
+' box is down.
+'
+' Version: 1.0  Date: 9/22/2026
+Private Sub Lp_Rst_Say_Step(ByVal what As String)
+    If Not Lp_Rst_IsOn Then Exit Sub
+    On Error Resume Next
+    Lp_Same_Pic_Range_Form.StepText.Caption = what
+    Lp_Same_Pic_Range_Form.Repaint
+    Err.Clear
+    On Error GoTo 0
+End Sub  '***** end of Lp_Rst_Say_Step *****
+
+' Turns the Use Last Size button on, once there is a size to give. Flag-gated for the same reason
+' as Lp_Rst_Say_Step: touching a member of a form creates the form.
+'
+' Version: 1.0  Date: 9/22/2026
+Private Sub Lp_Rst_Offer_Last_Size()
+    If Not Lp_Rst_IsOn Then Exit Sub
+    On Error Resume Next
+    Lp_Same_Pic_Range_Form.LastSizeButton.Enabled = True
+    Err.Clear
+    On Error GoTo 0
+End Sub  '***** end of Lp_Rst_Offer_Last_Size *****
+
+' F6 AND Shift+F6, so the box can be reached without a mouse. Two halves: this one is the Word key
+' binding, for the document to the box; the form's own KeyDown handlers are the way back, because
+' while the form holds the keyboard Word never sees the key at all.
+'
+' THE $pg VALIDATION BINDS THE SAME KEY, and a second KeyBindings.Add replaces the first, so
+' whichever of the two unbinds last would leave the other without F6. This one stands aside while
+' a validation is running, and the box then says nothing about F6.
+'
+' CustomizationContext is Application state and outlives this macro. Left pointing at VistaType's
+' add-in, the next thing to add a key assignment would write it in here instead of into Normal.
+' ThisDocument.Saved = True afterward, or Word asks the transcriber whether to save the add-in.
+'
+' Version: 1.0  Date: 9/22/2026
+Private Sub Lp_Rst_BindKeys()
+    Dim ctxWas As Object
+
+    Lp_Rst_KeysBound = False
+    If Sh_PgVal_Is_Running() Then Exit Sub
+
+    On Error Resume Next
+    Set ctxWas = CustomizationContext
+    CustomizationContext = ThisDocument
+    KeyBindings.Add KeyCode:=BuildKeyCode(wdKeyF6), _
+                    KeyCategory:=wdKeyCategoryMacro, Command:=LP_RST_KEY_MACRO
+    KeyBindings.Add KeyCode:=BuildKeyCode(wdKeyShift, wdKeyF6), _
+                    KeyCategory:=wdKeyCategoryMacro, Command:=LP_RST_KEY_MACRO
+    ThisDocument.Saved = True
+    If Not ctxWas Is Nothing Then CustomizationContext = ctxWas
+    Lp_Rst_KeysBound = (Err.Number = 0)
+    Err.Clear
+    On Error GoTo 0
+End Sub  '***** end of Lp_Rst_BindKeys *****
+
+' Version: 1.0  Date: 9/22/2026
+Private Sub Lp_Rst_UnbindKeys()
+    Dim i As Long
+    Dim ctxWas As Object
+
+    On Error Resume Next
+    Set ctxWas = CustomizationContext
+    CustomizationContext = ThisDocument
+
+    ' Backwards. Clearing a binding takes it out of the collection and moves everything above it
+    ' down, so a forward loop would step over the second one.
+    For i = KeyBindings.count To 1 Step -1
+        If InStr(1, KeyBindings(i).Command, "Lp_Rst_ToggleFocus", vbTextCompare) > 0 Then
+            KeyBindings(i).Clear
+        End If
+    Next i
+
+    ThisDocument.Saved = True
+    If Not ctxWas Is Nothing Then CustomizationContext = ctxWas
+    Lp_Rst_KeysBound = False
+    Err.Clear
+    On Error GoTo 0
+End Sub  '***** end of Lp_Rst_UnbindKeys *****
+
+' What F6 runs while the box is up. Word has the focus - that is the only way this can have been
+' reached - so the move is always "to the box".
+'
+' The safety net: if a run ever ends without Lp_Rst_Finish, the very first F6 afterwards takes the
+' binding away again.
+'
+' Version: 1.0  Date: 9/22/2026
+Public Sub Lp_Rst_ToggleFocus()
+    On Error Resume Next
+
+    If Not Lp_Rst_IsOn Then
+        Lp_Rst_UnbindKeys
+        Exit Sub
+    End If
+
+    Sh_Focus_Modeless_Form LP_RST_TITLE
+    Err.Clear
+End Sub  '***** end of Lp_Rst_ToggleFocus *****
+
+' The other half, called from every button's KeyDown on the box. Puts the keyboard back in the
+' book the range was taken in.
+'
+' Version: 1.0  Date: 9/22/2026
+Public Sub Lp_Rst_KeyToDocument()
+    On Error Resume Next
+
+    If Lp_Rst_Doc_Is_Open(Lp_Rst_Doc) Then
+        Sh_Focus_Document Lp_Rst_Doc
+    Else
+        Lp_Rst_Ready
+    End If
+    Err.Clear
+End Sub  '***** end of Lp_Rst_KeyToDocument *****
+
+' True when F6 really was taken for this box. The box asks, so it only promises a key it has -
+' a $pg validation already running keeps F6, and this stands aside rather than taking it away.
+'
+' Version: 1.0  Date: 9/22/2026
+Public Function Lp_Rst_Keys_Are_Bound() As Boolean
+    Lp_Rst_Keys_Are_Bound = Lp_Rst_KeysBound
+End Function  '***** end of Lp_Rst_Keys_Are_Bound *****
+
 ' Replaces the paragraph mark straight after an in-line picture with a space, so the text that was
 ' on the next line runs on beside the picture. True when it did. Jerry, 9/22/2026.
 '
@@ -21198,25 +22065,29 @@ End Sub  '***** end of Lp_Resize_Same_Picture_Throughout *****
 '   - the mark in front of a table, which would try to pull a table row up into the paragraph -
 '     a table nested in the picture's own cell included.
 '
+' This procedure gathers the facts off the document; Lp_Same_Pic_Mark_May_Go decides on them, so
+' the decision can be tested without a Range.
+'
+' Version: 1.1  Date: 9/22/2026 - the decision moved into Lp_Same_Pic_Mark_May_Go
 ' Version: 1.0  Date: 9/22/2026
 Private Function Lp_Same_Pic_Join_Next_Para(ByVal s As InlineShape) As Boolean
     Dim after As Range
     Dim nextPara As Range
+    Dim picInTable As Boolean, nextInTable As Boolean, sameCell As Boolean
 
     Set after = s.Range.Duplicate
     after.SetRange s.Range.End, s.Range.End + 1
-    If after.End >= after.StoryLength Then Exit Function
-    If after.Text <> vbCr Then Exit Function
 
-    ' The next paragraph must be in the same place as the picture: both outside any table, or
-    ' both in the SAME cell. Only testing "in a table" missed a table nested in the picture's own
-    ' cell - both sides read as in a table, and the mark in front of the nested one was replaced.
     Set nextPara = after.Duplicate
     nextPara.Collapse wdCollapseEnd
-    If nextPara.Information(wdWithInTable) Then
-        If Not s.Range.Information(wdWithInTable) Then Exit Function
-        If nextPara.Cells(1).Range.Start <> s.Range.Cells(1).Range.Start Then Exit Function
+    picInTable = s.Range.Information(wdWithInTable)
+    nextInTable = nextPara.Information(wdWithInTable)
+    If picInTable And nextInTable Then
+        sameCell = (nextPara.Cells(1).Range.Start = s.Range.Cells(1).Range.Start)
     End If
+
+    If Not Lp_Same_Pic_Mark_May_Go(after.Text, after.End, after.StoryLength, _
+                                   picInTable, nextInTable, sameCell) Then Exit Function
 
     after.Text = " "
     Lp_Same_Pic_Join_Next_Para = True
@@ -21229,6 +22100,7 @@ End Function  '***** end of Lp_Same_Pic_Join_Next_Para *****
 ' that have nothing to do with each other. 5 per cent, because a copy that has been cropped or
 ' nudged is still the same picture.
 '
+' Version: 1.1  Date: 9/22/2026 - the description test moved into Lp_Same_Pic_Alt_Matches
 ' Version: 1.0  Date: 9/16/2026
 Private Function Lp_Same_Pic_Matches(ByVal s As InlineShape, ByVal ref As InlineShape, _
                                      ByVal refAlt As String, ByVal refData As String, _
@@ -21240,8 +22112,7 @@ Private Function Lp_Same_Pic_Matches(ByVal s As InlineShape, ByVal ref As Inline
         alt = Trim$(s.AlternativeText)
         Err.Clear
         On Error GoTo 0
-        If Len(alt) = 0 Then Exit Function
-        If StrComp(alt, refAlt, vbTextCompare) <> 0 Then Exit Function
+        If Not Lp_Same_Pic_Alt_Matches(alt, refAlt) Then Exit Function
         Lp_Same_Pic_Matches = Lp_Same_Pic_Aspect_Close(s, ref)
     Else
         If Len(refData) = 0 Then Exit Function
@@ -21252,15 +22123,10 @@ End Function   '***** end of Lp_Same_Pic_Matches *****
 ' True when two pictures are within 5 per cent of the same shape - width against height. Scaling
 ' does not change it, so a copy shown at any size still answers yes.
 '
+' Version: 1.1  Date: 9/22/2026 - the arithmetic moved into Lp_Same_Pic_Ratio_Close
 ' Version: 1.0  Date: 9/16/2026
 Private Function Lp_Same_Pic_Aspect_Close(ByVal a As InlineShape, ByVal b As InlineShape) As Boolean
-    Dim ra As Double, rb As Double
-
-    If a.Height <= 0 Or b.Height <= 0 Then Exit Function
-    ra = a.Width / a.Height
-    rb = b.Width / b.Height
-    If ra <= 0 Or rb <= 0 Then Exit Function
-    Lp_Same_Pic_Aspect_Close = (Abs(ra - rb) <= 0.05 * ra)
+    Lp_Same_Pic_Aspect_Close = Lp_Same_Pic_Ratio_Close(a.Width, a.Height, b.Width, b.Height)
 End Function   '***** end of Lp_Same_Pic_Aspect_Close *****
 
 ' A picture, not an OLE object, an equation or a chart.

@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_Bakgrnd_Picture_Menu_Form 
    Caption         =   "Background and Picture Tools (344)"
-   ClientHeight    =   6300
+   ClientHeight    =   7155
    ClientLeft      =   120
    ClientTop       =   465
    ClientWidth     =   5070
@@ -106,6 +106,17 @@ Private Sub SamePictureSizeButton_Click()
     ' of reaching the transcriber, and an error is reported by the macro's own handler.
     Lp_Bakgrnd_Picture_Menu_Form.Hide
     Lp_Resize_Same_Picture_Throughout
+    Unload Me
+End Sub
+
+Private Sub SamePictureRangeButton_Click()
+    ' Resize Pictures Used Throughout a Selected Range (Jerry, 9/22/2026). The box this opens is
+    ' MODELESS, and a modeless box cannot paint or be clicked while a modal form's handler is
+    ' still running - this menu is modal. So the macro is started from OUTSIDE this handler,
+    ' through the bridge, once the menu has gone. Attach LP Template goes the same way.
+    Lp_Bakgrnd_Picture_Menu_Form.Hide
+    Sh_BridgeTargetMacro = "Lp_Resize_Pictures_In_Range"
+    Application.OnTime Now, "Sh_StartSpinnerBridge"
     Unload Me
 End Sub
 

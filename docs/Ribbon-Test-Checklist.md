@@ -234,6 +234,27 @@ somewhere else on purpose:
         - [ ] Pictures Color Grayscale Button - "Pictures Color/Grayscale Button"
         - [ ] Center Or Left Align Pictures Button - "Center or Left Align Pictures Button"
         - [ ] Same Picture Size Button - "Resize This Picture Throughout the Book" (9/15/2026: select one picture, set its size, press it; every other copy of that picture takes the same size)
+        - [ ] Same Picture Range Button - "Resize Pictures Used Throughout a Selected Range" (9/22/2026, the loop). What to press:
+            - [ ] nothing selected, then press it - dialog **376**, nothing happens
+            - [ ] select a stretch with no in-line pictures - dialog **377**
+            - [ ] select a stretch with pictures - the box **Resize Pictures in a Selected Range (375)** opens at the top right and the caret stays in the book
+            - [ ] click a picture inside the range, drag a handle, press Apply - its copies **inside** the range change; a copy of the same picture outside the range does not
+            - [ ] click a picture outside the range, press Apply - dialog **379**, nothing changes
+            - [ ] press Apply with nothing selected, and with text selected - dialog **378**
+            - [ ] Left, Center, Leave as is - each applied, and still set on the next press
+            - [ ] the tick box on and off; and the marks that must be left alone: the end of a table cell, the last mark in the book, a mark with a table on the next line, a table nested in the picture's own cell
+            - [ ] a picture whose next line is a heading - it joins the heading and takes the heading's style (Jerry's choice, 9/22/2026)
+            - [ ] one Ctrl+Z after one press of Apply puts that press back; three presses need three; the next press reaches your own hand resize
+            - [ ] type in the book between two presses - the range still covers what it covered
+            - [ ] close the book with the box open, then press Apply - dialog **380**, the box goes, nothing is left behind
+            - [ ] press the X on the box - the same as Done; then press F6 - nothing happens and no macro-not-found dialog appears
+            - [ ] F6 from the book into the box, Shift+F6 back; Alt+A applies, Alt+D finishes, Esc finishes
+            - [ ] start a $pg validation first, then this - the box comes up with no F6 line, and F6 still reaches the $pg list afterwards
+            - [ ] the other order: open this box first, then start a $pg validation - the $pg box takes F6, and when it is closed this box's F6 line is a promise it cannot keep (known, 9/22/2026)
+            - [ ] click into another open document, then press Apply - dialog **382**, the range is STILL held, and you are put back in the book
+            - [ ] a picture with no description that cannot be read - dialog **383**
+            - [ ] Esc closes the box (DoneButton carries Cancel = True in the designer; press it to be sure)
+            - [ ] press Apply twice quickly on a long range - the second press is ignored, not run twice
       - dialog **Lp Resize Images Form**
           - [ ] Cmd Okay
       - dialog **Lp Change Image Color Form**

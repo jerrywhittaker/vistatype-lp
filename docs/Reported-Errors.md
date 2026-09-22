@@ -34,6 +34,7 @@ number**, the **macro** and the **step**.
 
 | | means | what to tell them |
 |---|---|---|
+| 9/22/2026, found by reading | every build since the $pg forms gained their numbers | none — **F6 cannot reach the $pg menu**, and the binding is given up on the first press; nothing raised, nothing logged | `Sh_PgVal_FocusMenu` (`ShNonModalMessage.bas`), the constants `SH_PGVAL_TITLE_LIST` and `SH_PGVAL_TITLE_DOC` | pressing F6 while a $pg validation menu is on screen | The forms' captions carry their dialog numbers — `Validate $pg Tags (364)`, `Delete/change/add $pg (366)` — and the two constants in the code did not. The menu is brought forward with `FindWindowA`, which matches the **whole** window title, so the handle comes back 0. The code below reads 0 as "no menu on screen": it lowers `Sh_PgVal_MenuIsOn` and unbinds F6. **Verified in the source only — this was NOT pressed in Word**, and it needs one press on the build box with the $pg list open. Cured by putting the numbers into the constants, and by `tests/test_form_caption_constants_match.py`, which holds every window-title constant to its form's caption so a renamed dialog cannot break a keyboard route again. Issue 16 | 3.0.485 | — |
 | their version **≥ Shipped in** | they already have the fix | it is a different fault — investigate |
 | their version **< Shipped in**, and Shipped in is filled | fixed and released | update to that release |
 | **Fixed in** filled, **Shipped in** empty | fixed on `dev`, not released yet | known and fixed; it goes out with the next release |

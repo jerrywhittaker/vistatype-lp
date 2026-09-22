@@ -50,6 +50,10 @@ Public Sub VtRunAllTests()
     Set Suite = TestTocShortTitle_Suite()
     Reporter.ListenTo Suite
 
+    Reporter.Trace "building Resizing one picture wherever it repeats"
+    Set Suite = TestSamePicture_Suite()
+    Reporter.ListenTo Suite
+
     Reporter.Trace "building Shared text helpers"
     Set Suite = TestTextHelpers_Suite()
     Reporter.ListenTo Suite

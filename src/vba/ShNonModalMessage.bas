@@ -23,8 +23,14 @@ Private Sh_PgVal_MenuIsOn As Long
 ' .Visible above - and the one moment that matters is exactly the moment it might not be loaded.
 ' These must match the Caption in each form's designer header, and they are also what the
 ' transcriber sees in the title bar. 8/23/2026.
-Private Const SH_PGVAL_TITLE_LIST As String = "Validate $pg Tags"
-Private Const SH_PGVAL_TITLE_DOC As String = "Delete/change/add $pg"
+'
+' THE NUMBERS WERE MISSING HERE, 9/22/2026, issue 16: the forms gained their dialog numbers and
+' these two were not brought along. Windows matches the WHOLE title when it looks a window up, so
+' the handle came back 0, Sh_PgVal_FocusMenu read that as "no menu on screen", and F6 gave itself
+' up on the first press. Found by reading; not pressed in Word.
+' tests/test_form_caption_constants_match.py holds each constant to its form's caption from now on.
+Private Const SH_PGVAL_TITLE_LIST As String = "Validate $pg Tags (364)"
+Private Const SH_PGVAL_TITLE_DOC As String = "Delete/change/add $pg (366)"
 
 ' The macro is named in FULL - project, module, procedure - the same shape src/keymap uses, and
 ' for the same reason: a bare name is resolved when the key is PRESSED, against whatever projects
@@ -619,6 +625,43 @@ Private Sub Sh_PgVal_FocusDocument(ByVal d As Document)
     If Not Sh_PgVal_DocIsOpen(d) Then Exit Sub
     Sh_Focus_Document d
 End Sub
+
+' Brings a modeless UserForm of this project's to the front, by its window title.
+'
+' The Win32 declarations are private to this module, so this is how a macro elsewhere reaches
+' them. The title must be the form's WHOLE caption: Windows matches the whole thing, not the
+' start of it, and a caption that has gained a dialog number since the constant was written is
+' how a keyboard route goes quietly dead.
+'
+' A modeless UserForm's window class is ThunderDFrame. A modal one is ThunderXFrame, and this is
+' no use for one of those.
+'
+' Version: 1.0  Date: 9/22/2026
+Public Sub Sh_Focus_Modeless_Form(ByVal titleText As String)
+    ' LongPtr on 64-bit Word, Long on 32-bit, the same split the declarations above use. A window
+    ' handle squeezed into a Long is a narrowing conversion, and this whole sub runs under
+    ' On Error Resume Next, so an overflow would show as F6 silently doing nothing.
+#If VBA7 Then
+    Dim h As LongPtr
+#Else
+    Dim h As Long
+#End If
+
+    On Error Resume Next
+    h = Sh_FindWindowApi("ThunderDFrame", titleText)
+    If h <> 0 Then Sh_SetForegroundWindowApi h
+    Err.Clear
+End Sub  '***** end of Sh_Focus_Modeless_Form *****
+
+' True while a $pg validation has one of its boxes on screen. Read by the picture-range loop,
+' which binds the same F6 and stands aside rather than taking the key away from a validation
+' already running - a second KeyBindings.Add replaces the first, so whichever unbound last would
+' leave the other without a keyboard.
+'
+' Version: 1.0  Date: 9/22/2026
+Public Function Sh_PgVal_Is_Running() As Boolean
+    Sh_PgVal_Is_Running = (Sh_PgVal_MenuIsOn <> 0)
+End Function  '***** end of Sh_PgVal_Is_Running *****
 
 ' The same job, for any caller. A modeless form takes the keyboard focus, and Word can end up
 ' showing a DIFFERENT document than the one being worked on - Jerry saw Full File Cleanup jump
