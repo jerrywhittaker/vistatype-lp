@@ -18,6 +18,13 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 9/22/2026 - RESIZE THIS PICTURE THROUGHOUT THE BOOK IS GONE, macro, button and
+'           - Lp  - 9/22/2026 - dialogs 322, 323 and 324 with it. Jerry: "the new resize you've just
+'           - Lp  - 9/22/2026 - completed can do the whole book if the whole book is selected."
+'           - Lp  - 9/22/2026 - Ctrl+A selects the book, and the range is then the book. Everything
+'           - Lp  - 9/22/2026 - it was built on stays - Lp_Same_Pic_Find, Lp_Same_Pic_Apply and the
+'           - Lp  - 9/22/2026 - helpers under them are what the range loop runs on. He laid the
+'           - Lp  - 9/22/2026 - Background and Picture Tools buttons out himself the same day.
 ' Notes:    - Lp  - 9/22/2026 - RESIZE PICTURES USED THROUGHOUT A SELECTED RANGE - a new loop, and
 '           - Lp  - 9/22/2026 - Jerry's own design. Select a stretch of the book and start it; a
 '           - Lp  - 9/22/2026 - box (375) stays open while you click each picture in turn, size it
@@ -20972,260 +20979,20 @@ Private Sub Lp_Scale_Inline_Shapes(ByVal pics As InlineShapes, ByVal pct As Sing
     Next i
 End Sub  '***** end of Lp_Scale_Inline_Shapes *****
 
-Sub Lp_Resize_Same_Picture_Throughout()
+' RESIZE THIS PICTURE THROUGHOUT THE BOOK WAS HERE, and it is gone - Jerry, 9/22/2026: "the new
+' resize you've just completed can do the whole book if the whole book is selected." Its button is
+' off the Background and Picture Tools menu too, and dialogs 322, 323 and 324 went with it.
 '
-' Resize This Picture Throughout the Book - Bkgrnd & Picture Tools
+' What it did, Resize Pictures Used Throughout a Selected Range does: select the whole book with
+' Ctrl+A and the range is the book. Everything it was built on is still here and still used -
+' Lp_Same_Pic_Find, Lp_Same_Pic_Apply and the helpers below them.
 '
-' Author: Jerry Whittaker - jerry@vistatypelp.org
-'
-' Version: 1.3  Date: 9/22/2026 - the finding and the changing moved into Lp_Same_Pic_Find and
-'                                 Lp_Same_Pic_Apply, which the selected-range macro calls too, so
-'                                 there is one rule for what counts as the same picture. What this
-'                                 macro does is unchanged
-' Version: 1.2  Date: 9/22/2026 - NO ALIGNMENT AT ALL, and no dialog 374 (Jerry). Instead, each copy
-'                                 has the paragraph mark straight after it replaced with a space
-'                                 (Lp_Same_Pic_Join_Next_Para), so the text that was on the next
-'                                 line runs on beside it - every copy, one already the right size,
-'                                 and the selected picture too (Jerry, asked, "yes"). A picture with
-'                                 anything else after it has nothing after it touched
-' Version: 1.1  Date: 9/17/2026 - asks whether the copies should be left aligned or centered, on
-'                                 Lp_Same_Pic_Align_Form (374), and applies it (Jerry). Every copy
-'                                 now goes into matches, including one already the right size,
-'                                 because it still has to be aligned - resized is counted back out
-'                                 of that for the closing message. THE SELECTED PICTURE IS ALIGNED
-'                                 TOO - left out at first on the reasoning that the transcriber had
-'                                 placed it, and Jerry reported that same day that it should not be.
-'                                 Its SIZE is untouched; that is what is being copied from. The undo
-'                                 record is now opened whatever the search found, since there is
-'                                 always at least that one picture to align
-' Version: 1.0  Date: 9/15/2026
-'
-' Jerry, 9/15/2026: DAISY and NIMAS books use the same pictures over and over - a lesson icon, a
-' "think about it" bubble - kept in a subfolder of Images, often called "throughout". The
-' transcriber selects ONE of them, sets it to the size wanted, and this gives every other copy
-' of that picture in the book the same size.
-'
-' WHAT "THE SAME PICTURE" MEANS: THE SAME DESCRIPTION - the alt text Word holds for a picture -
-' and the same shape. The image data is the fallback, for a picture with no description at all.
-'
-' IT WAS THE IMAGE DATA, AND THAT WAS WRONG, AND JERRY'S OWN BOOK IS WHAT PROVED IT. Measured
-' 9/16/2026 on the file he was testing with: six pictures, all plainly the same artwork, all
-' carrying the alt text "Cardboard boxes" - and stored at SIX DIFFERENT RESOLUTIONS. 937 x 628
-' pixels for the two shown large, 608 x 407 and 598 x 400 for two shown smaller, 173 x 116 for the
-' one in row 1, column 1 of his table. WORD COMPRESSES PICTURES WHEN IT SAVES, resampling each copy
-' down to the size it is displayed at, so two copies shown at different sizes CANNOT have the same
-' image data. The rule could only ever match copies that happened to be displayed identically, and
-' that is exactly what he saw: 3.0.428 resized the two in his table that matched each other and
-' nothing else; 3.0.429 and 3.0.430 found nothing at all.
-'
-' Three builds were spent on that before the book itself was measured. The lesson is
-' docs/Reported-Errors.md's own rule, learned again: measure the transcriber's file, do not reason
-' about it from here.
-'
-' THE DESCRIPTION SURVIVES ALL OF IT. It is not touched by compression, by resizing, or by the
-' converter embedding the picture and breaking its link - and a DAISY or NIMAS book carries one for
-' every picture, because the source file has to. Two guards against a book that uses a vague one
-' like "image": the shapes must agree within 5 per cent (Lp_Same_Pic_Aspect_Close), and an empty
-' description matches nothing at all.
-'
-' A CHEAP SIZE TEST CAME FIRST UNTIL 9/15/2026 AND IS GONE - it ruled out real copies, because Word
-' keeps a picture's scale as a whole percent and the size worked back from it is out by several per
-' cent on a picture set small.
-'
-' Only pictures IN LINE WITH TEXT, in the body of the book (tables included). A floating picture is
-' not reached - All Pictures to Inline is on the same menu. Width AND height are copied, with the
-' aspect ratio lock lifted for the moment it takes, so a copy ends up exactly the size of the one
-' the transcriber set, and its lock is put back as it was.
-'
-' ONE UNDO PRESS - and the order of the work is what gets it. The copies are FOUND first, with no
-' undo record open, and only the RESIZING goes inside the record. Measured on the build box,
-' 9/15/2026: with the comparing inside the record too, one Ctrl+Z took back only the very last
-' change. Reading a paragraph's WordOpenXML is the one thing that loop did which Resize Images -
-' one press since 9/1/2026 - does not, so it is the suspect; with it outside the record, one press
-' puts every copy back. No Find runs inside the record either (the wdReplaceAll crash in
-' docs/Reported-Errors.md).
-'
-    Dim ref As InlineShape
-    Dim refData As String
-    Dim refAlt As String
-    Dim byAlt As Boolean
-    Dim refW As Single, refH As Single
-    Dim refStart As Long
-    Dim refStory As Long
-    Dim resized As Long, alreadySame As Long
-    Dim matches As Collection
-    Dim su_Prev As Boolean, barUp As Boolean, recording As Boolean, saved As Boolean
-    Dim objUndo As UndoRecord
-    Dim reader As Document
-    Dim errNum As Long
-    Dim errText As String
-    Dim msg As String
-    Dim joined As Long
-
-    Application.Run MacroName:="Sh_Is_Doc_Open"
-
-    Sh_Last_Activity = "Resize picture throughout: reading the selected picture"
-    If Selection.Type = wdSelectionInlineShape Then
-        If Selection.InlineShapes.Count = 1 Then
-            If Lp_Same_Pic_Is_Picture(Selection.InlineShapes(1)) Then Set ref = Selection.InlineShapes(1)
-        End If
-    End If
-    If ref Is Nothing Then
-        Sh_Last_Activity = ""
-        Sh_Say "Select ONE picture first - click it once so its handles show - and set it to the " _
-             & "size you want." & vbCr & vbCr _
-             & "Then choose Resize This Picture Throughout the Book, and every other copy of that " _
-             & "picture in the book is given the same size." & vbCr & vbCr _
-             & "Only pictures in line with the text are resized. If the picture floats over the " _
-             & "text, use All Pictures to Inline first.", "VistaType LP (322)"
-        Exit Sub
-    End If
-
-    On Error Resume Next
-    refAlt = Trim$(ref.AlternativeText)
-    Err.Clear
-    On Error GoTo 0
-    byAlt = (Len(refAlt) > 0)
-
-    If Not byAlt Then
-        ' No description to go on, so the pictures themselves have to be compared. One hidden
-        ' document reads every picture in this run - see Lp_Same_Pic_Data. Guarded rather than
-        ' handled: a failure here leaves reader Nothing, which reads as "cannot be read".
-        On Error Resume Next
-        Set reader = Documents.Add(Visible:=False)
-        Err.Clear
-        On Error GoTo 0
-        refData = Lp_Same_Pic_Data(ref, reader)
-    End If
-
-    If Not byAlt And Len(refData) = 0 Then
-        On Error Resume Next
-        If Not reader Is Nothing Then reader.Close SaveChanges:=False
-        Set reader = Nothing
-        Err.Clear
-        On Error GoTo 0
-        Sh_Last_Activity = ""
-        Sh_Say "This picture has no description, and VistaType LP could not read the picture " _
-             & "itself, so it cannot tell which other pictures in the book are the same one." & vbCr & vbCr _
-             & "Nothing has been changed.", "VistaType LP (323)"
-        Exit Sub
-    End If
-
-    refW = ref.Width
-    refH = ref.Height
-    refStart = ref.Range.Start
-    ' A position means nothing across stories: a picture selected in a header or a footnote must not
-    ' make the body picture that happens to start at the same number be skipped as "itself"
-    refStory = ref.Range.StoryType
-
-    su_Prev = Application.ScreenUpdating
-    On Error GoTo eom
-
-    Sh_Save_User_Position
-    saved = True
-    Application.ScreenUpdating = False
-    Sh_Progress_Open "Resizing this picture throughout the book"
-    barUp = True
-
-    ' --- FIND the copies, in the whole book. No undo record is open yet - see the note at the top.
-    ' The finding and the changing are two separate procedures, and the selected-range macro calls
-    ' the same two, so there is ONE rule for what counts as the same picture. Two rules is the
-    ' fault 3.0.429 and 3.0.430 were spent on (docs/Reported-Errors.md).
-    Sh_Last_Activity = "Resize picture throughout: comparing pictures"
-    Set matches = Lp_Same_Pic_Find(ActiveDocument.InlineShapes, ref, refAlt, refData, reader, _
-                                   refStart, refStory)
-
-    If Not reader Is Nothing Then
-        reader.Close SaveChanges:=False
-        Set reader = Nothing
-    End If
-
-    ' --- RESIZE AND JOIN, inside one undo record. Nothing in here reads WordOpenXML or runs a
-    ' Find - that is what keeps this to a single Ctrl+Z.
-    '
-    ' The record is opened whatever the search found, because there is ALWAYS something to try:
-    ' the selected picture has the paragraph mark after it replaced too, even when it turns out to
-    ' be the only copy in the book.
-    Sh_Last_Activity = "Resize picture throughout: resizing"
-    If matches.Count > 0 Then
-        Sh_Progress_Say 95, "Resizing " & Format(matches.Count, "#,##0") _
-            & IIf(matches.Count = 1, " copy", " copies")
-    End If
-    Set objUndo = Application.UndoRecord
-    objUndo.StartCustomRecord "Resize Picture Throughout"
-    recording = True
-
-    ' No alignment here (Jerry, 9/22/2026), so 0 goes in for it. The selected picture is included:
-    ' its SIZE is untouched - that is what is being copied from - but the mark after it is replaced
-    ' like every other copy's.
-    Lp_Same_Pic_Apply matches, ref, refW, refH, 0, True, True, False
-
-    objUndo.EndCustomRecord
-    recording = False
-    resized = Lp_Same_Pic_Resized
-    alreadySame = Lp_Same_Pic_Already
-    joined = Lp_Same_Pic_Joined
-
-    Sh_Progress_Close
-    barUp = False
-    Sh_Return_User_To_Start_Position
-    saved = False
-    Application.ScreenUpdating = su_Prev
-    Application.ScreenRefresh
-    Sh_Last_Activity = ""
-
-    If resized + alreadySame = 0 Then
-        msg = "No other copies of this picture were found in the book, so nothing was resized." _
-            & vbCr & vbCr & "Only pictures in line with the text are checked."
-    Else
-        msg = "This picture appears " & Format(resized + alreadySame, "#,##0") _
-            & IIf(resized + alreadySame = 1, " more time", " more times") & " in the book." & vbCr & vbCr _
-            & Format(resized, "#,##0") & IIf(resized = 1, " copy was", " copies were") _
-            & " resized to " & Format(refW / 72, "0.00") & " by " & Format(refH / 72, "0.00") & " inches."
-        If alreadySame > 0 Then
-            msg = msg & " " & Format(alreadySame, "#,##0") _
-                & IIf(alreadySame = 1, " was", " were") & " already that size."
-        End If
-        If byAlt Then
-            msg = msg & vbCr & vbCr & "Copies were found by the picture's description: " & refAlt & "."
-        Else
-            msg = msg & vbCr & vbCr & "This picture has no description, so copies were found by " _
-                & "comparing the pictures themselves."
-        End If
-    End If
-    If joined > 0 Then
-        msg = msg & vbCr & vbCr & IIf(joined = 1, "The paragraph mark", "The paragraph marks") _
-            & " straight after " & Format(joined, "#,##0") _
-            & IIf(joined = 1, " picture was", " pictures were") _
-            & " replaced with a space, so the text below runs on beside the picture."
-    End If
-    If resized > 0 Or joined > 0 Then msg = msg & vbCr & vbCr & "One Ctrl+Z puts it all back."
-    Sh_Say msg, "VistaType LP (324)"
-    Exit Sub
-
-eom:
-    ' Copy the error FIRST - Sh_Progress_Close runs Err.Clear inside itself. Then close the undo
-    ' record (one left open swallows everything the user does next), take the bar down and put the
-    ' screen and the cursor back, all before the error is reported.
-    errNum = Err.Number
-    errText = Err.Description
-    On Error Resume Next
-    If Not reader Is Nothing Then reader.Close SaveChanges:=False
-    If recording Then objUndo.EndCustomRecord
-    If barUp Then Sh_Progress_Close
-    If saved Then Sh_Return_User_To_Start_Position
-    Application.ScreenUpdating = su_Prev
-    Application.ScreenRefresh
-    On Error GoTo 0
-    Sh_Report_Error "Lp_Resize_Same_Picture_Throughout", errNum, errText
-
-End Sub  '***** end of Lp_Resize_Same_Picture_Throughout *****
 
 ' FINDS every copy of ref in a collection of in-line shapes, and hands them back in a Collection.
 '
 ' NO UNDO RECORD MAY BE OPEN while this runs. It reads a picture's WordOpenXML when the picture
 ' has no description, and that read inside an open record is what cost the single Ctrl+Z on
-' 9/15/2026 (see the note at the head of Lp_Resize_Same_Picture_Throughout).
+' 9/15/2026: with the reading inside the record, one Ctrl+Z took back only the very last change.
 '
 ' The collection it is given is what decides the scope: ActiveDocument.InlineShapes for the whole
 ' book, a Range's InlineShapes for one stretch of it. One procedure, so there is only ever ONE

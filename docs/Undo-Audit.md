@@ -221,7 +221,7 @@ scratch document's table, so none of them touches the book. Dialogs 178 and 200 
 two presses.
 
 **Custom undo record, correctly used, at 1 press:** `Lp_Resize_Images` (`:19854`),
-`Lp_Resize_Same_Picture_Throughout` (`:20057`), `Lp_Change_Image_Color` (`:20522`),
+`Lp_Change_Image_Color` (`:20522`),
 `Lp_Type_Fill_In_Line_To_Margin` (`:15975`), `Lp_Type_Counted_Fill_In_Lines` (`:16443`),
 `Lp_Compress_Linear_Math` and `_In_Selection` via `Lp_Clm_Run_As_One_Undo` (`:16919`),
 `Lp_Replace_Section_Break_With_Page_Break` (`Lp_Section_Brk_Caution.frm`),
@@ -234,7 +234,8 @@ record held open across it would swallow her own typing and her own hand resize 
 picture. Each Apply opens and closes its own record; dialog 381 says how many presses it will
 take to put a whole session back, rather than promising one.
 
-**Tried and rejected, 9/21/2026: an `UndoClear` at the start of `Lp_Resize_Same_Picture_Throughout`.**
+**Tried and rejected, 9/21/2026: an `UndoClear` at the start of `Lp_Resize_Same_Picture_Throughout`
+(that macro was retired on 9/22/2026; the rule holds for the range loop that replaced it).**
 It stopped a third Ctrl+Z from going on into earlier edits, but it also wiped the transcriber's
 hand resize of the model picture, which comes just before the macro and must stay undoable.
 Word cannot empty only part of the undo list, so Jerry had it taken out (3.0.473 → reverted).

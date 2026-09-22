@@ -233,11 +233,15 @@ somewhere else on purpose:
         - [ ] Pictures To Inline Button - "     All Pictures to Inline with fixed aspect ratio"
         - [ ] Pictures Color Grayscale Button - "Pictures Color/Grayscale Button"
         - [ ] Center Or Left Align Pictures Button - "Center or Left Align Pictures Button"
-        - [ ] Same Picture Size Button - "Resize This Picture Throughout the Book" (9/15/2026: select one picture, set its size, press it; every other copy of that picture takes the same size)
-        - [ ] Same Picture Range Button - "Resize Pictures Used Throughout a Selected Range" (9/22/2026, the loop). What to press:
+        - (Same Picture Size Button, "Resize This Picture Throughout the Book", was removed 9/22/2026 - the selected-range loop below does the whole book with Ctrl+A)
+        - [ ] Same Picture Range Button - "Resize Throughout Pictures in a Selected Range (Use Ctrl+A for Whole Doc)" (9/22/2026, the loop). What to press:
             - [ ] nothing selected, then press it - dialog **376**, nothing happens
             - [ ] select a stretch with no in-line pictures - dialog **377**
-            - [ ] select a stretch with pictures - the box **Resize Pictures in a Selected Range (375)** opens at the top right and the caret stays in the book
+            - [ ] select a stretch with pictures - the box **Resize Pictures in a Selected Range (375)** opens centered, the caret goes to the top of the range, and the highlight clears
+            - [ ] Ctrl+A first, then press it - the range is the whole book, which is what replaced Resize This Picture Throughout the Book
+            - [ ] press Apply once, then click another picture and press **Use Last Size** - that picture and its copies in the range take the earlier size
+            - [ ] press Use Last Size before any Apply - dialog **384**, nothing changes
+            - [ ] press Done - the last picture is no longer selected, and the cursor sits after it
             - [ ] click a picture inside the range, drag a handle, press Apply - its copies **inside** the range change; a copy of the same picture outside the range does not
             - [ ] click a picture outside the range, press Apply - dialog **379**, nothing changes
             - [ ] press Apply with nothing selected, and with text selected - dialog **378**
