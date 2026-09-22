@@ -18,6 +18,14 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 9/22/2026 - RESIZE PICTURES USED THROUGHOUT NO LONGER ALIGNS. Jerry: "Drop the
+'           - Lp  - 9/22/2026 - Left align and Center options... drop the 374 message entirely."
+'           - Lp  - 9/22/2026 - Lp_Same_Pic_Align_Form is gone. Every copy, and the selected
+'           - Lp  - 9/22/2026 - picture, now has the paragraph mark straight after it replaced with
+'           - Lp  - 9/22/2026 - a space (Lp_Same_Pic_Join_Next_Para); with anything else after it,
+'           - Lp  - 9/22/2026 - nothing after it is touched. The end of a table cell, the last mark
+'           - Lp  - 9/22/2026 - in the story and the mark in front of a table (nested ones too) are
+'           - Lp  - 9/22/2026 - never replaced. Still one undo record.
 ' Notes:    - Lp  - 9/21/2026 - A SHORT TOC TITLE GETS A SECOND TAB, so its dot leader shows.
 '           - Lp  - 9/21/2026 - Jerry, 9/21/2026, on "TOC Table 1 Formatting.docx", build 3.0.480:
 '           - Lp  - 9/21/2026 - "Index<tab>18" came out right, in TOC 1, and showed as "Index 18"
@@ -20901,6 +20909,12 @@ Sub Lp_Resize_Same_Picture_Throughout()
 '
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
+' Version: 1.2  Date: 9/22/2026 - NO ALIGNMENT AT ALL, and no dialog 374 (Jerry). Instead, each copy
+'                                 has the paragraph mark straight after it replaced with a space
+'                                 (Lp_Same_Pic_Join_Next_Para), so the text that was on the next
+'                                 line runs on beside it - every copy, one already the right size,
+'                                 and the selected picture too (Jerry, asked, "yes"). A picture with
+'                                 anything else after it has nothing after it touched
 ' Version: 1.1  Date: 9/17/2026 - asks whether the copies should be left aligned or centered, on
 '                                 Lp_Same_Pic_Align_Form (374), and applies it (Jerry). Every copy
 '                                 now goes into matches, including one already the right size,
@@ -20975,7 +20989,7 @@ Sub Lp_Resize_Same_Picture_Throughout()
     Dim errNum As Long
     Dim errText As String
     Dim msg As String
-    Dim alignWanted As Long
+    Dim joined As Long
 
     Application.Run MacroName:="Sh_Is_Doc_Open"
 
@@ -20993,24 +21007,6 @@ Sub Lp_Resize_Same_Picture_Throughout()
              & "picture in the book is given the same size." & vbCr & vbCr _
              & "Only pictures in line with the text are resized. If the picture floats over the " _
              & "text, use All Pictures to Inline first.", "VistaType LP (322)"
-        Exit Sub
-    End If
-
-    ' HOW SHOULD THE COPIES SIT ON THE PAGE? Jerry, 9/17/2026. Asked here, before any of the
-    ' work, so every question this macro has is out of the way before the transcriber is left
-    ' watching a bar. It cannot be guessed: a lesson icon repeated through a book is usually left
-    ' aligned, a full-width illustration usually centered.
-    '
-    ' Cancel and the red X both come back empty, and both stop the macro outright - nothing has
-    ' been touched by this point, so there is nothing to put back.
-    Sh_GP_String_1 = vbNullString
-    Lp_Same_Pic_Align_Form.Show
-    If UCase$(Sh_GP_String_1) = "CENTER" Then
-        alignWanted = wdAlignParagraphCenter
-    ElseIf UCase$(Sh_GP_String_1) = "LEFT" Then
-        alignWanted = wdAlignParagraphLeft
-    Else
-        Sh_Last_Activity = ""
         Exit Sub
     End If
 
@@ -21075,9 +21071,10 @@ Sub Lp_Resize_Same_Picture_Throughout()
         If Not (refInBody And s.Range.Start = refStart) Then
             If Lp_Same_Pic_Is_Picture(s) Then
                 If Lp_Same_Pic_Matches(s, ref, refAlt, refData, reader) Then
-                    ' EVERY copy goes in the collection now, including one that is already the
-                    ' right size: it still has to be aligned. alreadySame is only counted so the
-                    ' closing message can say how many needed no resizing.
+                    ' EVERY copy goes in the collection, including one already the right size:
+                    ' the paragraph mark after it is still replaced (Jerry, 9/22/2026).
+                    ' alreadySame is only counted so the closing message can say how many
+                    ' needed no resizing.
                     If Abs(s.Width - refW) < 0.5 And Abs(s.Height - refH) < 0.5 Then
                         alreadySame = alreadySame + 1
                     End If
@@ -21092,54 +21089,46 @@ Sub Lp_Resize_Same_Picture_Throughout()
         Set reader = Nothing
     End If
 
-    ' --- RESIZE AND ALIGN, inside one undo record. Nothing in here reads WordOpenXML or runs a
+    ' --- RESIZE AND JOIN, inside one undo record. Nothing in here reads WordOpenXML or runs a
     ' Find - that is what keeps this to a single Ctrl+Z.
     '
-    ' The record is opened whatever the search found, because there is ALWAYS something to do:
-    ' the selected picture gets the alignment even when it turns out to be the only copy in the
-    ' book. It used to run only when copies were found.
+    ' The record is opened whatever the search found, because there is ALWAYS something to try:
+    ' the selected picture has the paragraph mark after it replaced too, even when it turns out to
+    ' be the only copy in the book.
     Sh_Last_Activity = "Resize picture throughout: resizing"
     If matches.Count > 0 Then
         Sh_Progress_Say 95, "Resizing " & Format(matches.Count, "#,##0") _
             & IIf(matches.Count = 1, " copy", " copies")
-    Else
-        Sh_Progress_Say 95, "Aligning the selected picture"
     End If
     Set objUndo = Application.UndoRecord
     objUndo.StartCustomRecord "Resize Picture Throughout"
     recording = True
 
-    ' THE SELECTED PICTURE IS ALIGNED TOO - Jerry, 9/17/2026, reporting that it was not. It was
-    ' left out on the reasoning that the transcriber had placed it themselves and the job was to
-    ' make the others match it. That was wrong: the answer to "how should these pictures sit on
-    ' the page" plainly means all of them, and leaving one copy out of step is the surprising
-    ' result. Its SIZE is still untouched - that is the size being copied from.
-    ref.Range.ParagraphFormat.Alignment = alignWanted
+    ' THE SELECTED PICTURE TOO, and every copy already the right size - Jerry, 9/22/2026, asked
+    ' whether only the resized copies should lose the mark after them: "yes" to all of them. The
+    ' selected picture's SIZE is still untouched - that is the size being copied from.
+    If Lp_Same_Pic_Join_Next_Para(ref) Then joined = joined + 1
 
-    If matches.Count > 0 Then
-        For i = 1 To matches.Count
-            Set s = matches(i)
-            ' The size, when it is not already right. Resizing a picture that is already the
-            ' wanted size would put a pointless entry in the undo record and dirty the book.
-            If Abs(s.Width - refW) >= 0.5 Or Abs(s.Height - refH) >= 0.5 Then
-                oldLock = s.LockAspectRatio
-                s.LockAspectRatio = msoFalse
-                s.Width = refW
-                s.Height = refH
-                s.LockAspectRatio = oldLock
-            End If
+    For i = 1 To matches.Count
+        Set s = matches(i)
+        ' The size, when it is not already right. Resizing a picture that is already the wanted
+        ' size would put a pointless entry in the undo record and dirty the book.
+        If Abs(s.Width - refW) >= 0.5 Or Abs(s.Height - refH) >= 0.5 Then
+            oldLock = s.LockAspectRatio
+            s.LockAspectRatio = msoFalse
+            s.Width = refW
+            s.Height = refH
+            s.LockAspectRatio = oldLock
+        End If
 
-            ' And the alignment, on every copy. It is the copy's PARAGRAPH that is aligned, not
-            ' the picture - an in-line picture sits in a paragraph like a character does, which
-            ' is how Lp_Picture_Alignment_Form does it too.
-            s.Range.ParagraphFormat.Alignment = alignWanted
-        Next i
-    End If
+        ' And the paragraph mark straight after it becomes a space, so the text below runs on
+        ' beside the picture. Anything else after it is left alone.
+        If Lp_Same_Pic_Join_Next_Para(s) Then joined = joined + 1
+    Next i
 
     objUndo.EndCustomRecord
     recording = False
-    ' matches now holds EVERY copy, so the ones that were already the right size have to come
-    ' back out of this count - they were aligned, not resized, and the message says so.
+    ' matches holds EVERY copy, so the ones already the right size come back out of this count
     resized = matches.Count - alreadySame
 
     Sh_Progress_Close
@@ -21152,9 +21141,7 @@ Sub Lp_Resize_Same_Picture_Throughout()
 
     If resized + alreadySame = 0 Then
         msg = "No other copies of this picture were found in the book, so nothing was resized." _
-            & vbCr & vbCr & "The selected picture was " _
-            & IIf(alignWanted = wdAlignParagraphCenter, "centered", "left aligned") & "." & vbCr & vbCr _
-            & "Only pictures in line with the text are checked."
+            & vbCr & vbCr & "Only pictures in line with the text are checked."
     Else
         msg = "This picture appears " & Format(resized + alreadySame, "#,##0") _
             & IIf(resized + alreadySame = 1, " more time", " more times") & " in the book." & vbCr & vbCr _
@@ -21170,10 +21157,14 @@ Sub Lp_Resize_Same_Picture_Throughout()
             msg = msg & vbCr & vbCr & "This picture has no description, so copies were found by " _
                 & "comparing the pictures themselves."
         End If
-        msg = msg & vbCr & vbCr & "Every copy, and the picture you selected, was " _
-            & IIf(alignWanted = wdAlignParagraphCenter, "centered", "left aligned") & "."
-        msg = msg & vbCr & vbCr & "One Ctrl+Z puts them all back."
     End If
+    If joined > 0 Then
+        msg = msg & vbCr & vbCr & IIf(joined = 1, "The paragraph mark", "The paragraph marks") _
+            & " straight after " & Format(joined, "#,##0") _
+            & IIf(joined = 1, " picture was", " pictures were") _
+            & " replaced with a space, so the text below runs on beside the picture."
+    End If
+    If resized > 0 Or joined > 0 Then msg = msg & vbCr & vbCr & "One Ctrl+Z puts it all back."
     Sh_Say msg, "VistaType LP (324)"
     Exit Sub
 
@@ -21194,6 +21185,42 @@ eom:
     Sh_Report_Error "Lp_Resize_Same_Picture_Throughout", errNum, errText
 
 End Sub  '***** end of Lp_Resize_Same_Picture_Throughout *****
+
+' Replaces the paragraph mark straight after an in-line picture with a space, so the text that was
+' on the next line runs on beside the picture. True when it did. Jerry, 9/22/2026.
+'
+' Anything else straight after the picture - a space, text, another picture, a section break -
+' is left alone, and so is every character after that. Three paragraph marks are left alone too,
+' because Word will not let them go or taking them would wreck the layout:
+'   - the end of a table cell. It reads back as Chr(13) & Chr(7), two characters, so the test
+'     for a lone Chr(13) passes it by;
+'   - the last mark in the story, which Word puts straight back;
+'   - the mark in front of a table, which would try to pull a table row up into the paragraph -
+'     a table nested in the picture's own cell included.
+'
+' Version: 1.0  Date: 9/22/2026
+Private Function Lp_Same_Pic_Join_Next_Para(ByVal s As InlineShape) As Boolean
+    Dim after As Range
+    Dim nextPara As Range
+
+    Set after = s.Range.Duplicate
+    after.SetRange s.Range.End, s.Range.End + 1
+    If after.End >= after.StoryLength Then Exit Function
+    If after.Text <> vbCr Then Exit Function
+
+    ' The next paragraph must be in the same place as the picture: both outside any table, or
+    ' both in the SAME cell. Only testing "in a table" missed a table nested in the picture's own
+    ' cell - both sides read as in a table, and the mark in front of the nested one was replaced.
+    Set nextPara = after.Duplicate
+    nextPara.Collapse wdCollapseEnd
+    If nextPara.Information(wdWithInTable) Then
+        If Not s.Range.Information(wdWithInTable) Then Exit Function
+        If nextPara.Cells(1).Range.Start <> s.Range.Cells(1).Range.Start Then Exit Function
+    End If
+
+    after.Text = " "
+    Lp_Same_Pic_Join_Next_Para = True
+End Function  '***** end of Lp_Same_Pic_Join_Next_Para *****
 
 ' True when this picture is the same picture as ref: the same description, and near enough the same
 ' shape - or, for a picture with no description, the same image data.
