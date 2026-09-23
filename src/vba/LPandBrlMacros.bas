@@ -2661,7 +2661,7 @@ Private Const LP_FIL_TITLE As String = "Type Fill-In Lines (357)"
 
 ' HORIZONTAL LIST TO VERTICAL (348), which stays open - Jerry, 9/23/2026. No range: each Okay works
 ' on what is selected then. See Lp_Hvb_Start.
-Private Const LP_HVB_TITLE As String = "Convert Hozizontal List to Vertical List (348)"
+Private Const LP_HVB_TITLE As String = "Convert Horizontal List to Vertical List (348)"
 Private Lp_Hvb_IsOn As Boolean        ' the box is up. NEVER ask the form's .Visible - that creates it
 Private Lp_Hvb_Busy As Boolean        ' a list is being converted; refuses a second press and Done
 Private Lp_Fil_IsOn As Boolean        ' the box is up. NEVER ask the form's .Visible - that creates it

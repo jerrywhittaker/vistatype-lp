@@ -1,6 +1,6 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_Horz_To_Vert_List_Form 
-   Caption         =   "Convert Hozizontal List to Vertical List (348)"
+   Caption         =   "Convert Horizontal List to Vertical List (348)"
    ClientHeight    =   6780
    ClientLeft      =   120
    ClientTop       =   465
@@ -16,6 +16,8 @@ Attribute VB_Exposed = False
 
 ' Lp_Horz_To_Vert_List_Form
 
+' Version 3.2 9/23/2026 - the title bar says "Horizontal", not "Hozizontal" (Jerry). LP_HVB_TITLE
+'                        changed with it: F6 finds the box by its whole title.
 ' Version 3.1 9/23/2026 - Jerry's tall layout; the short-cut key label's hover text is set to its
 '                        caption.
 ' Version 3.0 9/23/2026 - THE BOX STAYS OPEN - Jerry. Shown vbModeless by Lp_Hvb_Start; Cancel is
