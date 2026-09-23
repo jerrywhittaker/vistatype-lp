@@ -1,10 +1,10 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_Horz_To_Vert_List_Form 
    Caption         =   "Convert Hozizontal List to Vertical List (348)"
-   ClientHeight    =   5310
+   ClientHeight    =   6780
    ClientLeft      =   120
    ClientTop       =   465
-   ClientWidth     =   8205.001
+   ClientWidth     =   5220
    OleObjectBlob   =   "Lp_Horz_To_Vert_List_Form.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
@@ -16,6 +16,8 @@ Attribute VB_Exposed = False
 
 ' Lp_Horz_To_Vert_List_Form
 
+' Version 3.1 9/23/2026 - Jerry's tall layout; the short-cut key label's hover text is set to its
+'                        caption.
 ' Version 3.0 9/23/2026 - THE BOX STAYS OPEN - Jerry. Shown vbModeless by Lp_Hvb_Start; Cancel is
 '                        Done (his layout, with the short-cut key and the F6 line on the box).
 '                        Okay hands the choices to Lp_Hvb_Okay, which converts the list selected
@@ -118,6 +120,10 @@ End Sub
 
 Sub UserForm_Initialize()
     Me.AscendingOrderCheckbox.Value = True
+
+    ' THE SHORT-CUT KEY LABEL'S HOVER TEXT is its caption - Jerry, 9/23/2026. The label was copied
+    ' from Type Fill-In Lines (357), and the hover text came with it: "Shift+Alt+Ctrl+_", 357's key.
+    ShortCutKeyLabel.ControlTipText = ShortCutKeyLabel.Caption
     
     ' 8/2/2026 - removed "MS_Set_Word_Config_For_Large_Print": opening the document already
     '            configures Word for large print, and re-running it here cost ~40 Options and

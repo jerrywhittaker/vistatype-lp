@@ -190,3 +190,12 @@ def test_horizontal_to_vertical_stays_open(repo_root):
     for kind in ("ORDERED", "SPACED", "TABBED"):
         assert f'"{kind}"' in ok
     assert "Lp_Hvb_Okay listKind, (AscendingOrderCheckbox = True)" in ok
+
+
+def test_short_cut_key_hover_text_matches_the_label(repo_root):
+    """Jerry, 9/23/2026: the labels on 348 and 356 were copied from 357 and kept its hover text,
+    "Shift+Alt+Ctrl+_". The hover text is set to each label's own caption when the box opens."""
+    for form in ("Lp_Horz_To_Vert_List_Form", "Lp_Table_Tools_Menu_Form"):
+        code = "\n".join(form_code(repo_root, form))
+        init = re.search(r"Sub UserForm_Initialize\(\)(.*?)End Sub", code, re.S)
+        assert init and "ShortCutKeyLabel.ControlTipText = ShortCutKeyLabel.Caption" in init.group(1), form
