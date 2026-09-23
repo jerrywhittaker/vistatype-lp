@@ -1,10 +1,10 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_Table_Tools_Menu_Form 
    Caption         =   "Large Print Table Tools (356)"
-   ClientHeight    =   8835.001
+   ClientHeight    =   8300.001
    ClientLeft      =   120
    ClientTop       =   465
-   ClientWidth     =   6900
+   ClientWidth     =   6855
    OleObjectBlob   =   "Lp_Table_Tools_Menu_Form.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
@@ -15,7 +15,6 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 'Lp_Table_And_TOC_Tools_Menu_Form
 '
-' Version: 2.4  Date: 9/23/2026 - Jerry's short-cut key label; its hover text is set to its caption.
 ' Version: 2.3  Date: 8/8/2026 - table recoloring took its typeface and size from hard-coded
 '                                "Tahoma" and the Lp_Base_Font_Size public. Both now come off the
 '                                document's own Normal style, so a table follows the typeface the
@@ -271,10 +270,6 @@ Private Sub UserForm_Initialize()
 
     Dim t As Table
     Dim rng As Range
-
-    ' THE SHORT-CUT KEY LABEL'S HOVER TEXT is its caption - Jerry, 9/23/2026. The label was copied
-    ' from Type Fill-In Lines (357), and the hover text came with it: "Shift+Alt+Ctrl+_", 357's key.
-    ShortCutKeyLabel.ControlTipText = ShortCutKeyLabel.Caption
      
     Lp_GP_String_3 = ""
     
