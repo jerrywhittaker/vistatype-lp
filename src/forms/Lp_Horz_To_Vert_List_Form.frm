@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_Horz_To_Vert_List_Form 
    Caption         =   "Convert Hozizontal List to Vertical List (348)"
-   ClientHeight    =   4728
+   ClientHeight    =   5310
    ClientLeft      =   120
    ClientTop       =   465
    ClientWidth     =   8205.001
@@ -16,6 +16,11 @@ Attribute VB_Exposed = False
 
 ' Lp_Horz_To_Vert_List_Form
 
+' Version 3.0 9/23/2026 - THE BOX STAYS OPEN - Jerry. Shown vbModeless by Lp_Hvb_Start; Cancel is
+'                        Done (his layout, with the short-cut key and the F6 line on the box).
+'                        Okay hands the choices to Lp_Hvb_Okay, which converts the list selected
+'                        at that moment and gives the keyboard back to the book. F6 and Shift+F6
+'                        go back to the book from every control.
 ' Version 2.0 8/12/2026 - the OK button only records the three choices and closes. The work,
 '                        and the temporary document that never appears, are in
 '                        Lp_Horz_To_Vert_Hidden
@@ -34,27 +39,81 @@ Attribute VB_Exposed = False
 ' Version 1.1 5/17/2018
 ' Version 1.0 4/3/2018
 '
+' Every button does one thing: call the macro that does the work. Nothing here touches the book,
+' and the option buttons and the tick box hold their own choices between presses.
+'
+' KeyDown on EVERY control that can hold the keyboard: F6 and Shift+F6 back to the book (Jerry's
+' rule, 9/23/2026). A UserForm has no KeyPreview, and while the box has the keyboard Word never
+' sees the key, so a control without this strands a transcriber working without a mouse.
+' Shift+F6 arrives here as F6 with Shift set.
+'
+' QueryClose sends the title bar's X through the same Done as the button, or the box would be
+' unloaded behind the macro's back and F6 left pointing at a box that has gone.
+
 Private Sub Cmd_Cancel_Click()
-    Unload Me
-    End
+    Lp_Hvb_Done
 End Sub
 
 Private Sub Cmd_Ok_Click()
-    ' This handler does NOTHING to the document. It records what the transcriber chose and
-    ' closes; Lp_Horz_List_To_Vertical does the work once the dialog is gone. Editing a document
-    ' from inside a modal form's event handler is a bad place to be and there is no reason to be
-    ' there - the choices are all this dialog is for.
-    If Ordered_List Then
-        Lp_Hv_Kind = "ORDERED"
-    ElseIf Spaced_List Then
-        Lp_Hv_Kind = "SPACED"
-    Else
-        Lp_Hv_Kind = "TABBED"
-    End If
-    Lp_Hv_Sort_Wanted = (AscendingOrderCheckbox = True)
-    Lp_Hv_Go = True
+    Dim listKind As String
 
-    Me.Hide
+    If Ordered_List Then
+        listKind = "ORDERED"
+    ElseIf Spaced_List Then
+        listKind = "SPACED"
+    Else
+        listKind = "TABBED"
+    End If
+    Lp_Hvb_Okay listKind, (AscendingOrderCheckbox = True)
+End Sub
+
+Private Sub Cmd_Ok_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    If KeyCode = vbKeyF6 Then
+        KeyCode = 0
+        Lp_Hvb_KeyToDocument
+    End If
+End Sub
+
+Private Sub Cmd_Cancel_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    If KeyCode = vbKeyF6 Then
+        KeyCode = 0
+        Lp_Hvb_KeyToDocument
+    End If
+End Sub
+
+Private Sub AscendingOrderCheckbox_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    If KeyCode = vbKeyF6 Then
+        KeyCode = 0
+        Lp_Hvb_KeyToDocument
+    End If
+End Sub
+
+Private Sub Ordered_List_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    If KeyCode = vbKeyF6 Then
+        KeyCode = 0
+        Lp_Hvb_KeyToDocument
+    End If
+End Sub
+
+Private Sub Spaced_List_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    If KeyCode = vbKeyF6 Then
+        KeyCode = 0
+        Lp_Hvb_KeyToDocument
+    End If
+End Sub
+
+Private Sub TabbedList_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    If KeyCode = vbKeyF6 Then
+        KeyCode = 0
+        Lp_Hvb_KeyToDocument
+    End If
+End Sub
+
+Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
+    If CloseMode = vbFormControlMenu Then
+        Cancel = True
+        Lp_Hvb_Done
+    End If
 End Sub
 
 Sub UserForm_Initialize()
@@ -70,8 +129,4 @@ Sub UserForm_Initialize()
     Me.Left = Application.Left + (0.5 * Application.Width) - (0.5 * Me.Width)
     Me.Top = Application.Top + (0.5 * Application.Height) - (0.5 * Me.Height)
 
-End Sub
-
-Private Sub userform_terminate() 'red X was clicked
-    Unload Me
 End Sub

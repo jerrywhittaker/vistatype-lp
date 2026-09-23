@@ -1,10 +1,10 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_Type_Fill_In_Line_Form 
    Caption         =   "Type Fill-In Lines (357)"
-   ClientHeight    =   7932
+   ClientHeight    =   9045.001
    ClientLeft      =   120
    ClientTop       =   465
-   ClientWidth     =   4485
+   ClientWidth     =   4545
    OleObjectBlob   =   "Lp_Type_Fill_In_Line_Form.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
@@ -16,6 +16,8 @@ Attribute VB_Exposed = False
 
 ' Lp_Type_Fill_In_Line_Form
 '
+' Version: 2.1  Date: 9/23/2026 - Jerry's layout: taller, Done, the short-cut key and the F6 line
+'                               on the box itself.
 ' Version: 2.0  Date: 9/23/2026 - THE BOX STAYS OPEN - Jerry. Shown vbModeless by Lp_Fil_Start;
 '                               Cancel is now Done. Every button calls Lp_Fil_Type, which types
 '                               the line at the cursor and hands the keyboard back to the book.
@@ -329,7 +331,6 @@ Private Sub UserForm_Initialize()
     ' control keeps its name so the .frx does not have to change.
     CancelButton.Caption = "Done"
     CancelButton.Accelerator = "D"
-    CancelButton.ControlTipText = "Done"   ' the .frx still says "Cancel Button"; a screen reader reads it
     With SpinButton1
         .min = 0
         .Max = 99

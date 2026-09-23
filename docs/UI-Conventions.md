@@ -112,7 +112,7 @@ words in the dialog, which VistaType LP does control.
 Jerry's rule, 9/23/2026. A box that stays open while the transcriber works in the book — a
 **modeless** UserForm, shown with `.Show vbModeless` — follows these rules. That covers Table and
 TOC Tools' TOC box (354), Resize Pictures in a Selected Range (375), Type Fill-In Lines (357),
-the $pg validation menus, and **every box made modeless from now on**, new or converted. The progress bar and the "please
+Horizontal List to Vertical (348), the $pg validation menus, and **every box made modeless from now on**, new or converted. The progress bar and the "please
 wait" notice are not boxes the transcriber works in, and are not covered.
 
 - **F6 and Shift+F6 move the keyboard between the book and the box**, both ways. In the box,
@@ -123,7 +123,7 @@ wait" notice are not boxes the transcriber works in, and are not covered.
   closing it hands F6 to the box opened before. Never bind F6 for one box on its own — that is
   how a live box was left without it (review, 9/23/2026).
 - **When the box first appears, the book has the keyboard**, not the box. So does every press of a button that
-  types into the book (357), so the transcriber can move to the next place and press again.
+  types into or converts the book (357, 348), so the transcriber can move to the next place and press again.
 - **Cancel becomes Done.** A box that stays open has nothing to cancel; Done closes it, and the
   title bar's X goes through the same Done.
 - **Where the box works on a held range, moving the cursor out of it is said** — "Your cursor is

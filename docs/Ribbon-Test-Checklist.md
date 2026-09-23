@@ -87,8 +87,8 @@ somewhere else on purpose:
 - [ ] **Foreign Lang in Color**  `Dx_Add_Color_To_Foreign_Language_Words`  -- *should not land at the top*
 - [ ] **Format Spelling List**  `Dx_Spelling_List`  -- *should not land at the top*
   - opens dialog **Dx Spelling List Options Form**: Cmd Ok
-- [ ] **Horiz List to Vertical**  `Lp_Horz_List_To_Vertical`  -- **RETURNS YOU** (shared with the LP tab from 3.0.140)
-  - opens dialog **Lp Horz To Vert List Form**: Cmd Ok  (the braille button uses the large-print form)
+- [ ] **Horiz List to Vertical**  `Lp_Horz_List_To_Vertical`  -- **BOX STAYS OPEN** from 3.0.499 (shared with the LP tab from 3.0.140)
+  - opens box **Lp Horz To Vert List Form** (348): Okay converts the list at the cursor each time; F6 / Shift+F6; Done closes it  (the braille button uses the large-print form)
 - [ ] **Exercise Levels 1 && 2**  `Dx_Format_Exercise_Lv_1_and_Lv_2`  -- **RETURNS YOU**
   - opens dialog **Dx UEB EBAE Fill In YN Form**: Cmd NO, Cmd YES
 - [ ] **Dashes/Primes/Fractions**  `Dx_Type_Dashes`  -- *should not land at the top*
@@ -184,8 +184,8 @@ somewhere else on purpose:
         - [ ] Command Button9 - "Type 9 fill-in charactersM"
         - [ ] Command Button10 - "Type 10 fill-in characters"
         - [ ] ...and 12 more buttons on this dialog
-- [ ] **Horiz List to Vertical** &nbsp;`Lp_Horz_List_To_Vertical`  **RETURNS YOU**
-    - dialog **Lp Horz To Vert List Form**
+- [ ] **Horiz List to Vertical** &nbsp;`Lp_Horz_List_To_Vertical`  **BOX STAYS OPEN** from 3.0.499
+    - box **Lp Horz To Vert List Form** (348): Okay converts the list at the cursor each time; F6 / Shift+F6; Done closes it
         - [ ] Cmd Ok
 - [ ] **Table and TOC Tools** &nbsp;`Lp_Table_Tools`  **RETURNS YOU**
     - dialog **Lp Table Tools Menu Form**

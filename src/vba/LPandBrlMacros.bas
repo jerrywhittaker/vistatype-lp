@@ -18,6 +18,11 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 9/23/2026 - HORIZONTAL LIST TO VERTICAL (348) STAYS OPEN. Jerry: non-modal,
+'           - Lp  - 9/23/2026 - F6 and Shift+F6, no range. Okay converts the list selected at that
+'           - Lp  - 9/23/2026 - moment (or the paragraph the cursor is in) and hands the keyboard
+'           - Lp  - 9/23/2026 - back; Cancel is Done. No text to work on is said (392) instead of
+'           - Lp  - 9/23/2026 - ending everything through Lp_Is_Text_Selected's End. List key "hv".
 ' Notes:    - Lp  - 9/23/2026 - TYPE FILL-IN LINES (357) STAYS OPEN. Jerry: non-modal, Cancel
 '           - Lp  - 9/23/2026 - becomes Done, no range, F6 and Shift+F6. Each button types its
 '           - Lp  - 9/23/2026 - fill-in line at the cursor and hands the keyboard back to the book,
@@ -2653,6 +2658,12 @@ Private Const LP_TOCB_TITLE As String = "Format TOC - Add/Remove Color Bars (354
 ' TYPE FILL-IN LINES (357), which stays open - Jerry, 9/23/2026. No range: every button types at the
 ' cursor, wherever the transcriber has put it. See Lp_Fil_Start.
 Private Const LP_FIL_TITLE As String = "Type Fill-In Lines (357)"
+
+' HORIZONTAL LIST TO VERTICAL (348), which stays open - Jerry, 9/23/2026. No range: each Okay works
+' on what is selected then. See Lp_Hvb_Start.
+Private Const LP_HVB_TITLE As String = "Convert Hozizontal List to Vertical List (348)"
+Private Lp_Hvb_IsOn As Boolean        ' the box is up. NEVER ask the form's .Visible - that creates it
+Private Lp_Hvb_Busy As Boolean        ' a list is being converted; refuses a second press and Done
 Private Lp_Fil_IsOn As Boolean        ' the box is up. NEVER ask the form's .Visible - that creates it
 Private Lp_Fil_Busy As Boolean        ' a fill is being typed; refuses a second press and Done
 
@@ -2907,11 +2918,9 @@ Public Sh_Last_Activity As String      ' the last activity message shown, for th
 ' See Lp_Split_Ordered_List_Sequence.
 Public Lp_ListSplitError As String
 
-' What Lp_Horz_To_Vert_List_Form's OK button chose. The form records these and closes; the work
-' happens in Lp_Horz_List_To_Vertical afterwards, never inside the form's own event handler.
-Public Lp_Hv_Kind As String
-Public Lp_Hv_Sort_Wanted As Boolean
-Public Lp_Hv_Go As Boolean
+' Lp_Hv_Kind, Lp_Hv_Sort_Wanted and Lp_Hv_Go stood here until 9/23/2026: the modal box (348)
+' recorded its choices in them and closed, and Lp_Horz_List_To_Vertical did the work. The box stays
+' open now, and its Okay hands the choices straight to Lp_Hvb_Okay.
 
 ' True while a configuration is being applied because the transcriber SWITCHED documents, as
 ' opposed to opening one or attaching a template. The three MS_Set_Word_Config_* subs then set
@@ -16576,6 +16585,10 @@ Sub Lp_Horz_List_To_Vertical()
     '
     ' Author: Jerry Whittaker -  jerry@vistatypelp.org
     '
+    ' Version: 1.5: Date: 9/23/2026 - the box (348) STAYS OPEN - Jerry. Started through Lp_Hvb_Start;
+    '                                 Okay converts whatever is selected at that moment, so nothing
+    '                                 is selected or checked here any more. A second press while it
+    '                                 is up brings it to the front.
     ' Version: 1.4: Date: 8/12/2026 - the temporary document is no longer shown, so no flashing
     ' Version: 1.3: Date: 8/11/2026 - now serves BOTH ribbon tabs; Dx_Horz_List_To_Vertical and its form are gone
     ' Version: 1.2: Date: 9/20/2018 - added optional manual selection of text (before execution) or automatic selection of current para
@@ -16584,25 +16597,145 @@ Sub Lp_Horz_List_To_Vertical()
     '
     ' Shared by BOTH ribbon tabs from 8/11/2026 - see the note where Dx_Horz_List_To_Vertical
     ' used to be. No template check on either side: this macro does not care what is attached.
-    Application.Run MacroName:="Sh_Is_Doc_Open"
 
-    If Selection.Type <> wdSelectionNormal Then
-        Selection.Paragraphs(1).Range.Select
+    ' Already up: bring it to the front, and it is the box being worked in (Sh_Box_Opened).
+    If Lp_Hvb_IsOn Then
+        Sh_Box_Opened "hv"
+        On Error Resume Next
+        Lp_Horz_To_Vert_List_Form.Show vbModeless
+        Err.Clear
+        On Error GoTo 0
+        Exit Sub
     End If
 
-    Application.Run MacroName:="Lp_Is_Text_Selected"
-
-    Lp_Hv_Go = False
-    Lp_Horz_To_Vert_List_Form.Show
-    Unload Lp_Horz_To_Vert_List_Form
-    If Not Lp_Hv_Go Then Exit Sub
-
-    ' The document is touched HERE, with the dialog gone. No custom undo record: the text goes
-    ' home in one FormattedText assignment, which Word already records as a single undo step.
-    Lp_Horz_To_Vert_Hidden Selection.Range, Lp_Hv_Kind, Lp_Hv_Sort_Wanted
-    Lp_Hv_Go = False
-
+    Application.Run MacroName:="Sh_Is_Doc_Open"
+    Lp_Hvb_Start
 End Sub  '*** end of Lp_Horz_List_To_Vertical macro ***
+
+' ============================================================================================
+' HORIZONTAL LIST TO VERTICAL - THE BOX THAT STAYS OPEN (348), Jerry, 9/23/2026
+'
+' "Make 348 a non-modal message with the F6 or Shift+F6 ability... no range needed." So the box
+' stays up: select a list, choose ordered, spaced or tabbed and whether to sort, press Okay, and
+' the list is converted where it is. The book gets the keyboard back, the transcriber selects the
+' next list, and presses Okay again. Done closes it.
+'
+' NO RANGE. Each Okay works on the selection at that moment, by the rule the button always used:
+' a bare cursor means the paragraph it is in. The conversion itself is unchanged -
+' Lp_Horz_To_Vert_Hidden, one undo step, the temporary document never shown.
+'
+' F6 AND Shift+F6 as for every box that stays open (docs/UI-Conventions.md): the key in the book
+' is shared, and this box joins the list as "hv" (Sh_Box_Opened); the way back is the form's own
+' KeyDown handlers. Nothing here held a range, so there is no out-of-range message.
+' ============================================================================================
+
+' Version: 1.0  Date: 9/23/2026
+Private Sub Lp_Hvb_Start()
+    ' The flag goes up BEFORE the box does, the lesson Sh_Progress_Open carries.
+    Lp_Hvb_Busy = False
+    Lp_Hvb_IsOn = True
+    Sh_Box_Opened "hv"
+    Lp_Horz_To_Vert_List_Form.Show vbModeless
+
+    ' The book gets the keyboard, not the box - the rule for every box that stays open.
+    Sh_Focus_Document ActiveDocument
+End Sub  '***** end of Lp_Hvb_Start *****
+
+' What the box's Okay runs, with the choices on the box. listKind is "ORDERED", "SPACED" or
+' "TABBED", as Lp_Horz_To_Vert_Hidden takes it.
+'
+' Version: 1.0  Date: 9/23/2026
+Public Sub Lp_Hvb_Okay(ByVal listKind As String, ByVal sortWanted As Boolean)
+    Dim d As Document
+    Dim errNum As Long
+    Dim errText As String
+
+    If Not Lp_Hvb_IsOn Then Exit Sub
+    If Lp_Hvb_Busy Then Exit Sub
+    If Documents.count = 0 Then Exit Sub
+
+    ' ANY ERROR goes to eom, which clears the busy flag - left set, every later press and Done
+    ' itself would be ignored.
+    On Error GoTo eom
+    Lp_Hvb_Busy = True
+    ' A press here makes this the box being worked in - the newest, with F6.
+    Sh_Box_Opened "hv"
+    Set d = ActiveDocument
+
+    ' A bare cursor means its paragraph - the rule the button has used since 9/10/2018.
+    If Selection.Type <> wdSelectionNormal Then Selection.Paragraphs(1).Range.Select
+
+    ' Nothing to convert. Said here, not through Lp_Is_Text_Selected: its End would take down
+    ' this box and every other box that stays open (issue 18).
+    If Selection.Type <> wdSelectionNormal Then
+        Lp_Hvb_Busy = False
+        Sh_Say "Select the list to convert first, or put the cursor in it." & vbCr & vbCr _
+             & "Then press Okay again, or press Done.", "VistaType LP (392)"
+        Sh_Focus_Document d
+        Exit Sub
+    End If
+
+    ' The work, with the box up. One FormattedText assignment, one undo step - unchanged.
+    Lp_Horz_To_Vert_Hidden Selection.Range, listKind, sortWanted
+
+    Lp_Hvb_Busy = False
+    ' Back to the book, so the next list can be selected without the mouse.
+    Sh_Focus_Document d
+    Exit Sub
+
+eom:
+    ' Said, not swallowed: a press that does nothing with no reason given is worse than a message.
+    errNum = Err.Number
+    errText = Err.Description
+    Lp_Hvb_Busy = False
+    On Error Resume Next
+    If Not d Is Nothing Then Sh_Focus_Document d
+    Err.Clear
+    On Error GoTo 0
+    Sh_Report_Error "Lp_Hvb_Okay", errNum, errText
+End Sub  '***** end of Lp_Hvb_Okay *****
+
+' What the Done button runs, and the title bar's X through UserForm_QueryClose. Not while a list is
+' being converted - the press is ignored and Done can be pressed again. The flag goes down first;
+' the box is hidden before it is unloaded because this is reached from a button on it; the book
+' gets the keyboard; and the list of boxes is left LAST.
+'
+' Version: 1.0  Date: 9/23/2026
+Public Sub Lp_Hvb_Done()
+    If Lp_Hvb_Busy Then Exit Sub
+
+    On Error Resume Next
+    Lp_Hvb_IsOn = False
+    Lp_Horz_To_Vert_List_Form.Hide
+    Unload Lp_Horz_To_Vert_List_Form
+    If Documents.count > 0 Then Sh_Focus_Document ActiveDocument
+    Sh_Box_Closed "hv"
+    Err.Clear
+    On Error GoTo 0
+End Sub  '***** end of Lp_Hvb_Done *****
+
+' What F6 runs, through Sh_Box_ToggleFocus, while this is the newest box up and the book has the
+' keyboard. The safety net: fired with no box up, it leaves the shared list.
+'
+' Version: 1.0  Date: 9/23/2026
+Public Sub Lp_Hvb_ToggleFocus()
+    On Error Resume Next
+    If Not Lp_Hvb_IsOn Then
+        Sh_Box_Closed "hv"
+        Exit Sub
+    End If
+    Sh_Focus_Modeless_Form LP_HVB_TITLE
+    Err.Clear
+End Sub  '***** end of Lp_Hvb_ToggleFocus *****
+
+' The other half, from every control's KeyDown on the box: the keyboard back to the book on screen.
+'
+' Version: 1.0  Date: 9/23/2026
+Public Sub Lp_Hvb_KeyToDocument()
+    On Error Resume Next
+    If Documents.count > 0 Then Sh_Focus_Document ActiveDocument
+    Err.Clear
+End Sub  '***** end of Lp_Hvb_KeyToDocument *****
 
 Sub Lp_Table_Tools()
 '

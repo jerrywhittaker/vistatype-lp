@@ -23,6 +23,7 @@ PAIRS = [
     ("LPandBrlMacros.bas", "LP_RST_TITLE", "Lp_Same_Pic_Range_Form.frm"),
     ("LPandBrlMacros.bas", "LP_TOCB_TITLE", "Lp_TOC_Format_And_Color_Form.frm"),
     ("LPandBrlMacros.bas", "LP_FIL_TITLE", "Lp_Type_Fill_In_Line_Form.frm"),
+    ("LPandBrlMacros.bas", "LP_HVB_TITLE", "Lp_Horz_To_Vert_List_Form.frm"),
 ]
 
 CONST = r'Const\s+{name}\s+As\s+String\s*=\s*"([^"]*)"'

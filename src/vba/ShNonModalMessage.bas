@@ -630,7 +630,8 @@ End Sub  '***** end of Sh_Focus_Modeless_Form *****
 
 ' ONE F6 FOR EVERY BOX THAT STAYS OPEN - Jerry's rule, 9/23/2026 (docs/UI-Conventions.md): F6 and
 ' Shift+F6 move the keyboard between the book and the box. The $pg menus, the TOC box (354),
-' Resize Pictures in a Selected Range (375) and Type Fill-In Lines (357) can be up at the same time, and Word keeps ONE command
+' Resize Pictures in a Selected Range (375), Type Fill-In Lines (357) and Horizontal List to
+' Vertical (348) can be up at the same time, and Word keeps ONE command
 ' per key - a second KeyBindings.Add replaces the first. Until today each box bound F6 for itself
 ' and stood aside for the others, and the review of that found every order of opening and closing
 ' that left a live box without F6, or a flag saying it had it when it did not.
@@ -656,7 +657,7 @@ Public Sub Sh_Box_Closed(ByVal who As String)
     If Len(Sh_Box_Stack) = 0 Then Sh_Box_UnbindKeys
 End Sub  '***** end of Sh_Box_Closed *****
 
-' Which box has F6 and watches the cursor: "pg", "tocb", "rst", "fil", or "" when none is up.
+' Which box has F6 and watches the cursor: "pg", "tocb", "rst", "fil", "hv", or "" when none is up.
 '
 ' Version: 1.0  Date: 9/23/2026
 Public Function Sh_Box_On_Top() As String
@@ -680,6 +681,8 @@ Public Sub Sh_Box_ToggleFocus()
             Lp_Rst_ToggleFocus
         Case "fil"
             Lp_Fil_ToggleFocus
+        Case "hv"
+            Lp_Hvb_ToggleFocus
         Case Else
             Sh_Box_Stack = ""
             Sh_Box_UnbindKeys
@@ -727,7 +730,8 @@ Private Sub Sh_Box_UnbindKeys()
            Or InStr(1, cmd, "Sh_PgVal_ToggleFocus", vbTextCompare) > 0 _
            Or InStr(1, cmd, "Lp_Rst_ToggleFocus", vbTextCompare) > 0 _
            Or InStr(1, cmd, "Lp_Tocb_ToggleFocus", vbTextCompare) > 0 _
-           Or InStr(1, cmd, "Lp_Fil_ToggleFocus", vbTextCompare) > 0 Then
+           Or InStr(1, cmd, "Lp_Fil_ToggleFocus", vbTextCompare) > 0 _
+           Or InStr(1, cmd, "Lp_Hvb_ToggleFocus", vbTextCompare) > 0 Then
             KeyBindings(i).Clear
         End If
     Next i

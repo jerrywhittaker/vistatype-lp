@@ -21,6 +21,8 @@ BOXES = {
                                "LeaveAsIsButton"],
     "Lp_Type_Fill_In_Line_Form": [f"CommandButton{n}" for n in range(1, 22)]
                                  + ["FillToRightMargin", "CancelButton", "TextBox1", "SpinButton1"],
+    "Lp_Horz_To_Vert_List_Form": ["Cmd_Ok", "Cmd_Cancel", "AscendingOrderCheckbox", "Ordered_List",
+                                  "Spaced_List", "TabbedList"],
 }
 
 
@@ -44,7 +46,8 @@ def test_one_shared_f6_for_every_box(repo_root):
     assert "SH_BOX_KEY_MACRO" in bind
     toggle = "\n".join(sprocs["Sh_Box_ToggleFocus"])
     for who, sub in (("pg", "Sh_PgVal_ToggleFocus"), ("tocb", "Lp_Tocb_ToggleFocus"),
-                     ("rst", "Lp_Rst_ToggleFocus"), ("fil", "Lp_Fil_ToggleFocus")):
+                     ("rst", "Lp_Rst_ToggleFocus"), ("fil", "Lp_Fil_ToggleFocus"),
+                     ("hv", "Lp_Hvb_ToggleFocus")):
         assert f'Case "{who}"' in toggle and sub in toggle, f"F6 cannot reach the {who} box"
 
     # Nothing binds F6 on its own any more - every KeyBindings.Add for F6 is in Sh_Box_BindKeys.
@@ -161,3 +164,29 @@ def test_type_fill_in_lines_stays_open(repo_root):
         assert m and re.search(rf"Lp_Fil_Type 1, {n}\b", m.group(1)), f"button {n} types the wrong length"
     m = re.search(r"Sub FillToRightMargin_Click\(\)(.*?)End Sub", code, re.S)
     assert m and "Lp_Fil_Type 2, SpinButton1.Value" in m.group(1)
+
+
+def test_horizontal_to_vertical_stays_open(repo_root):
+    """Jerry, 9/23/2026: 348 non-modal, F6 and Shift+F6, no range."""
+    procs = procedures(module_text(repo_root))
+    start = "\n".join(procs["Lp_Hvb_Start"])
+    assert re.search(r"Lp_Horz_To_Vert_List_Form\.Show\s+vbModeless", start)
+    assert 'Sh_Box_Opened "hv"' in start and "Sh_Focus_Document" in start
+    button = procs["Lp_Horz_List_To_Vertical"]
+    assert not any(re.search(r"^\s*End\s*$", c) for c in button)
+    assert not any("Lp_Is_Text_Selected" in c for c in button), (
+        "Lp_Is_Text_Selected ends with End, which takes down every box that stays open")
+    okay = "\n".join(procs["Lp_Hvb_Okay"])
+    assert "Lp_Horz_To_Vert_Hidden Selection.Range" in okay and "VistaType LP (392)" in okay
+    done = procs["Lp_Hvb_Done"]
+    leave = next(n for n, c in enumerate(done) if 'Sh_Box_Closed "hv"' in c)
+    assert leave == max(n for n, c in enumerate(done) if "Sh_" in c), "348 must leave the list last"
+
+    code = "\n".join(form_code(repo_root, "Lp_Horz_To_Vert_List_Form"))
+    assert not re.search(r"\.Hide\b|Unload Me|^\s*End\s*$", code, re.M)
+    query = re.search(r"Sub UserForm_QueryClose\(.*?\)(.*?)End Sub", code, re.S)
+    assert query and "Lp_Hvb_Done" in query.group(1) and "Cancel = True" in query.group(1)
+    ok = re.search(r"Sub Cmd_Ok_Click\(\)(.*?)End Sub", code, re.S).group(1)
+    for kind in ("ORDERED", "SPACED", "TABBED"):
+        assert f'"{kind}"' in ok
+    assert "Lp_Hvb_Okay listKind, (AscendingOrderCheckbox = True)" in ok
