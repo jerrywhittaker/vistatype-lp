@@ -90,3 +90,49 @@ def test_remove_color_bars_asks_the_toc_not_the_book(repo_root):
     body = "\n".join(procedures(module_text(repo_root))["Lp_TOC_Remove_Color_Bars"])
     assert re.search(r"If Not anyChanged Then", body), (
         "Remove Color Bars must say there is nothing to remove when the TOC has no bars")
+
+
+def test_the_book_gets_the_keyboard_once_the_box_is_up(repo_root):
+    """Jerry, 9/23/2026: after the box first appears, the focus goes to the book."""
+    start = procedures(module_text(repo_root))["Lp_Tocb_Start"]
+    show = next(n for n, c in enumerate(start) if re.search(r"\.Show\s+vbModeless", c))
+    assert any(re.search(r"Sh_Focus_Document\s+Lp_Tocb_Doc", c) for c in start[show + 1:]), (
+        "the book must be given the focus AFTER the modeless box is shown, or the box keeps it")
+
+
+def test_a_cursor_out_of_the_toc_is_said(repo_root):
+    """Jerry, 9/23/2026: "Your cursor is out of the selected range" (389), from Word's
+    selection event, and silent while a job is moving the selection itself."""
+    events = (repo_root / "src" / "vba" / "VtEvents.cls").read_bytes().decode("latin-1")
+    handler = re.search(r"Sub App_WindowSelectionChange\(.*?\)(.*?)End Sub", events, re.S)
+    assert handler and re.search(r"Lp_Tocb_Watch_Cursor\s+Sel\b", handler.group(1)), (
+        "nothing tells the TOC box the cursor moved")
+
+    watch = procedures(module_text(repo_root))["Lp_Tocb_Watch_Cursor"]
+    body = "\n".join(watch)
+    assert "Your cursor is out of the selected range" in body
+    assert "VistaType LP (389)" in body
+    say = next(n for n, c in enumerate(watch) if "Sh_Say" in c)
+    for guard in (r"If Not Lp_Tocb_IsOn Then Exit Sub", r"If Lp_Tocb_Busy Then Exit Sub",
+                  r"If Lp_Tocb_Warned Then Exit Sub"):
+        at = next((n for n, c in enumerate(watch) if re.search(guard, c)), None)
+        assert at is not None and at < say, f"Lp_Tocb_Watch_Cursor lost its guard: {guard}"
+    assert not any(re.search(r"Lp_Tocb_Reconcile|Set Lp_Tocb_Range\s*=", c) for c in watch), (
+        "watching the cursor must not move the range the next press works on")
+    table = next((n for n, c in enumerate(watch) if "wdWithInTable" in c), None)
+    assert table is not None and table < say, (
+        "a cursor in a table is on its way to the table box (356); 389 must not be said there")
+
+
+def test_the_box_putting_the_cursor_back_clears_the_warning(repo_root):
+    """Found in review, 9/23/2026: the box reselects the TOC while a job runs, when the watcher
+    is silent, so the watcher never sees the cursor come back and 389 went quiet for good."""
+    select = procedures(module_text(repo_root))["Lp_Tocb_Select"]
+    assert any(re.search(r"Lp_Tocb_Warned\s*=\s*False", c) for c in select)
+
+
+def test_the_toc_is_selected_before_the_box_appears(repo_root):
+    start = procedures(module_text(repo_root))["Lp_Tocb_Start"]
+    sel = next(n for n, c in enumerate(start) if re.search(r"^\s*Lp_Tocb_Select\s*$", c))
+    on = next(n for n, c in enumerate(start) if re.search(r"Lp_Tocb_IsOn\s*=\s*True", c))
+    assert sel < on, "a raw over-drag selection would trip 389 while the box is starting up"

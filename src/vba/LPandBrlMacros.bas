@@ -18,6 +18,11 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 9/23/2026 - THE TOC BOX (354) HANDS THE KEYBOARD TO THE BOOK. Jerry: once the
+'           - Lp  - 9/23/2026 - box is up the book has the focus, so the cursor can be moved
+'           - Lp  - 9/23/2026 - without clicking first. Move it out of the TOC being held and dialog
+'           - Lp  - 9/23/2026 - 389 says "Your cursor is out of the selected range." - once per
+'           - Lp  - 9/23/2026 - trip out, from Lp_Tocb_Watch_Cursor on Word's selection event.
 ' Notes:    - Lp  - 9/22/2026 - THE TOC BOX, THREE FIXES FROM REVIEW. Ctrl+Z after Format the
 '           - Lp  - 9/22/2026 - TOC swaps the whole TOC back under the held Range, so every
 '           - Lp  - 9/22/2026 - press now reconciles the range first (Lp_Tocb_Reconcile): the
@@ -2624,6 +2629,7 @@ Private Lp_Tocb_Busy As Boolean       ' a job is running; refuses a second press
 Private Lp_Tocb_Before As Long        ' characters in front of the TOC, as the last job left it
 Private Lp_Tocb_After As Long         ' characters after the TOC, as the last job left it
 Private Lp_Tocb_Len As Long           ' the TOC's length, as the last job left it
+Private Lp_Tocb_Warned As Boolean     ' 389 has been said for this trip out of the TOC
 
 ' Set by the TOC color bars box (353) when its second Okay has painted the bars, so the box that
 ' called it knows whether to say "Color bars added". Public because a form sets it.
@@ -16537,14 +16543,21 @@ End Sub
 ' the box - a custom undo record round these jobs crashed Word outright (docs/Reported-Errors.md,
 ' 9/2/2026).
 '
-' NO F6 HERE, unlike 375. The transcriber has no need to go into the book between presses - the
-' TOC is held and selected for them - and 375 already binds F6 to its own macro; two boxes that
-' can both be up would fight over the key.
+' NO F6 HERE, unlike 375. 375 already binds F6 to its own macro, and two boxes that can both be
+' up would fight over the key.
+'
+' THE BOOK HAS THE KEYBOARD, NOT THE BOX - Jerry, 9/23/2026. Once the box is up the focus goes to
+' the book, so the transcriber can move about in it straight away; the box is a click away. And
+' because every job works on the TOC being held, not on where the cursor is, moving the cursor OUT
+' of that TOC is said (389) - once per trip out, so arrowing about outside it does not bring the
+' message back on every key. See Lp_Tocb_Watch_Cursor.
 ' ============================================================================================
 
 ' Starts the TOC box on the current selection. Lp_Table_Tools has already checked that the
 ' selection covers more than one paragraph.
 '
+' Version: 1.1  Date: 9/23/2026 - the book gets the focus once the box is up. Jerry, 9/23/2026.
+'                               The TOC is selected before the box appears, not after.
 ' Version: 1.0  Date: 9/22/2026
 Private Sub Lp_Tocb_Start()
     Dim r As Range
@@ -16571,9 +16584,16 @@ Private Sub Lp_Tocb_Start()
     Lp_Tocb_Busy = False
 
     ' The flag goes up BEFORE the box does, the lesson Sh_Progress_Open carries.
+    ' The TOC is selected BEFORE the flag goes up and the box appears. The box's own start-up
+    ' reconfigures Word, and if that moves the view with a selection still reaching past the TOC
+    ' (an over-drag the range dropped), 389 would be said before the box was even on screen.
+    Lp_Tocb_Select
     Lp_Tocb_IsOn = True
     Lp_TOC_Format_And_Color_Form.Show vbModeless
-    Lp_Tocb_Select
+
+    ' THEN THE BOOK GETS THE KEYBOARD - Jerry, 9/23/2026. A modeless box keeps the focus when it
+    ' is shown; the transcriber should be able to move about in the book without clicking first.
+    Sh_Focus_Document Lp_Tocb_Doc
 End Sub  '***** end of Lp_Tocb_Start *****
 
 ' True when the last paragraph of a selection should be left out: there is more than one, and the
@@ -16627,8 +16647,26 @@ End Sub  '***** end of Lp_Tocb_Remember *****
 ' live Range if nothing happened inside the TOC, the counts if something did (Ctrl+Z after Format
 ' the TOC is the case that matters). See the note above Lp_Tocb_Start.
 '
+' Version: 1.1  Date: 9/23/2026 - the work moved into Lp_Tocb_Where, which the cursor watcher
+'                               shares; this is now only the assignment.
 ' Version: 1.0  Date: 9/22/2026
 Private Sub Lp_Tocb_Reconcile()
+    On Error Resume Next
+    Set Lp_Tocb_Range = Lp_Tocb_Where()
+    Err.Clear
+    On Error GoTo 0
+End Sub  '***** end of Lp_Tocb_Reconcile *****
+
+' Where the TOC is now, without moving the held range: the live Range if nothing has happened
+' inside the TOC since the last job, the counts if something has. Nothing when the book cannot be
+' read. Lp_Tocb_Reconcile makes this the held range; Lp_Tocb_Watch_Cursor only looks at it, so a
+' cursor moving about cannot change what the next press works on.
+'
+' Version: 1.0  Date: 9/23/2026 - taken out of Lp_Tocb_Reconcile 1.0, with one difference: if the
+'                               book cannot be read, this gives Nothing where the old sub left the
+'                               stale range in place, so Lp_Tocb_Ready now ends the run (388)
+'                               rather than working on a range that may be wrong.
+Private Function Lp_Tocb_Where() As Range
     Dim liveLen As Long
     Dim storyEnd As Long
     Dim s As Long, e As Long
@@ -16639,23 +16677,83 @@ Private Sub Lp_Tocb_Reconcile()
     If Err.Number <> 0 Then liveLen = -1
     Err.Clear
     If Lp_Tocb_Trust_Live(liveLen, Lp_Tocb_Len) Then
+        Set Lp_Tocb_Where = Lp_Tocb_Range
         On Error GoTo 0
-        Exit Sub
+        Exit Function
     End If
 
     storyEnd = Lp_Tocb_Doc.Content.End
     s = Lp_Tocb_Before
     If s > storyEnd Then s = storyEnd
     e = Lp_Tocb_Held_End(storyEnd, Lp_Tocb_After, s)
-    Set Lp_Tocb_Range = Lp_Tocb_Doc.Range(s, e)
+    Set Lp_Tocb_Where = Lp_Tocb_Doc.Range(s, e)
     Err.Clear
     On Error GoTo 0
-End Sub  '***** end of Lp_Tocb_Reconcile *****
+End Function  '***** end of Lp_Tocb_Where *****
+
+' True when a selection running from selStart to selEnd is not inside the TOC held from heldStart to
+' heldEnd. heldEnd is just past the TOC's last paragraph mark, so a cursor standing there is at the
+' start of the next paragraph - outside. A selection that reaches past either edge is outside too.
+'
+' Version: 1.0  Date: 9/23/2026
+Private Function Lp_Tocb_Is_Outside(ByVal selStart As Long, ByVal selEnd As Long, _
+                                    ByVal heldStart As Long, ByVal heldEnd As Long) As Boolean
+    If selStart < heldStart Then Lp_Tocb_Is_Outside = True: Exit Function
+    If selEnd > heldEnd Then Lp_Tocb_Is_Outside = True: Exit Function
+    Lp_Tocb_Is_Outside = (selStart >= heldEnd)
+End Function  '***** end of Lp_Tocb_Is_Outside *****
+
+' Word's selection event runs this on every cursor movement (VtEvents), so the first test is one
+' Boolean and costs nothing while the TOC box is down. With it up, a cursor moved out of the TOC
+' being held gets 389 - once, until the cursor comes back in. Jerry, 9/23/2026.
+'
+' Silent while a job runs (the jobs move the selection themselves), while a macro has the screen
+' off (the marker Sh_HandleDocumentActivated uses for "a macro, not a transcriber"), in a table
+' (see below), and in any other book - Lp_Tocb_Ready deals with that one when Okay is pressed.
+'
+' Version: 1.0  Date: 9/23/2026
+Public Sub Lp_Tocb_Watch_Cursor(ByVal Sel As Selection)
+    Dim r As Range
+    Dim outside As Boolean
+
+    If Not Lp_Tocb_IsOn Then Exit Sub
+    If Lp_Tocb_Busy Then Exit Sub
+    If Not Application.ScreenUpdating Then Exit Sub
+
+    On Error Resume Next
+    If Not (Sel.Document Is Lp_Tocb_Doc) Then Exit Sub
+    If Err.Number <> 0 Then Exit Sub
+    ' A CURSOR IN A TABLE is on its way to the table box (356): the next press of Table and TOC
+    ' Tools ends the TOC run itself, so 389's "press Done" would be wrong advice there.
+    If Sel.Information(wdWithInTable) Then Exit Sub
+    Set r = Lp_Tocb_Where()
+    If r Is Nothing Then Exit Sub
+    outside = Lp_Tocb_Is_Outside(Sel.start, Sel.End, r.start, r.End)
+    If Err.Number <> 0 Then Exit Sub
+    On Error GoTo 0
+
+    If Not outside Then
+        Lp_Tocb_Warned = False
+        Exit Sub
+    End If
+    If Lp_Tocb_Warned Then Exit Sub
+
+    ' Set BEFORE the message, so nothing the message itself does can say it a second time.
+    Lp_Tocb_Warned = True
+    Sh_Say "Your cursor is out of the selected range." & vbCr & vbCr _
+         & "The TOC box still works on the TOC you selected, not on where the cursor is. " _
+         & "Press Done when you have finished with it.", "VistaType LP (389)"
+End Sub  '***** end of Lp_Tocb_Watch_Cursor *****
 
 ' Puts the held range back on screen as the selection. Guarded: the book may be gone.
 '
+' Version: 1.1  Date: 9/23/2026 - clears the 389 warning. The cursor is back in the TOC, but the
+'                               watcher never sees it come back - the box puts it back while a job
+'                               is running and the watcher is silent - so without this 389 would not
+'                               be said on the next trip out. Found in review.
 ' Version: 1.0  Date: 9/22/2026
 Private Sub Lp_Tocb_Select()
+    Lp_Tocb_Warned = False
     On Error Resume Next
     Lp_Tocb_Range.Select
     ActiveWindow.ScrollIntoView Lp_Tocb_Range, True
@@ -16773,6 +16871,7 @@ End Sub  '***** end of Lp_Tocb_Done *****
 ' - and the book gets the keyboard back. Without it the selection is left exactly as it is: that is
 ' Table and TOC Tools ending the run because the cursor is in a table, on its way to the table box.
 '
+' Version: 1.1  Date: 9/23/2026 - clears the 389 warning with the rest of the run's state.
 ' Version: 1.0  Date: 9/22/2026
 Private Sub Lp_Tocb_Finish(ByVal letGo As Boolean)
     Dim backTo As Document
@@ -16793,6 +16892,7 @@ Private Sub Lp_Tocb_Finish(ByVal letGo As Boolean)
     Lp_Tocb_Before = 0
     Lp_Tocb_After = 0
     Lp_Tocb_Len = 0
+    Lp_Tocb_Warned = False
     Application.ScreenRefresh
 
     If letGo And Lp_Rst_Doc_Is_Open(backTo) Then

@@ -47,6 +47,10 @@ End Sub
 ' every cursor movement, which is why Sh_HandleDocumentActivated's first test is a single string
 ' comparison. Both are hooked: WindowActivate is the RIGHT event and costs nothing when it does
 ' fire, and the handler is safe to call twice.
+'
+' The TOC box (354) watches the cursor through here too, from 9/23/2026 - see
+' Lp_Tocb_Watch_Cursor. It returns on its first test while the box is down.
 Private Sub App_WindowSelectionChange(ByVal Sel As Selection)
     Sh_HandleDocumentActivated
+    Lp_Tocb_Watch_Cursor Sel
 End Sub
