@@ -18,6 +18,18 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 9/22/2026 - THE TOC BOX (354) STAYS OPEN. Jerry: the same kind of box
+'           - Lp  - 9/22/2026 - as Resize Pictures in a Selected Range (375) for Table and TOC
+'           - Lp  - 9/22/2026 - Tools. Select the TOC, press the button, and the box stays up
+'           - Lp  - 9/22/2026 - while Format the TOC, Add Color Bars and Remove Color Bars are
+'           - Lp  - 9/22/2026 - pressed in any order. Cancel is Done; the TOC stays selected
+'           - Lp  - 9/22/2026 - until Done, which collapses it to its start. The range is held
+'           - Lp  - 9/22/2026 - in Lp_Tocb_Range and taken again after every job from the
+'           - Lp  - 9/22/2026 - characters before and after it, because Format the TOC replaces
+'           - Lp  - 9/22/2026 - the whole TOC in one assignment. Every End on that path is gone
+'           - Lp  - 9/22/2026 - - in Lp_Table_Tools, both TOC forms and Format the TOC's two
+'           - Lp  - 9/22/2026 - refusals - because End unloads a modeless box. Remove Color Bars
+'           - Lp  - 9/22/2026 - moved out of the form into Lp_TOC_Remove_Color_Bars. No F6.
 ' Notes:    - Lp  - 9/22/2026 - RESIZE THIS PICTURE THROUGHOUT THE BOOK IS GONE, macro, button and
 '           - Lp  - 9/22/2026 - dialogs 322, 323 and 324 with it. Jerry: "the new resize you've just
 '           - Lp  - 9/22/2026 - completed can do the whole book if the whole book is selected."
@@ -2592,6 +2604,24 @@ Private Lp_Rst_HasLast As Boolean     ' a size has been used, so Use Last Size h
 Private Const LP_RST_TITLE As String = "Resize Pictures in a Selected Range (375)"
 Private Const LP_RST_KEY_MACRO As String = "LPandBRL.LPandBrlMacros.Lp_Rst_ToggleFocus"
 Private Const LP_RST_BAR_MIN As Long = 25    ' below this many pictures in the range, no bar
+
+' TABLE AND TOC TOOLS - THE TOC BOX (354), which stays open - Jerry, 9/22/2026. The same idea as
+' 375 above: the TOC range is taken once into a LIVE Range and held until Done, so the transcriber
+' can clean the TOC, add color bars, take them off again and try another pair without selecting
+' the TOC afresh each time.
+Private Lp_Tocb_Doc As Document       ' the book the TOC range was taken in
+Private Lp_Tocb_Range As Range        ' the held TOC range, whole paragraphs
+Private Lp_Tocb_IsOn As Boolean       ' the box is up. NEVER ask the form's .Visible - that creates it
+Private Lp_Tocb_Busy As Boolean       ' a job is running; refuses a second press and Done
+
+' Set by the TOC color bars box (353) when its second Okay has painted the bars, so the box that
+' called it knows whether to say "Color bars added". Public because a form sets it.
+Public Lp_TOC_Bars_Applied As Boolean
+
+' Set by Lp_TOC_CleanAndFormat_TOC as its last act on the way out when it finished, so the caller
+' says "press Ctrl+Z once" only about a TOC that was really formatted. Its two refusals used to
+' END everything to stop that message; an End now would take the TOC box down with it.
+Private Lp_TOC_Format_Ok As Boolean
 
 ' Large Print Page and Font Settings
 Public Lp_Base_Font_Size As String
@@ -16389,6 +16419,10 @@ End Sub  '*** end of Lp_Horz_List_To_Vertical macro ***
 
 Sub Lp_Table_Tools()
 '
+' Version: 1.8  Date: 9/22/2026 - the TOC box (354) STAYS OPEN, holding the TOC range until Done.
+'                                 Jerry, 9/22/2026. Started through Lp_Tocb_Start, and no End
+'                                 after it - End would unload the box the moment it appeared. A
+'                                 second press while it is up brings it to the front.
 ' Version: 1.7  Date: 10/17/2025 - changed selection msg content
 ' Version: 1.6  Date: 8/12/2025 - added Lp_GP_String_2 = ActiveDocument.FullName
 ' Version: 1.5  Date: 8/4/2025 - added  Application.Run MacroName:="Lp_ValidateTableIntegrityForListOrRotation" and
@@ -16401,6 +16435,17 @@ Sub Lp_Table_Tools()
 '
     Dim i As Integer
     Dim tbl As Table
+
+    ' The TOC box is already up. A second start would hold a second range and nobody could tell
+    ' which one Okay was working in, so the box the transcriber already has comes to the front.
+    ' Checked FIRST: every path below ends in End, and End would take the box down.
+    If Lp_Tocb_IsOn Then
+        On Error Resume Next
+        Lp_TOC_Format_And_Color_Form.Show vbModeless
+        Err.Clear
+        On Error GoTo 0
+        Exit Sub
+    End If
 
     Application.Run MacroName:="Sh_Is_Doc_Open"
     Application.Run MacroName:="Lp_Is_Lp_Template_Attached"
@@ -16426,10 +16471,374 @@ Sub Lp_Table_Tools()
     End If
 
     If Selection.Range.Paragraphs.count > 1 Then 'something is here
-        Lp_TOC_Format_And_Color_Form.Show
+        ' Exit Sub, NOT End. The box is modeless, so this line is reached while it is still up,
+        ' and End would unload it and wipe the range it holds.
+        Lp_Tocb_Start
+        Exit Sub
     End If
     End
 End Sub
+
+' ============================================================================================
+' TABLE AND TOC TOOLS - THE TOC BOX THAT STAYS OPEN (354), Jerry, 9/22/2026
+'
+' Jerry: the same kind of box as Resize Pictures Used Throughout a Selected Range (375). Select the
+' TOC, press Table and TOC Tools, and the box stays open: choose Format the TOC, Add Color Bars or
+' Remove Color Bars and press Okay, as many times as wanted. Cancel is Done. The TOC stays
+' selected on screen the whole time, and Done lets it go.
+'
+' HOW THE RANGE IS HELD. As in 375, a live Range, not a bookmark and not two saved numbers - see
+' the note above Lp_Resize_Pictures_In_Range for why. Unlike 375 it is ALSO the selection between
+' presses, because every job here works on the selection and the transcriber asked to see it.
+'
+' WHY IT IS TAKEN AGAIN AFTER EVERY JOB. Format the TOC puts its result home in one FormattedText
+' assignment over the whole TOC, and a Range that covered the old text is not promised to cover
+' the new. So before a job this counts the characters in front of the TOC and the characters after
+' it, and afterward rebuilds the range between them. Nothing any of the three jobs does adds or
+' removes a character outside the TOC's own paragraphs, so both counts hold - which is also why the
+' range is widened to whole paragraphs at the start, by the same rule Format the TOC uses: a range
+' that started mid-paragraph would have its front edge inside the text that gets replaced.
+'
+' UNDO IS WHAT EACH JOB ALREADY COSTS: Format the TOC is one Ctrl+Z; the color bars are several,
+' and Jerry closed that question on 9/16/2026 (docs/Undo-Audit.md). Nothing is held open across
+' the box - a custom undo record round these jobs crashed Word outright (docs/Reported-Errors.md,
+' 9/2/2026).
+'
+' NO F6 HERE, unlike 375. The transcriber has no need to go into the book between presses - the
+' TOC is held and selected for them - and 375 already binds F6 to its own macro; two boxes that
+' can both be up would fight over the key.
+' ============================================================================================
+
+' Starts the TOC box on the current selection. Lp_Table_Tools has already checked that the
+' selection covers more than one paragraph.
+'
+' Version: 1.0  Date: 9/22/2026
+Private Sub Lp_Tocb_Start()
+    Dim r As Range
+    Dim selEnd As Long
+    Dim n As Long
+
+    Set r = Selection.Range.Duplicate
+    selEnd = r.End
+
+    ' WHOLE PARAGRAPHS, by Format the TOC's own rule, so the range and the text that job replaces
+    ' are the same stretch: the start opens out to the start of its paragraph, and a last paragraph
+    ' the selection merely reaches into is dropped.
+    r.start = r.Paragraphs(1).Range.start
+    n = r.Paragraphs.count
+    If Lp_Tocb_Drop_Last(n, selEnd, r.Paragraphs(n).Range.End) Then
+        r.End = r.Paragraphs(n - 1).Range.End
+    Else
+        r.End = r.Paragraphs(n).Range.End
+    End If
+
+    Set Lp_Tocb_Doc = ActiveDocument
+    Set Lp_Tocb_Range = r
+    Lp_Tocb_Busy = False
+
+    ' The flag goes up BEFORE the box does, the lesson Sh_Progress_Open carries.
+    Lp_Tocb_IsOn = True
+    Lp_TOC_Format_And_Color_Form.Show vbModeless
+    Lp_Tocb_Select
+End Sub  '***** end of Lp_Tocb_Start *****
+
+' True when the last paragraph of a selection should be left out: there is more than one, and the
+' selection stops short of the last one's text - an over-drag, not a line that was meant. The same
+' test Lp_TOC_CleanAndFormat_TOC makes on its own home range.
+'
+' Version: 1.0  Date: 9/22/2026
+Private Function Lp_Tocb_Drop_Last(ByVal paraCount As Long, ByVal selEnd As Long, _
+                                   ByVal lastParaEnd As Long) As Boolean
+    If paraCount < 2 Then Exit Function
+    Lp_Tocb_Drop_Last = (selEnd < lastParaEnd - 1)
+End Function  '***** end of Lp_Tocb_Drop_Last *****
+
+' Where the held range ends once a job is done: the book's end less the characters that were after
+' the TOC before the job, which no job changes. Never in front of the start - a TOC that somehow
+' vanished comes back as an empty range, and Lp_Tocb_Ready ends the run on that.
+'
+' Version: 1.0  Date: 9/22/2026
+Private Function Lp_Tocb_Held_End(ByVal storyEnd As Long, ByVal charsAfter As Long, _
+                                  ByVal heldStart As Long) As Long
+    Dim e As Long
+
+    e = storyEnd - charsAfter
+    If e < heldStart Then e = heldStart
+    Lp_Tocb_Held_End = e
+End Function  '***** end of Lp_Tocb_Held_End *****
+
+' Puts the held range back on screen as the selection. Guarded: the book may be gone.
+'
+' Version: 1.0  Date: 9/22/2026
+Private Sub Lp_Tocb_Select()
+    On Error Resume Next
+    Lp_Tocb_Range.Select
+    ActiveWindow.ScrollIntoView Lp_Tocb_Range, True
+    Err.Clear
+    On Error GoTo 0
+End Sub  '***** end of Lp_Tocb_Select *****
+
+' What the box's Okay runs. job is the choice: 1 Format the TOC, 2 Add Color Bars, 3 Remove
+' Color Bars.
+'
+' Version: 1.0  Date: 9/22/2026
+Public Sub Lp_Tocb_Okay(ByVal job As Long)
+    Dim charsBefore As Long
+    Dim charsAfter As Long
+    Dim msg As String
+    Dim title As String
+    Dim errNum As Long
+    Dim errText As String
+
+    If Not Lp_Tocb_IsOn Then Exit Sub
+    ' Format the TOC runs a progress bar whose spinner pumps the message queue, so this box's
+    ' buttons can be reached in the middle of a job. A second press is ignored.
+    If Lp_Tocb_Busy Then Exit Sub
+
+    If job < 1 Or job > 3 Then
+        Sh_Say "Choose what to do to the TOC first, then press Okay.", "VistaType LP (386)"
+        Exit Sub
+    End If
+
+    Lp_Tocb_Busy = True
+    If Not Lp_Tocb_Ready() Then
+        Lp_Tocb_Busy = False
+        Exit Sub
+    End If
+
+    On Error GoTo eom
+    charsBefore = Lp_Tocb_Range.start
+    charsAfter = Lp_Tocb_Doc.Content.End - Lp_Tocb_Range.End
+
+    ' Every job works on the selection, so the held range IS the selection while it runs - even if
+    ' the transcriber clicked somewhere else in the book since the last press.
+    Lp_Tocb_Range.Select
+
+    Select Case job
+        Case 1
+            Lp_TOC_Format_Ok = False
+            Lp_TOC_CleanAndFormat_TOC
+            If Lp_TOC_Format_Ok Then msg = "Press Ctrl+Z once to return to the original TOC."
+        Case 2
+            Lp_TOC_Bars_Applied = False
+            Lp_TOC_Color_Bars_Form.Show
+            ' Unloaded every time, so the next use starts again at the first color. It was only
+            ' ever hidden while every path through the old box ended in End.
+            Unload Lp_TOC_Color_Bars_Form
+            If Lp_TOC_Bars_Applied Then msg = "Color bars added."
+        Case 3
+            If Lp_TOC_Remove_Color_Bars(Lp_Tocb_Range) Then
+                msg = "Color bars removed."
+            Else
+                msg = "There are no color bars in this book to remove."
+            End If
+    End Select
+    On Error GoTo 0
+
+    ' THE RANGE IS TAKEN AGAIN from the two counts - see the note above Lp_Tocb_Start - and put
+    ' back on screen.
+    On Error Resume Next
+    Set Lp_Tocb_Range = Lp_Tocb_Doc.Range(charsBefore, _
+                          Lp_Tocb_Held_End(Lp_Tocb_Doc.Content.End, charsAfter, charsBefore))
+    Err.Clear
+    On Error GoTo 0
+    Lp_Tocb_Select
+    Lp_Tocb_Busy = False
+
+    ' The same numbers the old box used for the same three messages.
+    If Len(msg) = 0 Then Exit Sub
+    Select Case job
+        Case 1
+            title = "VistaType LP (207)"
+        Case 2
+            title = "VistaType LP (208)"
+        Case Else
+            title = "VistaType LP (209)"
+    End Select
+    Sh_Say msg & vbCr & vbCr & "The TOC is still selected. Choose another job, or press Done.", title
+    Exit Sub
+
+eom:
+    errNum = Err.Number
+    errText = Err.Description
+    On Error Resume Next
+    Lp_Tocb_Busy = False
+    Unload Lp_TOC_Color_Bars_Form
+    Lp_Tocb_Select
+    Err.Clear
+    On Error GoTo 0
+    Sh_Report_Error "Lp_Tocb_Okay", errNum, errText
+End Sub  '***** end of Lp_Tocb_Okay *****
+
+' What the Done button runs, and what the title bar's X runs through UserForm_QueryClose.
+'
+' Version: 1.0  Date: 9/22/2026
+Public Sub Lp_Tocb_Done()
+    ' Not while a job is running - finishing there would unload the box and drop the range while
+    ' the work was still going on behind it. The press is ignored and Done can be pressed again.
+    If Lp_Tocb_Busy Then Exit Sub
+    Lp_Tocb_Finish
+End Sub  '***** end of Lp_Tocb_Done *****
+
+' The one way out - Done, the X, a book that has been closed, a TOC that has gone. The flag goes
+' down first so nothing can re-enter, and the box is hidden before it is unloaded because this is
+' reached from a button on it. The TOC is let go - the selection collapses to its start - and the
+' book gets the keyboard back.
+'
+' Version: 1.0  Date: 9/22/2026
+Private Sub Lp_Tocb_Finish()
+    Dim backTo As Document
+    Dim r As Range
+
+    Set backTo = Lp_Tocb_Doc
+    Set r = Lp_Tocb_Range
+
+    On Error Resume Next
+    Lp_Tocb_IsOn = False
+    Lp_Tocb_Busy = False
+
+    Lp_TOC_Format_And_Color_Form.Hide
+    Unload Lp_TOC_Format_And_Color_Form
+
+    Set Lp_Tocb_Range = Nothing
+    Set Lp_Tocb_Doc = Nothing
+    Application.ScreenRefresh
+
+    If Lp_Rst_Doc_Is_Open(backTo) Then
+        If ActiveDocument Is backTo And Not r Is Nothing Then
+            backTo.Range(r.start, r.start).Select
+        End If
+        Sh_Focus_Document backTo
+    End If
+    Err.Clear
+    On Error GoTo 0
+End Sub  '***** end of Lp_Tocb_Finish *****
+
+' True when the book and the TOC are still there to work on. When they are not, it says so and
+' ends the run - the box would otherwise sit there pointing at nothing. Another book in front is
+' NOT a reason to end it, as in 375: say which book this works in, put the transcriber back in it,
+' and keep holding the TOC.
+'
+' Version: 1.0  Date: 9/22/2026
+Private Function Lp_Tocb_Ready() As Boolean
+    Dim ok As Boolean
+
+    On Error Resume Next
+    ok = Lp_Rst_Doc_Is_Open(Lp_Tocb_Doc)
+    If ok Then ok = Not (Lp_Tocb_Range Is Nothing)
+    If ok Then ok = (Lp_Tocb_Range.End > Lp_Tocb_Range.start)
+    Err.Clear
+    On Error GoTo 0
+
+    If ok Then
+        If Not (ActiveDocument Is Lp_Tocb_Doc) Then
+            Sh_Say "This works on the TOC in " & Lp_Tocb_Doc.Name & ", which is not the book on " _
+                 & "screen." & vbCr & vbCr _
+                 & "Nothing has been changed. You are back in " & Lp_Tocb_Doc.Name _
+                 & " - press Okay again." & vbCr & vbCr _
+                 & "The TOC you selected is still being held.", "VistaType LP (387)"
+            Sh_Focus_Document Lp_Tocb_Doc
+            Lp_Tocb_Select
+            Exit Function
+        End If
+        Lp_Tocb_Ready = True
+        Exit Function
+    End If
+
+    Sh_Say "The book this was working on has been closed, or the TOC selected in it is no longer " _
+         & "there." & vbCr & vbCr _
+         & "Nothing has been changed. Select the TOC and choose Table and TOC Tools again.", _
+           "VistaType LP (388)"
+    Lp_Tocb_Finish
+End Function  '***** end of Lp_Tocb_Ready *****
+
+' TOC Tools - Remove Color Bars, on the held range. Moved here from the box's Okay handler
+' (Lp_TOC_Format_And_Color_Form 1.2) so it works on a Range handed to it rather than on Selection,
+' and so the box holds no code that touches the book. The work is unchanged: every run in a
+' "Words..." character style goes back to Default Paragraph Font, a paragraph that had one is
+' re-tagged TOC 1 with its own paragraph formatting kept, and every TOC paragraph's first tab stop
+' gets its dot leader back. False when the book has no "Words..." styles at all.
+'
+' Version: 1.0  Date: 9/22/2026
+Private Function Lp_TOC_Remove_Color_Bars(ByVal rng As Range) As Boolean
+    Dim doc As Document
+    Dim para As Paragraph
+    Dim st As Style
+    Dim stylesToMatch As New Collection
+    Dim i As Long
+    Dim rngPara As Range, rr As Range
+    Dim changed As Boolean
+    Dim pf As ParagraphFormat
+    Dim pos As Single, align As WdTabAlignment
+
+    Set doc = rng.Document
+
+    ' Collect only character styles beginning with "Words"
+    For Each st In doc.Styles
+        If st.Type = wdStyleTypeCharacter Then
+            If UCase$(st.NameLocal) Like "WORDS*" Then stylesToMatch.Add st
+        End If
+    Next st
+    If stylesToMatch.count = 0 Then Exit Function
+
+    For Each para In rng.Paragraphs
+        changed = False
+
+        ' Paragraph-scoped search range (extend by 1 to catch end-run)
+        Set rngPara = para.Range.Duplicate
+        If rngPara.End < doc.Content.End Then rngPara.End = rngPara.End + 1
+
+        ' Strip only the Words* character style runs
+        For i = 1 To stylesToMatch.count
+            Set rr = rngPara.Duplicate
+            With rr.Find
+                .ClearFormatting
+                .Text = ""
+                .Format = True
+                .Style = stylesToMatch(i)
+                .Forward = True
+                .Wrap = wdFindStop
+                Do While .Execute
+                    ' Replace char style with Default Paragraph Font (keeps direct formatting)
+                    rr.Style = doc.Styles(wdStyleDefaultParagraphFont)
+                    changed = True
+                    rr.Collapse wdCollapseEnd
+                Loop
+            End With
+        Next i
+
+        ' Only paragraphs that actually contained Words* runs get re-tagged to TOC 1
+        If changed Then
+            Set pf = para.Range.ParagraphFormat.Duplicate  ' preserve spacing/indents etc.
+            para.Style = doc.Styles("TOC 1")
+            para.Range.ParagraphFormat = pf                ' restore paragraph-level formatting
+        End If
+    Next para
+
+    For Each para In rng.Paragraphs
+        If UCase$(para.Style.NameLocal) Like "TOC*" Then
+            If para.TabStops.count > 0 Then
+                ' Store the first tab stop's position and alignment
+                pos = para.TabStops(1).Position
+                align = para.TabStops(1).Alignment
+
+                ' Clear all direct tab stops
+                para.TabStops.ClearAll
+
+                ' Add a new tab stop at the same position/alignment with a dot leader
+                para.TabStops.Add Position:=pos, Alignment:=align, Leader:=wdTabLeaderDots
+            End If
+        End If
+    Next para
+
+    Sh_Reset_Find_Parameters
+    Application.ScreenUpdating = True
+    Application.ScreenRefresh
+    DoEvents
+    ActiveWindow.View.Type = wdNormalView
+    ActiveWindow.View.Type = wdPrintView
+    Lp_TOC_Remove_Color_Bars = True
+End Function  '***** end of Lp_TOC_Remove_Color_Bars *****
 
 Sub Lp_Fix_Abbyy_Text_and_Headers()
 '
@@ -24834,6 +25243,9 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     ' into a tab, un-bolds the number, applies TOC 1, and lays a tab in front of the "pn" in each
     ' Print Pg Num paragraph.
     '
+    ' Version: 3.2  Date: 9/22/2026 - NO End ON ITS TWO REFUSALS (206, 321). It is run from the TOC
+    '                               box, which now stays open, and End would unload it. It says it
+    '                               finished through Lp_TOC_Format_Ok instead.
     ' Version: 3.1  Date: 9/21/2026 - A SHORT TITLE GETS A SECOND TAB, so its dot leader shows.
     '                               Jerry, 9/21/2026, on "TOC Table 1 Formatting.docx", build
     '                               3.0.480: "Index<tab>18" was right, in TOC 1, and the page showed
@@ -25030,15 +25442,15 @@ Sub Lp_TOC_CleanAndFormat_TOC()
         Sh_Say "This is for a table of contents typed as ordinary paragraphs." & vbCr & vbCr & _
                "The selection is inside a table, so there is nothing here to format. Select the " & _
                "TOC paragraphs themselves, or use the table tools on a table.", "VistaType LP (321)"
-        End
+        Exit Sub
     End If
 
     If Not Selection.Type = wdSelectionNormal Then
         Sh_Say "Select the entire TOC including any text that does reference page numbers", "VistaType LP (206)"
-        ' End, not Exit Sub, and deliberately: returning would let the form that called this go
-        ' straight on to say "Press Ctrl+Z once to return to the original TOC" about a TOC that
-        ' was never touched. That is how it has always behaved here.
-        End
+        ' Exit Sub, and NOT End any more (9/22/2026). End was here so the caller would not go on
+        ' to say "Press Ctrl+Z once" about a TOC that was never touched; Lp_TOC_Format_Ok does
+        ' that job now, and an End would take the TOC box (354), which stays open, down with it.
+        Exit Sub
     End If
 
     Set doc = ActiveDocument
@@ -25645,6 +26057,8 @@ tidy:
     Sh_Return_User_To_Start_Position
     Selection.Collapse Direction:=wdCollapseStart
 
+    ' Finished, so the caller may say "press Ctrl+Z once". Only this path sets it.
+    Lp_TOC_Format_Ok = True
     Exit Sub
 
 eom:

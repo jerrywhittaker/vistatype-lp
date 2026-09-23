@@ -13,8 +13,15 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
-'Lp_TOC_Format_And_Color_Form
+' Lp_TOC_Format_And_Color_Form
 '
+' Version: 2.0  Date: 9/22/2026 - THE BOX STAYS OPEN, holding the TOC range until Done. Jerry,
+'                               9/22/2026: the same kind of box as Resize Pictures in a Selected
+'                               Range (375). Shown vbModeless by Lp_Tocb_Start; Cancel is now Done.
+'                               Every button calls a macro in LPandBrlMacros and nothing here
+'                               touches the book - Remove Color Bars moved out to
+'                               Lp_TOC_Remove_Color_Bars. Every End is gone: End wipes the range
+'                               the macro holds, and unloads this box under the transcriber.
 ' Version: 1.2  Date: 9/7/2026 - dialog 207 says ONE press again. The hidden scratch document is
 '                               back in Lp_TOC_CleanAndFormat_TOC (3.0.402) because doing the work
 '                               in the book cost 39 presses, measured. Jerry: "multiple (i mean
@@ -26,117 +33,43 @@ Attribute VB_Exposed = False
 '                               outright. See the note in that macro.
 ' Version: 1.0  Date: 8/25/2025
 '
+' QueryClose sends the title bar's X through the same Done as the button, or the box would be
+' unloaded behind the macro's back with the range still held.
+
 Private Sub CancelButton_Click()
-    Unload Lp_TOC_Format_And_Color_Form
-    End
+    Lp_Tocb_Done
 End Sub
 
 Private Sub OkayButton_Click()
-    Lp_TOC_Format_And_Color_Form.Hide
-    
-    If FormatTheTOCButton Then
-        Application.Run MacroName:="Lp_TOC_CleanAndFormat_TOC"
-        MsgBox "Press Ctrl+Z once to return to the original TOC.", , "VistaType LP (207)"
-        Exit Sub
-        
-    ElseIf AddColorBarsButton Then
-        Lp_TOC_Color_Bars_Form.Show
-        Selection.Collapse Direction:=wdCollapseStart
-        DoEvents
-        MsgBox "Color bars added.", , "VistaType LP (208)"
-        Exit Sub
+    Dim job As Long
 
+    If FormatTheTOCButton Then
+        job = 1
+    ElseIf AddColorBarsButton Then
+        job = 2
     ElseIf RemoveColorBarsButton Then
-        Dim para As Paragraph
-        Dim st As Style
-        Dim stylesToMatch As New Collection
-        Dim i As Long
-        Dim rngPara As Range, rr As Range
-        Dim changed As Boolean
-        Dim pf As ParagraphFormat
-        Dim ts As tabStop
-        Dim pos As Single, align As WdTabAlignment
-    
-        ' Collect only character styles beginning with "Words"
-        For Each st In ActiveDocument.Styles
-            If st.Type = wdStyleTypeCharacter Then
-                If UCase$(st.NameLocal) Like "WORDS*" Then stylesToMatch.Add st
-            End If
-        Next st
-        If stylesToMatch.count = 0 Then Exit Sub
-    
-        For Each para In Selection.Paragraphs
-            changed = False
-    
-            ' Paragraph-scoped search range (extend by 1 to catch end-run)
-            Set rngPara = para.Range.Duplicate
-            If rngPara.End < ActiveDocument.Content.End Then rngPara.End = rngPara.End + 1
-    
-            ' Strip only the Words* character style runs
-            For i = 1 To stylesToMatch.count
-                Set rr = rngPara.Duplicate
-                With rr.Find
-                    .ClearFormatting
-                    .Text = ""
-                    .Format = True
-                    .Style = stylesToMatch(i)
-                    .Forward = True
-                    .Wrap = wdFindStop
-                    Do While .Execute
-                        ' Replace char style with Default Paragraph Font (keeps direct formatting)
-                        rr.Style = ActiveDocument.Styles(wdStyleDefaultParagraphFont)
-                        changed = True
-                        rr.Collapse wdCollapseEnd
-                    Loop
-                End With
-            Next i
-    
-            ' Only paragraphs that actually contained Words* runs get re-tagged to TOC 1
-            If changed Then
-                Set pf = para.Range.ParagraphFormat.Duplicate  ' preserve spacing/indents etc.
-                para.Style = ActiveDocument.Styles("TOC 1")
-                para.Range.ParagraphFormat = pf                ' restore paragraph-level formatting
-            End If
-        Next para
-        
-        For Each para In Selection.Paragraphs
-            If UCase$(para.Style.NameLocal) Like "TOC*" Then
-                If para.TabStops.count > 0 Then
-                    ' Store the first tab stop’s position and alignment
-                    pos = para.TabStops(1).Position
-                    align = para.TabStops(1).Alignment
-    
-                    ' Clear all direct tab stops
-                    para.TabStops.ClearAll
-    
-                    ' Add a new tab stop at the same position/alignment with a dot leader
-                    para.TabStops.Add Position:=pos, Alignment:=align, Leader:=wdTabLeaderDots
-                End If
-            End If
-        Next para
+        job = 3
     End If
-    
-    Application.ScreenUpdating = True
-    Application.ScreenRefresh
-    DoEvents
-    ActiveWindow.View.Type = wdNormalView
-    ActiveWindow.View.Type = wdPrintView
-    Selection.Collapse Direction:=wdCollapseStart
-    DoEvents
-    MsgBox "Color bars removed.", , "VistaType LP (209)"
-    
-    Exit Sub
+    Lp_Tocb_Okay job
 End Sub
 
-Private Sub userform_terminate() 'red X was clicked
-    Unload Me
-    End
+Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
+    If CloseMode = vbFormControlMenu Then
+        Cancel = True
+        Lp_Tocb_Done
+    End If
 End Sub
 
 Private Sub UserForm_Initialize()
 
     Lp_GP_String_1 = ActiveDocument.Name
-    
+
+    ' CANCEL IS DONE - Jerry, 9/22/2026. The box stays open until this is pressed, so there is
+    ' nothing to cancel. Set here so it reads in the source rather than only in the .frx; the
+    ' control keeps its name so the .frx does not have to change.
+    CancelButton.Caption = "Done"
+    CancelButton.Accelerator = "D"
+
     Application.Run MacroName:="MS_Set_Word_Config_For_Large_Print"
     ' From: https://www.thespreadsheetguru.com/the-code-vault/launch-vba-userforms-in-correct-window-with-dual-monitors
     ' Start Userform Centered inside Word Screen (for dual monitors)
@@ -144,4 +77,3 @@ Private Sub UserForm_Initialize()
     Me.Left = Application.Left + (0.5 * Application.Width) - (0.5 * Me.Width)
     Me.Top = Application.Top + (0.5 * Application.Height) - (0.5 * Me.Height)
 End Sub
-

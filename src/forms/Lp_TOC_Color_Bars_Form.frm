@@ -18,6 +18,10 @@ Attribute VB_Exposed = False
 '
 ' Converts lead lines in TOC styles to alternating color of choice - changes tab value of dots to none
 '
+' Version: 1.1 Date: 9/22/2026 - NO End. Cancel and the X only unload this box now: it is shown from
+'                               the TOC box (354), which stays open, and End would take that box
+'                               down and drop the TOC range it holds. Lp_TOC_Bars_Applied tells the
+'                               TOC box whether the bars went on, so it says so only when they did.
 ' Version: 1.0 Date: 9/4/2025
 '
 Private Step1 As Boolean
@@ -30,12 +34,6 @@ Private NextColor As Integer
 
 Private Sub CancelButton_Click()
     Unload Me
-    End
-End Sub
-
-Private Sub userform_terminate() 'red X was clicked
-    Unload Me
-    End
 End Sub
 
 Private Sub YellowImageButton_Click()
@@ -222,6 +220,7 @@ Private Sub OkayButton_Click()
     ActiveWindow.View.Type = wdNormalView
     ActiveWindow.View.Type = wdPrintView
     Selection.Collapse Direction:=wdCollapseStart
+    Lp_TOC_Bars_Applied = True
 
 NextStep:
 

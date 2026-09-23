@@ -54,6 +54,10 @@ Public Sub VtRunAllTests()
     Set Suite = TestSamePicture_Suite()
     Reporter.ListenTo Suite
 
+    Reporter.Trace "building The TOC box that stays open"
+    Set Suite = TestTocBox_Suite()
+    Reporter.ListenTo Suite
+
     Reporter.Trace "building Shared text helpers"
     Set Suite = TestTextHelpers_Suite()
     Reporter.ListenTo Suite
