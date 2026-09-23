@@ -15,8 +15,8 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
 ' Lp_Bakgrnd_Picture_Menu_Form
-' Version: 1.9  Date: 9/23/2026 - Jerry's shortcut key label reads B,P; its hover text is set to its
-'                                 caption.
+' Version: 1.9  Date: 9/23/2026 - Jerry's shortcut key label reads B,P; its caption (spelled
+'                                 "Shortcut") and hover text are set here.
 ' Version: 1.8  Date: 9/21/2026 - Pictures to Color or Grayscale works again. The handler is
 '                                 PicturesColorGrayscaleButton_Click once more, the name of the
 '                                 control actually on the form. It had been GrayscaleButton_Click
@@ -120,8 +120,9 @@ Private Sub userform_terminate() 'red X was clicked
 End Sub
 
 Private Sub UserForm_Initialize()
-    ' THE SHORTCUT KEY LABEL'S HOVER TEXT is its caption - Jerry, 9/23/2026. It was left blank in
-    ' the layout; set here so it reads in the source.
+    ' THE SHORTCUT KEY LABEL - Jerry, 9/23/2026. The layout spells it "Shorcut", so the caption is
+    ' set here, and the hover text, blank in the layout, is set to match it.
+    ShortCutKey.Caption = "Shortcut Key: Alt+Ctrl+Shift+B,P"
     ShortCutKey.ControlTipText = ShortCutKey.Caption
     ' 7/24/2026 - removed "MS_Set_Word_Config_For_Large_Print": opening the document already
     '             configures Word for large print, and re-running it here reset the user's

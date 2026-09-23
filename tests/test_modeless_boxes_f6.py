@@ -209,3 +209,8 @@ def test_shortcut_key_hover_text_on_356_and_344(repo_root):
         code = "\n".join(form_code(repo_root, form))
         init = re.search(r"Sub UserForm_Initialize\(\)(.*?)End Sub", code, re.S)
         assert init and "ShortCutKey.ControlTipText = ShortCutKey.Caption" in init.group(1), form
+
+
+def test_344_says_shortcut_not_shorcut(repo_root):
+    code = "\n".join(form_code(repo_root, "Lp_Bakgrnd_Picture_Menu_Form"))
+    assert 'ShortCutKey.Caption = "Shortcut Key: Alt+Ctrl+Shift+B,P"' in code
