@@ -64,3 +64,29 @@ def test_done_and_the_x_share_one_way_out(repo_root):
     assert done and "Lp_Tocb_Done" in done.group(1)
     assert query and "Lp_Tocb_Done" in query.group(1) and "Cancel = True" in query.group(1)
     assert re.search(r'CancelButton\.Caption\s*=\s*"Done"', code)
+
+
+def test_a_table_still_reaches_the_table_box(repo_root):
+    """With the TOC box up, a cursor in a table must end the TOC run and go on to 356."""
+    tools = procedures(module_text(repo_root))["Lp_Table_Tools"]
+    code = "\n".join(tools)
+    guard = re.search(r"If Lp_Tocb_IsOn Then(.*?)\n    End If", code, re.S)
+    assert guard, "Lp_Table_Tools no longer checks for the TOC box first"
+    body = guard.group(1)
+    assert re.search(r"If Not Selection\.Information\(wdWithInTable\) Then", body)
+    assert re.search(r"Lp_Tocb_Finish False", body), (
+        "a cursor in a table must end the TOC run without moving the selection")
+
+
+def test_every_press_reconciles_the_range_first(repo_root):
+    procs = procedures(module_text(repo_root))
+    ready = procs["Lp_Tocb_Ready"]
+    rec = next(n for n, c in enumerate(ready) if "Lp_Tocb_Reconcile" in c)
+    empty = next(n for n, c in enumerate(ready) if re.search(r"Lp_Tocb_Range\.End > Lp_Tocb_Range\.start", c))
+    assert rec < empty, "the range must be reconciled before it is judged empty"
+
+
+def test_remove_color_bars_asks_the_toc_not_the_book(repo_root):
+    body = "\n".join(procedures(module_text(repo_root))["Lp_TOC_Remove_Color_Bars"])
+    assert re.search(r"If Not anyChanged Then", body), (
+        "Remove Color Bars must say there is nothing to remove when the TOC has no bars")
