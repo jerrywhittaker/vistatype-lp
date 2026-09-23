@@ -15,6 +15,7 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 ' Lp_TOC_Format_And_Color_Form
 '
+' Version: 2.1  Date: 9/23/2026 - F6 and Shift+F6 go back to the book from every control.
 ' Version: 2.0  Date: 9/22/2026 - THE BOX STAYS OPEN, holding the TOC range until Done. Jerry,
 '                               9/22/2026: the same kind of box as Resize Pictures in a Selected
 '                               Range (375). Shown vbModeless by Lp_Tocb_Start; Cancel is now Done.
@@ -35,6 +36,11 @@ Attribute VB_Exposed = False
 '
 ' QueryClose sends the title bar's X through the same Done as the button, or the box would be
 ' unloaded behind the macro's back with the range still held.
+'
+' KeyDown on EVERY control that can hold the keyboard, from 2.1: F6 and Shift+F6 back to the book
+' (Jerry's rule, 9/23/2026). A UserForm has no KeyPreview, and while the box has the keyboard Word
+' never sees the key, so a control without this strands a transcriber working without a mouse.
+' Shift+F6 arrives here as F6 with Shift set.
 
 Private Sub CancelButton_Click()
     Lp_Tocb_Done
@@ -51,6 +57,41 @@ Private Sub OkayButton_Click()
         job = 3
     End If
     Lp_Tocb_Okay job
+End Sub
+
+Private Sub FormatTheTOCButton_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    If KeyCode = vbKeyF6 Then
+        KeyCode = 0
+        Lp_Tocb_KeyToDocument
+    End If
+End Sub
+
+Private Sub AddColorBarsButton_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    If KeyCode = vbKeyF6 Then
+        KeyCode = 0
+        Lp_Tocb_KeyToDocument
+    End If
+End Sub
+
+Private Sub RemoveColorBarsButton_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    If KeyCode = vbKeyF6 Then
+        KeyCode = 0
+        Lp_Tocb_KeyToDocument
+    End If
+End Sub
+
+Private Sub OkayButton_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    If KeyCode = vbKeyF6 Then
+        KeyCode = 0
+        Lp_Tocb_KeyToDocument
+    End If
+End Sub
+
+Private Sub CancelButton_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    If KeyCode = vbKeyF6 Then
+        KeyCode = 0
+        Lp_Tocb_KeyToDocument
+    End If
 End Sub
 
 Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)

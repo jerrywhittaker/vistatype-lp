@@ -113,7 +113,7 @@ def test_a_cursor_out_of_the_toc_is_said(repo_root):
     assert "Your cursor is out of the selected range" in body
     assert "VistaType LP (389)" in body
     say = next(n for n, c in enumerate(watch) if "Sh_Say" in c)
-    for guard in (r"If Not Lp_Tocb_IsOn Then Exit Sub", r"If Lp_Tocb_Busy Then Exit Sub",
+    for guard in (r"If Not Lp_Tocb_IsOn Then Exit Sub", r"If Lp_Tocb_Busy Or Lp_Rst_Busy Then Exit Sub",
                   r"If at = Lp_Tocb_Warned_At Then Exit Sub"):
         at = next((n for n, c in enumerate(watch) if re.search(guard, c)), None)
         assert at is not None and at < say, f"Lp_Tocb_Watch_Cursor lost its guard: {guard}"

@@ -18,6 +18,21 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 9/23/2026 - TYPE FILL-IN LINES (357) STAYS OPEN. Jerry: non-modal, Cancel
+'           - Lp  - 9/23/2026 - becomes Done, no range, F6 and Shift+F6. Each button types its
+'           - Lp  - 9/23/2026 - fill-in line at the cursor and hands the keyboard back to the book,
+'           - Lp  - 9/23/2026 - so the transcriber can move on and press another; the box joins the
+'           - Lp  - 9/23/2026 - shared F6 list as "fil". Started through Lp_Fil_Start.
+' Notes:    - Lp  - 9/23/2026 - F6 AND Shift+F6 ON THE TOC BOX (354), and the out-of-range message
+'           - Lp  - 9/23/2026 - on Resize Pictures in a Selected Range (375). Jerry's rule: every box
+'           - Lp  - 9/23/2026 - that stays open moves between book and box on F6 and Shift+F6
+'           - Lp  - 9/23/2026 - (docs/UI-Conventions.md). ONE F6 IS SHARED by every such box, the
+'           - Lp  - 9/23/2026 - $pg menus too (Sh_Box_Opened, ShNonModalMessage): the newest box up
+'           - Lp  - 9/23/2026 - has it and is the only one watching the cursor, and closing it hands
+'           - Lp  - 9/23/2026 - F6 to the one before. Found in review: boxes binding the key each for
+'           - Lp  - 9/23/2026 - itself left a live box without F6. 375 now says 390, "Your
+'           - Lp  - 9/23/2026 - cursor is out of the selected range.", at every new spot outside
+'           - Lp  - 9/23/2026 - the range - text or a picture - from Lp_Rst_Watch_Cursor.
 ' Notes:    - Lp  - 9/23/2026 - THE TOC BOX (354) HANDS THE KEYBOARD TO THE BOOK. Jerry: once the
 '           - Lp  - 9/23/2026 - box is up the book has the focus, so the cursor can be moved
 '           - Lp  - 9/23/2026 - without clicking first. Move it out of the TOC being held and dialog
@@ -2602,7 +2617,7 @@ Private Lp_Rst_Range As Range         ' the held range
 Private Lp_Rst_Story As Long          ' its story, so a header picture can never read as "in range"
 Private Lp_Rst_IsOn As Boolean        ' the box is up. NEVER ask the form's .Visible - that creates it
 Private Lp_Rst_Busy As Boolean        ' an Apply is running; refuses a second one
-Private Lp_Rst_KeysBound As Boolean   ' F6 was taken, and has to be given back
+Private Lp_Rst_Warned_At As String   ' where 390 was last said, "start:end"; "" when not
 Private Lp_Rst_Applies As Long        ' presses of Apply, for the closing message
 Private Lp_Rst_Resized As Long        ' pictures resized across the whole run
 Private Lp_Rst_Joined As Long         ' paragraph marks replaced across the whole run
@@ -2616,7 +2631,6 @@ Private Lp_Rst_HasLast As Boolean     ' a size has been used, so Use Last Size h
 ' looks a window up, so this and the form's caption must stay identical - the test
 ' tests/test_form_caption_constants_match.py holds them together.
 Private Const LP_RST_TITLE As String = "Resize Pictures in a Selected Range (375)"
-Private Const LP_RST_KEY_MACRO As String = "LPandBRL.LPandBrlMacros.Lp_Rst_ToggleFocus"
 Private Const LP_RST_BAR_MIN As Long = 25    ' below this many pictures in the range, no bar
 
 ' TABLE AND TOC TOOLS - THE TOC BOX (354), which stays open - Jerry, 9/22/2026. The same idea as
@@ -2631,6 +2645,16 @@ Private Lp_Tocb_Before As Long        ' characters in front of the TOC, as the l
 Private Lp_Tocb_After As Long         ' characters after the TOC, as the last job left it
 Private Lp_Tocb_Len As Long           ' the TOC's length, as the last job left it
 Private Lp_Tocb_Warned_At As String  ' where 389 was last said, "start:end"; "" when not
+
+' The box's window title, for F6 - it must be the form's WHOLE caption, and
+' tests/test_form_caption_constants_match.py holds the two together.
+Private Const LP_TOCB_TITLE As String = "Format TOC - Add/Remove Color Bars (354)"
+
+' TYPE FILL-IN LINES (357), which stays open - Jerry, 9/23/2026. No range: every button types at the
+' cursor, wherever the transcriber has put it. See Lp_Fil_Start.
+Private Const LP_FIL_TITLE As String = "Type Fill-In Lines (357)"
+Private Lp_Fil_IsOn As Boolean        ' the box is up. NEVER ask the form's .Visible - that creates it
+Private Lp_Fil_Busy As Boolean        ' a fill is being typed; refuses a second press and Done
 
 ' Set by the TOC color bars box (353) when its second Okay has painted the bars, so the box that
 ' called it knows whether to say "Color bars added". Public because a form sets it.
@@ -15371,6 +15395,10 @@ Sub Lp_Type_Fill_In_Line()
 '
 ' Author: Jerry Whittaker jerry@vistatypelp.org
 '
+' Version: 1.6  Date: 9/23/2026 - the box (357) STAYS OPEN - Jerry. Started through Lp_Fil_Start;
+'                                 a second press while it is up brings it to the front. A book
+'                                 without the Box Black style now leaves with Exit Sub, not End:
+'                                 End would take down any other box that stays open (issue 18).
 ' Version: 1.5  Date: 7/11/2025 - bug fix for blank lines on page break
 ' Version: 1.4  Date: 11/7/2023 - added Application.Run MacroName:="Sh_Is_Doc_Open" and "Lp_Is_Lp_Template_Attached"
 ' Version: 1.3  Date: 9/26/2023 - macro ends if LP template is not attached (no message on non-lp documents)
@@ -15378,6 +15406,16 @@ Sub Lp_Type_Fill_In_Line()
 '
 ' Shows Fill-in menu
 '
+    ' Already up: bring it to the front, and it is the box being worked in (Sh_Box_Opened).
+    If Lp_Fil_IsOn Then
+        Sh_Box_Opened "fil"
+        On Error Resume Next
+        Lp_Type_Fill_In_Line_Form.Show vbModeless
+        Err.Clear
+        On Error GoTo 0
+        Exit Sub
+    End If
+
     Application.Run MacroName:="Sh_Is_Doc_Open"
     Application.Run MacroName:="Lp_Is_Lp_Template_Attached"
     
@@ -15391,15 +15429,146 @@ Sub Lp_Type_Fill_In_Line()
     Set oStyle = ActiveDocument.Styles(styleName)
     
     If oStyle Is Nothing Then ' the style was not found
-        End
+        Exit Sub
     End If
-    
-    'Application.Run MacroName:="Lp_Is_Lp_Template_Attached"
-    Lp_Type_Fill_In_Line_Form.Show
-    Unload Lp_Type_Fill_In_Line_Form
+    On Error GoTo 0
 
-    
+    Lp_Fil_Start
 End Sub   '*** end of Lp_Type_Fill_In_Line macro ***
+
+' ============================================================================================
+' TYPE FILL-IN LINES - THE BOX THAT STAYS OPEN (357), Jerry, 9/23/2026
+'
+' "I want menu 357 to become non-modal: change the Cancel button to Done. There is no range
+' needed and F6 or Shift+F6 should be implemented on the menu." So: press a length, or Fill to
+' Right Margin, and the fill-in line is typed at the cursor as before - but the box stays up, and
+' the book gets the keyboard back, so the transcriber can move to the next blank and press again.
+' Done closes it.
+'
+' NO RANGE, so no out-of-range message and nothing held between presses: each press works at the
+' cursor in the book on screen. The two macros that type the lines are unchanged - they always
+' worked on Selection, and the box used to Hide itself only so they could.
+'
+' F6 AND Shift+F6 as for every box that stays open (docs/UI-Conventions.md): the key in the book
+' is shared, and this box joins the list as "fil" (Sh_Box_Opened); the way back is the form's own
+' KeyDown handlers.
+' ============================================================================================
+
+' Version: 1.0  Date: 9/23/2026
+Private Sub Lp_Fil_Start()
+    ' The flag goes up BEFORE the box does, the lesson Sh_Progress_Open carries.
+    Lp_Fil_Busy = False
+    Lp_Fil_IsOn = True
+    Sh_Box_Opened "fil"
+    Lp_Type_Fill_In_Line_Form.Show vbModeless
+
+    ' The book gets the keyboard, not the box - the rule for every box that stays open.
+    Sh_Focus_Document ActiveDocument
+End Sub  '***** end of Lp_Fil_Start *****
+
+' What the box's buttons run. kind 1 is a fixed length of count underscores (the 1 to 21
+' buttons); kind 2 is Fill to Right Margin, with count extra lines (the spinner).
+'
+' Version: 1.1  Date: 9/23/2026 - a handler, so an error cannot leave the box refusing presses.
+' Version: 1.0  Date: 9/23/2026
+Public Sub Lp_Fil_Type(ByVal kind As Long, ByVal count As Long)
+    If Not Lp_Fil_IsOn Then Exit Sub
+    If Lp_Fil_Busy Then Exit Sub
+    If Documents.count = 0 Then Exit Sub
+
+    ' ANY ERROR here goes to eom, which clears the busy flag - left set, every later press and Done
+    ' itself would be ignored. The two fill macros have their own handlers; this covers the rest,
+    ' such as ActiveDocument raising for a Protected View window in front. From review.
+    On Error GoTo eom
+    Lp_Fil_Busy = True
+    ' A press here makes this the box being worked in - the newest, with F6.
+    Sh_Box_Opened "fil"
+
+    ' The book on screen may not be a large print book - the box stays up while the transcriber
+    ' moves between books. The same test the button makes before it opens the box.
+    If Not Lp_Fil_Has_Box_Black(ActiveDocument) Then
+        Lp_Fil_Busy = False
+        Sh_Say "Fill-in lines are for a large print book, and " & ActiveDocument.Name _
+             & " is not one." & vbCr & vbCr _
+             & "Nothing has been typed. Go to the large print book and press again, or press " _
+             & "Done.", "VistaType LP (391)"
+        Sh_Focus_Document ActiveDocument
+        Exit Sub
+    End If
+
+    Lp_GP_Counter_1 = count
+    If kind = 2 Then
+        Lp_Type_Fill_In_Line_To_Margin
+    Else
+        Lp_Type_Counted_Fill_In_Lines
+    End If
+
+    Lp_Fil_Busy = False
+    ' Back to the book, so the next blank can be reached without the mouse.
+    Sh_Focus_Document ActiveDocument
+    Exit Sub
+
+eom:
+    Lp_Fil_Busy = False
+    On Error Resume Next
+    If Documents.count > 0 Then Sh_Focus_Document ActiveDocument
+    Err.Clear
+End Sub  '***** end of Lp_Fil_Type *****
+
+' True when the book has the Box Black style - Lp_Type_Fill_In_Line's own test for a large print
+' book. Guarded: never raises.
+'
+' Version: 1.0  Date: 9/23/2026
+Private Function Lp_Fil_Has_Box_Black(ByVal d As Document) As Boolean
+    Dim s As Style
+
+    On Error Resume Next
+    Set s = d.Styles("Box Black")
+    Lp_Fil_Has_Box_Black = Not (s Is Nothing)
+    Err.Clear
+End Function  '***** end of Lp_Fil_Has_Box_Black *****
+
+' What the Done button runs, and the title bar's X through UserForm_QueryClose. Not while a fill is
+' being typed - the press is ignored and Done can be pressed again. The flag goes down first; the
+' box is hidden before it is unloaded because this is reached from a button on it; the book gets
+' the keyboard; and the list of boxes is left LAST.
+'
+' Version: 1.0  Date: 9/23/2026
+Public Sub Lp_Fil_Done()
+    If Lp_Fil_Busy Then Exit Sub
+
+    On Error Resume Next
+    Lp_Fil_IsOn = False
+    Lp_Type_Fill_In_Line_Form.Hide
+    Unload Lp_Type_Fill_In_Line_Form
+    If Documents.count > 0 Then Sh_Focus_Document ActiveDocument
+    Sh_Box_Closed "fil"
+    Err.Clear
+    On Error GoTo 0
+End Sub  '***** end of Lp_Fil_Done *****
+
+' What F6 runs, through Sh_Box_ToggleFocus, while this is the newest box up and the book has the
+' keyboard. The safety net: fired with no box up, it leaves the shared list.
+'
+' Version: 1.0  Date: 9/23/2026
+Public Sub Lp_Fil_ToggleFocus()
+    On Error Resume Next
+    If Not Lp_Fil_IsOn Then
+        Sh_Box_Closed "fil"
+        Exit Sub
+    End If
+    Sh_Focus_Modeless_Form LP_FIL_TITLE
+    Err.Clear
+End Sub  '***** end of Lp_Fil_ToggleFocus *****
+
+' The other half, from every control's KeyDown on the box: the keyboard back to the book on screen.
+'
+' Version: 1.0  Date: 9/23/2026
+Public Sub Lp_Fil_KeyToDocument()
+    On Error Resume Next
+    If Documents.count > 0 Then Sh_Focus_Document ActiveDocument
+    Err.Clear
+End Sub  '***** end of Lp_Fil_KeyToDocument *****
 
 Sub Lp_Format_Exercise_Lv_1_and_Lv_2()
 
@@ -16466,6 +16635,8 @@ Sub Lp_Table_Tools()
     ' the TOC box behind its back anyway.
     If Lp_Tocb_IsOn Then
         If Not Selection.Information(wdWithInTable) Then
+            ' Brought back, so it is the box being worked in: the newest, with F6 (Sh_Box_Opened).
+            Lp_Tocb_BindKeys
             On Error Resume Next
             Lp_TOC_Format_And_Color_Form.Show vbModeless
             Err.Clear
@@ -16544,8 +16715,9 @@ End Sub
 ' the box - a custom undo record round these jobs crashed Word outright (docs/Reported-Errors.md,
 ' 9/2/2026).
 '
-' NO F6 HERE, unlike 375. 375 already binds F6 to its own macro, and two boxes that can both be
-' up would fight over the key.
+' F6 AND Shift+F6 move the keyboard between the book and the box - Jerry's rule for every box that
+' stays open, 9/23/2026 (docs/UI-Conventions.md). The key is shared with 375 and the $pg menus -
+' see Sh_Box_Opened in ShNonModalMessage.
 '
 ' THE BOOK HAS THE KEYBOARD, NOT THE BOX - Jerry, 9/23/2026. Once the box is up the focus goes to
 ' the book, so the transcriber can move about in it straight away; the box is a click away. And
@@ -16558,6 +16730,7 @@ End Sub
 '
 ' Version: 1.1  Date: 9/23/2026 - the book gets the focus once the box is up. Jerry, 9/23/2026.
 '                               The TOC is selected before the box appears, not after.
+'                               F6 and Shift+F6 are the box's while it is the newest box up.
 ' Version: 1.0  Date: 9/22/2026
 Private Sub Lp_Tocb_Start()
     Dim r As Range
@@ -16587,6 +16760,10 @@ Private Sub Lp_Tocb_Start()
     ' The TOC is selected BEFORE the flag goes up and the box appears. The box's own start-up
     ' reconfigures Word, and if that moves the view with a selection still reaching past the TOC
     ' (an over-drag the range dropped), 389 would be said before the box was even on screen.
+    '
+    ' And the list of boxes is joined before THAT: another box already up (375) watches the cursor
+    ' until this one is the newest, and would say its own out-of-range message about this select.
+    Lp_Tocb_BindKeys
     Lp_Tocb_Select
     Lp_Tocb_IsOn = True
     Lp_TOC_Format_And_Color_Form.Show vbModeless
@@ -16707,10 +16884,14 @@ End Function  '***** end of Lp_Tocb_Is_Outside *****
 ' Boolean and costs nothing while the TOC box is down. With it up, a cursor moved out of the TOC
 ' being held gets 389, at every new spot outside it. Jerry, 9/23/2026.
 '
-' Silent while a job runs (the jobs move the selection themselves), while a macro has the screen
-' off (the marker Sh_HandleDocumentActivated uses for "a macro, not a transcriber"), in a table
-' (see below), and in any other book - Lp_Tocb_Ready deals with that one when Okay is pressed.
+' Silent while a job runs here or in 375 (the jobs move the selection themselves), while a macro has
+' the screen off (the marker Sh_HandleDocumentActivated uses for "a macro, not a transcriber"),
+' while another box that stays open is newer than this one, in a table (see below), and in any
+' other book - Lp_Tocb_Ready deals with that one when Okay is pressed.
 '
+' Version: 1.3  Date: 9/23/2026 - only for a placed cursor or a selected picture, and not inside
+'                               375's range. From review.
+' Version: 1.2  Date: 9/23/2026 - only while this is the newest box up, and never while 375 is busy.
 ' Version: 1.1  Date: 9/23/2026 - said at every new spot outside the TOC, not once per trip out.
 '                               Jerry, on 3.0.494: "only works on the first out-of-range click
 '                               and after that it is silent."
@@ -16721,12 +16902,19 @@ Public Sub Lp_Tocb_Watch_Cursor(ByVal Sel As Selection)
     Dim at As String
 
     If Not Lp_Tocb_IsOn Then Exit Sub
-    If Lp_Tocb_Busy Then Exit Sub
+    If Lp_Tocb_Busy Or Lp_Rst_Busy Then Exit Sub
     If Not Application.ScreenUpdating Then Exit Sub
+    ' ONLY THE NEWEST BOX WATCHES - see Sh_Box_Opened. With 375 up too, every picture clicked in its
+    ' range would otherwise be "out of the selected range" here.
+    If Sh_Box_On_Top() <> "tocb" Then Exit Sub
 
     On Error Resume Next
     If Not (Sel.Document Is Lp_Tocb_Doc) Then Exit Sub
     If Err.Number <> 0 Then Exit Sub
+    If Not Lp_Box_Sel_Is_A_Spot(Sel.Type) Then Exit Sub
+    If Err.Number <> 0 Then Exit Sub
+    ' Inside 375's range is where that box is being worked, so not this box's to complain about.
+    If Lp_Rst_Holds(Sel) Then Exit Sub
     ' A CURSOR IN A TABLE is on its way to the table box (356): the next press of Table and TOC
     ' Tools ends the TOC run itself, so 389's "press Done" would be wrong advice there.
     If Sel.Information(wdWithInTable) Then Exit Sub
@@ -16769,6 +16957,57 @@ Private Sub Lp_Tocb_Select()
     On Error GoTo 0
 End Sub  '***** end of Lp_Tocb_Select *****
 
+' F6 AND Shift+F6 for the TOC box. Two halves: the key in the book is SHARED by every box that stays
+' open, and joining the list gives it to this box while it is the newest (Sh_Box_Opened); the way
+' back is the form's own KeyDown handlers, because while the form has the keyboard Word never sees
+' the key at all. Shift+F6 reaches those handlers as F6 with Shift set, so they need no test of
+' their own for it.
+'
+' Version: 1.1  Date: 9/23/2026 - joins the shared list instead of binding F6 itself.
+' Version: 1.0  Date: 9/23/2026
+Private Sub Lp_Tocb_BindKeys()
+    Sh_Box_Opened "tocb"
+End Sub  '***** end of Lp_Tocb_BindKeys *****
+
+' Version: 1.1  Date: 9/23/2026 - leaves the shared list; F6 goes to the box opened before, if any.
+' Version: 1.0  Date: 9/23/2026
+Private Sub Lp_Tocb_UnbindKeys()
+    Sh_Box_Closed "tocb"
+End Sub  '***** end of Lp_Tocb_UnbindKeys *****
+
+' What F6 runs, through Sh_Box_ToggleFocus, while the TOC box is the newest box up and the book has
+' the keyboard: the move is always "to the box". The safety net: fired with no box up, it leaves
+' the shared list.
+'
+' Version: 1.0  Date: 9/23/2026
+Public Sub Lp_Tocb_ToggleFocus()
+    On Error Resume Next
+
+    If Not Lp_Tocb_IsOn Then
+        Lp_Tocb_UnbindKeys
+        Exit Sub
+    End If
+
+    Sh_Focus_Modeless_Form LP_TOCB_TITLE
+    Err.Clear
+End Sub  '***** end of Lp_Tocb_ToggleFocus *****
+
+' The other half, called from every control's KeyDown on the box. Puts the keyboard back in the
+' book the TOC was taken in.
+'
+' Version: 1.0  Date: 9/23/2026
+Public Sub Lp_Tocb_KeyToDocument()
+    On Error Resume Next
+    ' A closed book is said (388) and the run ended, as 375 does - quietly doing nothing is the
+    ' wrong answer for the one transcriber who cannot reach for the mouse instead.
+    If Lp_Rst_Doc_Is_Open(Lp_Tocb_Doc) Then
+        Sh_Focus_Document Lp_Tocb_Doc
+    ElseIf Not Lp_Tocb_Busy Then
+        Lp_Tocb_Ready
+    End If
+    Err.Clear
+End Sub  '***** end of Lp_Tocb_KeyToDocument *****
+
 ' What the box's Okay runs. job is the choice: 1 Format the TOC, 2 Add Color Bars, 3 Remove
 ' Color Bars.
 '
@@ -16782,6 +17021,8 @@ Public Sub Lp_Tocb_Okay(ByVal job As Long)
     Dim errText As String
 
     If Not Lp_Tocb_IsOn Then Exit Sub
+    ' A press here makes this the box being worked in - the newest, with F6 and the cursor watch.
+    Lp_Tocb_BindKeys
     ' A job can let this box's buttons be pressed while it runs - Remove Color Bars calls
     ' DoEvents, and every message box runs its own message loop - so a second press is ignored.
     If Lp_Tocb_Busy Then Exit Sub
@@ -16855,9 +17096,10 @@ eom:
     errNum = Err.Number
     errText = Err.Description
     On Error Resume Next
-    Lp_Tocb_Busy = False
     Unload Lp_TOC_Color_Bars_Form
+    ' Selected while still busy, as on the normal path, so no box's cursor watch speaks about it.
     Lp_Tocb_Select
+    Lp_Tocb_Busy = False
     Err.Clear
     On Error GoTo 0
     Sh_Report_Error "Lp_Tocb_Okay", errNum, errText
@@ -16879,7 +17121,8 @@ End Sub  '***** end of Lp_Tocb_Done *****
 ' - and the book gets the keyboard back. Without it the selection is left exactly as it is: that is
 ' Table and TOC Tools ending the run because the cursor is in a table, on its way to the table box.
 '
-' Version: 1.1  Date: 9/23/2026 - clears the 389 warning with the rest of the run's state.
+' Version: 1.1  Date: 9/23/2026 - clears the 389 warning with the rest of the run's state, and
+'                               leaves the shared list of boxes, last.
 ' Version: 1.0  Date: 9/22/2026
 Private Sub Lp_Tocb_Finish(ByVal letGo As Boolean)
     Dim backTo As Document
@@ -16909,6 +17152,10 @@ Private Sub Lp_Tocb_Finish(ByVal letGo As Boolean)
         End If
         Sh_Focus_Document backTo
     End If
+
+    ' The list of boxes is left LAST. Left earlier, a box still up (375) would be the newest while
+    ' the TOC is let go above, and would say its out-of-range message about that select.
+    Lp_Tocb_UnbindKeys
     Err.Clear
     On Error GoTo 0
 End Sub  '***** end of Lp_Tocb_Finish *****
@@ -17419,7 +17666,7 @@ End Sub   '*** end of Lp_Tahoma_The_Fill_Ins ***
 
 Sub Lp_Type_Fill_In_Line_To_Margin()
 
-    ' Called from: Lp_Type_Fill_In_Form
+    ' Called from: Lp_Fil_Type, for the Type Fill-In Lines box (357), which stays open from 9/23/2026
     '
     ' Version 2.6  Date: 9/12/2026 - ONE UNDO PRESS instead of 49 for a fill to the margin and 160
     '                                for one with two extra lines (Jerry). A custom undo record
@@ -17887,7 +18134,7 @@ End Sub   '*** end of Lp_Type_Fill_In_Line_To_Margin macro ***
 
 Sub Lp_Type_Counted_Fill_In_Lines()
 
-    ' Called from: Lp_Type_Fill_In_Form
+    ' Called from: Lp_Fil_Type, for the Type Fill-In Lines box (357), which stays open from 9/23/2026
     '
     ' Version 2.0:  Date: 9/12/2026 ONE UNDO PRESS. The run was already one TypeText, but the
     '                               spaces either side made it up to three. See the note in
@@ -21856,6 +22103,7 @@ End Function  '***** end of Lp_Same_Pic_Mark_May_Go *****
 '
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
+' Version: 1.1  Date: 9/23/2026 - says 390 when the cursor leaves the range (Lp_Rst_Watch_Cursor).
 ' Version: 1.0  Date: 9/22/2026
 Public Sub Lp_Resize_Pictures_In_Range()
     Dim r As Range
@@ -21865,6 +22113,8 @@ Public Sub Lp_Resize_Pictures_In_Range()
     ' Already running. A second start would hold a second range and nobody could tell which one
     ' Apply was working in. Bring the box she already has back to the front instead.
     If Lp_Rst_IsOn Then
+        ' Brought back, so it is the box being worked in: the newest, with F6 (Sh_Box_Opened).
+        Lp_Rst_BindKeys
         On Error Resume Next
         Lp_Same_Pic_Range_Form.Show vbModeless
         Err.Clear
@@ -21900,6 +22150,7 @@ Public Sub Lp_Resize_Pictures_In_Range()
     Lp_Rst_Resized = 0
     Lp_Rst_Joined = 0
     Lp_Rst_Busy = False
+    Lp_Rst_Warned_At = ""
 
     ' The flag goes up BEFORE the box does. Raised afterward, the first thing the box calls back
     ' would read it as False - the lesson Sh_Progress_Open carries.
@@ -21961,6 +22212,8 @@ Private Sub Lp_Rst_Run(ByVal useLastSize As Boolean)
     ' NOT TIDINESS: the progress bar's spinner runs on Application.OnTime, which pumps the message
     ' queue, so a second click on this modeless button can land inside the first one.
     If Lp_Rst_Busy Then Exit Sub
+    ' A press here makes this the box being worked in - the newest, with F6 and the cursor watch.
+    If Lp_Rst_IsOn Then Lp_Rst_BindKeys
     Lp_Rst_Busy = True
 
     If Not Lp_Rst_Ready() Then
@@ -22156,6 +22409,9 @@ End Sub  '***** end of Lp_Rst_Done *****
 ' taken apart. The form is hidden before it is unloaded, because this is reached from a button on
 ' the form being closed. The closing message comes LAST, because it is modal.
 '
+' Version: 1.1  Date: 9/23/2026 - clears the 390 warning, and leaves the shared list of boxes LAST,
+'                               after the selection is let go, so the TOC box (354), if it is up,
+'                               does not say 389 about that.
 ' Version: 1.0  Date: 9/22/2026
 Private Sub Lp_Rst_Finish(ByVal saySummary As Boolean)
     Dim msg As String
@@ -22171,7 +22427,7 @@ Private Sub Lp_Rst_Finish(ByVal saySummary As Boolean)
     On Error Resume Next
     Lp_Rst_IsOn = False
     Lp_Rst_Busy = False
-    Lp_Rst_UnbindKeys
+    Lp_Rst_Warned_At = ""
     Sh_Progress_Close
 
     Lp_Same_Pic_Range_Form.Hide
@@ -22195,6 +22451,9 @@ Private Sub Lp_Rst_Finish(ByVal saySummary As Boolean)
         If Selection.Type = wdSelectionInlineShape Then Selection.Collapse wdCollapseEnd
         Sh_Focus_Document backTo
     End If
+
+    ' The list of boxes is left LAST - see the version note.
+    Lp_Rst_UnbindKeys
     Err.Clear
     On Error GoTo 0
 
@@ -22290,6 +22549,99 @@ Private Function Lp_Rst_In_Range(ByVal picStart As Long, ByVal picEnd As Long, _
     Lp_Rst_In_Range = True
 End Function  '***** end of Lp_Rst_In_Range *****
 
+' True when a selection is a SPOT the out-of-range messages (389, 390) are about: the cursor put
+' somewhere, or a picture selected. Jerry, 9/23/2026: "if the user places the cursor in text or
+' selects a picture". A stretch of text being selected is not - every Shift+arrow while selecting
+' the range for a second box would otherwise bring the message up again. Numbers in, for the test.
+'
+' Version: 1.0  Date: 9/23/2026
+Private Function Lp_Box_Sel_Is_A_Spot(ByVal selType As Long) As Boolean
+    Lp_Box_Sel_Is_A_Spot = (selType = wdSelectionIP Or selType = wdSelectionInlineShape _
+                            Or selType = wdSelectionShape)
+End Function  '***** end of Lp_Box_Sel_Is_A_Spot *****
+
+' True when 375 is up and the selection is inside its range - the TOC box's watcher leaves that to
+' 375. Guarded: never raises.
+'
+' Version: 1.0  Date: 9/23/2026
+Private Function Lp_Rst_Holds(ByVal Sel As Selection) As Boolean
+    On Error Resume Next
+    If Not Lp_Rst_IsOn Then Exit Function
+    If Not (Sel.Document Is Lp_Rst_Doc) Then Exit Function
+    Lp_Rst_Holds = Lp_Rst_In_Range(Sel.Start, Sel.End, Sel.StoryType, _
+                                   Lp_Rst_Range.Start, Lp_Rst_Range.End, Lp_Rst_Story)
+    If Err.Number <> 0 Then Lp_Rst_Holds = False
+    Err.Clear
+End Function  '***** end of Lp_Rst_Holds *****
+
+' True when the TOC box is up and the selection is inside the TOC it holds - 375's watcher leaves
+' that to the TOC box. Guarded: never raises.
+'
+' Version: 1.0  Date: 9/23/2026
+Private Function Lp_Tocb_Holds(ByVal Sel As Selection) As Boolean
+    Dim r As Range
+
+    On Error Resume Next
+    If Not Lp_Tocb_IsOn Then Exit Function
+    If Not (Sel.Document Is Lp_Tocb_Doc) Then Exit Function
+    Set r = Lp_Tocb_Where()
+    If r Is Nothing Then Exit Function
+    Lp_Tocb_Holds = Not Lp_Tocb_Is_Outside(Sel.Start, Sel.End, r.Start, r.End)
+    If Err.Number <> 0 Then Lp_Tocb_Holds = False
+    Err.Clear
+End Function  '***** end of Lp_Tocb_Holds *****
+
+' Word's selection event runs this on every cursor movement (VtEvents); the first test is one
+' Boolean while 375 is down. With it up, a cursor put in text outside the range, or a picture
+' selected outside it, gets 390 - at every new spot outside. Jerry, 9/23/2026, the same message the
+' TOC box gives (389); a number of its own so a transcriber's report says which box it was.
+'
+' Inside is Lp_Rst_In_Range, the test Apply makes on a picture, so the watcher and 379 can never
+' disagree about where the range ends. Silent while an Apply runs or the TOC box (354) is working,
+' while a macro has the screen off, while another box that stays open is newer than this one, and
+' in any other book - Lp_Rst_Ready deals with that one.
+'
+' Version: 1.1  Date: 9/23/2026 - only for a placed cursor or a selected picture, and not inside
+'                               the TOC box's TOC. From review.
+' Version: 1.0  Date: 9/23/2026
+Public Sub Lp_Rst_Watch_Cursor(ByVal Sel As Selection)
+    Dim inside As Boolean
+    Dim at As String
+
+    If Not Lp_Rst_IsOn Then Exit Sub
+    If Lp_Rst_Busy Or Lp_Tocb_Busy Then Exit Sub
+    If Not Application.ScreenUpdating Then Exit Sub
+    ' ONLY THE NEWEST BOX WATCHES - see Sh_Box_Opened. With the TOC box up too, its own selects
+    ' and every click in the TOC would otherwise be "out of the selected range" here.
+    If Sh_Box_On_Top() <> "rst" Then Exit Sub
+
+    On Error Resume Next
+    If Not (Sel.Document Is Lp_Rst_Doc) Then Exit Sub
+    If Err.Number <> 0 Then Exit Sub
+    If Not Lp_Box_Sel_Is_A_Spot(Sel.Type) Then Exit Sub
+    If Err.Number <> 0 Then Exit Sub
+    ' Inside the TOC box's TOC is where that box is being worked, so not this box's to complain about.
+    If Lp_Tocb_Holds(Sel) Then Exit Sub
+    inside = Lp_Rst_In_Range(Sel.Start, Sel.End, Sel.StoryType, _
+                             Lp_Rst_Range.Start, Lp_Rst_Range.End, Lp_Rst_Story)
+    If Err.Number <> 0 Then Exit Sub
+    On Error GoTo 0
+
+    If inside Then
+        Lp_Rst_Warned_At = ""
+        Exit Sub
+    End If
+
+    ' Only the very same spot is not said twice. Set BEFORE the message, so nothing the message
+    ' itself does can say it a second time.
+    at = CStr(Sel.Start) & ":" & CStr(Sel.End)
+    If at = Lp_Rst_Warned_At Then Exit Sub
+    Lp_Rst_Warned_At = at
+    Sh_Say "Your cursor is out of the selected range." & vbCr & vbCr _
+         & "Only pictures inside the part of the book you picked when you started can be " _
+         & "resized here. Press Done when you have finished.", "VistaType LP (390)"
+End Sub  '***** end of Lp_Rst_Watch_Cursor *****
+
 ' The three position buttons as a number: 0 leave it alone, 1 left, 2 center. Read here rather
 ' than in Lp_Rst_Apply so the form is touched in one place only.
 '
@@ -22339,61 +22691,24 @@ Private Sub Lp_Rst_Offer_Last_Size()
     On Error GoTo 0
 End Sub  '***** end of Lp_Rst_Offer_Last_Size *****
 
-' F6 AND Shift+F6, so the box can be reached without a mouse. Two halves: this one is the Word key
-' binding, for the document to the box; the form's own KeyDown handlers are the way back, because
-' while the form holds the keyboard Word never sees the key at all.
+' F6 AND Shift+F6, so the box can be reached without a mouse. Two halves: the key in the book is
+' SHARED by every box that stays open, and joining the list gives it to this box while it is the
+' newest (Sh_Box_Opened, ShNonModalMessage); the way back is the form's own KeyDown handlers,
+' because while the form holds the keyboard Word never sees the key at all.
 '
-' THE $pg VALIDATION BINDS THE SAME KEY, and a second KeyBindings.Add replaces the first, so
-' whichever of the two unbinds last would leave the other without F6. This one stands aside while
-' a validation is running, and the box then says nothing about F6.
-'
-' CustomizationContext is Application state and outlives this macro. Left pointing at VistaType's
-' add-in, the next thing to add a key assignment would write it in here instead of into Normal.
-' ThisDocument.Saved = True afterward, or Word asks the transcriber whether to save the add-in.
-'
+' Version: 1.2  Date: 9/23/2026 - joins the shared list instead of binding F6 itself. Standing aside
+'                               for the $pg menus and the TOC box is gone with it: the newest box
+'                               now has the key, and closing it hands the key back.
+' Version: 1.1  Date: 9/23/2026 - stands aside for the TOC box (354) as well.
 ' Version: 1.0  Date: 9/22/2026
 Private Sub Lp_Rst_BindKeys()
-    Dim ctxWas As Object
-
-    Lp_Rst_KeysBound = False
-    If Sh_PgVal_Is_Running() Then Exit Sub
-
-    On Error Resume Next
-    Set ctxWas = CustomizationContext
-    CustomizationContext = ThisDocument
-    KeyBindings.Add KeyCode:=BuildKeyCode(wdKeyF6), _
-                    KeyCategory:=wdKeyCategoryMacro, Command:=LP_RST_KEY_MACRO
-    KeyBindings.Add KeyCode:=BuildKeyCode(wdKeyShift, wdKeyF6), _
-                    KeyCategory:=wdKeyCategoryMacro, Command:=LP_RST_KEY_MACRO
-    ThisDocument.Saved = True
-    If Not ctxWas Is Nothing Then CustomizationContext = ctxWas
-    Lp_Rst_KeysBound = (Err.Number = 0)
-    Err.Clear
-    On Error GoTo 0
+    Sh_Box_Opened "rst"
 End Sub  '***** end of Lp_Rst_BindKeys *****
 
+' Version: 1.1  Date: 9/23/2026 - leaves the shared list; F6 goes to the box opened before, if any.
 ' Version: 1.0  Date: 9/22/2026
 Private Sub Lp_Rst_UnbindKeys()
-    Dim i As Long
-    Dim ctxWas As Object
-
-    On Error Resume Next
-    Set ctxWas = CustomizationContext
-    CustomizationContext = ThisDocument
-
-    ' Backwards. Clearing a binding takes it out of the collection and moves everything above it
-    ' down, so a forward loop would step over the second one.
-    For i = KeyBindings.count To 1 Step -1
-        If InStr(1, KeyBindings(i).Command, "Lp_Rst_ToggleFocus", vbTextCompare) > 0 Then
-            KeyBindings(i).Clear
-        End If
-    Next i
-
-    ThisDocument.Saved = True
-    If Not ctxWas Is Nothing Then CustomizationContext = ctxWas
-    Lp_Rst_KeysBound = False
-    Err.Clear
-    On Error GoTo 0
+    Sh_Box_Closed "rst"
 End Sub  '***** end of Lp_Rst_UnbindKeys *****
 
 ' What F6 runs while the box is up. Word has the focus - that is the only way this can have been
@@ -22430,13 +22745,9 @@ Public Sub Lp_Rst_KeyToDocument()
     Err.Clear
 End Sub  '***** end of Lp_Rst_KeyToDocument *****
 
-' True when F6 really was taken for this box. The box asks, so it only promises a key it has -
-' a $pg validation already running keeps F6, and this stands aside rather than taking it away.
-'
-' Version: 1.0  Date: 9/22/2026
-Public Function Lp_Rst_Keys_Are_Bound() As Boolean
-    Lp_Rst_Keys_Are_Bound = Lp_Rst_KeysBound
-End Function  '***** end of Lp_Rst_Keys_Are_Bound *****
+' Lp_Rst_Keys_Are_Bound stood here, 9/22/2026 to 9/23/2026. The box asked it whether F6 was really
+' its own, because it stood aside for a $pg validation. The key is shared now (Sh_Box_Opened) and
+' the newest box always has it, so the answer was always yes.
 
 ' Replaces the paragraph mark straight after an in-line picture with a space, so the text that was
 ' on the next line runs on beside the picture. True when it did. Jerry, 9/22/2026.

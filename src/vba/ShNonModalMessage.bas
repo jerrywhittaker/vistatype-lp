@@ -37,8 +37,15 @@ Private Const SH_PGVAL_TITLE_DOC As String = "Delete/change/add $pg (366)"
 ' are loaded then, and if it does not resolve the transcriber gets Word's "the macro cannot be
 ' found or has been disabled" instead of a menu. Note the module is ShNonModalMessage, not
 ' LPandBrlMacros - the natural mistake, since every other key assignment in this project points at
-' LPandBrlMacros.
-Private Const SH_PGVAL_KEY_MACRO As String = "LPandBRL.ShNonModalMessage.Sh_PgVal_ToggleFocus"
+' LPandBrlMacros. (Until 9/23/2026 this named Sh_PgVal_ToggleFocus; the key is now shared by every
+' box that stays open - see Sh_Box_Opened.)
+Private Const SH_BOX_KEY_MACRO As String = "LPandBRL.ShNonModalMessage.Sh_Box_ToggleFocus"
+
+' The boxes that stay open and are up now, oldest first, newest last: "" when none, else like
+' "|pg|tocb|". The newest has F6, and only the newest watches the cursor. Wiped by End, like every
+' module variable - and End takes the boxes down too, so the two stay in step; the binding left
+' behind is removed by the first F6 afterwards (Sh_Box_ToggleFocus).
+Private Sh_Box_Stack As String
 
 ' The document the please-wait box was opened over, so focus can be handed back to it.
 Private Sh_PleaseWait_Doc As Document
@@ -386,9 +393,7 @@ End Sub
 Public Sub Sh_PgVal_Done()
     On Error Resume Next
 
-    'F6 belongs to Word again the moment the validation is over - see Sh_PgVal_BindKeys.
     Sh_PgVal_MenuIsOn = 0
-    Sh_PgVal_UnbindKeys
 
     'Hide before unloading: these run from a button on one of the forms being closed.
     Sh_Valid_Ref_Pg_No_2_Form.Hide
@@ -411,6 +416,11 @@ Public Sub Sh_PgVal_Done()
     Unload Sh_Valid_Ref_Pg_No_2_Form
     Unload Sh_Valid_Ref_Pg_No_3_Form
     Unload Sh_Valid_Ref_Pg_No_4_Form
+
+    ' The validation leaves the list of boxes LAST, 9/23/2026 - F6 goes to the box opened before it,
+    ' or back to Word. Left earlier, the TOC box or 375 would be the newest while the cursor is
+    ' moved back into the book above, and would say its out-of-range message about that.
+    Sh_PgVal_UnbindKeys
 
     Set Sh_PgVal_TempDoc = Nothing
     Set Sh_PgVal_SourceDoc = Nothing
@@ -436,9 +446,9 @@ End Sub
 ' forwards and backwards are the same move. Both are bound because a screen-reader user reaches
 ' for either out of habit.
 '
-' THE BINDING IS ONLY IN FORCE WHILE A VALIDATION IS RUNNING, because F6 is Word's own "next
-' pane" key and she is entitled to have it back. Three separate things see to that: Sh_PgVal_Done
-' removes it; Sh_PgVal_ToggleFocus removes it itself if it ever fires with no menu on screen; and
+' THE BINDING IS ONLY IN FORCE WHILE A BOX IS UP - from 9/23/2026 any box that stays open, since the
+' key is shared (Sh_Box_Opened) - because F6 is Word's own "next pane" key and she is entitled to
+' have it back. Three separate things see to that: the last box to close removes it; Sh_PgVal_ToggleFocus removes it itself if it ever fires with no menu on screen; and
 ' it is written into the ADD-IN's own template in memory only - never saved - so closing Word
 ' forgets it whatever happened in between.
 '
@@ -446,55 +456,20 @@ End Sub
 ' template dirty, and a dirty global template makes Word ask "do you want to save changes to
 ' LPandBRL.dotm?" on the way out - a question no transcriber should ever be asked.
 '
-' Version: 1.0  Date: 8/23/2026
+' Version: 1.2  Date: 9/23/2026 - F6 is SHARED by every box that stays open (Sh_Box_Opened); a
+'                               validation joins the list instead of binding the key itself, so it
+'                               no longer takes F6 from the TOC box or 375, nor strands them after.
 ' Version: 1.1  Date: 8/23/2026 - the macro name is qualified, and CustomizationContext is put back
 ' Version: 1.0  Date: 8/23/2026
 Private Sub Sh_PgVal_BindKeys()
-    Dim ctxWas As Object
-
-    On Error Resume Next
-    ' CustomizationContext is APPLICATION state and outlives this macro, like ScreenUpdating. Left
-    ' pointing at VistaType's add-in, the next thing that adds a key assignment or a toolbar
-    ' customization without setting it - Word's own, another add-in, one of her own macros - would
-    ' write it in here instead of into Normal.
-    Set ctxWas = CustomizationContext
-
-    CustomizationContext = ThisDocument
-    KeyBindings.Add KeyCode:=BuildKeyCode(wdKeyF6), _
-                    KeyCategory:=wdKeyCategoryMacro, Command:=SH_PGVAL_KEY_MACRO
-    KeyBindings.Add KeyCode:=BuildKeyCode(wdKeyShift, wdKeyF6), _
-                    KeyCategory:=wdKeyCategoryMacro, Command:=SH_PGVAL_KEY_MACRO
-    ThisDocument.Saved = True
-
-    If Not ctxWas Is Nothing Then CustomizationContext = ctxWas
-    Err.Clear
+    Sh_Box_Opened "pg"
 End Sub
 
+' Version: 1.2  Date: 9/23/2026 - leaves the shared list; F6 goes to the box opened before, if any.
 ' Version: 1.1  Date: 8/23/2026 - CustomizationContext is put back; matches on the qualified name
 ' Version: 1.0  Date: 8/23/2026
 Private Sub Sh_PgVal_UnbindKeys()
-    Dim i As Long
-    Dim ctxWas As Object
-
-    On Error Resume Next
-    Set ctxWas = CustomizationContext
-    CustomizationContext = ThisDocument
-
-    ' Backwards. Clearing a binding takes it out of the collection and moves everything above it
-    ' down, so a forward loop would step over the second one.
-    '
-    ' InStr rather than "=" so a binding written by an older build - which named the macro without
-    ' its project and module - is still recognized and cleared. That build never shipped, but the
-    ' rule holds generally: this has to be able to clean up after itself.
-    For i = KeyBindings.count To 1 Step -1
-        If InStr(1, KeyBindings(i).Command, "Sh_PgVal_ToggleFocus", vbTextCompare) > 0 Then
-            KeyBindings(i).Clear
-        End If
-    Next i
-
-    ThisDocument.Saved = True
-    If Not ctxWas Is Nothing Then CustomizationContext = ctxWas
-    Err.Clear
+    Sh_Box_Closed "pg"
 End Sub
 
 ' What F6 and Shift+F6 run while a validation is going on. Word has the focus - that is the only
@@ -653,15 +628,143 @@ Public Sub Sh_Focus_Modeless_Form(ByVal titleText As String)
     Err.Clear
 End Sub  '***** end of Sh_Focus_Modeless_Form *****
 
-' True while a $pg validation has one of its boxes on screen. Read by the picture-range loop,
-' which binds the same F6 and stands aside rather than taking the key away from a validation
-' already running - a second KeyBindings.Add replaces the first, so whichever unbound last would
-' leave the other without a keyboard.
+' ONE F6 FOR EVERY BOX THAT STAYS OPEN - Jerry's rule, 9/23/2026 (docs/UI-Conventions.md): F6 and
+' Shift+F6 move the keyboard between the book and the box. The $pg menus, the TOC box (354),
+' Resize Pictures in a Selected Range (375) and Type Fill-In Lines (357) can be up at the same time, and Word keeps ONE command
+' per key - a second KeyBindings.Add replaces the first. Until today each box bound F6 for itself
+' and stood aside for the others, and the review of that found every order of opening and closing
+' that left a live box without F6, or a flag saying it had it when it did not.
 '
-' Version: 1.0  Date: 9/22/2026
-Public Function Sh_PgVal_Is_Running() As Boolean
-    Sh_PgVal_Is_Running = (Sh_PgVal_MenuIsOn <> 0)
-End Function  '***** end of Sh_PgVal_Is_Running *****
+' So the key is bound once, to Sh_Box_ToggleFocus, while ANY box is up, and a list says which
+' boxes are up: the NEWEST gets F6, being the one the transcriber is working in, and closing it
+' hands F6 to the one opened before. Each box joins with Sh_Box_Opened and leaves with
+' Sh_Box_Closed. The way back from a box to the book is still each form's own KeyDown handlers.
+'
+' The same list says which box watches the cursor for the out-of-range message (389, 390): only the
+' newest. With two up, each would otherwise say its message about every click the transcriber made
+' in the other one's range - and about the other box's own selection moves.
+'
+' Version: 1.0  Date: 9/23/2026 - replaces Sh_PgVal_Is_Running and the three boxes' own bindings.
+Public Sub Sh_Box_Opened(ByVal who As String)
+    Sh_Box_Stack = Sh_Box_Push(Sh_Box_Stack, who)
+    Sh_Box_BindKeys
+End Sub  '***** end of Sh_Box_Opened *****
+
+' Version: 1.0  Date: 9/23/2026
+Public Sub Sh_Box_Closed(ByVal who As String)
+    Sh_Box_Stack = Sh_Box_Remove(Sh_Box_Stack, who)
+    If Len(Sh_Box_Stack) = 0 Then Sh_Box_UnbindKeys
+End Sub  '***** end of Sh_Box_Closed *****
+
+' Which box has F6 and watches the cursor: "pg", "tocb", "rst", "fil", or "" when none is up.
+'
+' Version: 1.0  Date: 9/23/2026
+Public Function Sh_Box_On_Top() As String
+    Sh_Box_On_Top = Sh_Box_Top(Sh_Box_Stack)
+End Function  '***** end of Sh_Box_On_Top *****
+
+' What F6 and Shift+F6 run while any box is up and the book has the keyboard. Each box's own
+' ToggleFocus does the move, and its own safety net: fired for a box that is not really up, it
+' leaves the list, and one press goes by with nothing done. With nothing on the list at all - after
+' an End, which wipes the list but not the binding - the key goes back to Word.
+'
+' Version: 1.0  Date: 9/23/2026
+Public Sub Sh_Box_ToggleFocus()
+    On Error Resume Next
+    Select Case Sh_Box_Top(Sh_Box_Stack)
+        Case "pg"
+            Sh_PgVal_ToggleFocus
+        Case "tocb"
+            Lp_Tocb_ToggleFocus
+        Case "rst"
+            Lp_Rst_ToggleFocus
+        Case "fil"
+            Lp_Fil_ToggleFocus
+        Case Else
+            Sh_Box_Stack = ""
+            Sh_Box_UnbindKeys
+    End Select
+    Err.Clear
+End Sub  '***** end of Sh_Box_ToggleFocus *****
+
+' Bound again on every Opened - harmless, the same binding replaces itself - so a binding lost for
+' any reason comes back with the next box. CustomizationContext and ThisDocument.Saved as the note
+' above the old Sh_PgVal_BindKeys explains: Application state put back, and no "save changes to
+' LPandBRL.dotm?" on the way out.
+'
+' Version: 1.0  Date: 9/23/2026
+Private Sub Sh_Box_BindKeys()
+    Dim ctxWas As Object
+
+    On Error Resume Next
+    Set ctxWas = CustomizationContext
+    CustomizationContext = ThisDocument
+    KeyBindings.Add KeyCode:=BuildKeyCode(wdKeyF6), _
+                    KeyCategory:=wdKeyCategoryMacro, Command:=SH_BOX_KEY_MACRO
+    KeyBindings.Add KeyCode:=BuildKeyCode(wdKeyShift, wdKeyF6), _
+                    KeyCategory:=wdKeyCategoryMacro, Command:=SH_BOX_KEY_MACRO
+    ThisDocument.Saved = True
+    If Not ctxWas Is Nothing Then CustomizationContext = ctxWas
+    Err.Clear
+End Sub  '***** end of Sh_Box_BindKeys *****
+
+' Clears the shared binding, and any binding an earlier build left under the three boxes' own
+' macro names, so this can always clean up after itself. Backwards: clearing a binding moves
+' everything above it down, so a forward loop would step over the second one.
+'
+' Version: 1.0  Date: 9/23/2026
+Private Sub Sh_Box_UnbindKeys()
+    Dim i As Long
+    Dim cmd As String
+    Dim ctxWas As Object
+
+    On Error Resume Next
+    Set ctxWas = CustomizationContext
+    CustomizationContext = ThisDocument
+    For i = KeyBindings.count To 1 Step -1
+        cmd = KeyBindings(i).Command
+        If InStr(1, cmd, "Sh_Box_ToggleFocus", vbTextCompare) > 0 _
+           Or InStr(1, cmd, "Sh_PgVal_ToggleFocus", vbTextCompare) > 0 _
+           Or InStr(1, cmd, "Lp_Rst_ToggleFocus", vbTextCompare) > 0 _
+           Or InStr(1, cmd, "Lp_Tocb_ToggleFocus", vbTextCompare) > 0 _
+           Or InStr(1, cmd, "Lp_Fil_ToggleFocus", vbTextCompare) > 0 Then
+            KeyBindings(i).Clear
+        End If
+    Next i
+    ThisDocument.Saved = True
+    If Not ctxWas Is Nothing Then CustomizationContext = ctxWas
+    Err.Clear
+End Sub  '***** end of Sh_Box_UnbindKeys *****
+
+' The list itself, as plain strings so tests/vba/TestModelessBoxes.bas can check it headlessly.
+' A box opened again moves to the top rather than appearing twice.
+'
+' Version: 1.0  Date: 9/23/2026
+Public Function Sh_Box_Push(ByVal stack As String, ByVal who As String) As String
+    Dim s As String
+
+    s = Sh_Box_Remove(stack, who)
+    If Len(s) = 0 Then s = "|"
+    Sh_Box_Push = s & who & "|"
+End Function  '***** end of Sh_Box_Push *****
+
+' Version: 1.0  Date: 9/23/2026
+Public Function Sh_Box_Remove(ByVal stack As String, ByVal who As String) As String
+    Dim s As String
+
+    s = Replace(stack, "|" & who & "|", "|")
+    If s = "|" Then s = ""
+    Sh_Box_Remove = s
+End Function  '***** end of Sh_Box_Remove *****
+
+' Version: 1.0  Date: 9/23/2026
+Public Function Sh_Box_Top(ByVal stack As String) As String
+    Dim s As String
+
+    If Len(stack) < 3 Then Exit Function
+    s = Left$(stack, Len(stack) - 1)
+    Sh_Box_Top = Mid$(s, InStrRev(s, "|") + 1)
+End Function  '***** end of Sh_Box_Top *****
 
 ' The same job, for any caller. A modeless form takes the keyboard focus, and Word can end up
 ' showing a DIFFERENT document than the one being worked on - Jerry saw Full File Cleanup jump

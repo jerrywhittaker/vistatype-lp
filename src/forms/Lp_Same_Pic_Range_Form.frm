@@ -17,6 +17,8 @@ Attribute VB_Exposed = False
 
 ' Lp_Same_Pic_Range_Form
 '
+' Version: 1.1  Date: 9/23/2026 - the F6 line is always shown: the key is shared, and the newest
+'                               box has it (Sh_Box_Opened).
 ' Version: 1.0  Date: 9/22/2026
 '
 ' The box for Resize Pictures Used Throughout a Selected Range (Jerry, 9/22/2026). It is MODELESS
@@ -117,13 +119,10 @@ Private Sub UserForm_Initialize()
     ' Lp_Rst_Offer_Last_Size brings it to life after the first Apply.
     LastSizeButton.Enabled = False
 
-    ' The F6 line is a promise, so it is only made when the key was really taken. A $pg validation
-    ' already running keeps F6, and this box stands aside rather than taking it away.
-    If Lp_Rst_Keys_Are_Bound() Then
-        KeyHelp.Caption = "Use F6 or Shift+F6 to move between the document and this box."
-    Else
-        KeyHelp.Caption = "Close the $pg validation box to use F6 with this one."
-    End If
+    ' F6 is shared by every box that stays open, and the newest has it - which is this one when it
+    ' opens (Sh_Box_Opened, 9/23/2026). The line used to depend on whether a $pg validation had the
+    ' key; that no longer happens.
+    KeyHelp.Caption = "Use F6 or Shift+F6 to move between the document and this box."
 
     ' CENTERED ON THE WORD WINDOW - Jerry, 9/22/2026. Guarded, because reading Application.Left
     ' has hung a Word with no desktop, and the numbers are read BEFORE CenterOwner is given up, so

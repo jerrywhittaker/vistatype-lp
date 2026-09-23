@@ -58,6 +58,10 @@ Public Sub VtRunAllTests()
     Set Suite = TestTocBox_Suite()
     Reporter.ListenTo Suite
 
+    Reporter.Trace "building Boxes that stay open share F6"
+    Set Suite = TestModelessBoxes_Suite()
+    Reporter.ListenTo Suite
+
     Reporter.Trace "building Shared text helpers"
     Set Suite = TestTextHelpers_Suite()
     Reporter.ListenTo Suite

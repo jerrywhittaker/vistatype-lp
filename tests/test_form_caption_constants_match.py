@@ -21,6 +21,8 @@ PAIRS = [
     ("ShNonModalMessage.bas", "SH_PGVAL_TITLE_LIST", "Sh_Valid_Ref_Pg_No_2_Form.frm"),
     ("ShNonModalMessage.bas", "SH_PGVAL_TITLE_DOC", "Sh_Valid_Ref_Pg_No_4_Form.frm"),
     ("LPandBrlMacros.bas", "LP_RST_TITLE", "Lp_Same_Pic_Range_Form.frm"),
+    ("LPandBrlMacros.bas", "LP_TOCB_TITLE", "Lp_TOC_Format_And_Color_Form.frm"),
+    ("LPandBrlMacros.bas", "LP_FIL_TITLE", "Lp_Type_Fill_In_Line_Form.frm"),
 ]
 
 CONST = r'Const\s+{name}\s+As\s+String\s*=\s*"([^"]*)"'

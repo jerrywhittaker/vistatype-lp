@@ -1,6 +1,7 @@
 # How VistaType LP talks to the transcriber
 
-How a dialog looks and reads, how progress is shown, and how a failed macro is reported.
+How a dialog looks and reads, how a box that stays open behaves, how progress is shown, and how
+a failed macro is reported.
 Moved out of `CLAUDE.md` on 20 September 2026. Same text, no changes.
 
 These are requirements about how a message looks and reads. **They are not a ban on anything** —
@@ -104,6 +105,37 @@ on a UserForm control is a Windows tooltip and is the same. The only thing that 
 is the reader's own Windows text size (Settings → Accessibility → Text size), which changes it
 everywhere. Where hover text needs to be readable at 10 point or more, the answer is to put the
 words in the dialog, which VistaType LP does control.
+
+
+### Boxes that stay open — F6, and the out-of-range message
+
+Jerry's rule, 9/23/2026. A box that stays open while the transcriber works in the book — a
+**modeless** UserForm, shown with `.Show vbModeless` — follows these rules. That covers Table and
+TOC Tools' TOC box (354), Resize Pictures in a Selected Range (375), Type Fill-In Lines (357),
+the $pg validation menus, and **every box made modeless from now on**, new or converted. The progress bar and the "please
+wait" notice are not boxes the transcriber works in, and are not covered.
+
+- **F6 and Shift+F6 move the keyboard between the book and the box**, both ways. In the box,
+  every control's `KeyDown` sends the keyboard back to the book on either key. In the book, the
+  key is **shared**: Word keeps one command per key, so it is bound once, to
+  `Sh_Box_ToggleFocus`, while any such box is up. A box joins the list with `Sh_Box_Opened` and
+  leaves it with `Sh_Box_Closed` (both in `ShNonModalMessage`); **the newest box up has F6**, and
+  closing it hands F6 to the box opened before. Never bind F6 for one box on its own — that is
+  how a live box was left without it (review, 9/23/2026).
+- **When the box first appears, the book has the keyboard**, not the box. So does every press of a button that
+  types into the book (357), so the transcriber can move to the next place and press again.
+- **Cancel becomes Done.** A box that stays open has nothing to cancel; Done closes it, and the
+  title bar's X goes through the same Done.
+- **Where the box works on a held range, moving the cursor out of it is said** — "Your cursor is
+  out of the selected range." — at every new spot outside, including a picture selected outside
+  it. Silent while any box's job is running, since the jobs move the selection themselves, and
+  **only the newest box up watches** (`Sh_Box_On_Top`), or two boxes would each complain about
+  every click in the other's range. Join the list before the box first moves the selection, and
+  leave it after the box last does.
+
+A gray selection does **not** mean the box has the keyboard. Word draws the selection the same
+gray whichever of the two has it (measured 9/23/2026). Press Down arrow to tell: the cursor moves
+in the book, or the choice moves in the box.
 
 
 ### How VistaType LP shows that it is working
