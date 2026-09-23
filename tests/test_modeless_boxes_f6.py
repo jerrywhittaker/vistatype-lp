@@ -200,3 +200,12 @@ def test_short_cut_key_hover_text_matches_the_label(repo_root):
         code = "\n".join(form_code(repo_root, form))
         init = re.search(r"Sub UserForm_Initialize\(\)(.*?)End Sub", code, re.S)
         assert init and "ShortCutKeyLabel.ControlTipText = ShortCutKeyLabel.Caption" in init.group(1), form
+
+
+def test_shortcut_key_hover_text_on_356_and_344(repo_root):
+    """Jerry, 9/23/2026: the shortcut key labels on 356 and 344 (control ShortCutKey) had blank
+    hover text; each takes its own caption when the box opens."""
+    for form in ("Lp_Table_Tools_Menu_Form", "Lp_Bakgrnd_Picture_Menu_Form"):
+        code = "\n".join(form_code(repo_root, form))
+        init = re.search(r"Sub UserForm_Initialize\(\)(.*?)End Sub", code, re.S)
+        assert init and "ShortCutKey.ControlTipText = ShortCutKey.Caption" in init.group(1), form

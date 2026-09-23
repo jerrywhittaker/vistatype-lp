@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_Table_Tools_Menu_Form 
    Caption         =   "Large Print Table Tools (356)"
-   ClientHeight    =   8300.001
+   ClientHeight    =   8700.001
    ClientLeft      =   120
    ClientTop       =   465
    ClientWidth     =   6855
@@ -15,6 +15,8 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 'Lp_Table_And_TOC_Tools_Menu_Form
 '
+' Version: 2.4  Date: 9/23/2026 - Jerry's shortcut key label (Alt+Ctrl+Shift+T,T); its hover text is
+'                                 set to its caption.
 ' Version: 2.3  Date: 8/8/2026 - table recoloring took its typeface and size from hard-coded
 '                                "Tahoma" and the Lp_Base_Font_Size public. Both now come off the
 '                                document's own Normal style, so a table follows the typeface the
@@ -270,6 +272,10 @@ Private Sub UserForm_Initialize()
 
     Dim t As Table
     Dim rng As Range
+
+    ' THE SHORTCUT KEY LABEL'S HOVER TEXT is its caption - Jerry, 9/23/2026. It was left blank in
+    ' the layout; set here so it reads in the source.
+    ShortCutKey.ControlTipText = ShortCutKey.Caption
      
     Lp_GP_String_3 = ""
     
