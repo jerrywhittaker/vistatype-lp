@@ -114,7 +114,7 @@ def test_a_cursor_out_of_the_toc_is_said(repo_root):
     assert "VistaType LP (389)" in body
     say = next(n for n, c in enumerate(watch) if "Sh_Say" in c)
     for guard in (r"If Not Lp_Tocb_IsOn Then Exit Sub", r"If Lp_Tocb_Busy Then Exit Sub",
-                  r"If Lp_Tocb_Warned Then Exit Sub"):
+                  r"If at = Lp_Tocb_Warned_At Then Exit Sub"):
         at = next((n for n, c in enumerate(watch) if re.search(guard, c)), None)
         assert at is not None and at < say, f"Lp_Tocb_Watch_Cursor lost its guard: {guard}"
     assert not any(re.search(r"Lp_Tocb_Reconcile|Set Lp_Tocb_Range\s*=", c) for c in watch), (
@@ -128,7 +128,7 @@ def test_the_box_putting_the_cursor_back_clears_the_warning(repo_root):
     """Found in review, 9/23/2026: the box reselects the TOC while a job runs, when the watcher
     is silent, so the watcher never sees the cursor come back and 389 went quiet for good."""
     select = procedures(module_text(repo_root))["Lp_Tocb_Select"]
-    assert any(re.search(r"Lp_Tocb_Warned\s*=\s*False", c) for c in select)
+    assert any(re.search(r'Lp_Tocb_Warned_At\s*=\s*""', c) for c in select)
 
 
 def test_the_toc_is_selected_before_the_box_appears(repo_root):
@@ -136,3 +136,12 @@ def test_the_toc_is_selected_before_the_box_appears(repo_root):
     sel = next(n for n, c in enumerate(start) if re.search(r"^\s*Lp_Tocb_Select\s*$", c))
     on = next(n for n, c in enumerate(start) if re.search(r"Lp_Tocb_IsOn\s*=\s*True", c))
     assert sel < on, "a raw over-drag selection would trip 389 while the box is starting up"
+
+
+def test_every_new_spot_outside_is_said(repo_root):
+    """Jerry, 9/23/2026, on 3.0.494: 389 was said on the first click out and then never again.
+    Nothing may keep it quiet for a whole trip out - only a repeat for the very same spot."""
+    watch = procedures(module_text(repo_root))["Lp_Tocb_Watch_Cursor"]
+    assert not any(re.search(r"If Lp_Tocb_Warned Then", c) for c in watch)
+    assert any(re.search(r"at\s*=\s*CStr\(Sel\.start\)", c) for c in watch), (
+        "the spot 389 was said for must be the selection's own start and end")

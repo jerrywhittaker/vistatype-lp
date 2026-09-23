@@ -21,8 +21,9 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Notes:    - Lp  - 9/23/2026 - THE TOC BOX (354) HANDS THE KEYBOARD TO THE BOOK. Jerry: once the
 '           - Lp  - 9/23/2026 - box is up the book has the focus, so the cursor can be moved
 '           - Lp  - 9/23/2026 - without clicking first. Move it out of the TOC being held and dialog
-'           - Lp  - 9/23/2026 - 389 says "Your cursor is out of the selected range." - once per
-'           - Lp  - 9/23/2026 - trip out, from Lp_Tocb_Watch_Cursor on Word's selection event.
+'           - Lp  - 9/23/2026 - 389 says "Your cursor is out of the selected range." - at every
+'           - Lp  - 9/23/2026 - new spot outside it, from Lp_Tocb_Watch_Cursor on Word's selection
+'           - Lp  - 9/23/2026 - event (once per trip out in 3.0.494; Jerry wanted every click).
 ' Notes:    - Lp  - 9/22/2026 - THE TOC BOX, THREE FIXES FROM REVIEW. Ctrl+Z after Format the
 '           - Lp  - 9/22/2026 - TOC swaps the whole TOC back under the held Range, so every
 '           - Lp  - 9/22/2026 - press now reconciles the range first (Lp_Tocb_Reconcile): the
@@ -2629,7 +2630,7 @@ Private Lp_Tocb_Busy As Boolean       ' a job is running; refuses a second press
 Private Lp_Tocb_Before As Long        ' characters in front of the TOC, as the last job left it
 Private Lp_Tocb_After As Long         ' characters after the TOC, as the last job left it
 Private Lp_Tocb_Len As Long           ' the TOC's length, as the last job left it
-Private Lp_Tocb_Warned As Boolean     ' 389 has been said for this trip out of the TOC
+Private Lp_Tocb_Warned_At As String  ' where 389 was last said, "start:end"; "" when not
 
 ' Set by the TOC color bars box (353) when its second Okay has painted the bars, so the box that
 ' called it knows whether to say "Color bars added". Public because a form sets it.
@@ -16549,8 +16550,7 @@ End Sub
 ' THE BOOK HAS THE KEYBOARD, NOT THE BOX - Jerry, 9/23/2026. Once the box is up the focus goes to
 ' the book, so the transcriber can move about in it straight away; the box is a click away. And
 ' because every job works on the TOC being held, not on where the cursor is, moving the cursor OUT
-' of that TOC is said (389) - once per trip out, so arrowing about outside it does not bring the
-' message back on every key. See Lp_Tocb_Watch_Cursor.
+' of that TOC is said (389), at every new spot outside it. See Lp_Tocb_Watch_Cursor.
 ' ============================================================================================
 
 ' Starts the TOC box on the current selection. Lp_Table_Tools has already checked that the
@@ -16705,16 +16705,20 @@ End Function  '***** end of Lp_Tocb_Is_Outside *****
 
 ' Word's selection event runs this on every cursor movement (VtEvents), so the first test is one
 ' Boolean and costs nothing while the TOC box is down. With it up, a cursor moved out of the TOC
-' being held gets 389 - once, until the cursor comes back in. Jerry, 9/23/2026.
+' being held gets 389, at every new spot outside it. Jerry, 9/23/2026.
 '
 ' Silent while a job runs (the jobs move the selection themselves), while a macro has the screen
 ' off (the marker Sh_HandleDocumentActivated uses for "a macro, not a transcriber"), in a table
 ' (see below), and in any other book - Lp_Tocb_Ready deals with that one when Okay is pressed.
 '
+' Version: 1.1  Date: 9/23/2026 - said at every new spot outside the TOC, not once per trip out.
+'                               Jerry, on 3.0.494: "only works on the first out-of-range click
+'                               and after that it is silent."
 ' Version: 1.0  Date: 9/23/2026
 Public Sub Lp_Tocb_Watch_Cursor(ByVal Sel As Selection)
     Dim r As Range
     Dim outside As Boolean
+    Dim at As String
 
     If Not Lp_Tocb_IsOn Then Exit Sub
     If Lp_Tocb_Busy Then Exit Sub
@@ -16733,13 +16737,17 @@ Public Sub Lp_Tocb_Watch_Cursor(ByVal Sel As Selection)
     On Error GoTo 0
 
     If Not outside Then
-        Lp_Tocb_Warned = False
+        Lp_Tocb_Warned_At = ""
         Exit Sub
     End If
-    If Lp_Tocb_Warned Then Exit Sub
 
+    ' EVERY NEW SPOT OUTSIDE is said - Jerry, 9/23/2026, on 3.0.494, where it was said once and
+    ' then not again until the cursor had been back inside. Only the very same spot is not said
+    ' twice, so Word raising the event again for a cursor that has not moved cannot repeat it.
     ' Set BEFORE the message, so nothing the message itself does can say it a second time.
-    Lp_Tocb_Warned = True
+    at = CStr(Sel.start) & ":" & CStr(Sel.End)
+    If at = Lp_Tocb_Warned_At Then Exit Sub
+    Lp_Tocb_Warned_At = at
     Sh_Say "Your cursor is out of the selected range." & vbCr & vbCr _
          & "The TOC box still works on the TOC you selected, not on where the cursor is. " _
          & "Press Done when you have finished with it.", "VistaType LP (389)"
@@ -16753,7 +16761,7 @@ End Sub  '***** end of Lp_Tocb_Watch_Cursor *****
 '                               be said on the next trip out. Found in review.
 ' Version: 1.0  Date: 9/22/2026
 Private Sub Lp_Tocb_Select()
-    Lp_Tocb_Warned = False
+    Lp_Tocb_Warned_At = ""
     On Error Resume Next
     Lp_Tocb_Range.Select
     ActiveWindow.ScrollIntoView Lp_Tocb_Range, True
@@ -16892,7 +16900,7 @@ Private Sub Lp_Tocb_Finish(ByVal letGo As Boolean)
     Lp_Tocb_Before = 0
     Lp_Tocb_After = 0
     Lp_Tocb_Len = 0
-    Lp_Tocb_Warned = False
+    Lp_Tocb_Warned_At = ""
     Application.ScreenRefresh
 
     If letGo And Lp_Rst_Doc_Is_Open(backTo) Then
