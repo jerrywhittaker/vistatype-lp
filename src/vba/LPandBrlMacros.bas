@@ -18,6 +18,12 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Dx  - 9/24/2026 - TWO UNCALLED BRAILLE MACROS DELETED (issue #3): Dx_Remove_Section_Breaks
+'           - Dx  - 9/24/2026 - and Dx_Red_Border_Images. Nothing called them and neither was ever on the
+'           - Dx  - 9/24/2026 - ribbon, a key or a form. Dx_Remove_Section_Breaks replaced every ^b with
+'           - Dx  - 9/24/2026 - nothing, the fault that corrupted books until 3.0.326. Dx_Remove_Page_Breaks
+'           - Dx  - 9/24/2026 - is KEPT and now called: Fix Common File Errors' "Removing page breaks" step
+'           - Dx  - 9/24/2026 - had been running Dx_Remove_Breaks a second time, so no page break was removed.
 ' Notes:    - Lp  - 9/23/2026 - HORIZONTAL LIST TO VERTICAL (348) STAYS OPEN. Jerry: non-modal,
 '           - Lp  - 9/23/2026 - F6 and Shift+F6, no range. Okay converts the list selected at that
 '           - Lp  - 9/23/2026 - moment (or the paragraph the cursor is in) and hands the keyboard
@@ -5737,7 +5743,7 @@ Public Sub Dx_Fix_Common_File_Errors_Run(ByVal quiet As Boolean)
     Application.Run MacroName:="Dx_Replace_Tabs_With_Single_Space" ' also converts underlined tabs BANA template only to single Space
     
     Dx_Ffc_Step stepNo, "Removing page breaks"
-    Application.Run MacroName:="Dx_Remove_Breaks" 'page breaks
+    Application.Run MacroName:="Dx_Remove_Page_Breaks"
     
     ' "Para" supplied, so this does NOT stop to ask - Full File Cleanup must run straight
     ' through. See the note on Sh_Replace_Manual_Line_Break.
@@ -8469,54 +8475,6 @@ Sub Dx_Remove_Optional_Hyphens()
     Selection.Find.Execute Replace:=wdReplaceAll
     
 End Sub '***** end of Dx_Remove_Optional_Hyphens macro *****
-Sub Dx_Remove_Page_Breaks()
-'
-' Dx_Remove_Page_Breaks Macro
-'
-' Author: Jerry Whittaker -  jerry@vistatypelp.org
-' Version: 1.0 Date: 1/15/2017
-'
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "^m^013{1,}"
-        .Replacement.Text = ""
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = True
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-End Sub '****** end of Dx_Remove_Page_Breaks Macro ******
-Sub Dx_Remove_Section_Breaks()
-'
-' Dx_Remove_Section_Breaks Macro
-'
-' Author: Jerry Whittaker -  jerry@vistatypelp.org
-' Version: 1.0  Date: 1/15/2017
-'
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
-        .Text = "^b"
-        .Replacement.Text = ""
-        .Forward = True
-        .Wrap = wdFindContinue
-        .Format = False
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-    End With
-    Selection.Find.Execute Replace:=wdReplaceAll
-    
-End Sub '***** end of Dx_Remove_Section_Breaks Macro *****
 
 Sub Dx_Remove_Column_Breaks()
 '
@@ -9185,39 +9143,6 @@ Sub Dx_File_Fix_Sequence()
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     
 End Sub  '*** end of Dx_File_Fix_Sequence Macro ***
-
-Sub Dx_Red_Border_Images()
-    ' From: http://www.vbaexpress.com/forum/showthread.php?48376-VBA-Macro-To-Insert-Border-For-All-Images
-    ' Author: gmcnultnult
-    '
-    ' Version: 1.0  Date: 10/12/2018
-    '
-    Dim oInlineShp As inlineShape
-        For Each oInlineShp In ActiveDocument.InlineShapes
-        With oInlineShp
-            With .Borders(wdBorderLeft)
-                .LineStyle = wdLineStyleSingle
-                .LineWidth = wdLineWidth600pt
-                .Color = wdColorRed
-            End With
-                With .Borders(wdBorderRight)
-                .LineStyle = wdLineStyleSingle
-                .LineWidth = wdLineWidth600pt
-                .Color = wdColorRed
-            End With
-                With .Borders(wdBorderTop)
-                .LineStyle = wdLineStyleSingle
-                .LineWidth = wdLineWidth600pt
-                .Color = wdColorRed
-            End With
-            With .Borders(wdBorderBottom)
-                .LineStyle = wdLineStyleSingle
-                .LineWidth = wdLineWidth600pt
-                .Color = wdColorRed
-            End With
-        End With
-    Next
-End Sub   '*** end of Dx_Red_Border_Images macro ***
 
 Sub Dx_Is_Style_Here()
 '
@@ -9986,6 +9911,11 @@ Sub Dx_Remove_Breaks()
 ' Remove Section Break (even page)
 ' Remove Secion Break (odd page)
 '
+' Collapsing the file into ONE section is intended here. This is NOT the 3.0.326 large-print
+' fault: DBT makes its own pages and ignores Word's page setup, so a braille file loses nothing
+' by having one section (Jerry, 9/24/2026). Do not "cure" this with the SectionStart fix.
+'
+' Version: 1.1  Date: 9/24/2026 - comment only: why one section is right for a braille file (issue #3)
 ' Version: 1.0  Date: 3/4/2023
 '
 
@@ -10006,6 +9936,80 @@ Sub Dx_Remove_Breaks()
     Selection.Find.Execute Replace:=wdReplaceAll
     
 End Sub   '*** End of Dx_Remove_Breaks macro ***
+
+Sub Dx_Remove_Page_Breaks()
+'
+' Takes every manual page break (Ctrl+Enter) out of a braille file. DBT makes its own pages,
+' so a page break from Word has no place in the file. Run from Fix Common File Errors after
+' Dx_Remove_Breaks, so the section breaks are already gone.
+'   Pass 1: a page break on a line of its own (a paragraph mark before it, one or more after)
+'           goes altogether, blank lines included. The paragraph mark BEFORE it is kept.
+'   Pass 2: a page break at the end of a paragraph goes, and that paragraph's own mark stays.
+'   Pass 3: a page break left inside a paragraph becomes a paragraph mark, so the words
+'           either side of it are not run together.
+' Pass 1 must not match a break that shares its paragraph's own mark: the 1.0 pattern,
+' "^m^013{1,}" -> nothing, turned "alpha<break><para>beta" into "alphabeta" (measured in Word,
+' 9/24/2026, on a .docx whose paragraph ended in a page break - the shape converters write).
+' A break at the very START of the document has no mark before it for pass 1 to keep, so it is
+' taken first, with the blank lines after it, before the passes run. Without that, pass 2 left a
+' blank first paragraph (measured 9/24/2026). A document that merely starts with blank lines and
+' no break is left alone.
+'
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
+' Version: 2.0  Date: 9/24/2026 - called at last (issue #3). The "Removing page breaks" step
+'                                 had been running Dx_Remove_Breaks a second time instead, so
+'                                 braille cleanup never removed a page break. Pass 1 keeps the
+'                                 mark before the break; passes 2 and 3 added; a break at
+'                                 the start of the document is taken first.
+' Version: 1.0  Date: 1/15/2017
+'
+    Dim lead As Range
+    Dim docEnd As Long
+
+    ' A break at the very start: take it and the paragraph marks after it, never the last
+    ' paragraph mark in the document.
+    docEnd = ActiveDocument.Content.End - 1
+    If docEnd > 0 Then
+        If ActiveDocument.Range(0, 1).Text = Chr(12) Then
+            Set lead = ActiveDocument.Range(0, 1)
+            Do While lead.End < docEnd
+                If ActiveDocument.Range(lead.End, lead.End + 1).Text <> vbCr Then Exit Do
+                lead.End = lead.End + 1
+            Loop
+            lead.Delete
+        End If
+    End If
+
+    Selection.Find.ClearFormatting
+    Selection.Find.Replacement.ClearFormatting
+    With Selection.Find
+        .Text = "(^013)^m^013{1,}"
+        .Replacement.Text = "\1"
+        .Forward = True
+        .Wrap = wdFindContinue
+        .Format = False
+        .MatchCase = False
+        .MatchWholeWord = False
+        .MatchWildcards = True
+        .MatchSoundsLike = False
+        .MatchAllWordForms = False
+    End With
+    Selection.Find.Execute Replace:=wdReplaceAll
+
+    With Selection.Find
+        .Text = "^m(^013)"
+        .Replacement.Text = "\1"
+    End With
+    Selection.Find.Execute Replace:=wdReplaceAll
+
+    With Selection.Find
+        .Text = "^m"
+        .Replacement.Text = "^p"
+        .MatchWildcards = False
+    End With
+    Selection.Find.Execute Replace:=wdReplaceAll
+
+End Sub   '*** End of Dx_Remove_Page_Breaks macro ***
 
 Sub Dx_Replace_Spaces_Before_Punctuation()
 '
