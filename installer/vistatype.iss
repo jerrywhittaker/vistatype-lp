@@ -25,6 +25,8 @@
 ;      NOT redundant with Word's own STARTUP trusted location: verified 7/30/2026 that
 ;      with Word's entry deleted and macro security at the default, ours alone is what
 ;      lets the add-in run. Removed again at uninstall.
+;    * Takes LPandBRL.dotm off Word's Disabled Items list, where Word's crash protection
+;      puts it after a bad exit and where a reinstall alone cannot reach it
 ;    * Checks Word is actually INSTALLED, not merely not running -- a Word add-in on a
 ;      machine with no Word installs perfectly and does nothing
 ;    * Deletes the obsolete "Large Print Templates" folder
@@ -1008,6 +1010,53 @@ begin
 end;
 
 
+{ --- Take LPandBRL.dotm back off Word's Disabled Items list.
+      When Word exits badly with the add-in loaded - a crash, or the machine reset under it -
+      its next start can offer "Word is running into problems with the lpandbrl.dotm add-in.
+      Do you want to disable it now?" A Yes puts the add-in on Resiliency\DisabledItems, and
+      from then on it never loads: the VistaType tabs still show, because they live in the
+      user's Word.officeUI, but every button in them points into the add-in and none can draw.
+      Reinstalling did NOT cure it (9/26/2026, 3.0.509 on the build box) - the entry
+      outlives the file - and each time Word then saved its ribbon settings with the add-in
+      still off, it stripped every VistaType button out of Word.officeUI.
+
+      Word must be closed for this, and setup refuses to start while it is running (see
+      InitializeSetup), so Word cannot rewrite the list or the ribbon settings behind us.
+      That also means the order against the [Run] entries that rewrite the tabs does not
+      matter: Word reads both fresh at its next start.
+
+      Each entry is a binary blob with the add-in's full path inside it as UTF-16. The null
+      bytes are stripped and the rest lowercased, and ONLY an entry naming lpandbrl.dotm is
+      deleted. Anything else on the list belongs to another add-in and is left alone. --- }
+procedure EnableDisabledAddIn();
+var
+  Versions, Names: TArrayOfString;
+  I, J: Integer;
+  Key, Text: String;
+  Blob: AnsiString;
+begin
+  Versions := ['16.0', '15.0', '14.0'];
+  for I := 0 to GetArrayLength(Versions) - 1 do
+  begin
+    Key := 'Software\Microsoft\Office\' + Versions[I] + '\Word\Resiliency\DisabledItems';
+    if RegGetValueNames(HKCU, Key, Names) then
+      for J := 0 to GetArrayLength(Names) - 1 do
+        if RegQueryBinaryValue(HKCU, Key, Names[J], Blob) then
+        begin
+          Text := Blob;
+          StringChangeEx(Text, #0, '', True);
+          if Pos('lpandbrl.dotm', Lowercase(Text)) > 0 then
+          begin
+            if RegDeleteValue(HKCU, Key, Names[J]) then
+              Log('Took LPandBRL.dotm off Word ' + Versions[I] + '''s Disabled Items list (' + Names[J] + ').')
+            else
+              Log('Could not take LPandBRL.dotm off Word ' + Versions[I] + '''s Disabled Items list (' + Names[J] + ').');
+          end;
+        end;
+  end;
+end;
+
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   Ver, Key, TL: String;
@@ -1049,6 +1098,9 @@ begin
       { Remember where we wrote, so uninstall does not have to guess the version again. }
       RegWriteStringValue(HKCU, 'Software\VistaType LP', 'OfficeVersion', Ver);
     end;
+
+    { An add-in Word has switched off stays off through any number of reinstalls. }
+    EnableDisabledAddIn();
 
     { Last, and deliberately after everything that makes the add-in work: an upgrade must leave
       a working VistaType LP behind even if the font clean-up hits something unexpected.
