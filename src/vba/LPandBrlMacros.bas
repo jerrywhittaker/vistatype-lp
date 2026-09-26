@@ -18,6 +18,12 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 9/26/2026 - ATTACH LP TEMPLATE NO LONGER FLATTENS THE HEADINGS (issue #19, Jerry).
+'           - Lp  - 9/26/2026 - The base size laid over the whole book is direct formatting, which beats
+'           - Lp  - 9/26/2026 - the style, so Heading 1-5 read at the base size whenever they were styled
+'           - Lp  - 9/26/2026 - before the attach, and every re-attach flattened a finished book. New
+'           - Lp  - 9/26/2026 - Lp_Restore_Style_Sizes, run after Lp_Normalize_Styles, puts Heading 1-5,
+'           - Lp  - 9/26/2026 - "1 point" and "TOC Heading" text back to its style's size, size only.
 ' Notes:    - Sh  - 9/26/2026 - LEFTOVER BOOKMARKS ARE TAKEN OUT ON OPEN. Export Selection to New File
 '           - Sh  - 9/26/2026 - (DxExportStart, DxExportEnd) and both Format $pg Tags macros
 '           - Sh  - 9/26/2026 - (TempPgNoFormat) mark a place with a bookmark while they work. A crash
@@ -19945,6 +19951,9 @@ Sub Lp_Attach_The_Template()
 
     ' Attaches the LP template with style changes
     '
+    ' Version: 4.2  Date: 9/26/2026 - Heading 1-5, "1 point" and "TOC Heading" text is put back to
+    '                                 its style's size after Lp_Normalize_Styles (issue #19, Jerry).
+    '                                 The base size laid over the whole book had flattened them.
     ' Version: 4.1  Date: 9/21/2026 - "Removing empty paragraphs" keeps ONE blank line after every
     '                                 table, as File Cleanup now does, so the blank it puts in is not
     '                                 taken back out a few steps later (Jerry)
@@ -20328,6 +20337,13 @@ DoEvents
     Application.Run MacroName:="Lp_Normalize_Styles"
     Sh_Progress_Span 0, 100
 
+    ' Put each heading's text back to its style's size (issue #19). Sh_Set_Whole_Document_Font
+    ' above laid the base size over EVERY character as direct formatting, and direct formatting
+    ' beats the style, so the heading sizes Lp_Normalize_Styles has just set never showed: a book
+    ' whose headings were styled before the attach - or any re-attach - came out with every
+    ' heading at the base size. Must stay AFTER Lp_Normalize_Styles, which sets the sizes read.
+    Lp_Restore_Style_Sizes ActiveDocument
+
     ' MOVED HERE FROM THE TOP OF THE ATTACH, 9/6/2026, after Jerry reported: "i re-attached the
     ' LP template for screen and word crashed in the normalize styles routine".
     '
@@ -20618,6 +20634,73 @@ AttachFailed:
     'MsgBox "The current time is: " & Time, vbInformation, "Current Time"
     
 End Sub   '*** end of Lp_Attach_The_Template macro ***
+
+Private Sub Lp_Restore_Style_Sizes(ByVal Doc As Document)
+    '
+    ' Version: 1.0  Date: 9/26/2026 - issue #19
+    '
+    ' Author: Jerry Whittaker - jerry@vistatypelp.org
+    '
+    ' Puts the text of every Heading 1-5, "1 point" and "TOC Heading" paragraph in the main text
+    ' back to the size its style asks for. Lp_Attach_The_Template needs it because
+    ' Sh_Set_Whole_Document_Font lays the base size over every character as DIRECT formatting,
+    ' which overrides the style - so without this every heading reads at the base size and every
+    ' 1 point spacer becomes a full line.
+    '
+    ' The SIZE only, by Find and Replace on the style, as Lp_Fns_Size_Normal_In does. Resetting the
+    ' font or applying the style again would also strip bold, italics or dashed underline that a
+    ' transcriber put on words inside a heading.
+    '
+    ' A style missing from the book is skipped. Main text only, the same story
+    ' Sh_Set_Whole_Document_Font sizes. Any other failure is passed on to the caller after the
+    ' Find is cleared, so it is reported as the attach's own error.
+    Dim StyleNames As Variant
+    Dim sty As Style
+    Dim i As Long
+    Dim errNum As Long
+    Dim errText As String
+
+    StyleNames = Array("Heading 1", "Heading 2", "Heading 3", "Heading 4", "Heading 5", _
+                       "1 point", "TOC Heading")
+
+    For i = LBound(StyleNames) To UBound(StyleNames)
+        Set sty = Nothing
+        On Error Resume Next
+        Set sty = Doc.Styles(StyleNames(i))
+        On Error GoTo eom
+        If Not sty Is Nothing Then
+            With Doc.Content.Find
+                .ClearFormatting
+                .Style = sty
+                .Replacement.ClearFormatting
+                .Replacement.Font.Size = sty.Font.Size
+                .Text = ""
+                .Replacement.Text = ""
+                .Forward = True
+                .Wrap = wdFindStop
+                .Format = True
+                .MatchCase = False
+                .MatchWholeWord = False
+                .MatchWildcards = False
+                .MatchSoundsLike = False
+                .MatchAllWordForms = False
+                .Execute Replace:=wdReplaceAll
+            End With
+        End If
+    Next i
+
+eom:
+    errNum = Err.Number
+    errText = Err.Description
+    On Error Resume Next
+    With Doc.Content.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
+    End With
+    On Error GoTo 0
+    If errNum <> 0 Then Err.Raise errNum, "Lp_Restore_Style_Sizes", errText
+
+End Sub   '*** end of Lp_Restore_Style_Sizes ***
 
 Sub Lp_Make_All_Pictures_In_Selected_Table_Inline()
 
