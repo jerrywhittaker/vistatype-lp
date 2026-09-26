@@ -18,6 +18,13 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Sh  - 9/26/2026 - LEFTOVER BOOKMARKS ARE TAKEN OUT ON OPEN. Export Selection to New File
+'           - Sh  - 9/26/2026 - (DxExportStart, DxExportEnd) and both Format $pg Tags macros
+'           - Sh  - 9/26/2026 - (TempPgNoFormat) mark a place with a bookmark while they work. A crash
+'           - Sh  - 9/26/2026 - left it in the book for good. New Sh_Remove_Leftover_Bookmarks, called
+'           - Sh  - 9/26/2026 - first in Sh_HandleDocumentOpened, deletes those three names and no
+'           - Sh  - 9/26/2026 - others, and leaves an unchanged book marked unchanged. Both Format $pg
+'           - Sh  - 9/26/2026 - Tags macros now delete their bookmark on a failure too, then report it.
 ' Notes:    - Dx  - 9/24/2026 - TWO UNCALLED BRAILLE MACROS DELETED (issue #3): Dx_Remove_Section_Breaks
 '           - Dx  - 9/24/2026 - and Dx_Red_Border_Images. Nothing called them and neither was ever on the
 '           - Dx  - 9/24/2026 - ribbon, a key or a form. Dx_Remove_Section_Breaks replaced every ^b with
@@ -3299,12 +3306,19 @@ Sub Sh_HandleDocumentOpened()
     If Sh_Skip_Open_Handler Then Exit Sub
 
     Sh_LastDocEvent = "DocumentOpen"
+
+    ' First, before anything below can leave early: take out any bookmark a VistaType LP macro
+    ' left behind in this document when Word crashed or the macro failed. 9/26/2026.
+    Sh_Remove_Leftover_Bookmarks ActiveDocument
     '
     ' Runs for every opened document - via VtEvents.App_DocumentOpen (STARTUP), or AutoOpen
     ' when loaded as Normal.dotm.
     ' If the document is a large print document then setting for Large Print are made - if doc is braille then brille settings are made
     '   otherwise the settings for a normal document are made.
     '
+    ' Version 1.9  Date: 9/26/2026 - removes bookmarks a macro left behind (Sh_Remove_Leftover_Bookmarks)
+    '                              before the configuration, so the obsolete-template branch's early
+    '                              exit cannot skip it
     ' Version 1.8  Date: 9/6/2026 - the obsolete-template warning (123) goes through Sh_Say, so it is at
     '                              least 10 point Tahoma and its button says Okay. The wording and the ten
     '                              figures it reports are unchanged
@@ -3403,6 +3417,51 @@ Sub Sh_HandleDocumentOpened()
 eom: 'End of Macro
 
 End Sub   '*** end of AutoOpen() macro ***
+
+' BOOKMARKS A VISTATYPE LP MACRO LEFT IN THE DOCUMENT. Added 9/26/2026 at Jerry's request.
+'
+' Three macros mark a place in the document with a bookmark while they work and delete it
+' before they end: Export Selection to New File (DxExportStart, DxExportEnd) and the two Format
+' $pg Tags macros (TempPgNoFormat). If Word crashes part-way, and the document was saved or
+' AutoRecover kept it, the bookmark stays in the book. Export also saves the book WITH its two
+' bookmarks in it and does not save again after removing them, so they stay in the file until
+' the user's next save (docs/Reported-Errors.md, 8/30/2026). Opening the book takes them out.
+'
+' Only these three names. Every other bookmark is the user's own.
+'
+' Deleting a bookmark makes Word think the document has changed, and it would then ask "Save
+' changes?" about a book the user never touched. So a document that opened unchanged is marked
+' unchanged again; the bookmarks leave the file at the user's next real save.
+'
+' NOTHING IN HERE MAY RAISE. It runs on every document open. A protected or read-only document
+' refuses the delete, and that is fine - the bookmark stays and the open carries on.
+'
+' Version: 1.0  Date: 9/26/2026
+'
+' Author: Jerry Whittaker - jerry@vistatypelp.org
+'
+Public Sub Sh_Remove_Leftover_Bookmarks(ByVal Doc As Document)
+    Dim names As Variant
+    Dim i As Long
+    Dim wasSaved As Boolean
+    Dim removedAny As Boolean
+
+    On Error Resume Next
+    If Doc Is Nothing Then Exit Sub
+
+    wasSaved = Doc.Saved
+    names = Array("DxExportStart", "DxExportEnd", "TempPgNoFormat")
+    Err.Clear
+    For i = LBound(names) To UBound(names)
+        If Doc.Bookmarks.Exists(names(i)) Then
+            Doc.Bookmarks(names(i)).Delete
+            If Err.Number = 0 Then removedAny = True
+            Err.Clear
+        End If
+    Next i
+
+    If removedAny And wasSaved Then Doc.Saved = True
+End Sub   '*** end of Sh_Remove_Leftover_Bookmarks ***
 
 Sub AutoClose()
     ' Back-compat stub: only acts if app events aren't hooked (i.e. loaded as Normal.dotm).
@@ -4421,6 +4480,8 @@ Sub Dx_Format_Tagged_Page_Numbers()
 ' Finds and replaces $pg paragraphs with Reference Page Number Style and removes the $pg
 ' and any spaces within the style.
 '
+' Version: 1.8  Date: 9/26/2026 - a failure part-way no longer leaves the TempPgNoFormat bookmark in the
+'                                book: eom deletes it, then hands the error on to be reported as before
 ' Version: 1.7  Date: 3/4/2024 - added "MS_Set_Word_Config_For_Braille"
 ' Version: 1.6  Date: 5/1/2023 - added call to Sh_Remove_Empty_Para_Before_Tables
 ' Version: 1.5  Date: 2/27/2022 - moved check for "ActiveDocument.Variables("BrailleType") " to the "Dx_Is_BANA_Template_Attached" macro
@@ -4429,19 +4490,26 @@ Sub Dx_Format_Tagged_Page_Numbers()
 '
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
+    Dim errNum As Long
+    Dim errText As String
+
     ' is the BANA Template Attached... if not terminate macro
     Application.Run MacroName:="Dx_Is_BANA_Template_Attached"
 
     ' move cursor to delete any selection
     Selection.HomeKey Unit:=wdLine
-    
+
     If ActiveDocument.Bookmarks.Exists("TempPgNoFormat") = True Then
         ActiveDocument.Bookmarks("TempPgNoFormat").Delete
     End If
-    
+
+    ' From here to the end the book carries a bookmark of this macro's, so a failure goes to eom,
+    ' which takes it out again. 9/26/2026.
+    On Error GoTo eom
+
     ' create bookmark at cursor
     ActiveDocument.Bookmarks.Add Name:="TempPgNoFormat"
-    
+
     If ActiveDocument.Variables("BrailleType") = "EBAT" Or ActiveDocument.Variables("BrailleType") = "UEBT" Then
         ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and
         ' this pass can do nothing without it - no style means nothing is formatted with it.
@@ -4757,6 +4825,19 @@ Sub Dx_Format_Tagged_Page_Numbers()
 
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     ActiveDocument.UndoClear
+    Exit Sub
+
+eom:
+    ' Take the bookmark out BEFORE the error goes on, then raise it again unchanged so the ribbon
+    ' reports it exactly as it did before this handler existed (Sh_Report_Error, via RibbonAction).
+    errNum = Err.Number
+    errText = Err.Description
+    On Error Resume Next
+    If ActiveDocument.Bookmarks.Exists("TempPgNoFormat") = True Then
+        ActiveDocument.Bookmarks("TempPgNoFormat").Delete
+    End If
+    On Error GoTo 0
+    Err.Raise errNum, "Dx_Format_Tagged_Page_Numbers", errText
 
 End Sub   '****** end of Dx_Format_Tagged_Page_Numbers macro *****
 
@@ -12513,6 +12594,9 @@ Sub Lp_Format_Page_Numbers()
 '
 ' Formats tagged page numbers
 '
+' Version: 2.4  Date: 9/26/2026 - a failure part-way no longer leaves the TempPgNoFormat bookmark in the
+'                                book: eom deletes it and turns the screen back on, then hands the error
+'                                on to be reported as before
 ' Version: 2.3  Date: 8/2/2026 - merges back-to-back $pg tags into one hyphenated tag before the bar is built (Lp_Merge_Adjacent_Pg_Tags)
 ' Version: 2.2  Date: 3/5/2026 - forced all to base font size
 ' Version: 2.1  Date: 3/27/2024 - added home key before starting to make sure cursor is a the begining of a line for a newly type $pg
@@ -12550,6 +12634,13 @@ Sub Lp_Format_Page_Numbers()
     If ActiveDocument.Bookmarks.Exists("TempPgNoFormat") = True Then
         ActiveDocument.Bookmarks("TempPgNoFormat").Delete
     End If
+
+    ' From here to the end the book carries a bookmark of this macro's, so a failure goes to eom,
+    ' which takes it out again. 9/26/2026.
+    Dim errNum As Long
+    Dim errText As String
+    On Error GoTo eom
+
     ' create bookmark at cursor
     ActiveDocument.Bookmarks.Add Name:="TempPgNoFormat"
 
@@ -12733,6 +12824,21 @@ Sub Lp_Format_Page_Numbers()
     Sh_Return_User_To_Start_Position
 
     MsgBox "Reference page formatting complete", , "VistaType LP (127)"
+    Exit Sub
+
+eom:
+    ' Take the bookmark out and put the screen back BEFORE the error goes on, then raise it again
+    ' unchanged so the ribbon reports it exactly as it did before this handler existed
+    ' (Sh_Report_Error, via RibbonAction).
+    errNum = Err.Number
+    errText = Err.Description
+    On Error Resume Next
+    If ActiveDocument.Bookmarks.Exists("TempPgNoFormat") = True Then
+        ActiveDocument.Bookmarks("TempPgNoFormat").Delete
+    End If
+    Application.ScreenUpdating = su_Prev
+    On Error GoTo 0
+    Err.Raise errNum, "Lp_Format_Page_Numbers", errText
 
 End Sub   '****end of Lp_Format_Page_Numbers Macro ***********
 
