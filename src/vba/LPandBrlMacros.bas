@@ -3300,7 +3300,7 @@ Sub AutoOpen()
     If gEvents Is Nothing Then Sh_HandleDocumentOpened
 End Sub
 
-Sub Sh_HandleDocumentOpened()
+Sub Sh_HandleDocumentOpened(Optional ByVal Doc As Document = Nothing)
     ' A document the add-in opened for its own reasons - the license - is not the user's
     ' working document and must not be configured as one. See Sh_Show_Full_License. 8/3/2026.
     If Sh_Skip_Open_Handler Then Exit Sub
@@ -3309,13 +3309,21 @@ Sub Sh_HandleDocumentOpened()
 
     ' First, before anything below can leave early: take out any bookmark a VistaType LP macro
     ' left behind in this document when Word crashed or the macro failed. 9/26/2026.
-    Sh_Remove_Leftover_Bookmarks ActiveDocument
+    ' The document comes from App_DocumentOpen, because the one being opened is not always the
+    ' active one - Import opens its source file invisibly. AutoOpen passes nothing, so fall back
+    ' to ActiveDocument, which raises when no document window is showing; hence the guard.
+    On Error Resume Next
+    If Doc Is Nothing Then Set Doc = ActiveDocument
+    On Error GoTo 0
+    If Not Doc Is Nothing Then Sh_Remove_Leftover_Bookmarks Doc
     '
     ' Runs for every opened document - via VtEvents.App_DocumentOpen (STARTUP), or AutoOpen
     ' when loaded as Normal.dotm.
     ' If the document is a large print document then setting for Large Print are made - if doc is braille then brille settings are made
     '   otherwise the settings for a normal document are made.
     '
+    ' Version 2.0  Date: 9/26/2026 - takes the opened document from App_DocumentOpen, and cannot raise
+    '                              when no document window is showing (review of 1.9)
     ' Version 1.9  Date: 9/26/2026 - removes bookmarks a macro left behind (Sh_Remove_Leftover_Bookmarks)
     '                              before the configuration, so the obsolete-template branch's early
     '                              exit cannot skip it

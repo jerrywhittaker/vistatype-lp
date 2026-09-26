@@ -44,8 +44,12 @@ def first_line(lines, pattern):
 
 def test_the_open_handler_cleans_up_before_anything_can_leave_early(repo_root):
     lines = the_procs(repo_root)[OPEN]
-    call = first_line(lines, rf"^\s*{HELPER}\s+ActiveDocument\s*$")
-    assert call is not None, f"{OPEN} does not call {HELPER} ActiveDocument"
+    call = first_line(lines, rf"^\s*If Not Doc Is Nothing Then {HELPER} Doc\s*$")
+    assert call is not None, f"{OPEN} does not call {HELPER} with the opened document"
+    # ActiveDocument raises with no document window showing, so it is only read under a guard.
+    guard = first_line(lines, r"^\s*On Error Resume Next")
+    fallback = first_line(lines, r"If Doc Is Nothing Then Set Doc = ActiveDocument")
+    assert guard is not None and fallback is not None and guard < fallback < call
     # Only the license skip may come first. Any other way out, or the configuration, must follow.
     for pattern in (r"Sh_Apply_Word_Config", r"^(?!.*Sh_Skip_Open_Handler).*\bExit Sub\b",
                     r"On Error GoTo eom"):
@@ -100,3 +104,9 @@ def test_the_large_print_macro_puts_the_screen_back_on_a_failure(repo_root):
     lines = the_procs(repo_root)["Lp_Format_Page_Numbers"]
     handler = "\n".join(lines[first_line(lines, r"^eom:"):])
     assert "Application.ScreenUpdating = su_Prev" in handler
+
+
+def test_the_event_passes_the_opened_document(repo_root):
+    events = (repo_root / "src/vba/VtEvents.cls").read_text(encoding="utf-8", errors="replace")
+    assert re.search(r"App_DocumentOpen\(ByVal Doc As Document\)\s*\r?\n\s*Sh_HandleDocumentOpened Doc\b",
+                     events), "App_DocumentOpen must pass Doc on - the opened book is not always active"

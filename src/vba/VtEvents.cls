@@ -19,7 +19,7 @@ Public WithEvents App As Word.Application
 Attribute App.VB_VarHelpID = -1
 
 Private Sub App_DocumentOpen(ByVal Doc As Document)
-    Sh_HandleDocumentOpened
+    Sh_HandleDocumentOpened Doc
 End Sub
 
 Private Sub App_NewDocument(ByVal Doc As Document)
