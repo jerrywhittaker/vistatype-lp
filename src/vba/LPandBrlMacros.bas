@@ -18,6 +18,14 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 9/28/2026 - ATTACH LP TEMPLATE NO LONGER STOPS WITH ERROR 5904 "Cannot edit Range"
+'           - Lp  - 9/28/2026 - at "Adding a blank line after each table". A HIDDEN paragraph mark
+'           - Lp  - 9/28/2026 - between two tables joined that paragraph to the next table's first
+'           - Lp  - 9/28/2026 - cell, so the insert landed in a table. Lp_Add_Blank_After_Tables now
+'           - Lp  - 9/28/2026 - unhides from each table's end through the next paragraph mark first.
+'           - Lp  - 9/28/2026 - And Lp_Attach_The_Template calls Lp_Fix_Common_File_Errors directly,
+'           - Lp  - 9/28/2026 - not through Application.Run, so a failure in File Cleanup is caught,
+'           - Lp  - 9/28/2026 - reported and logged instead of showing Word's own Run-time dialog.
 ' Notes:    - Lp  - 9/26/2026 - ATTACH LP TEMPLATE NO LONGER FLATTENS THE HEADINGS (issue #19, Jerry).
 '           - Lp  - 9/26/2026 - The base size laid over the whole book is direct formatting, which beats
 '           - Lp  - 9/26/2026 - the style, so Heading 1-5 read at the base size whenever they were styled
@@ -10845,6 +10853,12 @@ End Sub  '*** end of Lp_Ffc_Step ***
 
 Private Sub Lp_Add_Blank_After_Tables()
 '
+' Version: 1.2  Date: 9/28/2026 - unhides the text from the table's end through the next
+'                               paragraph mark before looking at that paragraph. A HIDDEN mark
+'                               between two tables made Word join that paragraph to the next
+'                               table's first cell, the in-table guard let it through, and the
+'                               insert raised run-time error 5904 "Cannot edit Range" part way
+'                               through Attach LP Template (10 of 187 tables in Jerry's book)
 ' Version: 1.1  Date: 9/21/2026 - a blank line already after a table is made plain Normal too,
 '                               not only a new one - an empty Heading 2 or numbered line left
 '                               there by a converter used to be deleted and would now be kept
@@ -10875,6 +10889,18 @@ Private Sub Lp_Add_Blank_After_Tables()
 '     or Word would have joined them. If it is blank it already is the blank line and nothing is
 '     added; if it holds text a blank goes in above that text. Either way one blank, not two.
 '
+' The case that DID need code of its own (9/28/2026): that one paragraph between two tables with
+' its paragraph mark HIDDEN. Word then treats the paragraph as joined to the next one - the next
+' table's first cell - so Paragraphs(1) returns a paragraph that starts outside a table and ends
+' inside the next, Information(wdWithInTable) reads False, and InsertParagraphBefore raises 5904
+' "Cannot edit Range". In Jerry's book 8 such paragraphs were empty and 2 held a visible bullet
+' and two spaces with only the mark hidden. So the stretch from the table's end through the next
+' paragraph mark is made visible first, EVERY time, not only when Font.Hidden reads True - on the
+' bullet paragraphs it does not read True, and a test on it left the mark hidden. Tried and rejected: Find
+' and Replace of a hidden ^p (Find cannot see a hidden mark) and switching ShowHiddenText on
+' round the walk (unreliable). A hidden mark there is a converter leftover, never something a
+' transcriber wants: an invisible paragraph between two tables helps no reader.
+'
 ' Walked from the LAST table to the first: an insert only shifts what comes after it, so the
 ' tables still to be visited keep their places and their index numbers.
 '
@@ -10883,11 +10909,23 @@ Private Sub Lp_Add_Blank_After_Tables()
     Dim tEnd As Long
     Dim nextP As Paragraph
     Dim newP As Paragraph
+    Dim r As Range
 
     Set doc = ActiveDocument
 
     For i = doc.Tables.count To 1 Step -1
         tEnd = doc.Tables(i).Range.End
+
+        ' Unhide from the table's end through the next paragraph mark FIRST, always - a hidden
+        ' mark joins this paragraph to the next table's first cell (see the note above), and
+        ' the lookup below would return that joined paragraph. IncludeHiddenText lets the range
+        ' reach the hidden mark.
+        Set r = doc.Range(tEnd, tEnd)
+        r.TextRetrievalMode.IncludeHiddenText = True
+        r.MoveEndUntil vbCr
+        r.MoveEnd wdCharacter, 1
+        r.Font.Hidden = False
+
         Set nextP = doc.Range(tEnd, tEnd).Paragraphs(1)
 
         ' Defensive only: the paragraph after a top-level table is never in a table. If Word
@@ -19951,6 +19989,10 @@ Sub Lp_Attach_The_Template()
 
     ' Attaches the LP template with style changes
     '
+    ' Version: 4.3  Date: 9/28/2026 - File Cleanup is called directly instead of through
+    '                                 Application.Run, so an error inside it reaches AttachFailed
+    '                                 and is reported and logged instead of showing Word's own
+    '                                 Run-time error dialog over a frozen progress bar
     ' Version: 4.2  Date: 9/26/2026 - Heading 1-5, "1 point" and "TOC Heading" text is put back to
     '                                 its style's size after Lp_Normalize_Styles (issue #19, Jerry).
     '                                 The base size laid over the whole book had flattened them.
@@ -20114,7 +20156,12 @@ DoEvents
         ' so the bar goes forwards only - see Sh_Progress_Span. The slice is wide because
         ' this is much the slowest stage of an attach.
         Sh_Progress_Span 3, 35
-        Application.Run MacroName:="Lp_Fix_Common_File_Errors"
+        ' A DIRECT call, not Application.Run (9/28/2026): Word does not pass an error back out of
+        ' Application.Run, so a failing cleanup pass showed Word's own Run-time error dialog and
+        ' AttachFailed below never ran - the 5904 in "Adding a blank line after each table"
+        ' reached the transcriber that way. Called directly, the error comes back here and is
+        ' reported and logged. Same cure as RibbonAction, 3.0.257.
+        Lp_Fix_Common_File_Errors
         Sh_Progress_Span 0, 100
     End If
     
