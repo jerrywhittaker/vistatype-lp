@@ -46,6 +46,10 @@ Public Sub VtRunAllTests()
     Set Suite = TestTocLinkEntry_Suite()
     Reporter.ListenTo Suite
 
+    Reporter.Trace "building Contents pages bold throughout, and line breaks after a page number"
+    Set Suite = TestTocBoldEntries_Suite()
+    Reporter.ListenTo Suite
+
     Reporter.Trace "building Contents entries shorter than the hanging indent"
     Set Suite = TestTocShortTitle_Suite()
     Reporter.ListenTo Suite

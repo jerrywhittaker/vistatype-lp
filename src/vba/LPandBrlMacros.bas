@@ -18,6 +18,18 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 9/28/2026 - FORMAT THE TOC ON A CONTENTS PAGE THAT IS BOLD THROUGHOUT ("TOC with
+'           - Lp  - 9/28/2026 - Black Boxes", Jerry). The black square U+25A0 joins the bullets, and
+'           - Lp  - 9/28/2026 - the bullets come off before the heading list. Bold marks a heading only
+'           - Lp  - 9/28/2026 - when fewer than half the lines ending in a page number are wholly bold
+'           - Lp  - 9/28/2026 - (Lp_TOC_Bold_Marks_Headings) - Jerry: "bold doesn't mean heading there".
+'           - Lp  - 9/28/2026 - Tabbed and leadered lines are counted too (Lp_TOC_Count_Text).
+'           - Lp  - 9/28/2026 - A line break after an entry's page number becomes a paragraph mark
+'           - Lp  - 9/28/2026 - when the next line opens with a bullet (Lp_TOC_Split_Line_Breaks).
+'           - Lp  - 9/28/2026 - A wrapped heading such as "Unit 1" is never split. No space after a
+'           - Lp  - 9/28/2026 - line break; the last line keeps its bold when the TOC ends the book;
+'           - Lp  - 9/28/2026 - a reference page line
+'           - Lp  - 9/28/2026 - already formatted no longer gets a second space and tab.
 ' Notes:    - Lp  - 9/28/2026 - ATTACH LP TEMPLATE NO LONGER STOPS WITH ERROR 5904 "Cannot edit Range"
 '           - Lp  - 9/28/2026 - at "Adding a blank line after each table". A HIDDEN paragraph mark
 '           - Lp  - 9/28/2026 - between two tables joined that paragraph to the next table's first
@@ -25927,6 +25939,163 @@ Private Function Lp_TOC_Line_Gets_Blank_Before(ByVal lineText As String) As Bool
     Lp_TOC_Line_Gets_Blank_Before = Not Lp_TOC_Line_Ends_In_Page_Number(lineText)
 End Function
 
+' DOES BOLD MARK A SECTION HEADING IN THIS CONTENTS PAGE? Asked once, before the heading list.
+'
+' Two of Jerry's books pull opposite ways. "Table of Contents with Bold.docx" (9/7/2026): the
+' entries are plain and the section names bold, two of them ending in a number - "Section 1",
+' "Section 2" - so bold is the only thing that tells them from "Chapter 5 36". "TOC with Black
+' Boxes.docx" (9/28/2026): nearly EVERY title and page number is bold, no leaders, no tabs, and
+' bold alone called 63 real entries - "Vocabulary 2", "Chapter Practice 47", "Glossary A1" -
+' section names, so they got no tab and no TOC 1. Jerry, that day: "yes, bold doesn't mean
+' heading there".
+'
+' So the contents page decides. Counted over the lines that end in a page number: boldCount
+' wholly bold, plainCount not. Bold marks a heading only when FEWER THAN HALF of them are wholly
+' bold. No such lines at all answers True - the rule as it stood before, so a contents page
+' that gives nothing to count behaves exactly as it always has.
+'
+' Version: 1.0  Date: 9/28/2026 - new.
+'
+Private Function Lp_TOC_Bold_Marks_Headings(ByVal boldCount As Long, ByVal plainCount As Long) As Boolean
+    If boldCount + plainCount <= 0 Then
+        Lp_TOC_Bold_Marks_Headings = True
+    Else
+        Lp_TOC_Bold_Marks_Headings = (boldCount < plainCount)
+    End If
+End Function
+
+' A CONTENTS LINE AS THE BOLD COUNT READS IT. The count for Lp_TOC_Bold_Marks_Headings runs
+' before the tab and leader passes, and the page-number pattern wants a SPACE in front of the
+' number and nothing after it - so "Chapter 5<tab>36", "Chapter 5.....36" and "Title 45 " were
+' never counted as entries at all. On a contents page of plain tabbed or leadered entries with a
+' couple of bold "Section 1" headings, that counted 2 bold and 0 plain, bold stopped marking
+' headings, and the 9/7/2026 fault came back. Found in review, 9/28/2026.
+'
+' So the count reads a copy: paragraph mark and cell mark off, tabs, non-breaking spaces and the
+' ellipsis character to spaces, a dot leader - two or more periods, spaced or not - to one
+' space, and trailing spaces trimmed. The book's own text is not touched.
+'
+' Version: 1.0  Date: 9/28/2026 - new.
+'
+Private Function Lp_TOC_Count_Text(ByVal lineText As String) As String
+    Dim t As String
+    Dim regexLeader As Object
+
+    t = Replace(Replace(Replace(lineText, vbCr, ""), vbLf, ""), Chr(7), "")
+    t = Replace(Replace(Replace(t, vbTab, " "), Chr(160), " "), ChrW(&H2026), " ")
+
+    Set regexLeader = CreateObject("VBScript.RegExp")
+    With regexLeader
+        .pattern = " *(\. *){2,}"
+        .IgnoreCase = False
+        .Global = True
+    End With
+    t = regexLeader.Replace(t, " ")
+
+    Lp_TOC_Count_Text = RTrim$(t)
+End Function
+
+' DOES A MANUAL LINE BREAK END AN ENTRY? Jerry's "TOC with Black Boxes.docx", 9/28/2026, has four
+' paragraphs shaped
+'
+'     Chapter Practice 79 <line break><square> Major Topic<line break><square> Supporting Topic...
+'
+' - an entry, then the legend for the colored squares, all one paragraph. Format the TOC finds a
+' page number only at the END of a paragraph, so those four entries got no tab and no TOC 1.
+'
+' beforeBreak is the text of the line in front of the break; afterBreak the line after it. The
+' break ends an entry ONLY when the line before it ends in a page number - trailing spaces
+' ignored - AND the line after it opens with a BULLET (after any spaces): a character from the
+' bullet class Format the TOC strips. That is the Black Boxes shape and nothing wider - the
+' coordinator's call, 9/28/2026, after review.
+'
+' Why so narrow. The first version split whenever the line before ended in a number, and a
+' HEADING that wraps with a break - "Unit 1<line break>Place Value and Numbers", or "Part II<line
+' break>Measurement", roman numerals matching in any case - was split and "Unit 1" made an entry.
+' One ENTRY wrapped with a break - "Chapter 3<line break>Fractions 45" - is left alone for the
+' same reason. A line after the break that starts with a bullet is a new line of the list, not
+' the rest of a title. Any other shape stays one paragraph, as it did before 9/28/2026.
+'
+' Strings, so it can be tested; Lp_TOC_Split_Line_Breaks reads the text off the document.
+'
+' Version: 1.1  Date: 9/28/2026 - the line AFTER the break must open with a bullet. Replaces the
+'                                 "last line has no page number" rule, which split wrapped
+'                                 headings. Found in review.
+' Version: 1.0  Date: 9/28/2026 - new.
+'
+Private Function Lp_TOC_Break_Ends_Entry(ByVal beforeBreak As String, ByVal afterBreak As String) As Boolean
+    Dim afterBody As String
+
+    afterBody = LTrim$(Replace(afterBreak, Chr(160), " "))
+    If Len(afterBody) = 0 Then Exit Function
+    ' The bullet class of the bullet pass in Lp_TOC_CleanAndFormat_TOC - keep the two in step.
+    If InStr(ChrW(&H2022) & ChrW(&H2023) & ChrW(&H25AA) & ChrW(&H25E6) & ChrW(&H25CF) & _
+             ChrW(&H25CB) & ChrW(&HF0B7) & ChrW(&H25A1) & ChrW(&H25A0), Left$(afterBody, 1)) = 0 Then
+        Exit Function
+    End If
+
+    Lp_TOC_Break_Ends_Entry = Lp_TOC_Line_Ends_In_Page_Number(RTrim$(Replace(beforeBreak, Chr(160), " ")))
+End Function
+
+' A MANUAL LINE BREAK AFTER AN ENTRY'S PAGE NUMBER BECOMES A PARAGRAPH MARK. See
+' Lp_TOC_Break_Ends_Entry for the shape and the decision.
+'
+' It ADDS paragraph marks, so it runs before the heading list is built, for the same reason
+' Lp_TOC_Join_Orphan_Page_Numbers does: that list is counted by paragraph. Backwards through the
+' paragraphs, and backwards through the breaks inside each one, so a split never moves anything
+' still to be looked at. A break and a paragraph mark are both one character, so no position
+' shifts at all. Nothing is deleted.
+'
+' The breaks are found by walking the paragraph's characters, not with Find: a Find on a range
+' that has been collapsed carries on to the end of the document, and these paragraphs are short.
+'
+' Version: 1.1  Date: 9/28/2026 - hands the decision the line AFTER each break, not the
+'                                 paragraph's last line. Found in review.
+' Version: 1.0  Date: 9/28/2026 - new.
+'
+Private Sub Lp_TOC_Split_Line_Breaks(ByVal workRng As Range)
+    Dim paraNo As Long
+    Dim paraRange As Range
+    Dim paraText As String
+    Dim charRange As Range
+    Dim breakAt() As Long
+    Dim breakCount As Long
+    Dim k As Long
+    Dim lineStart As Long
+    Dim lineEnd As Long
+
+    ' Nothing here may raise. It runs before a single character has been cleaned up, and a book
+    ' that cannot answer must come out exactly as it went in.
+    On Error GoTo NoSplit
+
+    For paraNo = workRng.Paragraphs.count To 1 Step -1
+        Set paraRange = workRng.Paragraphs(paraNo).Range
+        paraText = paraRange.Text
+        If InStr(paraText, Chr(11)) > 0 Then
+            breakCount = 0
+            For Each charRange In paraRange.Characters
+                If charRange.Text = Chr(11) Then
+                    breakCount = breakCount + 1
+                    ReDim Preserve breakAt(1 To breakCount)
+                    breakAt(breakCount) = charRange.start
+                End If
+            Next charRange
+
+            For k = breakCount To 1 Step -1
+                If k = 1 Then lineStart = paraRange.start Else lineStart = breakAt(k - 1) + 1
+                ' The line after this break runs to the next break, or to the paragraph mark.
+                If k = breakCount Then lineEnd = paraRange.End - 1 Else lineEnd = breakAt(k + 1)
+                If Lp_TOC_Break_Ends_Entry(workRng.Document.Range(lineStart, breakAt(k)).Text, _
+                                           workRng.Document.Range(breakAt(k) + 1, lineEnd).Text) Then
+                    workRng.Document.Range(breakAt(k), breakAt(k) + 1).Text = vbCr
+                End If
+            Next k
+        End If
+    Next paraNo
+
+NoSplit:
+End Sub
+
 ' ONE find-and-replace over a fresh Duplicate of the range, with every property set explicitly.
 ' Word's find settings are application-wide, so a Find object inherits whatever was left in them -
 ' the block this replaced never set MatchAllWordForms or MatchSoundsLike at all. Taking a
@@ -26144,6 +26313,21 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     ' into a tab, un-bolds the number, applies TOC 1, and lays a tab in front of the "pn" in each
     ' Print Pg Num paragraph.
     '
+    ' Version: 3.3  Date: 9/28/2026 - "TOC WITH BLACK BOXES". Jerry, 9/28/2026: nearly every entry
+    '                               bold, no leaders, no tabs, lesson lines opening with U+25A0
+    '                               BLACK SQUARE. (1) U+25A0 joins the bullet class, and the bullet
+    '                               pass moves up to right after the orphan join, before the heading
+    '                               list. (2) Bold marks a heading only when fewer than half the
+    '                               lines ending in a page number are wholly bold - Jerry: "yes,
+    '                               bold doesn't mean heading there". See
+    '                               Lp_TOC_Bold_Marks_Headings; the count reads each line through
+    '                               Lp_TOC_Count_Text, so tabbed and leadered entries count. (3) A
+    '                               manual line break after an entry's page number becomes a
+    '                               paragraph mark first, when the next line opens with a bullet -
+    '                               see Lp_TOC_Split_Line_Breaks. Also: no space left after a line
+    '                               break; the last line's direct bold kept when the TOC ends the
+    '                               book; a reference page line already formatted is not given a
+    '                               second space and tab.
     ' Version: 3.2  Date: 9/22/2026 - NO End ON ITS TWO REFUSALS (206, 321). It is run from the TOC
     '                               box, which now stays open, and End would unload it. It says it
     '                               finished through Lp_TOC_Format_Ok instead.
@@ -26282,9 +26466,10 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     ' straight past the end and do the whole book" - the one change here that must never be
     ' undone.
     '
-    ' Still to decide, deliberately NOT changed: the two Print Pg Num passes at the end are not
-    ' repeatable. They insert a non-breaking space and a tab unconditionally, so formatting the
-    ' same TOC twice gives every reference page number two of each.
+    ' The two Print Pg Num passes at the end were not repeatable until 9/28/2026: they inserted a
+    ' non-breaking space and a tab unconditionally, so a line already formatted came out
+    ' "xix <tab>pn". They now leave a leading non-breaking space that is already there, and put
+    ' the tab OVER the space in front of "pn" rather than beside it.
     '
     ' AND WHAT "BYPASS A BOLD PARAGRAPH" MEANS HERE (9/7/2026): a wholly bold paragraph keeps its
     ' style, its bold and its text. The ONLY thing done to it is the spacing Jerry asked for on the
@@ -26330,6 +26515,10 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     ' reserved word Enum as far as the compiler is concerned, and the Dim will not compile.
     Dim errNum As Long
     Dim errText As String
+    Dim boldCount As Long
+    Dim plainCount As Long
+    Dim boldMarksHeadings As Boolean
+    Dim spaceBeforePn As Boolean
 
     ' A SELECTION INSIDE A TABLE IS REFUSED, not attempted. Lp_Table_Tools shows this dialog
     ' whenever the selection covers more than one paragraph, and it does that even when the cursor
@@ -26486,13 +26675,49 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     Set workRng = tempDoc.Range(tempDoc.Paragraphs(2).Range.start, tempDoc.Content.End - 1)
     Set fixRng = tempDoc.Range(tempDoc.Paragraphs(1).Range.End - 1, tempDoc.Content.End - 1)
 
-    Sh_Last_Activity = "Format TOC: page numbers left on their own line"
-
     ' FIRST, AND IT HAS TO BE FIRST: the heading list below is counted by paragraph position,
-    ' which this pass changes. (It also used to have to beat the bullet-legend pass, which would
+    ' which the join below changes. (It also used to have to beat the bullet-legend pass, which would
     ' have deleted a bulleted entry whose page number stood on the next line. That pass went on
     ' 9/21/2026 - see Version 2.8.)
+    '
+    ' A LINE BREAK AFTER A PAGE NUMBER goes first of all (9/28/2026): it adds paragraph marks, for
+    ' the same counting reason. See Lp_TOC_Split_Line_Breaks.
+    Sh_Last_Activity = "Format TOC: line breaks after a page number"
+    Lp_TOC_Split_Line_Breaks workRng
+
+    Sh_Last_Activity = "Format TOC: page numbers left on their own line"
     Lp_TOC_Join_Orphan_Page_Numbers workRng
+
+    ' THE BULLETS COME OFF HERE, BEFORE THE HEADING LIST (9/28/2026) - no longer with the other
+    ' junk-character passes below. A bullet in a plain style in front of a bold lesson line,
+    ' "<square> 1.1 Place Value Patterns 3", makes the line MIXED, so Lp_TOC_Para_Is_Bold called
+    ' it plain while the same line without its bullet is wholly bold. The count and the heading
+    ' list below must see the line as the reader will. Safe here: it adds and removes no
+    ' paragraph mark, so the heading list stays in step.
+    '
+    ' BULLETS BEFORE THE SPACES, not after - the order matters and it was wrong until 9/7/2026.
+    ' Removing a bullet leaves the space that followed it, so collapsing the runs first and taking
+    ' the bullets out afterwards left a double space wherever a bullet sat mid-line.
+    '
+    ' U+25A1 WHITE SQUARE is in the class from 9/7/2026. Jerry, that day, against "Big TOC from
+    ' NIMAS File.docx": "there is square bullet (i think they are called Tofu) and it is followed
+    ' by a space... these two characters need deleting." That book has 96 of them, one in front of
+    ' every Lesson line, and 160 of U+F0B7 - the Symbol-font bullet, already in this class, which
+    ' also DRAWS as an empty box once the Symbol font is gone. Both are "tofu" on screen.
+    '
+    ' U+25A0 BLACK SQUARE is in the class from 9/28/2026 - "TOC with Black Boxes.docx" opens 105
+    ' lesson lines with it, and 12 more in its legends.
+    '
+    ' What this costs, and it is accepted: that book ends with a three-line legend - "square Major
+    ' Topic", "square Supporting Topic", "square Additional Topic" - explaining what the colored
+    ' squares mean. Those squares go too, and the legend reads "Major Topic" and so on. A colored
+    ' square is not something a large print or braille reader receives anyway. The three lines
+    ' themselves STAY from 9/21/2026 - this macro never deletes a line (see Version 2.8).
+    Sh_Last_Activity = "Format TOC: taking off the bullets"
+    Lp_TOC_Replace workRng, "[" & ChrW(&H2022) & ChrW(&H2023) & ChrW(&H25AA) & _
+                            ChrW(&H25E6) & ChrW(&H25CF) & ChrW(&H25CB) & ChrW(&HF0B7) & _
+                            ChrW(&H25A1) & ChrW(&H25A0) & "]", _
+                            "", True                          ' bullets, including both squares
 
     '*******************************************************
     ' WHICH LINES ARE HEADINGS IS DECIDED HERE, BEFORE A SINGLE CHARACTER IS TOUCHED.
@@ -26522,9 +26747,10 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     '
     ' Read NOW because the passes below destroy both signals: the leaders become spaces and the
     ' tabs became spaces in the very first block. Paragraph numbers are safe to hold on to FROM
-    ' HERE ON - no pass below this point adds or removes a paragraph mark. One ABOVE it does, and
-    ' that is why it is above it: Lp_TOC_Join_Orphan_Page_Numbers merges a stranded page number
-    ' into the line before it. Anything else that changes the count has to go above this block
+    ' HERE ON - no pass below this point adds or removes a paragraph mark. Two ABOVE it do, and
+    ' that is why they are above it: Lp_TOC_Join_Orphan_Page_Numbers merges a stranded page number
+    ' into the line before it, and Lp_TOC_Split_Line_Breaks turns a line break after a page
+    ' number into a paragraph mark. Anything else that changes the count has to go above this block
     ' too, or every heading after it is read off the wrong line.
     '
     ' NOTHING IN THIS MACRO DELETES A LINE. Jerry, 9/21/2026. The bullet-legend pass that stood
@@ -26535,12 +26761,39 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     '*******************************************************
     If workRng.Paragraphs.count = 0 Then GoTo tidy
 
+    ' AND BOLD MARKS A HEADING ONLY WHERE MOST ENTRIES ARE NOT BOLD (9/28/2026). "TOC with Black
+    ' Boxes.docx" is bold nearly from end to end, entries and page numbers alike, with no leaders
+    ' and no tabs - so bold alone called 63 real entries section names. Jerry: "yes, bold doesn't
+    ' mean heading there". The lines that end in a page number are counted, wholly bold or not,
+    ' and Lp_TOC_Bold_Marks_Headings decides. "Table of Contents with Bold.docx", whose entries
+    ' are plain, still has its bold "Section 1" read as a heading.
+    boldCount = 0
+    plainCount = 0
+    '
+    ' The text is read through Lp_TOC_Count_Text, so a line whose number sits behind a tab or a
+    ' dot leader, or has a space after it, is counted too - see the note there. A $pg line and a
+    ' Print Pg Num line are reference page marks, not entries, and are not counted.
+    For Each para In workRng.Paragraphs
+        paraText = para.Range.Text
+        If Left$(paraText, 3) <> "$pg" _
+           And Lp_TOC_Line_Ends_In_Page_Number(Lp_TOC_Count_Text(paraText)) Then
+            If Sh_Para_Style_Is(para.Range, "Print Pg Num") Then
+                ' not an entry
+            ElseIf Lp_TOC_Para_Is_Bold(para.Range) Then
+                boldCount = boldCount + 1
+            Else
+                plainCount = plainCount + 1
+            End If
+        End If
+    Next para
+    boldMarksHeadings = Lp_TOC_Bold_Marks_Headings(boldCount, plainCount)
+
     ReDim isHeading(1 To workRng.Paragraphs.count)
     paraNo = 0
     For Each para In workRng.Paragraphs
         paraNo = paraNo + 1
         paraText = para.Range.Text
-        isHeading(paraNo) = Lp_TOC_Para_Is_Bold(para.Range) _
+        isHeading(paraNo) = boldMarksHeadings And Lp_TOC_Para_Is_Bold(para.Range) _
                             And InStr(paraText, "..") = 0 _
                             And InStr(paraText, vbTab) = 0 _
                             And Not Lp_TOC_Line_Is_Link_Entry(paraText, Lp_TOC_Last_Char_Color(para.Range))
@@ -26570,25 +26823,7 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     Lp_TOC_Replace workRng, ChrW(&HB7), "", False         ' middle dot
     Lp_TOC_Replace workRng, ChrW(&HFB01), "fi", False     ' fi ligature
     Lp_TOC_Replace workRng, ChrW(&HFB02), "fl", False     ' fl ligature
-    ' BULLETS BEFORE THE SPACES, not after - the order matters and it was wrong until 9/7/2026.
-    ' Removing a bullet leaves the space that followed it, so collapsing the runs first and taking
-    ' the bullets out afterwards left a double space wherever a bullet sat mid-line.
-    '
-    ' U+25A1 WHITE SQUARE is in the class from 9/7/2026. Jerry, that day, against "Big TOC from
-    ' NIMAS File.docx": "there is square bullet (i think they are called Tofu) and it is followed
-    ' by a space... these two characters need deleting." That book has 96 of them, one in front of
-    ' every Lesson line, and 160 of U+F0B7 - the Symbol-font bullet, already in this class, which
-    ' also DRAWS as an empty box once the Symbol font is gone. Both are "tofu" on screen.
-    '
-    ' What this costs, and it is accepted: that book ends with a three-line legend - "square Major
-    ' Topic", "square Supporting Topic", "square Additional Topic" - explaining what the colored
-    ' squares mean. Those squares go too, and the legend reads "Major Topic" and so on. A colored
-    ' square is not something a large print or braille reader receives anyway. The three lines
-    ' themselves STAY from 9/21/2026 - this macro never deletes a line (see Version 2.8).
-    Lp_TOC_Replace workRng, "[" & ChrW(&H2022) & ChrW(&H2023) & ChrW(&H25AA) & _
-                            ChrW(&H25E6) & ChrW(&H25CF) & ChrW(&H25CB) & ChrW(&HF0B7) & _
-                            ChrW(&H25A1) & "]", _
-                            "", True                          ' bullets, including the tofu square
+    ' The bullets came off above, before the heading list (9/28/2026) - see the note there.
 
     ' DOT LEADERS - a run of periods, and a SPACE in their place, not nothing.
     '
@@ -26600,6 +26835,12 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     Lp_TOC_Replace workRng, "[.]{2,}", " ", True           ' dot leaders
 
     Lp_TOC_Replace workRng, "[ ]{2,}", " ", True          ' runs of spaces
+
+    ' AND NO SPACE AFTER A MANUAL LINE BREAK (9/28/2026) - the line-break twin of the "^p " pass
+    ' below. Taking the square off "<square> Supporting Topic" leaves the space behind it, and a
+    ' legend line after a break came out " Supporting Topic". One is enough: the runs are single
+    ' spaces by now. workRng only, like every pass that has no need to reach back.
+    Lp_TOC_Replace workRng, "^l ", "^l", False             ' space after a line break
 
 
     ' EVERY CHARACTER WAS JUNK. An empty range is not a bounded search - it is a starting point,
@@ -26838,6 +27079,13 @@ SkipPara:
             numberRng.Font.Bold = False
 
             ' Apply style
+            '
+            ' Word drops DIRECT bold covering most of the paragraph when the style goes on, so a
+            ' title bold as plain direct formatting comes out plain - "Glossary", "Index" and
+            ' "Reference Sheet" in "TOC with Black Boxes.docx", while titles bold through a
+            ' character style keep it. Measured 9/28/2026 and deliberately LEFT: putting the bold
+            ' back also changed Jerry's accepted "Problem TOC 2" to "Problem TOC 7", whose joined
+            ' entries come out with plain titles.
             On Error Resume Next
             paraRange.Style = "TOC 1"
             On Error GoTo eom
@@ -26881,8 +27129,9 @@ SkipTab:
         Set paraRange = para.Range
 
         If Sh_Para_Style_Is(paraRange, "Print Pg Num") Then
-            ' Insert NonBreakingSpace at start
-            paraRange.InsertBefore Chr(160)
+            ' Insert NonBreakingSpace at start - unless one is there already (9/28/2026), from
+            ' an earlier Format the TOC or typed by the transcriber.
+            If Left$(paraRange.Text, 1) <> Chr(160) Then paraRange.InsertBefore Chr(160)
         End If
     Next para
 
@@ -26894,7 +27143,19 @@ SkipTab:
 
         If Sh_Para_Style_Is(paraRange, "Print Pg Num") Then
             numStart = InStr(paraText, "pn")
-            If numStart > 0 Then
+            ' Nested, not "numStart > 1 And Mid$(...)": VBA evaluates BOTH sides of And, and
+            ' Mid$ from position 0 or -1 raises error 5 on a line with no "pn" at all.
+            spaceBeforePn = False
+            If numStart > 1 Then spaceBeforePn = (Mid$(paraText, numStart - 1, 1) = " ")
+            If spaceBeforePn Then
+                ' A SPACE ALREADY IN FRONT OF "pn" BECOMES THE TAB (9/28/2026). A line formatted
+                ' before arrives "xix<tab>pnxix", its tab is turned into a space by the cleanup at
+                ' the top, and putting a tab beside that space gave "xix <tab>pn". Only the one
+                ' character is written, so the "pn" keeps its own formatting.
+                paraRange.start = paraRange.start + numStart - 2
+                paraRange.End = paraRange.start + 1
+                paraRange.Text = vbTab
+            ElseIf numStart > 0 Then
                 paraRange.start = paraRange.start + numStart - 1
                 paraRange.End = paraRange.start + 2
                 paraRange.Text = vbTab & "pn"
@@ -26921,15 +27182,19 @@ tidy:
     ' one below it. Leaving her text alone is the right answer to "there was nothing there".
     If bodyRng.End > bodyRng.start Then
 
-        homeRng.FormattedText = bodyRng.FormattedText
-
         ' THE LAST PARAGRAPH MARK, WHEN THE TOC ENDS THE BOOK. homeRng is clipped short of the
         ' document's permanent final paragraph mark, which cannot be replaced, so on a TOC that
         ' runs to the end of the book the last line's paragraph formatting - TOC 1, the space
         ' after, a heading's space before - has nowhere to travel in. It is carried by hand here.
-        ' Never fatal: the words are already home either way. It costs three more undo presses, so
-        ' it runs ONLY when the TOC really does end the book - measured 9/7/2026: one press for an
-        ' ordinary TOC, four for one that ends the book.
+        ' Never fatal. It costs three more undo presses, so it runs ONLY when the TOC really does
+        ' end the book - measured 9/7/2026: one press for an ordinary TOC, four for one that ends
+        ' the book.
+        '
+        ' BEFORE THE TEXT COMES HOME, not after (9/28/2026). Setting the style afterwards dropped
+        ' the direct bold of the last line's text - "Reference Sheet A25" at the end of "TOC with
+        ' Black Boxes.docx" came out plain. Set first, the style lands on the old last line, which
+        ' the assignment then replaces with text that keeps its own formatting; the paragraph mark
+        ' keeps the style.
         On Error Resume Next
         If endClipped Then
             Set paraRange = bodyRng.Paragraphs(bodyRng.Paragraphs.count).Range
@@ -26940,6 +27205,8 @@ tidy:
             End With
         End If
         On Error GoTo eom
+
+        homeRng.FormattedText = bodyRng.FormattedText
 
     End If
 
@@ -26969,8 +27236,8 @@ eom:
     ' The book is untouched by anything that fails BEFORE the assignment home, which is every pass
     ' this macro makes - they all happen in the scratch document. That is worth saying out loud
     ' because it was NOT true while the work was done in the book. It is not a promise about the
-    ' assignment itself, or about the two statements after it: an error there lands here too, and
-    ' the TOC has been changed by then.
+    ' assignment itself, or about the last paragraph's style set right before it when the TOC ends
+    ' the book: an error in the assignment lands here too, and the TOC has been changed by then.
     errNum = Err.Number
     errText = Err.Description
     On Error Resume Next
