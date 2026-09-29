@@ -4,7 +4,7 @@ Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Dx_Spelling_List_Options_Form
    ClientHeight    =   3735
    ClientLeft      =   120
    ClientTop       =   450
-   ClientWidth     =   5280
+   ClientWidth     =   5760
    OleObjectBlob   =   "Dx_Spelling_List_Options_Form.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
@@ -14,6 +14,12 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
+' Version: 1.5 Date: 9/29/2026 - the title was cut off before its number (issue #22).
+'                               The form is 288 points wide inside (ClientWidth 5760), not 264, so the
+'                               title, measured in Segoe UI 9 point, fits with about 20 pixels to spare. Every
+'                               control moved 12 points right, so the layout stays centered. Widened in Word's
+'                               designer on the build box; the size lives in the .frx as well as in ClientWidth.
+'                               Set by measurement, not yet seen on screen.
 ' Date: 6/18/2018
 ' Version 1.4
 

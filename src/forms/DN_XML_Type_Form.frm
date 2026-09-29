@@ -4,7 +4,7 @@ Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} DN_XML_Type_Form
    ClientHeight    =   1896
    ClientLeft      =   105
    ClientTop       =   450
-   ClientWidth     =   4155
+   ClientWidth     =   4560
    OleObjectBlob   =   "DN_XML_Type_Form.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
@@ -16,6 +16,12 @@ Attribute VB_Exposed = False
 
 ' DN_XML_Type_Form
 '
+' Version: 1.2  Date: 9/29/2026 - the title was cut off before its number (issue #22).
+'                               The form is 228 points wide inside (ClientWidth 4560), not 207.75, so the
+'                               title, measured in Segoe UI 9 point, fits with about 20 pixels to spare. Every
+'                               control moved 10.2 points right, so the layout stays centered. Widened in Word's
+'                               designer on the build box; the size lives in the .frx as well as in ClientWidth.
+'                               Set by measurement, not yet seen on screen.
 ' Version: 1.1  Date: 3/1/2026 - bug fixes
 ' Version: 1.0  Date: 2/22/2026
 '

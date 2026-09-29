@@ -61,15 +61,13 @@ SEGOE_UI_9 = dict(zip(range(32, 127), (
 # above 35.2 px; at 50 that old width fails by 15 px, as it must.
 TITLE_BAR_ALLOWANCE_PX = 50
 
-# Forms whose title does not fit by the rule above, found by this test on 9/29/2026 and not yet
-# widened: reported to Jerry (issue #22), not seen on screen. Short by, at 50 px: 334 10.4 px,
-# 354 8.8 px, 327 6.8 px. Take a form OFF this list when it is widened --
-# the last test fails until it is, so the list cannot go stale.
-KNOWN_TOO_NARROW = {
-    "Dx_Spelling_List_Options_Form",   # Format Spelling Word List (Contracted/Uncontracted) (334)
-    "Lp_TOC_Format_And_Color_Form",    # Format TOC - Add/Remove Color Bars (354)
-    "DN_XML_Type_Form",                # Convert DAISY or NIMAS .xml to Word (327)
-}
+# Forms whose title does not fit by the rule above and are not yet widened. Take a form OFF this
+# list when it is widened -- the last test fails until it is, so the list cannot go stale.
+# Empty since 9/29/2026: the three this test first found (issue #22) -- 334
+# Dx_Spelling_List_Options_Form, 354 Lp_TOC_Format_And_Color_Form, 327 DN_XML_Type_Form, short
+# by 10.4, 8.8 and 6.8 px at 50 px -- were widened to 288, 228 and 228 pt inside, about 20 px
+# more than the rule asks. Set by measurement; none of the three has been seen on screen yet.
+KNOWN_TOO_NARROW = set()
 
 
 def _header(frm):

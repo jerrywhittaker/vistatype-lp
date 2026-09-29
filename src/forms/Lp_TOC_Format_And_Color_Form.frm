@@ -4,7 +4,7 @@ Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_TOC_Format_And_Color_Form
    ClientHeight    =   2628
    ClientLeft      =   105
    ClientTop       =   450
-   ClientWidth     =   4095
+   ClientWidth     =   4560
    OleObjectBlob   =   "Lp_TOC_Format_And_Color_Form.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
@@ -15,6 +15,12 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 ' Lp_TOC_Format_And_Color_Form
 '
+' Version: 2.2  Date: 9/29/2026 - the title was cut off before its number (issue #22).
+'                               The form is 228 points wide inside (ClientWidth 4560), not 204.75, so the
+'                               title, measured in Segoe UI 9 point, fits with about 20 pixels to spare. Every
+'                               control moved 11.7 points right, so the layout stays centered. Widened in Word's
+'                               designer on the build box; the size lives in the .frx as well as in ClientWidth.
+'                               Set by measurement, not yet seen on screen.
 ' Version: 2.1  Date: 9/23/2026 - F6 and Shift+F6 go back to the book from every control.
 ' Version: 2.0  Date: 9/22/2026 - THE BOX STAYS OPEN, holding the TOC range until Done. Jerry,
 '                               9/22/2026: the same kind of box as Resize Pictures in a Selected
