@@ -18,6 +18,18 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - BRL - 9/29/2026 - THE TRANSLATION BOX (331). Two faults Jerry reported on 3.0.519.
+'           - BRL - 9/29/2026 - (1) CANCEL LOOPED FOR EVER. Dx_Attach_BANA_Template_Run showed
+'           - BRL - 9/29/2026 - Dx_Choose_Translation_Form inside a Do While that only a table
+'           - BRL - 9/29/2026 - button could end; Cancel (added 3.0.472) and the X never did. It
+'           - BRL - 9/29/2026 - now asks once; on Cancel the attach finishes and the next braille
+'           - BRL - 9/29/2026 - macro asks, once - Dx_Is_BANA_Template_Attached no longer asks a
+'           - BRL - 9/29/2026 - second time straight after an attach. The same loop is gone from
+'           - BRL - 9/29/2026 - the uncalled Dx_Set_Doc_Braille_Type_Variable, and the
+'           - BRL - 9/29/2026 - Dx_UEB_EBAE_String variable the loops tested went with them.
+'           - BRL - 9/29/2026 - (2) THE TITLE WAS CUT OFF before its number. The form is 312
+'           - BRL - 9/29/2026 - points wide inside instead of 267.75, controls moved 22 points
+'           - BRL - 9/29/2026 - right to stay centered; done in Word on the build box and exported.
 ' Notes:    - Lp  - 9/29/2026 - RESIZE PICTURES IN A SELECTED RANGE (375) CAN ATTACH A PICTURE TO THE
 '           - Lp  - 9/29/2026 - PARAGRAPH ABOVE IT. Jerry: a new tick box, "Attach the picture to the
 '           - Lp  - 9/29/2026 - paragraph which precedes it." (Alt+P), replaces the paragraph mark in
@@ -2580,7 +2592,9 @@ Public Dx_BANA_Template_Name As String
 ' Dx_Attach_Same_BANA_Template, which went with the braille scratch-document routines.
 
 Public Dx_UEB_EBAE_Boolean As Boolean
-Public Dx_UEB_EBAE_String As String
+' Dx_UEB_EBAE_String stood here until 9/29/2026. Its only readers were the two Do While loops
+' that kept re-showing Dx_Choose_Translation_Form until a table button was pressed - which Cancel
+' never does, so Cancel looped for ever. The loops went, and with them its last reader.
 
 Public Lp_GP_String_1 As String
 Public Lp_GP_String_2 As String
@@ -3637,6 +3651,11 @@ Public Sub Dx_Attach_BANA_Template_Run(ByVal autoClean As Boolean)
 '    Converts word foreign language tags to BANA template styles
 '    Turns show-all status on
 '
+'  Version: 4.5  Date: 9/29/2026 - the translation question is asked ONCE. It was a Do While loop
+'                                 that re-showed Dx_Choose_Translation_Form until a table button was
+'                                 pressed, so Cancel (and the X) brought it straight back for ever
+'                                 (Jerry, on 3.0.519). Cancel now leaves the translation unanswered
+'                                 and the attach finishes; the next braille macro asks again, once
 '  Version: 3.4  Date: 8/18/2026 - that font is now Times New Roman 14 pt, not Courier New 12 pt - matching what Duxbury's own SWIFT add-in sets when IT attaches a template (Jerry)
 '  Version: 3.3  Date: 8/5/2026 - puts the whole document into Courier New 12 pt as the last thing it does (Jerry)
 '  Version: 4.4  Date: 8/31/2026 - the Dx_Attached_BANA_Template = Dx_BANA_Template_Name line is
@@ -3820,11 +3839,18 @@ Public Sub Dx_Attach_BANA_Template_Run(ByVal autoClean As Boolean)
     Application.ScreenUpdating = True
     Application.ScreenRefresh
 
-    ' Get the braille translation type (UEB or EBAE) - forces a choice
-    Dx_UEB_EBAE_String = ""
-    Do While Dx_UEB_EBAE_String = ""
-        Dx_Choose_Translation_Form.Show
-    Loop
+    ' Get the braille translation type (UEB or EBAE). ASKED ONCE. Until 9/29/2026 this was a
+    ' Do While loop that showed the form again until one of the four table buttons was pressed -
+    ' "forces a choice". The Cancel button added in 3.0.472 can never satisfy that, so Cancel
+    ' brought the same box straight back, for ever (Jerry, on 3.0.519: "the cancel button
+    ' results in an endless loop"). The X did the same before there was a Cancel.
+    '
+    ' Cancel now leaves the question UNANSWERED and the attach carries on to the end. It does not
+    ' stop here: the template is already on, and an attach stopped at this point would leave the
+    ' book half prepared - and a second press of Attach would then find it "already braille" and
+    ' skip the two cleanups for good. The translation is simply asked again, once, by the next
+    ' braille macro (Dx_Is_BANA_Template_Attached), and nothing is recorded until it is answered.
+    Dx_Choose_Translation_Form.Show
 
     Application.ScreenUpdating = False
 
@@ -5406,6 +5432,10 @@ End Function   '*** end of Dx_Ensure_BrailleType ***
 
 Sub Dx_Is_BANA_Template_Attached()
 '
+' Version: 1.7  Date: 9/29/2026 - when this sub has just run the attach, it does not put the
+'                                translation question a second time. The attach asks it itself; if
+'                                the user pressed Cancel there, asking again straight away looks
+'                                exactly like the endless loop Jerry reported on 3.0.519
 ' Version: 1.6  Date: 8/27/2026 - the derive-or-ask block moved WHOLE into Dx_Ensure_BrailleType, so
 '                                Doc Info can ask the same question and get the same answer. Body only;
 '                                what this sub decides is unchanged. (The numbering below was already
@@ -5426,12 +5456,17 @@ Sub Dx_Is_BANA_Template_Attached()
 '                   Checks to see if a BANA Braille Template is attached
 '                   and that that template is 2014 or later
 
+    ' True when the attach runs below - it asks the translation question itself, so the question at
+    ' the bottom of this sub is not put again. 9/29/2026.
+    Dim justAttached As Boolean
+
     Application.Run MacroName:="Sh_Is_Doc_Open"
     If InStr(ActiveDocument.AttachedTemplate, "BANA Braille") = 0 Then
         ' autoClean:=False - she pressed one of fifteen other braille buttons, not Attach, and the
         ' template is being put on for her so that button can work. A DIRECT call, because
         ' Application.Run cannot pass an argument to a typed parameter. Jerry, 8/29/2026.
         Dx_Attach_BANA_Template_Run False   'template was NOT attached - attach it
+        justAttached = True
     End If
     
     ' BANA Braille template is attached but is it a version which is too old?
@@ -5478,7 +5513,11 @@ Sub Dx_Is_BANA_Template_Attached()
     ' here, the transcriber pressed a button and is waiting.
     Dx_Prompt_Save_Before_Braille
 
-    If Dx_Ensure_BrailleType() = "" Then Dx_Choose_Translation_Form.Show
+    ' Not straight after the attach above, which has just asked. If the user pressed Cancel there,
+    ' the book still has no translation and the next braille macro asks - once. 9/29/2026.
+    If Not justAttached Then
+        If Dx_Ensure_BrailleType() = "" Then Dx_Choose_Translation_Form.Show
+    End If
     
 End Sub   '*** end of Dx_Is_BANA_Template_Attached macro ***
 
@@ -9070,6 +9109,9 @@ Sub Dx_Set_Doc_Braille_Type_Variable()
 ' Dx_Set_Doc_Braille_Type_Variable macro
 '
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
+' Version 1.2 Date: 9/29/2026 - asks ONCE instead of looping until a table button is pressed, so
+'                               Cancel leaves. The same endless loop as the braille attach had.
+'                               Still called from nowhere (see the 8/27/2026 changelog note)
 ' Version 1.1 Date: 3/17/2017
 '
 ' Sets document variable "BrlType" which holds whether translation is UEB or EBAE / texbook or nemeth
@@ -9084,10 +9126,7 @@ Sub Dx_Set_Doc_Braille_Type_Variable()
     BrlType = ActiveDocument.Variables("BrailleType") ' if Doc Var does not exist then BrlType = ""
     'then as ask the user if this document is for UEB or EBAE ' EBAE and UEB are legacy types from previous versions of macros
     If BrlType = "Undefined" Or BrlType = "" Or BrlType = "UEB" Or BrlType = "EBAE" Then 'get the braille type the user wants
-        Dx_UEB_EBAE_String = ""
-        Do While Dx_UEB_EBAE_String = ""
-            Dx_Choose_Translation_Form.Show ' sets the value of the doc variable and sets Dx_UEB_EBAE_String
-        Loop
+        Dx_Choose_Translation_Form.Show ' sets the doc variable, unless the user presses Cancel
     End If
     
     Unload Dx_Choose_Translation_Form

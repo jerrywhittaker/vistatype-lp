@@ -1,10 +1,10 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Dx_Choose_Translation_Form 
    Caption         =   "What braille translation will be used for this document? (331)"
-   ClientHeight    =   3870
+   ClientHeight    =   3945
    ClientLeft      =   120
    ClientTop       =   450
-   ClientWidth     =   5355
+   ClientWidth     =   5580
    OleObjectBlob   =   "Dx_Choose_Translation_Form.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
@@ -14,6 +14,17 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 'Dx_Choose_Translation_Form
+' Version: 1.4 Date: 9/29/2026 - two faults Jerry reported on 3.0.519. (1) The title was cut off
+'                               before its number: the form is 279 points wide inside (ClientWidth
+'                               5580), not 267.75, and the controls sit 4 points right of their
+'                               3.0.519 positions. Cancel is now a full-width bar under the four
+'                               table buttons (Left 12, Width 250). Layout by Jerry in Word,
+'                               9/29/2026, and he saw the whole title, (331) included, on screen.
+'                               The size lives in the .frx as well as in ClientWidth above.
+'                               (2) Cancel looped for ever:
+'                               the braille attach showed this form in a Do While that only a table
+'                               button could end. The loop is gone (see Dx_Attach_BANA_Template_Run),
+'                               and so is Dx_UEB_EBAE_String, which each button set only to end it
 ' Version: 1.3 Date: 9/21/2026 - a Cancel button, at last. Cmd_Cancel_Click has been here since
 '                               at least 3/9/2024, but no Cmd_Cancel was on the form, so the only
 '                               way out was the X. Added in Word's designer on the build box: Cancel,
@@ -27,11 +38,11 @@ Attribute VB_Exposed = False
 ' Version: 1.1 Date: 3/9/2024 - removed "End" from Sub Cmd_Cancel_Click
 '
 Private Sub Cmd_Cancel_Click()
+    ' Records nothing. The book is left without a translation, and the next braille macro asks.
     Unload Me 'close this form
 End Sub
 
 Private Sub Cmd_BANA_EBAE_Button_Click()
-    Dx_UEB_EBAE_String = "EBAE"
     ' if the BrailleType stored in the document variables is non existant then
     ' create an undefined BrailleType
     BrlType = "Undefined"
@@ -46,7 +57,6 @@ Private Sub Cmd_BANA_EBAE_Button_Click()
 End Sub
 
 Private Sub Cmd_BANA_EBAE_Nemeth_Button_Click()
-    Dx_UEB_EBAE_String = "EBAE Nemeth"
     ' if the BrailleType stored in the document variables is non existant then
     ' create an undefined BrailleType
     BrlType = "Undefined"
@@ -61,7 +71,6 @@ Private Sub Cmd_BANA_EBAE_Nemeth_Button_Click()
 End Sub
 
 Private Sub Cmd_BANA_UEB_Button_Click()
-    Dx_UEB_EBAE_String = "UEB"
     ' if the BrailleType stored in the document variables is non existant then
     ' create an undefined BrailleType
     BrlType = "Undefined"
@@ -76,7 +85,6 @@ Private Sub Cmd_BANA_UEB_Button_Click()
 End Sub
 
 Private Sub Cmd_BANA_UEB_Nemeth_Button_Click()
-    Dx_UEB_EBAE_String = "UEB Nemeth"
     ' if the BrailleType stored in the document variables is non existant then
     ' create an undefined BrailleType
     BrlType = "Undefined"
