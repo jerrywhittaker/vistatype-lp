@@ -70,6 +70,10 @@ Public Sub VtRunAllTests()
     Set Suite = TestTextHelpers_Suite()
     Reporter.ListenTo Suite
 
+    Reporter.Trace "building The three AutoCorrect lists"
+    Set Suite = TestAutoCorrectTables_Suite()
+    Reporter.ListenTo Suite
+
     Reporter.Finish
     Exit Sub
 

@@ -41,6 +41,15 @@ So this suite is for **pure helpers**: a string or a number in, a string or a nu
 are roughly 36 of those in `LPandBrlMacros`. Everything else is still a job for real Word, and
 `docs/Ribbon-Test-Checklist.md` and `DEVELOPMENT.md` cover that.
 
+**One exception, and it is careful: `TestAutoCorrectTables.bas`** runs `Sh_AutoCorrect_Switch`
+against Word's real AutoCorrect list and the real list files (issue #21). Word's list belongs to
+the application, not a document, so it does not hang. It backs up the three
+`AutoCorrect-*.txt` files and the record in VistaType.ini, and puts them back, along with Word's
+list, whatever happens. The runner quits Word cleanly, and Word then stores whatever list the
+test left behind. Inside a Word started over SSH, `%AppData%` is the **system profile**
+(`C:\Windows\System32\config\systemprofile\AppData\Roaming`), so the files it touches are
+there, not in the user's own profile. Measured 9/29/2026.
+
 ## When a run hangs
 
 `vbatests/results.txt` on the build box is written a line at a time and closed after each one,

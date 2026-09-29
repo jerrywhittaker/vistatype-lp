@@ -18,6 +18,13 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Sh  - 9/29/2026 - THE ORDINARY AUTOCORRECT LIST IS NO LONGER LOST WHEN WORD ENDS WITHOUT A
+'           - Sh  - 9/29/2026 - PROPER QUIT (issue #21). Word stores its list only on a clean quit, so the
+'           - Sh  - 9/29/2026 - record of which list is up could be wrong next session, and a book's list
+'           - Sh  - 9/29/2026 - was then written over AutoCorrect-DEF.txt for good. The first switch of
+'           - Sh  - 9/29/2026 - each session now checks Word's list against the three list files
+'           - Sh  - 9/29/2026 - (Sh_AC_Identify, Sh_AC_Pick_Table) and writes it only into the file it
+'           - Sh  - 9/29/2026 - is closest to - or into none when that cannot be told.
 ' Notes:    - Lp  - 9/28/2026 - FORMAT THE TOC ON A CONTENTS PAGE THAT IS BOLD THROUGHOUT ("TOC with
 '           - Lp  - 9/28/2026 - Black Boxes", Jerry). The black square U+25A0 joins the bullets, and
 '           - Lp  - 9/28/2026 - the bullets come off before the heading list. Bold marks a heading only
@@ -2890,11 +2897,17 @@ Private Const VT_STORE_BOOK As String = "BookApplied"
 ' Word writes its AutoCorrect list into the .acl file when it closes, so a transcriber who quits
 ' Word inside a braille file starts the next morning with the BRAILLE table standing in Word
 ' before a line of this project runs. Keyed on Sh_ConfiguredAs, the first capture of that session
-' would write the braille table into her ordinary one and lose hers for good - the same fault the
-' book flag above exists to prevent, by the same route. The recorded name survives in the file,
-' so it is right whatever Word loaded. See Sh_AutoCorrect_Switch.
+' would write the braille table into the user's ordinary one and lose it for good - the same
+' fault the book flag above exists to prevent, by the same route. See Sh_AutoCorrect_Switch.
+'
+' BUT THE RECORD IS ONLY TRUSTED WITHIN ONE WORD SESSION. It is written the moment a table goes
+' up, while Word writes the .acl only on a clean quit - so after Word ends any other way the two
+' disagree, and trusting the record then lost the user's ordinary list for good (issue #21,
+' 9/29/2026). So the first switch of each session checks Word's list against the three files
+' (Sh_AC_Identify), and Sh_AC_Checked says that has been done and the record is right.
 Private Const VT_STORE_AC As String = "AutoCorrectTables"
 Private Const VT_AC_LOADED As String = "Loaded"
+Private Sh_AC_Checked As Boolean     ' this session has checked Word's list against the tables
 
 ' The shape of the store, so a file written by an older build is thrown away whole rather than
 ' half-read. Bump it whenever Sh_Tracked_Settings changes. "1" was the six spelling and grammar
@@ -28691,11 +28704,32 @@ End Sub  '*** end of Sh_Delete_One_Compact_Fraction ***
 ' standing in Word before a line of this project runs. Keyed on Sh_ConfiguredAs, the first capture
 ' of that session would write the braille table into her ordinary one and lose hers for good.
 '
+' AND THE RECORD IS CHECKED AT THE FIRST SWITCH OF EVERY SESSION, because it can be wrong. It is
+' written the moment a table goes up; Word writes the .acl only on a CLEAN quit. Measured on the
+' build box, 3.0.517, 9/29/2026 (issue #21): quit cleanly in a large print book, start Word and
+' open a letter - the ordinary table goes up and "DEF" is recorded - then have Word end without
+' a proper quit. The next session starts with the LARGE PRINT list, the record says "DEF", the
+' switch did nothing, and the next book wrote the large print list over AutoCorrect-DEF.txt. Every
+' ordinary-only entry was lost for good. The mirror case would have filed the ordinary list into
+' a book's table - a leak straight through the wall.
+'
+' So the first switch of a session reads Word's list - which any real switch does anyway - and
+' Sh_AC_Identify compares it with the three files. Word's list goes to the table it is CLOSEST to,
+' counting entries that differ, so entries the user added last session on top of a table still
+' count as that table. A tie goes to the record, because LP and BRL often hold the same list.
+' If two tables the record does not name are equally close, it cannot be told, and then NO file
+' is written: the table asked for goes up and nothing is lost. After that the record is right for
+' the rest of the session, because this code wrote it, and it is trusted again - so the check
+' costs one read of Word's list and three small files once a session, not on every window click.
+' VBA's End statement wipes Sh_AC_Checked, and then the next switch simply checks again.
+'
 ' NOT MEASURED, AND WORTH WATCHING: Outlook reads and writes the same .acl file and keeps its own
 ' copy in memory while it runs. Whether an open Outlook can put its copy back over a table this
 ' code has just loaded could not be tested on a build box that has no mail account. Rule 3 is what
 ' limits the damage if a concurrent write makes an add or a delete raise.
 '
+' Version: 2.1  Date: 9/29/2026 - the record is checked against Word's list at the first switch of
+'                                 each session instead of trusted (issue #21)
 ' Version: 2.0  Date: 9/19/2026 - one pass over Word's list instead of two; the four rules above,
 '                                 each closing a way the first version could shorten a table
 '                                 silently or leave Word and the record disagreeing
@@ -28981,9 +29015,124 @@ Private Sub Sh_AC_Apply(ByVal wanted As Object, ByVal plainList As Object, ByVal
 
 End Sub  '*** end of Sh_AC_Apply ***
 
-Private Sub Sh_AC_Remember(ByVal cfgType As String, ByVal cameFrom As String)
+Private Function Sh_AC_Differences(ByVal listA As Object, ByVal listB As Object) As Long
+'
+' How many entries two plain lists disagree on: a name in one and not the other, or the same name
+' with a different replacement. Dictionary lookups only - about 930 of each, nothing read from Word.
+'
+' Version: 1.0  Date: 9/29/2026
+'
+    Dim k As Variant
+    Dim n As Long
+
+    For Each k In listA.Keys
+        If Not listB.Exists(k) Then
+            n = n + 1
+        ElseIf CStr(listB.Item(k)) <> CStr(listA.Item(k)) Then
+            n = n + 1
+        End If
+    Next k
+    For Each k In listB.Keys
+        If Not listA.Exists(k) Then n = n + 1
+    Next k
+
+    Sh_AC_Differences = n
+
+End Function  '*** end of Sh_AC_Differences ***
+
+Private Function Sh_AC_Pick_Table(ByVal recorded As String, ByVal livePlain As Object, _
+                                  ByVal tables As Object) As String
+'
+' Which table Word's list actually is. "tables" holds every table that has a file, by name ("DEF",
+' "LP", "BRL") to its entries; "recorded" is what VistaType.ini says is up.
+'
+' THE CLOSEST TABLE WINS, not an exact match, because the user may have added or changed entries
+' on top of a table last session and quit cleanly - those still belong to that table, and the
+' switch must still write them into its file. A TIE GOES TO THE RECORD: the LP and braille tables
+' often hold the same list, and then the record is the only thing that can tell them apart.
+'
+' "" MEANS IT CANNOT BE TOLD - two tables the record does not name are equally close - and the
+' caller then writes no file at all. Losing that session's additions to a book is the lesser harm;
+' writing one configuration's list into another's file is a hole in the wall, and permanent.
+'
+' No table files at all is the first switch on this machine: what is in Word is the user's own,
+' so "DEF" when nothing is recorded, or the record itself.
+'
+' Version: 1.0  Date: 9/29/2026 - issue #21
+'
+    Dim k As Variant
+    Dim d As Long
+    Dim best As Long
+    Dim bestName As String
+    Dim bestCount As Long
+    Dim recordedDiff As Long
+
+    If tables.Count = 0 Then
+        If Len(recorded) = 0 Then
+            Sh_AC_Pick_Table = "DEF"
+        Else
+            Sh_AC_Pick_Table = recorded
+        End If
+        Exit Function
+    End If
+
+    best = -1
+    recordedDiff = -1
+    For Each k In tables.Keys
+        d = Sh_AC_Differences(livePlain, tables.Item(k))
+        If CStr(k) = recorded Then recordedDiff = d
+        If best < 0 Or d < best Then
+            best = d
+            bestName = CStr(k)
+            bestCount = 1
+        ElseIf d = best Then
+            bestCount = bestCount + 1
+        End If
+    Next k
+
+    If recordedDiff = best Then
+        Sh_AC_Pick_Table = recorded
+    ElseIf bestCount = 1 Then
+        Sh_AC_Pick_Table = bestName
+    End If
+
+End Function  '*** end of Sh_AC_Pick_Table ***
+
+Private Function Sh_AC_Identify(ByVal recorded As String, ByVal livePlain As Object) As String
+'
+' Which table Word's list actually is, read against the three files on disk. Called once a
+' session, at the first switch - see the section note above Sh_AC_Table_File, and
+' Sh_AC_Pick_Table for how it decides. "" if it cannot be told, and on any error, because ""
+' is the answer that writes no file.
+'
+' Version: 1.0  Date: 9/29/2026 - issue #21
+'
+    Dim tables As Object
+    Dim oneTable As Object
+    Dim cfg As Variant
+
+    On Error GoTo Failed
+
+    Set tables = CreateObject("Scripting.Dictionary")
+    For Each cfg In Array("DEF", "LP", "BRL")
+        Set oneTable = Nothing
+        If Sh_AC_Read(CStr(cfg), oneTable) Then tables.Add CStr(cfg), oneTable
+    Next cfg
+
+    Sh_AC_Identify = Sh_AC_Pick_Table(recorded, livePlain, tables)
+    Exit Function
+
+Failed:
+    On Error Resume Next
+    Sh_AC_Identify = ""
+    Err.Clear
+
+End Function  '*** end of Sh_AC_Identify ***
+
+Private Function Sh_AC_Remember(ByVal cfgType As String, ByVal cameFrom As String) As Boolean
 '
 ' Record which table is now up - and if the record will not stick, put the old one back.
+' True only when the record took, which is what lets the rest of the session trust it.
 '
 ' THE MARKER IS THE WHOLE FIREWALL, and this is the one place in this section where a silent
 ' failure would not be in the safe direction. Sh_Setting_Write swallows its own errors, so a
@@ -29000,6 +29149,11 @@ Private Sub Sh_AC_Remember(ByVal cfgType As String, ByVal cameFrom As String)
 ' caller has changed Word and that snapshot describes how things were before. This path is rare
 ' enough to pay for a second read.
 '
+' cameFrom is "" when the first check of a session could not tell which table Word held. Then
+' there is no file to go back to, Word keeps the new table, and False sends the next switch
+' back to Sh_AC_Identify rather than trusting a record that did not take.
+'
+' Version: 1.1  Date: 9/29/2026 - a Function now, True when the record took (issue #21)
 ' Version: 1.0  Date: 9/19/2026
 '
     Dim nowPlain As Object
@@ -29009,17 +29163,20 @@ Private Sub Sh_AC_Remember(ByVal cfgType As String, ByVal cameFrom As String)
     On Error GoTo Failed
 
     Sh_Setting_Write VT_STORE_AC, VT_AC_LOADED, cfgType
-    If Sh_Setting_Read(VT_STORE_AC, VT_AC_LOADED, "") = cfgType Then Exit Sub
+    If Sh_Setting_Read(VT_STORE_AC, VT_AC_LOADED, "") = cfgType Then
+        Sh_AC_Remember = True
+        Exit Function
+    End If
 
-    If Not Sh_AC_Snapshot(nowPlain, nowRich) Then Exit Sub
+    If Not Sh_AC_Snapshot(nowPlain, nowRich) Then Exit Function
     If Sh_AC_Read(cameFrom, wentBack) Then Sh_AC_Apply wentBack, nowPlain, nowRich
-    Exit Sub
+    Exit Function
 
 Failed:
     On Error Resume Next
     Err.Clear
 
-End Sub  '*** end of Sh_AC_Remember ***
+End Function  '*** end of Sh_AC_Remember ***
 
 Sub Sh_AutoCorrect_Switch(ByVal cfgType As String)
 '
@@ -29030,6 +29187,13 @@ Sub Sh_AutoCorrect_Switch(ByVal cfgType As String)
 ' already the one up. The test is on what the store says is loaded and NOT on who the caller is -
 ' about a dozen places in this project run the configuration subs directly, the same reason
 ' Sh_Save_Transcriber_Settings gates on Sh_ConfiguredAs rather than on its caller.
+'
+' EXCEPT THE FIRST CALL OF A WORD SESSION, which never takes the store's word for it. The record
+' and Word's list disagree whenever Word last ended without a clean quit, and trusting the record
+' then wrote a book's list over the user's ordinary one for good (issue #21, 9/29/2026). So the
+' first call reads Word's list even when nothing seems to need doing, Sh_AC_Identify says which
+' table it really is, and what is in Word is written only into THAT table's file - or into none,
+' when it cannot be told. The section note above Sh_AC_Table_File has the measurement.
 '
 ' EVERY STEP CAN DECLINE, AND DECLINING MEANS WORD IS LEFT EXACTLY AS IT IS. If the list cannot be
 ' read whole, if what is standing in Word cannot be written down, or if the table asked for has no
@@ -29058,6 +29222,9 @@ Sub Sh_AutoCorrect_Switch(ByVal cfgType As String)
 '
 ' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
+' Version: 3.0  Date: 9/29/2026 - the first call of each session checks which table Word really
+'                                 holds instead of trusting the record, and writes Word's list
+'                                 into no file when it cannot be told (issue #21)
 ' Version: 2.0  Date: 9/19/2026 - one read of Word's list instead of two, and every step can
 '                                 decline without changing anything
 ' Version: 1.0  Date: 9/19/2026
@@ -29072,28 +29239,32 @@ Sub Sh_AutoCorrect_Switch(ByVal cfgType As String)
     If Len(cfgType) = 0 Then Exit Sub
 
     loadedNow = Sh_Setting_Read(VT_STORE_AC, VT_AC_LOADED, "")
-    If loadedNow = cfgType Then Exit Sub        ' this table is already up - nothing to pay
-
-    ' Nothing recorded, so this is the first switch on this machine and what is in Word is hers.
-    If Len(loadedNow) = 0 Then loadedNow = "DEF"
+    ' This table is already up, and this session has checked the record - nothing to pay.
+    If Sh_AC_Checked And loadedNow = cfgType Then Exit Sub
 
     ' The one read of Word's list. Rule 1: anything short of a complete one stops here.
     If Not Sh_AC_Snapshot(livePlain, liveRich) Then Exit Sub
 
-    ' Write down what is standing in Word BEFORE replacing it.
-    If Not Sh_AC_Write(loadedNow, livePlain) Then Exit Sub
+    ' The first call of a session asks what Word really holds. "" means it cannot be told.
+    If Not Sh_AC_Checked Then loadedNow = Sh_AC_Identify(loadedNow, livePlain)
 
-    ' Seed rather than empty: no file for the table being asked for means she has never had a
-    ' document of that kind, so it starts as a copy of what she already has - and Word already
-    ' holds exactly that, so there is nothing to apply.
+    ' Write down what is standing in Word BEFORE replacing it - into its own table's file only.
+    If Len(loadedNow) > 0 Then
+        If Not Sh_AC_Write(loadedNow, livePlain) Then Exit Sub
+    End If
+
+    ' Seed rather than empty: no file for the table being asked for means the user has never had
+    ' a document of that kind, so it starts as a copy of what is already there - and Word already
+    ' holds exactly that, so there is nothing to apply. Never seeded from a list nobody can name.
     If Not Sh_AC_Read(cfgType, wanted) Then
+        If Len(loadedNow) = 0 Then Exit Sub
         If Not Sh_AC_Write(cfgType, livePlain) Then Exit Sub
-        Sh_AC_Remember cfgType, loadedNow
+        Sh_AC_Checked = Sh_AC_Remember(cfgType, loadedNow)
         Exit Sub
     End If
 
     Sh_AC_Apply wanted, livePlain, liveRich
-    Sh_AC_Remember cfgType, loadedNow
+    Sh_AC_Checked = Sh_AC_Remember(cfgType, loadedNow)
     Exit Sub
 
 Failed:
