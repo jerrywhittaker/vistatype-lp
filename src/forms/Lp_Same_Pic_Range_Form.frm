@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_Same_Pic_Range_Form 
    Caption         =   "Resize Pictures in a Selected Range (375)"
-   ClientHeight    =   3810
+   ClientHeight    =   4215
    ClientLeft      =   120
    ClientTop       =   465
    ClientWidth     =   6165
@@ -17,6 +17,10 @@ Attribute VB_Exposed = False
 
 ' Lp_Same_Pic_Range_Form
 '
+' Version: 1.2  Date: 9/29/2026 - a second tick box, JoinPrevParaButton, "Attach the picture to
+'                               the paragraph which precedes it." (Alt+P), and the first one
+'                               reworded to "Attach ... follows it." (Alt+F, was Alt+M). Jerry,
+'                               9/29/2026. Both may be ticked together.
 ' Version: 1.1  Date: 9/23/2026 - the F6 line is always shown: the key is shared, and the newest
 '                               box has it (Sh_Box_Opened).
 ' Version: 1.0  Date: 9/22/2026
@@ -27,7 +31,7 @@ Attribute VB_Exposed = False
 ' held by the macro and the selection is left free for the picture she is working on.
 '
 ' Every button does one thing: call the macro that does the work. Nothing here touches the book,
-' and nothing here holds state - the option buttons and the tick box hold their own between
+' and nothing here holds state - the option buttons and the tick boxes hold their own between
 ' presses, which is what makes the choices carry over.
 '
 ' KeyDown on every button, because while this box has the keyboard Word never sees the key at all.
@@ -77,6 +81,13 @@ Private Sub JoinNextParaButton_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, B
     End If
 End Sub
 
+Private Sub JoinPrevParaButton_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    If KeyCode = vbKeyF6 Then
+        KeyCode = 0
+        Lp_Rst_KeyToDocument
+    End If
+End Sub
+
 Private Sub LeftAlignButton_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
     If KeyCode = vbKeyF6 Then
         KeyCode = 0
@@ -111,9 +122,14 @@ Private Sub UserForm_Initialize()
     ' choice can be read in the source.
     LeaveAsIsButton.Accelerator = "v"
 
-    ' Jerry's wording, 9/22/2026. Set here so it reads in the source rather than only in the .frx.
-    JoinNextParaButton.Caption = "Move the picture to the paragraph which follows it."
-    JoinNextParaButton.Accelerator = "M"
+    ' Jerry's wording, 9/29/2026 (it was "Move the picture ...", Alt+M, from 9/22/2026). Set here
+    ' so it reads in the source rather than only in the .frx. F for Follows and P for Precedes:
+    ' no other control on the box uses either, and neither is O or C. Alt+P underlines the p of
+    ' "picture", the first p in the caption - Word marks the first one it finds.
+    JoinNextParaButton.Caption = "Attach the picture to the paragraph which follows it."
+    JoinNextParaButton.Accelerator = "F"
+    JoinPrevParaButton.Caption = "Attach the picture to the paragraph which precedes it."
+    JoinPrevParaButton.Accelerator = "P"
 
     ' Nothing to copy from until a size has been used, so the button starts dead and
     ' Lp_Rst_Offer_Last_Size brings it to life after the first Apply.

@@ -1,6 +1,7 @@
 Attribute VB_Name = "TestSamePicture"
 '@uses Lp_Rst_In_Range
 '@uses Lp_Same_Pic_Mark_May_Go
+'@uses Lp_Same_Pic_Prev_Mark_May_Go
 '@uses Lp_Same_Pic_Alt_Matches
 '@uses Lp_Same_Pic_Ratio_Close
 '@uses Lp_Same_Pic_Size_Differs
@@ -17,6 +18,12 @@ Attribute VB_Name = "TestSamePicture"
 ' not let automation build the layout - a mark in front of a table nested in the picture's own
 ' cell.
 '
+' The mark IN FRONT of a picture (Lp_Same_Pic_Prev_Mark_May_Go, "Attach the picture to the
+' paragraph which precedes it.", Jerry 9/29/2026) is tested the same way. "Follows only",
+' "precedes only" and "both" are the two decisions asked of one picture: each is answered on its
+' own facts, so ticking both boxes takes both marks and ticking one takes only its own.
+'
+' Version: 1.1  Date: 9/29/2026 - the mark in front of the picture
 ' Version: 1.0  Date: 9/22/2026
 '
 Option Explicit
@@ -79,6 +86,63 @@ Public Function TestSamePicture_Suite() As TestSuite
         .NotOk Lp_Same_Pic_Mark_May_Go(vbCr, 50, 900, False, True, False)
         ' and a table NESTED in the picture's own cell: both read as in a table
         .NotOk Lp_Same_Pic_Mark_May_Go(vbCr, 50, 900, True, True, False)
+    End With
+
+    ' --- may the paragraph mark IN FRONT of this picture become a space?
+    ' The shape "Text<CR>[pic]<CR>More": the picture starts at 50, the mark after it ends at 52.
+    With Suite.Test("follows only: the mark after goes, the one in front is not asked")
+        .IsOk Lp_Same_Pic_Mark_May_Go(vbCr, 52, 900, False, False, False)
+    End With
+
+    With Suite.Test("precedes only: a plain paragraph mark in front of a picture may go")
+        .IsOk Lp_Same_Pic_Prev_Mark_May_Go(vbCr, 50, False, False, False)
+        ' inside a table cell, with more of the same cell above it
+        .IsOk Lp_Same_Pic_Prev_Mark_May_Go(vbCr, 50, True, True, True)
+    End With
+
+    With Suite.Test("both: each mark is decided on its own, and both may go")
+        .IsOk Lp_Same_Pic_Mark_May_Go(vbCr, 52, 900, False, False, False)
+        .IsOk Lp_Same_Pic_Prev_Mark_May_Go(vbCr, 50, False, False, False)
+    End With
+
+    With Suite.Test("both, where only one side has a mark: that side alone goes")
+        ' "Text [pic]<CR>More" - a space in front, a mark after
+        .NotOk Lp_Same_Pic_Prev_Mark_May_Go(" ", 50, False, False, False)
+        .IsOk Lp_Same_Pic_Mark_May_Go(vbCr, 52, 900, False, False, False)
+        ' "Text<CR>[pic] more" - a mark in front, a space after
+        .IsOk Lp_Same_Pic_Prev_Mark_May_Go(vbCr, 50, False, False, False)
+        .NotOk Lp_Same_Pic_Mark_May_Go(" ", 52, 900, False, False, False)
+    End With
+
+    With Suite.Test("a picture at the start of the document has nothing in front to take")
+        .NotOk Lp_Same_Pic_Prev_Mark_May_Go("", 0, False, False, False)
+        ' even if a caller hands over a mark by mistake, the position settles it
+        .NotOk Lp_Same_Pic_Prev_Mark_May_Go(vbCr, 0, False, False, False)
+        .NotOk Lp_Same_Pic_Prev_Mark_May_Go(vbCr, -1, False, False, False)
+    End With
+
+    With Suite.Test("anything in front that is not a lone paragraph mark is left alone")
+        ' a space already there (the mark after is not taken then either - the two sides match)
+        .NotOk Lp_Same_Pic_Prev_Mark_May_Go(" ", 50, False, False, False)
+        ' the picture already sits inside a paragraph
+        .NotOk Lp_Same_Pic_Prev_Mark_May_Go("t", 50, False, False, False)
+        ' a page or section break is Chr(12)
+        .NotOk Lp_Same_Pic_Prev_Mark_May_Go(Chr$(12), 50, False, False, False)
+        ' the end of the cell in front, or of the row of a table just above: two characters
+        .NotOk Lp_Same_Pic_Prev_Mark_May_Go(vbCr & Chr$(7), 50, True, True, False)
+        .NotOk Lp_Same_Pic_Prev_Mark_May_Go(vbCr & Chr$(7), 50, False, True, False)
+    End With
+
+    With Suite.Test("the mark in front of a table is left alone")
+        ' the picture is at the top of the table's first cell; the paragraph above is outside it
+        .NotOk Lp_Same_Pic_Prev_Mark_May_Go(vbCr, 50, True, False, False)
+        ' and the other way round, which Word should never hand over, is refused as well
+        .NotOk Lp_Same_Pic_Prev_Mark_May_Go(vbCr, 50, False, True, False)
+    End With
+
+    With Suite.Test("a mark in another cell is left alone")
+        ' a nested table in the picture's own cell, or the outer cell when the picture is nested
+        .NotOk Lp_Same_Pic_Prev_Mark_May_Go(vbCr, 50, True, True, False)
     End With
 
     ' --- is this the same picture?

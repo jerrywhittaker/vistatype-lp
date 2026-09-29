@@ -18,6 +18,15 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 9/29/2026 - RESIZE PICTURES IN A SELECTED RANGE (375) CAN ATTACH A PICTURE TO THE
+'           - Lp  - 9/29/2026 - PARAGRAPH ABOVE IT. Jerry: a new tick box, "Attach the picture to the
+'           - Lp  - 9/29/2026 - paragraph which precedes it." (Alt+P), replaces the paragraph mark in
+'           - Lp  - 9/29/2026 - front of each picture with a space (Lp_Same_Pic_Join_Prev_Para), for
+'           - Lp  - 9/29/2026 - pictures that sat inside a paragraph in the original text. The old box
+'           - Lp  - 9/29/2026 - now reads "Attach the picture to the paragraph which follows it."
+'           - Lp  - 9/29/2026 - (Alt+F, was Alt+M); what it does is unchanged. Both may be ticked.
+'           - Lp  - 9/29/2026 - Left alone in front: the start of the story, a cell or row end, a
+'           - Lp  - 9/29/2026 - break, and the mark in front of a table or in another cell.
 ' Notes:    - Sh  - 9/29/2026 - THE ORDINARY AUTOCORRECT LIST IS NO LONGER LOST WHEN WORD ENDS WITHOUT A
 '           - Sh  - 9/29/2026 - PROPER QUIT (issue #21). Word stores its list only on a clean quit, so the
 '           - Sh  - 9/29/2026 - record of which list is up could be wrong next session, and a book's list
@@ -2656,7 +2665,7 @@ Public Sh_Pos_Saved As Boolean     ' guards against a return with no matching sa
 ' all four as it starts, so a caller reads them straight afterward.
 Public Lp_Same_Pic_Resized As Long     ' copies given the model's size
 Public Lp_Same_Pic_Already As Long     ' copies that were already that size
-Public Lp_Same_Pic_Joined As Long      ' pictures whose following paragraph mark became a space
+Public Lp_Same_Pic_Joined As Long      ' paragraph marks beside pictures that became a space
 Public Lp_Same_Pic_Aligned As Long     ' pictures whose paragraph was left aligned or centered
 
 ' RESIZE PICTURES USED THROUGHOUT A SELECTED RANGE - the state one run holds while its box is up.
@@ -22306,28 +22315,38 @@ Private Function Lp_Same_Pic_Find(ByVal pics As InlineShapes, ByVal ref As Inlin
     Next s
 End Function  '***** end of Lp_Same_Pic_Find *****
 
-' GIVES every picture in matches the model's size, replaces the paragraph mark after it with a
-' space, and sets its paragraph's alignment - whichever of those the caller asked for.
+' GIVES every picture in matches the model's size, replaces the paragraph mark after it and/or
+' before it with a space, and sets its paragraph's alignment - whichever of those the caller
+' asked for.
 '
 ' THE CALLER OPENS THE UNDO RECORD, and this runs inside it. Nothing in here runs a Find or reads
 ' WordOpenXML, which is what keeps a run to one Ctrl+Z.
 '
-' THE ORDER IS THE POINT: size, then the mark, then the alignment. A paragraph's formatting lives
+' THE ORDER IS THE POINT: size, then the marks, then the alignment. A paragraph's formatting lives
 ' in its paragraph mark, so replacing the picture's mark puts the picture into the FOLLOWING
 ' paragraph - it takes that paragraph's style and alignment. Aligning first would throw the
 ' alignment away; aligning last sets the paragraph the picture actually ended up in.
 '
+' THE MARK AFTER GOES BEFORE THE MARK IN FRONT, when both are wanted. Each is one character
+' replaced by one character, so neither moves the picture, but the picture's own range is read
+' afresh for each and the mark after is taken while nothing in front of it has changed.
+'
 ' alignMode: 0 leave the position alone, 1 left, 2 center. joinNext: replace the mark after each
-' picture. includeRef: do the same to the model picture. resizeRef: give the model picture the size
-' too, which is right only when the size came from somewhere other than the model itself.
+' picture. joinPrev: replace the mark in front of each picture - Jerry, 9/29/2026, for a picture
+' that sat inside a paragraph in the original text. Both may be True. includeRef: do the same to
+' the model picture. resizeRef: give the model picture the size too, which is right only when the
+' size came from somewhere other than the model itself.
 '
 ' The four counts come back in the module variables Lp_Same_Pic_Resized, _Already, _Joined and
-' _Aligned, cleared here on the way in.
+' _Aligned, cleared here on the way in. _Joined counts MARKS, so a picture joined on both sides
+' counts two.
 '
+' Version: 1.1  Date: 9/29/2026 - joinPrev, the mark in front of the picture (Lp_Same_Pic_Join_Prev_Para)
 ' Version: 1.0  Date: 9/22/2026
 Private Sub Lp_Same_Pic_Apply(ByVal matches As Collection, ByVal ref As InlineShape, _
                               ByVal refW As Single, ByVal refH As Single, _
                               ByVal alignMode As Long, ByVal joinNext As Boolean, _
+                              ByVal joinPrev As Boolean, _
                               ByVal includeRef As Boolean, ByVal resizeRef As Boolean)
     Dim s As InlineShape
     Dim i As Long
@@ -22359,6 +22378,9 @@ Private Sub Lp_Same_Pic_Apply(ByVal matches As Collection, ByVal ref As InlineSh
         If joinNext Then
             If Lp_Same_Pic_Join_Next_Para(ref) Then Lp_Same_Pic_Joined = Lp_Same_Pic_Joined + 1
         End If
+        If joinPrev Then
+            If Lp_Same_Pic_Join_Prev_Para(ref) Then Lp_Same_Pic_Joined = Lp_Same_Pic_Joined + 1
+        End If
         If alignWanted >= 0 Then
             ref.Range.ParagraphFormat.Alignment = alignWanted
             Lp_Same_Pic_Aligned = Lp_Same_Pic_Aligned + 1
@@ -22385,6 +22407,9 @@ Private Sub Lp_Same_Pic_Apply(ByVal matches As Collection, ByVal ref As InlineSh
 
         If joinNext Then
             If Lp_Same_Pic_Join_Next_Para(s) Then Lp_Same_Pic_Joined = Lp_Same_Pic_Joined + 1
+        End If
+        If joinPrev Then
+            If Lp_Same_Pic_Join_Prev_Para(s) Then Lp_Same_Pic_Joined = Lp_Same_Pic_Joined + 1
         End If
 
         If alignWanted >= 0 Then
@@ -22476,6 +22501,46 @@ Private Function Lp_Same_Pic_Mark_May_Go(ByVal afterText As String, ByVal afterE
     End If
     Lp_Same_Pic_Mark_May_Go = True
 End Function  '***** end of Lp_Same_Pic_Mark_May_Go *****
+
+' True when the paragraph mark straight IN FRONT of a picture may be replaced with a space - the
+' twin of Lp_Same_Pic_Mark_May_Go, for "Attach the picture to the paragraph which precedes it."
+' (Jerry, 9/29/2026). The facts come in as numbers and flags for the same reason: so this can be
+' tested headlessly.
+'
+'   beforeText   the one character in front of the picture, as Word hands it back ("" when there
+'                is none)
+'   picStart     where the picture starts in its story
+'   picInTable   the picture is inside a table
+'   prevInTable  the paragraph that mark ends is inside a table
+'   sameCell     both are in the SAME cell
+'
+' Left alone:
+'   - a picture at the very start of its story: there is nothing in front of it;
+'   - anything but a lone paragraph mark - a space, text, a section or page break (Chr(12)), and
+'     the end of a table cell or row, which reads back as Chr(13) & Chr(7), two characters. That
+'     covers a picture at the top of any cell but the first, and one straight after a table;
+'   - the mark in front of a table, when the picture is at the top of its first cell: taking it
+'     would pull the paragraph above into the table. The picture reads as in a table and that
+'     paragraph does not, so the two have to agree;
+'   - a mark in a table NESTED in the picture's own cell, or in the outer cell when the picture is
+'     in a nested one: both read as in a table, so the cells have to be compared as well.
+'
+' Version: 1.0  Date: 9/29/2026
+Private Function Lp_Same_Pic_Prev_Mark_May_Go(ByVal beforeText As String, ByVal picStart As Long, _
+                                              ByVal picInTable As Boolean, _
+                                              ByVal prevInTable As Boolean, _
+                                              ByVal sameCell As Boolean) As Boolean
+    ' The start of the story: nothing in front of the picture.
+    If picStart <= 0 Then Exit Function
+    ' A lone paragraph mark and nothing else. The end of a cell or row reads back as two
+    ' characters, Chr(13) & Chr(7), so it fails this test and is left alone.
+    If beforeText <> vbCr Then Exit Function
+    ' In or out of a table, the picture and the paragraph in front of it must be on the same side
+    ' of it, and inside one, in the same cell.
+    If picInTable <> prevInTable Then Exit Function
+    If picInTable And Not sameCell Then Exit Function
+    Lp_Same_Pic_Prev_Mark_May_Go = True
+End Function  '***** end of Lp_Same_Pic_Prev_Mark_May_Go *****
 
 ' ============================================================================================
 ' RESIZE PICTURES USED THROUGHOUT A SELECTED RANGE - the loop, Jerry, 9/22/2026
@@ -22597,6 +22662,7 @@ Public Sub Lp_Rst_Apply_Last_Size()
     Lp_Rst_Run True
 End Sub  '***** end of Lp_Rst_Apply_Last_Size *****
 
+' Version: 1.1  Date: 9/29/2026 - reads the new "precedes" box and passes it to Lp_Same_Pic_Apply
 ' Version: 1.0  Date: 9/22/2026
 Private Sub Lp_Rst_Run(ByVal useLastSize As Boolean)
     Dim ref As InlineShape
@@ -22605,7 +22671,7 @@ Private Sub Lp_Rst_Run(ByVal useLastSize As Boolean)
     Dim refW As Single, refH As Single
     Dim refStart As Long, refStory As Long
     Dim alignMode As Long
-    Dim joinNext As Boolean
+    Dim joinNext As Boolean, joinPrev As Boolean
     Dim matches As Collection
     Dim reader As Document
     Dim objUndo As UndoRecord
@@ -22638,6 +22704,7 @@ Private Sub Lp_Rst_Run(ByVal useLastSize As Boolean)
 
     alignMode = Lp_Rst_Align_Mode()
     joinNext = Lp_Rst_Join_Wanted()
+    joinPrev = Lp_Rst_Join_Prev_Wanted()
 
     ' ONE picture, clicked so its handles show.
     If Selection.Type = wdSelectionInlineShape Then
@@ -22739,7 +22806,7 @@ Private Sub Lp_Rst_Run(ByVal useLastSize As Boolean)
     objUndo.StartCustomRecord "Resize Pictures in Range"
     recording = True
 
-    Lp_Same_Pic_Apply matches, ref, refW, refH, alignMode, joinNext, True, useLastSize
+    Lp_Same_Pic_Apply matches, ref, refW, refH, alignMode, joinNext, joinPrev, True, useLastSize
 
     objUndo.EndCustomRecord
     recording = False
@@ -22770,7 +22837,7 @@ Private Sub Lp_Rst_Run(ByVal useLastSize As Boolean)
     If Lp_Same_Pic_Already > 0 Then
         msg = msg & ", " & Format(Lp_Same_Pic_Already, "#,##0") & " already that size"
     End If
-    If joinNext Then
+    If joinNext Or joinPrev Then
         msg = msg & ", " & Format(Lp_Same_Pic_Joined, "#,##0") _
             & IIf(Lp_Same_Pic_Joined = 1, " paragraph mark replaced", " paragraph marks replaced")
     End If
@@ -23071,6 +23138,16 @@ Private Function Lp_Rst_Join_Wanted() As Boolean
     On Error GoTo 0
 End Function  '***** end of Lp_Rst_Join_Wanted *****
 
+' The "Attach the picture to the paragraph which precedes it." box. Jerry, 9/29/2026.
+'
+' Version: 1.0  Date: 9/29/2026
+Private Function Lp_Rst_Join_Prev_Wanted() As Boolean
+    On Error Resume Next
+    Lp_Rst_Join_Prev_Wanted = (Lp_Same_Pic_Range_Form.JoinPrevParaButton.Value = True)
+    Err.Clear
+    On Error GoTo 0
+End Function  '***** end of Lp_Rst_Join_Prev_Wanted *****
+
 ' Writes the line at the top of the box. Guarded by the flag: touching any member of a UserForm
 ' creates it and runs its Initialize on that very line, so this must never be reached when the
 ' box is down.
@@ -23194,6 +23271,54 @@ Private Function Lp_Same_Pic_Join_Next_Para(ByVal s As InlineShape) As Boolean
     after.Text = " "
     Lp_Same_Pic_Join_Next_Para = True
 End Function  '***** end of Lp_Same_Pic_Join_Next_Para *****
+
+' Replaces the paragraph mark straight IN FRONT of an in-line picture with a space, so the picture
+' runs on at the end of the paragraph above it. True when it did. Jerry, 9/29/2026: "This will
+' accommodate pictures that occur inside a para in the original text."
+'
+' The twin of Lp_Same_Pic_Join_Next_Para, and it behaves the same way: only a lone paragraph
+' mark is taken, and nothing else in front of the picture is touched - a space already there
+' stays, as it does after the picture. What is left alone, and why, is written above
+' Lp_Same_Pic_Prev_Mark_May_Go, which makes the decision; this only gathers the facts.
+'
+' The two paragraphs become one, and it is the picture's own paragraph mark that survives, so
+' the joined paragraph carries the picture paragraph's formatting.
+' Measured on the build box, 9/29/2026: a Heading 1 line in front of a centered picture came
+' out as one centered Normal paragraph. With both boxes ticked it is the FOLLOWING paragraph's
+' mark that survives, and the whole line takes that paragraph's formatting instead.
+'
+' Version: 1.0  Date: 9/29/2026
+Private Function Lp_Same_Pic_Join_Prev_Para(ByVal s As InlineShape) As Boolean
+    Dim before As Range
+    Dim prevPara As Range
+    Dim picStart As Long
+    Dim beforeText As String
+    Dim picInTable As Boolean, prevInTable As Boolean, sameCell As Boolean
+
+    picStart = s.Range.Start
+
+    ' At the start of the story there is no character in front to read, and a range reaching
+    ' back past it cannot be made - so nothing is gathered, and the decision says no.
+    If picStart > 0 Then
+        Set before = s.Range.Duplicate
+        before.SetRange picStart - 1, picStart
+        beforeText = before.Text
+
+        Set prevPara = before.Duplicate
+        prevPara.Collapse wdCollapseStart
+        picInTable = s.Range.Information(wdWithInTable)
+        prevInTable = prevPara.Information(wdWithInTable)
+        If picInTable And prevInTable Then
+            sameCell = (prevPara.Cells(1).Range.Start = s.Range.Cells(1).Range.Start)
+        End If
+    End If
+
+    If Not Lp_Same_Pic_Prev_Mark_May_Go(beforeText, picStart, _
+                                        picInTable, prevInTable, sameCell) Then Exit Function
+
+    before.Text = " "
+    Lp_Same_Pic_Join_Prev_Para = True
+End Function  '***** end of Lp_Same_Pic_Join_Prev_Para *****
 
 ' True when this picture is the same picture as ref: the same description, and near enough the same
 ' shape - or, for a picture with no description, the same image data.

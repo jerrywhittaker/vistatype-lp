@@ -17,7 +17,7 @@ BOXES = {
     "Lp_TOC_Format_And_Color_Form": ["FormatTheTOCButton", "AddColorBarsButton",
                                      "RemoveColorBarsButton", "OkayButton", "CancelButton"],
     "Lp_Same_Pic_Range_Form": ["LastSizeButton", "ApplyButton", "DoneButton",
-                               "JoinNextParaButton", "LeftAlignButton", "CenterButton",
+                               "JoinNextParaButton", "JoinPrevParaButton", "LeftAlignButton", "CenterButton",
                                "LeaveAsIsButton"],
     "Lp_Type_Fill_In_Line_Form": [f"CommandButton{n}" for n in range(1, 22)]
                                  + ["FillToRightMargin", "CancelButton", "TextBox1", "SpinButton1"],
