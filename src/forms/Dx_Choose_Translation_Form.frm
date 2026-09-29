@@ -14,6 +14,10 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 'Dx_Choose_Translation_Form
+' Version: 1.5 Date: 9/29/2026 - Cancel stops the whole braille attach (Jerry). The attach now shows
+'                               this box before it changes anything, so UserForm_Initialize no
+'                               longer runs MS_Set_Word_Config_For_Braille - on Cancel it would have
+'                               left Word set up for braille on a book that is not braille
 ' Version: 1.4 Date: 9/29/2026 - two faults Jerry reported on 3.0.519. (1) The title was cut off
 '                               before its number: the form is 279 points wide inside (ClientWidth
 '                               5580), not 267.75, and the controls sit 4 points right of their
@@ -38,7 +42,9 @@ Attribute VB_Exposed = False
 ' Version: 1.1 Date: 3/9/2024 - removed "End" from Sub Cmd_Cancel_Click
 '
 Private Sub Cmd_Cancel_Click()
-    ' Records nothing. The book is left without a translation, and the next braille macro asks.
+    ' Records nothing, so Dx_Translation_Answered stays down and whatever showed this box stops:
+    ' the braille attach leaves the book as it was, and a braille macro goes no further (Jerry,
+    ' 9/29/2026: Cancel "should stop the entire attachment process").
     Unload Me 'close this form
 End Sub
 
@@ -102,8 +108,12 @@ End Sub
 
 Private Sub UserForm_Initialize()
 
-    Application.Run MacroName:="MS_Set_Word_Config_For_Braille"
-    
+    ' No MS_Set_Word_Config_For_Braille here any more (9/29/2026). The braille attach now shows this
+    ' box BEFORE it attaches anything, and that sub writes to the book and saves the transcriber's
+    ' own settings - so Cancel would have left a book that is not braille with Word set up for
+    ' braille. The attach configures Word itself once the answer is in; on the other route,
+    ' Dx_Is_BANA_Template_Attached now does it after an answer (for a book whose template was put
+    ' on while it was on screen, which nothing else notices until the window changes).
     ' From: https://www.thespreadsheetguru.com/the-code-vault/launch-vba-userforms-in-correct-window-with-dual-monitors
     ' Start Userform Centered inside Word Screen (for dual monitors)
     Me.StartUpPosition = 0

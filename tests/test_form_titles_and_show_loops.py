@@ -11,6 +11,13 @@ that keep either from coming back on any form.
    `Do While Dx_UEB_EBAE_String = ""`, which only the four table buttons could end. Cancel
    (added in 3.0.472) and the title bar's X never set it, so the box came straight back.
 
+3. CANCEL NOW STOPS THE WHOLE ATTACH (Jerry's decision, 9/29/2026). The attach asks the
+   translation before anything changes the book, leaves at once on Cancel, and
+   Dx_Is_BANA_Template_Attached returns False so every braille macro that calls it stops too.
+   Jerry, later the same day: "there should be a message after the cancel". The attach says
+   "The BANA braille template has not been attached." (Braille Macros (393)) as it leaves --
+   once, whichever button started it; the braille macro that started it adds nothing.
+
 See docs/Reported-Errors.md, 9/29/2026.
 
 HOW THE TITLE IS MEASURED. Windows 10 and 11 draw a title bar in Segoe UI 9 point. The glyph
@@ -203,12 +210,158 @@ def test_the_attach_asks_the_translation_once():
     assert len(shows) == 1
 
 
-def test_no_second_ask_straight_after_the_attach():
-    """Dx_Is_BANA_Template_Attached runs the attach, which asks; after a Cancel there it must
-    not put the same box up again at once -- that reads as the loop all over again."""
-    text = (ROOT / "src" / "vba" / "LPandBrlMacros.bas").read_bytes().decode("latin-1")
-    body = text.split("\nSub Dx_Is_BANA_Template_Attached()", 1)[1].split(
-        "end of Dx_Is_BANA_Template_Attached macro", 1)[0]
-    assert re.search(r"Dx_Attach_BANA_Template_Run False[^\n]*\r?\n\s*justAttached = True", body)
-    assert re.search(r"If Not justAttached Then\s*\r?\n\s*If Dx_Ensure_BrailleType\(\) = \"\" "
-                     r"Then Dx_Choose_Translation_Form\.Show", body)
+# ---- 3. Cancel on 331 stops the whole attach (Jerry, 9/29/2026) -------------------------------
+#
+# His rule: Cancel "should stop the entire attachment process" -- the book left as it was before
+# Attach was pressed, and a braille macro that started the attach stopped as well. The attach
+# says so, once, with message 393; the braille macro adds no second message. The
+# box cannot be shown headlessly, so these check the SHAPE that makes it true: the question comes
+# before anything touches the book, Cancel leaves straight away, and the check every braille
+# macro runs reports "not attached" so each of them stops.
+
+MACROS = ROOT / "src" / "vba" / "LPandBrlMacros.bas"
+
+
+def _code_lines(body):
+    """The body's lines with comments and blank lines dropped (a trailing ' comment is cut)."""
+    out = []
+    for line in body.replace("\r", "").split("\n"):
+        code = line.strip()
+        if not code or code.startswith("'"):
+            continue
+        out.append(code.split(" '")[0].strip())
+    return out
+
+
+def _body(start, end):
+    text = MACROS.read_bytes().decode("latin-1")
+    return text.split(start, 1)[1].split(end, 1)[0]
+
+
+def _attach():
+    return _code_lines(_body("Public Sub Dx_Attach_BANA_Template_Run(",
+                             "end of Dx_Attach_BANA_Template_Run macro"))
+
+
+def _first(lines, needle):
+    hits = [n for n, l in enumerate(lines) if needle in l]
+    assert hits, f"{needle!r} is not in the attach any more"
+    return hits[0]
+
+
+# Each of these changes the book (or Word's configuration for it). All must come after the
+# translation question, or a Cancel there would leave something half done.
+CHANGES_THE_BOOK = (
+    'Application.Run MacroName:="Dx_Fix_Foreign_Languages"',
+    ".AttachedTemplate = TemplatePathandName",
+    'Application.Run MacroName:="MS_Set_Word_Config_For_Braille"',
+    "ActiveDocument.UndoClear",
+    "Sh_Config_Skip_Display = True",
+    'Application.Run MacroName:="Dx_Add_Color_To_Foreign_Language_Words"',
+    "Dx_Fix_Common_File_Errors_Run True",
+)
+
+
+def test_the_attach_asks_the_translation_before_it_changes_the_book():
+    lines = _attach()
+    ask = _first(lines, "Dx_Choose_Translation_Form.Show")
+    assert _first(lines, "Dx_Choose_BANA_Template_Form.Show") < ask
+    late = [c for c in CHANGES_THE_BOOK if _first(lines, c) < ask]
+    assert not late, f"these run BEFORE the translation question, so Cancel would leave them done: {late}"
+
+
+CANCEL_MESSAGE = 'Sh_Say "The BANA braille template has not been attached.", "Braille Macros (393)"'
+
+
+def test_cancel_in_the_attach_says_so_then_leaves():
+    """The flag is lowered just before the box, and the very next thing is the test of it. On
+    Cancel the message is shown through Sh_Say (never a MsgBox), and then the sub leaves -- all of
+    it before anything in CHANGES_THE_BOOK, which the test above checks comes after the box."""
+    lines = _attach()
+    ask = _first(lines, "Dx_Choose_Translation_Form.Show")
+    assert lines[ask - 1] == "Dx_Translation_Answered = False"
+    assert lines[ask + 1:ask + 6] == ["If Not Dx_Translation_Answered Then",
+                                      CANCEL_MESSAGE,
+                                      "Application.ScreenUpdating = su_Prev",
+                                      "Exit Sub", "End If"]
+    first_change = min(_first(lines, c) for c in CHANGES_THE_BOOK)
+    assert ask + 5 < first_change
+
+
+def test_the_cancel_message_is_worded_and_numbered_once():
+    """Jerry's wording, with his typo put right ("has not be" -> "has not been"), and 393 used by
+    this one message only, across every module and form."""
+    assert "The BANA braille template has not been attached." in CANCEL_MESSAGE
+    hits = []
+    for src in SOURCES + FORM_FILES:   # the code and the form captions
+        for line in src.read_bytes().decode("latin-1").replace("\r", "").split("\n"):
+            code = line.strip()
+            if not code.startswith("'") and "(393)" in code:
+                hits.append((src.name, code))
+    assert hits == [("LPandBrlMacros.bas", CANCEL_MESSAGE)], hits
+
+
+def test_only_a_table_button_raises_the_answered_flag():
+    """Dx_Set_BrailleType raises it; every table button calls that; Cancel calls nothing."""
+    setter = _code_lines(_body("Public Sub Dx_Set_BrailleType(", "end of Dx_Set_BrailleType"))
+    guard = setter.index('If brlType = "" Then Exit Sub')
+    assert setter[guard + 1] == "Dx_Translation_Answered = True"   # after the guard, before any write
+    frm = (FORMS / "Dx_Choose_Translation_Form.frm").read_bytes().decode("latin-1")
+    subs = dict(re.findall(r"(?s)Private Sub (\w+)_Click\(\)(.*?)End Sub", frm))
+    assert set(subs) == {"Cmd_Cancel", "Cmd_BANA_EBAE_Button", "Cmd_BANA_EBAE_Nemeth_Button",
+                         "Cmd_BANA_UEB_Button", "Cmd_BANA_UEB_Nemeth_Button"}
+    for name, body in subs.items():
+        sets = "Dx_Set_BrailleType" in "\n".join(_code_lines(body))
+        assert sets == (name != "Cmd_Cancel"), name
+
+
+def test_the_box_does_not_configure_word_itself():
+    """Shown before the attach, a braille configuration here would outlive a Cancel."""
+    frm = (FORMS / "Dx_Choose_Translation_Form.frm").read_bytes().decode("latin-1")
+    init = frm.split("Private Sub UserForm_Initialize()", 1)[1].split("End Sub", 1)[0]
+    assert not any("MS_Set_Word_Config" in l for l in _code_lines(init))
+
+
+def test_the_check_reports_not_attached_on_cancel():
+    body = _body("\nPublic Function Dx_Is_BANA_Template_Attached() As Boolean",
+                 "end of Dx_Is_BANA_Template_Attached macro")
+    lines = _code_lines(body)
+    assert not any("justAttached" in l for l in lines)
+    attach = _first(lines, "Dx_Attach_BANA_Template_Run False")
+    # Straight after the attach: still no template means Cancel, and False goes back -- with no
+    # message of its own in between, because the attach has just shown 393. A second one here
+    # would put the same news on screen twice.
+    assert lines[attach + 1] == ('If InStr(ActiveDocument.AttachedTemplate, "BANA Braille") = 0 '
+                                 'Then Exit Function')
+    assert not any("(393)" in l for l in lines)
+    # Its own question, when the book has a template but no translation: Cancel is False too.
+    ask = _first(lines, "Dx_Choose_Translation_Form.Show")
+    assert lines[ask - 1] == 'If Dx_Ensure_BrailleType() = "" Then'
+    assert lines[ask + 1] == 'If Dx_Ensure_BrailleType() = "" Then Exit Function'
+    # ...and only after an answer is Word set up for braille (the box itself no longer does it).
+    assert lines[ask + 2] == 'Application.Run MacroName:="MS_Set_Word_Config_For_Braille"'
+    # True is set once, as the last statement: every early way out is False.
+    assert lines[-1] == "End Function"
+    trues = [n for n, l in enumerate(lines) if l == "Dx_Is_BANA_Template_Attached = True"]
+    assert trues == [len(lines) - 2]
+
+
+def test_every_braille_macro_stops_when_the_check_says_no():
+    calls = []
+    for src in SOURCES:
+        text = src.read_bytes().decode("latin-1")
+        for n, line in enumerate(text.split("\n"), 1):
+            code = line.strip()
+            if code.startswith("'"):
+                continue
+            code = code.split(" '")[0].strip()
+            if "Dx_Is_BANA_Template_Attached" not in code:
+                continue
+            if re.match(r"(?i)^(public\s+)?function\s+Dx_Is_BANA_Template_Attached\b", code) or \
+                    code.startswith("Dx_Is_BANA_Template_Attached = "):
+                continue
+            calls.append((src.name, n, code))
+    wrong = [c for c in calls if c[2] != "If Not Dx_Is_BANA_Template_Attached() Then Exit Sub"]
+    assert not wrong, ("a call that does not stop when the user cancels -- Application.Run "
+                       "cannot hear the answer:\n" + "\n".join(map(str, wrong)))
+    assert len(calls) == 13, f"expected the thirteen braille macros, found {len(calls)}: {calls}"

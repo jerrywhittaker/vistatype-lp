@@ -18,6 +18,16 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - BRL - 9/29/2026 - CANCEL ON THE TRANSLATION BOX (331) NOW STOPS THE WHOLE ATTACH (Jerry).
+'           - BRL - 9/29/2026 - Dx_Attach_BANA_Template_Run asks both questions - template, then
+'           - BRL - 9/29/2026 - translation - before anything changes the book, so Cancel leaves it
+'           - BRL - 9/29/2026 - as it was. Dx_Is_BANA_Template_Attached is a Function now and
+'           - BRL - 9/29/2026 - returns False on Cancel; its thirteen callers stop through
+'           - BRL - 9/29/2026 - If Not ... Then Exit Sub. The box no longer configures Word itself.
+'           - BRL - 9/29/2026 - This replaces the "attach finishes on Cancel" behavior noted below.
+'           - BRL - 9/29/2026 - A Cancel in the attach now says "The BANA braille template has not
+'           - BRL - 9/29/2026 - been attached." (Braille Macros (393)), once, whichever button
+'           - BRL - 9/29/2026 - started it. Jerry.
 ' Notes:    - BRL - 9/29/2026 - THE TRANSLATION BOX (331). Two faults Jerry reported on 3.0.519.
 '           - BRL - 9/29/2026 - (1) CANCEL LOOPED FOR EVER. Dx_Attach_BANA_Template_Run showed
 '           - BRL - 9/29/2026 - Dx_Choose_Translation_Form inside a Do While that only a table
@@ -2596,6 +2606,11 @@ Public Dx_UEB_EBAE_Boolean As Boolean
 ' that kept re-showing Dx_Choose_Translation_Form until a table button was pressed - which Cancel
 ' never does, so Cancel looped for ever. The loops went, and with them its last reader.
 
+' Raised by Dx_Set_BrailleType - which each of Dx_Choose_Translation_Form's four table buttons
+' calls - and lowered by Dx_Attach_BANA_Template_Run just before it shows that form, so the attach
+' can tell an answer from Cancel. Jerry, 9/29/2026: Cancel stops the whole attach.
+Public Dx_Translation_Answered As Boolean
+
 Public Lp_GP_String_1 As String
 Public Lp_GP_String_2 As String
 ' Set by Lp_Attach_Lp_Template on EVERY run, read by Lp_Attach_The_Template. It has its own
@@ -3651,6 +3666,15 @@ Public Sub Dx_Attach_BANA_Template_Run(ByVal autoClean As Boolean)
 '    Converts word foreign language tags to BANA template styles
 '    Turns show-all status on
 '
+'  Version: 4.7  Date: 9/29/2026 - Cancel on the translation box (331) now says so: "The BANA
+'                                 braille template has not been attached." (393) - Jerry. Said once,
+'                                 here, whichever button started the attach
+'  Version: 4.6  Date: 9/29/2026 - CANCEL ON THE TRANSLATION BOX (331) STOPS THE WHOLE ATTACH
+'                                 (Jerry). Both questions - which template, which translation - are
+'                                 now asked before anything changes the book: the foreign-language
+'                                 fix moved below them, and the translation is asked before the
+'                                 template is attached instead of after. Cancel leaves the book as it
+'                                 was, and a braille macro that started the attach stops too
 '  Version: 4.5  Date: 9/29/2026 - the translation question is asked ONCE. It was a Do While loop
 '                                 that re-showed Dx_Choose_Translation_Form until a table button was
 '                                 pressed, so Cancel (and the X) brought it straight back for ever
@@ -3755,10 +3779,6 @@ Public Sub Dx_Attach_BANA_Template_Run(ByVal autoClean As Boolean)
     Err.Clear
     On Error GoTo 0
 
-    'attching the BANA template will wipe out Word's language tags - change
-    '     the foreign language tags of Word to DBT style names before attaching the BANA Template
-    Application.Run MacroName:="Dx_Fix_Foreign_Languages"
-
     ' Begin Copy BANA Braille Template From Word Startup Folder to Templates Folder
     ' Copilot prompt: "Copy all "BANA Braille*.dot*" files from Word's Startup folder to the User Templates folder,
     '                  overwriting any existing files with the same name."
@@ -3781,12 +3801,24 @@ Public Sub Dx_Attach_BANA_Template_Run(ByVal autoClean As Boolean)
     Next
     ' End Copy BANA Braille Template From Word Startup Folder to Templates Folder
     
+    ' BOTH QUESTIONS COME FIRST, BEFORE ANYTHING TOUCHES THE BOOK. Jerry, 9/29/2026: Cancel on the
+    ' translation box (331) "should stop the entire attachment process". That is only clean if
+    ' nothing has been done yet, so the order is now: which template, which translation, and only
+    ' then the work - the foreign languages, the attach, the braille configuration, the cleanups.
+    ' The copy just above stays ahead of the template list because the list is read from the
+    ' Templates folder; it copies template files and leaves the book alone.
+    '
+    ' Until 9/29/2026 the foreign-language fix ran first, and the template was attached and Word
+    ' configured for braille before the translation was asked. Stopping at that point would have
+    ' left the book half prepared - and a second Attach would have found it "already braille" and
+    ' skipped the two cleanups for good. Nothing needs undoing now, because nothing has happened.
+
     ' Get BANA Template Choice from user
     Dx_BANA_Template_Name = ""
 
-    ' Repaint before the interactive form/dialogs below. ScreenUpdating has been off since the
-    ' top of the macro, so a form shown now would sit over an unpainted (black) workspace
-    ' instead of the normal gray. Turn it back off after the choice for the attach that follows.
+    ' Repaint before the two forms below. ScreenUpdating has been off since the top of the macro,
+    ' so a form shown now would sit over an unpainted (black) workspace instead of the normal gray.
+    ' It goes back off once both questions are answered, for the work that follows.
     Application.ScreenUpdating = True
     Application.ScreenRefresh
 
@@ -3803,7 +3835,41 @@ Public Sub Dx_Attach_BANA_Template_Run(ByVal autoClean As Boolean)
         End
     End If
 
+    ' Get the braille translation type (UEB or EBAE). ASKED ONCE. Until 9/29/2026 this was a
+    ' Do While loop that showed the form again until one of the four table buttons was pressed -
+    ' "forces a choice". The Cancel button added in 3.0.472 can never satisfy that, so Cancel
+    ' brought the same box straight back, for ever (Jerry, on 3.0.519: "the cancel button
+    ' results in an endless loop"). The X did the same before there was a Cancel.
+    '
+    ' CANCEL STOPS THE WHOLE ATTACH. Jerry, 9/29/2026: Cancel "should stop the entire attachment
+    ' process". Nothing has been done to the book yet - see the note above the template list - so
+    ' leaving here leaves it exactly as it was, and the next Attach starts cleanly.
+    '
+    ' Dx_Translation_Answered is raised by Dx_Set_BrailleType, which is what each of the four table
+    ' buttons calls. Cancel, Esc and the X record nothing, so it stays down. It is lowered first,
+    ' and the document variable is not tested instead, because a book being attached again may
+    ' already carry a translation - the variable alone cannot tell a Cancel from an answer.
+    '
+    ' THE MESSAGE IS SAID HERE, AND ONLY HERE. Jerry, 9/29/2026: "there should be a message after
+    ' the cancel". This is the one place both routes pass through - the Attach BANA Template button,
+    ' and a braille button on a book with no template - so it shows exactly once per Cancel. When a
+    ' braille macro started this attach through Dx_Is_BANA_Template_Attached, that function sees
+    ' the template still missing and returns False, and the macro stops as well, saying nothing
+    ' more: this message has already told the user.
+    Dx_Translation_Answered = False
+    Dx_Choose_Translation_Form.Show
+    If Not Dx_Translation_Answered Then
+        Sh_Say "The BANA braille template has not been attached.", "Braille Macros (393)"
+        Application.ScreenUpdating = su_Prev
+        Exit Sub
+    End If
+
     Application.ScreenUpdating = False
+
+    'attching the BANA template will wipe out Word's language tags - change
+    '     the foreign language tags of Word to DBT style names before attaching the BANA Template
+    ' (Below the two questions since 9/29/2026, so a Cancel in either leaves the book untouched.)
+    Application.Run MacroName:="Dx_Fix_Foreign_Languages"
 
     ' attach BANA template
     Dim TemplatePathandName As String
@@ -3826,33 +3892,14 @@ Public Sub Dx_Attach_BANA_Template_Run(ByVal autoClean As Boolean)
     ' place the braille display is decided.
     '
     ' The flag is a Public Boolean and this is the one sub that leaves it raised across other
-    ' calls, so every way out of here has to lower it. The End on the canceled-template path above
-    ' runs before it is raised, and End would clear it anyway.
+    ' calls, so every way out of here has to lower it. Both ways out above - the End on a canceled
+    ' template and the Exit Sub on a canceled translation - run before it is raised, and End would
+    ' clear it anyway.
     Sh_Config_Skip_Display = True
 
     Application.Run MacroName:="MS_Set_Word_Config_For_Braille"
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     ActiveDocument.UndoClear
-
-    ' Repaint again before the translation-type form (the attach/config/view change above ran
-    ' with ScreenUpdating off, so the workspace behind this form would otherwise be black).
-    Application.ScreenUpdating = True
-    Application.ScreenRefresh
-
-    ' Get the braille translation type (UEB or EBAE). ASKED ONCE. Until 9/29/2026 this was a
-    ' Do While loop that showed the form again until one of the four table buttons was pressed -
-    ' "forces a choice". The Cancel button added in 3.0.472 can never satisfy that, so Cancel
-    ' brought the same box straight back, for ever (Jerry, on 3.0.519: "the cancel button
-    ' results in an endless loop"). The X did the same before there was a Cancel.
-    '
-    ' Cancel now leaves the question UNANSWERED and the attach carries on to the end. It does not
-    ' stop here: the template is already on, and an attach stopped at this point would leave the
-    ' book half prepared - and a second press of Attach would then find it "already braille" and
-    ' skip the two cleanups for good. The translation is simply asked again, once, by the next
-    ' braille macro (Dx_Is_BANA_Template_Attached), and nothing is recorded until it is answered.
-    Dx_Choose_Translation_Form.Show
-
-    Application.ScreenUpdating = False
 
     'converts Word Lang Tags into DBT foreign language tags - BANA template must be attached for this to work
     Application.Run MacroName:="Dx_Add_Color_To_Foreign_Language_Words"
@@ -4562,6 +4609,7 @@ Sub Dx_Format_Tagged_Page_Numbers()
 ' Finds and replaces $pg paragraphs with Reference Page Number Style and removes the $pg
 ' and any spaces within the style.
 '
+' Version: 1.9  Date: 9/29/2026 - stops if the user cancels the braille translation box (331)
 ' Version: 1.8  Date: 9/26/2026 - a failure part-way no longer leaves the TempPgNoFormat bookmark in the
 '                                book: eom deletes it, then hands the error on to be reported as before
 ' Version: 1.7  Date: 3/4/2024 - added "MS_Set_Word_Config_For_Braille"
@@ -4576,7 +4624,7 @@ Sub Dx_Format_Tagged_Page_Numbers()
     Dim errText As String
 
     ' is the BANA Template Attached... if not terminate macro
-    Application.Run MacroName:="Dx_Is_BANA_Template_Attached"
+    If Not Dx_Is_BANA_Template_Attached() Then Exit Sub
 
     ' move cursor to delete any selection
     Selection.HomeKey Unit:=wdLine
@@ -4948,6 +4996,7 @@ Sub Dx_Embed_Ref_Pg_No()
 ' Convert_Reference_Page_Number_to_Embedded_Reference_Page_Number
 ' Place cursor in paragraph of reference page number before execution
 '
+' Version: 1.6  Date: 9/29/2026 - stops if the user cancels the braille translation box (331)
 ' Version 1.5: Date: 3/14/2024 - supressed instruction msg to when the style reqested style is the same as the current style
 '                                   and added message when non-reference page number selected
 ' Version 1.4: Date: 12/14/2018 - added error check for bad cursor location
@@ -4957,7 +5006,7 @@ Sub Dx_Embed_Ref_Pg_No()
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
     ' is the BANA Template Attached... if not terminate macro
-    Application.Run MacroName:="Dx_Is_BANA_Template_Attached"
+    If Not Dx_Is_BANA_Template_Attached() Then Exit Sub
 
     If Selection.Style = "RefPageNumberEmbed" Or Selection.Style = "RefPageNemethEmbed" Then
         End
@@ -5011,6 +5060,7 @@ Sub Dx_UnEmbed_Ref_Pg_No()
 ' Embedded_Reference_Page_NumberConvert_Reference_Page_Number_to_
 ' Double Click the embedded page number before execution
 '
+' Version: 2.2  Date: 9/29/2026 - stops if the user cancels the braille translation box (331)
 ' Version: 1.6 Date: 8/26/2026 - says WHICH problem it is: a page number that has not been formatted
 '                                yet is told to run Format $pg Tags, rather than to select it again
 ' Version: 2.1 Date: 8/26/2026 - says WHICH problem it is: a page number that has not been formatted
@@ -5025,7 +5075,7 @@ Sub Dx_UnEmbed_Ref_Pg_No()
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
     ' is the BANA Template Attached... if not terminate macro
-    Application.Run MacroName:="Dx_Is_BANA_Template_Attached"
+    If Not Dx_Is_BANA_Template_Attached() Then Exit Sub
     Dim su_Prev As Boolean
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
@@ -5219,6 +5269,8 @@ End Function   '*** end of Dx_Dbt_Table_From_BrailleType ***
 ' Nothing here is fatal. If either write fails the document is no worse off than before, and the
 ' caller is mid-way through attaching a template.
 '
+' Version: 1.2  Date: 9/29/2026 - raises Dx_Translation_Answered, so the braille attach can tell a
+'                                 table button from Cancel (Jerry: Cancel stops the whole attach)
 ' Version: 1.1  Date: 8/27/2026 - also writes SWIFT's DBTTemplate custom property, when the
 '                                 document does not already carry one (Jerry)
 ' Version: 1.0  Date: 8/26/2026
@@ -5228,6 +5280,7 @@ Public Sub Dx_Set_BrailleType(ByVal brlType As String)
     Dim existing As String
 
     If brlType = "" Then Exit Sub
+    Dx_Translation_Answered = True   ' the attach reads this to tell an answer from Cancel
 
     On Error Resume Next
     ActiveDocument.Variables("BrailleType").Delete
@@ -5430,8 +5483,19 @@ Public Function Dx_Ensure_BrailleType(Optional ByVal recordIt As Boolean = True)
     Dx_Ensure_BrailleType = derived
 End Function   '*** end of Dx_Ensure_BrailleType ***
 
-Sub Dx_Is_BANA_Template_Attached()
+Public Function Dx_Is_BANA_Template_Attached() As Boolean
 '
+' Version: 1.9  Date: 9/29/2026 - says nothing itself when the attach it started is canceled: the
+'                                attach now shows its own message (393), once
+' Version: 1.8  Date: 9/29/2026 - A FUNCTION NOW, returning False when the user presses Cancel, so
+'                                every braille macro that calls it stops (Jerry: Cancel "should
+'                                stop the entire attachment process"). It was a Sub run through
+'                                Application.Run, so no caller could hear a Cancel and End was the
+'                                only way to stop one (ruled out, issue #18). The justAttached flag
+'                                is gone: the attach now asks before it attaches, so the book
+'                                always knows its translation when the attach returns. After an
+'                                answer to its own question it now configures Word for braille,
+'                                which the box's UserForm_Initialize did until today
 ' Version: 1.7  Date: 9/29/2026 - when this sub has just run the attach, it does not put the
 '                                translation question a second time. The attach asks it itself; if
 '                                the user pressed Cancel there, asking again straight away looks
@@ -5452,13 +5516,12 @@ Sub Dx_Is_BANA_Template_Attached()
 '
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
-' Description:  Call: Application.Run MacroName:="Dx_Is_BANA_Template_Attached"
+' Description:  Call: If Not Dx_Is_BANA_Template_Attached() Then Exit Sub
 '                   Checks to see if a BANA Braille Template is attached
-'                   and that that template is 2014 or later
-
-    ' True when the attach runs below - it asks the translation question itself, so the question at
-    ' the bottom of this sub is not put again. 9/29/2026.
-    Dim justAttached As Boolean
+'                   and that that template is 2014 or later. Attaches one if not.
+'                   Returns False when the user pressed Cancel on the translation box (331),
+'                   and the caller stops, saying nothing. (When the Cancel was inside the
+'                   attach, the attach has already said so - message 393.)
 
     Application.Run MacroName:="Sh_Is_Doc_Open"
     If InStr(ActiveDocument.AttachedTemplate, "BANA Braille") = 0 Then
@@ -5466,7 +5529,12 @@ Sub Dx_Is_BANA_Template_Attached()
         ' template is being put on for her so that button can work. A DIRECT call, because
         ' Application.Run cannot pass an argument to a typed parameter. Jerry, 8/29/2026.
         Dx_Attach_BANA_Template_Run False   'template was NOT attached - attach it
-        justAttached = True
+        ' Still none: the user pressed Cancel on the translation box (331), and the attach left the
+        ' book as it was. Report "not attached" so the macro that called this stops too. Nothing is
+        ' said here: the attach has just shown "The BANA braille template has not been attached."
+        ' (393), and a second message would be the same news twice. Jerry, 9/29/2026. (Cancel on
+        ' the template list still leaves through End and never gets here - issue #18.)
+        If InStr(ActiveDocument.AttachedTemplate, "BANA Braille") = 0 Then Exit Function
     End If
     
     ' BANA Braille template is attached but is it a version which is too old?
@@ -5513,13 +5581,28 @@ Sub Dx_Is_BANA_Template_Attached()
     ' here, the transcriber pressed a button and is waiting.
     Dx_Prompt_Save_Before_Braille
 
-    ' Not straight after the attach above, which has just asked. If the user pressed Cancel there,
-    ' the book still has no translation and the next braille macro asks - once. 9/29/2026.
-    If Not justAttached Then
-        If Dx_Ensure_BrailleType() = "" Then Dx_Choose_Translation_Form.Show
+    ' Never straight after the attach above: the attach asks before it attaches, and goes on only
+    ' when a table was chosen, so the book already knows its translation and this is not asked.
+    '
+    ' Cancel here stops the macro that called this, the same as Cancel in the attach. Jerry's rule,
+    ' 9/29/2026 - Cancel stops what the user started - so a braille macro does not run on a book
+    ' with no translation recorded. Dx_Ensure_BrailleType is asked again rather than a flag
+    ' because the question is only put when the book has no translation at all.
+    '
+    ' The braille configuration after an answer used to run inside the box's own UserForm_Initialize.
+    ' It moved here on 9/29/2026, when the attach began showing the box before it attaches anything.
+    ' It matters for a book whose template was put on while it was already on screen - Word's own
+    ' Document Template button, or SWIFT - which nothing else notices until the window changes.
+    ' Never reached inside the attach: by then the book knows its translation.
+    If Dx_Ensure_BrailleType() = "" Then
+        Dx_Choose_Translation_Form.Show
+        If Dx_Ensure_BrailleType() = "" Then Exit Function
+        Application.Run MacroName:="MS_Set_Word_Config_For_Braille"
     End If
-    
-End Sub   '*** end of Dx_Is_BANA_Template_Attached macro ***
+
+    Dx_Is_BANA_Template_Attached = True
+
+End Function   '*** end of Dx_Is_BANA_Template_Attached macro ***
 
 Sub Dx_Convert_Auto_List_To_Text(Optional ByVal target As Range)
     '
@@ -6114,10 +6197,11 @@ End Function   '*** end of Sh_Style_Exists function ***
 
 Sub Dx_Selected_File_CleanUp()
 '
+' Version: 1.3  Date: 9/29/2026 - stops if the user cancels the braille translation box (331)
 ' Version: 1.2  Date: 4/7/2023 - show form before text selected error
 ' Version: 1.1  Date: 10/18/2018 - added Is Text Selected to this startup
 
-    Application.Run MacroName:="Dx_Is_BANA_Template_Attached"
+    If Not Dx_Is_BANA_Template_Attached() Then Exit Sub
     Dx_Selected_Cleanup_Form.Show
 
 End Sub  '*** end of Dx_Selected_File_CleanUp macro ***
@@ -6233,6 +6317,7 @@ Sub Dx_Manual_Tag_with_Dollar_pg()
 '
 ' Dx_Manual_Tag_with_Dollar_pg Macro
 '
+' Version: 1.7  Date: 9/29/2026 - stops if the user cancels the braille translation box (331)
 ' Version: 1.6  Date: 8/26/2026 - tags an ARABIC page number too. It refused anything that was not a
 '                                roman numeral, so typing 12 was answered "This is not a valid roman
 '                                numeral". The roman test now only decides the EBAE [[*ii*]] code
@@ -6242,7 +6327,7 @@ Sub Dx_Manual_Tag_with_Dollar_pg()
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
     Application.Run MacroName:="Sh_Is_Doc_Open"
-    Application.Run MacroName:="Dx_Is_BANA_Template_Attached"
+    If Not Dx_Is_BANA_Template_Attached() Then Exit Sub
     Application.Run MacroName:="Sh_Remove_DollarPG_For_Retag"
 
     Selection.HomeKey Unit:=wdLine
@@ -6340,6 +6425,7 @@ Sub Dx_Add_Color_To_Foreign_Language_Words()
 '
 ' Dx_Add_Color_To_Foreign_Language_Words Macro
 '
+' Version: 1.6  Date: 9/29/2026 - stops if the user cancels the braille translation box (331)
 ' Version 1.5
 ' Date 10/17/2016
 '
@@ -6352,7 +6438,7 @@ Sub Dx_Add_Color_To_Foreign_Language_Words()
 '
 ' Note: Works on the entire document
 '
-    Application.Run MacroName:="Dx_Is_BANA_Template_Attached"
+    If Not Dx_Is_BANA_Template_Attached() Then Exit Sub
     
     '************ German *************
         
@@ -6595,6 +6681,7 @@ Sub Dx_Spelling_List()
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 ' jerry@vistatypelp.org
 '
+' Version: 1.6  Date: 9/29/2026 - stops if the user cancels the braille translation box (331)
 ' Version 1.4:  Date: 6/18/2018
 ' Version 1.5:  Date: 11/16/2018
 '
@@ -6607,7 +6694,7 @@ Sub Dx_Spelling_List()
 '
 
     Application.Run MacroName:="Sh_Is_Doc_Open"
-    Application.Run MacroName:="Dx_Is_BANA_Template_Attached"
+    If Not Dx_Is_BANA_Template_Attached() Then Exit Sub
       
     If Selection.Type <> wdSelectionNormal Then
         MsgBox "Select the spelling list first!", , "Braille Macros (265)"
@@ -6621,6 +6708,7 @@ End Sub   '***** End of Dx_Spelling_List Macro *****
 
 Sub Dx_AutoTag_Page_Numbers()
 '
+' Version: 3.2  Date: 9/29/2026 - stops if the user cancels the braille translation box (331)
 ' Version: 3.1 Date: 9/18/2026 - says so when no document is open. Dx_Is_BANA_Template_Attached runs
 '                                Sh_Is_Doc_Open, but Sh_Clear_Multi_Selection sat above it and reads
 '                                ActiveDocument.Content itself, so the macro raised run-time error
@@ -6661,7 +6749,7 @@ Sub Dx_AutoTag_Page_Numbers()
 
     Dim strLength As Integer
 
-    Application.Run MacroName:="Dx_Is_BANA_Template_Attached"
+    If Not Dx_Is_BANA_Template_Attached() Then Exit Sub
     Application.Run MacroName:="Dx_Fix_Para_Space_Errors"
     Dim su_Prev As Boolean
     su_Prev = Application.ScreenUpdating
@@ -7748,6 +7836,7 @@ Sub Dx_Format_Exercise_Lv_1_and_Lv_2()
 '
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
+' Version: 2.0  Date: 9/29/2026 - stops if the user cancels the braille translation box (331)
 ' Version: 1.9  Date: 8/31/2026 - the scratch document is never shown. Every pass now works on a
 '                                RANGE, so the screen no longer blinks to a blank document and
 '                                back. What moved, and the three faults that went with the old
@@ -7755,7 +7844,7 @@ Sub Dx_Format_Exercise_Lv_1_and_Lv_2()
 ' Version: 1.8  Date: 7/26/2026 - returns the user to where the cursor was when the macro started
 ' Version: 1.6  Date: 8/21/2018 - Modifed to work with Nemeth
 '
-    Application.Run MacroName:="Dx_Is_BANA_Template_Attached"
+    If Not Dx_Is_BANA_Template_Attached() Then Exit Sub
 
     If Selection.Type <> wdSelectionNormal Then
         Sh_Say "Select the exercise list first.", "Braille Macros (268)"
@@ -8980,11 +9069,12 @@ Sub Dx_Type_Dashes()
 ' Description: Types long, em, en, and minus dashes
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
+' Version: 1.2  Date: 9/29/2026 - stops if the user cancels the braille translation box (331)
 ' Version: 1.1  Date: 10/5/2018 - added check for attached template
 ' Version: 1.0  Date: 10/9/2016
 '
     Application.Run MacroName:="Sh_Is_Doc_Open"
-    Application.Run MacroName:="Dx_Is_BANA_Template_Attached"
+    If Not Dx_Is_BANA_Template_Attached() Then Exit Sub
     Dx_Type_Dashes_Form.Show
     
 End Sub  '*** end of Dx_Type_Dashes macro ***
@@ -9288,10 +9378,11 @@ Sub Dx_Ref_Pg_Number_Sequence_Menu()
 '
 ' Author:   Jerry Whittaker     jerry@vistatypelp.org
 '
+' Version: 1.1  Date: 9/29/2026 - stops if the user cancels the braille translation box (331)
 ' Version: 1.0  Date: 10/19/2018
 
 '
-    Application.Run MacroName:="Dx_Is_BANA_Template_Attached"
+    If Not Dx_Is_BANA_Template_Attached() Then Exit Sub
     Sh_Validation_Choices_Form.Show
     Unload Sh_Validation_Choices_Form
     Application.ScreenUpdating = True    ' Turn screen updating on
@@ -9308,9 +9399,10 @@ Sub Dx_File_Fix_Sequence()
 ' Author:   Jerry Whittaker
 '           jerry@vistatypelp.org
 
+' Version: 1.1  Date: 9/29/2026 - stops if the user cancels the braille translation box (331)
 ' Version: 1.0  Date: 6/13/2018
 '
-    Application.Run MacroName:="Dx_Is_BANA_Template_Attached"
+    If Not Dx_Is_BANA_Template_Attached() Then Exit Sub
     Unload Dx_File_Cleanup_Sub_Menu_Form
     Dx_File_Cleanup_Sub_Menu_Form.Show
     Unload Dx_File_Cleanup_Sub_Menu_Form
@@ -9369,10 +9461,11 @@ Sub Dx_Compress_Linear_Math()
 '
 '  Author: Jerry Whittaker   jerry@vistatypelp.org
 '
+'  Version: 1.2  Date: 9/29/2026 - stops if the user cancels the braille translation box (331)
 '  Version: 1.1  Date: 4/7/2023 - added check for BANA template
 '  Version: 1.0  Date: 9/13/2019 - Modification from LP Version
 '
-    Application.Run MacroName:="Dx_Is_BANA_Template_Attached"
+    If Not Dx_Is_BANA_Template_Attached() Then Exit Sub
     
     If Selection.Type <> wdSelectionNormal Then
         Selection.Paragraphs(1).Range.Select
