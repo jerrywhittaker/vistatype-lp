@@ -18,7 +18,12 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - BRL - 9/29/2026 - CANCEL ON THE TRANSLATION BOX (331) NOW STOPS THE WHOLE ATTACH (Jerry).
+' Notes:    - LP  - 9/30/2026 - RESIZE PICTURES IN RANGE (375): "Attach the picture to the paragraph
+'           - LP  - 9/30/2026 - which follows it" raised 5941 on a picture that ends the last cell
+'           - LP  - 9/30/2026 - of a table row. Both Join routines now leave before reading the
+'           - LP  - 9/30/2026 - table unless the character beside the picture is a lone paragraph
+'           - LP  - 9/30/2026 - mark. Issue #23; Jerry.
+'           - BRL - 9/29/2026 - CANCEL ON THE TRANSLATION BOX (331) NOW STOPS THE WHOLE ATTACH (Jerry).
 '           - BRL - 9/29/2026 - Dx_Attach_BANA_Template_Run asks both questions - template, then
 '           - BRL - 9/29/2026 - translation - before anything changes the book, so Cancel leaves it
 '           - BRL - 9/29/2026 - as it was. Dx_Is_BANA_Template_Attached is a Function now and
@@ -23379,6 +23384,8 @@ End Sub  '***** end of Lp_Rst_KeyToDocument *****
 ' This procedure gathers the facts off the document; Lp_Same_Pic_Mark_May_Go decides on them, so
 ' the decision can be tested without a Range.
 '
+' Version: 1.2  Date: 9/30/2026 - leaves before any table read unless the character is a lone
+'                                  paragraph mark (err 5941, issue #23)
 ' Version: 1.1  Date: 9/22/2026 - the decision moved into Lp_Same_Pic_Mark_May_Go
 ' Version: 1.0  Date: 9/22/2026
 Private Function Lp_Same_Pic_Join_Next_Para(ByVal s As InlineShape) As Boolean
@@ -23388,6 +23395,13 @@ Private Function Lp_Same_Pic_Join_Next_Para(ByVal s As InlineShape) As Boolean
 
     Set after = s.Range.Duplicate
     after.SetRange s.Range.End, s.Range.End + 1
+
+    ' Only a lone paragraph mark can ever go, so nothing else is worth the table reads - and one
+    ' of them fails. After a picture that ends the last cell of a row, the far side of the cell
+    ' marker is the end-of-row mark: Word says it is in a table, but it has no cell, and
+    ' Cells(1) raised 5941 (Jerry, 9/30/2026, "Paw Problem - Fixed.docx"). A lone mark is never
+    ' the last in a cell, so the paragraph after it always has one.
+    If after.Text <> vbCr Then Exit Function
 
     Set nextPara = after.Duplicate
     nextPara.Collapse wdCollapseEnd
@@ -23419,6 +23433,8 @@ End Function  '***** end of Lp_Same_Pic_Join_Next_Para *****
 ' out as one centered Normal paragraph. With both boxes ticked it is the FOLLOWING paragraph's
 ' mark that survives, and the whole line takes that paragraph's formatting instead.
 '
+' Version: 1.1  Date: 9/30/2026 - leaves before any table read unless the character is a lone
+'                                  paragraph mark (err 5941, issue #23)
 ' Version: 1.0  Date: 9/29/2026
 Private Function Lp_Same_Pic_Join_Prev_Para(ByVal s As InlineShape) As Boolean
     Dim before As Range
@@ -23435,6 +23451,11 @@ Private Function Lp_Same_Pic_Join_Prev_Para(ByVal s As InlineShape) As Boolean
         Set before = s.Range.Duplicate
         before.SetRange picStart - 1, picStart
         beforeText = before.Text
+
+        ' As in Lp_Same_Pic_Join_Next_Para: in front of a picture that starts the first cell of
+        ' a row below the first, the character is the end-of-row mark, which has no cell for
+        ' Cells(1) to find. Only a lone paragraph mark can go, so leave before the table reads.
+        If beforeText <> vbCr Then Exit Function
 
         Set prevPara = before.Duplicate
         prevPara.Collapse wdCollapseStart

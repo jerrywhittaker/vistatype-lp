@@ -87,3 +87,19 @@ def test_the_join_in_front_asks_the_tested_decision(repo_root):
     assert "Then Exit Function" in "".join(body[ask:ask + 2])
     # no range is reached back past the start of the story
     assert re.search(r"If picStart > 0 Then", text)
+
+
+def test_the_joins_read_no_table_unless_the_mark_is_lone(repo_root):
+    """Issue #23, Jerry 9/30/2026: err 5941 on a picture that ends the last cell of a table row.
+    The far side of the cell marker is the end-of-row mark, which Word says is in a table but
+    which has no cell, so Cells(1) raised. Only a lone paragraph mark can go, so each Join routine
+    leaves on anything else before it reads the table at all."""
+    procs = procedures(module_text(repo_root))
+    for name, guard in (("Lp_Same_Pic_Join_Next_Para", "If after.Text <> vbCr Then Exit Function"),
+                        ("Lp_Same_Pic_Join_Prev_Para", "If beforeText <> vbCr Then Exit Function")):
+        body = [c.split("'")[0] for c in procs[name]]
+        at = next((n for n, c in enumerate(body) if c.strip() == guard), None)
+        assert at is not None, f"{name}: no lone-mark check"
+        reads = [n for n, c in enumerate(body) if ".Cells(" in c or ".Information(" in c]
+        assert reads, f"{name}: no table reads found - has the routine changed?"
+        assert at < min(reads), f"{name}: a table read comes before the lone-mark check"
