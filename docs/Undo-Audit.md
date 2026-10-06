@@ -146,7 +146,7 @@ the same change; it is the most confusing thing a transcriber can hit here.
 | `Lp_Normalize_Styles` | `:22285` | 100+ | estimated |
 | `Sh_Replace_Multiple_Para_Marks_No_Warning` | loop `:14170`, delete `:14177` | **one per blank paragraph removed** — hundreds on a raw book | counted shape |
 | `Sh_Remove_Spaces_Before_Punctuation` | `:26749` | **15** (fifteen `Sh_Punct_Repl` calls) | counted |
-| `Lp_Italics_To_Dashed_Underline` | `:10346` | **13** | counted |
+| `Lp_Italics_To_Dashed_Underline` | `:10346` | **13** (12 from 9/20/2026, when the bold pass came out). From Selected Cleanup, from 10/6/2026 (#4): **one per hit** instead — each pass walks the selection and formats every hit itself, so a selection with 20 italic phrases is 20 for the dashing pass alone, plus one per space or punctuation mark it clears. File Cleanup and Normalize Styles keep the 12 | counted; selection path counted shape |
 | `Lp_Set_Table_Border_Weights` | `:18753` | ~21 property writes per table; Word may coalesce borders, so 3–21 per table | estimated |
 | `Lp_SetSelectedTableBorderWeight` | `:19661` | 3–21 | estimated |
 | `Sh_Apply_Title_Case_Capitalization` | `:20952` | one per word — a ten-word chapter title is ~10 | estimated |
@@ -291,7 +291,7 @@ out of here because a closed survey is the wrong place to keep live work.
 |---|---|
 | `Lp_Set_Table_Border_Weights` writes the Word-wide `Options.DefaultBorderLineWidth` and never puts it back — **cured 10/6/2026**, the line deleted | #2 |
 | Braille Remove Section Breaks still carries the book-corrupting `^b` delete (no callers) | #3 |
-| `Lp_Italics_To_Dashed_Underline` uses `wdFindContinue` on all 13 passes, though offered as a selection repair | #4 |
+| `Lp_Italics_To_Dashed_Underline` uses `wdFindContinue` on all 13 passes, though offered as a selection repair — **cured 10/6/2026**: `wdFindStop` alone still ran to the end of the book on an all-italic selection (3.0.532), so Selected Cleanup now walks the selection hit by hit (`Lp_Dash_Italics_Pass_In_Range`); File Cleanup and Normalize Styles still cover the whole book | #4 |
 | `Lp_TOC_Color_Bars_Form` selects the whole document before its remove-leaders loop — **cured 10/6/2026**, the select deleted | #5 |
 | Compress Linear Math retired on the large-print tab, still live on the braille tab | #7, closed 10/6/2026: braille keeps it on purpose |
 | `Dx_Is_BANA_Template_Attached` runs the whole attach, so a small button empties the undo list | #8 |

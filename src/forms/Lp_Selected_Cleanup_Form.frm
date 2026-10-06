@@ -16,6 +16,9 @@ Attribute VB_Exposed = False
 
 ' Lp_Selected_Cleanup_Form
 '
+' Version: 2.0  Date: 10/6/2026 - Italics to Dashed Underline stays inside the selection: passes
+'                                selectionOnly:=True to Lp_Italics_To_Dashed_Underline (issue #4),
+'                                and checks the LP template is attached first (Jerry)
 ' Version: 1.9  Date: 9/15/2026 - added Compress_Linear_Math under Miscellaneous: compresses the spacing
 '                                in every text math equation in the selection, asking nothing (Jerry)
 ' Version: 1.8  Date: 7/24/2026 - no longer runs "MS_Set_Word_Config_For_Large_Print" on form open
@@ -80,8 +83,13 @@ Private Sub OkayButton_Click()
         Application.Run macroName:="Lp_Is_Text_Selected"
         Application.Run macroName:="Sh_Remove_Spaces_Before_Punctuation"
     ElseIf ItalicsToDashedUnderline Then
+        ' selectionOnly:=True keeps every pass inside the selection (issue #4, 10/6/2026) - without
+        ' it the macro wraps on through the whole book, which is what File Cleanup wants. Called
+        ' directly, so a wrong name or parameter stops the build instead of the transcriber.
+        ' The LP template must be attached first (Jerry, 10/6/2026).
+        Lp_Is_Lp_Template_Attached
         Application.Run macroName:="Lp_Is_Text_Selected"
-        Application.Run macroName:="Lp_Italics_To_Dashed_Underline"
+        Lp_Italics_To_Dashed_Underline selectionOnly:=True
     ElseIf Compress_Linear_Math Then
         ' Every text equation in the selection, no question asked about any of them (Jerry,
         ' 9/15/2026). Called directly rather than through Application.Run, so a macro missing

@@ -18,6 +18,15 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - LP  - 10/6/2026 - SELECTED CLEANUP'S ITALICS TO DASHED UNDERLINE STAYS IN THE
+'           - LP  - 10/6/2026 - SELECTION. All 12 passes of Lp_Italics_To_Dashed_Underline used
+'           - LP  - 10/6/2026 - wdFindContinue, so with one paragraph selected every italic word in
+'           - LP  - 10/6/2026 - the book was dashed. It takes a new selectionOnly, passed True from
+'           - LP  - 10/6/2026 - Selected Cleanup only. wdFindStop alone (3.0.532) still ran to the
+'           - LP  - 10/6/2026 - end of the book when the whole selection was italic, so the passes
+'           - LP  - 10/6/2026 - now walk the selection hit by hit (Lp_Dash_Italics_Pass_In_Range).
+'           - LP  - 10/6/2026 - Selected Cleanup also checks the LP template first. File Cleanup
+'           - LP  - 10/6/2026 - and Normalize Styles still cover the whole book. Issue #4.
 ' Notes:    - LP  - 10/6/2026 - ADD COLOR BARS (353) TAKES THE LEADER DOTS OFF THE TOC ONLY. It
 '           - LP  - 10/6/2026 - selected the whole book before its remove-leaders loop, so every
 '           - LP  - 10/6/2026 - TOC-styled paragraph in the book lost its leaders. The loop now
@@ -11340,10 +11349,14 @@ Sub Lp_Convert_Hyperliks_To_Text()
 
 End Sub   '*** end of Lp_Convert_Hyperliks_To_Text macro ***
 
-Sub Lp_Italics_To_Dashed_Underline()
+Sub Lp_Italics_To_Dashed_Underline(Optional ByVal selectionOnly As Boolean = False)
 '
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
+' Version: 1.4  Date: 10/6/2026 - selectionOnly: True keeps every pass inside the selection, for Selected
+'                                 Cleanup. Issue #4: with one paragraph selected, every italic word in
+'                                 the book was dashed. The passes walk the selection one hit at a time
+'                                 (Lp_Dash_Italics_Pass_In_Range) - wdFindStop alone was not enough
 ' Version: 1.3  Date: 9/20/2026 - bold italic KEEPS its bold and becomes bold with a dashed underline.
 '                                 Jerry, 9/20/2026: "all italics should underlined with the underline
 '                                 dashes but bold italic should stay bold." See the note below
@@ -11352,8 +11365,11 @@ Sub Lp_Italics_To_Dashed_Underline()
 ' Version: 1.1  Date: 1/30/2024 - converted all forms (Bold, Underlined) of italics with dashed underlines - words only
 ' Version: 1.0  Date: 5/23/2016
 '
-' Description:  changes italics to dashed underline
-'               Works on whole file - converts Italics with bold and/or underline
+' Description:  changes italics to dashed underline - converts Italics with bold and/or underline
+'               selectionOnly = False (File Cleanup, Normalize Styles): works on the whole file - every
+'                   pass wraps (wdFindContinue), so it covers the book from a collapsed cursor
+'               selectionOnly = True (Selected Cleanup): works on the selection only - the same 12
+'                   passes, walked hit by hit and cut off at the end of the selection
 
     ' NO BOLD PASS, from 9/20/2026. Until then the first pass here found bold italic and replaced
     ' it with Bold = False, Italic = True, so the italic pass below underlined it with the bold
@@ -11364,8 +11380,46 @@ Sub Lp_Italics_To_Dashed_Underline()
     ' Italic that comes from a STYLE - Caption, Quote - is dashed too, and that is what Jerry
     ' wants: Find with Format = True matches the italic the reader sees, whether it is typed on
     ' or comes from the style, and the replacement puts "not italic" plus the dashed underline on
-    ' as direct formatting over it. Issue 4 - the scope of this pass - is a separate fault and
-    ' is not touched here.
+    ' as direct formatting over it.
+    '
+    ' SCOPE, from 10/6/2026 (issue #4). Every pass used wdFindContinue, so Selected Cleanup -
+    ' offered as a repair to the selection - dashed every italic word in the book.
+    '
+    ' wdFindStop on the Replace All passes was tried first (3.0.532) and is NOT enough. Measured
+    ' on vistabuild 10/6/2026: when everything selected already matches the Find's formatting -
+    ' a whole italic paragraph - Word counts the selection as already found and searches on from
+    ' its END, so Replace All runs from there to the end of the book. Jerry hit it with an
+    ' all-italic paragraph selected. A Range made from the selection does the same thing.
+    '
+    ' So with selectionOnly the 12 passes run through Lp_Dash_Italics_Pass_In_Range, which starts
+    ' each Find from a collapsed point and cuts every hit off at the end of the selection. It is
+    ' slower - measured 8.0 s against 0.77 s on 1,500 italic phrases with the whole document
+    ' selected - and every hit is its own undo entry, so it is kept to Selected Cleanup.
+    ' File Cleanup and Normalize Styles call this with a collapsed cursor and rely on the
+    ' wdFindContinue wrap of the Replace All passes below to cover the whole book.
+
+    If selectionOnly Then
+        ' Selection.Range, not two numbers: a selection in a footnote, text box, header or footer
+        ' counts its positions inside its own story, and ActiveDocument.Range would land them in
+        ' the main text instead (vba-review, 10/6/2026).
+        Dim sel As Range
+        Set sel = Selection.Range
+        ' Find italic, underline, rItalic, rUnderline: -1 leaves that one out of the Find, or
+        ' leaves it unchanged - the same 12 passes, in the same order, as the Replace Alls below
+        Lp_Dash_Italics_Pass_In_Range sel, "", 1, wdUnderlineSingle, 1, wdUnderlineNone
+        Lp_Dash_Italics_Pass_In_Range sel, "", 1, -1, 0, wdUnderlineDash
+        Lp_Dash_Italics_Pass_In_Range sel, "^p", 1, -1, 0, -1
+        Lp_Dash_Italics_Pass_In_Range sel, " ", -1, wdUnderlineDash, -1, wdUnderlineNone
+        Lp_Dash_Italics_Pass_In_Range sel, ".", -1, wdUnderlineDash, -1, wdUnderlineNone
+        Lp_Dash_Italics_Pass_In_Range sel, "!", -1, wdUnderlineDash, -1, wdUnderlineNone
+        Lp_Dash_Italics_Pass_In_Range sel, "?", -1, wdUnderlineDash, -1, wdUnderlineNone
+        Lp_Dash_Italics_Pass_In_Range sel, ",", -1, wdUnderlineDash, -1, wdUnderlineNone
+        Lp_Dash_Italics_Pass_In_Range sel, ":", -1, wdUnderlineDash, -1, wdUnderlineNone
+        Lp_Dash_Italics_Pass_In_Range sel, ";", -1, wdUnderlineDash, -1, wdUnderlineNone
+        Lp_Dash_Italics_Pass_In_Range sel, ChrW(191), -1, wdUnderlineDash, -1, wdUnderlineNone  ' inverted ?
+        Lp_Dash_Italics_Pass_In_Range sel, ChrW(161), -1, wdUnderlineDash, -1, wdUnderlineNone  ' inverted !
+        Exit Sub
+    End If
 
     Selection.Find.ClearFormatting
     With Selection.Find.Font
@@ -11595,6 +11649,63 @@ Sub Lp_Italics_To_Dashed_Underline()
     Selection.Find.Execute Replace:=wdReplaceAll
     
 End Sub '  ***** End of Lp_Italics_To_Dashed_Underline Macro *****************
+
+Private Sub Lp_Dash_Italics_Pass_In_Range(ByVal within As Range, _
+        ByVal findText As String, ByVal findItalic As Long, ByVal findUnderline As Long, _
+        ByVal newItalic As Long, ByVal newUnderline As Long)
+'
+' Author: Jerry Whittaker - jerry@vistatypelp.org
+'
+' Version: 1.0  Date: 10/6/2026 - one pass of Lp_Italics_To_Dashed_Underline, kept inside
+'                                 the range it is given (issue #4). Works in that range's own
+'                                 story - main text, footnote, text box, header or footer
+'
+' Description:  Finds findText with the given formatting inside within and sets
+'               the new formatting on each hit, cut off at its end. findItalic 1 = italic, 0 = not;
+'               findUnderline is a WdUnderline. -1 leaves that one out of the Find. newItalic and
+'               newUnderline the same way: -1 leaves it unchanged.
+'
+'               Why not Replace All with wdFindStop: when the whole range already matches the
+'               formatting - an all-italic paragraph - Word treats the range as already found and
+'               searches on from its end, so Replace All runs to the end of the book (measured on
+'               vistabuild 10/6/2026, on 3.0.532). Each Find here starts from a collapsed point,
+'               so there is never a whole range to match. The formatting change does not move
+'               any text, so the range stays right through all 12 passes.
+
+    Dim hit As Range
+    Dim nextStart As Long
+    Dim rangeEnd As Long
+
+    nextStart = within.Start
+    rangeEnd = within.End
+    Do While nextStart < rangeEnd
+        Set hit = within.Duplicate
+        hit.SetRange nextStart, nextStart
+        With hit.Find
+            .ClearFormatting
+            If findItalic >= 0 Then .Font.Italic = (findItalic = 1)
+            If findUnderline >= 0 Then .Font.Underline = findUnderline
+            .Text = findText
+            .Forward = True
+            .Wrap = wdFindStop
+            .Format = True
+            .MatchCase = False
+            .MatchWholeWord = False
+            .MatchWildcards = False
+            .MatchSoundsLike = False
+            .MatchAllWordForms = False
+        End With
+        If Not hit.Find.Execute Then Exit Do
+        If hit.Start >= rangeEnd Then Exit Do
+        If hit.Start < nextStart Then hit.Start = nextStart
+        If hit.End > rangeEnd Then hit.End = rangeEnd
+        If hit.End <= nextStart Then Exit Do
+        If newItalic >= 0 Then hit.Font.Italic = (newItalic = 1)
+        If newUnderline >= 0 Then hit.Font.Underline = newUnderline
+        nextStart = hit.End
+    Loop
+
+End Sub '  ***** End of Lp_Dash_Italics_Pass_In_Range *****************
 
 Sub Lp_Fix_Hyphen_Errors()
 '
