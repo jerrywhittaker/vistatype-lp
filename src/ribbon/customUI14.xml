@@ -118,7 +118,9 @@
          that tab, and the installer would add every button on it to every transcriber toolbar.
          tools/lib/build_ribbon_tabs.py leaves this tab out of the user tabs too.
          Compress Linear Math, 9/15/2026 (Jerry): it runs inside Fix Common File Errors and Selected
-         Cleanup now, and its keyboard shortcut still works. -->
+         Cleanup now, and its keyboard shortcut still works. The Braille Macros tab keeps its own
+         button (btn_Dx_Compress_Linear_Math), 10/6/2026 (Jerry): no braille cleanup runs it, so that
+         button is the only way to compress math in a braille file. -->
     <tab id="tab_VT_Retired_Buttons" label="VistaType LP Retired Buttons" visible="false">
       <group id="grp_vt_retired_buttons" label=" " autoScale="true">
           <button id="btn_Lp_Compress_Linear_Math" label="Compress Linear Math" imageMso="HorizontalSpacingDecrease" onAction="RibbonAction" tag="Lp_Compress_Linear_Math"/>
