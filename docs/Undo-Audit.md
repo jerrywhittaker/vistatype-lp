@@ -289,10 +289,10 @@ out of here because a closed survey is the wrong place to keep live work.
 
 | What | Issue |
 |---|---|
-| `Lp_Set_Table_Border_Weights` writes the Word-wide `Options.DefaultBorderLineWidth` and never puts it back | #2 |
+| `Lp_Set_Table_Border_Weights` writes the Word-wide `Options.DefaultBorderLineWidth` and never puts it back — **cured 10/6/2026**, the line deleted | #2 |
 | Braille Remove Section Breaks still carries the book-corrupting `^b` delete (no callers) | #3 |
 | `Lp_Italics_To_Dashed_Underline` uses `wdFindContinue` on all 13 passes, though offered as a selection repair | #4 |
-| `Lp_TOC_Color_Bars_Form` selects the whole document before its remove-leaders loop | #5 |
+| `Lp_TOC_Color_Bars_Form` selects the whole document before its remove-leaders loop — **cured 10/6/2026**, the select deleted | #5 |
 | Compress Linear Math retired on the large-print tab, still live on the braille tab | #7 |
 | `Dx_Is_BANA_Template_Attached` runs the whole attach, so a small button empties the undo list | #8 |
 | Five macros with no callers | #9 |

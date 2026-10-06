@@ -18,6 +18,14 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - LP  - 10/6/2026 - ADD COLOR BARS (353) TAKES THE LEADER DOTS OFF THE TOC ONLY. It
+'           - LP  - 10/6/2026 - selected the whole book before its remove-leaders loop, so every
+'           - LP  - 10/6/2026 - TOC-styled paragraph in the book lost its leaders. The loop now
+'           - LP  - 10/6/2026 - works on the selection, the TOC the box holds. Issue #5.
+' Notes:    - LP  - 10/6/2026 - SETTING TABLE BORDER WEIGHTS NO LONGER CHANGES WORD'S OWN DEFAULT
+'           - LP  - 10/6/2026 - BORDER WIDTH. Lp_Set_Table_Border_Weights wrote the Word-wide
+'           - LP  - 10/6/2026 - Options.DefaultBorderLineWidth and never put it back; the line is
+'           - LP  - 10/6/2026 - gone, since each table edge is set directly. Issue #2.
 ' Notes:    - LP  - 9/30/2026 - RESIZE PICTURES IN RANGE (375): "Attach the picture to the paragraph
 '           - LP  - 9/30/2026 - which follows it" raised 5941 on a picture that ends the last cell
 '           - LP  - 9/30/2026 - of a table row. Both Join routines now leave before reading the
@@ -21079,13 +21087,15 @@ End Function   '*** End of Lp_Border_Weight_For_Base_Font ***
 Sub Lp_Set_Table_Border_Weights()
 
     ' sets the border weight of ALL tables relative to the Base Font Size (Normal style),
-    ' clears any diagonal borders and table shadows, and sets Word's own default border
-    ' width so a border the user draws afterwards matches.
+    ' and clears any diagonal borders and table shadows. It leaves Word's own default
+    ' border width alone - that is a Word-wide setting, not the book's (issue #2).
     '
     ' Called by Lp_Normalize_Styles and by all four "color every table" buttons on
     ' Lp_Table_Tools_Menu_Form - applying a Word table style resets the borders, so those
     ' buttons call this to put the weights back.
     '
+    ' Version: 2.1  Date: 10/6/2026 - no longer sets Options.DefaultBorderLineWidth, a Word-wide
+    '                                 setting never put back; each edge is set directly (issue #2)
     ' Version: 2.0  Date: 7/30/2026 - weight now chosen by Lp_Border_Weight_For_Base_Font
     '                                 instead of matching the size as text against fifteen
     '                                 literals. Sizes 14-42 EVEN behave exactly as before;
@@ -21102,7 +21112,6 @@ Sub Lp_Set_Table_Border_Weights()
     Dim edge As Variant
 
     targetWeight = Lp_Border_Weight_For_Base_Font
-    Options.DefaultBorderLineWidth = targetWeight
 
     For Each CurrentTable In ActiveDocument.Tables
         With CurrentTable

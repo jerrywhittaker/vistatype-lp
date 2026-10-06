@@ -18,6 +18,9 @@ Attribute VB_Exposed = False
 '
 ' Converts lead lines in TOC styles to alternating color of choice - changes tab value of dots to none
 '
+' Version: 1.2 Date: 10/6/2026 - removing the leader dots no longer selects the whole book first;
+'                               it works on the selection, which is the TOC, so leaders on
+'                               TOC-styled paragraphs elsewhere in the book are left alone (issue #5).
 ' Version: 1.1 Date: 9/22/2026 - NO End. Cancel and the X only unload this box now: it is shown from
 '                               the TOC box (354), which stays open, and End would take that box
 '                               down and drop the TOC range it holds. Lp_TOC_Bars_Applied tells the
@@ -198,7 +201,8 @@ Private Sub OkayButton_Click()
 
     'remove tab leader dots
     If Not LeaveDots Then
-        ActiveDocument.Content.Select
+        ' The selection is still the TOC (the TOC box selected its held range), so only the
+        ' TOC's own leaders come off - not every TOC-styled paragraph in the book (issue #5).
         Dim tabStop As tabStop
     
         ' Loop through each paragraph in the selection
