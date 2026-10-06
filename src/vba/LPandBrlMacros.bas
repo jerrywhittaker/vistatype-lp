@@ -18,6 +18,10 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - LP  - 10/6/2026 - TWO UNCALLED PICTURE MACROS DELETED (issue #9): Lp_Make_All_
+'           - LP  - 10/6/2026 - Pictures_In_Selected_Table_Inline and Lp_Picture_Color_Change_Menu.
+'           - LP  - 10/6/2026 - Nothing called them - no ribbon button, key, form or other macro.
+'           - LP  - 10/6/2026 - The background picture menu opens Lp_Change_Image_Color_Form itself.
 ' Notes:    - LP  - 10/6/2026 - SELECTED CLEANUP'S ITALICS TO DASHED UNDERLINE STAYS IN THE
 '           - LP  - 10/6/2026 - SELECTION. All 12 passes of Lp_Italics_To_Dashed_Underline used
 '           - LP  - 10/6/2026 - wdFindContinue, so with one paragraph selected every italic word in
@@ -21039,37 +21043,6 @@ eom:
 
 End Sub   '*** end of Lp_Restore_Style_Sizes ***
 
-Sub Lp_Make_All_Pictures_In_Selected_Table_Inline()
-
-    'From: https://microsoft.public.word.vba.general.narkive.com/aHYD2M1F/convert-shape-in-table-to-inlineshape
-
-    Dim oHeight As Single
-    Dim oWidth As Single
-    Dim s As Shape
-    Dim oCell As cell
-    
-    On Error GoTo Bye ' if no table
-    
-    Set oCell = Selection.Tables(1).cell(1, 1)
-    
-    For Each s In ActiveDocument.Shapes
-        If s.Anchor.InRange(oCell.Range) Then
-            If s.Type = msoPicture Then
-                s.ConvertToInlineShape
-                
-                oHeight = oCell.Range.InlineShapes(1).Height
-                oWidth = oCell.Range.InlineShapes(1).Width
-                
-                oCell.Height = oHeight
-                Selection.Tables(1).Columns(1).Width = oWidth
-                Exit For
-            End If
-        End If
-        Next s
-Bye:
-
-End Sub   '*** end of Lp_Convert_Shapes_to_Inline macro ***
-
 Sub Lp_Keep_With_Next_Para()
 '
 ' Version: 1.1  Date: 7/27/2026 - follow the paragraph if it reflows to the next page
@@ -24320,16 +24293,6 @@ Sub Sh_Apply_Title_Case_Capitalization()
   Selection.Collapse Direction:=wdCollapseEnd
     
 End Sub   ' *** end of Sh_Apply_Title_Case_Capitalization macro ***
-
-Sub Lp_Picture_Color_Change_Menu()
-'
-'Version 1.0  Date: 12/26/2023
-'
-    Unload Lp_Bakgrnd_Picture_Menu_Form
-    Load Lp_Change_Image_Color_Form
-    Lp_Change_Image_Color_Form.Show
-    
-End Sub '*** end of Lp_Picture_Color_Change_Menu macro ***
 
 Sub Lp_Table_Row_Column_Header_Setup(Optional ByVal tbl As Table)
     '
