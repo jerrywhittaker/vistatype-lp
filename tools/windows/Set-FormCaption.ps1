@@ -1,6 +1,7 @@
 <#
 .SYNOPSIS
     Change the Caption of ONE control on an existing UserForm, and rewrite the .frm/.frx pair.
+    With -NewTip, change its hover text (ControlTipText) too, or instead.
 
 .DESCRIPTION
     The counterpart to Add-FormControl.ps1 and Remove-FormControls.ps1, for the case where the
@@ -19,6 +20,10 @@
     -All is given. A caption change that silently hits nothing looks exactly like a change that
     worked, right up until the transcriber reads the old words.
 
+    -NewTip sets the ControlTipText of the same matched control. The hover text lives in the
+    .frx as well, and a misspelling there is just as visible as one in the caption. Give
+    -NewCaption, -NewTip, or both; a parameter left out leaves that property alone.
+
     Runs in a throwaway blank document, so nothing tracked is touched but the .frm/.frx pair.
 
     PREREQUISITE: "Trust access to the VBA project object model", same as Export-Vba.ps1.
@@ -33,6 +38,10 @@
     powershell -File tools\windows\Set-FormCaption.ps1 -Frm src\forms\Some_Form.frm `
         -Name Label7 -NewCaption "New words"
 
+.EXAMPLE
+    powershell -File tools\windows\Set-FormCaption.ps1 -Frm src\forms\Lp_Table_Convert_Options_Form.frm `
+        -Name ColumnOnlyTable -NewTip "Table has column heading only radio button"
+
 .NOTES
     Afterwards, on the Linux side:
         python3 tools/lib/check_frm_eol.py     (the .frm MUST stay CRLF)
@@ -42,13 +51,20 @@ param(
     [Parameter(Mandatory=$true)][string]$Frm,
     [string]$OldCaption = "",
     [string]$Name = "",
-    [Parameter(Mandatory=$true)][string]$NewCaption,
+    [string]$NewCaption,
+    [string]$NewTip,
     [switch]$All
 )
 $ErrorActionPreference = "Stop"
 
 if ($OldCaption -eq "" -and $Name -eq "") {
     throw "Give -OldCaption or -Name, so there is something to match on."
+}
+# Asked by name, not by value: an empty caption is a legitimate thing to set.
+$setCaption = $PSBoundParameters.ContainsKey('NewCaption')
+$setTip     = $PSBoundParameters.ContainsKey('NewTip')
+if (-not $setCaption -and -not $setTip) {
+    throw "Give -NewCaption, -NewTip, or both, so there is something to change."
 }
 
 $Frm = (Resolve-Path $Frm).Path
@@ -101,8 +117,18 @@ try {
     }
 
     foreach ($c in $hits) {
-        Write-Host ("set {0}.Caption : '{1}' -> '{2}'" -f $c.Name, [string]$c.Caption, $NewCaption)
-        $c.Caption = $NewCaption
+        if (-not $setCaption) {
+            # Still say what the caption is: it is the words a transcriber sees on the control.
+            Write-Host ("{0}.Caption is '{1}' (left alone)" -f $c.Name, [string]$c.Caption)
+        }
+        if ($setCaption) {
+            Write-Host ("set {0}.Caption : '{1}' -> '{2}'" -f $c.Name, [string]$c.Caption, $NewCaption)
+            $c.Caption = $NewCaption
+        }
+        if ($setTip) {
+            Write-Host ("set {0}.ControlTipText : '{1}' -> '{2}'" -f $c.Name, [string]$c.ControlTipText, $NewTip)
+            $c.ControlTipText = $NewTip
+        }
     }
 
     # Export writes BOTH files, over the originals. Word regenerates the .frx from the designer.

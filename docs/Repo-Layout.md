@@ -207,8 +207,11 @@ tools/windows/  Export-Vba.ps1 / Import-Vba.ps1 / New-UserForm.ps1 / Run-VbaTest
                  or on -Name when the words are not unique. REFUSES when it matches nothing, and prints
                  every caption on the form so the near-miss is obvious; refuses on more than one match
                  unless -All. Added 8/29/2026 to reword the Encode Fractions instruction on
-                 Dx_Type_Dashes_Form. Afterwards run tools/lib/check_frm_eol.py and
-                 tools/lib/trim_frm_blanks.py, as with the other two form tools
+                 Dx_Type_Dashes_Form. -NewTip sets the same control's hover text (ControlTipText),
+                 with the caption or instead of it; when only the tip is set it still prints the
+                 caption, left alone. Added 10/6/2026 for issue 6. Afterwards run
+                 tools/lib/check_frm_eol.py and tools/lib/trim_frm_blanks.py, as with the other two
+                 form tools
                 Remove-FormControls.ps1 — takes named controls OFF a UserForm and rewrites the
                  .frm/.frx pair, headlessly, in a throwaway blank document. A control lives in the
                  BINARY .frx, so deleting its lines from the .frm leaves it on the form, still

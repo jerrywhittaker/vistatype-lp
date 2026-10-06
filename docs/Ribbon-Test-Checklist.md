@@ -207,7 +207,7 @@ somewhere else on purpose:
           - [ ] Row Only Image Button
           - [ ] No Row Column Image Button - "Table has row headers only"
           - [ ] Row And Column Table - "Table has row and columns headings radio button"
-          - [ ] Column Only Table - "Tabel has column heading only radio button3"
+          - [ ] Column Only Table - "Table has column heading only radio button"
           - [ ] Row Only Table - "Table has row headings only radio button"
           - [ ] No Row Or Column
           - [ ] Use Colors

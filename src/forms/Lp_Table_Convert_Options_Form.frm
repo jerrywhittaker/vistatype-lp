@@ -17,6 +17,7 @@ Attribute VB_Exposed = False
 '
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
+' Version: 2.1  Date: 10/6/2026 - hover text on the column-headings-only button misspelled "Table" (issue 6)
 ' Version: 2.0  Date: 9/3/2026  - NO SCRATCH DOCUMENT. Both conversions run on the table where it
 '                                 stands in the transcriber's own book, so nothing is shown on the
 '                                 screen, nothing goes through the clipboard, no document is
