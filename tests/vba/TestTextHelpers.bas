@@ -4,6 +4,7 @@ Attribute VB_Name = "TestTextHelpers"
 '@uses Sh_AC_Unescape
 '@uses Lp_Marker_Value
 '@uses Lp_Roman_Value
+'@uses Sh_One_Log_Line
 '
 ' The small shared helpers. Nothing here touches a document, which is exactly why they can be
 ' tested at all.
@@ -98,6 +99,21 @@ Public Function TestTextHelpers_Suite() As TestSuite
         .IsEqual Lp_Roman_Value("xi"), 0
         .IsEqual Lp_Roman_Value(""), 0
         .IsEqual Lp_Roman_Value("chapter"), 0
+    End With
+
+    ' --- Sh_One_Log_Line: issue #24. A description ending in CR LF NUL split its log entry
+    '     and wiped the details of the entry before it.
+    With Suite.Test("an error description ending in CR LF NUL stays on one line")
+        .IsEqual Sh_One_Log_Line("OpenClipboard Failed" & vbCrLf & vbNullChar), "OpenClipboard Failed"
+        .IsEqual Sh_One_Log_Line("a" & vbCr & "b" & vbLf & "c" & vbTab & "d" & vbNullChar & "e"), _
+                 "a b c d e"
+    End With
+
+    With Suite.Test("a log line keeps its own text and its two-space separators")
+        .IsEqual Sh_One_Log_Line("err 5 ""Invalid call""  step ""x"""), "err 5 ""Invalid call""  step ""x"""
+        .IsEqual Sh_One_Log_Line(""), ""
+        .IsEqual Sh_One_Log_Line(vbCrLf & vbNullChar), ""
+        .IsEqual Sh_One_Log_Line("caf" & ChrW(233)), "caf" & ChrW(233)
     End With
 
     Set TestTextHelpers_Suite = Suite

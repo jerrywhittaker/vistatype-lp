@@ -18,6 +18,11 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Sh  - 10/7/2026 - THE ERROR LOG KEEPS EACH ENTRY ON ONE LINE (issue #24). An error
+'           - Sh  - 10/7/2026 - description can end in CR LF NUL (MSForms' clipboard error does), which
+'           - Sh  - 10/7/2026 - split the entry and wiped the one before it. Sh_Report_Error now turns
+'           - Sh  - 10/7/2026 - every control character into a space (Sh_One_Log_Line), and the log
+'           - Sh  - 10/7/2026 - drops NULs already in the file when it is read back.
 ' Notes:    - Sh  - 10/7/2026 - BOTH AUTOTAGS SHOW FORMATTING MARKS BEFORE TAGGING. A page number
 '           - Sh  - 10/7/2026 - whose paragraph mark is hidden is invisible to the "^013...^013" Find
 '           - Sh  - 10/7/2026 - passes while formatting marks and hidden text are off. Braille AutoTag
@@ -30844,6 +30849,8 @@ End Function   '*** end of Sh_Ask ***
 ' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
 ' Version: 1.0  Date: 8/26/2026
+' Version: 1.1  Date: 10/7/2026 - the description and the log line go through Sh_One_Log_Line.
+'               An MSForms description ended in CR LF NUL and split its log entry (issue #24).
 '
 Public Sub Sh_Report_Error(ByVal macroName As String, ByVal errNumber As Long, _
                            ByVal errText As String)
@@ -30856,6 +30863,12 @@ Public Sub Sh_Report_Error(ByVal macroName As String, ByVal errNumber As Long, _
     ' error on top of the first would reach the transcriber as Word's own dialog - the exact
     ' thing this sub exists to keep off the user's screen.
     On Error Resume Next
+
+    ' ONE LINE, NO CONTROL CHARACTERS. Some descriptions arrive with their own line ends - the
+    ' MSForms clipboard error ends in CR LF NUL - and in the log that split the entry in two and
+    ' wiped the details of the one before it (issue #24). Cleaned here, so the dialog gets the
+    ' same tidy text.
+    errText = Sh_One_Log_Line(errText)
 
     atStep = Sh_Last_Activity
     Sh_Last_Activity = ""
@@ -30889,6 +30902,7 @@ Public Sub Sh_Report_Error(ByVal macroName As String, ByVal errNumber As Long, _
                   "  " & macroName & "  err " & CStr(errNumber) & " """ & errText & """"
         If atStep <> "" Then logLine = logLine & "  step """ & atStep & """"
         logLine = logLine & "  " & Sh_Error_Context()
+        logLine = Sh_One_Log_Line(logLine)     ' the step and the context too: one entry, one line
 
         Sh_Log_Newest_First logPath, logLine
         If Err.Number <> 0 Then
@@ -30956,6 +30970,8 @@ End Sub   '*** end of Sh_Report_Error ***
 ' to put a line at the TOP: Append can only add at the bottom.
 '
 ' Version: 1.0  Date: 8/26/2026
+' Version: 1.1  Date: 10/7/2026 - NULs already in the file are dropped when it is read, so a log
+'               damaged by issue #24 mends itself on the next entry.
 '
 Private Sub Sh_Log_Newest_First(ByVal logPath As String, ByVal newLine As String)
     Dim fso As Object
@@ -30985,6 +31001,9 @@ Private Sub Sh_Log_Newest_First(ByVal logPath As String, ByVal newLine As String
     keep = newLine
     kept = 1
 
+    ' A log written before issue #24 was fixed can hold long runs of NUL. They are no part of any
+    ' entry, and left in they make type and grep treat the file as binary - so it looks empty.
+    whole = Replace(whole, vbNullChar, "")
     whole = Replace(Replace(whole, vbCrLf, vbLf), vbCr, vbLf)
     parts = Split(whole, vbLf)
     For i = LBound(parts) To UBound(parts)
@@ -30999,6 +31018,31 @@ Private Sub Sh_Log_Newest_First(ByVal logPath As String, ByVal newLine As String
     ts.Write keep & vbCrLf
     ts.Close
 End Sub   '*** end of Sh_Log_Newest_First ***
+
+' Text made safe for ONE line of the error log: every control character - CR, LF, tab, NUL and
+' the rest below a space, and DEL - becomes a space, and the ends are trimmed. Runs of spaces
+' are left alone ON PURPOSE: the log line separates its fields with two. Issue #24: a description
+' ending in CR LF NUL split its entry and wiped the one before it.
+'
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
+'
+' Version: 1.0  Date: 10/7/2026
+'
+Public Function Sh_One_Log_Line(ByVal s As String) As String
+    Dim out As String
+    Dim ch As String
+    Dim code As Long
+    Dim i As Long
+
+    out = ""
+    For i = 1 To Len(s)
+        ch = Mid$(s, i, 1)
+        code = AscW(ch)
+        If code < 32 Or code = 127 Then ch = " "
+        out = out & ch
+    Next i
+    Sh_One_Log_Line = Trim$(out)
+End Function   '*** end of Sh_One_Log_Line ***
 
 ' What was on screen when it failed, for the log line. Everything here is read through
 ' On Error Resume Next: this is describing a document that has just had a macro die on it, so
