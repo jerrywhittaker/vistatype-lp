@@ -18,6 +18,10 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Sh  - 10/7/2026 - HYPERLINKS TO TEXT REMOVES THE RIGHT LINK (issue #14). Both the large
+'           - Sh  - 10/7/2026 - print and braille macros picked the FIELD by the hyperlink's number, so
+'           - Sh  - 10/7/2026 - with any other field in front of a link they froze the wrong field and
+'           - Sh  - 10/7/2026 - left the link. They now delete the hyperlink itself, keeping its text.
 ' Notes:    - Sh  - 10/7/2026 - ONE ERROR CAN NO LONGER WIPE THE WHOLE ERROR LOG (issue #25). The
 '           - Sh  - 10/7/2026 - log was emptied and then rewritten as ANSI text, so an entry ANSI could
 '           - Sh  - 10/7/2026 - not hold (a Greek document name) failed with the file already empty.
@@ -9851,6 +9855,9 @@ End Sub   '*** End of Dx_Compress_Linear_Math macro ***
 
 Sub Dx_Convert_Hyperliks_To_Text()
     '
+    ' Version: 1.1  Date: 10/7/2026 - an internal link is removed by deleting the HYPERLINK, not
+    '                                 by unlinking .Range.Fields(i): i counts hyperlinks, not
+    '                                 fields, so any other field in front froze the wrong one (#14)
     ' Version: 1.0  Date: 9/27/2021 - complete rewrite of Sh_Show_Hidden_HLink macro
     '
     ' Converts the web-link or email address when they indicated by a link word like "here" or "my email address"
@@ -9870,7 +9877,10 @@ Sub Dx_Convert_Hyperliks_To_Text()
         For i = .Hyperlinks.count To 1 Step -1
             LinkString = .Hyperlinks(i).SubAddress
             If LinkString <> "" Then ' it is an internal hyperlink
-                .Range.Fields(i).Unlink
+                ' The hyperlink ITSELF, which leaves its text. It used to be .Range.Fields(i),
+                ' but i counts hyperlinks, not fields: a page reference, a date or a TOC in
+                ' front of the link made it freeze the wrong field and leave the link (#14).
+                .Hyperlinks(i).Delete
             End If
             Next i
     End With
@@ -11523,6 +11533,9 @@ End Sub '*** end of Lp_Convert_Multi_Column_To_Single macro ***
 
 Sub Lp_Convert_Hyperliks_To_Text()
     '
+    ' Version: 1.2  Date: 10/7/2026 - an internal link is removed by deleting the HYPERLINK, not
+    '                                 by unlinking .Range.Fields(i): i counts hyperlinks, not
+    '                                 fields, so any other field in front froze the wrong one (#14)
     ' Version: 1.1  Date: 1/18/2003 - set On Errors for bug fix
     ' Version: 1.0  Date: 9/27/2021 - complete rewrite of Sh_Show_Hidden_HLink macro
     '
@@ -11542,7 +11555,10 @@ Sub Lp_Convert_Hyperliks_To_Text()
         For i = .Hyperlinks.count To 1 Step -1
             LinkString = .Hyperlinks(i).SubAddress
             If LinkString <> "" Then ' it is an internal hyperlink
-                .Range.Fields(i).Unlink
+                ' The hyperlink ITSELF, which leaves its text. It used to be .Range.Fields(i),
+                ' but i counts hyperlinks, not fields: a page reference, a date or a TOC in
+                ' front of the link made it freeze the wrong field and leave the link (#14).
+                .Hyperlinks(i).Delete
            End If
            Next i
     End With
