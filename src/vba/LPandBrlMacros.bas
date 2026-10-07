@@ -21,8 +21,10 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Notes:    - Sh  - 10/7/2026 - ONE ERROR CAN NO LONGER WIPE THE WHOLE ERROR LOG (issue #25). The
 '           - Sh  - 10/7/2026 - log was emptied and then rewritten as ANSI text, so an entry ANSI could
 '           - Sh  - 10/7/2026 - not hold (a Greek document name) failed with the file already empty.
-'           - Sh  - 10/7/2026 - It is now written as Unicode to a scratch file and swapped in only once
-'           - Sh  - 10/7/2026 - the write succeeded; dialog 240 is told truthfully when it failed.
+'           - Sh  - 10/7/2026 - It is now written to a scratch file and swapped in only once the write
+'           - Sh  - 10/7/2026 - succeeded, still as plain ANSI (Jerry: a Unicode log read badly in
+'           - Sh  - 10/7/2026 - Notepad), with what ANSI cannot hold written as "?". Dialog 240 is told
+'           - Sh  - 10/7/2026 - truthfully when the log could not be written.
 ' Notes:    - Sh  - 10/7/2026 - THE ERROR LOG KEEPS EACH ENTRY ON ONE LINE (issue #24). An error
 '           - Sh  - 10/7/2026 - description can end in CR LF NUL (MSForms' clipboard error does), which
 '           - Sh  - 10/7/2026 - split the entry and wiped the one before it. Sh_Report_Error now turns
@@ -30984,8 +30986,10 @@ End Sub   '*** end of Sh_Report_Error ***
 '               stray junk after the first part; the Write then raised error 5 after
 '               CreateTextFile had already emptied the file, and the whole log was lost.
 ' Version: 1.2  Date: 10/7/2026 - a Function that says whether the line was written; the log is
-'               written as Unicode to a scratch file and copied over the old one only when the
-'               write succeeded, so one failed write can no longer wipe the log (issue #25).
+'               written to a scratch file and copied over the old one only when the write
+'               succeeded, so one failed write can no longer wipe the log (issue #25). Still plain
+'               ANSI: what ANSI cannot hold becomes "?". A Unicode log (3.0.546 wrote one) is read
+'               and turned back into ANSI on the next entry.
 '
 Private Function Sh_Log_Newest_First(ByVal logPath As String, ByVal newLine As String) As Boolean
     Dim fso As Object
@@ -31027,14 +31031,20 @@ Private Function Sh_Log_Newest_First(ByVal logPath As String, ByVal newLine As S
         End If
     Next i
 
-    ' WRITTEN TO A SCRATCH FILE, AND AS UNICODE. Issue #25: the log used to be emptied first and
-    ' then written as ANSI text, so an entry ANSI cannot hold - a Greek or IPA document name -
-    ' failed with the file already empty, and every earlier entry went with it. Unicode holds
-    ' any character a document name can; the scratch file means a write that fails anyway leaves
-    ' the old log exactly as it was.
+    ' PLAIN ANSI TEXT, WRITTEN TO A SCRATCH FILE. Issue #25: the log used to be emptied first and
+    ' then written as ANSI, so an entry ANSI cannot hold - a Greek or IPA document name - failed
+    ' the write with the file already empty, and every earlier entry went with it.
+    '
+    ' The round trip through StrConv turns every character ANSI cannot hold into "?", so the write
+    ' has nothing left to fail on. It stays ANSI on purpose: 3.0.546 wrote Unicode, and Jerry's
+    ' Notepad showed it with the letters spaced out (10/7/2026) - the log is for a transcriber to
+    ' open and email, so it must read as plain text anywhere. A "?" in a document name costs
+    ' nothing a fault report needs. The scratch file is the second net: a write that fails anyway
+    ' leaves the old log exactly as it was.
+    keep = StrConv(StrConv(keep, vbFromUnicode), vbUnicode)
     scratchPath = logPath & ".new"
     Err.Clear
-    Set ts = fso.CreateTextFile(scratchPath, True, True)   ' overwrite, Unicode
+    Set ts = fso.CreateTextFile(scratchPath, True)          ' True = overwrite; ANSI
     If Err.Number = 0 Then ts.Write keep & vbCrLf
     If Err.Number = 0 Then ts.Close
     If Err.Number = 0 Then fso.CopyFile scratchPath, logPath, True     ' True = overwrite
@@ -31045,8 +31055,8 @@ Private Function Sh_Log_Newest_First(ByVal logPath As String, ByVal newLine As S
     Err.Clear
 End Function   '*** end of Sh_Log_Newest_First ***
 
-' The error log's text, whichever way it was written: Unicode (it starts with the byte-order
-' mark FF FE) since issue #25, ANSI before. Read in BINARY, never with FileSystemObject's ReadAll:
+' The error log's text, whichever way it was written: ANSI, as it always is, or Unicode (it starts
+' with the byte-order mark FF FE), which the 3.0.546 test build wrote. Read in BINARY, never with FileSystemObject's ReadAll:
 ' a log damaged by issue #24 holds runs of NUL, and ReadAll on such a file returns junk after the
 ' first part - measured 10/7/2026. "" if it cannot be read.
 '
@@ -31079,7 +31089,7 @@ Private Function Sh_Read_Log_Text(ByVal logPath As String) As String
         s = b                      ' a Byte array copies straight into a String as UTF-16
         s = Mid$(s, 2)             ' and the first character is the byte-order mark
     Else
-        s = StrConv(b, vbUnicode)  ' ANSI, as every log before issue #25 was
+        s = StrConv(b, vbUnicode)  ' ANSI
     End If
     Sh_Read_Log_Text = s
     Exit Function

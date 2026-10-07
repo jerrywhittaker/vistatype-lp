@@ -57,6 +57,7 @@ Public Function TestErrorLog_Suite() As TestSuite
     Dim lines As Variant
     Dim f As Integer
     Dim bom(0 To 1) As Byte
+    Dim uni() As Byte
 
     Suite.Description = "The error log"
     path = Environ$("TEMP") & "\VistaType-Errors-test24.log"
@@ -86,8 +87,8 @@ Public Function TestErrorLog_Suite() As TestSuite
 
     ' Issue #25. The log was rewritten as ANSI text, emptied first, so a character ANSI cannot
     ' hold - a Greek document name - made the write fail with the file already empty, and every
-    ' earlier entry was lost.
-    With Suite.Test("a Greek letter in an entry neither wipes the log nor is lost")
+    ' earlier entry was lost. The Greek is written as "?", so the log stays plain text.
+    With Suite.Test("a Greek letter in an entry does not wipe the log")
         TestErrorLog_WriteFile path, "2026-10-06 20:04:45  v3.0.539  Older  err 5 ""x""" & vbCrLf
         newLine = "2026-10-07 12:00:00  v3.0.545  Test  err 5 ""x""  doc """ _
                 & ChrW(&H3B1) & ChrW(&H3B2) & ChrW(&H3B3) & ".docx"""
@@ -95,7 +96,11 @@ Public Function TestErrorLog_Suite() As TestSuite
         after = TestErrorLog_ReadFile(path)
         .IsOk InStr(after, "2026-10-06 20:04:45") > 0, "the earlier entry was lost"
         lines = Split(after & vbCrLf, vbCrLf)     ' never empty, so lines(0) is safe on an emptied log
-        .IsEqual lines(0), newLine, "the new entry is not the first line, or its Greek was lost"
+        ' What the Greek becomes is Windows' own ANSI conversion, which can write a look-alike
+        ' rather than "?" - so the test asks only that the entry is there, whole and first.
+        .IsOk Left$(lines(0), 53) = "2026-10-07 12:00:00  v3.0.545  Test  err 5 ""x""  doc """ _
+              And Right$(lines(0), 6) = ".docx""", "the new entry is not the first line, got: " & lines(0)
+        .IsEqual Len(lines(0)), Len(newLine), "the Greek did not come out one character for one, got: " & lines(0)
     End With
 
     With Suite.Test("an old ANSI log is read correctly before it is rewritten")
@@ -105,13 +110,28 @@ Public Function TestErrorLog_Suite() As TestSuite
         .IsOk InStr(after, "caf" & ChrW(233)) > 0, "the earlier entry's accented letter was mangled"
     End With
 
-    With Suite.Test("the log is written as Unicode")
-        Sh_Log_Newest_First path, "2026-10-07 12:00:01  v3.0.545  Test  err 5 ""z"""
+    ' 3.0.546 wrote the log as Unicode, and Jerry's Notepad showed it with the letters spaced out.
+    ' A Unicode log must be read correctly and come back as plain ANSI.
+    With Suite.Test("a Unicode log is read and written back as plain text")
+        f = FreeFile
+        If Len(Dir$(path)) > 0 Then Kill path
+        Open path For Binary Access Write As #f
+        bom(0) = &HFF
+        bom(1) = &HFE
+        Put #f, , bom
+        uni = "2026-10-07 16:24:02  v3.0.546  Unicode  err 5 ""a""" & vbCrLf
+        Put #f, , uni
+        Close #f
+        .IsOk Sh_Log_Newest_First(path, "2026-10-07 16:30:00  v3.0.547  Test  err 5 ""z"""), _
+              "the log was not written"
         f = FreeFile
         Open path For Binary Access Read As #f
         Get #f, , bom
         Close #f
-        .IsOk bom(0) = &HFF And bom(1) = &HFE, "no Unicode byte-order mark at the start of the log"
+        .IsOk Not (bom(0) = &HFF And bom(1) = &HFE), "the log is still Unicode"
+        after = TestErrorLog_ReadFile(path)
+        .IsEqual InStr(after, vbNullChar), 0, "the log is not plain text"
+        .IsOk InStr(after, "2026-10-07 16:24:02  v3.0.546  Unicode") > 0, "the Unicode entry was lost or mangled"
     End With
 
     ' Dialog 240 says "written to a log file" only when it was. Before #25 the caller tested

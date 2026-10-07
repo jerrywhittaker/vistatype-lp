@@ -64,16 +64,19 @@ def test_log_is_not_read_with_readall(repo_root):
 def test_log_is_never_emptied_before_it_is_written(repo_root):
     # Issue #25, reproduced 10/7/2026 on vistabuild: the log was emptied by CreateTextFile and
     # then written as ANSI, so a Greek document name failed the write with the file already
-    # empty and every earlier entry was lost. It is written as Unicode to a scratch file, and
-    # only a successful write is copied over the log.
+    # empty and every earlier entry was lost. It is written to a scratch file, and only a
+    # successful write is copied over the log.
     code = _code(repo_root, "Sh_Log_Newest_First")
     creates = [c for c in code if re.search(r"\bCreateTextFile\(", c, re.IGNORECASE)]
     assert creates, "Sh_Log_Newest_First no longer writes the log at all."
     for c in creates:
         assert not re.search(r"CreateTextFile\(\s*logPath\b", c, re.IGNORECASE), (
             f"the log itself is opened for writing, which empties it before the write: {c.strip()}")
-        assert re.search(r"CreateTextFile\([^,]+,\s*True\s*,\s*True\s*\)", c, re.IGNORECASE), (
-            f"the log must be written as Unicode (CreateTextFile's third argument True): {c.strip()}")
+    # Plain ANSI on purpose (Jerry's Notepad showed the 3.0.546 Unicode log with the letters
+    # spaced out), so what ANSI cannot hold is turned into "?" before the write.
+    assert any(re.search(r"StrConv\(\s*StrConv\(\s*keep\s*,\s*vbFromUnicode\s*\)\s*,\s*vbUnicode\s*\)", c,
+                         re.IGNORECASE) for c in code), (
+        "Sh_Log_Newest_First must turn characters ANSI cannot hold into ? before writing.")
 
 
 def test_report_error_knows_when_the_log_was_not_written(repo_root):
