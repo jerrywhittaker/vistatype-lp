@@ -41,7 +41,11 @@ So this suite is for **pure helpers**: a string or a number in, a string or a nu
 are roughly 36 of those in `LPandBrlMacros`. Everything else is still a job for real Word, and
 `docs/Ribbon-Test-Checklist.md` and `DEVELOPMENT.md` cover that.
 
-**One exception, and it is careful: `TestAutoCorrectTables.bas`** runs `Sh_AutoCorrect_Switch`
+**`TestErrorLog.bas`** (issue #24) writes a scratch file in `%TEMP%` and runs the real
+`Sh_Log_Newest_First` on it. File reads and writes do not hang; it never goes near the real log,
+and it deletes the scratch file when it is done.
+
+**One more exception, and it is careful: `TestAutoCorrectTables.bas`** runs `Sh_AutoCorrect_Switch`
 against Word's real AutoCorrect list and the real list files (issue #21). Word's list belongs to
 the application, not a document, so it does not hang. It backs up the three
 `AutoCorrect-*.txt` files and the record in VistaType.ini, and puts them back, along with Word's

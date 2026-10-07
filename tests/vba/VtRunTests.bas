@@ -74,6 +74,10 @@ Public Sub VtRunAllTests()
     Set Suite = TestAutoCorrectTables_Suite()
     Reporter.ListenTo Suite
 
+    Reporter.Trace "building The error log"
+    Set Suite = TestErrorLog_Suite()
+    Reporter.ListenTo Suite
+
     Reporter.Finish
     Exit Sub
 

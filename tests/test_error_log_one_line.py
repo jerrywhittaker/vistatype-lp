@@ -43,3 +43,15 @@ def test_log_drops_nuls_already_in_the_file(repo_root):
     assert any(re.search(r"Replace\(\s*whole\s*,\s*vbNullChar\s*,", c, re.IGNORECASE)
                for c in code), (
         "Sh_Log_Newest_First must drop the NULs a log damaged by issue #24 still holds.")
+
+
+def test_log_is_not_read_with_readall(repo_root):
+    # Measured 10/7/2026 on a copy of the damaged log: ReadAll on a file holding NULs returned
+    # junk, the Write then raised after CreateTextFile had emptied the file, and the whole log
+    # was lost. The file is read in binary instead.
+    code = _code(repo_root, "Sh_Log_Newest_First")
+    assert not any(re.search(r"\.ReadAll\b", c, re.IGNORECASE) for c in code), (
+        "Sh_Log_Newest_First reads the log with ReadAll again - on a log holding NULs that "
+        "wipes the whole file (issue #24).")
+    assert any(re.search(r"\bOpen\b.*\bFor\s+Binary\b", c, re.IGNORECASE) for c in code), (
+        "Sh_Log_Newest_First must read the old log in binary.")

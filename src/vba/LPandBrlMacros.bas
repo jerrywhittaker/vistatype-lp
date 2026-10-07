@@ -30970,8 +30970,11 @@ End Sub   '*** end of Sh_Report_Error ***
 ' to put a line at the TOP: Append can only add at the bottom.
 '
 ' Version: 1.0  Date: 8/26/2026
-' Version: 1.1  Date: 10/7/2026 - NULs already in the file are dropped when it is read, so a log
-'               damaged by issue #24 mends itself on the next entry.
+' Version: 1.1  Date: 10/7/2026 - the old log is read in BINARY, not with FileSystemObject's
+'               ReadAll, and its NULs are dropped, so a log damaged by issue #24 mends itself on
+'               the next entry. MEASURED on vistabuild: ReadAll on a file holding NULs returns
+'               stray junk after the first part; the Write then raised error 5 after
+'               CreateTextFile had already emptied the file, and the whole log was lost.
 '
 Private Sub Sh_Log_Newest_First(ByVal logPath As String, ByVal newLine As String)
     Dim fso As Object
@@ -30981,6 +30984,7 @@ Private Sub Sh_Log_Newest_First(ByVal logPath As String, ByVal newLine As String
     Dim keep As String
     Dim i As Long
     Dim kept As Long
+    Dim f As Integer
 
     ' Same rule as everything else on this path: it must not raise. A failure here loses one log
     ' line; a failure that escapes becomes a second error on top of the first.
@@ -30991,11 +30995,17 @@ Private Sub Sh_Log_Newest_First(ByVal logPath As String, ByVal newLine As String
 
     ' FileSystemObject rather than Dir$: Dir is stateful, and a Dir loop running anywhere else in
     ' the project would be silently restarted by a call from here. Same reason as Sh_Store_Folder.
+    ' READ IN BINARY, NOT WITH ReadAll. A log written before issue #24 was fixed can hold long
+    ' runs of NUL, and ReadAll on such a file returns junk after the first part - measured
+    ' 10/7/2026. The junk made the Write below raise AFTER CreateTextFile had emptied the file,
+    ' so the whole log was lost. Binary hands back exactly the bytes in the file.
     whole = ""
     If fso.FileExists(logPath) Then
-        Set ts = fso.OpenTextFile(logPath, 1)          ' 1 = ForReading
-        If Not ts.AtEndOfStream Then whole = ts.ReadAll
-        ts.Close
+        f = FreeFile
+        Open logPath For Binary Access Read As #f
+        whole = Space$(LOF(f))
+        Get #f, , whole
+        Close #f
     End If
 
     keep = newLine
