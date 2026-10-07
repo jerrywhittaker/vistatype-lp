@@ -48,10 +48,37 @@ def test_log_drops_nuls_already_in_the_file(repo_root):
 def test_log_is_not_read_with_readall(repo_root):
     # Measured 10/7/2026 on a copy of the damaged log: ReadAll on a file holding NULs returned
     # junk, the Write then raised after CreateTextFile had emptied the file, and the whole log
-    # was lost. The file is read in binary instead.
+    # was lost. The file is read in binary instead, by Sh_Read_Log_Text.
+    writer = _code(repo_root, "Sh_Log_Newest_First")
+    reader = _code(repo_root, "Sh_Read_Log_Text")
+    for name, code in (("Sh_Log_Newest_First", writer), ("Sh_Read_Log_Text", reader)):
+        assert not any(re.search(r"\.ReadAll\b", c, re.IGNORECASE) for c in code), (
+            f"{name} reads the log with ReadAll again - on a log holding NULs that wipes the "
+            f"whole file (issue #24).")
+    assert any(re.search(r"\bSh_Read_Log_Text\(", c) for c in writer), (
+        "Sh_Log_Newest_First must read the old log through Sh_Read_Log_Text.")
+    assert any(re.search(r"\bOpen\b.*\bFor\s+Binary\b", c, re.IGNORECASE) for c in reader), (
+        "Sh_Read_Log_Text must read the log in binary.")
+
+
+def test_log_is_never_emptied_before_it_is_written(repo_root):
+    # Issue #25, reproduced 10/7/2026 on vistabuild: the log was emptied by CreateTextFile and
+    # then written as ANSI, so a Greek document name failed the write with the file already
+    # empty and every earlier entry was lost. It is written as Unicode to a scratch file, and
+    # only a successful write is copied over the log.
     code = _code(repo_root, "Sh_Log_Newest_First")
-    assert not any(re.search(r"\.ReadAll\b", c, re.IGNORECASE) for c in code), (
-        "Sh_Log_Newest_First reads the log with ReadAll again - on a log holding NULs that "
-        "wipes the whole file (issue #24).")
-    assert any(re.search(r"\bOpen\b.*\bFor\s+Binary\b", c, re.IGNORECASE) for c in code), (
-        "Sh_Log_Newest_First must read the old log in binary.")
+    creates = [c for c in code if re.search(r"\bCreateTextFile\(", c, re.IGNORECASE)]
+    assert creates, "Sh_Log_Newest_First no longer writes the log at all."
+    for c in creates:
+        assert not re.search(r"CreateTextFile\(\s*logPath\b", c, re.IGNORECASE), (
+            f"the log itself is opened for writing, which empties it before the write: {c.strip()}")
+        assert re.search(r"CreateTextFile\([^,]+,\s*True\s*,\s*True\s*\)", c, re.IGNORECASE), (
+            f"the log must be written as Unicode (CreateTextFile's third argument True): {c.strip()}")
+
+
+def test_report_error_knows_when_the_log_was_not_written(repo_root):
+    # The old Err.Number test after the call never saw a failure: an error handled under
+    # Resume Next inside the sub is cleared when the sub exits.
+    code = _code(repo_root, "Sh_Report_Error")
+    assert any(re.search(r"If\s+Not\s+Sh_Log_Newest_First\(", c, re.IGNORECASE) for c in code), (
+        "Sh_Report_Error must use Sh_Log_Newest_First's answer to tell whether the log was written.")

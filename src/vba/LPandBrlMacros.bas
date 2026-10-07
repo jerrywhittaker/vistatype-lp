@@ -18,6 +18,11 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Sh  - 10/7/2026 - ONE ERROR CAN NO LONGER WIPE THE WHOLE ERROR LOG (issue #25). The
+'           - Sh  - 10/7/2026 - log was emptied and then rewritten as ANSI text, so an entry ANSI could
+'           - Sh  - 10/7/2026 - not hold (a Greek document name) failed with the file already empty.
+'           - Sh  - 10/7/2026 - It is now written as Unicode to a scratch file and swapped in only once
+'           - Sh  - 10/7/2026 - the write succeeded; dialog 240 is told truthfully when it failed.
 ' Notes:    - Sh  - 10/7/2026 - THE ERROR LOG KEEPS EACH ENTRY ON ONE LINE (issue #24). An error
 '           - Sh  - 10/7/2026 - description can end in CR LF NUL (MSForms' clipboard error does), which
 '           - Sh  - 10/7/2026 - split the entry and wiped the one before it. Sh_Report_Error now turns
@@ -30851,6 +30856,7 @@ End Function   '*** end of Sh_Ask ***
 ' Version: 1.0  Date: 8/26/2026
 ' Version: 1.1  Date: 10/7/2026 - the description and the log line go through Sh_One_Log_Line.
 '               An MSForms description ended in CR LF NUL and split its log entry (issue #24).
+' Version: 1.2  Date: 10/7/2026 - asks Sh_Log_Newest_First whether the log was written (#25).
 '
 Public Sub Sh_Report_Error(ByVal macroName As String, ByVal errNumber As Long, _
                            ByVal errText As String)
@@ -30904,11 +30910,13 @@ Public Sub Sh_Report_Error(ByVal macroName As String, ByVal errNumber As Long, _
         logLine = logLine & "  " & Sh_Error_Context()
         logLine = Sh_One_Log_Line(logLine)     ' the step and the context too: one entry, one line
 
-        Sh_Log_Newest_First logPath, logLine
-        If Err.Number <> 0 Then
+        ' A Function since issue #25. The Err.Number test that used to follow the call never saw
+        ' a failure: an error handled under Resume Next inside the sub is cleared when it exits,
+        ' so the user was told "written to a log file" even when it was not.
+        If Not Sh_Log_Newest_First(logPath, logLine) Then
             logPath = ""       ' could not write it, so do not send the user looking for it
-            Err.Clear
         End If
+        Err.Clear
     End If
 
     saidTo = "VistaType LP has encountered an error." & vbCr & vbCr _
@@ -30975,8 +30983,11 @@ End Sub   '*** end of Sh_Report_Error ***
 '               the next entry. MEASURED on vistabuild: ReadAll on a file holding NULs returns
 '               stray junk after the first part; the Write then raised error 5 after
 '               CreateTextFile had already emptied the file, and the whole log was lost.
+' Version: 1.2  Date: 10/7/2026 - a Function that says whether the line was written; the log is
+'               written as Unicode to a scratch file and copied over the old one only when the
+'               write succeeded, so one failed write can no longer wipe the log (issue #25).
 '
-Private Sub Sh_Log_Newest_First(ByVal logPath As String, ByVal newLine As String)
+Private Function Sh_Log_Newest_First(ByVal logPath As String, ByVal newLine As String) As Boolean
     Dim fso As Object
     Dim ts As Object
     Dim whole As String
@@ -30984,29 +30995,21 @@ Private Sub Sh_Log_Newest_First(ByVal logPath As String, ByVal newLine As String
     Dim keep As String
     Dim i As Long
     Dim kept As Long
-    Dim f As Integer
+    Dim scratchPath As String
 
     ' Same rule as everything else on this path: it must not raise. A failure here loses one log
-    ' line; a failure that escapes becomes a second error on top of the first.
+    ' line; a failure that escapes becomes a second error on top of the first. It returns True
+    ' only when the new line is in the log.
+    Sh_Log_Newest_First = False
     On Error Resume Next
 
     Set fso = CreateObject("Scripting.FileSystemObject")
-    If fso Is Nothing Then Exit Sub
+    If fso Is Nothing Then Exit Function
 
     ' FileSystemObject rather than Dir$: Dir is stateful, and a Dir loop running anywhere else in
     ' the project would be silently restarted by a call from here. Same reason as Sh_Store_Folder.
-    ' READ IN BINARY, NOT WITH ReadAll. A log written before issue #24 was fixed can hold long
-    ' runs of NUL, and ReadAll on such a file returns junk after the first part - measured
-    ' 10/7/2026. The junk made the Write below raise AFTER CreateTextFile had emptied the file,
-    ' so the whole log was lost. Binary hands back exactly the bytes in the file.
     whole = ""
-    If fso.FileExists(logPath) Then
-        f = FreeFile
-        Open logPath For Binary Access Read As #f
-        whole = Space$(LOF(f))
-        Get #f, , whole
-        Close #f
-    End If
+    If fso.FileExists(logPath) Then whole = Sh_Read_Log_Text(logPath)
 
     keep = newLine
     kept = 1
@@ -31024,10 +31027,67 @@ Private Sub Sh_Log_Newest_First(ByVal logPath As String, ByVal newLine As String
         End If
     Next i
 
-    Set ts = fso.CreateTextFile(logPath, True)         ' True = overwrite
-    ts.Write keep & vbCrLf
-    ts.Close
-End Sub   '*** end of Sh_Log_Newest_First ***
+    ' WRITTEN TO A SCRATCH FILE, AND AS UNICODE. Issue #25: the log used to be emptied first and
+    ' then written as ANSI text, so an entry ANSI cannot hold - a Greek or IPA document name -
+    ' failed with the file already empty, and every earlier entry went with it. Unicode holds
+    ' any character a document name can; the scratch file means a write that fails anyway leaves
+    ' the old log exactly as it was.
+    scratchPath = logPath & ".new"
+    Err.Clear
+    Set ts = fso.CreateTextFile(scratchPath, True, True)   ' overwrite, Unicode
+    If Err.Number = 0 Then ts.Write keep & vbCrLf
+    If Err.Number = 0 Then ts.Close
+    If Err.Number = 0 Then fso.CopyFile scratchPath, logPath, True     ' True = overwrite
+    If Err.Number = 0 Then Sh_Log_Newest_First = True
+    If Not ts Is Nothing Then ts.Close
+    Err.Clear
+    fso.DeleteFile scratchPath, True
+    Err.Clear
+End Function   '*** end of Sh_Log_Newest_First ***
+
+' The error log's text, whichever way it was written: Unicode (it starts with the byte-order
+' mark FF FE) since issue #25, ANSI before. Read in BINARY, never with FileSystemObject's ReadAll:
+' a log damaged by issue #24 holds runs of NUL, and ReadAll on such a file returns junk after the
+' first part - measured 10/7/2026. "" if it cannot be read.
+'
+' Author: Jerry Whittaker -  jerry@vistatypelp.org
+'
+' Version: 1.0  Date: 10/7/2026
+'
+Private Function Sh_Read_Log_Text(ByVal logPath As String) As String
+    Dim f As Integer
+    Dim n As Long
+    Dim b() As Byte
+    Dim s As String
+
+    Sh_Read_Log_Text = ""
+    On Error GoTo Failed
+
+    f = FreeFile
+    Open logPath For Binary Access Read As #f
+    n = LOF(f)
+    If n > 0 Then
+        ReDim b(0 To n - 1)
+        Get #f, , b
+    End If
+    Close #f
+    f = 0
+
+    If n = 0 Then
+        s = ""
+    ElseIf n >= 2 And b(0) = &HFF And b(1) = &HFE Then
+        s = b                      ' a Byte array copies straight into a String as UTF-16
+        s = Mid$(s, 2)             ' and the first character is the byte-order mark
+    Else
+        s = StrConv(b, vbUnicode)  ' ANSI, as every log before issue #25 was
+    End If
+    Sh_Read_Log_Text = s
+    Exit Function
+
+Failed:
+    If f <> 0 Then Close #f
+    Sh_Read_Log_Text = ""
+End Function   '*** end of Sh_Read_Log_Text ***
 
 ' Text made safe for ONE line of the error log: every control character - CR, LF, tab, NUL and
 ' the rest below a space, and DEL - becomes a space, and the ends are trimmed. Runs of spaces

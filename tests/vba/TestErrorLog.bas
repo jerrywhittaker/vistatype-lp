@@ -1,6 +1,7 @@
 Attribute VB_Name = "TestErrorLog"
 '@uses Sh_Log_Newest_First
 '@uses Sh_One_Log_Line
+'@uses Sh_Read_Log_Text
 '
 ' The error log, issue #24. A description ending in CR LF NUL split its entry, and the next
 ' rewrite left about 2,000 NULs in the file. MEASURED 10/7/2026 on a copy of the damaged log:
@@ -12,14 +13,29 @@ Attribute VB_Name = "TestErrorLog"
 '
 Option Explicit
 
+' Reads the log back the way a person's editor would: UTF-16 if it starts with the Unicode
+' byte-order mark, ANSI if not. Its own code, NOT the add-in's, so it cannot share a mistake.
 Private Function TestErrorLog_ReadFile(ByVal path As String) As String
     Dim f As Integer
+    Dim n As Long
+    Dim b() As Byte
     Dim s As String
     f = FreeFile
     Open path For Binary Access Read As #f
-    s = Space$(LOF(f))
-    Get #f, , s
+    n = LOF(f)
+    If n > 0 Then
+        ReDim b(0 To n - 1)
+        Get #f, , b
+    End If
     Close #f
+    If n = 0 Then
+        s = ""
+    ElseIf n >= 2 And b(0) = &HFF And b(1) = &HFE Then
+        s = b
+        s = Mid$(s, 2)
+    Else
+        s = StrConv(b, vbUnicode)
+    End If
     TestErrorLog_ReadFile = s
 End Function
 
@@ -39,6 +55,8 @@ Public Function TestErrorLog_Suite() As TestSuite
     Dim newLine As String
     Dim after As String
     Dim lines As Variant
+    Dim f As Integer
+    Dim bom(0 To 1) As Byte
 
     Suite.Description = "The error log"
     path = Environ$("TEMP") & "\VistaType-Errors-test24.log"
@@ -57,13 +75,52 @@ Public Function TestErrorLog_Suite() As TestSuite
         after = TestErrorLog_ReadFile(path)
         .IsOk Len(after) > 0, "the log was emptied"
         .IsEqual InStr(after, vbNullChar), 0, "NULs left in the log"
-        lines = Split(after, vbCrLf)
+        lines = Split(after & vbCrLf, vbCrLf)     ' never empty, so lines(0) is safe on an emptied log
         .IsEqual lines(0), newLine, "the new entry is not the first line"
         .IsOk InStr(after, "2026-10-06 20:04:45") > 0, "an earlier entry was lost"
     End With
 
     With Suite.Test("the new entry is one line with its two-space separators")
         .IsEqual newLine, "2026-10-07 12:00:00  v3.0.544  Test  err 5 ""OpenClipboard Failed   ""  step ""s"""
+    End With
+
+    ' Issue #25. The log was rewritten as ANSI text, emptied first, so a character ANSI cannot
+    ' hold - a Greek document name - made the write fail with the file already empty, and every
+    ' earlier entry was lost.
+    With Suite.Test("a Greek letter in an entry neither wipes the log nor is lost")
+        TestErrorLog_WriteFile path, "2026-10-06 20:04:45  v3.0.539  Older  err 5 ""x""" & vbCrLf
+        newLine = "2026-10-07 12:00:00  v3.0.545  Test  err 5 ""x""  doc """ _
+                & ChrW(&H3B1) & ChrW(&H3B2) & ChrW(&H3B3) & ".docx"""
+        Sh_Log_Newest_First path, newLine
+        after = TestErrorLog_ReadFile(path)
+        .IsOk InStr(after, "2026-10-06 20:04:45") > 0, "the earlier entry was lost"
+        lines = Split(after & vbCrLf, vbCrLf)     ' never empty, so lines(0) is safe on an emptied log
+        .IsEqual lines(0), newLine, "the new entry is not the first line, or its Greek was lost"
+    End With
+
+    With Suite.Test("an old ANSI log is read correctly before it is rewritten")
+        TestErrorLog_WriteFile path, "2026-10-06 20:04:45  v3.0.539  Older  err 5 ""caf" & Chr$(233) & """" & vbCrLf
+        Sh_Log_Newest_First path, "2026-10-07 12:00:00  v3.0.545  Test  err 5 ""y"""
+        after = TestErrorLog_ReadFile(path)
+        .IsOk InStr(after, "caf" & ChrW(233)) > 0, "the earlier entry's accented letter was mangled"
+    End With
+
+    With Suite.Test("the log is written as Unicode")
+        Sh_Log_Newest_First path, "2026-10-07 12:00:01  v3.0.545  Test  err 5 ""z"""
+        f = FreeFile
+        Open path For Binary Access Read As #f
+        Get #f, , bom
+        Close #f
+        .IsOk bom(0) = &HFF And bom(1) = &HFE, "no Unicode byte-order mark at the start of the log"
+    End With
+
+    ' Dialog 240 says "written to a log file" only when it was. Before #25 the caller tested
+    ' Err.Number after the call, which an error handled inside the sub never reaches.
+    With Suite.Test("the log writer says whether the line was written")
+        .IsEqual Sh_Log_Newest_First(path, "2026-10-07 12:00:02  ok"), True
+        .IsEqual Sh_Log_Newest_First(Environ$("TEMP") & "\no-such-folder-25\x.log", "a"), False, _
+                 "a log that cannot be written reported as written"
+        .IsOk Len(Dir$(path & ".new")) = 0, "the scratch file was left behind"
     End With
 
     On Error Resume Next
