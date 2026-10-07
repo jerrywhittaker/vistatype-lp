@@ -321,16 +321,15 @@ def test_the_box_does_not_configure_word_itself():
 
 
 def test_the_check_reports_not_attached_on_cancel():
-    body = _body("\nPublic Function Dx_Is_BANA_Template_Attached() As Boolean",
+    body = _body("\nPublic Function Dx_Is_BANA_Template_Attached(",
                  "end of Dx_Is_BANA_Template_Attached macro")
     lines = _code_lines(body)
     assert not any("justAttached" in l for l in lines)
-    attach = _first(lines, "Dx_Attach_BANA_Template_Run False")
-    # Straight after the attach: still no template means Cancel, and False goes back -- with no
-    # message of its own in between, because the attach has just shown 393. A second one here
-    # would put the same news on screen twice.
-    assert lines[attach + 1] == ('If InStr(ActiveDocument.AttachedTemplate, "BANA Braille") = 0 '
-                                 'Then Exit Function')
+    # No template: from 10/6/2026 (issue #8) it says 394 and returns False, and never runs the
+    # attach, so the attach's own Cancel message (393) cannot appear from here at all.
+    assert not any("Dx_Attach_BANA_Template_Run" in l for l in lines)
+    say = _first(lines, 'Sh_Say "The BANA template is not attached.", "Braille Macros (394)"')
+    assert lines[say + 1] == "Exit Function"
     assert not any("(393)" in l for l in lines)
     # Its own question, when the book has a template but no translation: Cancel is False too.
     ask = _first(lines, "Dx_Choose_Translation_Form.Show")
@@ -359,7 +358,10 @@ def test_every_braille_macro_stops_when_the_check_says_no():
                     code.startswith("Dx_Is_BANA_Template_Attached = "):
                 continue
             calls.append((src.name, n, code))
-    wrong = [c for c in calls if c[2] != "If Not Dx_Is_BANA_Template_Attached() Then Exit Sub"]
+    allowed = ("If Not Dx_Is_BANA_Template_Attached() Then Exit Sub",)
+    wrong = [c for c in calls if c[2] not in allowed]
     assert not wrong, ("a call that does not stop when the user cancels -- Application.Run "
                        "cannot hear the answer:\n" + "\n".join(map(str, wrong)))
-    assert len(calls) == 13, f"expected the thirteen braille macros, found {len(calls)}: {calls}"
+    # Ten from 10/6/2026: AutoTag Ref Pages, Validate $pg Tags and Manual Tag Ref Page no longer
+    # call the check - they run on a book with the Normal template (Jerry, issue #8).
+    assert len(calls) == 10, f"expected the ten braille macros, found {len(calls)}: {calls}"

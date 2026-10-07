@@ -40,10 +40,10 @@ mind. The ones still worth questioning are the small macros: Background Color, F
 Color, the DAISY tagger, and Remove Para Formatting from Text Files — each does between one and six
 replaces and then empties the list.
 
-**One case Jerry's rule does not cover, still open.** `Dx_Is_BANA_Template_Attached` (`:4734`) runs
+**One case Jerry's rule did not cover — cured 10/6/2026 (#8).** `Dx_Is_BANA_Template_Attached` (`:4734`) ran
 the whole attach by itself when no BANA template is on the document. So pressing a *small* braille
 button — Dashes/Primes/Fractions, Spelling List, Exercise Levels — can empty the undo list without
-the transcriber ever asking for an attach. That is not a whole-book job they chose.
+the transcriber ever asking for an attach. That is not a whole-book job they chose. **From 10/6/2026** the check says "The BANA template is not attached." (394) and stops, attaching nothing, on every braille button that needs the template. AutoTag Ref Pages, Validate $pg Tags and Manual Tag Ref Page do not need it and no longer call the check (Jerry, same day). Only the Attach BANA Template button attaches the template now, and that attach still clears the list (Jerry: yes).
 
 **The line to work to:** a macro that works on the **whole book** to put it into shape needs no
 undo. A macro the transcriber points at a **selection** to make one specific change does.
@@ -125,7 +125,7 @@ outright when no BANA template is attached. So on a document without the templat
 Dashes/Primes/Fractions, Format Spelling List, Foreign Lang in Color, Exercise Levels 1 & 2,
 Compress Linear Math, Full File Cleanup or Selection Clean Up runs the whole attach — the clear
 at `:3138` and roughly 75 edit passes — before the button's own work starts. **Any fix that leaves
-the guard alone leaves that hole open.**
+the guard alone leaves that hole open.** *Closed 10/6/2026 (#8): the guard now only reports, and never attaches. The three reference page buttons no longer call it; they run on a book with the Normal template.*
 
 ### A second thing the clears hide
 
@@ -294,7 +294,7 @@ out of here because a closed survey is the wrong place to keep live work.
 | `Lp_Italics_To_Dashed_Underline` uses `wdFindContinue` on all 13 passes, though offered as a selection repair — **cured 10/6/2026**: `wdFindStop` alone still ran to the end of the book on an all-italic selection (3.0.532), so Selected Cleanup now walks the selection hit by hit (`Lp_Dash_Italics_Pass_In_Range`); File Cleanup and Normalize Styles still cover the whole book | #4 |
 | `Lp_TOC_Color_Bars_Form` selects the whole document before its remove-leaders loop — **cured 10/6/2026**, the select deleted | #5 |
 | Compress Linear Math retired on the large-print tab, still live on the braille tab | #7, closed 10/6/2026: braille keeps it on purpose |
-| `Dx_Is_BANA_Template_Attached` runs the whole attach, so a small button empties the undo list | #8 |
+| `Dx_Is_BANA_Template_Attached` runs the whole attach, so a small button empties the undo list — **cured 10/6/2026**, it says "The BANA template is not attached." (394) and stops; only the Attach BANA Template button attaches | #8 |
 | Five macros with no callers | #9 |
 | Three more that need a read to confirm | #10 |
 

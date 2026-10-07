@@ -18,6 +18,33 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Sh  - 10/7/2026 - BOTH AUTOTAGS SHOW FORMATTING MARKS BEFORE TAGGING. A page number
+'           - Sh  - 10/7/2026 - whose paragraph mark is hidden is invisible to the "^013...^013" Find
+'           - Sh  - 10/7/2026 - passes while formatting marks and hidden text are off. Braille AutoTag
+'           - Sh  - 10/7/2026 - turned them on only at the end, so on a Normal-template book (letter
+'           - Sh  - 10/7/2026 - configuration, marks off) it missed four of Jerry's 14 page numbers.
+'           - Sh  - 10/7/2026 - Braille now turns them on first; large print turns them on for the
+'           - Sh  - 10/7/2026 - passes and puts them back after.
+' Notes:    - Dx  - 10/7/2026 - BRAILLE AUTOTAG TAGS THE SAME RANGES AS LARGE PRINT. On 3.0.540 it
+'           - Dx  - 10/7/2026 - missed 16-17, 22B-23B, A27B-A29B and AA30BB-AA33BB. Two gaps, both
+'           - Dx  - 10/7/2026 - measured: the merge joined ranges on consecutive lines into 16-A29B,
+'           - Dx  - 10/7/2026 - which nothing tags, and a space round the hyphen (16 - 17) stopped every
+'           - Dx  - 10/7/2026 - range pass. The merge now leaves a range alone (Dx_Pg_Text_Is_Range),
+'           - Dx  - 10/7/2026 - and page-number lines are closed up first (Dx_Closed_Up_Pg_Range). Jerry.
+' Notes:    - Dx  - 10/6/2026 - MANUAL TAG REF PAGE NO LONGER USES THE CLIPBOARD to read the line.
+'           - Dx  - 10/6/2026 - On 3.0.539 it failed with -2147221040 "OpenClipboard Failed" on "64A"
+'           - Dx  - 10/6/2026 - when another program held the clipboard. It reads Selection.Text.
+' Notes:    - Dx  - 10/6/2026 - A BRAILLE BUTTON ON A BOOK WITH NO BANA TEMPLATE SAYS SO AND STOPS (394)
+'           - Dx  - 10/6/2026 - "The BANA template is not attached." - and attaches nothing, so the undo
+'           - Dx  - 10/6/2026 - list is left alone. It used to run the whole attach, UndoClear and all,
+'           - Dx  - 10/6/2026 - for whatever button was pressed. The user presses Attach BANA Template.
+'           - Dx  - 10/6/2026 - No braille button attaches the template any more, and Prodnote to TN's
+'           - Dx  - 10/6/2026 - own message 277 is retired into 394. AutoTag Ref Pages, Validate $pg Tags
+'           - Dx  - 10/6/2026 - and Manual Tag Ref Page do not check for the template at all: they run on
+'           - Dx  - 10/6/2026 - a book with the Normal template too, and a book with no braille code
+'           - Dx  - 10/6/2026 - recorded gets its roman numeral page numbers tagged the UEB way
+'           - Dx  - 10/6/2026 - (Dx_Ensure_BrailleType(False): the book's own setting, else the
+'           - Dx  - 10/6/2026 - translation table SWIFT recorded; asks and records nothing). Jerry. #8.
 ' Notes:    - LP  - 10/6/2026 - TWO UNCALLED PICTURE MACROS DELETED (issue #9): Lp_Make_All_
 '           - LP  - 10/6/2026 - Pictures_In_Selected_Table_Inline and Lp_Picture_Color_Change_Menu.
 '           - LP  - 10/6/2026 - Nothing called them - no ribbon button, key, form or other macro.
@@ -3672,10 +3699,11 @@ Sub Dx_Attach_BANA_Template()
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
 ' A wrapper over Dx_Attach_BANA_Template_Run, added 8/29/2026 with the automatic cleanup. autoClean
-' is True here because pressing this button IS the transcriber saying "prepare this file". The one
-' other route into the attach - Dx_Is_BANA_Template_Attached, which fifteen braille macros call
-' when a document has no BANA template yet - passes False, so it attaches quietly and gets on with
-' the job she actually asked for. Jerry's call, 8/29/2026.
+' is True here because pressing this button IS the transcriber saying "prepare this file". From
+' 10/6/2026 this is the ONLY route into the attach: every other braille button that needs the
+' template says it is not attached (394) and attaches nothing, and the three reference-page buttons
+' do not need it (issue #8, Jerry). Until then the check
+' Dx_Is_BANA_Template_Attached also ran the attach, passing False.
 '
 ' The no-argument shape is kept because this is a ribbon tag: RibbonDispatch.bas calls it by name
 ' through the generated Sh_Dispatch, and build_ribbon_dispatch.py refuses to generate at all if a
@@ -3877,11 +3905,8 @@ Public Sub Dx_Attach_BANA_Template_Run(ByVal autoClean As Boolean)
     ' already carry a translation - the variable alone cannot tell a Cancel from an answer.
     '
     ' THE MESSAGE IS SAID HERE, AND ONLY HERE. Jerry, 9/29/2026: "there should be a message after
-    ' the cancel". This is the one place both routes pass through - the Attach BANA Template button,
-    ' and a braille button on a book with no template - so it shows exactly once per Cancel. When a
-    ' braille macro started this attach through Dx_Is_BANA_Template_Attached, that function sees
-    ' the template still missing and returns False, and the macro stops as well, saying nothing
-    ' more: this message has already told the user.
+    ' the cancel". From 10/6/2026 the Attach BANA Template button is the only way in (issue #8), so
+    ' it shows exactly once per Cancel.
     Dx_Translation_Answered = False
     Dx_Choose_Translation_Form.Show
     If Not Dx_Translation_Answered Then
@@ -3957,11 +3982,11 @@ Public Sub Dx_Attach_BANA_Template_Run(ByVal autoClean As Boolean)
     '
     ' The character count guard stays: an empty or near-empty document has nothing to clean up, and
     ' running two progress bars over it would only be strange to watch.
-    ' autoClean is False when a braille macro attached the template on her behalf rather than her
-    ' pressing Attach - see the wrapper above. Fifteen macros do that through
-    ' Dx_Is_BANA_Template_Attached, and she pressed Manual Tag or AutoTag, not Attach. Running
-    ' thirty-six destructive passes and an UndoClear because she asked to tag one page number is
-    ' not what she asked for. Jerry's call, 8/29/2026.
+    ' autoClean was False when a braille macro attached the template on the user's behalf rather
+    ' than the user pressing Attach - running thirty-six destructive passes because the user asked
+    ' to tag one page number is not what they asked for. Jerry's call, 8/29/2026. From 10/6/2026
+    ' no braille macro attaches the template (issue #8), so only the Attach button calls this,
+    ' always with True.
     If autoClean And Not wasAlreadyBrl Then
         If ActiveDocument.Characters.count > 10 Then
 
@@ -5511,6 +5536,12 @@ End Function   '*** end of Dx_Ensure_BrailleType ***
 
 Public Function Dx_Is_BANA_Template_Attached() As Boolean
 '
+' Version: 2.0  Date: 10/6/2026 - NO TEMPLATE: SAYS SO AND STOPS (394), and never attaches one.
+'                                Jerry, 10/6/2026: the user is responsible for pressing Attach, on
+'                                every braille button that calls this. AutoTag Ref Pages, Validate
+'                                $pg Tags and Manual Tag Ref Page no longer call it at all. Issue #8: any braille button pressed on a
+'                                book with no template ran the whole attach, and its UndoClear
+'                                emptied the undo list for a job that had nothing to do with it
 ' Version: 1.9  Date: 9/29/2026 - says nothing itself when the attach it started is canceled: the
 '                                attach now shows its own message (393), once
 ' Version: 1.8  Date: 9/29/2026 - A FUNCTION NOW, returning False when the user presses Cancel, so
@@ -5544,23 +5575,21 @@ Public Function Dx_Is_BANA_Template_Attached() As Boolean
 '
 ' Description:  Call: If Not Dx_Is_BANA_Template_Attached() Then Exit Sub
 '                   Checks to see if a BANA Braille Template is attached
-'                   and that that template is 2014 or later. Attaches one if not.
+'                   and that that template is 2014 or later. With no template it says so
+'                   (394) and returns False; it never attaches one.
 '                   Returns False when the user pressed Cancel on the translation box (331),
-'                   and the caller stops, saying nothing. (When the Cancel was inside the
-'                   attach, the attach has already said so - message 393.)
+'                   and the caller stops, saying nothing.
 
     Application.Run MacroName:="Sh_Is_Doc_Open"
     If InStr(ActiveDocument.AttachedTemplate, "BANA Braille") = 0 Then
-        ' autoClean:=False - she pressed one of fifteen other braille buttons, not Attach, and the
-        ' template is being put on for her so that button can work. A DIRECT call, because
-        ' Application.Run cannot pass an argument to a typed parameter. Jerry, 8/29/2026.
-        Dx_Attach_BANA_Template_Run False   'template was NOT attached - attach it
-        ' Still none: the user pressed Cancel on the translation box (331), and the attach left the
-        ' book as it was. Report "not attached" so the macro that called this stops too. Nothing is
-        ' said here: the attach has just shown "The BANA braille template has not been attached."
-        ' (393), and a second message would be the same news twice. Jerry, 9/29/2026. (Cancel on
-        ' the template list still leaves through End and never gets here - issue #18.)
-        If InStr(ActiveDocument.AttachedTemplate, "BANA Braille") = 0 Then Exit Function
+        ' NO TEMPLATE: SAY SO AND STOP. Jerry, 10/6/2026 (issue #8): "The BANA template is not
+        ' attached." and the user is responsible for pressing Attach BANA Template. Running the
+        ' attach from here made it look like part of whatever button was pressed, and its UndoClear
+        ' threw away the undo list for a job that had nothing to do with attaching. Nothing changes
+        ' on this path. AutoTag Ref Pages, Validate $pg Tags and Manual Tag Ref Page do not call
+        ' this at all: they run on a book with the Normal template too (Jerry, 10/6/2026).
+        Sh_Say "The BANA template is not attached.", "Braille Macros (394)"
+        Exit Function
     End If
     
     ' BANA Braille template is attached but is it a version which is too old?
@@ -5607,9 +5636,6 @@ Public Function Dx_Is_BANA_Template_Attached() As Boolean
     ' here, the transcriber pressed a button and is waiting.
     Dx_Prompt_Save_Before_Braille
 
-    ' Never straight after the attach above: the attach asks before it attaches, and goes on only
-    ' when a table was chosen, so the book already knows its translation and this is not asked.
-    '
     ' Cancel here stops the macro that called this, the same as Cancel in the attach. Jerry's rule,
     ' 9/29/2026 - Cancel stops what the user started - so a braille macro does not run on a book
     ' with no translation recorded. Dx_Ensure_BrailleType is asked again rather than a flag
@@ -5619,7 +5645,6 @@ Public Function Dx_Is_BANA_Template_Attached() As Boolean
     ' It moved here on 9/29/2026, when the attach began showing the box before it attaches anything.
     ' It matters for a book whose template was put on while it was already on screen - Word's own
     ' Document Template button, or SWIFT - which nothing else notices until the window changes.
-    ' Never reached inside the attach: by then the book knows its translation.
     If Dx_Ensure_BrailleType() = "" Then
         Dx_Choose_Translation_Form.Show
         If Dx_Ensure_BrailleType() = "" Then Exit Function
@@ -6343,6 +6368,16 @@ Sub Dx_Manual_Tag_with_Dollar_pg()
 '
 ' Dx_Manual_Tag_with_Dollar_pg Macro
 '
+' Version: 1.9  Date: 10/6/2026 - reads the line straight from the selection, not through the
+'                                clipboard. Jerry, on 3.0.539: "64A" raised -2147221040, "DataObject:
+'                                GetFromClipboard OpenClipboard Failed", twice - another program held
+'                                the clipboard (inferred). The closing MS_Clear_F_and_R_Params_and_
+'                                Clipboard is gone too: Dx_Set_DBT_Codes_Color_and_Style, the line
+'                                before it, already runs it
+' Version: 1.8  Date: 10/6/2026 - no longer checks for the BANA template, so it never attaches one
+'                                and runs on a book with the Normal template too. A book with no
+'                                braille code recorded tags a roman numeral the UEB way; reading the
+'                                missing BrailleType directly raised error 5825 (Jerry, issue #8)
 ' Version: 1.7  Date: 9/29/2026 - stops if the user cancels the braille translation box (331)
 ' Version: 1.6  Date: 8/26/2026 - tags an ARABIC page number too. It refused anything that was not a
 '                                roman numeral, so typing 12 was answered "This is not a valid roman
@@ -6353,18 +6388,17 @@ Sub Dx_Manual_Tag_with_Dollar_pg()
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
     Application.Run MacroName:="Sh_Is_Doc_Open"
-    If Not Dx_Is_BANA_Template_Attached() Then Exit Sub
     Application.Run MacroName:="Sh_Remove_DollarPG_For_Retag"
 
     Selection.HomeKey Unit:=wdLine
     Selection.EndKey Unit:=wdLine, Extend:=wdExtend
-    Selection.Copy ' put the possible roman numeral in the clipboard
-     
-    'copy the clipboard into a variable - From: http://www.vbaexpress.com/forum/showthread.php?27996-Solved-Copy-string-to-clipboard-in-VBA
-    Dim Clipboard_Data As New DataObject
-    Clipboard_Data.GetFromClipboard
-    Dim Possible_LC_Roman As Variant
-    Possible_LC_Roman = Clipboard_Data.GetText
+
+    ' The line is read straight from the selection. It went through the clipboard - Selection.Copy,
+    ' then a DataObject - until 10/6/2026, and failed with -2147221040 "OpenClipboard Failed" when
+    ' another program had the clipboard open (Jerry, 3.0.539, on "64A"). The selection is left
+    ' extended over the line, exactly as the copy left it.
+    Dim Possible_LC_Roman As String
+    Possible_LC_Roman = Replace(Replace(Replace(Selection.Text, vbCr, ""), vbLf, ""), Chr$(7), "")
     
     ' A PAGE NUMBER, NOT ONLY A ROMAN ONE. Jerry, 8/26/2026: typing 12 in its own paragraph and
     ' pressing Manual Tag Ref Page answered "This is not a valid roman numeral". Most page numbers
@@ -6385,9 +6419,14 @@ Sub Dx_Manual_Tag_with_Dollar_pg()
         Exit Sub
     End If
 
-    ' if this is an EBAE document - then it might be a lower case roman numeral needing a [[*ii*]] code
+    ' if this is an EBAE document - then it might be a lower case roman numeral needing a [[*ii*]] code.
+    ' Dx_Ensure_BrailleType(False) reads the book's own setting, else the translation table SWIFT
+    ' recorded, and asks and records nothing. "" - a book with no braille code recorded, which
+    ' includes a Normal-template book - is tagged the UEB way (Jerry, 10/6/2026, issue #8).
+    Dim brlType As String
     If isRoman Then
-        If ActiveDocument.Variables("BrailleType") = "EBAT" Or ActiveDocument.Variables("BrailleType") = "EBAN" Then
+        brlType = Dx_Ensure_BrailleType(False)
+        If brlType = "EBAT" Or brlType = "EBAN" Then
             If UCase(Possible_LC_Roman) <> Possible_LC_Roman Then  'the roman numeral is lower case
                 Selection.HomeKey Unit:=wdLine
                 Selection.TypeText Text:="[[*ii*]]"
@@ -6409,8 +6448,7 @@ Sub Dx_Manual_Tag_with_Dollar_pg()
     Selection.TypeText Text:="$pg"
     Selection.HomeKey Unit:=wdLine
     
-    Application.Run MacroName:="Dx_Set_DBT_Codes_Color_and_Style"
-    Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
+    Application.Run MacroName:="Dx_Set_DBT_Codes_Color_and_Style"   ' clears Find and Replace itself
     
 End Sub  '***** end of Dx_Manual_Tag_with_Dollar_pg Macro *****
 
@@ -6734,6 +6772,19 @@ End Sub   '***** End of Dx_Spelling_List Macro *****
 
 Sub Dx_AutoTag_Page_Numbers()
 '
+' Version: 3.5  Date: 10/7/2026 - turns formatting marks on BEFORE tagging instead of after: a page
+'                                number whose paragraph mark is hidden was missed on a book with them
+'                                off (Jerry, on 3.0.541, a Normal-template book)
+' Version: 3.4  Date: 10/7/2026 - tags the same ranges large print does (Jerry: "there should be no
+'                                difference between lp and braille for the autotag"). A range with
+'                                spaces round its hyphen, 16 - 17, is closed up first, on page-number
+'                                lines only; and the merge leaves a line that already holds a range
+'                                alone, so 16-17 / 22B-23B / A27B-A29B on consecutive lines are no
+'                                longer joined into an untaggable 16-A29B
+' Version: 3.3  Date: 10/6/2026 - no longer checks for the BANA template, so it never attaches one
+'                                and runs on a book with the Normal template too. A book with no
+'                                braille code recorded tags roman numerals the UEB way, now said
+'                                outright rather than reached through an error (Jerry, issue #8)
 ' Version: 3.2  Date: 9/29/2026 - stops if the user cancels the braille translation box (331)
 ' Version: 3.1 Date: 9/18/2026 - says so when no document is open. Dx_Is_BANA_Template_Attached runs
 '                                Sh_Is_Doc_Open, but Sh_Clear_Multi_Selection sat above it and reads
@@ -6764,9 +6815,9 @@ Sub Dx_AutoTag_Page_Numbers()
 ' Also locates continuation pages ##-## and enters the [[*lec*]][[*i*]] code
 '
 
-    ' BEFORE ANYTHING ELSE. Dx_Is_BANA_Template_Attached runs this check too, but it is two
-    ' lines down and Sh_Clear_Multi_Selection reads ActiveDocument.Content on its own, so with
-    ' no document open the macro never got that far.
+    ' BEFORE ANYTHING ELSE. Sh_Clear_Multi_Selection reads ActiveDocument.Content on its own, so
+    ' with no document open the macro must stop here. (Dx_Is_BANA_Template_Attached ran this check
+    ' too until 10/6/2026, when AutoTag stopped calling it - issue #8.)
     Application.Run MacroName:="Sh_Is_Doc_Open"
 
     ' Then, before anything reads or moves the cursor. Validation can leave every $pg
@@ -6775,12 +6826,23 @@ Sub Dx_AutoTag_Page_Numbers()
 
     Dim strLength As Integer
 
-    If Not Dx_Is_BANA_Template_Attached() Then Exit Sub
     Application.Run MacroName:="Dx_Fix_Para_Space_Errors"
     Dim su_Prev As Boolean
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
     Sh_Save_User_Position
+
+    ' FORMATTING MARKS ON BEFORE THE FIRST PASS, not after the last (10/7/2026). A page-number
+    ' line whose paragraph mark is formatted hidden is invisible to every Selection.Find
+    ' "^013...^013" pass below while formatting marks and hidden text are off - measured on
+    ' vistabuild with Jerry's "Auto Tag Page Numbers.docx": with them off 16-18, 22B-26B,
+    ' A27B-A29B and AA30B-AA33BB were left untagged (10 tags), with them on all 14 tagged. The
+    ' letter configuration turns them off; until 10/6/2026 the BANA attach ran first and turned
+    ' them on, which hid this. This block sat at the end of the macro, so the screen still ends
+    ' the same: formatting marks on.
+    If Not ActiveWindow.ActivePane.View.ShowAll Then
+       ActiveWindow.ActivePane.View.ShowAll = True
+    End If
     
     ' place para mark at top of file
     Selection.HomeKey Unit:=wdStory
@@ -7052,6 +7114,13 @@ Sub Dx_AutoTag_Page_Numbers()
     ' the numbers are bare - 12, 13, 14 - and joining them into 12-14 lets the "number hyphen
     ' number" pass below produce $pg12-14[[*lec*]][[*i*]]14, continuation code and all. Do it
     ' after the tagging instead and that code would have to be built by hand. (Jerry, 8/5/2026)
+    '
+    ' First, a range typed with spaces round its hyphen - 16 - 17 - or with two hyphens - 16--17 -
+    ' is closed up to 16-17, on page-number lines only. No pass below accepts the spaced form, so
+    ' braille tagged none of them while large print, which runs Lp_Fix_Hyphen_Errors over the whole
+    ' book first, tagged them all. Jerry, 10/7/2026: no difference between the two AutoTags. Before
+    ' the merge, so the merge sees the range and leaves it alone.
+    Dx_Close_Up_Pg_Range_Hyphens ActiveDocument
     Dx_Merge_Adjacent_Pg_Numbers ActiveDocument
 
 '******************* begin tagging *********************************
@@ -7421,7 +7490,9 @@ Sub Dx_AutoTag_Page_Numbers()
         If Len(tempStr) > 0 Then
             On Error Resume Next 'prevents crash in a table
             If Sh_IsValidRomanNumeral(tempStr) Then  'is it a valid roman numeral
-               If ActiveDocument.Variables("BrailleType") = "UEBT" Or ActiveDocument.Variables("BrailleType") = "UEBN" Then ' this is for UEB
+               ' UEB unless the book is EBAE - the same test as Manual Tag. Dx_Ensure_BrailleType(False) also
+               ' reads what SWIFT recorded, and asks and records nothing; "" (no code recorded) is UEB (issue #8)
+               If Not (Dx_Ensure_BrailleType(False) Like "EBA[TN]") Then
                         para.Range.InsertBefore ("$pg") ' put $pg at front of paragraph
                 Else 'this is for EBAE
                     If UCase(ActualStr) = ActualStr Then  'the roman numeral is upper case
@@ -7495,10 +7566,6 @@ LoopEnd:
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     ActiveDocument.UndoClear
     
-    If Not ActiveWindow.ActivePane.View.ShowAll Then
-       ActiveWindow.ActivePane.View.ShowAll = Not ActiveWindow.ActivePane.View.ShowAll
-    End If
-    
     ' remove para mark placed at top of file
     Selection.HomeKey Unit:=wdStory
     Selection.Delete Unit:=wdCharacter, count:=1
@@ -7534,8 +7601,9 @@ Function Dx_Merge_Adjacent_Pg_Numbers(ByVal targetDoc As Document) As Long
 '
 '   12 / 13         ->  12-14 is what three give; two give 12-13
 '   12 / 13 / 14    ->  12-14
-'   12-13 / 14      ->  12-14      (not 12-13-14)
 '   B13 / B14       ->  B13-B14
+'   12-13 / 14      ->  left alone, from 10/7/2026 - a line that already holds a range is never
+'                       merged into or from, and it ends a run (see Dx_Is_Bare_Pg_Number_Paragraph)
 '
 ' Real print books contain blank pages, and every page still has to carry a number, so DAISY and
 ' NIMAS coders emit two back to back - almost always at a chapter change. Left alone each gets
@@ -7557,6 +7625,11 @@ Function Dx_Merge_Adjacent_Pg_Numbers(ByVal targetDoc As Document) As Long
 ' number of runs merged; nothing reads it, it is there so the work can be checked from the
 ' Immediate window.
 '
+' Version: 1.1  Date: 10/7/2026 - a range is left alone (Jerry). Four ranges on consecutive lines,
+'                                 16-17 / 22B-23B / A27B-A29B / AA30BB-AA33BB, were joined into
+'                                 16-A29B - the first one's head and the last one's tail - which no
+'                                 tagging pass accepts, so none of them was tagged (measured on
+'                                 vistabuild, 10/6/2026, on 3.0.540)
 ' Version: 1.0  Date: 8/5/2026
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
@@ -7626,6 +7699,7 @@ Private Function Dx_Is_Bare_Pg_Number_Paragraph(ByVal r As Range) As Boolean
 ' Requiring a digit also keeps ordinary short paragraphs out: two lines reading "Yes" and "No"
 ' are not a page range.
 '
+' Version: 1.1  Date: 10/7/2026 - a line that already holds a range is not bare (Jerry)
 ' Version: 1.0  Date: 8/5/2026
 '
     Dim t As String
@@ -7661,7 +7735,7 @@ Private Function Dx_Is_Bare_Pg_Number_Paragraph(ByVal r As Range) As Boolean
         ElseIf UCase$(ch) >= "A" And UCase$(ch) <= "Z" Then
             ' a letter is allowed: B13, 14B, A15B
         ElseIf Lp_Is_Hyphen_Char(ch) Then
-            ' a hyphen is allowed: 16-18 is already a range and can still grow
+            ' a hyphen is allowed here, but a RANGE is turned away below
         Else
             ' anything else - a space, a tab, a break, the *~ graphic marker this macro
             ' plants earlier - means this is not a bare page number.
@@ -7670,6 +7744,11 @@ Private Function Dx_Is_Bare_Pg_Number_Paragraph(ByVal r As Range) As Boolean
     Next i
 
     If Not hasDigit Then Exit Function
+
+    ' A line that already holds a range - 16-17, 22B-23B - is not a bare page number: it is never
+    ' merged into or from, and it ends a run. Jerry, 10/7/2026. Until then it could "still grow",
+    ' and a run of ranges came out as the first one's head and the last one's tail.
+    If Dx_Pg_Text_Is_Range(s) Then Exit Function
 
     Dx_Is_Bare_Pg_Number_Paragraph = True
 
@@ -7787,6 +7866,135 @@ Private Function Dx_Merged_Pg_Number(ByVal firstNum As String, ByVal lastNum As 
     End If
 
 End Function   '*** end of Dx_Merged_Pg_Number function ***
+
+Private Function Dx_Pg_Text_Is_Range(ByVal s As String) As Boolean
+'
+' True when s holds a hyphen with something on both sides of it: 16-17, 22B-23B, A27B-A29B.
+' A hyphen at either end is a stray, not a range - "-13" and "13-" are not ranges. Any of the
+' characters Lp_Is_Hyphen_Char counts is a hyphen here.
+'
+' Version: 1.0  Date: 10/7/2026 - new, for Dx_Is_Bare_Pg_Number_Paragraph (Jerry)
+'
+    Dim i As Long
+
+    s = Trim$(s)
+    For i = 2 To Len(s) - 1
+        If Lp_Is_Hyphen_Char(Mid$(s, i, 1)) Then
+            Dx_Pg_Text_Is_Range = True
+            Exit Function
+        End If
+    Next i
+
+End Function   '*** end of Dx_Pg_Text_Is_Range function ***
+
+Private Function Dx_Is_Pg_Range_Part(ByVal p As String) As Boolean
+'
+' True when p could be one side of a page range: 1 to 12 characters, letters and digits only, and
+' either at least one digit (16, 22B, A27B, AA30BB) or a roman numeral (v, xiv). The same shape the
+' tagging passes accept, and the same 12-character limit as Dx_Is_Bare_Pg_Number_Paragraph.
+'
+' Version: 1.0  Date: 10/7/2026 - new, for Dx_Closed_Up_Pg_Range (Jerry)
+'
+    Dim ch As String
+    Dim i As Long
+    Dim hasDigit As Boolean
+
+    If Len(p) = 0 Or Len(p) > 12 Then Exit Function
+
+    For i = 1 To Len(p)
+        ch = Mid$(p, i, 1)
+        If ch >= "0" And ch <= "9" Then
+            hasDigit = True
+        ElseIf UCase$(ch) >= "A" And UCase$(ch) <= "Z" Then
+            ' a letter: B13, 14B, A15B
+        Else
+            Exit Function
+        End If
+    Next i
+
+    Dx_Is_Pg_Range_Part = hasDigit Or Sh_IsValidRomanNumeral(p)
+
+End Function   '*** end of Dx_Is_Pg_Range_Part function ***
+
+Private Function Dx_Closed_Up_Pg_Range(ByVal s As String) As String
+'
+' A page range typed with spaces round its hyphen, or with more than one hyphen, closed up:
+'
+'   16 - 17        ->  16-17
+'   22B -23B       ->  22B-23B
+'   16--17         ->  16-17
+'   AA30BB - AA33BB -> AA30BB-AA33BB
+'
+' Anything else comes back exactly as it went in, so this is safe to hand every paragraph:
+' "well - known" (no digit and not roman numerals), "Chapter 3 - The End" (a space inside a side),
+' "16-17" (nothing to close up), "16" (no hyphen). Only the plain hyphen is closed up - an en dash
+' is left as it is, as large print leaves it.
+'
+' Large print gets the same result from Lp_Fix_Hyphen_Errors, which closes up every hyphen in the
+' book. Braille does it on page-number lines only, so prose in a braille book is not touched.
+' Jerry, 10/7/2026: no difference between the two AutoTags in what they tag.
+'
+' Version: 1.0  Date: 10/7/2026 - new (Jerry)
+'
+    Dim t As String
+    Dim hyStart As Long
+    Dim hyEnd As Long
+    Dim leftPart As String
+    Dim rightPart As String
+
+    Dx_Closed_Up_Pg_Range = s
+
+    t = Trim$(Replace(s, ChrW(160), " "))
+    hyStart = InStr(t, "-")
+    If hyStart < 2 Then Exit Function               ' no hyphen, or one at the very start
+
+    hyEnd = hyStart                                 ' a run of hyphens counts as one
+    Do While hyEnd < Len(t)
+        If Mid$(t, hyEnd + 1, 1) <> "-" Then Exit Do
+        hyEnd = hyEnd + 1
+    Loop
+
+    leftPart = Trim$(Left$(t, hyStart - 1))
+    rightPart = Trim$(Mid$(t, hyEnd + 1))
+    If Not Dx_Is_Pg_Range_Part(leftPart) Then Exit Function
+    If Not Dx_Is_Pg_Range_Part(rightPart) Then Exit Function
+    If StrComp(leftPart & "-" & rightPart, t, vbBinaryCompare) = 0 Then Exit Function   ' already closed up
+
+    Dx_Closed_Up_Pg_Range = leftPart & "-" & rightPart
+
+End Function   '*** end of Dx_Closed_Up_Pg_Range function ***
+
+Private Function Dx_Close_Up_Pg_Range_Hyphens(ByVal targetDoc As Document) As Long
+'
+' Runs Dx_Closed_Up_Pg_Range over every paragraph, and writes back only the ones it changed.
+' Called by Dx_AutoTag_Page_Numbers at the seam between its two halves, before the merge, while
+' the page numbers are bare. Returns how many lines it closed up; nothing reads it.
+'
+' The write-back checks the paragraph's text first, the same guard as Dx_Merge_One_Pg_Number_Run:
+' character positions and Range offsets only line up while the paragraph is plain text.
+'
+' Version: 1.0  Date: 10/7/2026 - new (Jerry)
+'
+    Dim para As Paragraph
+    Dim t As String
+    Dim closedUp As String
+    Dim writeRng As Range
+
+    For Each para In targetDoc.Paragraphs
+        t = Sh_Para_Visible_Text(para.Range)
+        If Len(t) > 2 And Len(t) <= 40 Then
+            closedUp = Dx_Closed_Up_Pg_Range(t)
+            If StrComp(closedUp, t, vbBinaryCompare) <> 0 Then
+                Set writeRng = targetDoc.Range(para.Range.start, para.Range.start + Len(t))
+                If StrComp(writeRng.Text, t, vbBinaryCompare) = 0 Then
+                    writeRng.Text = closedUp
+                    Dx_Close_Up_Pg_Range_Hyphens = Dx_Close_Up_Pg_Range_Hyphens + 1
+                End If
+            End If
+        End If
+    Next para
+
+End Function   '*** end of Dx_Close_Up_Pg_Range_Hyphens function ***
 
 
 
@@ -9404,11 +9612,14 @@ Sub Dx_Ref_Pg_Number_Sequence_Menu()
 '
 ' Author:   Jerry Whittaker     jerry@vistatypelp.org
 '
+' Version: 1.2  Date: 10/6/2026 - no longer checks for the BANA template, so it never attaches one
+'                                and runs on a book with the Normal template too: the validation
+'                                boxes are the same Sh_ ones the large print tab uses (Jerry, issue #8)
 ' Version: 1.1  Date: 9/29/2026 - stops if the user cancels the braille translation box (331)
 ' Version: 1.0  Date: 10/19/2018
 
 '
-    If Not Dx_Is_BANA_Template_Attached() Then Exit Sub
+    Application.Run MacroName:="Sh_Is_Doc_Open"
     Sh_Validation_Choices_Form.Show
     Unload Sh_Validation_Choices_Form
     Application.ScreenUpdating = True    ' Turn screen updating on
@@ -13483,6 +13694,9 @@ End Function   '*** end of Lp_Is_Hyphen_Char function ***
 
 Sub Lp_AutoTag_Page_Numbers()
 '
+' Version: 2.9  Date: 10/7/2026 - formatting marks are on for the tagging passes and put back after,
+'                                so a page number whose paragraph mark is hidden is not missed (found
+'                                in the braille AutoTag, which uses the same passes)
 ' Version: 2.8  Date: 9/18/2026 - the no-document check runs FIRST. It used to sit eleven lines down,
 '                                behind two calls that reach for ActiveDocument themselves, so with no
 '                                document open the transcriber got the error report dialog 240 and a
@@ -13522,6 +13736,17 @@ Sub Lp_AutoTag_Page_Numbers()
     Sh_Save_User_Position
 
     Application.Run MacroName:="MS_Set_Word_Config_For_Large_Print"
+
+    ' FORMATTING MARKS ON FOR THE PASSES (10/7/2026). A page-number line whose paragraph mark is
+    ' hidden is invisible to every Selection.Find "^013...^013" pass below while formatting marks
+    ' and hidden text are off - measured on vistabuild in the braille AutoTag, which uses the same
+    ' passes. The large print configuration above normally turns them on already, but not when
+    ' Sh_Config_Skip_Display is up. Put back as they were after the passes, so the screen ends
+    ' exactly as it did before this change.
+    Dim showAllPrev As Boolean
+    showAllPrev = ActiveWindow.ActivePane.View.ShowAll
+    If Not showAllPrev Then ActiveWindow.ActivePane.View.ShowAll = True
+
     Application.Run MacroName:="Lp_Fix_Para_Space_Errors"
     Application.Run MacroName:="Lp_Fix_Hyphen_Errors"
 
@@ -13948,6 +14173,8 @@ LoopEnd:
     Application.Run MacroName:="Sh_Color_Dollar_PG_Red"
     
     ActiveDocument.UndoClear
+    
+    If Not showAllPrev Then ActiveWindow.ActivePane.View.ShowAll = False
     
     'remove top para mark
     Selection.HomeKey Unit:=wdStory
@@ -21973,6 +22200,9 @@ Sub Dx_Change_Prodnotes_To_Transcriber_Notes()
 ' paragraph that uses it; otherwise the user is told and nothing happens. The change is
 ' confirmed Yes/No before anything is restyled.
 '
+' Version: 1.1  Date: 10/6/2026 - no template says "The BANA template is not attached." (394), the
+'                                same message as every other braille button; 277 is retired (Jerry,
+'                                issue #8)
 ' Version: 1.0  Date: 7/24/2026
 '
     Dim tmplName As String
@@ -21990,8 +22220,7 @@ Sub Dx_Change_Prodnotes_To_Transcriber_Notes()
     tmplName = ActiveDocument.AttachedTemplate.Name
     On Error GoTo 0
     If StrComp(Left(tmplName, Len("BANA Braille")), "BANA Braille", vbTextCompare) <> 0 Then
-        MsgBox "This macro needs a BANA Braille template attached to the document." & vbCr & vbCr & _
-               "Attach a BANA Braille template and try again.", vbExclamation, "Braille Macros (277)"
+        Sh_Say "The BANA template is not attached.", "Braille Macros (394)"
         Exit Sub
     End If
 
