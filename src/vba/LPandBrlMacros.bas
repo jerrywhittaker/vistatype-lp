@@ -18,10 +18,12 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Sh  - 10/7/2026 - HYPERLINKS TO TEXT REMOVES THE RIGHT LINK (issue #14). Both the large
-'           - Sh  - 10/7/2026 - print and braille macros picked the FIELD by the hyperlink's number, so
-'           - Sh  - 10/7/2026 - with any other field in front of a link they froze the wrong field and
-'           - Sh  - 10/7/2026 - left the link. They now delete the hyperlink itself, keeping its text.
+' Notes:    - Sh  - 10/7/2026 - HYPERLINKS TO TEXT LEAVES INTERNAL LINKS ALONE (issue #14). Both the
+'           - Sh  - 10/7/2026 - large print and braille macros unlinked a FIELD picked by the
+'           - Sh  - 10/7/2026 - hyperlink's number, so a field in front of a link was frozen and the
+'           - Sh  - 10/7/2026 - link's words then erased. Jerry's rule: only web and email addresses
+'           - Sh  - 10/7/2026 - are converted; links within the book are ignored. The two
+'           - Sh  - 10/7/2026 - Hyperlinks to Addresses macros no longer write "#bookmark" over them.
 ' Notes:    - Sh  - 10/7/2026 - ONE ERROR CAN NO LONGER WIPE THE WHOLE ERROR LOG (issue #25). The
 '           - Sh  - 10/7/2026 - log was emptied and then rewritten as ANSI text, so an entry ANSI could
 '           - Sh  - 10/7/2026 - not hold (a Greek document name) failed with the file already empty.
@@ -9144,6 +9146,8 @@ Sub Dx_Convert_Hyper_To_Addresses()
 ' from: http://stackoverflow.com/questions/16493791/
 '     extract-hyperlink-address-from-hyperlink-field-code
 '
+' Version: 2.1 Date: 10/7/2026 - a link WITHIN the book (no Address) is left alone; it used to
+'                               become "#bookmark" as text (Jerry; issue #14)
 ' Version: 2.0 Date: 8/13/2026 - no temporary document; everything is scoped to a range. See the
 '                               note in Lp_Convert_Hyper_To_Addresses - Hyperlinks is a
 '                               whole-document collection, so the scratch document was doing
@@ -9173,15 +9177,20 @@ Sub Dx_Convert_Hyper_To_Addresses()
     ' text, so anything counted from the front has moved by the next turn of the loop.
     On Error Resume Next
     For i = rng.Hyperlinks.count To 1 Step -1
+        Set r = Nothing
         With rng.Hyperlinks(i)
-            strLinkText = .Address
-            ' optional, should be OK for HTML links
-            If .SubAddress <> "" Then
-                strLinkText = strLinkText & "#" & .SubAddress
+            ' No Address is a link WITHIN the book, which is left exactly as it is (Jerry,
+            ' 10/7/2026); it used to be written over with "#" and its bookmark's name.
+            If .Address <> "" Then
+                strLinkText = .Address
+                ' optional, should be OK for HTML links
+                If .SubAddress <> "" Then
+                    strLinkText = strLinkText & "#" & .SubAddress
+                End If
+                Set r = .Range
             End If
-            Set r = .Range
         End With
-        r.Text = strLinkText
+        If Not r Is Nothing Then r.Text = strLinkText
         Set r = Nothing
     Next i
     On Error GoTo 0
@@ -9855,40 +9864,35 @@ End Sub   '*** End of Dx_Compress_Linear_Math macro ***
 
 Sub Dx_Convert_Hyperliks_To_Text()
     '
-    ' Version: 1.1  Date: 10/7/2026 - an internal link is removed by deleting the HYPERLINK, not
-    '                                 by unlinking .Range.Fields(i): i counts hyperlinks, not
-    '                                 fields, so any other field in front froze the wrong one (#14)
+    ' Version: 1.1  Date: 10/7/2026 - links WITHIN the book are left alone (Jerry); only web and
+    '                                 email links are converted. The pass that unlinked internal
+    '                                 links is gone: it unlinked .Range.Fields(i), where i counts
+    '                                 hyperlinks, not fields, so a field in front of a link was
+    '                                 frozen and the link's words then erased (#14)
     ' Version: 1.0  Date: 9/27/2021 - complete rewrite of Sh_Show_Hidden_HLink macro
     '
     ' Converts the web-link or email address when they indicated by a link word like "here" or "my email address"
     ' also removes the "mailto:" header in email addresses
-    ' Converts internal document hyperlinks to the text they point to
+    '
+    ' LINKS WITHIN THE BOOK ARE IGNORED. Jerry, 10/7/2026: NIMAS files have no internal links, and
+    ' a DAISY file's are all lost in the conversion to Word - so only URLs and email addresses,
+    ' long or shortened, are this macro's business. Braille and paper large print take them as
+    ' text; a large print book for a screen keeps them clickable (Lp_Convert_Hyper_To_Addresses).
     
     Dim i As Long, rng As Range
-    Dim LinkString As String
     
     Dim su_Prev As Boolean
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False    ' Turn screen updating off
     Application.ScreenRefresh
     
-    ' convert internal hyperlinks
+    ' convert web links and "here" type email addresses. A link with no Address points WITHIN
+    ' the book and is left exactly as it is; writing its empty Address over it erased its words.
     With ActiveDocument
         For i = .Hyperlinks.count To 1 Step -1
-            LinkString = .Hyperlinks(i).SubAddress
-            If LinkString <> "" Then ' it is an internal hyperlink
-                ' The hyperlink ITSELF, which leaves its text. It used to be .Range.Fields(i),
-                ' but i counts hyperlinks, not fields: a page reference, a date or a TOC in
-                ' front of the link made it freeze the wrong field and leave the link (#14).
-                .Hyperlinks(i).Delete
-            End If
-            Next i
-    End With
-    
-    ' convert web links and "here" type email addresses
-    With ActiveDocument
-        For i = .Hyperlinks.count To 1 Step -1
+            If .Hyperlinks(i).Address <> "" Then
                 .Hyperlinks(i).Range.Text = .Hyperlinks(i).Address
+            End If
          Next i
     End With
     
@@ -11533,40 +11537,33 @@ End Sub '*** end of Lp_Convert_Multi_Column_To_Single macro ***
 
 Sub Lp_Convert_Hyperliks_To_Text()
     '
-    ' Version: 1.2  Date: 10/7/2026 - an internal link is removed by deleting the HYPERLINK, not
-    '                                 by unlinking .Range.Fields(i): i counts hyperlinks, not
-    '                                 fields, so any other field in front froze the wrong one (#14)
+    ' Version: 1.2  Date: 10/7/2026 - links WITHIN the book are left alone (Jerry); only web and
+    '                                 email links are converted. The pass that unlinked internal
+    '                                 links is gone: it unlinked .Range.Fields(i), where i counts
+    '                                 hyperlinks, not fields, so a field in front of a link was
+    '                                 frozen and the link's words then erased (#14)
     ' Version: 1.1  Date: 1/18/2003 - set On Errors for bug fix
     ' Version: 1.0  Date: 9/27/2021 - complete rewrite of Sh_Show_Hidden_HLink macro
     '
     ' Converts the web-link or email address when they indicated by a link word like "here" or "my email address"
     ' also removes the "mailto:" header in email addresses
-    ' Converts internal document hyperlinks to the text they point to
+    '
+    ' LINKS WITHIN THE BOOK ARE IGNORED - see the note on Dx_Convert_Hyperliks_To_Text.
     
     Dim i As Long, rng As Range
-    Dim LinkString As String
     
     Dim su_Prev As Boolean
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False    ' Turn screen updating off
-    ' convert internal hyperlinks - not used for large print
     On Error Resume Next
-    With ActiveDocument
-        For i = .Hyperlinks.count To 1 Step -1
-            LinkString = .Hyperlinks(i).SubAddress
-            If LinkString <> "" Then ' it is an internal hyperlink
-                ' The hyperlink ITSELF, which leaves its text. It used to be .Range.Fields(i),
-                ' but i counts hyperlinks, not fields: a page reference, a date or a TOC in
-                ' front of the link made it freeze the wrong field and leave the link (#14).
-                .Hyperlinks(i).Delete
-           End If
-           Next i
-    End With
     
-    ' convert web links and "here" type email addresses
+    ' convert web links and "here" type email addresses. A link with no Address points WITHIN
+    ' the book and is left exactly as it is; writing its empty Address over it erased its words.
     With ActiveDocument
         For i = .Hyperlinks.count To 1 Step -1
+            If .Hyperlinks(i).Address <> "" Then
                 .Hyperlinks(i).Range.Text = .Hyperlinks(i).Address
+            End If
          Next i
     End With
     
@@ -14821,6 +14818,9 @@ Sub Lp_Convert_Hyper_To_Addresses()
 ' from: http://stackoverflow.com/questions/16493791/
 '     extract-hyperlink-address-from-hyperlink-field-code
 '
+' Version: 2.2   Date: 10/7/2026 - a link WITHIN the book (no Address) is left alone; it used to
+'                                 become "#bookmark" as text. Only web and email links are this
+'                                 macro's business (Jerry; issue #14)
 ' Version: 2.1   Date: 9/6/2026 - the addresses are made LIVE again only in a book meant for a
 '                                 SCREEN. A book for paper keeps them as plain text (Jerry)
 ' Version: 2.0   Date: 8/13/2026 - no temporary document; everything is scoped to a range.
@@ -14866,15 +14866,20 @@ Sub Lp_Convert_Hyper_To_Addresses()
     ' text, so anything counted from the front has moved by the next turn of the loop.
     On Error Resume Next
     For i = rng.Hyperlinks.count To 1 Step -1
+        Set r = Nothing
         With rng.Hyperlinks(i)
-            strLinkText = .Address
-            ' optional, should be OK for HTML links
-            If .SubAddress <> "" Then
-                strLinkText = strLinkText & "#" & .SubAddress
+            ' No Address is a link WITHIN the book, which is left exactly as it is (Jerry,
+            ' 10/7/2026); it used to be written over with "#" and its bookmark's name.
+            If .Address <> "" Then
+                strLinkText = .Address
+                ' optional, should be OK for HTML links
+                If .SubAddress <> "" Then
+                    strLinkText = strLinkText & "#" & .SubAddress
+                End If
+                Set r = .Range
             End If
-            Set r = .Range
         End With
-        r.Text = strLinkText
+        If Not r Is Nothing Then r.Text = strLinkText
         Set r = Nothing
     Next i
     On Error GoTo 0

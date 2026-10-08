@@ -81,5 +81,10 @@ file cleanup. Moved out of `CLAUDE.md` on 20 September 2026. Same text, no chang
 - **Reference page numbers ("$pg" tags)**: print-book page numbers embedded/tagged in the
   text so braille/LP output can cite the original pagination. Auto-tag, manual-tag, validate,
   embed/un-embed, and format tools exist for both LP and Dx.
+- **Hyperlinks (Jerry, 10/7/2026)**: the link macros deal only with URLs and email addresses,
+  long form or shortened (display text such as "here"), and ignore links within the book. NIMAS
+  files have none, and a DAISY file's are all lost in the conversion to Word. Braille and paper
+  large print take addresses as text; large print for a screen keeps them clickable
+  (`Lp_Doc_Is_Screen`).
 - **File cleanup / normalization**: `*_File_Fix_Sequence` and selection cleanup subs strip
   stray formatting, fix paragraph marks, and normalize a raw source doc.
