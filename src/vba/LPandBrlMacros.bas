@@ -20743,7 +20743,7 @@ DoEvents
     ' Some styles raise an error when their visibility is set, and that must not stop the
     ' attach - so a style that fails is skipped and the loop carries on to the next one.
     ' 10/9/2026 (issue #20): this used to jump to an AvoidCrash label followed by
-    ' On Error GoTo 0, which switched error catching OFF for the next 270 lines - attaching
+    ' On Error GoTo 0, which switched error catching OFF for the rest of the sub - attaching
     ' the template, fonts, margins, pictures, Normalize Styles and the Save As. A failure
     ' there showed Word's own Run-time error dialog over a frozen progress bar and logged
     ' nothing. It also left VBA still "inside" an error jump with no Resume, so a later

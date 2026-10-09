@@ -4,7 +4,7 @@
 near its top, but two places switched catching OFF again:
 
   1. The style-hiding loop was guarded by On Error GoTo AvoidCrash, and the AvoidCrash: label
-     was followed by On Error GoTo 0. That left about 270 lines - attaching the template, fonts,
+     was followed by On Error GoTo 0. That left the rest of the sub - attaching the template, fonts,
      margins, pictures, Normalize Styles and the Save As - with no handler, so a failure showed
      Word's own Run-time error dialog over a frozen progress bar and logged nothing. The jump
      also fell through the label with no Resume.
