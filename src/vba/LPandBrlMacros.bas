@@ -33,6 +33,9 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - Lp  - 10/9/2026 - saved cursor position (Sh_Pos_Depth, Sh_Pos_Saved) as RibbonAction does.
 '           - Lp  - 10/9/2026 - A step that failed between saving and returning left it set, so the
 '           - Lp  - 10/9/2026 - next macro run from a shortcut or form button left the cursor astray.
+'           - Lp  - 10/9/2026 - Attach LP Template no longer runs the Word configuration twice: its own
+'           - Lp  - 10/9/2026 - MS_Set_Word_Config_For_Large_Print call is gone, because
+'           - Lp  - 10/9/2026 - Lp_Set_Display_For_Large_Print, called just before it, already runs it.
 '           - Sh  - 10/9/2026 - RibbonAction's own Failed handler (RibbonCallbacks.bas) clears them too,
 '           - Sh  - 10/9/2026 - so a ribbon macro that fails no longer leaves them set until the next
 '           - Sh  - 10/9/2026 - ribbon press for a shortcut run in between to trip over.
@@ -20561,6 +20564,9 @@ Sub Lp_Attach_The_Template()
 
     ' Attaches the LP template with style changes
     '
+    ' Version: 4.7  Date: 10/9/2026 - no longer calls MS_Set_Word_Config_For_Large_Print itself:
+    '                                 Lp_Set_Display_For_Large_Print, called just before, already
+    '                                 runs it, so Word was configured twice (Jerry)
     ' Version: 4.6  Date: 10/9/2026 - AttachFailed clears Sh_Pos_Depth and Sh_Pos_Saved (issue
     '                                 #26). A step that saved the cursor position and then failed
     '                                 left them set, so the next macro not started from the ribbon
@@ -21085,7 +21091,9 @@ DoEvents
 
     ' Turn on print view
     Lp_Set_Display_For_Large_Print
-    MS_Set_Word_Config_For_Large_Print
+    ' No MS_Set_Word_Config_For_Large_Print call here: Lp_Set_Display_For_Large_Print already
+    ' runs it as its last line, so a second call here configured Word twice. Removed 10/9/2026
+    ' at Jerry's request.
 
     '******************  cleanup  **************************
     MS_Clear_F_and_R_Params_and_Clipboard

@@ -143,11 +143,18 @@ DIRECT_STEPS = [
     "Lp_Set_TOC_and_Print_Page_Num_Tab_Stops",
     "Sh_Set_Prodnote_Style_Visibility",
     "Lp_Set_Display_For_Large_Print",
-    "MS_Set_Word_Config_For_Large_Print",
     "MS_Clear_F_and_R_Params_and_Clipboard",
     "Lp_Turn_on_Styles_Pane",
     "Lp_Fix_Common_File_Errors",   # 9/28/2026, the first one done
 ]
+
+# 10/9/2026, Jerry: the attach's own MS_Set_Word_Config_For_Large_Print call was dropped, because
+# Lp_Set_Display_For_Large_Print (called just before it) already runs it. So it must not be
+# started through Application.Run inside the attach, but it need not be called there directly -
+# what keeps the Word configuration in the attach is checked in
+# test_attach_still_configures_word_through_the_display_sub below.
+WORD_CONFIG = "MS_Set_Word_Config_For_Large_Print"
+DISPLAY = "Lp_Set_Display_For_Large_Print"
 
 
 def run_calls(lines, names):
@@ -177,13 +184,30 @@ def test_the_run_checker_catches_the_old_shapes():
 def test_attach_steps_are_not_run_through_application_run(repo_root):
     procs = procedures(module_text(repo_root))
     lines = procs[ATTACH]
-    found = run_calls(lines, DIRECT_STEPS)
+    found = run_calls(lines, DIRECT_STEPS + [WORD_CONFIG])
     assert found == [], (
         f"{ATTACH} calls {', '.join(sorted(set(found)))} through Application.Run, which never "
         f"passes an error back to AttachFailed - call it directly (issue #26)")
     for n in DIRECT_STEPS:
         assert any(re.match(r"^\s*(Call\s+)?" + re.escape(n) + r"\b", c) for c in lines), \
             f"{ATTACH} no longer calls {n} directly"
+
+
+def test_attach_still_configures_word_through_the_display_sub(repo_root):
+    """The attach calls Lp_Set_Display_For_Large_Print directly, and that sub still runs
+    MS_Set_Word_Config_For_Large_Print - so the Word configuration cannot silently drop out of
+    the attach now that the attach no longer calls it itself (10/9/2026)."""
+    procs = procedures(module_text(repo_root))
+    lines = procs[ATTACH]
+    assert any(re.match(r"^\s*(Call\s+)?" + DISPLAY + r"\b", c) for c in lines), \
+        f"{ATTACH} no longer calls {DISPLAY} directly"
+    assert DISPLAY in procs, f"{DISPLAY} is missing from LPandBrlMacros.bas"
+    display = procs[DISPLAY]
+    runs_it = run_calls(display, [WORD_CONFIG]) or any(
+        re.match(r"^\s*(Call\s+)?" + WORD_CONFIG + r"\b", c) for c in display)
+    assert runs_it, (
+        f"{DISPLAY} no longer runs {WORD_CONFIG}, so Attach LP Template no longer configures "
+        f"Word for large print at all")
 
 
 # --- issue #26: the error handlers clear the saved cursor position ----------------------------
