@@ -24,6 +24,11 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - Lp  - 10/9/2026 - ran with no handler: a failure showed Word's own Run-time error dialog
 '           - Lp  - 10/9/2026 - over a frozen progress bar and logged nothing. Both now go back to
 '           - Lp  - 10/9/2026 - AttachFailed, which reports and logs the error.
+' Notes:    - Lp  - 10/9/2026 - ATTACH LP TEMPLATE CALLS ITS STEPS DIRECTLY (issue #26). Twelve of its
+'           - Lp  - 10/9/2026 - steps (thirteen calls) went through Application.Run, which never hands
+'           - Lp  - 10/9/2026 - an error back, so a failure inside one showed Word's own Run-time error
+'           - Lp  - 10/9/2026 - dialog and AttachFailed never saw it. They are called directly now, as
+'           - Lp  - 10/9/2026 - File Cleanup has been since 9/28/2026, so the error is reported and logged.
 ' Notes:    - Sh  - 10/7/2026 - HYPERLINKS TO TEXT LEAVES INTERNAL LINKS ALONE (issue #14). Both the
 '           - Sh  - 10/7/2026 - large print and braille macros unlinked a FIELD picked by the
 '           - Sh  - 10/7/2026 - hyperlink's number, so a field in front of a link was frozen and the
@@ -20549,6 +20554,13 @@ Sub Lp_Attach_The_Template()
 
     ' Attaches the LP template with style changes
     '
+    ' Version: 4.5  Date: 10/9/2026 - every step that went through Application.Run is called
+    '                                 directly (issue #26): Lp_Remove_All_Styles_Except_Lp_Styles,
+    '                                 the Abbyy fix, the two picture passes, Lp_Normalize_Styles, the
+    '                                 address conversion, the TOC tab stops, Prodnote visibility, the
+    '                                 display and Word configuration, the Find and Replace clear and
+    '                                 both Styles pane calls. An error inside one now reaches
+    '                                 AttachFailed and is reported and logged
     ' Version: 4.4  Date: 10/9/2026 - AttachFailed now catches errors all the way through
     '                                 (issue #20). The style-hiding loop's AvoidCrash jump and the
     '                                 portrait line's On Error GoTo 0 each switched catching off,
@@ -20772,7 +20784,10 @@ DoEvents
                 .UpdateStylesOnOpen = True
                 .AttachedTemplate = TemplatePathandName
                 .UpdateStylesOnOpen = False  ' supresses any further style updates
-                .Application.Run MacroName:="Lp_Remove_All_Styles_Except_Lp_Styles"
+                ' Every step from here down is a DIRECT call, not Application.Run (issue #26,
+                ' 10/9/2026), for the reason given at Lp_Fix_Common_File_Errors above: Run never
+                ' hands an error back, so AttachFailed never saw a failure inside one.
+                Lp_Remove_All_Styles_Except_Lp_Styles
             Else
                 Sh_Progress_Close
                 Application.ScreenUpdating = True
@@ -20941,22 +20956,22 @@ DoEvents
 Sh_Progress_Say 64, "Fixing Abbyy FineReader headings and normal styles"
 DoEvents
         
-        Application.Run MacroName:="Lp_Fix_Abbyy_Text_and_Headers"
+        Lp_Fix_Abbyy_Text_and_Headers
         
     End If
     
 Sh_Progress_Say 68, "Adjusting oversize pictures to fit within margins"
 DoEvents
 
-    Application.Run MacroName:="Lp_SetPicturesToInlineAndLockAspectRatio"
+    Lp_SetPicturesToInlineAndLockAspectRatio
 
-    Application.Run MacroName:="Lp_ResizePicturesAndShapesToFitPageWidthAndPageHeight"
+    Lp_ResizePicturesAndShapesToFitPageWidthAndPageHeight
     
     ' It owns 74 to 90 of the bar, its 13 passes counting 0 to 100 inside that slice.
     ' The trailing comment here used to read "this routine sets it's on non-modal
     ' messages" - it does still set its own, but on the bar now, through Lp_Ns_Step.
     Sh_Progress_Span 74, 90
-    Application.Run MacroName:="Lp_Normalize_Styles"
+    Lp_Normalize_Styles
     Sh_Progress_Span 0, 100
 
     ' Put each heading's text back to its style's size (issue #19). Sh_Set_Whole_Document_Font
@@ -21033,7 +21048,7 @@ DoEvents
         Err.Clear
         On Error GoTo AttachFailed
 
-        Application.Run MacroName:="Lp_Convert_Hyper_To_Addresses"
+        Lp_Convert_Hyper_To_Addresses
 
         ' Put it back. The book ends as it began - a transcriber who had an empty paragraph
         ' at the end of the book still has one.
@@ -21048,21 +21063,21 @@ DoEvents
 Sh_Progress_Say 91, "Setting tabs for TOCs and reference page numbers."
 DoEvents
 
-    Application.Run MacroName:="Lp_Set_TOC_and_Print_Page_Num_Tab_Stops"
+    Lp_Set_TOC_and_Print_Page_Num_Tab_Stops
 
     ' Show "Prodnote" in the Styles pane only if this document actually uses it. Needed
     ' because the pre-attach loop above hides EVERY style, and the template's
     ' <w:unhideWhenUsed/> only fires when a style is newly APPLIED -- it does not
     ' retroactively un-hide a style that was already in use, as in a converted DAISY/NIMAS
     ' document whose prodnotes are already styled.
-    Application.Run MacroName:="Sh_Set_Prodnote_Style_Visibility"
+    Sh_Set_Prodnote_Style_Visibility
 
     ' Turn on print view
-    Application.Run MacroName:="Lp_Set_Display_For_Large_Print"
-    Application.Run MacroName:="MS_Set_Word_Config_For_Large_Print"
+    Lp_Set_Display_For_Large_Print
+    MS_Set_Word_Config_For_Large_Print
 
     '******************  cleanup  **************************
-    Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
+    MS_Clear_F_and_R_Params_and_Clipboard
     ActiveDocument.Background.Fill.Visible = msoFalse
 
     Application.ScreenUpdating = True ' Turn screen updating on
@@ -21088,7 +21103,7 @@ DoEvents
     ' active, so the pane paints and the settings land in the transcriber's book rather than a
     ' leftover temp window - and this still runs when the user cancels the save, which is
     ' exactly when they are left working in a freshly attached document.
-    Application.Run MacroName:="Lp_Turn_on_Styles_Pane"
+    Lp_Turn_on_Styles_Pane
 
     Dim doc As Document
     Set doc = ActiveDocument
@@ -21225,7 +21240,7 @@ SaveTheFile:
     ' 8/20/2026 gave every large print document its pane on open: the reopen runs with the open
     ' handler live, but on a machine where this book was the only one open the pane went when the
     ' document did, and Word does not always restore it from that.
-    Application.Run MacroName:="Lp_Turn_on_Styles_Pane"
+    Lp_Turn_on_Styles_Pane
 
     Sh_Progress_Say 100, "Finished"
     Sh_Progress_Close

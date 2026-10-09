@@ -41,7 +41,9 @@ def first_line(lines, pattern):
 def test_the_attach_restores_after_the_sizing_and_normalize(repo_root):
     lines = the_procs(repo_root)[ATTACH]
     sizing = first_line(lines, r"Sh_Set_Whole_Document_Font ActiveDocument, Lp_Base_Font_Name")
-    normalize = first_line(lines, r'MacroName:="Lp_Normalize_Styles"')
+    # A direct call since issue #26 (10/9/2026); the Run spelling is still found, so the order
+    # check does not depend on how it is called.
+    normalize = first_line(lines, r'^\s*(Call\s+)?Lp_Normalize_Styles\b|MacroName:="Lp_Normalize_Styles"')
     restore = first_line(lines, rf"^\s*{HELPER}\s+ActiveDocument\s*$")
     assert sizing is not None and normalize is not None
     assert restore is not None, f"{ATTACH} does not call {HELPER} ActiveDocument"
