@@ -18,6 +18,12 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 10/9/2026 - ATTACH LP TEMPLATE CATCHES ERRORS ALL THE WAY THROUGH (issue #20). The
+'           - Lp  - 10/9/2026 - style-hiding loop jumped to AvoidCrash and then On Error GoTo 0, and
+'           - Lp  - 10/9/2026 - the portrait line ended with On Error GoTo 0 too, so most of the attach
+'           - Lp  - 10/9/2026 - ran with no handler: a failure showed Word's own Run-time error dialog
+'           - Lp  - 10/9/2026 - over a frozen progress bar and logged nothing. Both now go back to
+'           - Lp  - 10/9/2026 - AttachFailed, which reports and logs the error.
 ' Notes:    - Sh  - 10/7/2026 - HYPERLINKS TO TEXT LEAVES INTERNAL LINKS ALONE (issue #14). Both the
 '           - Sh  - 10/7/2026 - large print and braille macros unlinked a FIELD picked by the
 '           - Sh  - 10/7/2026 - hyperlink's number, so a field in front of a link was frozen and the
@@ -20543,6 +20549,10 @@ Sub Lp_Attach_The_Template()
 
     ' Attaches the LP template with style changes
     '
+    ' Version: 4.4  Date: 10/9/2026 - AttachFailed now catches errors all the way through
+    '                                 (issue #20). The style-hiding loop's AvoidCrash jump and the
+    '                                 portrait line's On Error GoTo 0 each switched catching off,
+    '                                 leaving most of the attach with no handler at all
     ' Version: 4.3  Date: 9/28/2026 - File Cleanup is called directly instead of through
     '                                 Application.Run, so an error inside it reaches AttachFailed
     '                                 and is reported and logged instead of showing Word's own
@@ -20730,7 +20740,16 @@ DoEvents
     ' banding never gets computed.
     Application.ScreenUpdating = False ' Turn screen updating off
     ' hide all non-Word styles before attaching the LP template.
-    On Error GoTo AvoidCrash
+    ' Some styles raise an error when their visibility is set, and that must not stop the
+    ' attach - so a style that fails is skipped and the loop carries on to the next one.
+    ' 10/9/2026 (issue #20): this used to jump to an AvoidCrash label followed by
+    ' On Error GoTo 0, which switched error catching OFF for the next 270 lines - attaching
+    ' the template, fonts, margins, pictures, Normalize Styles and the Save As. A failure
+    ' there showed Word's own Run-time error dialog over a frozen progress bar and logged
+    ' nothing. It also left VBA still "inside" an error jump with no Resume, so a later
+    ' On Error line might not take effect. Now Resume Next guards the loop alone, and
+    ' AttachFailed is back in force on the line after it.
+    On Error Resume Next
         'Adapted From: https://www.office-forums.com/threads/styles-styles-how-to-hide-unused-styles.1881281/
         Dim oSty As Style
             With ActiveDocument
@@ -20741,9 +20760,8 @@ DoEvents
                 .Styles(oSty.NameLocal).Visibility = True
             Next oSty
          End With
-
-AvoidCrash:
-    On Error GoTo 0
+    Err.Clear
+    On Error GoTo AttachFailed
 
     'attach "LargePrintTemplate.dotx"
     With ActiveDocument
@@ -20886,7 +20904,10 @@ DoEvents
             ' here to be discarded. The page size two lines below was under it as well.
             On Error Resume Next
             Selection.PageSetup.Orientation = wdOrientPortrait 'will crash if first item in document is a drop cap
-            On Error GoTo 0
+            ' Back to AttachFailed, not On Error GoTo 0 - that switched catching off for the
+            ' rest of this sub (issue #20, 10/9/2026).
+            Err.Clear
+            On Error GoTo AttachFailed
          End If
 
          .PageWidth = InchesToPoints(PPW)
