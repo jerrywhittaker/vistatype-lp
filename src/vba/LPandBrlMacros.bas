@@ -33,6 +33,9 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - Lp  - 10/9/2026 - saved cursor position (Sh_Pos_Depth, Sh_Pos_Saved) as RibbonAction does.
 '           - Lp  - 10/9/2026 - A step that failed between saving and returning left it set, so the
 '           - Lp  - 10/9/2026 - next macro run from a shortcut or form button left the cursor astray.
+'           - Sh  - 10/9/2026 - RibbonAction's own Failed handler (RibbonCallbacks.bas) clears them too,
+'           - Sh  - 10/9/2026 - so a ribbon macro that fails no longer leaves them set until the next
+'           - Sh  - 10/9/2026 - ribbon press for a shortcut run in between to trip over.
 ' Notes:    - Sh  - 10/7/2026 - HYPERLINKS TO TEXT LEAVES INTERNAL LINKS ALONE (issue #14). Both the
 '           - Sh  - 10/7/2026 - large print and braille macros unlinked a FIELD picked by the
 '           - Sh  - 10/7/2026 - hyperlink's number, so a field in front of a link was frozen and the

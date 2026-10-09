@@ -199,11 +199,15 @@ def test_attach_steps_are_not_run_through_application_run(repo_root):
 RESETS = {"Sh_Pos_Depth = 0": r"^\s*Sh_Pos_Depth\s*=\s*0\s*$",
           "Sh_Pos_Saved = False": r"^\s*Sh_Pos_Saved\s*=\s*False\s*$"}
 
-# (where, sub, handler label, the name it reports under)
+# (where, sub, handler label, what it reports under, as written in the Sh_Report_Error line).
+# RibbonAction clears both at the start of every press, but its own Failed handler must clear
+# them as well: otherwise a ribbon macro that failed leaves them set until the next press, and
+# a shortcut run in between trips over them (issue #26).
 POSITION_HANDLERS = [
-    ("src/vba/LPandBrlMacros.bas", ATTACH, "AttachFailed", "Lp_Attach_The_Template"),
+    ("src/vba/LPandBrlMacros.bas", ATTACH, "AttachFailed", '"Lp_Attach_The_Template"'),
     ("src/forms/Lp_File_Cleanup_Sub_Menu_Form.frm", "OkayButton_Click", "CleanupFailed",
-     "Lp_Fix_Common_File_Errors"),
+     '"Lp_Fix_Common_File_Errors"'),
+    ("src/vba/RibbonCallbacks.bas", "RibbonAction", "Failed", "control.Tag"),
 ]
 
 
@@ -245,7 +249,7 @@ def test_error_handlers_clear_the_saved_position(repo_root):
         procs = procedures(text)
         assert sub in procs, f"{sub} is missing from {where}"
         lines = procs[sub]
-        assert any(re.match(r'^\s*Sh_Report_Error\s+"' + reported + '"', c) for c in lines), \
+        assert any(re.match(r"^\s*Sh_Report_Error\s+" + re.escape(reported), c) for c in lines), \
             f"{where} {sub}: {label} no longer reports as {reported}"
         problems = handler_resets(lines, label)
         assert problems == [], f"{where} {sub}: " + "; ".join(problems) + " (issue #26)"

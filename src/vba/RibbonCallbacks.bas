@@ -82,6 +82,14 @@ Public Sub RibbonAction(ByVal control As IRibbonControl)
     Exit Sub
 
 Failed:
+    ' Clear the saved cursor position here too, not only at the next press (issue #26). A
+    ' macro that saved it and then failed never reached its return, so Sh_Pos_Depth is still
+    ' 1; left so until the next ribbon press, a macro started from a shortcut or a form button
+    ' in between would think it was nested and leave the cursor where its work put it.
+    ' Setting the two Publics does not touch Err, so the report below still sees the error.
+    Sh_Pos_Depth = 0
+    Sh_Pos_Saved = False
+
     Sh_Report_Error control.Tag, Err.Number, Err.Description
 End Sub
 
