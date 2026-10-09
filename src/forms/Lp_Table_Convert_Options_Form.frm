@@ -17,6 +17,10 @@ Attribute VB_Exposed = False
 '
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
+' Version: 2.2  Date: 10/9/2026 - no End anywhere (issue #18): End unloaded every box that stays open,
+'                                 such as Resize Pictures (375). Each way out unloads this form and
+'                                 the table box (356) and leaves with Exit Sub; the button that showed
+'                                 this form and Lp_Table_Tools then stop too
 ' Version: 2.1  Date: 10/6/2026 - hover text on the column-headings-only button misspelled "Table" (issue 6)
 ' Version: 2.0  Date: 9/3/2026  - NO SCRATCH DOCUMENT. Both conversions run on the table where it
 '                                 stands in the transcriber's own book, so nothing is shown on the
@@ -43,7 +47,6 @@ Attribute VB_Exposed = False
 Private Sub CmdCancel_Click()
     Unload Lp_Table_Tools_Menu_Form
     Unload Me
-    End
 End Sub
 
 Private Sub CmdOkay_Click()
@@ -202,7 +205,7 @@ Private Sub CmdOkay_Click()
             Sh_Say "Place the cursor in the table first.", "VistaType LP (288)"
             Unload Lp_Table_Tools_Menu_Form
             Unload Me
-            End
+            Exit Sub
         End If
         Set workTbl = Selection.Tables(1)
 
@@ -219,7 +222,7 @@ Private Sub CmdOkay_Click()
                 Sh_Say "This table has merged cells. Unmerge them before converting it to a list.", "VistaType LP (319)"
                 Unload Lp_Table_Tools_Menu_Form
                 Unload Me
-                End
+                Exit Sub
             End If
         End If
 
@@ -239,7 +242,7 @@ Private Sub CmdOkay_Click()
         Sh_Say "Press Ctrl+Z two times to restore the original table.", "VistaType LP (178)"
         Unload Lp_Table_Tools_Menu_Form
         Unload Me
-        End
+        Exit Sub
     End If
 
 '************ Rotate (transpose) Table ****************
@@ -250,7 +253,7 @@ Private Sub CmdOkay_Click()
             Sh_Say "Place the cursor in the table first.", "VistaType LP (288)"
             Unload Lp_Table_Tools_Menu_Form
             Unload Me
-            End
+            Exit Sub
         End If
         Set workTbl = Selection.Tables(1)
 
@@ -259,7 +262,7 @@ Private Sub CmdOkay_Click()
             Sh_Say "This table has merged cells. Unmerge them before rotating the table.", "VistaType LP (287)"
             Unload Lp_Table_Tools_Menu_Form
             Unload Me
-            End
+            Exit Sub
         End If
 
         Application.ScreenUpdating = False
@@ -574,7 +577,8 @@ Sub UserForm_Initialize()
 End Sub
 
 Private Sub userform_terminate() 'red X was clicked
+    ' Also runs after every Unload Me above. No End here (issue #18): the button that showed this
+    ' form, and Lp_Table_Tools after it, stop on their own once it is gone.
     Unload Lp_Table_Tools_Menu_Form
     Unload Me
-    End
 End Sub

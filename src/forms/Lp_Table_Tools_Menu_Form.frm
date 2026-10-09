@@ -15,6 +15,10 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 'Lp_Table_And_TOC_Tools_Menu_Form
 '
+' Version: 2.5  Date: 10/9/2026 - no End anywhere (issue #18): End unloaded every box that stays open,
+'                                 such as Resize Pictures (375), not only this one. Each button
+'                                 unloads this form and leaves, and Lp_Table_Tools stops straight
+'                                 after the form closes, so nothing runs that did not run before.
 ' Version: 2.4  Date: 9/23/2026 - Jerry's shortcut key label (Alt+Ctrl+Shift+T,T); its hover text is
 '                                 set to its caption.
 ' Version: 2.3  Date: 8/8/2026 - table recoloring took its typeface and size from hard-coded
@@ -39,7 +43,6 @@ Attribute VB_Exposed = False
 
 Private Sub Cmd_Cancel_Click()
     Unload Me
-    End
 End Sub
 
 Private Sub Default_Color_Selected_Click()
@@ -47,7 +50,7 @@ Private Sub Default_Color_Selected_Click()
     If Not Selection.Information(wdWithInTable) Then 'is the table selected
         MsgBox "Select the entire table or place the cursor within the table.", , "VistaType LP (165)"
         Unload Me
-        End
+        Exit Sub
     End If
 
     On Error GoTo eom
@@ -190,20 +193,22 @@ End Sub
 Private Sub List_Button_Click()
     If Not Selection.Information(wdWithInTable) Then 'is the table selected
         MsgBox "Select the entire table or place the cursor within the table first!", , "VistaType LP (169)"
-        End
+        Unload Me
+        Exit Sub
     End If
     Lp_GP_String_3 = "L " 'to tell Lp_Table_Convert_Options_Form that the request was for List
+    ' Every way out of Lp_Table_Convert_Options_Form unloads this form too.
     Lp_Table_Convert_Options_Form.Show
-    End
 End Sub
 
 Private Sub PseudoButton_Click()
     If Not Selection.Information(wdWithInTable) Then 'is the table selected
         MsgBox "Select the entire table or place the cursor within the table", , "VistaType LP (170)"
-        End
+        Unload Me
+        Exit Sub
     End If
     Application.Run MacroName:="LP_Convert_Table_To_Pseudo_Columns"
-    End
+    Unload Me
 End Sub
 
 Private Sub PseudoQuestion_Click()
@@ -213,10 +218,11 @@ End Sub
 Private Sub RealButton_Click()
     If Not Selection.Information(wdWithInTable) Then 'is the table selected
         MsgBox "Select the entire table or place the cursor within the table", , "VistaType LP (171)"
-        End
+        Unload Me
+        Exit Sub
     End If
     Application.Run MacroName:="Lp_Convert_Table_To_Real_Columns"
-    End
+    Unload Me
 End Sub
 
 Private Sub RealQuestion_Click()
@@ -227,7 +233,6 @@ Private Sub Rotate_Button_Click()
     Lp_GP_String_3 = "R " 'to tell Lp_Table_Convert_Options_Form that the request was for rotation
     Lp_Table_Convert_Options_Form.Show
     Unload Me
-    End
 End Sub
    
 Private Sub Default_Color_All_Click()
@@ -236,7 +241,6 @@ Private Sub Default_Color_All_Click()
     Next
     Application.Run MacroName:="Lp_Set_Table_Border_Weights"
     Unload Me
-    End
 End Sub
 
 Private Sub Yellow_Table_All_Click()
@@ -245,7 +249,6 @@ Private Sub Yellow_Table_All_Click()
      Next
     Application.Run MacroName:="Lp_Set_Table_Border_Weights"
     Unload Me
-    End
 End Sub
          
 Private Sub Gray_Table_All_Click()

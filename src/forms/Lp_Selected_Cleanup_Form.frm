@@ -16,6 +16,8 @@ Attribute VB_Exposed = False
 
 ' Lp_Selected_Cleanup_Form
 '
+' Version: 2.1  Date: 10/9/2026 - Cancel no longer ends with End, which closed every box that stays
+'                                open, such as Resize Pictures (375) (issue #18)
 ' Version: 2.0  Date: 10/6/2026 - Italics to Dashed Underline stays inside the selection: passes
 '                                selectionOnly:=True to Lp_Italics_To_Dashed_Underline (issue #4),
 '                                and checks the LP template is attached first (Jerry)
@@ -31,8 +33,9 @@ Attribute VB_Exposed = False
 ' Version: 1.1 Date: 10/19/2018 - added selected text question to calling menu
 
 Private Sub CancelButton_Click()
+    ' No End (issue #18): it unloaded every box that stays open, too. Lp_Selected_File_CleanUp
+    ' only unloads this form once Show returns, so nothing else runs after Cancel.
     Unload Lp_Selected_Cleanup_Form
-    End
 End Sub
 
 

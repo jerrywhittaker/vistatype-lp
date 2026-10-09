@@ -18,6 +18,15 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 10/9/2026 - TABLE AND TOC TOOLS AND SELECTED CLEANUP NO LONGER CLOSE BOXES THAT STAY
+'           - Lp  - 10/9/2026 - OPEN (issue #18). Their bare End statements unloaded every UserForm, so
+'           - Lp  - 10/9/2026 - Resize Pictures (375), the $pg menus and the fill-in line box vanished
+'           - Lp  - 10/9/2026 - without a word. Gone from Lp_Table_Tools (now Exit Sub, including straight
+'           - Lp  - 10/9/2026 - after the table box), from Lp_Table_Tools_Menu_Form (11) and
+'           - Lp  - 10/9/2026 - Lp_Table_Convert_Options_Form (7), and from Selected Cleanup's Cancel. Each
+'           - Lp  - 10/9/2026 - stops where it stopped before. Lp_Convert_Table_To_Pseudo_Columns hides the
+'           - Lp  - 10/9/2026 - table box instead of loading the convert form. The guard subs
+'           - Lp  - 10/9/2026 - (Lp_Is_Text_Selected and the like) keep their End on purpose.
 ' Notes:    - Lp  - 10/9/2026 - ATTACH LP TEMPLATE CATCHES ERRORS ALL THE WAY THROUGH (issue #20). The
 '           - Lp  - 10/9/2026 - style-hiding loop jumped to AvoidCrash and then On Error GoTo 0, and
 '           - Lp  - 10/9/2026 - the portrait line ended with On Error GoTo 0 too, so most of the attach
@@ -12745,9 +12754,11 @@ Sub Lp_Is_Text_Selected()
 
     If Selection.Type <> wdSelectionNormal Then
         MsgBox "Text must be selected first!", , "VistaType LP (125)"
+        ' End stays, on purpose (issue #18): it is what stops the macro that called this. The
+        ' guard subs keep theirs; a box that stays open says its own message instead (see 392).
         End
     End If
-    
+
 End Sub '***** End of Lp_Is_Text_Selected *************
 
 Sub Lp_Set_Page_To_Black()
@@ -17476,6 +17487,14 @@ End Sub  '***** end of Lp_Hvb_KeyToDocument *****
 
 Sub Lp_Table_Tools()
 '
+' Version: 1.9  Date: 10/9/2026 - no End anywhere (issue #18). End unloaded every box that stays
+'                                 open - Resize Pictures (375), the $pg menus, the fill-in line box -
+'                                 so pressing Table and TOC Tools, or Cancel on the table box, closed
+'                                 them without a word. The refusal (172) and the last line leave with
+'                                 Exit Sub, and so does the line after the table box (356), so
+'                                 nothing after it runs. (By reading, not run: before, Gray or Plain
+'                                 for all tables, which never had an End, with a whole table
+'                                 selected went on into the TOC box.)
 ' Version: 1.8  Date: 9/22/2026 - the TOC box (354) STAYS OPEN, holding the TOC range until Done.
 '                                 Jerry, 9/22/2026. Started through Lp_Tocb_Start, and no End
 '                                 after it - End would unload the box the moment it appeared. A
@@ -17497,12 +17516,13 @@ Sub Lp_Table_Tools()
 
     ' The TOC box is already up. A second start would hold a second range and nobody could tell
     ' which one Okay was working in, so the box the transcriber already has comes to the front.
-    ' Checked FIRST: every path below ends in End, and End would take the box down.
+    ' Checked FIRST, so a second press never starts a second TOC run.
     '
     ' UNLESS THE CURSOR IS IN A TABLE. Then the transcriber wants the table box (356), and it has
-    ' to be reachable. The TOC run is ended first, tidily and without touching the selection:
-    ' the table box and the tools under it leave through End (ten of them), which would unload
-    ' the TOC box behind its back anyway.
+    ' to be reachable. The TOC run is ended first, tidily and without touching the selection: one
+    ' TOC run at a time, and the table box is modal. (The table box and its tools used to leave
+    ' through End, which unloaded the TOC box behind its back; since 10/9/2026 none of them do -
+    ' issue #18.)
     If Lp_Tocb_IsOn Then
         If Not Selection.Information(wdWithInTable) Then
             ' Brought back, so it is the box being worked in: the newest, with F6 (Sh_Box_Opened).
@@ -17522,7 +17542,7 @@ Sub Lp_Table_Tools()
 
     If (ActiveDocument.Tables.count = 0 Or Not Selection.Information(wdWithInTable)) And Not Selection.Range.Paragraphs.count > 1 Then
         MsgBox "Select a TABLE (or place cursor in a table) or select a range containing a TOC. Selected TOC range may include embedded non-TOC Styles.", , "VistaType LP (172)"
-        End
+        Exit Sub
     End If
 
     If Selection.Information(wdWithInTable) Then
@@ -17538,6 +17558,10 @@ Sub Lp_Table_Tools()
         Next i
         Lp_Table_Tools_Menu_Form.Show
         Unload Lp_Table_Tools_Menu_Form
+        ' The table box is closed; this run is over. Nothing after the table box is meant to run,
+        ' and a whole table selected is more than one paragraph, so without this it would fall
+        ' into the TOC check below.
+        Exit Sub
     End If
 
     If Selection.Range.Paragraphs.count > 1 Then 'something is here
@@ -17546,7 +17570,7 @@ Sub Lp_Table_Tools()
         Lp_Tocb_Start
         Exit Sub
     End If
-    End
+    Exit Sub
 End Sub
 
 ' ============================================================================================
@@ -20261,6 +20285,12 @@ Sub Lp_Convert_Table_To_Pseudo_Columns()
     '
     ' Retains table format but looks like columns
     '
+    ' Version: 1.2  Date: 10/9/2026 - hides the table box (356), not Lp_Table_Convert_Options_Form
+    '                                 (issue #18). Naming that form loaded it - its Initialize is
+    '                                 what hid the table box - and left it loaded and hidden. The
+    '                                 End after this macro used to clear it away; with no End, the
+    '                                 next List or Rotate would have shown it without its Initialize,
+    '                                 set up for the wrong job.
     ' Version: 1.1  Date: 1/29/2026 - full rewrite
     ' Version: 1.0  Date: 1/14/2019
     '
@@ -20294,7 +20324,7 @@ Sub Lp_Convert_Table_To_Pseudo_Columns()
     
     ' 4. GET USER INPUT
     On Error Resume Next
-    Lp_Table_Convert_Options_Form.Hide
+    Lp_Table_Tools_Menu_Form.Hide
     Lp_Columns_Wanted_Form.Show
     RequestedColumns = Val(Lp_GP_String_1)
     On Error GoTo ErrorHandler
