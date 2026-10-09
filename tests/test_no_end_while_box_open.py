@@ -36,8 +36,11 @@ def test_table_tools_stops_right_after_the_table_box(repo_root):
     tools = procedures(module_text(repo_root))["Lp_Table_Tools"]
     show = next(n for n, c in enumerate(tools) if re.search(r"Lp_Table_Tools_Menu_Form\.Show\b", c))
     rest = [c for c in tools[show + 1:] if c.strip()]
-    assert re.search(r"^\s*Unload Lp_Table_Tools_Menu_Form\s*$", rest[0])
-    assert EXIT_SUB.match(rest[1]), "Lp_Table_Tools must leave with Exit Sub straight after the table box"
+    # No Unload here: every button and the X have unloaded the box, and naming it would only
+    # load it again, running its Initialize.
+    assert EXIT_SUB.match(rest[0]), "Lp_Table_Tools must leave with Exit Sub straight after the table box"
+    assert not any(re.search(r"Unload Lp_Table_Tools_Menu_Form", c) for c in tools), (
+        "Lp_Table_Tools unloads the table box again - it is already unloaded, so this reloads it")
 
 
 def test_neither_table_form_ends_everything(repo_root):
@@ -51,10 +54,16 @@ def test_every_table_box_button_closes_the_box(repo_root):
     that used to End must say Unload, itself or through the convert box it shows."""
     procs = form_procedures(repo_root, "Lp_Table_Tools_Menu_Form")
     for name in ("Cmd_Cancel_Click", "Default_Color_Selected_Click", "PseudoButton_Click",
-                 "RealButton_Click", "Rotate_Button_Click", "Default_Color_All_Click",
-                 "Yellow_Table_All_Click"):
+                 "RealButton_Click", "Default_Color_All_Click", "Yellow_Table_All_Click"):
         assert any(re.search(r"^\s*Unload Me\s*$", c) for c in procs[name]), (
             f"{name} no longer closes the table box")
+    # List and Rotate leave the closing to the convert box: it has unloaded this one by the time
+    # Show returns, so an Unload Me after it would load the box again only to unload it.
+    for name in ("List_Button_Click", "Rotate_Button_Click"):
+        body = procs[name]
+        show = next(n for n, c in enumerate(body) if "Lp_Table_Convert_Options_Form.Show" in c)
+        assert not any(re.search(r"^\s*Unload Me\s*$", c) for c in body[show + 1:]), (
+            f"{name} unloads the table box after the convert box, which has already unloaded it")
     convert = form_procedures(repo_root, "Lp_Table_Convert_Options_Form")
     for name in ("CmdCancel_Click", "userform_terminate"):
         assert any(re.search(r"Unload Lp_Table_Tools_Menu_Form", c) for c in convert[name]), (
@@ -64,10 +73,15 @@ def test_every_table_box_button_closes_the_box(repo_root):
 def test_a_refusal_in_the_convert_box_stops_the_conversion(repo_root):
     """Each refusal in Okay used to End; it must still stop before anything is converted."""
     okay = form_procedures(repo_root, "Lp_Table_Convert_Options_Form")["CmdOkay_Click"]
+    found = set()
     for n, c in enumerate(okay):
-        if re.search(r'Sh_Say ".*VistaType LP \((288|319|287|178)\)"', c):
+        m = re.search(r'Sh_Say ".*VistaType LP \((288|319|287|178)\)"', c)
+        if m:
+            found.add(m.group(1))
             follow = [x for x in okay[n + 1:n + 5] if x.strip()]
             assert EXIT_SUB.match(follow[2]), f"no Exit Sub after the message on line {n} of CmdOkay_Click"
+    for number in ("288", "319", "287", "178"):
+        assert number in found, f"message {number} is no longer in CmdOkay_Click - this test checks nothing for it"
 
 
 def test_pseudo_columns_does_not_load_the_convert_box(repo_root):

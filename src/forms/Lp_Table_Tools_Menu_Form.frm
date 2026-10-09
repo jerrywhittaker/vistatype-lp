@@ -19,6 +19,8 @@ Attribute VB_Exposed = False
 '                                 such as Resize Pictures (375), not only this one. Each button
 '                                 unloads this form and leaves, and Lp_Table_Tools stops straight
 '                                 after the form closes, so nothing runs that did not run before.
+'                                 Rotate no longer unloads this form after the convert box, as
+'                                 List already did not - the convert box has unloaded it.
 ' Version: 2.4  Date: 9/23/2026 - Jerry's shortcut key label (Alt+Ctrl+Shift+T,T); its hover text is
 '                                 set to its caption.
 ' Version: 2.3  Date: 8/8/2026 - table recoloring took its typeface and size from hard-coded
@@ -231,8 +233,8 @@ End Sub
 
 Private Sub Rotate_Button_Click()
     Lp_GP_String_3 = "R " 'to tell Lp_Table_Convert_Options_Form that the request was for rotation
+    ' Every way out of Lp_Table_Convert_Options_Form unloads this form too.
     Lp_Table_Convert_Options_Form.Show
-    Unload Me
 End Sub
    
 Private Sub Default_Color_All_Click()

@@ -26,7 +26,8 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - Lp  - 10/9/2026 - Lp_Table_Convert_Options_Form (7), and from Selected Cleanup's Cancel. Each
 '           - Lp  - 10/9/2026 - stops where it stopped before. Lp_Convert_Table_To_Pseudo_Columns hides the
 '           - Lp  - 10/9/2026 - table box instead of loading the convert form. The guard subs
-'           - Lp  - 10/9/2026 - (Lp_Is_Text_Selected and the like) keep their End on purpose.
+'           - Lp  - 10/9/2026 - (Lp_Is_Text_Selected and the like) keep their End on purpose. Two
+'           - Lp  - 10/9/2026 - redundant Unloads of the table box are gone too (Rotate, Lp_Table_Tools).
 ' Notes:    - Lp  - 10/9/2026 - ATTACH LP TEMPLATE CATCHES ERRORS ALL THE WAY THROUGH (issue #20). The
 '           - Lp  - 10/9/2026 - style-hiding loop jumped to AvoidCrash and then On Error GoTo 0, and
 '           - Lp  - 10/9/2026 - the portrait line ended with On Error GoTo 0 too, so most of the attach
@@ -17494,7 +17495,9 @@ Sub Lp_Table_Tools()
 '                                 Exit Sub, and so does the line after the table box (356), so
 '                                 nothing after it runs. (By reading, not run: before, Gray or Plain
 '                                 for all tables, which never had an End, with a whole table
-'                                 selected went on into the TOC box.)
+'                                 selected went on into the TOC box.) The Unload after the table box
+'                                 is gone: every button and the X unload it already, and naming the
+'                                 form only loaded it again, running its Initialize.
 ' Version: 1.8  Date: 9/22/2026 - the TOC box (354) STAYS OPEN, holding the TOC range until Done.
 '                                 Jerry, 9/22/2026. Started through Lp_Tocb_Start, and no End
 '                                 after it - End would unload the box the moment it appeared. A
@@ -17557,7 +17560,6 @@ Sub Lp_Table_Tools()
             End If
         Next i
         Lp_Table_Tools_Menu_Form.Show
-        Unload Lp_Table_Tools_Menu_Form
         ' The table box is closed; this run is over. Nothing after the table box is meant to run,
         ' and a whole table selected is more than one paragraph, so without this it would fall
         ' into the TOC check below.
