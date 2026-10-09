@@ -184,3 +184,68 @@ def test_attach_steps_are_not_run_through_application_run(repo_root):
     for n in DIRECT_STEPS:
         assert any(re.match(r"^\s*(Call\s+)?" + re.escape(n) + r"\b", c) for c in lines), \
             f"{ATTACH} no longer calls {n} directly"
+
+
+# --- issue #26: the error handlers clear the saved cursor position ----------------------------
+#
+# 10/9/2026, found by a review of #26, by reading. Sh_Save_User_Position / Sh_Return_User_To_
+# Start_Position keep their state in two Publics, Sh_Pos_Depth and Sh_Pos_Saved, and only
+# RibbonAction cleared them. A step that saved the position and then failed - File Cleanup,
+# Hyperlinks to Addresses - now lands in a handler instead of Word's dialog and End (which wiped
+# the Publics), so the state stayed at Depth 1 / Saved True, and the next macro started from a
+# shortcut or a form button thought it was nested and never put the cursor back. Each handler
+# must clear both, the same two lines RibbonAction uses, before it reports.
+
+RESETS = {"Sh_Pos_Depth = 0": r"^\s*Sh_Pos_Depth\s*=\s*0\s*$",
+          "Sh_Pos_Saved = False": r"^\s*Sh_Pos_Saved\s*=\s*False\s*$"}
+
+# (where, sub, handler label, the name it reports under)
+POSITION_HANDLERS = [
+    ("src/vba/LPandBrlMacros.bas", ATTACH, "AttachFailed", "Lp_Attach_The_Template"),
+    ("src/forms/Lp_File_Cleanup_Sub_Menu_Form.frm", "OkayButton_Click", "CleanupFailed",
+     "Lp_Fix_Common_File_Errors"),
+]
+
+
+def handler_resets(lines, label):
+    """What is missing from the handler `label` in `lines`: each reset must come before its
+    Sh_Report_Error. Returns a list of problems, empty when both are there."""
+    start = next((i for i, c in enumerate(lines) if re.match(r"^" + label + r":\s*$", c)), None)
+    if start is None:
+        return [f"no {label}: label"]
+    body = lines[start + 1:]
+    report = next((i for i, c in enumerate(body) if re.match(r"^\s*Sh_Report_Error\b", c)),
+                  len(body))
+    problems = []
+    for line, pat in RESETS.items():
+        if not any(re.match(pat, c) for c in body[:report]):
+            problems.append(f"{label} does not run {line} before Sh_Report_Error")
+    return problems
+
+
+def test_the_reset_checker_catches_the_old_shape():
+    old = ["AttachFailed:", "    failNumber = Err.Number", "    Sh_Progress_Close",
+           '    Sh_Report_Error "x", failNumber, failText', "    Sh_Pos_Depth = 0"]
+    assert len(handler_resets(old, "AttachFailed")) == 2
+    good = ["AttachFailed:", "    failNumber = Err.Number", "    Sh_Pos_Depth = 0",
+            "    Sh_Pos_Saved = False", '    Sh_Report_Error "x", failNumber, failText']
+    assert handler_resets(good, "AttachFailed") == []
+
+
+def test_ribbon_action_still_uses_the_same_two_lines(repo_root):
+    text = (repo_root / "src/vba/RibbonCallbacks.bas").read_bytes().decode("latin-1")
+    lines = procedures(text)["RibbonAction"]
+    for line, pat in RESETS.items():
+        assert any(re.match(pat, c) for c in lines), f"RibbonAction no longer has {line}"
+
+
+def test_error_handlers_clear_the_saved_position(repo_root):
+    for where, sub, label, reported in POSITION_HANDLERS:
+        text = (repo_root / where).read_bytes().decode("latin-1")
+        procs = procedures(text)
+        assert sub in procs, f"{sub} is missing from {where}"
+        lines = procs[sub]
+        assert any(re.match(r'^\s*Sh_Report_Error\s+"' + reported + '"', c) for c in lines), \
+            f"{where} {sub}: {label} no longer reports as {reported}"
+        problems = handler_resets(lines, label)
+        assert problems == [], f"{where} {sub}: " + "; ".join(problems) + " (issue #26)"

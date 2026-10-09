@@ -15,6 +15,9 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 'Lp_File_Cleanup_Sub_Menu_Form
 '
+' Version: 1.5  Date: 10/9/2026 - CleanupFailed clears Sh_Pos_Depth and Sh_Pos_Saved (issue
+'                               #26), so a failed cleanup no longer stops the next macro
+'                               putting the cursor back
 ' Version: 1.4  Date: 9/6/2026 - shows the PROGRESS BAR instead of Sh_Please_Wait_Form, and
 '                               gained an error handler: the old three lines had none, so a
 '                               failure in the cleanup left the box on screen for good
@@ -89,6 +92,13 @@ CleanupFailed:
     ' Lp_Table_Convert_Options_Form takes the same copy for the same reason.
     failNumber = Err.Number
     failText = Err.Description
+
+    ' Clear the saved cursor position, as RibbonAction does on every button press.
+    ' Lp_Fix_Common_File_Errors saved it and never reached its return, so Sh_Pos_Depth is
+    ' still 1; left so, the next macro started from a shortcut or a form button would think
+    ' it was nested and leave the cursor where its work put it (issue #26).
+    Sh_Pos_Depth = 0
+    Sh_Pos_Saved = False
 
     ' Then put the screen back and take the bar down BEFORE saying anything, in that
     ' order - the same order Sh_Report_Error uses, and for the same reason: a message

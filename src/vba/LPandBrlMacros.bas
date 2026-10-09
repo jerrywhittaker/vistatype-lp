@@ -29,6 +29,10 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - Lp  - 10/9/2026 - an error back, so a failure inside one showed Word's own Run-time error
 '           - Lp  - 10/9/2026 - dialog and AttachFailed never saw it. They are called directly now, as
 '           - Lp  - 10/9/2026 - File Cleanup has been since 9/28/2026, so the error is reported and logged.
+'           - Lp  - 10/9/2026 - AttachFailed, and File Cleanup's own error handler, now also clear the
+'           - Lp  - 10/9/2026 - saved cursor position (Sh_Pos_Depth, Sh_Pos_Saved) as RibbonAction does.
+'           - Lp  - 10/9/2026 - A step that failed between saving and returning left it set, so the
+'           - Lp  - 10/9/2026 - next macro run from a shortcut or form button left the cursor astray.
 ' Notes:    - Sh  - 10/7/2026 - HYPERLINKS TO TEXT LEAVES INTERNAL LINKS ALONE (issue #14). Both the
 '           - Sh  - 10/7/2026 - large print and braille macros unlinked a FIELD picked by the
 '           - Sh  - 10/7/2026 - hyperlink's number, so a field in front of a link was frozen and the
@@ -20554,6 +20558,10 @@ Sub Lp_Attach_The_Template()
 
     ' Attaches the LP template with style changes
     '
+    ' Version: 4.6  Date: 10/9/2026 - AttachFailed clears Sh_Pos_Depth and Sh_Pos_Saved (issue
+    '                                 #26). A step that saved the cursor position and then failed
+    '                                 left them set, so the next macro not started from the ribbon
+    '                                 thought it was nested and did not put the cursor back
     ' Version: 4.5  Date: 10/9/2026 - every step that went through Application.Run is called
     '                                 directly (issue #26): Lp_Remove_All_Styles_Except_Lp_Styles,
     '                                 the Abbyy fix, the two picture passes, Lp_Normalize_Styles, the
@@ -21254,6 +21262,13 @@ AttachFailed:
     ' time - and that wipes Err. Reporting Err.Number afterwards would report 0.
     failNumber = Err.Number
     failText = Err.Description
+
+    ' Clear the saved cursor position, as RibbonAction does on every button press. A step that
+    ' saved it (File Cleanup, Hyperlinks to Addresses and others) never reached its return, so
+    ' Sh_Pos_Depth is still 1; left so, the next macro started from a shortcut or a form button
+    ' would think it was nested and leave the cursor where its work put it (issue #26).
+    Sh_Pos_Depth = 0
+    Sh_Pos_Saved = False
 
     ' Then give the screen back and take the bar down BEFORE saying anything. A message
     ' drawn over a frozen screen is itself reported as a hang. Sh_Progress_Close also puts
