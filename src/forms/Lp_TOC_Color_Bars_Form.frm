@@ -18,6 +18,9 @@ Attribute VB_Exposed = False
 '
 ' Converts lead lines in TOC styles to alternating color of choice - changes tab value of dots to none
 '
+' Version: 1.3 Date: 10/11/2026 - each entry KEEPS ITS BOLD AND ITALIC (issue #17, Jerry). Setting the
+'                               bar's character style stripped direct bold and italic; they are
+'                               remembered with Lp_Remember_Bold_Italic and put back after.
 ' Version: 1.2 Date: 10/6/2026 - removing the leader dots no longer selects the whole book first;
 '                               it works on the selection, which is the TOC, so leaders on
 '                               TOC-styled paragraphs elsewhere in the book are left alone (issue #5).
@@ -184,17 +187,23 @@ Private Sub OkayButton_Click()
     Dim para As Paragraph
     Dim i As Integer
     Dim BarColor As String
+    Dim emph As Variant
 
     ' Loop through the paragraphs in the selected range
     For i = 1 To Selection.Range.Paragraphs.count
         Set para = Selection.Range.Paragraphs(i)
         
-        ' Apply style to every other paragraph
+        ' Apply style to every other paragraph. The style strips direct bold and italic, so they
+        ' are remembered first and put back after (issue #17).
         If Left(para.Range.Style, 3) = "TOC" And NextColor = 1 Then
+            emph = Lp_Remember_Bold_Italic(para.Range)
             para.Range.Style = BarColor1
+            Lp_Restore_Bold_Italic para.Range, emph
             NextColor = 2
         ElseIf Left(para.Range.Style, 3) = "TOC" And NextColor = 2 Then
+            emph = Lp_Remember_Bold_Italic(para.Range)
             para.Range.Style = BarColor2
+            Lp_Restore_Bold_Italic para.Range, emph
             NextColor = 1
         End If
     Next i

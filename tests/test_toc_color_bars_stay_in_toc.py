@@ -53,3 +53,59 @@ def test_remove_color_bars_leaves_each_entry_at_its_own_level(repo_root):
     # It still does its job: Words runs to Default Paragraph Font, and the leaders come back.
     assert any("wdStyleDefaultParagraphFont" in c for c in body)
     assert any("wdTabLeaderDots" in c for c in body)
+
+
+# --- issue #17 again, 10/11/2026, Jerry on 3.0.559: the bars took the bold off ------------------
+#
+# A character style - a "Words..." bar, or Default Paragraph Font - strips the direct bold and
+# italic of the range it goes on (measured on vistabuild, 10/11/2026). Add and Remove Color Bars
+# each remember them with Lp_Remember_Bold_Italic just before the style line and put them back
+# with Lp_Restore_Bold_Italic just after. Needs a real document, so this checks the source.
+
+BAR_STYLE = re.compile(r"\.Style\s*=\s*BarColor\d\b", re.IGNORECASE)
+DPF_STYLE = re.compile(r"\.Style\s*=\s*doc\.Styles\(\s*wdStyleDefaultParagraphFont\s*\)", re.IGNORECASE)
+
+
+def _code_lines(lines):
+    return [c for c in lines if c.strip()]
+
+
+def _style_lines_are_wrapped(lines, pattern, where):
+    code = _code_lines(lines)
+    hits = [i for i, c in enumerate(code) if pattern.search(c)]
+    assert hits, f"{where} no longer sets the style this test guards"
+    for i in hits:
+        target = code[i][:pattern.search(code[i]).start()].strip()
+        before = code[i - 1] if i > 0 else ""
+        after = code[i + 1] if i + 1 < len(code) else ""
+        assert re.search(r"=\s*Lp_Remember_Bold_Italic\(\s*" + re.escape(target) + r"\s*\)", before), (
+            f"{where}: '{code[i].strip()}' is not straight after Lp_Remember_Bold_Italic({target}) - "
+            "the style strips the entry's bold and italic (issue #17)")
+        assert re.search(r"^\s*Lp_Restore_Bold_Italic\s+" + re.escape(target) + r"\s*,", after), (
+            f"{where}: '{code[i].strip()}' is not followed by Lp_Restore_Bold_Italic {target} - "
+            "the entry's bold and italic are not put back (issue #17)")
+
+
+def test_add_color_bars_keeps_bold_and_italic(repo_root):
+    _style_lines_are_wrapped(form_code(repo_root, FORM), BAR_STYLE, FORM)
+
+
+def test_remove_color_bars_keeps_bold_and_italic(repo_root):
+    from test_toc_never_deletes_a_line import module_text, procedures
+
+    body = procedures(module_text(repo_root))["Lp_TOC_Remove_Color_Bars"]
+    _style_lines_are_wrapped(body, DPF_STYLE, "Lp_TOC_Remove_Color_Bars")
+
+
+def test_the_bold_italic_helpers_exist_and_take_byval(repo_root):
+    """The form calls them, so they are Public; ByVal, the rule since 8/26/2026."""
+    from test_toc_never_deletes_a_line import module_text, procedures
+
+    procs = procedures(module_text(repo_root))
+    for name in ("Lp_Remember_Bold_Italic", "Lp_Restore_Bold_Italic"):
+        assert name in procs, f"{name} is gone from LPandBrlMacros"
+        header = procs[name][0]
+        assert re.match(r"\s*Public\s", header), f"{name} must be Public - the form calls it"
+        params = header[header.index("(") + 1:header.rindex(")")]
+        for p in filter(None, (x.strip() for x in params.split(","))):
+            assert p.startswith("ByVal "), f"{name}: parameter '{p}' is not ByVal"

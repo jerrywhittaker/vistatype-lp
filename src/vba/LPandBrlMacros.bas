@@ -18,6 +18,10 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 10/11/2026 - TOC COLOR BARS KEEP BOLD AND ITALIC (issue #17, Jerry, on 3.0.559). Add
+'           - Lp  - 10/11/2026 - Color Bars and Remove Color Bars set a character style on each entry,
+'           - Lp  - 10/11/2026 - which strips direct bold and italic. New Lp_Remember_Bold_Italic and
+'           - Lp  - 10/11/2026 - Lp_Restore_Bold_Italic go round both style lines and put them back.
 ' Notes:    - Lp  - 10/11/2026 - REMOVE COLOR BARS LEAVES EACH TOC ENTRY AT ITS OWN LEVEL (issue #17,
 '           - Lp  - 10/11/2026 - Jerry). Lp_TOC_Remove_Color_Bars set TOC 1 on every paragraph that
 '           - Lp  - 10/11/2026 - had a bar and then put its saved ParagraphFormat back, which put the
@@ -18108,6 +18112,71 @@ Private Function Lp_Tocb_Ready() As Boolean
     Lp_Tocb_Finish True
 End Function  '***** end of Lp_Tocb_Ready *****
 
+' Remember the direct bold and italic of every character in a range, so they can be put back
+' with Lp_Restore_Bold_Italic after a character style goes on. Setting a character style - a
+' "Words..." color bar, or Default Paragraph Font - strips direct bold and italic from the range
+' (measured on vistabuild 10/11/2026, issue #17), and a TOC carries both: bold headings, italic
+' book titles. Font.Duplicate round the style does NOT work - it loses the bold and the bar too.
+'
+' Returns m(0 To n, 0 To 1): column 0 is bold, column 1 italic. Row 0 holds the whole range's
+' value; when that is wdUndefined (mixed), rows 1 to n hold each character's. When neither is
+' mixed n is 0 and nothing is read per character - the cheap, usual case.
+'
+' Version: 1.0  Date: 10/11/2026
+Public Function Lp_Remember_Bold_Italic(ByVal rng As Range) As Variant
+    Dim m() As Long
+    Dim b As Long, it As Long
+    Dim n As Long, i As Long
+    Dim c As Range
+
+    b = rng.Font.Bold
+    it = rng.Font.Italic
+    If b = wdUndefined Or it = wdUndefined Then n = rng.Characters.count
+    ReDim m(0 To n, 0 To 1)
+    m(0, 0) = b
+    m(0, 1) = it
+    If n > 0 Then
+        ' For Each, not Characters(i): indexed Characters is O(n^2).
+        For Each c In rng.Characters
+            i = i + 1
+            If i > n Then Exit For
+            m(i, 0) = c.Font.Bold
+            m(i, 1) = c.Font.Italic
+        Next c
+    End If
+    Lp_Remember_Bold_Italic = m
+End Function  '***** end of Lp_Remember_Bold_Italic *****
+
+' Put back the bold and italic Lp_Remember_Bold_Italic took from the same range. A uniform value
+' goes on the whole range in one write; a mixed one goes back per character, and only where the
+' character now differs.
+'
+' Version: 1.0  Date: 10/11/2026
+Public Sub Lp_Restore_Bold_Italic(ByVal rng As Range, ByVal m As Variant)
+    Dim k As Long, i As Long, n As Long
+    Dim c As Range
+
+    n = UBound(m, 1)
+    For k = 0 To 1
+        If m(0, k) <> wdUndefined Then
+            If k = 0 Then rng.Font.Bold = m(0, 0) Else rng.Font.Italic = m(0, 1)
+        ElseIf n > 0 Then
+            i = 0
+            For Each c In rng.Characters
+                i = i + 1
+                If i > n Then Exit For
+                If m(i, k) <> wdUndefined Then
+                    If k = 0 Then
+                        If c.Font.Bold <> m(i, 0) Then c.Font.Bold = m(i, 0)
+                    Else
+                        If c.Font.Italic <> m(i, 1) Then c.Font.Italic = m(i, 1)
+                    End If
+                End If
+            Next c
+        End If
+    Next k
+End Sub  '***** end of Lp_Restore_Bold_Italic *****
+
 ' TOC Tools - Remove Color Bars, on the held range. Moved here from the box's Okay handler
 ' (Lp_TOC_Format_And_Color_Form 1.2) so it works on a Range handed to it rather than on Selection,
 ' and so the box holds no code that touches the book. Every run in a "Words..." character style
@@ -18116,6 +18185,11 @@ End Function  '***** end of Lp_Tocb_Ready *****
 ' changed, when no character in the range carries a "Words..." style - every large print book
 ' HAS those styles, so asking the book told nothing.
 '
+' Version: 1.2  Date: 10/11/2026 - each entry KEEPS ITS BOLD AND ITALIC (issue #17, Jerry). Setting
+'                                Default Paragraph Font on a run strips its direct bold and italic
+'                                too; they are remembered with Lp_Remember_Bold_Italic and put back
+'                                with Lp_Restore_Bold_Italic. The comment that said the line kept
+'                                direct formatting was wrong.
 ' Version: 1.1  Date: 10/11/2026 - each entry KEEPS ITS OWN LEVEL (issue #17, Jerry). A paragraph
 '                                that had a bar was set to TOC 1 and then had its saved
 '                                ParagraphFormat put back, which put its old style back too, so
@@ -18131,6 +18205,7 @@ Private Function Lp_TOC_Remove_Color_Bars(ByVal rng As Range) As Boolean
     Dim changed As Boolean
     Dim anyChanged As Boolean
     Dim pos As Single, align As WdTabAlignment
+    Dim emph As Variant
 
     Set doc = rng.Document
 
@@ -18160,8 +18235,12 @@ Private Function Lp_TOC_Remove_Color_Bars(ByVal rng As Range) As Boolean
                 .Forward = True
                 .Wrap = wdFindStop
                 Do While .Execute
-                    ' Replace char style with Default Paragraph Font (keeps direct formatting)
+                    ' Replace char style with Default Paragraph Font. That strips direct bold
+                    ' and italic as well (measured on vistabuild 10/11/2026), so they are
+                    ' remembered first and put back after (issue #17).
+                    emph = Lp_Remember_Bold_Italic(rr)
                     rr.Style = doc.Styles(wdStyleDefaultParagraphFont)
+                    Lp_Restore_Bold_Italic rr, emph
                     changed = True
                     rr.Collapse wdCollapseEnd
                 Loop
