@@ -34,3 +34,22 @@ def test_the_toc_box_selects_the_toc_before_showing_the_form(repo_root):
     start = max(i for i, c in enumerate(lines[:show]) if re.match(r"\s*(Private\s+|Public\s+)?Sub\s", c))
     select = [c for c in lines[start:show] if "Lp_Tocb_Range.Select" in strip_comment(c)]
     assert select, f"The TOC box no longer selects its held range before showing {FORM}"
+
+
+def test_remove_color_bars_leaves_each_entry_at_its_own_level(repo_root):
+    """Issue #17, 10/11/2026, Jerry: each TOC entry keeps its own level. Lp_TOC_Remove_Color_Bars
+    set TOC 1 on every paragraph that had a bar, then put back its saved ParagraphFormat - which
+    put the old style back too. Both lines are gone; neither may come back."""
+    from test_toc_never_deletes_a_line import module_text, procedures
+
+    body = procedures(module_text(repo_root))["Lp_TOC_Remove_Color_Bars"]
+    for c in body:
+        assert not re.search(r"\.Style\s*=\s*doc\.Styles\(\s*\"TOC \d\"\s*\)", c), (
+            f"Remove Color Bars sets a TOC level again: {c.strip()}")
+        assert not re.search(r"\.Style\s*=\s*\"TOC \d\"", c), (
+            f"Remove Color Bars sets a TOC level again: {c.strip()}")
+        assert not re.search(r"ParagraphFormat\s*=", c), (
+            f"Remove Color Bars puts a saved ParagraphFormat back again: {c.strip()}")
+    # It still does its job: Words runs to Default Paragraph Font, and the leaders come back.
+    assert any("wdStyleDefaultParagraphFont" in c for c in body)
+    assert any("wdTabLeaderDots" in c for c in body)

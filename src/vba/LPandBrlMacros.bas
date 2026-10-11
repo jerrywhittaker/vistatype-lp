@@ -18,6 +18,10 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 10/11/2026 - REMOVE COLOR BARS LEAVES EACH TOC ENTRY AT ITS OWN LEVEL (issue #17,
+'           - Lp  - 10/11/2026 - Jerry). Lp_TOC_Remove_Color_Bars set TOC 1 on every paragraph that
+'           - Lp  - 10/11/2026 - had a bar and then put its saved ParagraphFormat back, which put the
+'           - Lp  - 10/11/2026 - old style back too - a line that did nothing. It is gone.
 ' Notes:    - Lp  - 10/11/2026 - COLUMNS WANTED BOX: CANCEL NO LONGER CLOSES BOXES THAT STAY OPEN
 '           - Lp  - 10/11/2026 - (issue #28). Lp_Columns_Wanted_Form's Cancel ended with End, the
 '           - Lp  - 10/11/2026 - #18 fault on a form #18 left out, reached from the table box's Pseudo
@@ -18106,12 +18110,16 @@ End Function  '***** end of Lp_Tocb_Ready *****
 
 ' TOC Tools - Remove Color Bars, on the held range. Moved here from the box's Okay handler
 ' (Lp_TOC_Format_And_Color_Form 1.2) so it works on a Range handed to it rather than on Selection,
-' and so the box holds no code that touches the book. The work is unchanged: every run in a
-' "Words..." character style goes back to Default Paragraph Font, a paragraph that had one is
-' re-tagged TOC 1 with its own paragraph formatting kept, and every TOC paragraph's first tab stop
-' gets its dot leader back. False, with nothing changed, when no character in the range carries
-' a "Words..." style - every large print book HAS those styles, so asking the book told nothing.
+' and so the box holds no code that touches the book. Every run in a "Words..." character style
+' goes back to Default Paragraph Font, each paragraph keeps its own style - a TOC 2 entry stays
+' TOC 2 - and every TOC paragraph's first tab stop gets its dot leader back. False, with nothing
+' changed, when no character in the range carries a "Words..." style - every large print book
+' HAS those styles, so asking the book told nothing.
 '
+' Version: 1.1  Date: 10/11/2026 - each entry KEEPS ITS OWN LEVEL (issue #17, Jerry). A paragraph
+'                                that had a bar was set to TOC 1 and then had its saved
+'                                ParagraphFormat put back, which put its old style back too, so
+'                                the TOC 1 line never took. Both lines, and the pf variable, gone.
 ' Version: 1.0  Date: 9/22/2026
 Private Function Lp_TOC_Remove_Color_Bars(ByVal rng As Range) As Boolean
     Dim doc As Document
@@ -18122,7 +18130,6 @@ Private Function Lp_TOC_Remove_Color_Bars(ByVal rng As Range) As Boolean
     Dim rngPara As Range, rr As Range
     Dim changed As Boolean
     Dim anyChanged As Boolean
-    Dim pf As ParagraphFormat
     Dim pos As Single, align As WdTabAlignment
 
     Set doc = rng.Document
@@ -18161,13 +18168,8 @@ Private Function Lp_TOC_Remove_Color_Bars(ByVal rng As Range) As Boolean
             End With
         Next i
 
-        ' Only paragraphs that actually contained Words* runs get re-tagged to TOC 1
-        If changed Then
-            anyChanged = True
-            Set pf = para.Range.ParagraphFormat.Duplicate  ' preserve spacing/indents etc.
-            para.Style = doc.Styles("TOC 1")
-            para.Range.ParagraphFormat = pf                ' restore paragraph-level formatting
-        End If
+        ' The paragraph keeps its own style - each entry keeps its level (issue #17)
+        If changed Then anyChanged = True
     Next para
 
     ' No bars in this TOC: say so, and leave its tab stops as they are.
