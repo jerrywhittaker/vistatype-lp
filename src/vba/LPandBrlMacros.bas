@@ -18,6 +18,10 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 10/11/2026 - REAL COLUMNS HAS AN ERROR HANDLER (issue #30). An error after
+'           - Lp  - 10/11/2026 - Lp_Convert_Table_To_Real_Columns started its undo record left the
+'           - Lp  - 10/11/2026 - record open and screen updating off. It now ends as Pseudo Columns
+'           - Lp  - 10/11/2026 - does: the record closed, the screen back on, message 396.
 ' Notes:    - Dx  - 10/11/2026 - SELECTION CLEAN UP > REMOVE PICTURES STAYS IN THE SELECTION (issue
 '           - Dx  - 10/11/2026 - #31). Dx_Delete_Images converted, counted and deleted pictures in
 '           - Dx  - 10/11/2026 - the whole book. It works on the selection now, or the whole book
@@ -20594,6 +20598,13 @@ Sub Lp_Convert_Table_To_Real_Columns()
     '
     ' Converts table to multi-column list within two continuous page breaks
     '
+    ' Version: 1.3  Date: 10/11/2026 - has an error handler (issue #30), the same ending Pseudo
+    '                                  Columns has: an error after the undo record starts closes
+    '                                  the record, puts screen updating back and says what went
+    '                                  wrong (message 396). Before, Word showed its own error
+    '                                  dialog with the record still open and the screen frozen.
+    '                                  su_Prev is taken first, so the handler can never turn
+    '                                  screen updating off.
     ' Version: 1.2  Date: 9/3/2026 - puts the cursor back at the start of the new columns
     '                                instead of leaving every column selected. Step 8 selects
     '                                the converted text to set its spacing and step 9 needs
@@ -20606,11 +20617,16 @@ Sub Lp_Convert_Table_To_Real_Columns()
     Dim targetRange As Range
     Dim RequestedColumns As Integer
     Dim objUndo As UndoRecord
+    Dim su_Prev As Boolean
+    Dim failText As String
+    su_Prev = Application.ScreenUpdating
+    
+    On Error GoTo ErrorHandler
     
     ' 1. INITIALIZE & VALIDATE
     On Error Resume Next
     Set sourceTbl = Selection.Tables(1)
-    On Error GoTo 0
+    On Error GoTo ErrorHandler
     
     If sourceTbl Is Nothing Then
         MsgBox "Please place cursor inside the table first!", vbExclamation, "VistaType LP (291)"
@@ -20637,8 +20653,6 @@ Sub Lp_Convert_Table_To_Real_Columns()
     objUndo.StartCustomRecord "Convert Table to Columns"
     
     ' 5. SCREEN CONTROL
-    Dim su_Prev As Boolean
-    su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False
 
     ' 6. ISOLATE SECTION WITH BREAKS
@@ -20684,6 +20698,13 @@ Sub Lp_Convert_Table_To_Real_Columns()
     objUndo.EndCustomRecord
     
     Sh_Say "Press Ctrl+Z one time to restore the original table.", "VistaType LP (222)"
+    Exit Sub
+
+ErrorHandler:
+    failText = Err.Description      ' copied first - the lines below can clear Err
+    Application.ScreenUpdating = su_Prev
+    If Not objUndo Is Nothing Then objUndo.EndCustomRecord
+    Sh_Say "Error: " & failText, "VistaType LP (396)"
 End Sub
 
 Sub Lp_Toggle_Space_After_Current_Para()
