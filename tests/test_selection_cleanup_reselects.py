@@ -37,3 +37,16 @@ def test_every_pass_is_preceded_by_selecting_it_again(repo_root):
         assert re.search(r"\bkeep\.Select\b", before, re.I), (
             f"{FORM} runs a pass without selecting the held range first ({lines[i].strip()}). "
             "The pass before it collapsed the selection, so this one would work on the whole book.")
+
+
+def test_an_emptied_selection_stops_the_passes(repo_root):
+    """If the held text is emptied, selecting it gives no text selection and the next pass would
+    run on the whole book; every reselect must be followed by a check that stops the loop."""
+    lines = _okay(repo_root)
+    sels = [i for i, l in enumerate(lines) if re.search(r"\bkeep\.Select\b", l, re.I)]
+    loop_sels = [i for i in sels if i + 1 < len(lines) and re.search(r"Application\.Run|If\s+Selection\.Type", lines[i + 1], re.I)]
+    assert loop_sels, f"{FORM}: no reselect inside the pass loop?"
+    for i in loop_sels:
+        assert re.search(r"If\s+Selection\.Type\s*<>\s*wdSelectionNormal\s+Then\s+Exit\s+For", lines[i + 1], re.I), (
+            f"{FORM} runs a pass after selecting the held range without checking it is still text; "
+            "an emptied selection would send the pass over the whole book.")

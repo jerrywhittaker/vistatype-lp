@@ -31,6 +31,7 @@ Private Sub Okay_Click()
 '                               collapsing the selection, so every pass after the first ticked one
 '                               found nothing selected and ran on the whole book. The selection is
 '                               held as a range and selected again before each pass, and at the end.
+'                               If the passes empty it, the rest are skipped rather than run on the book.
 ' Version: 2.0  Date: 9/6/2026 - reads every choice BEFORE unloading the form, runs only the
 '                               passes that were ticked, and reports them on the progress bar
 ' Version: 1.0  Date: earlier - thirteen If blocks, each unloading the form and running one macro
@@ -136,10 +137,15 @@ Private Sub Okay_Click()
             ' Announced BEFORE the pass runs, so the bar never reads 100% while work is still
             ' going on - the same reasoning as Dx_Ffc_Step and Lp_Ffc_Step.
             Sh_Progress_Say 100# * done / total, saying(i)
+            ' If the passes so far have emptied the held text (or left only a picture), selecting
+            ' it gives no text selection, and the next pass would take that to mean the whole
+            ' book. There is nothing left to clean, so stop.
             keep.Select
+            If Selection.Type <> wdSelectionNormal Then Exit For
             Application.Run MacroName:=macroName(i)
             If Len(alsoRun(i)) > 0 Then
                 keep.Select
+                If Selection.Type <> wdSelectionNormal Then Exit For
                 Application.Run MacroName:=alsoRun(i)
             End If
             done = done + 1
