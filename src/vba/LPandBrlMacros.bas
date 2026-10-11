@@ -18,6 +18,15 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 10/11/2026 - COLUMNS WANTED BOX: CANCEL NO LONGER CLOSES BOXES THAT STAY OPEN
+'           - Lp  - 10/11/2026 - (issue #28). Lp_Columns_Wanted_Form's Cancel ended with End, the
+'           - Lp  - 10/11/2026 - #18 fault on a form #18 left out, reached from the table box's Pseudo
+'           - Lp  - 10/11/2026 - and Real Columns. It unloads the box and leaves no column count, so
+'           - Lp  - 10/11/2026 - both stop. Lp_Convert_Table_To_Pseudo_Columns starts its undo record
+'           - Lp  - 10/11/2026 - after the box now, as Real Columns does, so Cancel leaves none open.
+' Notes:    - Lp  - 10/11/2026 - MESSAGE 321 WAS USED TWICE (issue #29). Format the TOC's in-a-table
+'           - Lp  - 10/11/2026 - refusal is 395 now; the braille save prompt, which had 321 first,
+'           - Lp  - 10/11/2026 - keeps it.
 ' Notes:    - Lp  - 10/9/2026 - TABLE AND TOC TOOLS AND SELECTED CLEANUP NO LONGER CLOSE BOXES THAT STAY
 '           - Lp  - 10/9/2026 - OPEN (issue #18). Their bare End statements unloaded every UserForm, so
 '           - Lp  - 10/9/2026 - Resize Pictures (375), the $pg menus and the fill-in line box vanished
@@ -20287,6 +20296,13 @@ Sub Lp_Convert_Table_To_Pseudo_Columns()
     '
     ' Retains table format but looks like columns
     '
+    ' Version: 1.3  Date: 10/11/2026 - starts its undo record AFTER the Columns Wanted box (346), as
+    '                                  Real Columns does (issue #28). It used to start it first,
+    '                                  so Cancel left the record open; nothing changes the book
+    '                                  before the box. The box's Cancel no longer ends with End,
+    '                                  so this sub sees no column count and stops. su_Prev is
+    '                                  taken first, so the error handler can never turn screen
+    '                                  updating off.
     ' Version: 1.2  Date: 10/9/2026 - hides the table box (356), not Lp_Table_Convert_Options_Form
     '                                 (issue #18). Naming that form loaded it - its Initialize is
     '                                 what hid the table box - and left it loaded and hidden. The
@@ -20302,17 +20318,14 @@ Sub Lp_Convert_Table_To_Pseudo_Columns()
     Dim i As Long, totalCells As Long
     Dim RequestedColumns As Integer, CalculatedRows As Integer
     Dim objUndo As UndoRecord
-    
-    ' 1. INITIALIZE UNDO
-    Set objUndo = Application.UndoRecord
-    objUndo.StartCustomRecord "Reflow Table"
+    Dim su_Prev As Boolean
+    su_Prev = Application.ScreenUpdating
     
     On Error GoTo ErrorHandler
     
     ' 2. VALIDATION
     If Not Selection.Information(wdWithInTable) Then
         MsgBox "Please click inside the table first.", vbExclamation, "VistaType LP (289)"
-        objUndo.EndCustomRecord
         Exit Sub
     End If
     
@@ -20331,13 +20344,12 @@ Sub Lp_Convert_Table_To_Pseudo_Columns()
     RequestedColumns = Val(Lp_GP_String_1)
     On Error GoTo ErrorHandler
     
-    If RequestedColumns <= 0 Then
-        objUndo.EndCustomRecord
-        Exit Sub
-    End If
+    If RequestedColumns <= 0 Then Exit Sub    ' Cancel on the Columns Wanted box
     
-    Dim su_Prev As Boolean
-    su_Prev = Application.ScreenUpdating
+    ' 4b. START UNDO - only now, so Cancel above leaves no record open (issue #28)
+    Set objUndo = Application.UndoRecord
+    objUndo.StartCustomRecord "Reflow Table"
+    
     Application.ScreenUpdating = False
 
     ' 5. CREATE BACKUP AT END OF DOCUMENT
@@ -27043,6 +27055,9 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     ' into a tab, un-bolds the number, applies TOC 1, and lays a tab in front of the "pn" in each
     ' Print Pg Num paragraph.
     '
+    ' Version: 3.4  Date: 10/11/2026 - the in-a-table refusal is message 395, not 321 (issue #29):
+    '                                Dx_Prompt_Save_Before_Braille had 321 first (9/3/2026), so
+    '                                a report of "message 321" could have meant either one.
     ' Version: 3.3  Date: 9/28/2026 - "TOC WITH BLACK BOXES". Jerry, 9/28/2026: nearly every entry
     '                               bold, no leaders, no tabs, lesson lines opening with U+25A0
     '                               BLACK SQUARE. (1) U+25A0 joins the bullet class, and the bullet
@@ -27261,7 +27276,7 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     If Selection.Information(wdWithInTable) Then
         Sh_Say "This is for a table of contents typed as ordinary paragraphs." & vbCr & vbCr & _
                "The selection is inside a table, so there is nothing here to format. Select the " & _
-               "TOC paragraphs themselves, or use the table tools on a table.", "VistaType LP (321)"
+               "TOC paragraphs themselves, or use the table tools on a table.", "VistaType LP (395)"
         Exit Sub
     End If
 

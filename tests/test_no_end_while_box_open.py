@@ -101,3 +101,51 @@ def test_selected_cleanup_cancel_does_not_end_everything(repo_root):
     show = next(n for n, c in enumerate(caller) if "Lp_Selected_Cleanup_Form.Show" in c)
     after = [c.strip() for c in caller[show + 1:] if c.strip()]
     assert after[:2] == ["Unload Lp_Selected_Cleanup_Form", "End Sub"]
+
+
+def test_columns_wanted_cancel_does_not_end_everything(repo_root):
+    """Issue #28, 10/11/2026: the Columns Wanted box (346), reached from the table box's Pseudo and
+    Real Columns, ended its Cancel with End - the #18 fault on a form #18 left out."""
+    code = form_code(repo_root, "Lp_Columns_Wanted_Form")
+    assert not has_end_statement(code), (
+        "Lp_Columns_Wanted_Form has an End again - it would close every box that stays open")
+    procs = procedures("\n".join(code))
+    cancel = procs["CancelButton_Click"]
+    assert any(re.search(r'^\s*Lp_GP_String_1\s*=\s*""\s*$', c) for c in cancel), (
+        "Cancel must leave no column count, or Pseudo and Real Columns go on and convert")
+    assert any(re.search(r"^\s*Unload Me\s*$", c) for c in cancel), "Cancel no longer closes the box"
+    # userform_terminate runs on every Unload, Cancel's included; writing the text box back there
+    # unconditionally would hand the callers a column count after all.
+    terminate = procs["userform_terminate"]
+    writes = [c for c in terminate if re.search(r"Lp_GP_String_1\s*=", c)]
+    assert writes and all(re.search(r"If Not Canceled Then", c) for c in writes), (
+        "userform_terminate writes the column count back after Cancel")
+
+
+def test_both_column_macros_stop_when_no_count_comes_back(repo_root):
+    procs = procedures(module_text(repo_root))
+    for name in ("Lp_Convert_Table_To_Pseudo_Columns", "Lp_Convert_Table_To_Real_Columns"):
+        body = procs[name]
+        show = next(n for n, c in enumerate(body) if "Lp_Columns_Wanted_Form.Show" in c)
+        after = [c for c in body[show + 1:] if c.strip()]
+        stop = next(n for n, c in enumerate(after)
+                    if re.search(r"If RequestedColumns <= 0 Then\s*Exit Sub", c))
+        assert all("RequestedColumns = Val(Lp_GP_String_1)" in c or c.strip().startswith("On Error")
+                   for c in after[:stop]), f"{name} does something before it checks for Cancel"
+
+
+def test_pseudo_columns_starts_its_undo_record_after_the_box(repo_root):
+    """Issue #28: started before the box, Cancel left "Reflow Table" open. Nothing before the box
+    changes the book, so the record starts once a column count has come back."""
+    body = procedures(module_text(repo_root))["Lp_Convert_Table_To_Pseudo_Columns"]
+    show = next(n for n, c in enumerate(body) if "Lp_Columns_Wanted_Form.Show" in c)
+    starts = [n for n, c in enumerate(body) if "StartCustomRecord" in c]
+    cancel = next(n for n, c in enumerate(body) if re.search(r"If RequestedColumns <= 0 Then", c))
+    assert starts and all(n > cancel > show for n in starts), (
+        "Pseudo Columns starts its undo record before the Columns Wanted box again")
+    # Every EndCustomRecord before the record starts would close a record that does not exist.
+    assert not any("EndCustomRecord" in c for c in body[:starts[0]])
+    # The error handler restores su_Prev, so it must be taken before any error can jump there.
+    take = next(n for n, c in enumerate(body) if re.search(r"su_Prev\s*=\s*Application\.ScreenUpdating", c))
+    handler = next(n for n, c in enumerate(body) if re.search(r"On Error GoTo ErrorHandler", c))
+    assert take < handler

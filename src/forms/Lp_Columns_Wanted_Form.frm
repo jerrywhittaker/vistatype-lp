@@ -14,10 +14,15 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
+' Version: 1.3  Date: 10/11/2026 - Cancel no longer ends with End, which closed every box that stays
+'                                open, such as Resize Pictures (375) (issue #28). It unloads the box
+'                                and leaves no column count, so Pseudo and Real Columns stop.
 ' Version: 1.2  Date: 7/24/2026 - no longer runs "MS_Set_Word_Config_For_Large_Print" on form open
 ' Version: 1.1  Date: 12/13/2021 - fixed fatal error in spin box code
 ' Version: 1.0  Date: 1/14/2020
 '
+
+Private Canceled As Boolean     ' Cancel was pressed - see CancelButton_Click
 
 Private Sub BorderWanted_Click()
 If BorderWanted.Value = True Then
@@ -41,7 +46,12 @@ End If
 End Sub
 
 Private Sub CancelButton_Click()
-    End
+    ' No End (issue #28): it unloaded every box that stays open, too. No column count tells
+    ' Pseudo and Real Columns to stop. Cleared here AND kept from being written back by
+    ' userform_terminate, which runs on every Unload.
+    Canceled = True
+    Lp_GP_String_1 = ""
+    Unload Me
 End Sub
 
 Private Sub OkayButton_Click()
@@ -136,7 +146,7 @@ Private Sub UserForm_Initialize()
 End Sub
 
 Private Sub userform_terminate() 'red X was clicked
-        Lp_GP_String_1 = TextBox1
+    If Not Canceled Then Lp_GP_String_1 = TextBox1
     Unload Me
 End Sub
 
