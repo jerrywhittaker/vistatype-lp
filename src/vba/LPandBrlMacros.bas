@@ -18,6 +18,10 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Dx  - 10/11/2026 - SELECTION CLEAN UP > REMOVE PICTURES STAYS IN THE SELECTION (issue
+'           - Dx  - 10/11/2026 - #31). Dx_Delete_Images converted, counted and deleted pictures in
+'           - Dx  - 10/11/2026 - the whole book. It works on the selection now, or the whole book
+'           - Dx  - 10/11/2026 - when nothing is selected (Full File Cleanup), and says which.
 ' Notes:    - Lp  - 10/11/2026 - TOC COLOR BARS (353) OPENS WITH "KEEP LEAD DOTS" TICKED (Jerry, on
 '           - Lp  - 10/11/2026 - 3.0.561). Lp_Restore_Bold_Italic writes a uniform value only when
 '           - Lp  - 10/11/2026 - it differs, so no needless writes or undo entries.
@@ -9266,6 +9270,20 @@ Sub Dx_Delete_Images()
 '
 '   Jerry Whittaker - jerry@vistatypelp.org
 '
+'   Version: 2.0 Date: 10/11/2026 - works on the SELECTION when text is selected (issue #31), as
+'                                   the other twelve Selection Clean Up passes do; the whole book
+'                                   otherwise, which is how Full File Cleanup runs it. Before, the
+'                                   conversion, the count and the delete were all whole-book:
+'                                   For Each over ActiveDocument.Shapes selecting each shape, a
+'                                   count of ActiveDocument.InlineShapes, and Selection.Find with
+'                                   wdFindContinue. Now a floating shape is converted only when
+'                                   its anchor is in range (Sh_Shape_In_Range), without selecting
+'                                   it, so the transcriber's selection is never moved; the loop
+'                                   runs backwards by index, because a For Each over a collection
+'                                   being changed skips items (issue #27's fault); and the count
+'                                   and both Finds work on the range, with wdFindStop. The message
+'                                   says "in the selection" when there is one, and the
+'                                   selection is put back at the end.
 '   Version: 1.6 Date: 2/20/2024 - added caution about deleteing images created by MathType
 '   Version: 1.5 Date: 9/26/2023 - turned screen off to prevent scrolling text on screen
 '   Version: 1.4 Date: 9/4/2020 - Commened out the section to put red border around images.
@@ -9275,43 +9293,64 @@ Sub Dx_Delete_Images()
 '
 '  inline image count routine from: https://answers.microsoft.com/en-us/office/forum/office_2010-word/is-there-a-way-to-count-how-many-images-are-in-a/28061f1a-403b-42a1-829f-fd65c9a66395?db=5
     
+    Dim rng As Range
+    Dim fr As Range
+    Dim shp As Shape
+    Dim i As Long
+    Dim rngStart As Long
+    Dim whereText As String
+    Dim hadSelection As Boolean
+
     Application.ScreenUpdating = False    ' Turn screen updating off
-    
-    ' Convert Images and Shapes to Inline
-    ' From: https://stackoverflow.com/questions/15919815/vba-macro-make-all-shapes-and-pictures-to-inline-with-text?rq=1
-    Dim oShp As Shape
-    For Each oShp In ActiveDocument.Shapes
-       oShp.Select
-       Selection.ShapeRange.ConvertToInlineShape
-    Next oShp
-    
+
+    hadSelection = (Selection.Type = wdSelectionNormal)
+    If hadSelection Then
+        Set rng = Selection.Range
+        whereText = "in the selection"
+    Else
+        Set rng = ActiveDocument.Content
+        whereText = "in the document"
+    End If
+    rngStart = rng.start
+
+    ' Convert Images and Shapes to Inline - only those anchored in the range, and without
+    ' selecting them. Backwards by index: converting takes the shape out of Shapes.
+    For i = ActiveDocument.Shapes.count To 1 Step -1
+        Set shp = ActiveDocument.Shapes(i)
+        If Sh_Shape_In_Range(shp, rng) Then shp.ConvertToInlineShape
+    Next i
+
+    ' A converted picture lands at its anchor, and one anchored at the very start of the range
+    ' can land just in front of it, so the range is taken again from where it started.
+    Set rng = rng.Document.Range(rngStart, rng.End)
+
     ' place a para mark following each image - following text is sometime part of the image paragraph
-    Selection.Find.ClearFormatting
-    Selection.Find.Replacement.ClearFormatting
-    With Selection.Find
+    ' Find on a copy of the range: a Find that matches redefines the range it runs on.
+    Set fr = rng.Duplicate
+    With fr.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
         .Text = "^g"
         .Replacement.Text = "^&^p"
         .Forward = True
-        .Wrap = wdFindContinue
+        .Wrap = wdFindStop
         .Format = False
         .MatchCase = False
         .MatchWholeWord = False
         .MatchWildcards = False
         .MatchSoundsLike = False
         .MatchAllWordForms = False
+        .Execute Replace:=wdReplaceAll
     End With
-    Selection.Find.Execute Replace:=wdReplaceAll
     
     ' count inline images and if found ask user if they wish to delete
     Dim inlines As Long
 
-    With ActiveDocument
-        inlines = .InlineShapes.count
-    End With
+    inlines = rng.InlineShapes.count
     
     If inlines > 0 Then
         Dim Answer As String
-           Answer = MsgBox("Found " & Str(inlines) & " images in the document. Delete all?" _
+           Answer = MsgBox("Found " & Str(inlines) & " images " & whereText & ". Delete all?" _
             & vbCrLf & vbCrLf & "************************************************" _
             & vbCrLf & "CAUTION!  CAUTION!   CAUTION!   CAUTION!" _
             & vbCrLf & "************************************************" _
@@ -9324,21 +9363,22 @@ Sub Dx_Delete_Images()
                        "Braille Macros (271)")
     
             If Answer = vbYes Then
-                Selection.Find.ClearFormatting
-                Selection.Find.Replacement.ClearFormatting
-                With Selection.Find
+                Set fr = rng.Duplicate
+                With fr.Find
+                    .ClearFormatting
+                    .Replacement.ClearFormatting
                     .Text = "^g"
                     .Replacement.Text = ""
                     .Forward = True
-                    .Wrap = wdFindContinue
+                    .Wrap = wdFindStop
                     .Format = False
                     .MatchCase = False
                     .MatchWholeWord = False
                     .MatchWildcards = False
                     .MatchSoundsLike = False
                     .MatchAllWordForms = False
+                    .Execute Replace:=wdReplaceAll
                 End With
-                Selection.Find.Execute Replace:=wdReplaceAll
             Else
                 ' From: http://www.vbaexpress.com/forum/showthread.php?48376-VBA-Macro-To-Insert-Border-For-All-Images
                 ' Author: gmcnultnult
@@ -9370,6 +9410,10 @@ Sub Dx_Delete_Images()
                 'MsgBox "Images will have a heavy red border when Word is in Print View", , "Braille Macros"
             End If
     End If
+
+    ' The work above leaves the selection collapsed (measured on vistabuild, 10/11/2026), and the
+    ' Selection Clean Up passes that run after this one need it, so it is put back.
+    If hadSelection Then rng.Select
     
 End Sub  '*** end of Dx_Delete_Images Macro ***
 Sub Dx_Type_Dashes()
