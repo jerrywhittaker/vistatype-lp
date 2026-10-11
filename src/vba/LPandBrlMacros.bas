@@ -18,6 +18,9 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 10/11/2026 - TOC COLOR BARS (353) OPENS WITH "KEEP LEAD DOTS" TICKED (Jerry, on
+'           - Lp  - 10/11/2026 - 3.0.561). Lp_Restore_Bold_Italic writes a uniform value only when
+'           - Lp  - 10/11/2026 - it differs, so no needless writes or undo entries.
 ' Notes:    - Lp  - 10/11/2026 - TOC COLOR BARS KEEP BOLD AND ITALIC (issue #17, Jerry, on 3.0.559). Add
 '           - Lp  - 10/11/2026 - Color Bars and Remove Color Bars set a character style on each entry,
 '           - Lp  - 10/11/2026 - which strips direct bold and italic. New Lp_Remember_Bold_Italic and
@@ -18151,6 +18154,8 @@ End Function  '***** end of Lp_Remember_Bold_Italic *****
 ' goes on the whole range in one write; a mixed one goes back per character, and only where the
 ' character now differs.
 '
+' Version: 1.1  Date: 10/11/2026 - a uniform value is written only when it differs, as the
+'                                per-character path already did: no needless writes or undo entries.
 ' Version: 1.0  Date: 10/11/2026
 Public Sub Lp_Restore_Bold_Italic(ByVal rng As Range, ByVal m As Variant)
     Dim k As Long, i As Long, n As Long
@@ -18159,7 +18164,11 @@ Public Sub Lp_Restore_Bold_Italic(ByVal rng As Range, ByVal m As Variant)
     n = UBound(m, 1)
     For k = 0 To 1
         If m(0, k) <> wdUndefined Then
-            If k = 0 Then rng.Font.Bold = m(0, 0) Else rng.Font.Italic = m(0, 1)
+            If k = 0 Then
+                If rng.Font.Bold <> m(0, 0) Then rng.Font.Bold = m(0, 0)
+            Else
+                If rng.Font.Italic <> m(0, 1) Then rng.Font.Italic = m(0, 1)
+            End If
         ElseIf n > 0 Then
             i = 0
             For Each c In rng.Characters

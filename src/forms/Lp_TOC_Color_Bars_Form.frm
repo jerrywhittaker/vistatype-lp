@@ -18,6 +18,8 @@ Attribute VB_Exposed = False
 '
 ' Converts lead lines in TOC styles to alternating color of choice - changes tab value of dots to none
 '
+' Version: 1.4 Date: 10/11/2026 - "Keep lead dots in the color bars" is ticked when the box opens
+'                               (Jerry).
 ' Version: 1.3 Date: 10/11/2026 - each entry KEEPS ITS BOLD AND ITALIC (issue #17, Jerry). Setting the
 '                               bar's character style stripped direct bold and italic; they are
 '                               remembered with Lp_Remember_Bold_Italic and put back after.
@@ -249,6 +251,7 @@ Private Sub UserForm_Initialize()
     Step1 = True
     Step2 = False
     YellowButton.Value = True
+    LeaveDots.Value = True          ' keep the leader dots by default (Jerry, 10/11/2026)
     ColorSwitch = "Y"
     Directions1.Visible = True
     Directions2.Visible = False

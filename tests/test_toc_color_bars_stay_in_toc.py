@@ -109,3 +109,14 @@ def test_the_bold_italic_helpers_exist_and_take_byval(repo_root):
         params = header[header.index("(") + 1:header.rindex(")")]
         for p in filter(None, (x.strip() for x in params.split(","))):
             assert p.startswith("ByVal "), f"{name}: parameter '{p}' is not ByVal"
+
+
+def test_keep_lead_dots_is_ticked_when_the_box_opens(repo_root):
+    """Jerry, 10/11/2026: "Keep lead dots in the color bars" (LeaveDots) defaults to ticked."""
+    code = [line.split("'")[0] for line in form_code(repo_root, FORM)]
+    start = next(i for i, l in enumerate(code) if re.search(r"Sub\s+UserForm_Initialize\b", l, re.I))
+    end = next(i for i in range(start, len(code)) if re.match(r"\s*End\s+Sub\b", code[i], re.I))
+    body = "\n".join(code[start:end])
+    assert re.search(r"\bLeaveDots(\.Value)?\s*=\s*True\b", body, re.I), (
+        f"{FORM}'s UserForm_Initialize no longer ticks LeaveDots; the box would open with the "
+        "leader dots set to come off.")
