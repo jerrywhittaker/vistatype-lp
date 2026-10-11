@@ -27,6 +27,10 @@ End Sub
 
 Private Sub Okay_Click()
 '
+' Version: 2.1  Date: 10/11/2026 - EVERY PASS GETS THE SELECTION (issue #31). Most passes end by
+'                               collapsing the selection, so every pass after the first ticked one
+'                               found nothing selected and ran on the whole book. The selection is
+'                               held as a range and selected again before each pass, and at the end.
 ' Version: 2.0  Date: 9/6/2026 - reads every choice BEFORE unloading the form, runs only the
 '                               passes that were ticked, and reports them on the progress bar
 ' Version: 1.0  Date: earlier - thirteen If blocks, each unloading the form and running one macro
@@ -54,6 +58,7 @@ Private Sub Okay_Click()
     Dim alsoRun(1 To 13) As String
     Dim saying(1 To 13) As String
     Dim total As Long, done As Long, i As Long
+    Dim keep As Range
 
     If Selection.Type <> wdSelectionNormal Then
         Sh_Say "Text must be selected first!", "Braille Macros (317)"
@@ -119,6 +124,10 @@ Private Sub Okay_Click()
         Exit Sub
     End If
 
+    ' Held as a range so it follows the text as the passes delete; each pass collapses the
+    ' selection when it finishes, so it is selected again before the next one (issue #31).
+    Set keep = Selection.Range.Duplicate
+
     On Error GoTo CleanupFailed
     Sh_Progress_Open "Cleaning up the selection"
 
@@ -127,8 +136,12 @@ Private Sub Okay_Click()
             ' Announced BEFORE the pass runs, so the bar never reads 100% while work is still
             ' going on - the same reasoning as Dx_Ffc_Step and Lp_Ffc_Step.
             Sh_Progress_Say 100# * done / total, saying(i)
+            keep.Select
             Application.Run MacroName:=macroName(i)
-            If Len(alsoRun(i)) > 0 Then Application.Run MacroName:=alsoRun(i)
+            If Len(alsoRun(i)) > 0 Then
+                keep.Select
+                Application.Run MacroName:=alsoRun(i)
+            End If
             done = done + 1
         End If
     Next i
@@ -136,6 +149,7 @@ Private Sub Okay_Click()
     Sh_Progress_Say 100, "Finished"
     Sh_Progress_Close
     On Error GoTo 0
+    keep.Select
 
     Application.ScreenUpdating = True ' Turn screen updating on
     Exit Sub

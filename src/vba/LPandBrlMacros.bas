@@ -18,6 +18,10 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Dx  - 10/11/2026 - SELECTION CLEAN UP: EVERY PASS GETS THE SELECTION (issue #31). Most
+'           - Dx  - 10/11/2026 - passes collapse the selection when they finish, so each pass after
+'           - Dx  - 10/11/2026 - the first ticked one ran on the whole book. Dx_Selected_Cleanup_Form
+'           - Dx  - 10/11/2026 - 2.1 selects the held range again before each pass.
 ' Notes:    - Lp  - 10/11/2026 - REAL COLUMNS HAS AN ERROR HANDLER (issue #30). An error after
 '           - Lp  - 10/11/2026 - Lp_Convert_Table_To_Real_Columns started its undo record left the
 '           - Lp  - 10/11/2026 - record open and screen updating off. It now ends as Pseudo Columns
