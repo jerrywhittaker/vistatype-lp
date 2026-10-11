@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Dx_Selected_Cleanup_Form 
    Caption         =   "Selected Cleanup (333)"
-   ClientHeight    =   9156.001
+   ClientHeight    =   9150.001
    ClientLeft      =   120
    ClientTop       =   450
    ClientWidth     =   8520.001
@@ -27,6 +27,10 @@ End Sub
 
 Private Sub Okay_Click()
 '
+' Version: 2.2  Date: 10/11/2026 - layout edited by Jerry: "Remove all images" now reads
+'                               "Remove all images (pictures) from select text"; the run of
+'                               spaces in the automatic-lists caption closed up to two; the
+'                               non-breaking spaces box 20 -> 21.75 high; form 9156 -> 9150 high.
 ' Version: 2.1  Date: 10/11/2026 - EVERY PASS GETS THE SELECTION (issue #31). Most passes end by
 '                               collapsing the selection, so every pass after the first ticked one
 '                               found nothing selected and ran on the whole book. The selection is
