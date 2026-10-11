@@ -111,15 +111,12 @@ def test_columns_wanted_cancel_does_not_end_everything(repo_root):
         "Lp_Columns_Wanted_Form has an End again - it would close every box that stays open")
     procs = procedures("\n".join(code))
     cancel = procs["CancelButton_Click"]
-    assert any(re.search(r'^\s*Lp_GP_String_1\s*=\s*""\s*$', c) for c in cancel), (
-        "Cancel must leave no column count, or Pseudo and Real Columns go on and convert")
     assert any(re.search(r"^\s*Unload Me\s*$", c) for c in cancel), "Cancel no longer closes the box"
-    # userform_terminate runs on every Unload, Cancel's included; writing the text box back there
-    # unconditionally would hand the callers a column count after all.
-    terminate = procs["userform_terminate"]
-    writes = [c for c in terminate if re.search(r"Lp_GP_String_1\s*=", c)]
-    assert writes and all(re.search(r"If Not Canceled Then", c) for c in writes), (
-        "userform_terminate writes the column count back after Cancel")
+    # Cancel leaves no column count because Initialize clears it and only Okay writes it - from
+    # 10/11/2026, when the red X was made to act like Cancel. tests/test_red_x_acts_like_cancel.py
+    # holds that part.
+    assert not any(re.search(r"Lp_GP_String_1\s*=(?!\s*\"\")", c) for c in cancel), (
+        "Cancel writes a column count - Pseudo and Real Columns would go on and convert")
 
 
 def test_both_column_macros_stop_when_no_count_comes_back(repo_root):

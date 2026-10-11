@@ -13,9 +13,23 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
+' Sh_Space_Or_Para_Form
+'
+' Version: 1.1  Date: 10/11/2026 - the red X acts like Cancel (Jerry, 10/11/2026). It only unloaded
+'                                the box and left Sh_GP_String_1 as it was, so a "Para" or "Space"
+'                                from an earlier answer could carry the macro on.
+'
 Private Sub Cmd_Cancel_Click()
     Sh_GP_String_1 = ""
     Unload Me
+End Sub
+
+Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
+    'Handles the red X - the same as Cancel
+    If CloseMode = vbFormControlMenu Then
+        Cancel = True                 'prevents default close behavior
+        Cmd_Cancel_Click
+    End If
 End Sub
 
 Private Sub Cmd_Okay_Click()

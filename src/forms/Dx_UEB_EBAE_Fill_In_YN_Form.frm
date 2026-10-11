@@ -14,12 +14,23 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
+' Version: 1.6  Date: 10/11/2026 - the red X acts like Cancel (Jerry, 10/11/2026). It only unloaded
+'                                the box, so Dx_Format_Exercise_Lv_1_and_Lv_2 carried on and
+'                                formatted the exercise with the last Yes or No given.
 ' Date: 6/23/2018
 ' Version: 1.5
 
 Private Sub CmdCancel_Click()
     Unload Me 'close this form
     End
+End Sub
+
+Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
+    'Handles the red X - the same as Cancel
+    If CloseMode = vbFormControlMenu Then
+        Cancel = True                 'prevents default close behavior
+        CmdCancel_Click
+    End If
 End Sub
 Private Sub CmdNO_Click()
     Dx_UEB_EBAE_Boolean = False

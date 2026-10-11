@@ -14,6 +14,12 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
+' Version: 1.4  Date: 10/11/2026 - the red X acts like Cancel (Jerry, 10/11/2026). userform_terminate
+'                                wrote the box's column count back on every close but Cancel, so
+'                                the X converted the table as if Okay had been pressed. Only Okay
+'                                writes the count now; Initialize clears it and the border settings
+'                                (Lp_GP_String_3), so Cancel and the X leave nothing to act on, and
+'                                the Canceled flag and userform_terminate are gone.
 ' Version: 1.3  Date: 10/11/2026 - Cancel no longer ends with End, which closed every box that stays
 '                                open, such as Resize Pictures (375) (issue #28). It unloads the box
 '                                and leaves no column count, so Pseudo and Real Columns stop.
@@ -21,8 +27,6 @@ Attribute VB_Exposed = False
 ' Version: 1.1  Date: 12/13/2021 - fixed fatal error in spin box code
 ' Version: 1.0  Date: 1/14/2020
 '
-
-Private Canceled As Boolean     ' Cancel was pressed - see CancelButton_Click
 
 Private Sub BorderWanted_Click()
 If BorderWanted.Value = True Then
@@ -47,10 +51,8 @@ End Sub
 
 Private Sub CancelButton_Click()
     ' No End (issue #28): it unloaded every box that stays open, too. No column count tells
-    ' Pseudo and Real Columns to stop. Cleared here AND kept from being written back by
-    ' userform_terminate, which runs on every Unload.
-    Canceled = True
-    Lp_GP_String_1 = ""
+    ' Pseudo and Real Columns to stop - Initialize cleared it, and only Okay writes it. The red X
+    ' unloads the box the same way.
     Unload Me
 End Sub
 
@@ -117,6 +119,11 @@ Private Sub UserForm_Initialize()
     'MsgBox Lp_GP_Counter_1
     'End
 
+    ' Only Okay answers. Cancel and the red X leave these empty, so Pseudo and Real Columns stop
+    ' and nothing from an earlier run - a column count, a border color - is used again.
+    Lp_GP_String_1 = ""
+    Lp_GP_String_3 = ""
+
     ColumnCount = Lp_GP_Counter_1
     CurrentColumnCountLabel.Caption = "The selected table currently has" + Str(ColumnCount) + " columns"
     CurrentColumnCountLabel.ControlTipText = "The selected table currently has" + Str(ColumnCount) + " columns"
@@ -143,11 +150,6 @@ Private Sub UserForm_Initialize()
     Me.Left = Application.Left + (0.5 * Application.Width) - (0.5 * Me.Width)
     Me.Top = Application.Top + (0.5 * Application.Height) - (0.5 * Me.Height)
 
-End Sub
-
-Private Sub userform_terminate() 'red X was clicked
-    If Not Canceled Then Lp_GP_String_1 = TextBox1
-    Unload Me
 End Sub
 
 

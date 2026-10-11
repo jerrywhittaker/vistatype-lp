@@ -14,10 +14,24 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
+' Dx_Bullet_Removal_Form
+'
+' Version: 1.1  Date: 10/11/2026 - the red X acts like Cancel (Jerry, 10/11/2026). It only unloaded
+'                                the box, so Dx_Remove_Bullets carried on with whatever paragraph
+'                                style Dx_GP_String_2 held from an earlier run.
+'
 
 Private Sub CmdCancel_Click()
     Unload Me
     End
+End Sub
+
+Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
+    'Handles the red X - the same as Cancel
+    If CloseMode = vbFormControlMenu Then
+        Cancel = True                 'prevents default close behavior
+        CmdCancel_Click
+    End If
 End Sub
 
 Private Sub CmdOkay_Click()
