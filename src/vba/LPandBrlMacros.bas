@@ -18,6 +18,12 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Sh  - 10/11/2026 - FULL FILE CLEANUP ALWAYS CLEANS THE WHOLE BOOK (Jerry: "If the user
+'           - Sh  - 10/11/2026 - selects the whole book, it is still a selection"). A dozen of its
+'           - Sh  - 10/11/2026 - passes work on the selection when there is one, and a pass's own
+'           - Sh  - 10/11/2026 - Find can leave text selected, so a selection could shrink every
+'           - Sh  - 10/11/2026 - pass after it. Dx_Ffc_Step and Lp_Ffc_Step now collapse the
+'           - Sh  - 10/11/2026 - selection before every pass, braille and large print alike.
 ' Notes:    - Dx  - 10/11/2026 - SELECTION CLEAN UP: EVERY PASS GETS THE SELECTION (issue #31). Most
 '           - Dx  - 10/11/2026 - passes collapse the selection when they finish, so each pass after
 '           - Dx  - 10/11/2026 - the first ticked one ran on the whole book. Dx_Selected_Cleanup_Form
@@ -5983,6 +5989,10 @@ Public Sub Dx_Fix_Common_File_Errors_Run(ByVal quiet As Boolean)
 
 ' Dx_Fix_Common_File_Errors Macro
 '
+' Version: 3.1  Date: 10/11/2026 - always the whole book (Jerry, 10/11/2026): Dx_Ffc_Step
+'                                  collapses the selection before every pass. Text selected when
+'                                  the button was pressed, or left selected by a pass's own Find,
+'                                  shrank every later pass that honors a selection to that text
 ' Version: 3.0  Date: 8/29/2026 - shows a PROGRESS BAR, and takes a quiet flag (Jerry). The bar
 '                                  exists because this runs some thirty-six passes over the whole
 '                                  document with the screen switched off and, until today, not one
@@ -6206,6 +6216,7 @@ End Sub '***** end of Dx_Fix_Common_File_Errors_Run Macro *****
 
 Private Sub Dx_Ffc_Step(ByRef stepNo As Long, ByVal what As String)
 '
+' Version: 1.1  Date: 10/11/2026 - collapses the selection before every pass - see the note below
 ' Version: 1.0  Date: 8/29/2026
 '
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
@@ -6227,6 +6238,13 @@ Private Sub Dx_Ffc_Step(ByRef stepNo As Long, ByVal what As String)
 ' arrives a little short is honest; one that arrives early is not.
 
     Const DX_FFC_STEPS As Long = 37
+
+    ' FULL FILE CLEANUP IS THE WHOLE BOOK, always - only Selection Clean Up honors a selection
+    ' (Jerry, 10/11/2026). Many passes work on the selection when there is one, and some can leave
+    ' text selected behind them (a Selection.Find that is not a replace-all selects what it
+    ' finds), so a selection could shrink every pass after it. Here, because every pass is
+    ' announced through this sub just before it runs. Start, so the cursor does not move.
+    Selection.Collapse Direction:=wdCollapseStart
 
     stepNo = stepNo + 1
     Sh_Progress_Say 100# * stepNo / DX_FFC_STEPS, what
@@ -11099,6 +11117,10 @@ Sub Lp_Remove_Box_Bullets_Bullets_and_Numbers()
 End Sub '****** End of Lp_Remove_Box_Bullets_Bullets_and_Numbers Macro *****
 
 Sub Lp_Fix_Common_File_Errors()
+' Version: 3.18  Date: 10/11/2026 - always the whole book (Jerry, 10/11/2026): Lp_Ffc_Step
+'                               collapses the selection before every pass. The one collapse at
+'                               the start did not stop a pass's own Find leaving text selected,
+'                               which shrank every later pass that honors a selection
 ' Version: 2.1  Date: 8/13/2026 - now removes empty paragraphs too, as its last repair.
 '                               Jerry, 8/13/2026. Note for the File Cleanup form: checking
 '                               "fix common file errors" alone now takes the blank lines out,
@@ -11183,7 +11205,8 @@ Sub Lp_Fix_Common_File_Errors()
     ' after Selection.Collapse and Sh_Color_Dollar_PG_Red had already moved the cursor.
     Sh_Save_User_Position
 
-    Selection.Collapse 'clear selection
+    ' No Selection.Collapse here any more: Lp_Ffc_Step collapses the selection before every pass,
+    ' this first one included (10/11/2026).
 
     ' FIRST of the repairs. Its position is not load-bearing - nothing else in this list reads
     ' the column count, and in the attach sequence the page size and margins are not settled
@@ -11346,6 +11369,7 @@ End Sub '*** end of Lp_Fix_Common_File_Errors macro ***
 
 Private Sub Lp_Ffc_Step(ByRef stepNo As Long, ByVal what As String)
 '
+' Version: 1.3  Date: 10/11/2026 - collapses the selection before every pass - see the note below
 ' Version: 1.2  Date: 9/21/2026 - 35, for 34 passes: "Adding a blank line after each table" is new
 ' Version: 1.1  Date: 9/20/2026 - 34, for 33 passes: the style removal that used to run inside
 '                               the Strong and Emphasis stage is now a step of its own
@@ -11377,6 +11401,12 @@ Private Sub Lp_Ffc_Step(ByRef stepNo As Long, ByVal what As String)
 ' is what lets this sequence run unchanged from the attach, which brings its own indicator.
 
     Const LP_FFC_STEPS As Long = 35
+
+    ' FULL FILE CLEANUP IS THE WHOLE BOOK, always - only Selection Cleanup honors a selection
+    ' (Jerry, 10/11/2026). The same as Dx_Ffc_Step, for the same reason: a pass's own Find can
+    ' leave text selected, and every later pass that honors a selection would then work on
+    ' that text alone. Start, so the cursor does not move.
+    Selection.Collapse Direction:=wdCollapseStart
 
     stepNo = stepNo + 1
     Sh_Progress_Say 100# * stepNo / LP_FFC_STEPS, what
