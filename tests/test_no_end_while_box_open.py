@@ -166,6 +166,10 @@ def test_remove_bullets_stops_on_cancel_before_touching_anything(repo_root):
     body = procedures(module_text(repo_root))["Dx_Remove_Bullets"]
     show = next(n for n, c in enumerate(body) if "Dx_Bullet_Removal_Form.Show" in c)
     after = [c for c in body[show + 1:] if c.strip() and not c.strip().startswith("'")]
+    # Since 10/12/2026 the box sits inside "If style <> "" ... Else ... End If" (a caller that
+    # already asked hands the answer in), so that End If may come first.
+    if re.match(r"^\s*End If\s*$", after[0]):
+        after = after[1:]
     assert re.search(r'^\s*If Dx_GP_String_2 = "" Then\s*$', after[0]), (
         "Dx_Remove_Bullets does something before it checks for Cancel")
     block = after[1:after.index(next(c for c in after if re.match(r"^\s*End If\s*$", c)))]

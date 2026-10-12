@@ -27,6 +27,13 @@ End Sub
 
 Private Sub Okay_Click()
 '
+' Version: 2.5  Date: 10/12/2026 - the two passes that ask a question - Remove Bullets (329) and
+'                               Replace Manual Line Breaks (362) - now ask it HERE, before the
+'                               progress bar opens (Jerry, 10/12/2026: "The progress bar should
+'                               not appear until the selection is made"). The answers are handed
+'                               to the passes, which then ask nothing. Cancel on 329 drops only
+'                               bullet removal, as before; Cancel on 362 stops the whole cleanup,
+'                               as before - but now nothing has run yet, and without End.
 ' Version: 2.4  Date: 10/11/2026 - words only, set in Word's designer: the note under the title
 '                               loses its doubled "the the" and "use use", and its hover text
 '                               now says the same thing; the automatic-lists hover text was the
@@ -74,6 +81,7 @@ Private Sub Okay_Click()
     Dim saying(1 To 13) As String
     Dim total As Long, done As Long, i As Long
     Dim keep As Range
+    Dim bulletStyle As String, bulletHyper As String, breakAnswer As String
 
     If Selection.Type <> wdSelectionNormal Then
         Sh_Say "Text must be selected first!", "Braille Macros (317)"
@@ -134,6 +142,26 @@ Private Sub Okay_Click()
 
     Unload Dx_Selected_Cleanup_Form
 
+    ' The questions come first, so the bar never sits behind a box waiting for an answer.
+    If wanted(9) Then
+        Dx_Bullet_Removal_Form.Show
+        If Dx_GP_String_2 = "" Then
+            wanted(9) = False                     'Cancel: no bullet removal; the rest still run
+            total = total - 1
+        Else
+            bulletStyle = Dx_GP_String_2
+            bulletHyper = Dx_GP_String_1
+        End If
+    End If
+    If wanted(12) Then
+        Sh_Space_Or_Para_Form.Show
+        If Sh_GP_String_1 <> "Para" And Sh_GP_String_1 <> "Space" Then
+            Application.ScreenUpdating = True     'Cancel stops the whole cleanup; nothing has run
+            Exit Sub
+        End If
+        breakAnswer = Sh_GP_String_1
+    End If
+
     If total = 0 Then
         Application.ScreenUpdating = True
         Exit Sub
@@ -156,7 +184,11 @@ Private Sub Okay_Click()
             ' book. There is nothing left to clean, so stop.
             keep.Select
             If Selection.Type <> wdSelectionNormal Then Exit For
-            Application.Run MacroName:=macroName(i)
+            Select Case i
+                Case 9: Application.Run "Dx_Remove_Bullets", bulletStyle, bulletHyper
+                Case 12: Application.Run "Sh_Replace_Manual_Line_Break", breakAnswer
+                Case Else: Application.Run MacroName:=macroName(i)
+            End Select
             If Len(alsoRun(i)) > 0 Then
                 keep.Select
                 If Selection.Type <> wdSelectionNormal Then Exit For

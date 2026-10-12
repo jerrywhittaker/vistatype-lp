@@ -33,7 +33,12 @@ def test_every_pass_is_preceded_by_selecting_it_again(repo_root):
     runs = [i for i, l in enumerate(lines) if re.search(r"Application\.Run\b", l, re.I)]
     assert runs, f"{FORM} runs no passes?"
     for i in runs:
-        before = "\n".join(lines[max(0, i - 2):i + 1])
+        # Back to the previous line that is not part of the Select Case choosing the pass
+        # (10/12/2026: two passes are run with the answers asked before the bar).
+        j = i
+        while j > 0 and re.match(r"\s*(Case\b|Select\s+Case\b)", lines[j], re.I):
+            j -= 1
+        before = "\n".join(lines[max(0, j - 2):j + 1])
         assert re.search(r"\bkeep\.Select\b", before, re.I), (
             f"{FORM} runs a pass without selecting the held range first ({lines[i].strip()}). "
             "The pass before it collapsed the selection, so this one would work on the whole book.")

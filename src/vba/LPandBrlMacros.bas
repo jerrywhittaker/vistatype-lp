@@ -18,7 +18,11 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Sh  - 10/12/2026 - THE RED X DID NOTHING on Choose paragraph style (329), and by the
+' Notes:    - Dx  - 10/12/2026 - SELECTED CLEANUP (333): THE PROGRESS BAR WAITS FOR THE ANSWERS. Remove
+'           - Dx  - 10/12/2026 - Bullets (329) and Replace Manual Line Breaks (362) are asked before the
+'           - Dx  - 10/12/2026 - bar opens and their answers handed to the passes. Cancel on 362 no
+'           - Dx  - 10/12/2026 - longer ends with End.
+'           - Sh  - 10/12/2026 - THE RED X DID NOTHING on Choose paragraph style (329), and by the
 '           - Sh  - 10/12/2026 - same code on 336, 362, 325 and 327 (Jerry, 10/12/2026). QueryClose
 '           - Sh  - 10/12/2026 - set Cancel = True and unloaded; Word ignores that Unload. The X now
 '           - Sh  - 10/12/2026 - only clears the answer and lets the box close.
@@ -8937,11 +8941,18 @@ End Sub '***** End of Dx_Is_Text_Selected *************
 ' the same macro written twice, so they are now Sh_Kill_The_Hyperlinks.
 
 
-Sub Dx_Remove_Bullets()
+Sub Dx_Remove_Bullets(Optional ByVal style As String, Optional ByVal hyper As String)
 '
 ' Removes bullets and automatic numbering from a list and, if the transcriber asked for it on
 ' Dx_Bullet_Removal_Form, restyles the paragraphs and strips the hyperlinks.
 '
+' style, hyper  The answers to the bullet-removal box (329), from a caller that has already asked
+'               - Selected Cleanup (333) asks before its progress bar opens. Given a style, the
+'               box is not shown again. Omit them and the box is shown, as before.
+'
+' Version: 2.2  Date: 10/12/2026 - takes the box's answers from a caller that already asked, so
+'                                Selected Cleanup's progress bar no longer appears before the
+'                                choice is made (Jerry, 10/12/2026).
 ' Version: 2.1  Date: 10/11/2026 - stops if the user cancels the bullet-removal box (329), which
 '                                used to end everything with End: that closed any box that stays
 '                                open and left screen updating off (issue #32). Screen updating
@@ -8972,7 +8983,12 @@ Sub Dx_Remove_Bullets()
         Limited_Selection = False
     Else
         Limited_Selection = True
-        Dx_Bullet_Removal_Form.Show
+        If style <> "" Then
+            Dx_GP_String_2 = style
+            Dx_GP_String_1 = hyper
+        Else
+            Dx_Bullet_Removal_Form.Show
+        End If
         ' Cancel and the red X leave no paragraph style. Nothing has been changed yet, and screen
         ' updating and the saved position are only taken below, so there is nothing to put back.
         If Dx_GP_String_2 = "" Then
@@ -15340,6 +15356,8 @@ Sub Sh_Replace_Manual_Line_Break(Optional ByVal answer As String)
 '         (Jerry, 8/12/2026). What actually separates the two cases is WHO IS CALLING: a sequence
 '         knows the answer, a person is asked. So the sequence passes it.
 '
+' Version: 2.3  Date: 10/12/2026 - Cancel on the question (362) stops this macro with Exit Sub, not
+'                                End, which closed any box that stays open.
 ' Version: 2.2  Date: 8/12/2026 - one macro again, with the answer as a parameter
 ' Version: 2.1  Date: 8/12/2026 - merged, then reverted when it interrupted Full File Cleanup
 ' Version: 2.0  Date: 8/12/2026 - no temporary document; the passes are scoped to a range. Gone
@@ -15363,10 +15381,11 @@ Sub Sh_Replace_Manual_Line_Break(Optional ByVal answer As String)
         Sh_GP_String_1 = answer
     Else
         Sh_Space_Or_Para_Form.Show
-        ' End, not Exit Sub, and deliberately: this is called from the cleanup sequences, and
-        ' cancelling the question is meant to stop the whole sequence rather than let it carry on.
+        ' Exit Sub, not End: End reset the whole project and closed any box that stays open. The
+        ' one sequence that asks, braille Selected Cleanup (333), now asks before it starts and
+        ' stops itself on Cancel, so here Cancel only has to stop this macro.
         If Sh_GP_String_1 <> "Para" And Sh_GP_String_1 <> "Space" Then
-            End
+            Exit Sub
         End If
     End If
 
