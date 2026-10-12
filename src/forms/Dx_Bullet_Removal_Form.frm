@@ -16,14 +16,19 @@ Attribute VB_Exposed = False
 
 ' Dx_Bullet_Removal_Form
 '
+' Version: 1.2  Date: 10/11/2026 - Cancel (and so the red X) no longer ends with End (issue #32).
+'                                End reset the whole VBA project and closed every box that stays
+'                                open (375, the TOC box, the $pg menus). Cancel now leaves no
+'                                paragraph style in Dx_GP_String_2 and unloads the box, and
+'                                Dx_Remove_Bullets stops on the empty answer.
 ' Version: 1.1  Date: 10/11/2026 - the red X acts like Cancel (Jerry, 10/11/2026). It only unloaded
 '                                the box, so Dx_Remove_Bullets carried on with whatever paragraph
 '                                style Dx_GP_String_2 held from an earlier run.
 '
 
 Private Sub CmdCancel_Click()
+    Dx_GP_String_2 = ""               'no answer - Dx_Remove_Bullets stops on this
     Unload Me
-    End
 End Sub
 
 Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)

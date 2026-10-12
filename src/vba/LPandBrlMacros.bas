@@ -18,6 +18,11 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Dx  - 10/11/2026 - BULLET REMOVAL (329) AND FILL-IN YES/NO (336): CANCEL NO LONGER
+'           - Dx  - 10/11/2026 - CLOSES BOXES THAT STAY OPEN (issue #32). Both Cancels, and so the
+'           - Dx  - 10/11/2026 - red X, ended with End. They only unload now; Dx_Remove_Bullets stops
+'           - Dx  - 10/11/2026 - on an empty Dx_GP_String_2 before it turns screen updating off, and
+'           - Dx  - 10/11/2026 - Format Exercise on the new Dx_Fill_In_Answered.
 ' Notes:    - Sh  - 10/11/2026 - FULL FILE CLEANUP ALWAYS CLEANS THE WHOLE BOOK (Jerry: "If the user
 '           - Sh  - 10/11/2026 - selects the whole book, it is still a selection"). A dozen of its
 '           - Sh  - 10/11/2026 - passes work on the selection when there is one, and a pass's own
@@ -2750,6 +2755,11 @@ Public Dx_UEB_EBAE_Boolean As Boolean
 ' calls - and lowered by Dx_Attach_BANA_Template_Run just before it shows that form, so the attach
 ' can tell an answer from Cancel. Jerry, 9/29/2026: Cancel stops the whole attach.
 Public Dx_Translation_Answered As Boolean
+
+' Lowered by Dx_Format_Exercise_Lv_1_and_Lv_2 just before it shows the fill-in box (336) and raised
+' by that box's Yes and No, so the macro can tell an answer from Cancel or the red X. Needed
+' because Dx_UEB_EBAE_Boolean has no "no answer" value. 10/11/2026, issue #32.
+Public Dx_Fill_In_Answered As Boolean
 
 Public Lp_GP_String_1 As String
 Public Lp_GP_String_2 As String
@@ -8169,6 +8179,10 @@ Sub Dx_Format_Exercise_Lv_1_and_Lv_2()
 '
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
+' Version: 2.1  Date: 10/11/2026 - stops if the user cancels the fill-in box (336), which used to
+'                                end everything with End and close any box that stays open
+'                                (issue #32). The Unload after the box is gone: the box has already
+'                                unloaded itself, so naming it only loaded it again to unload it.
 ' Version: 2.0  Date: 9/29/2026 - stops if the user cancels the braille translation box (331)
 ' Version: 1.9  Date: 8/31/2026 - the scratch document is never shown. Every pass now works on a
 '                                RANGE, so the screen no longer blinks to a blank document and
@@ -8226,8 +8240,9 @@ Sub Dx_Format_Exercise_Lv_1_and_Lv_2()
         Exit Sub
     End Select
 
+    Dx_Fill_In_Answered = False
     Dx_UEB_EBAE_Fill_In_YN_Form.Show  'ask user if fill-in indicators are wanted for answers
-    Unload Dx_UEB_EBAE_Fill_In_YN_Form
+    If Not Dx_Fill_In_Answered Then Exit Sub   ' Cancel or the red X - nothing has been changed
 
     Dx_Exercise_Levels_Hidden Selection.Range
 
@@ -8923,6 +8938,11 @@ Sub Dx_Remove_Bullets()
 ' Removes bullets and automatic numbering from a list and, if the transcriber asked for it on
 ' Dx_Bullet_Removal_Form, restyles the paragraphs and strips the hyperlinks.
 '
+' Version: 2.1  Date: 10/11/2026 - stops if the user cancels the bullet-removal box (329), which
+'                                used to end everything with End: that closed any box that stays
+'                                open and left screen updating off (issue #32). Screen updating
+'                                goes off and the cursor position is saved only after the box,
+'                                so a Cancel has nothing to restore.
 ' Version: 2.0  Date: 8/13/2026 - no temporary document; everything is scoped to a range.
 '
 '                                Three things here reached past a selection on their own:
@@ -8944,17 +8964,23 @@ Sub Dx_Remove_Bullets()
     Dim su_Prev As Boolean
     Dim Limited_Selection As Boolean
 
-    su_Prev = Application.ScreenUpdating
-    Application.ScreenUpdating = False
-
-    Sh_Save_User_Position
-
     If Selection.Type <> wdSelectionNormal Then   'text is NOT selected"
         Limited_Selection = False
     Else
         Limited_Selection = True
         Dx_Bullet_Removal_Form.Show
+        ' Cancel and the red X leave no paragraph style. Nothing has been changed yet, and screen
+        ' updating and the saved position are only taken below, so there is nothing to put back.
+        If Dx_GP_String_2 = "" Then
+            Dx_GP_String_1 = ""
+            Exit Sub
+        End If
     End If
+
+    su_Prev = Application.ScreenUpdating
+    Application.ScreenUpdating = False
+
+    Sh_Save_User_Position
 
     ' AFTER the form - it is modal, and the transcriber can change the selection behind it.
     If Limited_Selection = True Then

@@ -9,6 +9,8 @@ Lp_Table_Tools_Menu_Form) and the convert options box under it, and Selected Cle
 leave with Exit Sub / Unload instead. The guard subs (Lp_Is_Text_Selected and the like) keep
 their End on purpose - it is what stops the macro that called them.
 
+Issue #32, 10/11/2026: Bullet Removal (329) and Fill-in Yes/No (336) the same way.
+
 None of this can be driven headlessly (a UserForm blocks the runner), so this holds the source.
 """
 import re
@@ -146,3 +148,57 @@ def test_pseudo_columns_starts_its_undo_record_after_the_box(repo_root):
     take = next(n for n, c in enumerate(body) if re.search(r"su_Prev\s*=\s*Application\.ScreenUpdating", c))
     handler = next(n for n, c in enumerate(body) if re.search(r"On Error GoTo ErrorHandler", c))
     assert take < handler
+
+
+def test_bullet_removal_cancel_does_not_end_everything(repo_root):
+    """Issue #32, 10/11/2026: Bullet Removal (329) ended its Cancel - and so, since 281dab8, its
+    red X - with End, closing every box that stays open and leaving screen updating off."""
+    code = form_code(repo_root, "Dx_Bullet_Removal_Form")
+    assert not has_end_statement(code), (
+        "Dx_Bullet_Removal_Form has an End again - it would close every box that stays open")
+    cancel = form_procedures(repo_root, "Dx_Bullet_Removal_Form")["CmdCancel_Click"]
+    assert any(re.search(r'^\s*Dx_GP_String_2\s*=\s*""', c) for c in cancel), (
+        "Cancel no longer clears the paragraph style - Dx_Remove_Bullets would go on with an old one")
+    assert any(re.search(r"^\s*Unload Me\s*$", c) for c in cancel), "Cancel no longer closes the box"
+
+
+def test_remove_bullets_stops_on_cancel_before_touching_anything(repo_root):
+    body = procedures(module_text(repo_root))["Dx_Remove_Bullets"]
+    show = next(n for n, c in enumerate(body) if "Dx_Bullet_Removal_Form.Show" in c)
+    after = [c for c in body[show + 1:] if c.strip() and not c.strip().startswith("'")]
+    assert re.search(r'^\s*If Dx_GP_String_2 = "" Then\s*$', after[0]), (
+        "Dx_Remove_Bullets does something before it checks for Cancel")
+    block = after[1:after.index(next(c for c in after if re.match(r"^\s*End If\s*$", c)))]
+    assert any(EXIT_SUB.match(c) for c in block), "Dx_Remove_Bullets does not stop on Cancel"
+    # Screen updating off and the saved position come after the box, so a Cancel that leaves
+    # with Exit Sub has neither to put back.
+    for pattern in (r"Application\.ScreenUpdating\s*=\s*False", r"^\s*Sh_Save_User_Position\s*$"):
+        n = next(i for i, c in enumerate(body) if re.search(pattern, c))
+        assert n > show, f"Dx_Remove_Bullets runs {pattern} before the bullet-removal box"
+
+
+def test_fill_in_yes_no_cancel_does_not_end_everything(repo_root):
+    """Issue #32, 10/11/2026: the fill-in box (336) ended its Cancel with End. Yes and No raise
+    Dx_Fill_In_Answered; Cancel only unloads."""
+    code = form_code(repo_root, "Dx_UEB_EBAE_Fill_In_YN_Form")
+    assert not has_end_statement(code), (
+        "Dx_UEB_EBAE_Fill_In_YN_Form has an End again - it would close every box that stays open")
+    procs = form_procedures(repo_root, "Dx_UEB_EBAE_Fill_In_YN_Form")
+    assert any(re.search(r"^\s*Unload Me\b", c) for c in procs["CmdCancel_Click"])
+    assert not any("Dx_Fill_In_Answered" in c for c in procs["CmdCancel_Click"])
+    for name in ("CmdYES_Click", "CmdNO_Click"):
+        assert any(re.search(r"^\s*Dx_Fill_In_Answered\s*=\s*True", c) for c in procs[name]), (
+            f"{name} no longer marks the box as answered - the exercise would never be formatted")
+
+
+def test_format_exercise_stops_on_cancel(repo_root):
+    body = procedures(module_text(repo_root))["Dx_Format_Exercise_Lv_1_and_Lv_2"]
+    show = next(n for n, c in enumerate(body) if "Dx_UEB_EBAE_Fill_In_YN_Form.Show" in c)
+    before = [c for c in body[:show] if c.strip()]
+    assert re.search(r"^\s*Dx_Fill_In_Answered\s*=\s*False", before[-1]), (
+        "Dx_Fill_In_Answered is not lowered straight before the fill-in box")
+    after = [c for c in body[show + 1:] if c.strip()]
+    assert re.search(r"^\s*If Not Dx_Fill_In_Answered Then Exit Sub\b", after[0]), (
+        "Format Exercise does something before it checks for Cancel")
+    # The box has unloaded itself; naming it again would load it only to unload it.
+    assert not any(re.search(r"Unload Dx_UEB_EBAE_Fill_In_YN_Form", c) for c in body)

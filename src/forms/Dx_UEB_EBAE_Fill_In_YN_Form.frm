@@ -14,6 +14,11 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
+' Version: 1.7  Date: 10/11/2026 - Cancel (and so the red X) no longer ends with End (issue #32).
+'                                End reset the whole VBA project and closed every box that stays
+'                                open (375, the TOC box, the $pg menus). Cancel now only unloads
+'                                the box; Yes and No raise Dx_Fill_In_Answered, so
+'                                Dx_Format_Exercise_Lv_1_and_Lv_2 can tell an answer from Cancel.
 ' Version: 1.6  Date: 10/11/2026 - the red X acts like Cancel (Jerry, 10/11/2026). It only unloaded
 '                                the box, so Dx_Format_Exercise_Lv_1_and_Lv_2 carried on and
 '                                formatted the exercise with the last Yes or No given.
@@ -21,8 +26,7 @@ Attribute VB_Exposed = False
 ' Version: 1.5
 
 Private Sub CmdCancel_Click()
-    Unload Me 'close this form
-    End
+    Unload Me 'close this form - Dx_Fill_In_Answered stays False, so the exercise is not formatted
 End Sub
 
 Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
@@ -34,10 +38,12 @@ Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
 End Sub
 Private Sub CmdNO_Click()
     Dx_UEB_EBAE_Boolean = False
+    Dx_Fill_In_Answered = True
     Unload Me 'close this form
 End Sub
 Private Sub CmdYES_Click()
     Dx_UEB_EBAE_Boolean = True
+    Dx_Fill_In_Answered = True
     Unload Me 'close this form
 End Sub
 Private Sub UserForm_Initialize()
