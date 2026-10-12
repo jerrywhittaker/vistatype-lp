@@ -27,6 +27,11 @@ End Sub
 
 Private Sub Okay_Click()
 '
+' Version: 2.4  Date: 10/11/2026 - words only, set in Word's designer: the note under the title
+'                               loses its doubled "the the" and "use use", and its hover text
+'                               now says the same thing; the automatic-lists hover text was the
+'                               same sentence twice and is one copy now; Remove all images' hover
+'                               text matches its caption.
 ' Version: 2.3  Date: 10/11/2026 - Jerry's layout edits, second round: the note under the title
 '                               rewritten (select the range to clean; select the whole document to
 '                               run a cleanup on all of it), 42 -> 54 high; the automatic-lists box
