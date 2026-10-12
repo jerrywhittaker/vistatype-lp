@@ -1,9 +1,12 @@
-"""Fix Common File Errors makes every picture inline before anything else runs.
+"""Pictures on attach: inline on a first attach only, and before the cleanup.
 
 Jerry, 10/12/2026: attaching the large print template deleted pictures that were not inline,
-and he narrowed it to Lp_Fix_Common_File_Errors. A floating picture hangs off an anchor
-paragraph, and the passes delete and merge paragraphs. So the FIRST pass now converts every
-floating picture to inline.
+and he narrowed it to Lp_Fix_Common_File_Errors - a floating picture hangs off an anchor
+paragraph, and the cleanup deletes and merges paragraphs. His rules, the same day:
+
+  * a FIRST attach (a book that is not large print yet) makes every picture inline, and it
+    must happen BEFORE the cleanup;
+  * a RE-ATTACH, and Fix Common File Errors run on its own, leave floating pictures as they are.
 
 Issue #27, the same day: Lp_SetPicturesToInlineAndLockAspectRatio walked ActiveDocument.Shapes
 with For Each, and converting a picture takes it out of that collection, so every other one was
@@ -21,15 +24,29 @@ def _code(body):
     return [c.split("'")[0] for c in body if c.split("'")[0].strip()]
 
 
-def test_inline_is_the_first_pass(repo_root):
-    body = _code(procedures(module_text(repo_root))["Lp_Fix_Common_File_Errors"])
-    # The passes: the first line after the first step announcement. (Sh_Save_User_Position comes
-    # before it and only records where the cursor is.)
-    first_step = next(i for i, c in enumerate(body) if re.match(r"\s*Lp_Ffc_Step\s+stepNo", c))
-    runs = body[first_step + 1:first_step + 2]
-    assert runs and "Lp_SetPicturesToInlineAndLockAspectRatio" in runs[0], (
-        "The first pass of Lp_Fix_Common_File_Errors is no longer the inline conversion - "
-        f"a later pass could delete a floating picture with its paragraph. First: {runs[:1]}")
+INLINE = "Lp_SetPicturesToInlineAndLockAspectRatio"
+
+
+def test_cleanup_on_its_own_leaves_floating_pictures(repo_root):
+    body = "\n".join(_code(procedures(module_text(repo_root))["Lp_Fix_Common_File_Errors"]))
+    assert INLINE not in body, (
+        "Lp_Fix_Common_File_Errors makes pictures inline - run on its own it must leave floating "
+        "pictures as they are (Jerry, 10/12/2026)")
+
+
+def test_first_attach_only_and_before_the_cleanup(repo_root):
+    body = _code(procedures(module_text(repo_root))["Lp_Attach_The_Template"])
+    calls = [i for i, c in enumerate(body) if re.match(rf"\s*(Call\s+)?{INLINE}\b", c)]
+    assert len(calls) == 1, (
+        f"Lp_Attach_The_Template should make pictures inline exactly once, found {len(calls)} - "
+        "a re-attach must leave floating pictures as they are")
+    i = calls[0]
+    assert re.match(r"\s*Lp_Fix_Common_File_Errors\s*$", body[i + 1]), (
+        "The inline conversion must come straight before the cleanup, which deletes floating pictures")
+    opener = max(j for j in range(i) if re.match(r"\s*If\b.*\bThen\s*$", body[j]))
+    assert re.match(r"\s*If\s+Not\s+Lp_Doc_Was_Already_LP\s+Then\s*$", body[opener]), (
+        "The inline conversion is no longer inside 'If Not Lp_Doc_Was_Already_LP' - a re-attach "
+        "would make floating pictures inline")
 
 
 def test_every_floating_picture_is_converted(repo_root):
