@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Dx_Selected_Cleanup_Form 
    Caption         =   "Selected Cleanup (333)"
-   ClientHeight    =   9150.001
+   ClientHeight    =   9780.001
    ClientLeft      =   120
    ClientTop       =   450
    ClientWidth     =   8520.001
@@ -27,6 +27,11 @@ End Sub
 
 Private Sub Okay_Click()
 '
+' Version: 2.3  Date: 10/11/2026 - Jerry's layout edits, second round: the note under the title
+'                               rewritten (select the range to clean; select the whole document to
+'                               run a cleanup on all of it), 42 -> 54 high; the automatic-lists box
+'                               30.6 -> 45 high and "with a space"; the tabs box 15.6 -> 21.75 high;
+'                               everything below moved down to suit; form 9150 -> 9780 high.
 ' Version: 2.2  Date: 10/11/2026 - layout edited by Jerry: "Remove all images" now reads
 '                               "Remove all images (pictures) from select text"; the run of
 '                               spaces in the automatic-lists caption closed up to two; the
