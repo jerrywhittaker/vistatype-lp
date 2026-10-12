@@ -16,6 +16,8 @@ Attribute VB_Exposed = False
 
 ' Dx_Bullet_Removal_Form
 '
+' Version: 1.4  Date: 10/12/2026 - Remove Hyperlinks follows the box: unticking it no longer leaves
+'                                "Remove_Hyper" set, so the links stay links (issue #34).
 ' Version: 1.3  Date: 10/12/2026 - the red X did nothing: QueryClose set Cancel = True,
 '                                then unloaded, and Word ignores an Unload there (Jerry, 10/12/2026).
 '                                The X now only clears the answer and lets the box close.
@@ -79,7 +81,11 @@ Private Sub More_Info_Click()
 End Sub
 
 Private Sub Remove_Hyperlinks_Click()
+    If Remove_Hyperlinks Then
         Dx_GP_String_1 = "Remove_Hyper"
+    Else
+        Dx_GP_String_1 = ""
+    End If
 End Sub
 
 Private Sub UserForm_Initialize()

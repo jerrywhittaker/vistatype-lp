@@ -18,7 +18,10 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Dx  - 10/12/2026 - SELECTED CLEANUP (333): THE PROGRESS BAR WAITS FOR THE ANSWERS. Remove
+' Notes:    - Dx  - 10/12/2026 - SELECTED CLEANUP (333) with nothing selected stops with Exit Sub, not
+'           - Dx  - 10/12/2026 - End (issue #33). CHOOSE PARAGRAPH STYLE (329): unticking Remove
+'           - Dx  - 10/12/2026 - Hyperlinks now really leaves the links alone (issue #34).
+'           - Dx  - 10/12/2026 - SELECTED CLEANUP (333): THE PROGRESS BAR WAITS FOR THE ANSWERS. Remove
 '           - Dx  - 10/12/2026 - Bullets (329) and Replace Manual Line Breaks (362) are asked before the
 '           - Dx  - 10/12/2026 - bar opens and their answers handed to the passes. Cancel on 362 no
 '           - Dx  - 10/12/2026 - longer ends with End.

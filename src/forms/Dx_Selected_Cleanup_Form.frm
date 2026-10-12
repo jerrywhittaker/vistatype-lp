@@ -27,6 +27,8 @@ End Sub
 
 Private Sub Okay_Click()
 '
+' Version: 2.6  Date: 10/12/2026 - Okay with nothing selected says 317 and stops with Exit Sub, not
+'                               End, which closed any box that stays open (issue #33).
 ' Version: 2.5  Date: 10/12/2026 - the two passes that ask a question - Remove Bullets (329) and
 '                               Replace Manual Line Breaks (362) - now ask it HERE, before the
 '                               progress bar opens (Jerry, 10/12/2026: "The progress bar should
@@ -86,7 +88,7 @@ Private Sub Okay_Click()
     If Selection.Type <> wdSelectionNormal Then
         Sh_Say "Text must be selected first!", "Braille Macros (317)"
         Unload Dx_Selected_Cleanup_Form
-        End
+        Exit Sub
     End If
 
     ' Read the form. Nothing below this point may touch a control.

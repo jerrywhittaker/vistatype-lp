@@ -48,3 +48,23 @@ def test_line_break_cancel_has_no_end(repo_root):
     code = [c.split("'")[0] for c in body]
     assert not any(re.match(r"^\s*End\s*$", c) for c in code), (
         "Sh_Replace_Manual_Line_Break has a bare End - it would close every box that stays open")
+
+
+def test_selected_cleanup_with_nothing_selected_has_no_end(repo_root):
+    """Issue #33, 10/12/2026: Okay with nothing selected said 317 and ran End, closing every box
+    that stays open. It stops with Exit Sub now."""
+    from test_toc_box_stays_open import form_code
+    code = [c.split("'")[0] for c in form_code(repo_root, "Dx_Selected_Cleanup_Form")]
+    assert not any(re.match(r"^\s*End\s*$", c) for c in code), (
+        "Dx_Selected_Cleanup_Form has a bare End again - it would close every box that stays open")
+
+
+def test_unticking_remove_hyperlinks_clears_the_answer(repo_root):
+    """Issue #34, 10/12/2026: every click set "Remove_Hyper", so ticking then unticking still
+    turned the links into plain text. The answer follows the box now."""
+    from test_red_x_acts_like_cancel import form_procedures
+    body = "\n".join(form_procedures(repo_root, "Dx_Bullet_Removal_Form")["Remove_Hyperlinks_Click"])
+    assert re.search(r"If\s+Remove_Hyperlinks\s+Then", body), (
+        "Remove_Hyperlinks_Click no longer looks at the box before setting the answer")
+    assert re.search(r'Dx_GP_String_1\s*=\s*""', body), (
+        "Unticking Remove Hyperlinks does not clear the answer")
