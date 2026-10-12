@@ -18,7 +18,10 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - LP  - 10/12/2026 - PICTURES ON ATTACH (Jerry). A first attach makes every picture inline
+' Notes:    - Sh  - 10/12/2026 - REMOVING CONSECUTIVE EMPTY PARAGRAPH MARKS no longer deletes a blank
+'           - Sh  - 10/12/2026 - paragraph that anchors a floating picture - it took the picture
+'           - Sh  - 10/12/2026 - with it (measured: 3 of 7 lost). Sh_Para_Anchors_A_Shape is new.
+'           - LP  - 10/12/2026 - PICTURES ON ATTACH (Jerry). A first attach makes every picture inline
 '           - LP  - 10/12/2026 - BEFORE the cleanup, which was deleting floating ones; a re-attach and
 '           - LP  - 10/12/2026 - File Cleanup on its own leave floating pictures as they are. The
 '           - LP  - 10/12/2026 - inline macro converts every picture, not every other one (#27).
@@ -15751,6 +15754,11 @@ End Function   '*** end of Dx_Para_Marks_Message ***
 Public Function Sh_Replace_Multiple_Para_Marks_No_Warning(Optional ByVal showProgress As Boolean = False, _
                                                           Optional ByVal keepBlankAfterTable As Boolean = False) As Long
 '
+'  Version: 2.7  Date: 10/12/2026 - never deletes a blank paragraph that a floating picture or
+'                                 shape is anchored to: the picture went with it (Jerry,
+'                                 10/12/2026; measured the same day - 3 of 7 floating pictures
+'                                 lost, each on an empty or spaces-only paragraph). Such a
+'                                 paragraph is treated like text.
 '  Version: 2.6  Date: 9/21/2026 - keepBlankAfterTable, OFF by default: when True, ONE blank
 '                                 paragraph stays straight after EVERY table, not only between two
 '                                 tables, and any more below it go. Only Lp_Fix_Common_File_Errors
@@ -15811,6 +15819,7 @@ Public Function Sh_Replace_Multiple_Para_Marks_No_Warning(Optional ByVal showPro
     Dim spanEnd As Long
     Dim spanLen As Long
     Dim hasTables As Boolean
+    Dim hasShapes As Boolean
     Dim isCandidate As Boolean
     Dim inCell As Boolean
     Dim pending As Paragraph        ' topmost blank so far of the run being walked - see below
@@ -15820,6 +15829,7 @@ Public Function Sh_Replace_Multiple_Para_Marks_No_Warning(Optional ByVal showPro
 
     Set doc = ActiveDocument
     hasTables = (doc.Tables.count > 0)
+    hasShapes = (doc.Shapes.count > 0)
     keepAfter = keepBlankAfterTable And hasTables
 
     If Selection.Type = wdSelectionNormal Then
@@ -15898,6 +15908,11 @@ Public Function Sh_Replace_Multiple_Para_Marks_No_Warning(Optional ByVal showPro
         If p.Range.End < doc.Content.End Then
             If Sh_IsBlankParaMark(p) Then
                 If Not Sh_Para_Style_Is(p.Range, "1 point") Then isCandidate = True
+                ' A floating picture hangs off its paragraph, and deleting the paragraph deletes
+                ' the picture. So a blank paragraph that anchors one stays (Jerry, 10/12/2026).
+                If isCandidate And hasShapes Then
+                    If Sh_Para_Anchors_A_Shape(p) Then isCandidate = False
+                End If
             End If
         End If
 
@@ -16033,6 +16048,22 @@ Private Function Sh_IsBlankParaMark(p As Paragraph) As Boolean
 
     Sh_IsBlankParaMark = (Len(txt) = 0)
 End Function   '***** Sh_IsBlankParaMark ********
+
+Private Function Sh_Para_Anchors_A_Shape(ByVal p As Paragraph) As Boolean
+    '
+    ' Version: 1.0  Date: 10/12/2026
+    '
+    ' Is a floating picture or shape anchored to this paragraph? Range.ShapeRange holds the
+    ' shapes anchored in the range. Asked by Sh_Replace_Multiple_Para_Marks_No_Warning before it
+    ' deletes a blank paragraph, because the shape would be deleted with it (Jerry, 10/12/2026).
+    ' An error reads as "yes": keeping a blank line costs nothing, losing a picture does.
+    '
+    On Error GoTo Unsure
+    Sh_Para_Anchors_A_Shape = (p.Range.ShapeRange.count > 0)
+    Exit Function
+Unsure:
+    Sh_Para_Anchors_A_Shape = True
+End Function   '***** Sh_Para_Anchors_A_Shape ********
 
 Private Function Sh_Para_Is_Empty_Line(ByVal p As Paragraph) As Boolean
     '

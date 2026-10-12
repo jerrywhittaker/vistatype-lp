@@ -66,3 +66,16 @@ def test_step_total_is_one_more_than_the_passes(repo_root):
     assert total == passes + 1, (
         f"LP_FFC_STEPS is {total} for {passes} passes - it must be one more, or the bar reads "
         "100% while the last pass is still running")
+
+
+def test_blank_paragraph_anchoring_a_picture_is_kept(repo_root):
+    """Measured 10/12/2026: Sh_Replace_Multiple_Para_Marks_No_Warning deleted 3 of 7 floating
+    pictures - each anchored to an empty or spaces-only paragraph - by deleting the paragraph.
+    It now asks Sh_Para_Anchors_A_Shape before treating a blank paragraph as removable."""
+    procs = procedures(module_text(repo_root))
+    body = "\n".join(_code(procs["Sh_Replace_Multiple_Para_Marks_No_Warning"]))
+    assert re.search(r"If\s+Sh_Para_Anchors_A_Shape\(p\)\s+Then\s+isCandidate\s*=\s*False", body), (
+        "Removing consecutive empty paragraph marks no longer spares a paragraph that anchors a "
+        "floating picture - the picture would be deleted with it")
+    helper = "\n".join(_code(procs["Sh_Para_Anchors_A_Shape"]))
+    assert "ShapeRange.count" in helper
