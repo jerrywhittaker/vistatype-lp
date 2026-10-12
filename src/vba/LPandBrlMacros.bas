@@ -18,7 +18,11 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Dx  - 10/11/2026 - BULLET REMOVAL (329) AND FILL-IN YES/NO (336): CANCEL NO LONGER
+' Notes:    - Sh  - 10/12/2026 - THE RED X DID NOTHING on Choose paragraph style (329), and by the
+'           - Sh  - 10/12/2026 - same code on 336, 362, 325 and 327 (Jerry, 10/12/2026). QueryClose
+'           - Sh  - 10/12/2026 - set Cancel = True and unloaded; Word ignores that Unload. The X now
+'           - Sh  - 10/12/2026 - only clears the answer and lets the box close.
+'           - Dx  - 10/11/2026 - BULLET REMOVAL (329) AND FILL-IN YES/NO (336): CANCEL NO LONGER
 '           - Dx  - 10/11/2026 - CLOSES BOXES THAT STAY OPEN (issue #32). Both Cancels, and so the
 '           - Dx  - 10/11/2026 - red X, ended with End. They only unload now; Dx_Remove_Bullets stops
 '           - Dx  - 10/11/2026 - on an empty Dx_GP_String_2 before it turns screen updating off, and

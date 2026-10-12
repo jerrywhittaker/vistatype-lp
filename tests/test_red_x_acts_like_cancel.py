@@ -6,7 +6,10 @@ forms that day found four that did not:
   * 329 Dx_Bullet_Removal_Form, 336 Dx_UEB_EBAE_Fill_In_YN_Form and 362 Sh_Space_Or_Para_Form
     had no UserForm_QueryClose. The X only unloaded the box, skipping what Cancel does (End, or
     clearing the answer), so the macro behind carried on with an answer left from an earlier
-    run. Each now sends the X through its own Cancel handler.
+    run. On 10/11 each sent the X through its own Cancel handler with Cancel = True - and on
+    10/12 Jerry found the X on 329 did nothing: Word ignores an Unload inside QueryClose. The
+    X now only clears the answer and lets the box close (the DAISY/NIMAS boxes 325 and 327 had
+    the same shape and got the same change).
   * 346 Lp_Columns_Wanted_Form's userform_terminate wrote the column count back on every close
     but Cancel, so the X converted the table as if Okay had been pressed. Only Okay writes it
     now, and Initialize clears it.
@@ -18,11 +21,14 @@ import re
 from test_toc_box_stays_open import form_code
 from test_toc_never_deletes_a_line import procedures
 
-# form -> the Cancel handler its red X must go through
-X_GOES_THROUGH_CANCEL = {
-    "Dx_Bullet_Removal_Form": "CmdCancel_Click",
-    "Dx_UEB_EBAE_Fill_In_YN_Form": "CmdCancel_Click",
-    "Sh_Space_Or_Para_Form": "Cmd_Cancel_Click",
+# form -> the answer its red X must clear (None: the form needs no QueryClose at all, because a
+# plain close already leaves no answer)
+X_CLEARS_THE_ANSWER = {
+    "Dx_Bullet_Removal_Form": "Dx_GP_String_2",
+    "Sh_Space_Or_Para_Form": "Sh_GP_String_1",
+    "DN_XML_Type_Form": "Sh_GP_String_1",
+    "DN_Keep_Or_Omit_Images_Form": "Sh_GP_String_2",
+    "Dx_UEB_EBAE_Fill_In_YN_Form": None,
 }
 
 
@@ -30,17 +36,26 @@ def form_procedures(repo_root, name):
     return procedures("\n".join(form_code(repo_root, name)))
 
 
-def test_the_x_goes_through_cancel(repo_root):
-    for form, cancel in X_GOES_THROUGH_CANCEL.items():
+def test_the_x_clears_the_answer_and_lets_the_box_close(repo_root):
+    """Jerry, 10/12/2026: the red X on 329 did nothing. QueryClose set Cancel = True and then ran
+    Cancel, whose Unload Me Word ignores inside QueryClose - so the box stayed open. The X must
+    clear the answer and leave Cancel alone, so the box closes by itself."""
+    for form, answer in X_CLEARS_THE_ANSWER.items():
         procs = form_procedures(repo_root, form)
+        if answer is None:
+            assert "UserForm_QueryClose" not in procs, (
+                f"{form} has a UserForm_QueryClose again - a plain close is already Cancel")
+            continue
         assert "UserForm_QueryClose" in procs, (
-            f"{form} has no UserForm_QueryClose - its red X no longer acts like Cancel")
-        body = "\n".join(procs["UserForm_QueryClose"])
-        assert re.search(r"CloseMode\s*=\s*vbFormControlMenu", body), form
-        assert re.search(r"\bCancel\s*=\s*True\b", body), form
-        assert re.search(rf"^\s*(Call\s+)?{cancel}\s*$", body, re.MULTILINE), (
-            f"{form}'s red X does not run {cancel}")
-        assert cancel in procs, f"{form} has no {cancel} for the red X to run"
+            f"{form} has no UserForm_QueryClose - its red X no longer clears the answer")
+        body = "\n".join(l for l in procs["UserForm_QueryClose"]
+                         if not l.strip().startswith("'"))
+        assert re.search(rf'CloseMode\s*=\s*vbFormControlMenu\s+Then\s+{answer}\s*=\s*""',
+                         body), f"{form}'s red X does not clear {answer}"
+        assert not re.search(r"\bCancel\s*=\s*True\b", body), (
+            f"{form}'s red X sets Cancel = True - the box would not close")
+        assert not re.search(r"\bUnload\b|Cancel_Click", body), (
+            f"{form}'s red X unloads from inside QueryClose - Word ignores it")
 
 
 def test_columns_wanted_x_writes_no_column_count(repo_root):

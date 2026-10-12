@@ -16,6 +16,9 @@ Attribute VB_Exposed = False
 
 ' Dx_Bullet_Removal_Form
 '
+' Version: 1.3  Date: 10/12/2026 - the red X did nothing: QueryClose set Cancel = True,
+'                                then unloaded, and Word ignores an Unload there (Jerry, 10/12/2026).
+'                                The X now only clears the answer and lets the box close.
 ' Version: 1.2  Date: 10/11/2026 - Cancel (and so the red X) no longer ends with End (issue #32).
 '                                End reset the whole VBA project and closed every box that stays
 '                                open (375, the TOC box, the $pg menus). Cancel now leaves no
@@ -32,11 +35,10 @@ Private Sub CmdCancel_Click()
 End Sub
 
 Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
-    'Handles the red X - the same as Cancel
-    If CloseMode = vbFormControlMenu Then
-        Cancel = True                 'prevents default close behavior
-        CmdCancel_Click
-    End If
+    'The red X is Cancel: it leaves no answer, and the box then closes by itself. Do not set
+    'Cancel = True and unload from here - Word ignores an Unload inside QueryClose, so the X
+    'did nothing at all (Jerry, 10/12/2026, on 329).
+    If CloseMode = vbFormControlMenu Then Dx_GP_String_2 = ""
 End Sub
 
 Private Sub CmdOkay_Click()

@@ -16,6 +16,9 @@ Attribute VB_Exposed = False
 
 ' DN_XML_Type_Form
 '
+' Version: 1.3  Date: 10/12/2026 - the red X did nothing: QueryClose set Cancel = True,
+'                                then unloaded, and Word ignores an Unload there (Jerry, 10/12/2026).
+'                                The X now only clears the answer and lets the box close.
 ' Version: 1.2  Date: 9/29/2026 - the title was cut off before its number (issue #22).
 '                               The form is 228 points wide inside (ClientWidth 4560), not 207.75, so the
 '                               title, measured in Segoe UI 9 point, fits with about 20 pixels to spare. Every
@@ -45,12 +48,10 @@ Private Sub CmdCancel_Click()
 End Sub
 
 Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
-    'Handles the red X
-    If CloseMode = vbFormControlMenu Then
-        Sh_GP_String_1 = vbNullString  'optional: signal cancel
-        Unload Me
-        Cancel = True                 'prevents default close behavior
-    End If
+    'The red X is Cancel: it leaves no answer, and the box then closes by itself. Do not set
+    'Cancel = True and unload from here - Word ignores an Unload inside QueryClose, so the X
+    'did nothing at all (Jerry, 10/12/2026, on 329).
+    If CloseMode = vbFormControlMenu Then Sh_GP_String_1 = ""
 End Sub
 
 Private Sub UserForm_Initialize()

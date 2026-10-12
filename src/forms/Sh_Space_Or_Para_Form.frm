@@ -15,6 +15,9 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 ' Sh_Space_Or_Para_Form
 '
+' Version: 1.2  Date: 10/12/2026 - the red X did nothing: QueryClose set Cancel = True,
+'                                then unloaded, and Word ignores an Unload there (Jerry, 10/12/2026).
+'                                The X now only clears the answer and lets the box close.
 ' Version: 1.1  Date: 10/11/2026 - the red X acts like Cancel (Jerry, 10/11/2026). It only unloaded
 '                                the box and left Sh_GP_String_1 as it was, so a "Para" or "Space"
 '                                from an earlier answer could carry the macro on.
@@ -25,11 +28,10 @@ Private Sub Cmd_Cancel_Click()
 End Sub
 
 Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
-    'Handles the red X - the same as Cancel
-    If CloseMode = vbFormControlMenu Then
-        Cancel = True                 'prevents default close behavior
-        Cmd_Cancel_Click
-    End If
+    'The red X is Cancel: it leaves no answer, and the box then closes by itself. Do not set
+    'Cancel = True and unload from here - Word ignores an Unload inside QueryClose, so the X
+    'did nothing at all (Jerry, 10/12/2026, on 329).
+    If CloseMode = vbFormControlMenu Then Sh_GP_String_1 = ""
 End Sub
 
 Private Sub Cmd_Okay_Click()

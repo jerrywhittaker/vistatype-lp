@@ -14,6 +14,10 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
+' Version: 1.8  Date: 10/12/2026 - the red X did nothing: QueryClose set Cancel = True,
+'                                then unloaded, and Word ignores an Unload there (Jerry, 10/12/2026).
+'                                QueryClose is gone: a plain close leaves Dx_Fill_In_Answered
+'                                False, which is already Cancel.
 ' Version: 1.7  Date: 10/11/2026 - Cancel (and so the red X) no longer ends with End (issue #32).
 '                                End reset the whole VBA project and closed every box that stays
 '                                open (375, the TOC box, the $pg menus). Cancel now only unloads
@@ -29,13 +33,6 @@ Private Sub CmdCancel_Click()
     Unload Me 'close this form - Dx_Fill_In_Answered stays False, so the exercise is not formatted
 End Sub
 
-Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
-    'Handles the red X - the same as Cancel
-    If CloseMode = vbFormControlMenu Then
-        Cancel = True                 'prevents default close behavior
-        CmdCancel_Click
-    End If
-End Sub
 Private Sub CmdNO_Click()
     Dx_UEB_EBAE_Boolean = False
     Dx_Fill_In_Answered = True
