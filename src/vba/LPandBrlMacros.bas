@@ -18,7 +18,10 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Dx  - 10/12/2026 - SELECTED CLEANUP (333) with nothing selected stops with Exit Sub, not
+' Notes:    - LP  - 10/12/2026 - FLOATING PICTURES NO LONGER DELETED BY FIX COMMON FILE ERRORS (Jerry).
+'           - LP  - 10/12/2026 - Its first pass now makes every picture inline, and the inline macro
+'           - LP  - 10/12/2026 - converts every floating picture instead of every other one (#27).
+'           - Dx  - 10/12/2026 - SELECTED CLEANUP (333) with nothing selected stops with Exit Sub, not
 '           - Dx  - 10/12/2026 - End (issue #33). CHOOSE PARAGRAPH STYLE (329): unticking Remove
 '           - Dx  - 10/12/2026 - Hyperlinks now really leaves the links alone (issue #34).
 '           - Dx  - 10/12/2026 - SELECTED CLEANUP (333): THE PROGRESS BAR WAITS FOR THE ANSWERS. Remove
@@ -11166,6 +11169,8 @@ Sub Lp_Remove_Box_Bullets_Bullets_and_Numbers()
 End Sub '****** End of Lp_Remove_Box_Bullets_Bullets_and_Numbers Macro *****
 
 Sub Lp_Fix_Common_File_Errors()
+' Version: 3.19  Date: 10/12/2026 - FIRST pass: every floating picture made inline, so no later
+'                               pass can delete it with its anchor paragraph (Jerry, 10/12/2026)
 ' Version: 3.18  Date: 10/11/2026 - always the whole book (Jerry, 10/11/2026): Lp_Ffc_Step
 '                               collapses the selection before every pass. The one collapse at
 '                               the start did not stop a pass's own Find leaving text selected,
@@ -11261,6 +11266,12 @@ Sub Lp_Fix_Common_File_Errors()
     ' the column count, and in the attach sequence the page size and margins are not settled
     ' until Lp_Attach_The_Template runs afterwards. It goes first because it is the one repair
     ' here that changes the shape of the page rather than the text on it. Jerry, 9/2/2026.
+    ' BEFORE every other pass: floating pictures become inline (Jerry, 10/12/2026). A floating
+    ' picture hangs off an anchor paragraph, and the passes below delete and merge paragraphs -
+    ' attaching the template was deleting pictures that were not inline. Inline, a picture is a
+    ' character in the text and goes where its text goes.
+    Lp_Ffc_Step stepNo, "Making every picture inline"
+    Application.Run MacroName:="Lp_SetPicturesToInlineAndLockAspectRatio"
     Lp_Ffc_Step stepNo, "Turning multi-column text into one column"
     Application.Run MacroName:="Lp_Convert_Multi_Column_To_Single"
 Sh_Spin_DoEvents
@@ -11418,6 +11429,7 @@ End Sub '*** end of Lp_Fix_Common_File_Errors macro ***
 
 Private Sub Lp_Ffc_Step(ByRef stepNo As Long, ByVal what As String)
 '
+' Version: 1.4  Date: 10/12/2026 - 36, for 35 passes: "Making every picture inline" is new
 ' Version: 1.3  Date: 10/11/2026 - collapses the selection before every pass - see the note below
 ' Version: 1.2  Date: 9/21/2026 - 35, for 34 passes: "Adding a blank line after each table" is new
 ' Version: 1.1  Date: 9/20/2026 - 34, for 33 passes: the style removal that used to run inside
@@ -11432,24 +11444,24 @@ Private Sub Lp_Ffc_Step(ByRef stepNo As Long, ByVal what As String)
 ' only LP_FFC_STEPS below kept honest.
 '
 ' NOT merged with Dx_Ffc_Step under the Lp_/Dx_ merge rule, and this is the reason: the two
-' totals differ (35 against 37) and each is a fact about its own sequence. A shared helper would
+' totals differ (36 against 37) and each is a fact about its own sequence. A shared helper would
 ' have to be told the total by every caller, which is the same line of code in a worse place.
 '
 ' stepNo is BYREF, and deliberately: it is a counter the caller owns and this has to advance it.
 ' That is the one shape the project's ByVal rule does not cover.
 '
-' LP_FFC_STEPS is ONE MORE than the 34 passes that actually run, and deliberately. An extra
+' LP_FFC_STEPS is ONE MORE than the 35 passes that actually run, and deliberately. An extra
 ' announcement sat above a commented-out MS_Clear_F_and_R_Params_and_Clipboard until
 ' 9/6/2026 and was removed then; if that pass is ever switched back on, announce
 ' it again AND raise this by one. Each step announces itself
-' BEFORE its pass runs, so a total of 34 would put the bar at 100% while the last pass was still
-' working - which is the one thing a progress bar must never say. At 35 the last step reads 97%
+' BEFORE its pass runs, so a total of 35 would put the bar at 100% while the last pass was still
+' working - which is the one thing a progress bar must never say. At 36 the last step reads 97%
 ' and the caller sets 100 once the work is actually done.
 '
 ' Says nothing and costs nothing when no bar is open - Sh_Progress_Say is gated on a flag. That
 ' is what lets this sequence run unchanged from the attach, which brings its own indicator.
 
-    Const LP_FFC_STEPS As Long = 35
+    Const LP_FFC_STEPS As Long = 36
 
     ' FULL FILE CLEANUP IS THE WHOLE BOOK, always - only Selection Cleanup honors a selection
     ' (Jerry, 10/11/2026). The same as Dx_Ffc_Step, for the same reason: a pass's own Find can
@@ -24550,28 +24562,30 @@ End Sub  '***** end of Lp_Recolor_Inline_Shapes *****
 
 Sub Lp_SetPicturesToInlineAndLockAspectRatio()
 '
+' Version: 1.1  Date: 10/12/2026 - every floating picture, not every other one (issue #27). The
+'                                loop was For Each over ActiveDocument.Shapes, and converting a
+'                                picture takes it out of that collection, so the next one was
+'                                stepped over (measured 10/9/2026: 3 floating pictures, 1 left
+'                                after one run). It now walks the collection BACKWARDS by index.
+'                                The convert block was also in the loop twice; once now.
+'                                Now also the FIRST pass of Lp_Fix_Common_File_Errors (Jerry,
+'                                10/12/2026), because a floating picture was being deleted there.
 ' Version: 1.0  Date: 4/21/2025
 '
+    Dim i As Long
     Dim shp As Shape
     Dim ilShp As inlineShape
 
-    ' Convert floating shapes to inline and lock their aspect ratio
-    For Each shp In ActiveDocument.Shapes
+    ' Convert floating pictures to inline and lock their aspect ratio. Backwards, so taking one out
+    ' of the collection never moves the next one into the slot just visited.
+    For i = ActiveDocument.Shapes.count To 1 Step -1
+        Set shp = ActiveDocument.Shapes(i)
         If shp.Type = msoPicture Or shp.Type = msoLinkedPicture Then
-            ' Convert the shape to an inline shape
             Set ilShp = shp.ConvertToInlineShape
-            ' Lock the aspect ratio
             ilShp.LockAspectRatio = True
         End If
-    
-        If shp.Type = msoPicture Or shp.Type = msoLinkedPicture Then
-            ' Convert the shape to an inline shape
-            Set ilShp = shp.ConvertToInlineShape
-            ' Lock the aspect ratio
-            ilShp.LockAspectRatio = True
-        End If
-    Next shp
-    
+    Next i
+
 End Sub   '*** end of macro Lp_SetPicturesToInlineAndLockAspectRatio ***
 
 Sub Lp_Delete_Zero_Width_Spaces()
