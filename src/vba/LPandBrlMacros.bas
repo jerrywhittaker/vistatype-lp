@@ -897,7 +897,7 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - LP  - 9/6/2026 - Sixteen messages moved from MsgBox to Sh_Say and Sh_Ask - the obsolete-template
 '           - LP  - 9/6/2026 - warning (123), the missing-template stop (141), the cancelled-save question (306),
 '           - LP  - 9/6/2026 - the could-not-reopen notice (233), the stabilized-and-saved notice (201), and the
-'           - LP  - 9/6/2026 - eleven page-size and margin checks on LP_Attach_An_Lp_Template_Form (189-199).
+'           - LP  - 9/6/2026 - eleven page-size and margin checks on Lp_Attach_An_Lp_Template_Form (189-199).
 '           - LP  - 9/6/2026 - Every number is the one it has always had; no new numbers were allocated. This is
 '           - LP  - 9/6/2026 - the first batch of the conversion the file has described as pending since 8/23/2026,
 '           - LP  - 9/6/2026 - and this path was chosen because a transcriber meets it at the moment they must NOT
@@ -2246,7 +2246,7 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - LP - 8/20/2026 - never warned that it must be re-attached before she edits it. Of the eight callers, five wanted the type
 '           - LP - 8/20/2026 - question and were left alone; three wanted the book question and were moved: Sh_HandleDocumentOpened's
 '           - LP - 8/20/2026 - obsolete-template warning, Lp_Attach_Lp_Template's re-attach warning (a book on an old template is exactly
-'           - LP - 8/20/2026 - the one that needs telling its text will re-flow), and LP_Attach_An_Lp_Template_Form's Initialize, which
+'           - LP - 8/20/2026 - the one that needs telling its text will re-flow), and Lp_Attach_An_Lp_Template_Form's Initialize, which
 '           - LP - 8/20/2026 - notes the face a legacy book is already set in - the FACE must not be rewritten whatever template it came on.
 '           - LP - 8/20/2026 - Sh_HandleDocumentOpened's two tests became If/ElseIf rather than nested, because they are now independent
 '           - LP - 8/20/2026 - questions rather than one refining the other. That also closes a hole the old shape had: a document carrying
@@ -2311,7 +2311,7 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - LP - 8/20/2026 - another size, which breaks the one promise large print makes - every character at the size the reader asked
 '           - LP - 8/20/2026 - for. Tahoma covers the lot, and is what a large print book was set in for years before 8/8/2026.
 '           - LP - 8/20/2026 - The Typeface choice is off the attach dialog (FontChoiceFrame / FontTahoma / FontLegible are removed from
-'           - LP - 8/20/2026 - LP_Attach_An_Lp_Template_Form, with their two Click handlers and the Initialize block). A new large print
+'           - LP - 8/20/2026 - Lp_Attach_An_Lp_Template_Form, with their two Click handlers and the Initialize block). A new large print
 '           - LP - 8/20/2026 - book is Tahoma, with no question asked, exactly as before the choice existed. The installer no longer ships
 '           - LP - 8/20/2026 - the four .ttf files or their OFL license, and REMOVES a copy it finds already installed.
 '           - LP - 8/20/2026 - A book ALREADY set in the face keeps it. LP_FONT_LEGIBLE became LP_FONT_LEGACY_LEGIBLE and now does one
@@ -2438,7 +2438,7 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - BRL - 8/8/2026 - btn_Dx_Change_Prodnotes_To_Transcriber_Notes is untouched, so every toolbar already in the field
 '           - BRL - 8/8/2026 - still resolves it.
 '           - Sh - 8/8/2026 - Sh_Prodnote_Info_Form's note rewritten and the form made taller to suit (Jerry). The attach dialog
-'           - Sh - 8/8/2026 - LP_Attach_An_Lp_Template_Form was re-laid-out (Jerry) - layout only, no code change. The installer's
+'           - Sh - 8/8/2026 - Lp_Attach_An_Lp_Template_Form was re-laid-out (Jerry) - layout only, no code change. The installer's
 '           - Sh - 8/8/2026 - welcome page says what the add-ins are and that the typeface carries its own separate license.
 '           - LP - 8/8/2026 - the transcriber now CHOOSES the typeface on the attach dialog, beside the point size: Tahoma as
 '           - LP - 8/8/2026 - before, or the bundled VistaTypeLP Legible, which is Atkinson Hyperlegible rescaled so that a point
@@ -2707,7 +2707,7 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - Sh - 7/26/2026 - macros now return the user to where the cursor was when they started, instead of dumping them at the top of the document. New Sh_Save_User_Position / Sh_Return_User_To_Start_Position pair records a CHARACTER OFFSET (Sh_Start_Pos / Sh_Start_Doc), not a bookmark; 43 macros and 6 UserForms converted. Sh_Pos_Depth makes only the OUTERMOST macro return the user, so the File_Fix_Sequence orchestrators scroll once instead of twenty times; Sh_Pos_Saved refuses a return that had no matching save; RibbonAction clears both per button press so a macro that stops on an error cannot wedge them
 '           - Sh - 7/26/2026 - why the old TempPlaceholder bookmark could not do that job, three ways: (1) the copy-to-temp-doc macros paste back over the range the bookmark spans, so Word discards it and Sh_Move_To_And_Delete_Placeholder_Bookmark silently found nothing - its On Error GoTo ExitSub hid the failure; (2) one shared bookmark name, so any macro calling another had its mark deleted and recreated by the inner one; (3) Sh_Create_Temp_Bookmark uses ActiveDocument, so it landed in the temp file whenever one was active. The three TempPlaceholder helpers were left unreferenced, and deleted on 8/3/2026
 '           - Sh - 7/26/2026 - also fixed: the restore now happens AFTER ScreenUpdating goes back on - 13 macros (10 of them Dx_) moved the cursor while the screen was frozen, leaving the insertion point correct but the window still showing the top of the document. Lp_Fix_Common_File_Errors had its ScreenUpdating restore commented out entirely, and marked its spot only after Selection.Collapse had already moved it; Lp_Format_Exercise_Lv_1_and_Lv_2 called the restore twice
-'           - Sh - 7/26/2026 - LP_Picture_Alignment_Form called Sh_Create_Temp_Bookmark where it meant the move-and-delete, so it never returned the user AND left a stale bookmark behind - which Lp_Bakgrnd_Picture_Menu_Form had been jumping to, since that form called the return without ever creating a mark. The two forms were accidentally coupled through the one shared bookmark name
+'           - Sh - 7/26/2026 - Lp_Picture_Alignment_Form called Sh_Create_Temp_Bookmark where it meant the move-and-delete, so it never returned the user AND left a stale bookmark behind - which Lp_Bakgrnd_Picture_Menu_Form had been jumping to, since that form called the return without ever creating a mark. The two forms were accidentally coupled through the one shared bookmark name
 '           - Sh - 7/26/2026 - deliberately NOT converted, they are meant to leave you where they finish: Lp_Validate_Dollar_PG, the LP/Dx export and import selection macros, Sh_Move_Paragraph_To_Next_Page, Sh_Copy_Ref_Pg_Tags_To_Temp_File (parks you in a temp document on purpose and says so), and Lp_Attach_The_Template / Lp_Attach_Lp_Template (they Save As, so the document is no longer the one the position was measured in)
 '           - Sh - 7/26/2026 - KEEP COMMENT LINES UNDER ~650 CHARS. VBA's limit is 1023 per line; a 2252-char changelog line here made Word hang forever on $doc.Save() during the headless build - no error, no event-log entry, Word idle at ~2s CPU. Cost most of a day on 7/26/2026
 '           - Sh - 7/24/2026 - deleted two unreferenced UserForms (45 -> 43): Lp_Columns_Wanted_Formx (a stale duplicate of Lp_Columns_Wanted_Form, differing only in ClientHeight) and Dx_Create_Brl_Bullets_Form (orphaned - no braille bullet-CREATION sub exists any more, and nothing reads the Dx_GP_Counter_1 / Dx_GP_String_2 "Keep_Bullets"/"Remove_Bullets" values it set; the surviving Dx_Remove_Bullets uses Dx_Bullet_Removal_Form). Neither was shown, loaded, or named anywhere in the VBA or the ribbon
@@ -19570,7 +19570,7 @@ Function Lp_Was_Made_As_An_Lp_Book() As Boolean
 ' warned that it must be re-attached before she edits it.
 '
 ' Three callers: Sh_HandleDocumentOpened (the obsolete-template warning), Lp_Attach_Lp_Template
-' (whether to warn about re-attaching), and LP_Attach_An_Lp_Template_Form's Initialize (noting
+' (whether to warn about re-attaching), and Lp_Attach_An_Lp_Template_Form's Initialize (noting
 ' the face a legacy book is already set in). All three are about the book, not the template.
 '
     Dim oStyle As Style
@@ -32673,7 +32673,7 @@ Public Function Lp_Doc_Is_Screen(Optional ByVal targetDoc As Document) As Boolea
 ' have them live, because there the link is the point.
 '
 ' The answer is the document variable "Media", written by Lp_Attach_The_Template and by
-' LP_Set_Doc_Background_Form, and holding "Paper" or "Screen".
+' Lp_Set_Doc_Background_Form, and holding "Paper" or "Screen".
 '
 ' A DOCUMENT WITH NO MEDIA ENTRY COUNTS AS PAPER, and that is the safe direction rather than an
 ' oversight: a book made before this variable existed, or one whose entry was lost, gets plain
@@ -33699,7 +33699,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
 
     ' THE FACE: VistaTypeLP Sans when the machine has it, Tahoma when it has not (Jerry,
     ' 9/17/2026). The converted book was set in Tahoma outright until today. Sh_Is_Font_Installed
-    ' is the same single test LP_Attach_An_Lp_Template_Form uses to decide what to offer, so the
+    ' is the same single test Lp_Attach_An_Lp_Template_Form uses to decide what to offer, so the
     ' two agree; and it is asked rather than assumed, because a face Word cannot find is
     ' substituted silently, at some other size - the one thing large print must never do.
     Dim convFont As String

@@ -214,7 +214,7 @@ Private Sub PseudoButton_Click()
 End Sub
 
 Private Sub PseudoQuestion_Click()
-    LP_PseudoColumnInfoForm.Show
+    Lp_PseudoColumnInfoForm.Show
 End Sub
 
 Private Sub RealButton_Click()
@@ -228,7 +228,7 @@ Private Sub RealButton_Click()
 End Sub
 
 Private Sub RealQuestion_Click()
-    LP_RealColumnInfoForm.Show
+    Lp_RealColumnInfoForm.Show
 End Sub
 
 Private Sub Rotate_Button_Click()

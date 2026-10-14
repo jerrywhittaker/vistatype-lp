@@ -5,10 +5,10 @@ Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_Picture_Alignment_Form
    ClientLeft      =   105
    ClientTop       =   450
    ClientWidth     =   7170
-   OleObjectBlob   =   "LP_Picture_Alignment_Form.frx":0000
+   OleObjectBlob   =   "Lp_Picture_Alignment_Form.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
-Attribute VB_Name = "LP_Picture_Alignment_Form"
+Attribute VB_Name = "Lp_Picture_Alignment_Form"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True

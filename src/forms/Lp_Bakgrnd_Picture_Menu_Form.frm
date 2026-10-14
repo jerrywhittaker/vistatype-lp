@@ -98,9 +98,9 @@ Private Sub PicturesColorGrayscaleButton_Click()
 End Sub
 Private Sub CenterOrLeftAlignPicturesButton_Click()
     Lp_Bakgrnd_Picture_Menu_Form.Hide
-    Load LP_Picture_Alignment_Form
-    LP_Picture_Alignment_Form.Show
-    Unload LP_Picture_Alignment_Form
+    Load Lp_Picture_Alignment_Form
+    Lp_Picture_Alignment_Form.Show
+    Unload Lp_Picture_Alignment_Form
     Unload Me
 End Sub
 

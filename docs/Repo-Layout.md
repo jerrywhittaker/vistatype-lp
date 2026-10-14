@@ -222,7 +222,7 @@ tools/windows/  Export-Vba.ps1 / Import-Vba.ps1 / New-UserForm.ps1 / Run-VbaTest
                  comma-separated string, not an array — PowerShell's -File never parses an
                  argument as an expression. It reports each control's position before removing it,
                  which is the only record of the hole left behind. Added 8/20/2026 to take the
-                 Typeface choice off LP_Attach_An_Lp_Template_Form
+                 Typeface choice off Lp_Attach_An_Lp_Template_Form
                 Setup-SigningTools.ps1 — one-time box preparation for CODE SIGNING, added
                  8/17/2026 when Jerry bought the Certum card. Installs only the Windows SDK's
                  SigningTools feature (which lands in the usual C:\Program Files (x86)\Windows

@@ -1,14 +1,14 @@
 VERSION 5.00
-Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} LP_Set_Doc_Background_Form 
+Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_Set_Doc_Background_Form 
    Caption         =   "Background (342)"
    ClientHeight    =   2160
    ClientLeft      =   120
    ClientTop       =   465
    ClientWidth     =   5010
-   OleObjectBlob   =   "LP_Set_Doc_Background_Form.frx":0000
+   OleObjectBlob   =   "Lp_Set_Doc_Background_Form.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
-Attribute VB_Name = "LP_Set_Doc_Background_Form"
+Attribute VB_Name = "Lp_Set_Doc_Background_Form"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
@@ -30,7 +30,7 @@ Private Sub OkayButton_Click()
     Application.Run MacroName:="Lp_Get_Doc_Setup_Params"    'need to determine Doc is for "Screen", "Paper", or "Unknown" - places in Public Var "DM"
 
     If BlackBkgrndWhiteTextButton = True Then
-        Unload LP_Set_Doc_Background_Form
+        Unload Lp_Set_Doc_Background_Form
         'DM = document media - screen or paper
         If DM = "Screen" Then
             Application.Run MacroName:="Lp_Set_Page_To_Black"

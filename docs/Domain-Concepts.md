@@ -8,7 +8,7 @@ file cleanup. Moved out of `CLAUDE.md` on 20 September 2026. Same text, no chang
 ## Domain concepts
 
 - **Typeface — VistaTypeLP Sans or Tahoma, and it IS a choice again (8/22/2026, 3.0.224)**: the
-  choice is `FontChoiceFrame` on `LP_Attach_An_Lp_Template_Form`, carrying `FontSans` and
+  choice is `FontChoiceFrame` on `Lp_Attach_An_Lp_Template_Form`, carrying `FontSans` and
   `FontTahoma`. Two constants name the faces: `LP_FONT_SANS` ("VistaTypeLP Sans") and
   `LP_FONT_TAHOMA` ("Tahoma").
   `UserForm_Initialize` decides what is offered, in this order:

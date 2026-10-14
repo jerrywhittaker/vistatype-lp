@@ -26,7 +26,7 @@ Private Sub CmdYesButton_Click()
     ' and on every other path too. Writing the answer into the shared, never-cleared
     ' Lp_GP_String_1 was what made later attaches skip their file cleanup.
     Lp_ReAttachWarning_Form.Hide
-    LP_Attach_An_Lp_Template_Form.Show
+    Lp_Attach_An_Lp_Template_Form.Show
     Unload Me
 End Sub
 

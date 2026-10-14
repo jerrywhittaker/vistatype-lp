@@ -1,21 +1,21 @@
 VERSION 5.00
-Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} LP_Attach_An_Lp_Template_Form 
+Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_Attach_An_Lp_Template_Form 
    Caption         =   "Attach LP Template & Select Output Media (338)"
    ClientHeight    =   9210.001
    ClientLeft      =   120
    ClientTop       =   465
    ClientWidth     =   12600
-   OleObjectBlob   =   "LP_Attach_An_Lp_Template_Form.frx":0000
+   OleObjectBlob   =   "Lp_Attach_An_Lp_Template_Form.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
-Attribute VB_Name = "LP_Attach_An_Lp_Template_Form"
+Attribute VB_Name = "Lp_Attach_An_Lp_Template_Form"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
 
-' LP_Attach_An_Lp_Template_Form
+' Lp_Attach_An_Lp_Template_Form
 '
 ' Version: 6.8  Date: 9/6/2026 - opens the PROGRESS BAR instead of Sh_NonModalMessageForm. The
 '                               instruction paragraph goes with it: the bar names each stage,
@@ -368,7 +368,7 @@ Private Sub AttachOkay_Click()
     ' ***** end Typeface *****
     ' ** end of move form values to public variables **
 
-   LP_Attach_An_Lp_Template_Form.Hide
+   Lp_Attach_An_Lp_Template_Form.Hide
 
 '+++++++++++++++++++ Call Non-Modal Message +++++++++++++++++++++++
 

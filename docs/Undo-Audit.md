@@ -158,7 +158,7 @@ the same change; it is the most confusing thing a transcriber can hit here.
 | TOC **Remove Color Bars** | `Lp_TOC_Format_And_Color_Form.frm:49–117` | 3–5 per TOC entry — a 160-entry contents page runs into the hundreds | estimated |
 | TOC **color bars Okay** | `Lp_TOC_Color_Bars_Form.frm:180–224` | one per TOC paragraph recolored + one per tab stop changed | estimated |
 | Bkgrnd & Picture Tools → **Pictures to Inline** | `Lp_Bakgrnd_Picture_Menu_Form.frm:44` | 2 per floating picture + 1 per inline picture | estimated |
-| **Picture Alignment** dialog → Okay | `LP_Picture_Alignment_Form.frm` `CmdOkay_Click` | one per picture | estimated |
+| **Picture Alignment** dialog → Okay | `Lp_Picture_Alignment_Form.frm` `CmdOkay_Click` | one per picture | estimated |
 
 Carried along by their callers rather than reachable alone: `Lp_Add_Para_After_Image` (`:17428`),
 `Lp_SetPicturesToInlineAndLockAspectRatio` (`:20671`),

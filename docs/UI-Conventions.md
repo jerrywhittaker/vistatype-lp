@@ -64,7 +64,7 @@ Recommended — were converted on 8/23/2026, five messages. **The attach-a-large
 followed on 9/6/2026, sixteen messages** — the obsolete-template warning (123), the missing-template
 stop (141), the cancelled-save question (306), the could-not-reopen notice (233), the
 stabilized-and-saved notice (201), and the eleven page-size and margin checks on
-`LP_Attach_An_Lp_Template_Form` (189–199). Every one kept the number it already had.
+`Lp_Attach_An_Lp_Template_Form` (189–199). Every one kept the number it already had.
 They convert a feature at a time. Nothing new uses `MsgBox`.
 
 **What is left, recounted 9/20/2026: 67 in `LPandBrlMacros`, 28 across the forms, 18 in the

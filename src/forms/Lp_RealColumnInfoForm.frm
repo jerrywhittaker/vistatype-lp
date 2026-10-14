@@ -1,14 +1,14 @@
 VERSION 5.00
-Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} LP_PseudoColumnInfoForm 
-   Caption         =   "What is a pseudo column? (340)"
-   ClientHeight    =   7785
+Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_RealColumnInfoForm 
+   Caption         =   "What is a real column? (341)"
+   ClientHeight    =   6948
    ClientLeft      =   120
    ClientTop       =   465
-   ClientWidth     =   7290
-   OleObjectBlob   =   "LP_PseudoColumnInfoForm.frx":0000
+   ClientWidth     =   7530
+   OleObjectBlob   =   "Lp_RealColumnInfoForm.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
-Attribute VB_Name = "LP_PseudoColumnInfoForm"
+Attribute VB_Name = "Lp_RealColumnInfoForm"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
@@ -16,6 +16,7 @@ Attribute VB_Exposed = False
 
 ' Version: 1.1  Date: 7/24/2026 - no longer runs "MS_Set_Word_Config_For_Large_Print" on form open
 '
+
 Private Sub CommandButton1_Click()
   Unload Me
 End Sub
@@ -28,10 +29,10 @@ Private Sub UserForm_Initialize()
     ' 7/24/2026 - removed "MS_Set_Word_Config_For_Large_Print": opening the document already
     '             configures Word for large print, and re-running it here reset the user's
     '             Styles-pane options (show filter / sort order) every time this form opened.
-    
     ' From: https://www.thespreadsheetguru.com/the-code-vault/launch-vba-userforms-in-correct-window-with-dual-monitors
     ' Start Userform Centered inside Word Screen (for dual monitors)
     Me.StartUpPosition = 0
     Me.Left = Application.Left + (0.5 * Application.Width) - (0.5 * Me.Width)
     Me.Top = Application.Top + (0.5 * Application.Height) - (0.5 * Me.Height)
+    
 End Sub
