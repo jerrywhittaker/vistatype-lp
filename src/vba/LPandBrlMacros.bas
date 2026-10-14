@@ -23124,8 +23124,8 @@ Public Function Lp_Resize_Images_Has_Pictures() As Boolean
 
     Set pics = Lp_Resize_Images_Pics()
     If pics Is Nothing Then
-        Sh_Say "Select the pictures you want to resize first - click one picture, or drag across " _
-             & "the part of the book that holds them." & vbCr & vbCr _
+        Sh_Say "Select a picture or select a range containing the pictures to be resized." _
+             & vbCr & vbCr _
              & "To resize every picture in the book, press Ctrl+A first.", "VistaType LP (142)"
         Exit Function
     End If
