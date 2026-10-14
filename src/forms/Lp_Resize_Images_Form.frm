@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_Resize_Images_Form 
-   Caption         =   "Resize Selected Pictures or All Pictures (350)"
-   ClientHeight    =   5892
+   Caption         =   "Resize Selected Pictures (350)"
+   ClientHeight    =   5280
    ClientLeft      =   120
    ClientTop       =   450
    ClientWidth     =   5835
@@ -20,60 +20,39 @@ Private Sub CmdCancel_Click()
 End Sub
 
 Private Sub CmdOkay_Click()
+    ' Version: 2.0  Date: 10/14/2026 - Jerry: a selection is required, so the "All Pictures"
+    '                               choice and its two option buttons are gone. A percent out of
+    '                               range now stops here: before, the message showed and the
+    '                               resize ran anyway with the last percent used.
 
     ' check the percent value range
     If Val(Percent_Requested) > 575 Or Val(Percent_Requested) < 1 Then
         MsgBox "Percent is out of range", , "VistaType LP (300)"
-    Else
-        If Resize_Selected Then
-            Lp_Pic_All_Selectd = "S" 'save the choice
-            Lp_Pic_Percent = Str(Int(Percent_Requested))  'save the choice
-            'Unload Me 'close this form
-            Lp_Resize_Images_Form.Hide
-        End If
-        
-        If Resize_All Then
-            Lp_Pic_All_Selectd = "A"  'save the choice
-            Lp_Pic_Percent = Percent_Requested   'save the choice
-            'Unload Me 'close this form
-            Lp_Resize_Images_Form.Hide
-        End If
+        Exit Sub
     End If
-    
+
+    ' Val first: Int("50%") stops with Type mismatch, and Val("50%") is 50
+    Lp_Pic_Percent = Str(Int(Val(Percent_Requested)))  'save the choice
+    Lp_Resize_Images_Form.Hide
+
     Application.Run MacroName:="Lp_Resize_Images"
     Unload Me 'close this form
-    
+
 End Sub
 
 Private Sub UserForm_Initialize()
 
-    If Lp_Pic_All_Selectd = "" And Lp_Pic_All_Selectd = "" Then
-            Resize_Selected.Value = True
-    End If
-    
-    If Lp_Pic_All_Selectd = "A" Then
-        Resize_All.Value = True
-    End If
-    
-    If Lp_Pic_All_Selectd = "S" Then
-        Resize_Selected.Value = True
-    End If
-    
     If Val(Lp_Pic_Percent) < 1 Then
         Lp_Pic_Percent = "50"
-    Else
-        Percent_Requested = Lp_Pic_Percent
     End If
-    
+
     Percent_Requested = Val(Lp_Pic_Percent)
-    
+
     With Me.Percent_Requested
         .selStart = 0
         .SelLength = 3
     End With
-    
-    Resize_Selected = True
-    
+
     ' From: https://www.thespreadsheetguru.com/the-code-vault/launch-vba-userforms-in-correct-window-with-dual-monitors
     ' Start Userform Centered inside Word Screen (for dual monitors)
     Me.StartUpPosition = 0

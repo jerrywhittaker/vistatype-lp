@@ -18,7 +18,15 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Sh  - 10/12/2026 - REMOVING CONSECUTIVE EMPTY PARAGRAPH MARKS no longer deletes a blank
+' Notes:    - Lp  - 10/14/2026 - RESIZE SELECTED PICTURES (350) (Jerry). A selection is
+'           - Lp  - 10/14/2026 - required - one clicked picture counts; a bare cursor, in a
+'           - Lp  - 10/14/2026 - table or not, is refused (142) before the percent box opens,
+'           - Lp  - 10/14/2026 - and a selection with no in-line picture says so (397). The
+'           - Lp  - 10/14/2026 - All Pictures choice is gone: Ctrl+A first. Only pictures are
+'           - Lp  - 10/14/2026 - scaled, not OLE objects or equations, and each is then shrunk
+'           - Lp  - 10/14/2026 - to fit inside its section's margins. Okay with a percent out
+'           - Lp  - 10/14/2026 - of range (300) no longer goes on to resize.
+'           - Sh  - 10/12/2026 - REMOVING CONSECUTIVE EMPTY PARAGRAPH MARKS no longer deletes a blank
 '           - Sh  - 10/12/2026 - paragraph that anchors a floating picture - it took the picture
 '           - Sh  - 10/12/2026 - with it (measured: 3 of 7 lost). Sh_Para_Anchors_A_Shape is new.
 '           - LP  - 10/12/2026 - PICTURES ON ATTACH (Jerry). A first attach makes every picture inline
@@ -2803,7 +2811,6 @@ Public Lp_GP_Counter_1 As Integer
 ' project has no other instance of that. The macro shows it once Lp_Section_Brk_Caution is gone.
 Public Lp_Sec_Starts_Changed As Long
 Public Lp_Pic_Percent As String
-Public Lp_Pic_All_Selectd As String
 
 Public Sh_GP_String_1 As String
 Public Sh_GP_String_2 As String   ' the conversion's image choice, "KEEP" or "OMIT"
@@ -22945,6 +22952,17 @@ Sub Lp_Resize_Images()
     '
     ' Author: Jerry Whittaker - jerry@vistatypelp.org
     '
+    ' Version: 3.0  Date: 10/14/2026 - Jerry: a SELECTION IS REQUIRED, only in-line pictures are
+    '                               resized, and no picture may end up past any margin. The "All
+    '                               Pictures" choice is gone - select the book with Ctrl+A for
+    '                               that, as with Resize Pictures in a Selected Range (375). A
+    '                               bare cursor, in a table or not, is refused (142) before the
+    '                               percent is asked, and a selection with no in-line picture in
+    '                               it says so (397) instead of closing without a word. One
+    '                               clicked picture still counts (Jerry). After scaling, a picture
+    '                               wider or taller than the space inside its own section's
+    '                               margins is shrunk to fit, keeping its shape - the PAGE
+    '                               margins, in a table cell too.
     ' Version: 2.0  Date: 9/1/2026 - no scratch document on any route, and none was ever needed.
     '                               The whole of the work is "walk some images and set their
     '                               scale", and an InlineShapes collection can be had from a
@@ -23006,8 +23024,6 @@ Sub Lp_Resize_Images()
     Dim su_Prev As Boolean
     Dim objUndo As UndoRecord
     Dim recording As Boolean
-    Dim wholeDoc As Boolean
-    Dim saved As Boolean
     ' errNum, not eNum: VBA identifiers are case-insensitive, so a variable called eNum IS the
     ' reserved word Enum as far as the compiler is concerned, and the Dim will not compile.
     Dim errNum As Long
@@ -23015,46 +23031,19 @@ Sub Lp_Resize_Images()
 
     pct = Val(Lp_Pic_Percent)
 
-    ' WHICH images, asked in the order these branches have always been asked. A selected image
-    ' still wins over the "all images in the document" choice, exactly as before.
+    ' WHICH images. The Background and Picture Tools button has already asked this, before the
+    ' percent box opened, so these refusals are only reached if the selection changed between.
+    ' Sh_Last_Activity is cleared before each one: it is only ever cleared by a macro that
+    ' finishes, so a route out that leaves it set has the NEXT failure anywhere in the project
+    ' reporting "Resize images: deciding which images" as its step.
     Sh_Last_Activity = "Resize images: deciding which images"
-    If Selection.Type = wdSelectionInlineShape Then
-        ' one image, in text or in a table
-        Set pics = Selection.InlineShapes
-
-    ElseIf Lp_Pic_All_Selectd = "S" And Selection.Type = wdSelectionNormal Then
-        ' a range of text, which may take a table in with it - Range.InlineShapes reaches the
-        ' images inside one, which is the whole reason the scratch document can go
-        Set pics = Selection.Range.InlineShapes
-
-    ElseIf Selection.Information(wdWithInTable) Then
-        ' rows or cells picked rather than text, which is what the transcriber does when she
-        ' means "this table"
-        Set pics = Selection.Tables(1).Range.InlineShapes
-
-    ElseIf Lp_Pic_All_Selectd = "A" Then
-        ' ActiveDocument.InlineShapes, not ActiveDocument.Content.InlineShapes: this is the
-        ' collection the macro has always used and the two are not guaranteed to be the same one
-        Set pics = ActiveDocument.InlineShapes
-        wholeDoc = True
-
-    Else
-        ' Cleared before leaving. Sh_Last_Activity is only ever cleared by a macro that
-        ' finishes, so a route out that leaves it set has the NEXT failure anywhere in the
-        ' project reporting "Resize images: deciding which images" as its step - which is the one
-        ' thing this marker exists to prevent.
+    If Not Lp_Resize_Images_Has_Pictures() Then
         Sh_Last_Activity = ""
-        Sh_Say "Select a specific image, a text range containing images (including tables " _
-             & "with images) or select a table containing images.", "VistaType LP (142)"
         Unload Lp_Resize_Images_Form
         Exit Sub
     End If
+    Set pics = Lp_Resize_Images_Pics()
 
-    ' A chosen collection holding NO images is a silent no-op: the dialog closes and nothing
-    ' happens. Raised with Jerry on 9/1/2026 and left as it is - saying so would need a message
-    ' and a dialog number of its own, and those are his. Written down so it is a known gap rather
-    ' than a surprise. The old route was barely better: it round-tripped a document and changed
-    ' nothing.
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False
 
@@ -23064,23 +23053,10 @@ Sub Lp_Resize_Images()
     objUndo.StartCustomRecord "Resize Images"
     recording = True
 
-    ' Only on the whole-document branch, and kept rather than dropped as redundant: resizing
-    ' every picture in a long book repaginates the whole of it with the screen frozen, and
-    ' Sh_Return_User_To_Start_Position turns screen updating back on BEFORE it moves the cursor
-    ' and refreshes after - which is what stops the window sitting somewhere the transcriber did
-    ' not leave it. Nothing else here moves her cursor, so nothing else needs it.
-    If wholeDoc Then
-        Sh_Save_User_Position
-        saved = True
-    End If
-
+    ' The whole-document branch saved and restored the cursor here. It went with that branch:
+    ' the whole book is now a Ctrl+A selection, which the Collapse below ends at its start.
     Sh_Last_Activity = "Resize images: scaling"
     Lp_Scale_Inline_Shapes pics, pct
-
-    If saved Then
-        Sh_Return_User_To_Start_Position
-        saved = False
-    End If
 
     objUndo.EndCustomRecord
     recording = False
@@ -23101,9 +23077,6 @@ eom:
     errText = Err.Description
     On Error Resume Next
     If recording Then objUndo.EndCustomRecord
-    ' Sh_Save_User_Position counts its nesting, so a save that never gets its matching return
-    ' leaves the count above zero and every later macro in the session stops putting her back.
-    If saved Then Sh_Return_User_To_Start_Position
     Application.ScreenUpdating = su_Prev
     Application.ScreenRefresh
     Unload Lp_Resize_Images_Form
@@ -23112,21 +23085,79 @@ eom:
 
 End Sub  '***** end of Lp_Resize_Images Macro *****
 
-' Scale every image in a collection, and that is the whole of what Resize Images does.
+' The in-line shapes Resize Selected Pictures (350) works on, or Nothing when the selection is not
+' one it works on. The ONE rule for "which pictures", asked by the Background and Picture Tools
+' button before the percent box opens and by Lp_Resize_Images again before it scales.
+'
+'   one clicked picture          that picture (Jerry, 10/14/2026: one picture counts)
+'   text dragged across          the pictures in it, a table's included
+'   rows or columns picked       the whole table - how a transcriber says "this table"
+'   a floating picture clicked   an EMPTY collection, so the user hears 397 (float over the
+'                                text, use All Pictures to Inline), not 142 (select a picture)
+'   anything else                Nothing: a bare cursor, in a table or not, or a block
+'                                (Alt+drag) selection
+'
+' Version: 1.0  Date: 10/14/2026
+Private Function Lp_Resize_Images_Pics() As InlineShapes
+    Select Case Selection.Type
+        Case wdSelectionInlineShape
+            Set Lp_Resize_Images_Pics = Selection.InlineShapes
+        Case wdSelectionNormal
+            Set Lp_Resize_Images_Pics = Selection.Range.InlineShapes
+        Case wdSelectionRow, wdSelectionColumn
+            Set Lp_Resize_Images_Pics = Selection.Tables(1).Range.InlineShapes
+        Case wdSelectionShape
+            ' a collapsed range at the anchor holds no in-line shape
+            Set Lp_Resize_Images_Pics = ActiveDocument.Range(Selection.Range.Start, _
+                                                             Selection.Range.Start).InlineShapes
+    End Select
+End Function  '***** end of Lp_Resize_Images_Pics *****
+
+' True when the selection holds at least one in-line PICTURE for Resize Selected Pictures (350);
+' otherwise it says why, and answers False. Called from the Background and Picture Tools button so
+' the user is told BEFORE typing a percent, not after.
+'
+' Version: 1.0  Date: 10/14/2026
+Public Function Lp_Resize_Images_Has_Pictures() As Boolean
+    Dim pics As InlineShapes
+    Dim s As InlineShape
+
+    Set pics = Lp_Resize_Images_Pics()
+    If pics Is Nothing Then
+        Sh_Say "Select the pictures you want to resize first - click one picture, or drag across " _
+             & "the part of the book that holds them." & vbCr & vbCr _
+             & "To resize every picture in the book, press Ctrl+A first.", "VistaType LP (142)"
+        Exit Function
+    End If
+
+    For Each s In pics
+        If Lp_Same_Pic_Is_Picture(s) Then
+            Lp_Resize_Images_Has_Pictures = True
+            Exit Function
+        End If
+    Next s
+
+    Sh_Say "There are no pictures in line with the text in what you selected." & vbCr & vbCr _
+         & "Resize Selected Pictures only changes pictures in line with the text. Pictures that " _
+         & "float over the text are left alone - use All Pictures to Inline first.", _
+           "VistaType LP (397)"
+End Function  '***** end of Lp_Resize_Images_Has_Pictures *****
+
+' Scale every PICTURE in a collection, then pull back inside the margins any that the scaling
+' pushed past them. That is the whole of what Resize Images does.
 '
 ' It takes an InlineShapes collection rather than a document or a range on purpose: the caller
-' decides what "which images" means - one selected image, a range of text, a table, the whole
-' document - and every one of those answers is an InlineShapes collection. That is what makes
-' the scratch document unnecessary.
+' decides what "which images" means, and every answer is an InlineShapes collection. That is what
+' makes the scratch document unnecessary.
 '
-' EVERYTHING in the collection is scaled, not only pictures: an OLE object or an equation among
-' them would be too. That is what the four separate loops this replaces did, and changing it is
-' not this change's business.
+' ONLY PICTURES, Jerry, 10/14/2026: an OLE object, an equation or a chart among them is left the
+' size it is. Before this they were scaled too.
 '
 ' A percentage of zero or less is refused rather than applied. The form will not offer one - it
 ' puts 50 back when the box holds less than 1 - but nothing else stood between a zero and an
 ' image scaled out of existence.
 '
+' Version: 2.0  Date: 10/14/2026 - pictures only, and each fitted inside its margins after scaling
 ' Version: 1.0  Date: 9/1/2026
 Private Sub Lp_Scale_Inline_Shapes(ByVal pics As InlineShapes, ByVal pct As Single)
     Dim i As Long
@@ -23135,12 +23166,78 @@ Private Sub Lp_Scale_Inline_Shapes(ByVal pics As InlineShapes, ByVal pct As Sing
     If pct <= 0 Then Exit Sub
 
     For i = 1 To pics.count
-        With pics(i)
-            .ScaleHeight = pct
-            .ScaleWidth = pct
-        End With
+        If Lp_Same_Pic_Is_Picture(pics(i)) Then
+            With pics(i)
+                .ScaleHeight = pct
+                .ScaleWidth = pct
+            End With
+            Lp_Fit_Inline_Shape_To_Margins pics(i)
+        End If
     Next i
 End Sub  '***** end of Lp_Scale_Inline_Shapes *****
+
+' Shrinks an in-line picture, keeping its shape, until it is no wider and no taller than the space
+' inside the margins of the section it sits in. A picture that already fits is not touched.
+'
+' THE PAGE MARGINS, NOT A TABLE CELL'S EDGES, Jerry, 10/14/2026 - in a table too. The gutter is
+' taken off the side it is on: the left in every VistaType LP template, the top if a book sets it
+' there.
+'
+' Width and Height are set in points, never ScaleWidth/ScaleHeight: Word keeps the scale as a whole
+' percent (measured 9/15/2026), and a percent rounded up could leave the picture a hair past the
+' margin it was fitted to.
+'
+' Version: 1.0  Date: 10/14/2026
+Private Sub Lp_Fit_Inline_Shape_To_Margins(ByVal s As InlineShape)
+    Dim availW As Single, availH As Single
+    Dim w As Single, h As Single
+    Dim f As Single
+
+    ' Abs: a negative top or bottom margin is Word's "exactly" margin, and the space it leaves is
+    ' the same as a positive one's.
+    With s.Range.Sections(1).PageSetup
+        availW = .PageWidth - Abs(.LeftMargin) - Abs(.RightMargin)
+        availH = .PageHeight - Abs(.TopMargin) - Abs(.BottomMargin)
+        If .GutterPos = wdGutterPosTop Then
+            availH = availH - .Gutter
+        Else
+            availW = availW - .Gutter
+        End If
+    End With
+
+    ' BOTH SIZES ARE READ BEFORE EITHER IS SET. With the aspect ratio locked, setting Width moves
+    ' Height with it, so reading Height afterwards and multiplying by f again shrank the picture
+    ' twice - found by review, 10/14/2026, before it reached anyone: an 800 pt picture in a 468 pt
+    ' text width came out about 274 pt. The ratio is unlocked while both are set, then locked.
+    w = s.Width
+    h = s.Height
+    f = Lp_Fit_Factor(w, h, availW, availH)
+    If f >= 1 Then Exit Sub
+
+    s.LockAspectRatio = msoFalse
+    s.Width = Int(w * f * 100) / 100
+    s.Height = Int(h * f * 100) / 100
+    s.LockAspectRatio = msoTrue
+End Sub  '***** end of Lp_Fit_Inline_Shape_To_Margins *****
+
+' How much a w by h picture must be multiplied by to fit inside availW by availH, keeping its shape:
+' 1 when it already fits, otherwise the smaller of the two ratios, so the side that is furthest
+' over decides. 1 as well for any size of zero or less - nothing sensible to fit, so nothing is
+' changed. Numbers in, a number out, so tests/vba can run it.
+'
+' Version: 1.0  Date: 10/14/2026
+Private Function Lp_Fit_Factor(ByVal w As Single, ByVal h As Single, _
+                               ByVal availW As Single, ByVal availH As Single) As Single
+    Dim f As Single
+
+    Lp_Fit_Factor = 1
+    If w <= 0 Or h <= 0 Or availW <= 0 Or availH <= 0 Then Exit Function
+
+    f = 1
+    If availW / w < f Then f = availW / w
+    If availH / h < f Then f = availH / h
+    Lp_Fit_Factor = f
+End Function  '***** end of Lp_Fit_Factor *****
 
 ' RESIZE THIS PICTURE THROUGHOUT THE BOOK WAS HERE, and it is gone - Jerry, 9/22/2026: "the new
 ' resize you've just completed can do the whole book if the whole book is selected." Its button is

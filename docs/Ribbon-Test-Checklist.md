@@ -259,8 +259,12 @@ somewhere else on purpose:
             - [ ] a picture with no description that cannot be read - dialog **383**
             - [ ] Esc closes the box (DoneButton carries Cancel = True in the designer; press it to be sure)
             - [ ] press Apply twice quickly on a long range - the second press is ignored, not run twice
-      - dialog **Lp Resize Images Form**
-          - [ ] Cmd Okay
+      - dialog **Resize Selected Pictures (350)** - a selection is required (Jerry, 10/14/2026)
+          - [ ] bare cursor, in text and in a table - message **142**, the box does not open
+          - [ ] text with no pictures, or a clicked floating picture - message **397**
+          - [ ] one clicked picture, a dragged stretch, table rows, and Ctrl+A - each resizes only the in-line pictures in it
+          - [ ] 600 - message **300**, nothing resized; "50%" typed with the sign works
+          - [ ] a large percent - each picture stops at the margins, wide ones at left/right and tall ones at top/bottom, none distorted; one Ctrl+Z undoes it
       - dialog **Lp Change Image Color Form**
           - [ ] Okay Button
       - dialog **LP Picture Alignment Form**

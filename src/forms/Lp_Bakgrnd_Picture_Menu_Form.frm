@@ -53,6 +53,12 @@ End Sub
 
 Private Sub ImageSizeButton_Click()
     Lp_Bakgrnd_Picture_Menu_Form.Hide
+    ' A selection holding a picture is required (Jerry, 10/14/2026), and asked for HERE, before
+    ' the percent box opens, so the transcriber is not asked for a percent and then refused.
+    If Not Lp_Resize_Images_Has_Pictures() Then
+        Unload Me
+        Exit Sub
+    End If
     Lp_Resize_Images_Form.Show
     Unload Lp_Resize_Images_Form
     Unload Me

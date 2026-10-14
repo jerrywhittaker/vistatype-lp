@@ -58,6 +58,10 @@ Public Sub VtRunAllTests()
     Set Suite = TestSamePicture_Suite()
     Reporter.ListenTo Suite
 
+    Reporter.Trace "building Resized pictures stay inside the margins"
+    Set Suite = TestResizePictures_Suite()
+    Reporter.ListenTo Suite
+
     Reporter.Trace "building The TOC box that stays open"
     Set Suite = TestTocBox_Suite()
     Reporter.ListenTo Suite
