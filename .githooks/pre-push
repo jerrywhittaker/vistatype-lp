@@ -107,8 +107,14 @@ scan_list=$(printf '%s\n' "$tracked" | grep -v '^\.githooks/pre-push$')
 
 # A full dotted quad, not a loose prefix. An earlier version used `10\.` and matched
 # every version number in the repo, which is how a warning becomes noise.
-ip_hits=$(printf '%s\n' "$scan_list" | xargs -r grep -nEIl -- \
-    '\b(192\.168\.[0-9]{1,3}\.[0-9]{1,3}|10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}|172\.(1[6-9]|2[0-9]|3[01])\.[0-9]{1,3}\.[0-9]{1,3})\b' 2>/dev/null | head -5)
+#
+# Known documentation examples are dropped by their exact wording, not by file, so a
+# real address added to the same file still warns. Jerry, 10/14/2026:
+#   docs/Build-VM-Setup.md - "(e.g. `192.168.1.50`)", a placeholder; the box is reached by name.
+ip_hits=$(printf '%s\n' "$scan_list" | xargs -r grep -nEIH -- \
+    '\b(192\.168\.[0-9]{1,3}\.[0-9]{1,3}|10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}|172\.(1[6-9]|2[0-9]|3[01])\.[0-9]{1,3}\.[0-9]{1,3})\b' 2>/dev/null \
+    | grep -vF '(e.g. `192.168.1.50`)' \
+    | cut -d: -f1 | sort -u | head -5)
 if [ -n "$ip_hits" ]; then
     echo "" >&2
     echo "  NOTE - a private-range IP address is committed." >&2
