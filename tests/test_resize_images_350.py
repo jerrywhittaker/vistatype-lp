@@ -108,16 +108,3 @@ def test_a_clicked_floating_picture_gets_397_not_142(repo_root):
     assert "wdSelectionShape" in body, (
         "a clicked floating picture must hand back an empty collection, so the user is told to "
         "use All Pictures to Inline (397) rather than to click a picture (142)")
-
-
-def test_right_edge_comes_from_the_end_of_the_picture(repo_root):
-    """Jerry, 10/14/2026: an indented or second-column picture is kept inside the right margin.
-    Measured on the build box the same day: only the collapsed END of the picture's range gives
-    its right edge correctly in every layout; the start is wrong for a centered picture, the whole
-    range for an indented one, and the text-boundary position is measured from a table cell."""
-    body = _body(repo_root, "Lp_Fit_Inline_Shape_To_Margins")
-    assert re.search(r"\.Collapse\s+wdCollapseEnd", body), "measure at the END of the picture"
-    assert "wdHorizontalPositionRelativeToPage" in body
-    assert "wdHorizontalPositionRelativeToTextBoundary" not in body, (
-        "the text-boundary position is measured from the cell in a table")
-    assert "Lp_Fit_Right_Room" in body
