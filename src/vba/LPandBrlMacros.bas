@@ -23177,25 +23177,43 @@ Private Sub Lp_Scale_Inline_Shapes(ByVal pics As InlineShapes, ByVal pct As Sing
 End Sub  '***** end of Lp_Scale_Inline_Shapes *****
 
 ' Shrinks an in-line picture, keeping its shape, until it is no wider and no taller than the space
-' inside the margins of the section it sits in. A picture that already fits is not touched.
+' inside the margins of the section it sits in, AND its right edge is inside the right margin from
+' wherever on the line it starts. A picture that already fits is not touched.
 '
 ' THE PAGE MARGINS, NOT A TABLE CELL'S EDGES, Jerry, 10/14/2026 - in a table too. The gutter is
 ' taken off the side it is on: the left in every VistaType LP template, the top if a book sets it
 ' there.
 '
+' FROM WHERE THE PICTURE STARTS, Jerry, 10/14/2026: a picture in an indented paragraph, after text
+' on its line, or in a table's second column is narrowed so its right edge stays inside the right
+' margin. Where the right edge IS comes from Word: the collapsed END of the picture's range,
+' Information(wdHorizontalPositionRelativeToPage). Measured on the build box, 10/14/2026, in eight
+' layouts in a plain book and a mirror-margin one - left, indented, after text, centered, table
+' columns 1 and 2, odd and even pages - it was right in every one. The START position was wrong
+' for a centered picture, the whole range's for an indented one, and the text-boundary position
+' is measured from the CELL in a table, so none of those is used. A picture that is centered
+' moves when it narrows, so the fit is measured again after each shrink, three times at most.
+'
 ' Width and Height are set in points, never ScaleWidth/ScaleHeight: Word keeps the scale as a whole
 ' percent (measured 9/15/2026), and a percent rounded up could leave the picture a hair past the
 ' margin it was fitted to.
 '
+' Version: 1.1  Date: 10/14/2026 - the right margin from where the picture starts
 ' Version: 1.0  Date: 10/14/2026
 Private Sub Lp_Fit_Inline_Shape_To_Margins(ByVal s As InlineShape)
     Dim availW As Single, availH As Single
+    Dim room As Single
     Dim w As Single, h As Single
     Dim f As Single
+    Dim pass As Long
+    Dim ps As PageSetup
+    Dim endAt As Range
+
+    Set ps = s.Range.Sections(1).PageSetup
 
     ' Abs: a negative top or bottom margin is Word's "exactly" margin, and the space it leaves is
     ' the same as a positive one's.
-    With s.Range.Sections(1).PageSetup
+    With ps
         availW = .PageWidth - Abs(.LeftMargin) - Abs(.RightMargin)
         availH = .PageHeight - Abs(.TopMargin) - Abs(.BottomMargin)
         If .GutterPos = wdGutterPosTop Then
@@ -23205,20 +23223,83 @@ Private Sub Lp_Fit_Inline_Shape_To_Margins(ByVal s As InlineShape)
         End If
     End With
 
-    ' BOTH SIZES ARE READ BEFORE EITHER IS SET. With the aspect ratio locked, setting Width moves
-    ' Height with it, so reading Height afterwards and multiplying by f again shrank the picture
-    ' twice - found by review, 10/14/2026, before it reached anyone: an 800 pt picture in a 468 pt
-    ' text width came out about 274 pt. The ratio is unlocked while both are set, then locked.
-    w = s.Width
-    h = s.Height
-    f = Lp_Fit_Factor(w, h, availW, availH)
-    If f >= 1 Then Exit Sub
+    For pass = 1 To 3
+        ' BOTH SIZES ARE READ BEFORE EITHER IS SET. With the aspect ratio locked, setting Width
+        ' moves Height with it, so reading Height afterwards and multiplying by f again shrank the
+        ' picture twice - found by review, 10/14/2026, before it reached anyone: an 800 pt picture
+        ' in a 468 pt text width came out about 274 pt. The ratio is unlocked while both are set.
+        w = s.Width
+        h = s.Height
 
-    s.LockAspectRatio = msoFalse
-    s.Width = Int(w * f * 100) / 100
-    s.Height = Int(h * f * 100) / 100
-    s.LockAspectRatio = msoTrue
+        Set endAt = s.Range.Duplicate
+        endAt.Collapse wdCollapseEnd
+        room = Lp_Fit_Right_Room(endAt.Information(wdHorizontalPositionRelativeToPage), w, _
+                                 ps.PageWidth, Abs(ps.LeftMargin), Abs(ps.RightMargin), _
+                                 ps.Gutter, (ps.GutterPos = wdGutterPosTop), ps.MirrorMargins, _
+                                 Lp_Fit_Even_Page(endAt))
+
+        f = Lp_Fit_Factor(w, h, availW, availH)
+        If room > 0 And room < availW Then
+            If Lp_Fit_Factor(w, h, room, availH) < f Then f = Lp_Fit_Factor(w, h, room, availH)
+        End If
+        If f >= 1 Then Exit For
+
+        s.LockAspectRatio = msoFalse
+        s.Width = Int(w * f * 100) / 100
+        s.Height = Int(h * f * 100) / 100
+        s.LockAspectRatio = msoTrue
+    Next pass
 End Sub  '***** end of Lp_Fit_Inline_Shape_To_Margins *****
+
+' True when the page r is on counts as EVEN for mirror margins - its inside margin and gutter on
+' the right.
+'
+' THE PRINTED PAGE NUMBER, which is what Word goes by. Measured on the build box, 10/14/2026: with
+' mirror margins on, a section that restarts its numbering on a page of the wrong parity gets a
+' blank page put in front of it by Word, so the printed number and the page's place in the book
+' are always both odd or both even, and either would do. Front matter numbered i, ii, iii and a
+' body restarting at 1 is the case that made this worth measuring.
+'
+' Version: 1.0  Date: 10/14/2026
+Private Function Lp_Fit_Even_Page(ByVal r As Range) As Boolean
+    Lp_Fit_Even_Page = (r.Information(wdActiveEndAdjustedPageNumber) Mod 2 = 0)
+End Function  '***** end of Lp_Fit_Even_Page *****
+
+' The room, in points, from a picture's LEFT edge to the right margin of its page: how wide it may
+' be and still end inside the margin. rightEdgeX is the picture's right edge from the page's left
+' edge, as Word gives it; picW its width. -1 when Word gave no position (rightEdgeX below zero),
+' so the caller falls back to the width between the margins.
+'
+' Where the right margin is:
+'   no mirror margins            PageWidth - RightMargin; a gutter is on the left or the top
+'   mirror, an odd page          PageWidth - RightMargin; RightMargin is the OUTSIDE one
+'   mirror, an even page         PageWidth - LeftMargin - Gutter; the inside is on the right
+'                                (no gutter there when it is at the top)
+' Measured, 10/14/2026, Letter, both margins 72, gutter 36, mirror: text started at 108 on odd
+' pages and 72 on even ones, which is what these give.
+'
+' Numbers in, a number out, so tests/vba can run it.
+'
+' Version: 1.0  Date: 10/14/2026
+Private Function Lp_Fit_Right_Room(ByVal rightEdgeX As Single, ByVal picW As Single, _
+                                   ByVal pageW As Single, ByVal leftM As Single, _
+                                   ByVal rightM As Single, ByVal gutter As Single, _
+                                   ByVal gutterTop As Boolean, ByVal mirror As Boolean, _
+                                   ByVal evenPage As Boolean) As Single
+    Dim rightLimit As Single
+
+    Lp_Fit_Right_Room = -1
+    If rightEdgeX < 0 Then Exit Function
+
+    If mirror And evenPage Then
+        rightLimit = pageW - leftM
+        If Not gutterTop Then rightLimit = rightLimit - gutter
+    Else
+        rightLimit = pageW - rightM
+    End If
+
+    Lp_Fit_Right_Room = rightLimit - (rightEdgeX - picW)
+End Function  '***** end of Lp_Fit_Right_Room *****
 
 ' How much a w by h picture must be multiplied by to fit inside availW by availH, keeping its shape:
 ' 1 when it already fits, otherwise the smaller of the two ratios, so the side that is furthest
