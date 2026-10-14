@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_Selected_Cleanup_Form 
    Caption         =   "Selected Cleanup (352)"
-   ClientHeight    =   9012.001
+   ClientHeight    =   9525.001
    ClientLeft      =   120
    ClientTop       =   450
    ClientWidth     =   8310.001
@@ -13,6 +13,7 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
+
 
 ' Lp_Selected_Cleanup_Form
 '
