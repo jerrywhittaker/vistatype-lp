@@ -578,13 +578,16 @@ Worth knowing about the route in: the Selection Cleanup forms run `Lp_Is_Text_Se
 every option, which stops with "Text must be selected first!" and `End` when the selection is
 not document text — so with only shapes ctrl-clicked, that button cannot reach this macro at all.
 
-## Still never tested: grouped shapes
+## Grouped shapes: tested by hand, 10/14/2026
 
 Word refuses to group shapes programmatically in a headless instance ("Grouping is disabled for
-the selected shapes"), so the `msoGroup` / `Ungroup` branch of `Sh_Remove_Txt_Bxs_And_Frames` has
-never run under test. It is the braille code unchanged, but from 3.0.170 it is reached from the
-LARGE-PRINT side too, where it had never run before. The case: two text boxes, grouped, cleaned
-from the VistaType LP tab.
+the selected shapes"), so the `msoGroup` / `Ungroup` branch of `Sh_Remove_Txt_Bxs_And_Frames`
+cannot run under the automated tests. From 3.0.170 it is reached from the LARGE-PRINT side too.
+
+Jerry tested it by hand on 3.0.571: he grouped two text boxes and ran LP Selected Cleanup (352)
+> text boxes and frames over the whole document. The group was ungrouped and the text was taken
+out of both boxes. Issue #11, closed. To repeat it: Word will not group text boxes that sit
+In Line with Text, so set them to In Front of Text first.
 
 ## The helpers underneath
 
