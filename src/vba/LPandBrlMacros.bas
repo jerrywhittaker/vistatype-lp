@@ -18,7 +18,12 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Lp  - 10/14/2026 - RESIZE SELECTED PICTURES (350) (Jerry). A selection is
+' Notes:    - Sh  - 10/16/2026 - VALIDATE REFERENCE PAGE TAGS (367): the "Validate Using Word's
+'           - Sh  - 10/16/2026 - Navigation Pane" button is gone, and its SendKeys code with it
+'           - Sh  - 10/16/2026 - (Jerry). Copying the tags to a temporary document is the only
+'           - Sh  - 10/16/2026 - route. VALIDATION OVERVIEW (360): Jerry made it shorter, so its
+'           - Sh  - 10/16/2026 - bottom can be reached, and rewrote its text for the one route.
+'           - Lp  - 10/14/2026 - RESIZE SELECTED PICTURES (350) (Jerry). A selection is
 '           - Lp  - 10/14/2026 - required - one clicked picture counts; a bare cursor, in a
 '           - Lp  - 10/14/2026 - table or not, is refused (142) before the percent box opens,
 '           - Lp  - 10/14/2026 - and a selection with no in-line picture says so (397). The
@@ -1780,6 +1785,8 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - Sh - 8/23/2026 - over an empty list, which is what a Copy with nothing found used to produce.
 '           - Sh - 8/23/2026 - The OTHER validation route, the Navigation pane one, still uses SendKeys and is left
 '           - Sh - 8/23/2026 - alone - what it opens is the Navigation pane, which is meant to be seen.
+'           - Sh - 10/16/2026 - No longer true: that Navigation pane route is gone. Jerry removed its button
+'           - Sh - 10/16/2026 - from 367, so the temp-file route is the only validation.
 '           - Sh - 8/23/2026 - Tested on the build box: 4 tagged paragraphs out of 7, the red on the tags intact, the
 '           - Sh - 8/23/2026 - source document unchanged, and Selection left as a plain insertion point.
 '

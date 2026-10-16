@@ -1,10 +1,10 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Sh_Validation_Choices_Form 
    Caption         =   "Validate Reference Page Tags (367)"
-   ClientHeight    =   4968
+   ClientHeight    =   3405
    ClientLeft      =   120
    ClientTop       =   465
-   ClientWidth     =   6135
+   ClientWidth     =   6270
    OleObjectBlob   =   "Sh_Validation_Choices_Form.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
@@ -13,6 +13,9 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
+' Version: 1.4  Date: 10/16/2026 - removed the "Validate Using Word's Navigation Pane" button and
+'                                  its code; Jerry dropped the Navigation pane route, so the
+'                                  temp-file route is the only way to validate (Jerry)
 ' Version: 1.3  Date: 8/23/2026 - the temp-file route no longer drives Find and Replace with
 '                                 SendKeys, so the dialog cannot flash on screen (Jerry)
 ' Version: 1.2  Date: 2/12/2024 - added code to place reference page tags in 3 column temp doc
@@ -21,20 +24,6 @@ Attribute VB_Exposed = False
 ' Author: Jerry Whittaker  jerry@vistatypelp.org
 
 Private Sub CancelButton_Click()
-    Unload Me
-End Sub
-
-Private Sub NavigationButton_Click()
-    ActiveWindow.DocumentMap = True
-    Selection.Find.ClearFormatting
-    Selection.HomeKey Unit:=wdStory
-    
-    With Selection.Find
-            .Text = "$pg"
-    End With
-
-    Sh_SetBarVisible "Navigation", True
-    SendKeys "^" + "f" + "{right}{Enter}{right}{right}{right}"  'Turn on navigation pane and set up search
     Unload Me
 End Sub
 
