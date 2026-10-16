@@ -11,6 +11,13 @@ Private Sh_PgVal_SourceDoc As Document      ' the document being validated
 Private Sh_PgVal_LastParaStart As Long      ' character start of the tag last worked from
 Private Sh_PgVal_TitleText As String        ' "VistaType LP" or "Braille Macros"
 
+' Where each entry of the tag list came from in the book: one Range per entry, in list order, made
+' when the list was built (10/16/2026). Word moves a Range along as the book is edited, so Locate
+' can go to the very tag an entry stands for - the second copy of a page that is there twice, or an
+' EBAE "$pg[[*ii*]]v" whose only visible text is "$pg" - where searching for the text would land
+' on the first match. No bookmarks, so nothing is left behind in the book. Emptied by Done.
+Private Sh_PgVal_Sources As Collection
+
 ' Which menu is on screen: 0 none, 2 Sh_Valid_Ref_Pg_No_2_Form (the tag list), 4
 ' Sh_Valid_Ref_Pg_No_4_Form (the document being validated). Tracked rather than asked, because
 ' READING .Visible ON AN UNLOADED FORM LOADS IT - touching any member of a UserForm's default
@@ -308,10 +315,13 @@ End Sub
 '=========================================================================================
 
 ' Called by Sh_Copy_Ref_Pg_Tags_To_Temp_File once the list document exists.
+'
+' Version: 1.1  Date: 10/16/2026 - takes Sources, where each list entry came from in the book
 Public Sub Sh_PgVal_Start(ByVal SourceDoc As Document, ByVal TempDoc As Document, _
-                          ByVal TitleText As String)
+                          ByVal TitleText As String, ByVal Sources As Collection)
     Set Sh_PgVal_SourceDoc = SourceDoc
     Set Sh_PgVal_TempDoc = TempDoc
+    Set Sh_PgVal_Sources = Sources
     Sh_PgVal_TitleText = TitleText
     Sh_PgVal_LastParaStart = -1
     Sh_PgVal_BindKeys
@@ -320,25 +330,37 @@ Public Sub Sh_PgVal_Start(ByVal SourceDoc As Document, ByVal TempDoc As Document
 End Sub
 
 ' --- form 2 (temp document): "Locate the selected $pg code in the Document" ---------------
+'
+' Version: 1.1  Date: 10/16/2026 - on a warning line (or the count at the top) it locates the entry
+'                                 below it; and it goes to the very tag the entry came from, using
+'                                 the Range kept when the list was built, before falling back to
+'                                 searching the book for the text
 Public Sub Sh_PgVal_LocateInDocument()
     Dim TagText As String
     Dim Hit As Range
+    Dim tagPara As Range
 
     If Not Sh_PgVal_Ready() Then Exit Sub
 
     Sh_PgVal_TempDoc.Activate
+    Set tagPara = Sh_PgVal_TagParaAtCursor()
     TagText = Sh_PgVal_TextOfCurrentTag()
 
-    If Len(TagText) = 0 Then
+    If Len(TagText) = 0 Or tagPara Is Nothing Then
         MsgBox "Click anywhere on the line holding the $pg tag you want to find, " _
              & "then press this button again.", vbInformation, Sh_PgVal_TitleText & " (368)"
         Exit Sub
     End If
 
-    'Remember where we are in the list BEFORE leaving, so Return can move on from here.
-    Sh_PgVal_LastParaStart = Selection.Paragraphs(1).Range.start
+    'Remember where we are in the list BEFORE leaving, so Return can move on from here. The
+    'entry's line, not the cursor's: on a warning line the two differ, and Return must go on
+    'from the entry.
+    Sh_PgVal_LastParaStart = tagPara.start
 
-    Set Hit = Sh_PgVal_FindInSource(TagText)
+    'The very tag this entry came from, if it is still there and still reads the same. Otherwise
+    'search the book for the text, as before.
+    Set Hit = Sh_PgVal_StoredHit(Sh_PgVal_EntryNumber(tagPara), TagText)
+    If Hit Is Nothing Then Set Hit = Sh_PgVal_FindInSource(TagText)
 
     If Hit Is Nothing Then
         MsgBox "This tag is in the list but was not found in the document:" _
@@ -356,6 +378,9 @@ Public Sub Sh_PgVal_LocateInDocument()
 End Sub
 
 ' --- form 4 (source document): "Return to the validation document" ------------------------
+'
+' Version: 1.1  Date: 10/16/2026 - steps over the warning lines and the count at the top, so it
+'                                 always lands on the next ENTRY
 Public Sub Sh_PgVal_ReturnToTempAndAdvance()
     Dim p As Paragraph
     Dim NextPara As Paragraph
@@ -365,12 +390,15 @@ Public Sub Sh_PgVal_ReturnToTempAndAdvance()
     Sh_PgVal_TempDoc.Activate
 
     'The next NON-EMPTY line after the one we last worked from. The list is built by pasting
-    'a Find-All selection, so blank paragraphs can turn up between entries.
+    'a Find-All selection, so blank paragraphs can turn up between entries. Not a warning line
+    'or the count either (10/16/2026): those are about an entry, and the entry is what to land on.
     For Each p In Sh_PgVal_TempDoc.Paragraphs
         If p.Range.start > Sh_PgVal_LastParaStart Then
             If Len(Trim$(Replace(p.Range.Text, Chr(13), ""))) > 0 Then
-                Set NextPara = p
-                Exit For
+                If Not Sh_PgVal_Is_Note_Line(p.Range.Text) Then
+                    Set NextPara = p
+                    Exit For
+                End If
             End If
         End If
     Next p
@@ -390,6 +418,8 @@ Public Sub Sh_PgVal_ReturnToTempAndAdvance()
 End Sub
 
 ' --- either form: "Done - Exit validation" ------------------------------------------------
+'
+' Version: 1.1  Date: 10/16/2026 - lets go of the kept Ranges (Sh_PgVal_Sources) as well
 Public Sub Sh_PgVal_Done()
     On Error Resume Next
 
@@ -424,6 +454,7 @@ Public Sub Sh_PgVal_Done()
 
     Set Sh_PgVal_TempDoc = Nothing
     Set Sh_PgVal_SourceDoc = Nothing
+    Set Sh_PgVal_Sources = Nothing
     Sh_PgVal_LastParaStart = -1
 End Sub
 
@@ -812,8 +843,83 @@ Private Sub Sh_PgVal_CursorToTopOfList()
     Sh_Keep_Cursor_In_View
 End Sub
 
-' Text of the paragraph the cursor sits in, stripped of the paragraph mark. Deliberately the
-' whole paragraph rather than the selection, so clicking anywhere on the line is enough.
+' The list entry the cursor is on. Usually the line the cursor sits in; but on a warning line, or
+' on the count at the top, it is the next line below that is an entry - so Locate on
+' "217 twice" goes to that second 217. Nothing when there is no entry below.
+'
+' Version: 1.0  Date: 10/16/2026
+Private Function Sh_PgVal_TagParaAtCursor() As Range
+    Dim para As Range
+    Dim p As Paragraph
+
+    On Error Resume Next
+    Set para = Selection.Paragraphs(1).Range
+    If para Is Nothing Then Exit Function
+
+    If Not Sh_PgVal_Is_Note_Line(para.Text) Then
+        Set Sh_PgVal_TagParaAtCursor = para
+        Exit Function
+    End If
+
+    Set p = para.Paragraphs(1).Next
+    Do While Not p Is Nothing
+        If Len(Trim$(Replace(Replace(p.Range.Text, Chr(13), ""), Chr(7), ""))) > 0 Then
+            If Not Sh_PgVal_Is_Note_Line(p.Range.Text) Then
+                Set Sh_PgVal_TagParaAtCursor = p.Range
+                Exit Function
+            End If
+        End If
+        Set p = p.Next
+    Loop
+End Function
+
+' Which entry of the list tagPara is: 1 for the first, counting only entries - not blank lines,
+' warning lines or the count at the top. The same order the Ranges in Sh_PgVal_Sources were kept in.
+'
+' Version: 1.0  Date: 10/16/2026
+Private Function Sh_PgVal_EntryNumber(ByVal tagPara As Range) As Long
+    Dim p As Paragraph
+    Dim n As Long
+
+    On Error Resume Next
+    For Each p In Sh_PgVal_TempDoc.Paragraphs
+        If p.Range.start >= tagPara.start Then Exit For
+        If Len(Trim$(Replace(Replace(p.Range.Text, Chr(13), ""), Chr(7), ""))) > 0 Then
+            If Not Sh_PgVal_Is_Note_Line(p.Range.Text) Then n = n + 1
+        End If
+    Next p
+    Sh_PgVal_EntryNumber = n + 1
+End Function
+
+' The tag entry number entryNo came from, as kept when the list was built - but only if it is still
+' there and still begins with TagText. If the transcriber has deleted or changed the tag, or edited
+' the list so the count no longer lines up, the answer is Nothing and Locate searches for the text
+' instead, as it always did.
+'
+' Version: 1.0  Date: 10/16/2026
+Private Function Sh_PgVal_StoredHit(ByVal entryNo As Long, ByVal TagText As String) As Range
+    Dim r As Range
+
+    On Error GoTo Gone
+    If Sh_PgVal_Sources Is Nothing Then Exit Function
+    If entryNo < 1 Or entryNo > Sh_PgVal_Sources.Count Then Exit Function
+    If Len(TagText) = 0 Then Exit Function
+
+    Set r = Sh_PgVal_Sources.Item(entryNo)
+    If r.End <= r.start Then Exit Function
+    If StrComp(Left$(r.Text, Len(TagText)), TagText, vbBinaryCompare) <> 0 Then Exit Function
+
+    Set Sh_PgVal_StoredHit = r.Duplicate
+    Exit Function
+Gone:
+    Set Sh_PgVal_StoredHit = Nothing
+End Function
+
+' Text of the entry the cursor is on (Sh_PgVal_TagParaAtCursor), stripped of the paragraph mark.
+' Deliberately the whole paragraph rather than the selection, so clicking anywhere on the line is
+' enough.
+'
+' Version: 1.1  Date: 10/16/2026 - reads the entry below a warning line, not the warning itself
 Private Function Sh_PgVal_TextOfCurrentTag() As String
     Dim s As String
     Dim ch As Range
@@ -845,13 +951,12 @@ Private Function Sh_PgVal_TextOfCurrentTag() As String
     ' The leading visible run is "$pg12-14" - the tag and the page number, which is exactly what
     ' identifies the entry, and contiguous in the book.
     '
-    ' THE WEAK ONE, and it is worth knowing about: the EBAE lower-roman case inserts
-    ' "$pg[[*ii*]]" ahead of the number, so the leading visible run is the bare tag "$pg" and
-    ' Locate will land on the FIRST tag in the document rather than this one. That is no worse
-    ' than it was - before this, the search string carried hidden characters and found nothing at
-    ' all - but it is not right either. Curing it means either searching across the hidden gap
-    ' (which Find cannot do) or remembering where each entry came from when the list is built.
-    Set para = Selection.Paragraphs(1).Range
+    ' THE WEAK ONE: the EBAE lower-roman case inserts "$pg[[*ii*]]" ahead of the number, so the
+    ' leading visible run is the bare tag "$pg", and a SEARCH for it lands on the first tag in the
+    ' book. Cured 10/16/2026 by remembering where each entry came from when the list is built -
+    ' Locate goes there first (Sh_PgVal_StoredHit) and only searches when that has gone.
+    Set para = Sh_PgVal_TagParaAtCursor()
+    If para Is Nothing Then Exit Function
     For Each ch In para.Characters
         If ch.Font.Hidden Then Exit For
         s = s & ch.Text

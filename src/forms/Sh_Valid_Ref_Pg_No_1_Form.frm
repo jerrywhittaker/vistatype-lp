@@ -45,6 +45,11 @@ Private Sub UserForm_Initialize()
     Directions.Caption = "Use F6 or Shift+F6 to move between the document and the action menu." _
     & vbCrLf & vbCrLf & "This is a temporary document to facilitate validation of the '$pg' reference page tags." _
     & " This document can be closed without saving when the validation is complete by selecting the 'Done - Exit validation' button." _
+    & vbCrLf & vbCrLf & "VistaType LP checks the tags as it makes this list. The first line says how many possible problems it found." _
+    & " Each one is a red line starting with " & ChrW(9658) & ", just above the tag it is about " & ChrW(8212) _
+    & " for example """ & ChrW(9658) & " 218-219 missing"" or """ & ChrW(9658) & " 17 twice""." _
+    & " Put the cursor on a " & ChrW(9658) & " line and click 'Locate the selected $pg code in the Document' to go straight to that tag." _
+    & " Please still read the whole list: the checks catch the common faults, not every one." _
     & vbCrLf & vbCrLf & "Use Up/Down arrow keys to move the cursor to the $pg item to be located in the document then click the " _
     & "'Locate the selected $pg code in the Document' button." _
     & vbCrLf & vbCrLf & "To add a missing $pg tag, select the $pg tag preceding the missing tag, " _

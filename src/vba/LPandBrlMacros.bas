@@ -18,7 +18,20 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Sh  - 10/16/2026 - VALIDATE REFERENCE PAGE TAGS (367): the "Validate Using Word's
+' Notes:    - Lp  - 10/16/2026 - AUTOTAG REF PAGES: the "letter, hyphen, letter" pass had lost its
+'           - Lp  - 10/16/2026 - hyphen, so any paragraph made only of letters ("Introduction") could
+'           - Lp  - 10/16/2026 - be tagged $pg. The hyphen is back, as in braille (issue #35).
+'           - Sh  - 10/16/2026 - THE $pg LIST IS CHECKED (Jerry). Validate Reference Page Tags reads
+'           - Sh  - 10/16/2026 - every tag as it builds the list and puts a short red line, starting
+'           - Sh  - 10/16/2026 - with a pointer mark, ahead of any entry that looks wrong: a gap, a
+'           - Sh  - 10/16/2026 - big jump, a page twice, a page out of order, a lettered page out of
+'           - Sh  - 10/16/2026 - place, a continuation number that does not end the range, a tag that
+'           - Sh  - 10/16/2026 - is not a page number, a range over 5 pages. A count goes at the top.
+'           - Sh  - 10/16/2026 - New: Sh_PgVal_Parse, Sh_PgVal_Check and their helpers. Locate on a
+'           - Sh  - 10/16/2026 - warning line goes to the entry below it, Return steps over them, and
+'           - Sh  - 10/16/2026 - Locate goes to the very tag the entry came from, so the second copy
+'           - Sh  - 10/16/2026 - of a page found twice, and an EBAE [[*ii*]] page, are found right.
+'           - Sh  - 10/16/2026 - VALIDATE REFERENCE PAGE TAGS (367): the "Validate Using Word's
 '           - Sh  - 10/16/2026 - Navigation Pane" button is gone, and its SendKeys code with it
 '           - Sh  - 10/16/2026 - (Jerry). Copying the tags to a temporary document is the only
 '           - Sh  - 10/16/2026 - route. VALIDATION OVERVIEW (360): Jerry made it shorter, so its
@@ -13924,6 +13937,10 @@ End Function   '*** end of Lp_Is_Hyphen_Char function ***
 
 Sub Lp_AutoTag_Page_Numbers()
 '
+' Version: 3.0  Date: 10/16/2026 - the "letter, hyphen, letter" pass had lost its hyphen (^045), so it
+'                                would have tagged any paragraph made only of letters - "Introduction",
+'                                "Contents" - as a page number. The hyphen is back, as in the braille
+'                                pass (issue #35)
 ' Version: 2.9  Date: 10/7/2026 - formatting marks are on for the tagging passes and put back after,
 '                                so a page number whose paragraph mark is hidden is not missed (found
 '                                in the braille AutoTag, which uses the same passes)
@@ -14200,7 +14217,7 @@ LoopEnd:
     Selection.Find.ClearFormatting
     Selection.Find.Replacement.ClearFormatting
     With Selection.Find
-       .Text = "^013([A-Za-z]{1,})([A-Za-z]{1,})^013"
+       .Text = "^013([A-Za-z]{1,}^045)([A-Za-z]{1,})^013"
         .Replacement.Text = "^p$pg\1\2^p"
         .Forward = True
         .Wrap = wdFindContinue
@@ -33061,6 +33078,10 @@ End Sub   '*** end of Sh_Clear_Multi_Selection macro ***
 ' pause, leaves no selection - and never touches the clipboard, so whatever the transcriber had
 ' copied is still there when she finishes.
 '
+' Version: 1.6  Date: 10/16/2026 - the list arrives CHECKED: a count of possible problems at the
+'                                 top and a red line ahead of each entry that looks wrong
+'                                 (Sh_PgVal_Check), and Locate is handed where each entry came
+'                                 from in the book, so it goes to that very tag (Jerry)
 ' Version: 1.5  Date: 9/17/2026 - the BRAILLE list is set in Times New Roman 14, the face and the
 '                                 size a braille book is itself set in, so the list and the book
 '                                 read alike side by side (Jerry). Large print keeps Tahoma 12
@@ -33082,6 +33103,7 @@ Sub Sh_Copy_Ref_Pg_Tags_To_Temp_File()
     Dim tmpDoc As Document
     Dim srcDoc As Document
     Dim tagCount As Long
+    Dim sources As Collection
 
     'The document being validated, captured before Documents.Add makes the list active.
     Set srcDoc = ActiveDocument
@@ -33145,7 +33167,9 @@ Sub Sh_Copy_Ref_Pg_Tags_To_Temp_File()
         .RightMargin = InchesToPoints(0.5)
     End With
 
-    tagCount = Sh_PgVal_Copy_Tags_Into(srcDoc, tmpDoc, lineMax)
+    ' Where each entry came from in the book, in list order - for Locate.
+    Set sources = New Collection
+    tagCount = Sh_PgVal_Copy_Tags_Into(srcDoc, tmpDoc, lineMax, sources)
 
     ' Nothing tagged. Say so and take the empty list away again, rather than opening a validation
     ' over a blank document - which is what the old route did, silently, because a Copy with
@@ -33185,7 +33209,7 @@ Sub Sh_Copy_Ref_Pg_Tags_To_Temp_File()
     'The Alt+Tab instructions that used to live here are exactly what the helper replaces: it
     'walks the user down the list, finds each tag in the document, and brings them back to
     'the next one. Sh_Valid_Ref_Pg_No_1_Form still carries the directions, on demand.
-    Sh_PgVal_Start srcDoc, tmpDoc, MsgBoxLabel
+    Sh_PgVal_Start srcDoc, tmpDoc, MsgBoxLabel, sources
 
 End Sub   '*** end of Sh_Copy_Ref_Pg_Tags_To_Temp_File macro ***
 
@@ -33218,13 +33242,22 @@ End Sub   '*** end of Sh_Copy_Ref_Pg_Tags_To_Temp_File macro ***
 ' The end-of-cell marker is left behind on purpose. A cell's last paragraph ends Chr(13) then
 ' Chr(7), and carrying the Chr(7) into the list would build a TABLE in it.
 '
+' THE LIST IS CHECKED AS IT IS BUILT (Jerry, 10/16/2026). So the work is done in three steps:
+' find every tag, check them all with Sh_PgVal_Check (which needs the whole list to say what is
+' missing), and only then write the list. A warning goes in as its own red, bold paragraph AHEAD
+' of the entry it is about, and a count goes at the very top. Each entry's place in the book is
+' added to sources, in list order, so Locate can go to that very tag rather than to the first
+' tag with the same text.
+'
+' Version: 1.4  Date: 10/16/2026 - checks the tags and writes the warnings and the count into the
+'                                  list; keeps each entry's place in the book in sources (Jerry)
 ' Version: 1.3  Date: 9/9/2026 - walks the paragraphs; a Find range starting inside a table never advances
 ' Version: 1.2  Date: 8/26/2026 - the cut is at 40 characters, not 23 - the list is no longer in columns
 ' Version: 1.1  Date: 8/23/2026 - a line longer than 23 characters is cut and given an ellipsis
 ' Version: 1.0  Date: 8/23/2026
 '
 Private Function Sh_PgVal_Copy_Tags_Into(ByVal srcDoc As Document, ByVal tmpDoc As Document, _
-                                         ByVal maxLine As Long) As Long
+                                         ByVal maxLine As Long, ByVal sources As Collection) As Long
     Dim par As Paragraph
     Dim parTxt As String
     Dim outRng As Range
@@ -33235,10 +33268,19 @@ Private Function Sh_PgVal_Copy_Tags_Into(ByVal srcDoc As Document, ByVal tmpDoc 
     Dim lineLen As Long
     Dim cut As Long
     Dim lineTxt As String
+    Dim starts() As Long
+    Dim ends() As Long
+    Dim texts() As String
+    Dim warnings As Variant
+    Dim problems As Long
+    Dim i As Long
+    Dim w As Variant
 
-    Set outRng = tmpDoc.Content
-    outRng.Collapse Direction:=wdCollapseEnd
+    ReDim starts(1 To 64)
+    ReDim ends(1 To 64)
+    ReDim texts(1 To 64)
 
+    ' --- 1. Find every tag. Nothing is written yet - the checks need the whole list first ---
     For Each par In srcDoc.Paragraphs
         parTxt = par.Range.Text
         at = InStr(1, parTxt, "$pg", vbBinaryCompare)
@@ -33263,38 +33305,595 @@ Private Function Sh_PgVal_Copy_Tags_Into(ByVal srcDoc As Document, ByVal tmpDoc 
                 tagStart = par.Range.start
             End If
 
-            ' The run ends WITH the paragraph mark. The text of the line is therefore one
-            ' character shorter than the run.
-            lineLen = tagEnd - tagStart - 1
-            cut = maxLine
-
-            If lineLen <= cut Then
-                outRng.FormattedText = srcDoc.Range(tagStart, tagEnd).FormattedText
-                outRng.Collapse Direction:=wdCollapseEnd
-            Else
-                ' Do not cut in the middle of a run of spaces - "$pg12 Chapter ..." reads better
-                ' than "$pg12 Chapter   ...". Back up over them, never past the first character.
-                lineTxt = srcDoc.Range(tagStart, tagStart + cut).Text
-                Do While cut > 1
-                    If Mid$(lineTxt, cut, 1) <> " " Then Exit Do
-                    cut = cut - 1
-                Loop
-
-                ' The kept part with its formatting - the red on the tag among it - then the
-                ' ellipsis and a paragraph mark of its own, because the mark was cut off with the
-                ' rest of the line.
-                outRng.FormattedText = srcDoc.Range(tagStart, tagStart + cut).FormattedText
-                outRng.Collapse Direction:=wdCollapseEnd
-                outRng.InsertAfter SH_PGVAL_ELLIPSIS & vbCr
-                outRng.Collapse Direction:=wdCollapseEnd
-            End If
-
             moved = moved + 1
+            If moved > UBound(starts) Then
+                ReDim Preserve starts(1 To 2 * UBound(starts))
+                ReDim Preserve ends(1 To UBound(starts))
+                ReDim Preserve texts(1 To UBound(starts))
+            End If
+            starts(moved) = tagStart
+            ends(moved) = tagEnd
+            ' The text from the tag on, hidden Duxbury codes and all - Sh_PgVal_Parse reads past them.
+            texts(moved) = Mid$(parTxt, at)
         End If
     Next par
 
+    If moved = 0 Then Exit Function
+
+    ' --- 2. Check them. One warning line per problem, so the count is of lines ---
+    ReDim Preserve texts(1 To moved)
+    warnings = Sh_PgVal_Check(texts)
+    For i = 1 To moved
+        If Len(warnings(i)) > 0 Then problems = problems + UBound(Split(warnings(i), vbCr)) + 1
+    Next i
+
+    ' --- 3. Write the list: the count, then each entry with its warnings ahead of it ---
+    Set outRng = tmpDoc.Content
+    outRng.Collapse Direction:=wdCollapseEnd
+
+    Sh_PgVal_Write_Note outRng, Sh_PgVal_Summary_Text(problems), (problems > 0)
+
+    For i = 1 To moved
+        If Len(warnings(i)) > 0 Then
+            For Each w In Split(warnings(i), vbCr)
+                Sh_PgVal_Write_Note outRng, CStr(w), True
+            Next w
+        End If
+
+        tagStart = starts(i)
+        tagEnd = ends(i)
+
+        ' The run ends WITH the paragraph mark. The text of the line is therefore one
+        ' character shorter than the run.
+        lineLen = tagEnd - tagStart - 1
+        cut = maxLine
+
+        If lineLen <= cut Then
+            outRng.FormattedText = srcDoc.Range(tagStart, tagEnd).FormattedText
+            outRng.Collapse Direction:=wdCollapseEnd
+        Else
+            ' Do not cut in the middle of a run of spaces - "$pg12 Chapter ..." reads better
+            ' than "$pg12 Chapter   ...". Back up over them, never past the first character.
+            lineTxt = srcDoc.Range(tagStart, tagStart + cut).Text
+            Do While cut > 1
+                If Mid$(lineTxt, cut, 1) <> " " Then Exit Do
+                cut = cut - 1
+            Loop
+
+            ' The kept part with its formatting - the red on the tag among it - then the
+            ' ellipsis and a paragraph mark of its own, because the mark was cut off with the
+            ' rest of the line.
+            outRng.FormattedText = srcDoc.Range(tagStart, tagStart + cut).FormattedText
+            outRng.Collapse Direction:=wdCollapseEnd
+            outRng.InsertAfter SH_PGVAL_ELLIPSIS & vbCr
+            outRng.Collapse Direction:=wdCollapseEnd
+        End If
+
+        ' Where this entry came from. Word moves a Range along as the book is edited, so this
+        ' still points at the same tag after the transcriber has fixed others above it.
+        sources.Add srcDoc.Range(tagStart, tagEnd)
+    Next i
+
     Sh_PgVal_Copy_Tags_Into = moved
 End Function   '*** end of Sh_PgVal_Copy_Tags_Into ***
+
+' One line of its own in the validation list - the count at the top, or a warning - in bold,
+' red when it reports a problem. outRng is a collapsed range at the end of the list, and is left
+' collapsed after the new line, ready for the next.
+'
+' Version: 1.0  Date: 10/16/2026
+'
+Private Sub Sh_PgVal_Write_Note(ByVal outRng As Range, ByVal noteText As String, _
+                                ByVal inRed As Boolean)
+    outRng.InsertAfter noteText & vbCr
+    With outRng.Font
+        .Hidden = False
+        .Bold = True
+        .Italic = False
+        .Underline = wdUnderlineNone
+        If inRed Then
+            .Color = wdColorRed
+        Else
+            .Color = wdColorAutomatic
+        End If
+    End With
+    outRng.Collapse Direction:=wdCollapseEnd
+End Sub   '*** end of Sh_PgVal_Write_Note ***
+
+' --- CHECKING THE $pg TAG LIST ------------------------------------------------------------------
+'
+' Jerry, 10/16/2026: reading the whole list by eye for gaps, repeats and pages out of order is
+' tedious and hard on the eyes. These read the list and say where to look first. A warning is a
+' short line starting with the mark below, set in red as its own paragraph AHEAD of the entry it is
+' about. The transcriber still reads the list and still decides.
+'
+' What was agreed with Jerry, 10/16/2026:
+'   * a change from roman to arabic is NOT a problem. Pages never start over, so any other step
+'     backwards IS one - roman pages once arabic has begun among them;
+'   * a letter comes only AFTER a number (12B). A tag that is only letters, and is not a roman
+'     numeral, is a problem;
+'   * Duxbury codes ([[*lec*]][[*i*]], [[*ii*]]) are skipped when reading the number, and the
+'     number after a continuation code must match the end of the range.
+'
+' Each warning is kept to 23 characters or fewer, because a large print list is set in three
+' columns and SH_PGVAL_LINE_MAX_COLS is all a column holds.
+'
+' Sh_PgVal_Parse and Sh_PgVal_Check are PURE ON PURPOSE: strings in, strings out, no Document,
+' Range, Selection or message. That is what lets make vba-test run them -
+' tests/vba/TestPgValCheck.bas.
+
+' The mark that starts every warning line: U+25BA, a black right-pointing pointer. Built with ChrW
+' because this module is saved as ANSI, where the character itself cannot be written. One place,
+' so the list, Locate and Return all agree on it.
+'
+' Version: 1.0  Date: 10/16/2026
+'
+Function Sh_PgVal_Mark() As String
+    Sh_PgVal_Mark = ChrW(9658)
+End Function   '*** end of Sh_PgVal_Mark ***
+
+' The first line of the validation list: how many warning lines follow, or that there are none.
+'
+' Version: 1.0  Date: 10/16/2026
+'
+Function Sh_PgVal_Summary_Text(ByVal problems As Long) As String
+    If problems <= 0 Then
+        Sh_PgVal_Summary_Text = "No problems found. Please still look over the list."
+    ElseIf problems = 1 Then
+        Sh_PgVal_Summary_Text = "1 possible problem: look for " & Sh_PgVal_Mark()
+    Else
+        Sh_PgVal_Summary_Text = CStr(problems) & " possible problems: look for " & Sh_PgVal_Mark()
+    End If
+End Function   '*** end of Sh_PgVal_Summary_Text ***
+
+' True for a line of the validation list that is NOT an entry: a warning (it starts with the mark)
+' or the count at the top. Locate and Return use it to step over them. An entry always carries
+' "$pg"; neither of the others ever does.
+'
+' Version: 1.0  Date: 10/16/2026
+'
+Function Sh_PgVal_Is_Note_Line(ByVal lineText As String) As Boolean
+    Dim t As String
+
+    t = Replace(Replace(Replace(lineText, Chr$(13), ""), Chr$(7), ""), ChrW(160), " ")
+    t = Trim$(t)
+    If Len(t) = 0 Then Exit Function
+
+    If Left$(t, 1) = Sh_PgVal_Mark() Then
+        Sh_PgVal_Is_Note_Line = True
+        Exit Function
+    End If
+
+    If InStr(1, t, "$pg", vbBinaryCompare) > 0 Then Exit Function
+
+    ' The count: "3 possible problems: look for" and the mark, or the no-problems line.
+    If Right$(t, 1) = Sh_PgVal_Mark() Or t = Sh_PgVal_Summary_Text(0) Then
+        Sh_PgVal_Is_Note_Line = True
+    End If
+End Function   '*** end of Sh_PgVal_Is_Note_Line ***
+
+' One side of a page number - "12", "12B", "A12", "xiv" - read into "kind|number|suffix|prefix|lower":
+'   A  arabic, with at most one letter after it (12B)
+'   R  roman (xiv); lower is "l" when it is written in lower case
+'   P  letters IN FRONT of the number (A12, A12B). Large print AutoTag writes these, so they are
+'      legal, and each prefix is checked as a stretch of its own
+'   X  not a page number at all - empty, a word, a space inside, anything else
+'
+' Version: 1.0  Date: 10/16/2026
+'
+Private Function Sh_PgVal_Parse_Side(ByVal s As String) As String
+    Dim i As Long
+    Dim lead As Long
+    Dim digitsAt As Long
+    Dim digits As Long
+    Dim trailAt As Long
+    Dim trail As Long
+    Dim n As Long
+
+    Sh_PgVal_Parse_Side = "X|0|||"
+    s = Trim$(s)
+    If Len(s) = 0 Then Exit Function
+
+    i = 1
+    Do While i <= Len(s)
+        If Not (Mid$(s, i, 1) Like "[A-Za-z]") Then Exit Do
+        i = i + 1
+    Loop
+    lead = i - 1
+
+    digitsAt = i
+    Do While i <= Len(s)
+        If Not (Mid$(s, i, 1) Like "#") Then Exit Do
+        i = i + 1
+    Loop
+    digits = i - digitsAt
+
+    trailAt = i
+    Do While i <= Len(s)
+        If Not (Mid$(s, i, 1) Like "[A-Za-z]") Then Exit Do
+        i = i + 1
+    Loop
+    trail = i - trailAt
+
+    ' Anything left over - a space, a period, a second number - and it is not a page number.
+    If i <= Len(s) Then Exit Function
+
+    If digits = 0 Then
+        ' Letters only: a roman numeral, or not a page number.
+        If Sh_IsValidRomanNumeral(s) Then
+            n = Sh_Roman_To_Number(UCase$(s))
+            If StrComp(s, LCase$(s), vbBinaryCompare) = 0 Then
+                Sh_PgVal_Parse_Side = "R|" & n & "|||l"
+            Else
+                Sh_PgVal_Parse_Side = "R|" & n & "|||"
+            End If
+        End If
+        Exit Function
+    End If
+
+    If digits > 6 Or trail > 1 Or lead > 3 Then Exit Function
+
+    n = CLng(Mid$(s, digitsAt, digits))
+    If lead = 0 Then
+        Sh_PgVal_Parse_Side = "A|" & n & "|" & UCase$(Mid$(s, trailAt, trail)) & "||"
+    Else
+        Sh_PgVal_Parse_Side = "P|" & n & "|" & UCase$(Mid$(s, trailAt, trail)) & "|" _
+                              & UCase$(Left$(s, lead)) & "|"
+    End If
+End Function   '*** end of Sh_PgVal_Parse_Side ***
+
+' A tag's text read into "kind|first|last|first suffix|last suffix|prefix|problem|lower".
+' tagText may start with "$pg" or not; everything up to and including the first "$pg" is skipped.
+'
+'   kind     A, R, P or X, as Sh_PgVal_Parse_Side. A range takes the kind of its two sides, which
+'            must agree.
+'   problem  "" when the tag reads cleanly, "mismatch" when a continuation code is followed by a
+'            number other than the end of the range.
+'
+' DUXBURY CODES. The list carries them as hidden text and Range.Text hands them over anyway, so
+' they arrive here: "12-14[[*lec*]][[*i*]]14" is a continuation page, and the 14 after the codes
+' must be the end of the range. In EBAE a lower-case roman page has its code IN FRONT -
+' "[[*ii*]]v" - and then the number is what follows the code.
+'
+' Non-breaking spaces count as spaces, as Lp_Pg_Tag_Number treats them.
+'
+' Version: 1.0  Date: 10/16/2026
+'
+Function Sh_PgVal_Parse(ByVal tagText As String) As String
+    Dim s As String
+    Dim pre As String
+    Dim post As String
+    Dim leftSide As String
+    Dim rightSide As String
+    Dim p As Long
+    Dim q As Long
+    Dim i As Long
+    Dim a As Variant
+    Dim b As Variant
+    Dim problem As String
+
+    Sh_PgVal_Parse = "X|0|0||||notnum|"
+
+    s = Replace(Replace(tagText, Chr$(13), ""), Chr$(7), "")
+    s = Replace(Replace(s, Chr$(11), " "), ChrW(160), " ")
+    p = InStr(1, s, "$pg", vbBinaryCompare)
+    If p > 0 Then s = Mid$(s, p + 3)
+
+    p = InStr(1, s, "[[", vbBinaryCompare)
+    If p > 0 Then
+        q = InStrRev(s, "]]", -1, vbBinaryCompare)
+        If q < p Then Exit Function              ' a code opened and never closed
+        pre = Trim$(Left$(s, p - 1))
+        post = Trim$(Mid$(s, q + 2))
+        If Len(pre) = 0 Then
+            ' EBAE: the code is in FRONT of the number.
+            pre = post
+            post = ""
+        End If
+    Else
+        pre = Trim$(s)
+    End If
+
+    If Dx_Pg_Text_Is_Range(pre) Then
+        For i = 2 To Len(pre) - 1
+            If Lp_Is_Hyphen_Char(Mid$(pre, i, 1)) Then Exit For
+        Next i
+        leftSide = Trim$(Left$(pre, i - 1))
+        rightSide = Trim$(Mid$(pre, i + 1))
+    Else
+        leftSide = pre
+        rightSide = pre
+    End If
+
+    a = Split(Sh_PgVal_Parse_Side(leftSide), "|")
+    b = Split(Sh_PgVal_Parse_Side(rightSide), "|")
+
+    If a(0) = "X" Or b(0) <> a(0) Then Exit Function
+    If a(3) <> b(3) Then Exit Function           ' A12-B14 is not one range
+
+    ' The number after a continuation code must be the end of the range.
+    If Len(post) > 0 Then
+        If StrComp(post, rightSide, vbTextCompare) <> 0 Then problem = "mismatch"
+    End If
+
+    Sh_PgVal_Parse = a(0) & "|" & a(1) & "|" & b(1) & "|" & a(2) & "|" & b(2) & "|" _
+                     & a(3) & "|" & problem & "|" & a(4)
+End Function   '*** end of Sh_PgVal_Parse ***
+
+' True when key is in col. A Collection has no "contains", so ask for the item and see.
+'
+' Version: 1.0  Date: 10/16/2026
+'
+Private Function Sh_PgVal_Has(ByVal col As Collection, ByVal key As String) As Boolean
+    Dim v As Variant
+    On Error Resume Next
+    v = col.Item(key)
+    Sh_PgVal_Has = (Err.Number = 0)
+    Err.Clear
+End Function   '*** end of Sh_PgVal_Has ***
+
+' Adds key to col unless it is already there.
+'
+' Version: 1.0  Date: 10/16/2026
+'
+Private Sub Sh_PgVal_Remember(ByVal col As Collection, ByVal key As String)
+    If Not Sh_PgVal_Has(col, key) Then col.Add key, key
+End Sub   '*** end of Sh_PgVal_Remember ***
+
+' A page number written back out the way the book shows it: 12, 12B, A12, xiv.
+'
+' Version: 1.0  Date: 10/16/2026
+'
+Private Function Sh_PgVal_Show(ByVal kind As String, ByVal n As Long, ByVal suffix As String, _
+                               ByVal prefix As String, ByVal lower As String) As String
+    If kind = "R" Then
+        If lower = "l" Then
+            Sh_PgVal_Show = LCase$(Sh_Number_To_Roman(n))
+        Else
+            Sh_PgVal_Show = Sh_Number_To_Roman(n)
+        End If
+    Else
+        Sh_PgVal_Show = prefix & CStr(n) & suffix
+    End If
+End Function   '*** end of Sh_PgVal_Show ***
+
+' The pages missing between two tags, as a warning: "218 missing", "218-219 missing",
+' "21, 23-24 missing". A page that turns up ANYWHERE in the list is not missing - it is out of
+' order, and that is said where it turns up. "" when nothing is missing.
+'
+' Version: 1.0  Date: 10/16/2026
+'
+Private Function Sh_PgVal_Missing_Text(ByVal allPages As Collection, ByVal stretch As String, _
+                                       ByVal fromPg As Long, ByVal toPg As Long, _
+                                       ByVal kind As String, ByVal prefix As String, _
+                                       ByVal lower As String) As String
+    Dim pg As Long
+    Dim runStart As Long
+    Dim count As Long
+    Dim txt As String
+
+    runStart = 0
+    For pg = fromPg To toPg + 1
+        If pg <= toPg And Not Sh_PgVal_Has(allPages, stretch & ":" & pg) Then
+            If runStart = 0 Then runStart = pg
+            count = count + 1
+        ElseIf runStart > 0 Then
+            If Len(txt) > 0 Then txt = txt & ", "
+            txt = txt & Sh_PgVal_Show(kind, runStart, "", prefix, lower)
+            If pg - 1 > runStart Then txt = txt & "-" & Sh_PgVal_Show(kind, pg - 1, "", prefix, lower)
+            runStart = 0
+        End If
+    Next pg
+
+    If count = 0 Then Exit Function
+    txt = txt & " missing"
+    ' Too long for a large print column: say how many instead.
+    If Len(txt) > 21 Then txt = CStr(count) & " pages missing"
+    Sh_PgVal_Missing_Text = txt
+End Function   '*** end of Sh_PgVal_Missing_Text ***
+
+' The checks on the whole tag list. tags holds each tag's text in book order (with or without its
+' "$pg"); the answer is an array of the same bounds holding, for each tag, the warning lines to
+' set AHEAD of it - each starting with the mark, more than one joined by vbCr - or "".
+'
+'   gap           a page between this tag and the one before is nowhere in the list   218-219 missing
+'   big jump      more than 20 pages skipped - more likely a typing slip              12 to 120: typo?
+'   duplicate     this page has been seen already                                     217 twice
+'   backwards     lower than the highest page so far, roman to arabic aside           out of order
+'   roman late    a roman page once arabic pages have begun                           out of order
+'   suffix        12B must follow 12 or 12A                                           12B out of place
+'   continuation  the number after the Duxbury codes is not the end of the range      range end mismatch
+'   not a number  empty, a word, letters only, or text after the number               not a page number
+'   wide range    a range of more than 5 pages, or one that runs backwards            range 12-99?
+'
+' Each kind of number is its own stretch - arabic, roman, and each letter prefix - and gaps and
+' order are judged within it. The first tag of a stretch has nothing before it, so a book whose
+' first tagged page is 3 is not told 1 and 2 are missing.
+'
+' Version: 1.0  Date: 10/16/2026
+'
+Function Sh_PgVal_Check(ByVal tags As Variant) As Variant
+    Dim lo As Long
+    Dim hi As Long
+    Dim i As Long
+    Dim pg As Long
+    Dim out() As String
+    Dim parsed() As String
+    Dim f As Variant
+    Dim st As Variant
+    Dim allPages As Collection
+    Dim seen As Collection
+    Dim state As Collection
+    Dim kind As String
+    Dim firstPg As Long
+    Dim lastPg As Long
+    Dim firstSfx As String
+    Dim lastSfx As String
+    Dim prefix As String
+    Dim lower As String
+    Dim stretch As String
+    Dim hasState As Boolean
+    Dim highPg As Long
+    Dim prevPg As Long
+    Dim prevSfx As String
+    Dim seenArabic As Boolean
+    Dim isDup As Boolean
+    Dim warn As String
+    Dim w As String
+    Dim sfx As String
+
+    If Not IsArray(tags) Then Exit Function
+    lo = LBound(tags)
+    hi = UBound(tags)
+    If hi < lo Then Exit Function
+
+    ReDim out(lo To hi)
+    ReDim parsed(lo To hi)
+    Set allPages = New Collection
+    Set seen = New Collection
+    Set state = New Collection
+
+    ' First every page the list holds anywhere, so a gap can tell a page that is missing from one
+    ' that is only out of order.
+    For i = lo To hi
+        parsed(i) = Sh_PgVal_Parse(CStr(tags(i)))
+        f = Split(parsed(i), "|")
+        If f(0) <> "X" Then
+            stretch = f(0) & f(5)
+            firstPg = CLng(f(1))
+            lastPg = CLng(f(2))
+            If lastPg < firstPg Then lastPg = firstPg     ' a backwards range counts as its first page
+            If lastPg - firstPg <= 50 Then
+                For pg = firstPg To lastPg
+                    Sh_PgVal_Remember allPages, stretch & ":" & pg
+                Next pg
+            Else
+                Sh_PgVal_Remember allPages, stretch & ":" & firstPg
+                Sh_PgVal_Remember allPages, stretch & ":" & lastPg
+            End If
+        End If
+    Next i
+
+    For i = lo To hi
+        warn = ""
+        f = Split(parsed(i), "|")
+        kind = f(0)
+
+        If kind = "X" Then
+            warn = Sh_PgVal_Mark() & " not a page number"
+        Else
+            firstPg = CLng(f(1))
+            lastPg = CLng(f(2))
+            firstSfx = f(3)
+            lastSfx = f(4)
+            prefix = f(5)
+            lower = f(7)
+            stretch = kind & prefix
+
+            If f(6) = "mismatch" Then warn = warn & vbCr & Sh_PgVal_Mark() & " range end mismatch"
+
+            If lastPg < firstPg Or lastPg - firstPg + 1 > 5 Then
+                w = Sh_PgVal_Mark() & " range " & Sh_PgVal_Show(kind, firstPg, firstSfx, prefix, lower) _
+                    & "-" & Sh_PgVal_Show(kind, lastPg, lastSfx, prefix, lower) & "?"
+                If Len(w) > 23 Then w = Sh_PgVal_Mark() & " range too wide?"
+                warn = warn & vbCr & w
+                ' A range that runs backwards is said once, and from here on counts as its
+                ' first page, so the pages after it are not reported missing as well.
+                If lastPg < firstPg Then
+                    lastPg = firstPg
+                    lastSfx = firstSfx
+                End If
+            End If
+
+            ' A page seen already. A range is looked at page by page, its letters on its ends.
+            isDup = False
+            For pg = firstPg To lastPg
+                If pg = firstPg Then
+                    sfx = firstSfx
+                ElseIf pg = lastPg Then
+                    sfx = lastSfx
+                Else
+                    sfx = ""
+                End If
+                If Sh_PgVal_Has(seen, stretch & ":" & pg & ":" & sfx) Then
+                    warn = warn & vbCr & Sh_PgVal_Mark() & " " _
+                           & Sh_PgVal_Show(kind, pg, sfx, prefix, lower) & " twice"
+                    isDup = True
+                    Exit For
+                End If
+                If pg - firstPg >= 50 Then Exit For
+            Next pg
+
+            ' Where this stretch had got to: "highest|previous|previous letter".
+            hasState = Sh_PgVal_Has(state, stretch)
+            If hasState Then
+                st = Split(state.Item(stretch), "|")
+                highPg = CLng(st(0))
+                prevPg = CLng(st(1))
+                prevSfx = st(2)
+            End If
+
+            If kind = "R" And seenArabic Then
+                ' Roman pages come first. Once arabic has begun, a roman page is out of order.
+                If Not isDup Then warn = warn & vbCr & Sh_PgVal_Mark() & " out of order"
+            ElseIf hasState Then
+                If Len(firstSfx) > 0 Then
+                    ' 12B follows 12 or 12A, and nothing else.
+                    If prevPg <> firstPg Then
+                        If Not isDup Then
+                            warn = warn & vbCr & Sh_PgVal_Mark() & " " _
+                                   & Sh_PgVal_Show(kind, firstPg, firstSfx, prefix, lower) & " out of place"
+                        End If
+                    ElseIf Len(prevSfx) > 0 Then
+                        If Asc(firstSfx) <> Asc(prevSfx) + 1 And Not isDup Then
+                            warn = warn & vbCr & Sh_PgVal_Mark() & " " _
+                                   & Sh_PgVal_Show(kind, firstPg, firstSfx, prefix, lower) & " out of place"
+                        End If
+                    End If
+                ElseIf firstPg > highPg + 1 Then
+                    If firstPg - highPg - 1 > 20 Then
+                        w = Sh_PgVal_Mark() & " " & Sh_PgVal_Show(kind, highPg, "", prefix, lower) _
+                            & " to " & Sh_PgVal_Show(kind, firstPg, "", prefix, lower) & ": typo?"
+                        If Len(w) > 23 Then w = Sh_PgVal_Mark() & " big jump: typo?"
+                        warn = warn & vbCr & w
+                    Else
+                        w = Sh_PgVal_Missing_Text(allPages, stretch, highPg + 1, firstPg - 1, _
+                                                  kind, prefix, lower)
+                        If Len(w) > 0 Then warn = warn & vbCr & Sh_PgVal_Mark() & " " & w
+                    End If
+                ElseIf firstPg <= highPg And Not isDup Then
+                    warn = warn & vbCr & Sh_PgVal_Mark() & " out of order"
+                End If
+            End If
+
+            ' Move the stretch on.
+            For pg = firstPg To lastPg
+                If pg = firstPg Then
+                    sfx = firstSfx
+                ElseIf pg = lastPg Then
+                    sfx = lastSfx
+                Else
+                    sfx = ""
+                End If
+                Sh_PgVal_Remember seen, stretch & ":" & pg & ":" & sfx
+                If pg - firstPg >= 50 Then Exit For
+            Next pg
+            If lastPg <> firstPg Then Sh_PgVal_Remember seen, stretch & ":" & lastPg & ":" & lastSfx
+
+            If Not hasState Then highPg = lastPg
+            If lastPg > highPg Then highPg = lastPg
+            If hasState Then state.Remove stretch
+            state.Add CStr(highPg) & "|" & CStr(lastPg) & "|" & lastSfx, stretch
+
+            If kind = "A" Then seenArabic = True
+        End If
+
+        If Left$(warn, 1) = vbCr Then warn = Mid$(warn, 2)
+        out(i) = warn
+    Next i
+
+    Sh_PgVal_Check = out
+End Function   '*** end of Sh_PgVal_Check ***
 
 Sub Sh_ReplaceNonBreakingSpacesWithNormalSpace()
     '

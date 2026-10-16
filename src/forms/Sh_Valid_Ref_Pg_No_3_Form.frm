@@ -45,6 +45,7 @@ Private Sub UserForm_Initialize()
     & vbCrLf & vbCrLf & "New $pg tags may be added using the 'Manual Tag Ref Page' macro on the 'Reference Page Numbers group of the the Word ribbon.'" _
     & " New $pg tags should only be added to empty paragraphs." _
     & vbCrLf & vbCrLf & "To return the the validation document, click the 'Return to the validation document' button." _
+    & " The cursor moves to the next tag in the list, stepping over the red " & ChrW(9658) & " lines." _
     & " When you have completed the tag corrections click the 'Done - Exit validation' button."
    
 
