@@ -26,6 +26,12 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - Dx  - 10/17/2026 - Retagging takes off an old continuation code first, hidden or not, so
 '           - Dx  - 10/17/2026 - it is never doubled and a range edited to 16-19 ends 19, not 18. New:
 '           - Dx  - 10/17/2026 - Dx_Pg_Continuation_Code_Start.
+'           - Sh  - 10/17/2026 - VALIDATE $pg TAGS: a roman numeral range - v-vi, XII-XIV, braille's
+'           - Sh  - 10/17/2026 - $pgv-vi[[*lec*]][[*i*]]vi - is now marked "roman numeral range" in the
+'           - Sh  - 10/17/2026 - list, on both sides (Jerry). Manual Tag Ref Page refuses one (245);
+'           - Sh  - 10/17/2026 - braille AutoTag Ref Pages still writes one. A single roman page is not
+'           - Sh  - 10/17/2026 - marked. An EBAE tag with [[*ii*]] in front AND a continuation code
+'           - Sh  - 10/17/2026 - behind is now read as the range it is.
 '           - Lp  - 10/16/2026 - AUTOTAG REF PAGES: the "letter, hyphen, letter" pass had lost its
 '           - Lp  - 10/16/2026 - hyphen, so any paragraph made only of letters ("Introduction") could
 '           - Lp  - 10/16/2026 - be tagged $pg. The hyphen is back, as in braille (issue #35).
@@ -33713,16 +33719,26 @@ End Function   '*** end of Sh_PgVal_Parse_Side ***
 '
 '   kind     A, R, P or X, as Sh_PgVal_Parse_Side. A range takes the kind of its two sides, which
 '            must agree.
-'   problem  "" when the tag reads cleanly, "mismatch" when a continuation code is followed by a
-'            number other than the end of the range.
+'   problem  "" when the tag reads cleanly; otherwise one or more of these, joined by a space:
+'              mismatch    a continuation code is followed by a number other than the end of the
+'                          range
+'              romanrange  a range of roman numerals, v-vi or XII-XIV, either case. Jerry,
+'                          10/17/2026: that is a problem. Manual Tag Ref Page refuses one (245),
+'                          but braille AutoTag Ref Pages' letter-hyphen-letter pass tags it, and
+'                          large print's does too. A single roman page is not one.
 '
 ' DUXBURY CODES. The list carries them as hidden text and Range.Text hands them over anyway, so
 ' they arrive here: "12-14[[*lec*]][[*i*]]14" is a continuation page, and the 14 after the codes
 ' must be the end of the range. In EBAE a lower-case roman page has its code IN FRONT -
-' "[[*ii*]]v" - and then the number is what follows the code.
+' "[[*ii*]]v" - and then the number is what follows the code. When there are codes in front
+' AND behind - "[[*ii*]]v-vi[[*lec*]][[*i*]]vi", not written by AutoTag but possible by hand -
+' the number is what sits between them.
 '
 ' Non-breaking spaces count as spaces, as Lp_Pg_Tag_Number treats them.
 '
+' Version: 1.1  Date: 10/17/2026 - "romanrange" (Jerry); codes in front and behind read right.
+'                                  Until now the number between them was skipped, and only
+'                                  the number after the last code was read.
 ' Version: 1.0  Date: 10/16/2026
 '
 Function Sh_PgVal_Parse(ByVal tagText As String) As String
@@ -33737,6 +33753,9 @@ Function Sh_PgVal_Parse(ByVal tagText As String) As String
     Dim a As Variant
     Dim b As Variant
     Dim problem As String
+    Dim rest As String
+    Dim e As Long
+    Dim isRange As Boolean
 
     Sh_PgVal_Parse = "X|0|0||||notnum|"
 
@@ -33752,15 +33771,29 @@ Function Sh_PgVal_Parse(ByVal tagText As String) As String
         pre = Trim$(Left$(s, p - 1))
         post = Trim$(Mid$(s, q + 2))
         If Len(pre) = 0 Then
-            ' EBAE: the code is in FRONT of the number.
-            pre = post
-            post = ""
+            ' EBAE: the code is in FRONT of the number. Step past every code in front; the
+            ' number is what comes next, and anything after a later code is the continuation.
+            rest = s
+            Do While Left$(LTrim$(rest), 2) = "[["
+                rest = LTrim$(rest)
+                e = InStr(1, rest, "]]", vbBinaryCompare)
+                If e = 0 Then Exit Function
+                rest = Mid$(rest, e + 2)
+            Loop
+            p = InStr(1, rest, "[[", vbBinaryCompare)
+            If p > 0 Then
+                pre = Trim$(Left$(rest, p - 1))
+            Else
+                pre = Trim$(rest)
+                post = ""
+            End If
         End If
     Else
         pre = Trim$(s)
     End If
 
-    If Dx_Pg_Text_Is_Range(pre) Then
+    isRange = Dx_Pg_Text_Is_Range(pre)
+    If isRange Then
         For i = 2 To Len(pre) - 1
             If Lp_Is_Hyphen_Char(Mid$(pre, i, 1)) Then Exit For
         Next i
@@ -33781,6 +33814,10 @@ Function Sh_PgVal_Parse(ByVal tagText As String) As String
     If Len(post) > 0 Then
         If StrComp(post, rightSide, vbTextCompare) <> 0 Then problem = "mismatch"
     End If
+
+    ' A range of roman numerals (Jerry, 10/17/2026). Read off the tag's own hyphen, not off first
+    ' and last, so v-v is caught as well.
+    If isRange And a(0) = "R" Then problem = Trim$(problem & " romanrange")
 
     Sh_PgVal_Parse = a(0) & "|" & a(1) & "|" & b(1) & "|" & a(2) & "|" & b(2) & "|" _
                      & a(3) & "|" & problem & "|" & a(4)
@@ -33871,11 +33908,14 @@ End Function   '*** end of Sh_PgVal_Missing_Text ***
 '   continuation  the number after the Duxbury codes is not the end of the range      range end mismatch
 '   not a number  empty, a word, letters only, or text after the number               not a page number
 '   wide range    a range of more than 5 pages, or one that runs backwards            range 12-99?
+'   roman range   a range of roman numerals, v-vi or XII-XIV (Jerry, 10/17/2026)      roman numeral range
+'                 It takes the place of the wide-range line, so one tag is not told twice.
 '
 ' Each kind of number is its own stretch - arabic, roman, and each letter prefix - and gaps and
 ' order are judged within it. The first tag of a stretch has nothing before it, so a book whose
 ' first tagged page is 3 is not told 1 and 2 are missing.
 '
+' Version: 1.1  Date: 10/17/2026 - roman range (Jerry)
 ' Version: 1.0  Date: 10/16/2026
 '
 Function Sh_PgVal_Check(ByVal tags As Variant) As Variant
@@ -33907,6 +33947,7 @@ Function Sh_PgVal_Check(ByVal tags As Variant) As Variant
     Dim warn As String
     Dim w As String
     Dim sfx As String
+    Dim romanRange As Boolean
 
     If Not IsArray(tags) Then Exit Function
     lo = LBound(tags)
@@ -33956,13 +33997,19 @@ Function Sh_PgVal_Check(ByVal tags As Variant) As Variant
             lower = f(7)
             stretch = kind & prefix
 
-            If f(6) = "mismatch" Then warn = warn & vbCr & Sh_PgVal_Mark() & " range end mismatch"
+            If InStr(1, " " & f(6) & " ", " mismatch ", vbBinaryCompare) > 0 Then
+                warn = warn & vbCr & Sh_PgVal_Mark() & " range end mismatch"
+            End If
+            romanRange = (InStr(1, " " & f(6) & " ", " romanrange ", vbBinaryCompare) > 0)
+            If romanRange Then warn = warn & vbCr & Sh_PgVal_Mark() & " roman numeral range"
 
             If lastPg < firstPg Or lastPg - firstPg + 1 > 5 Then
-                w = Sh_PgVal_Mark() & " range " & Sh_PgVal_Show(kind, firstPg, firstSfx, prefix, lower) _
-                    & "-" & Sh_PgVal_Show(kind, lastPg, lastSfx, prefix, lower) & "?"
-                If Len(w) > 23 Then w = Sh_PgVal_Mark() & " range too wide?"
-                warn = warn & vbCr & w
+                If Not romanRange Then
+                    w = Sh_PgVal_Mark() & " range " & Sh_PgVal_Show(kind, firstPg, firstSfx, prefix, lower) _
+                        & "-" & Sh_PgVal_Show(kind, lastPg, lastSfx, prefix, lower) & "?"
+                    If Len(w) > 23 Then w = Sh_PgVal_Mark() & " range too wide?"
+                    warn = warn & vbCr & w
+                End If
                 ' A range that runs backwards is said once, and from here on counts as its
                 ' first page, so the pages after it are not reported missing as well.
                 If lastPg < firstPg Then

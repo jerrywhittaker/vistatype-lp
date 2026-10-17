@@ -11,11 +11,13 @@ Attribute VB_Name = "TestPgValCheck"
 ' starting with a pointer mark, goes in ahead of any entry that looks wrong. These are the rules
 ' agreed with Jerry, 10/16/2026: roman to arabic is not a problem, any other step backwards is; a
 ' letter comes only after a number; Duxbury codes are read past, and the number after a
-' continuation code must be the end of the range.
+' continuation code must be the end of the range. And, Jerry 10/17/2026: a range of roman
+' numerals is a problem - v-vi, XII-XIV - while a single roman page is not.
 '
 ' Found() below turns the answer into one line - "1=8 missing" means the warning "8 missing" goes
 ' ahead of the entry numbered 1, counting from 0 - so a test reads like the list it describes.
 '
+' Version: 1.1  Date: 10/17/2026 - roman numeral ranges
 ' Version: 1.0  Date: 10/16/2026
 '
 Option Explicit
@@ -68,7 +70,22 @@ Public Function TestPgValCheck_Suite() As TestSuite
         .IsEqual Sh_PgVal_Parse("$pg12-14[[*lec*]][[*i*]]14"), "A|12|14|||||", "continuation"
         .IsEqual Sh_PgVal_Parse("$pg12-14[[*lec*]][[*i*]]13"), "A|12|14||||mismatch|", "mismatch"
         .IsEqual Sh_PgVal_Parse("$pg[[*ii*]]v"), "R|5|5|||||l", "EBAE lower-case roman"
-        .IsEqual Sh_PgVal_Parse("$pgv-vi[[*lec*]][[*i*]]vi"), "R|5|6|||||l", "roman continuation"
+        .IsEqual Sh_PgVal_Parse("$pgv-vi[[*lec*]][[*i*]]vi"), "R|5|6||||romanrange|l", "roman continuation"
+    End With
+
+    With Suite.Test("a roman numeral range is read as one")
+        .IsEqual Sh_PgVal_Parse("$pgv-vi"), "R|5|6||||romanrange|l", "plain"
+        .IsEqual Sh_PgVal_Parse("$pgxii-xiv"), "R|12|14||||romanrange|l", "plain, longer"
+        .IsEqual Sh_PgVal_Parse("$pgXII-XIV"), "R|12|14||||romanrange|", "upper case"
+        .IsEqual Sh_PgVal_Parse("$pgv-v"), "R|5|5||||romanrange|l", "same page both sides"
+        .IsEqual Sh_PgVal_Parse("$pg[[*ii*]]v-vi"), "R|5|6||||romanrange|l", "EBAE code in front"
+        .IsEqual Sh_PgVal_Parse("$pg[[*ii*]]v-vi[[*lec*]][[*i*]]vi"), "R|5|6||||romanrange|l", _
+                 "EBAE code in front and continuation behind"
+        .IsEqual Sh_PgVal_Parse("$pgv-vi[[*lec*]][[*i*]]v"), "R|5|6||||mismatch romanrange|l", _
+                 "and a mismatch"
+        .IsEqual Sh_PgVal_Parse("$pgv"), "R|5|5|||||l", "a single roman page is not a range"
+        .IsEqual Sh_PgVal_Parse("$pg[[*ii*]]v"), "R|5|5|||||l", "nor in EBAE"
+        .IsEqual Sh_PgVal_Parse("$pgword-word"), "X|0|0||||notnum|", "hyphenated word"
     End With
 
     With Suite.Test("what is not a page number")
@@ -142,6 +159,20 @@ Public Function TestPgValCheck_Suite() As TestSuite
         .IsEqual Found("[[*ii*]]iv", "[[*ii*]]vi"), "1=v missing"
     End With
 
+    With Suite.Test("roman numeral range")
+        .IsEqual Found("iv", "v-vi", "vii", "1"), "1=roman numeral range"
+        .IsEqual Found("xi", "xii-xiv", "xv"), "1=roman numeral range"
+        .IsEqual Found("XI", "XII-XIV", "XV"), "1=roman numeral range", "upper case"
+        .IsEqual Found("iv", "v-vi[[*lec*]][[*i*]]vi", "vii"), "1=roman numeral range", "braille"
+        .IsEqual Found("[[*ii*]]iv", "[[*ii*]]v-vi[[*lec*]][[*i*]]vi", "[[*ii*]]vii"), _
+                 "1=roman numeral range", "EBAE"
+        .IsEqual Found("i", "ii-x", "xi"), "1=roman numeral range", "said once, not as a wide range too"
+        .IsEqual Found("iv", "v-vi[[*lec*]][[*i*]]v", "vii"), _
+                 "1=range end mismatch + roman numeral range", "and a mismatch"
+        .IsEqual Found("iv", "v", "vi", "1"), "", "single roman pages are fine"
+        .IsEqual Found("1", "Self-Help", "2"), "1=not a page number", "a hyphenated word"
+    End With
+
     With Suite.Test("not a page number")
         .IsEqual Found("1", "Introduction", "2"), "1=not a page number", "a word"
         .IsEqual Found("1", "", "2"), "1=not a page number", "empty"
@@ -169,7 +200,7 @@ Public Function TestPgValCheck_Suite() As TestSuite
     With Suite.Test("every warning starts with the mark and fits a large print column")
         w = Sh_PgVal_Check(Array("1", "2", "2", "iii", "5", "100", "100B", "101-199", _
                                  "word", "1000-1002[[*lec*]][[*i*]]1001", "A1", "A9", "A10", _
-                                 "123456", "123460", "123480", "123470"))
+                                 "123456", "123460", "123480", "123470", "xxxviii-xxxix"))
         bad = ""
         For i = LBound(w) To UBound(w)
             If Len(w(i)) > 0 Then
