@@ -18,7 +18,15 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Lp  - 10/16/2026 - AUTOTAG REF PAGES: the "letter, hyphen, letter" pass had lost its
+' Notes:    - Dx  - 10/17/2026 - MANUAL TAG REF PAGE: a page range now gets the DBT continuation code,
+'           - Dx  - 10/17/2026 - as braille AutoTag Ref Pages gives it (Jerry): 16-18 becomes
+'           - Dx  - 10/17/2026 - $pg16-18[[*lec*]][[*i*]]18, and so do 22B-23B, A27B-A29B, AA30BB-AA33BB.
+'           - Dx  - 10/17/2026 - A spaced or doubled hyphen is closed up first, as AutoTag does. New:
+'           - Dx  - 10/17/2026 - Dx_Pg_Range_Continuation, Dx_Pg_Range_Side_Shape. AutoTag is unchanged.
+'           - Dx  - 10/17/2026 - Retagging takes off an old continuation code first, hidden or not, so
+'           - Dx  - 10/17/2026 - it is never doubled and a range edited to 16-19 ends 19, not 18. New:
+'           - Dx  - 10/17/2026 - Dx_Pg_Continuation_Code_Start.
+'           - Lp  - 10/16/2026 - AUTOTAG REF PAGES: the "letter, hyphen, letter" pass had lost its
 '           - Lp  - 10/16/2026 - hyphen, so any paragraph made only of letters ("Introduction") could
 '           - Lp  - 10/16/2026 - be tagged $pg. The hyphen is back, as in braille (issue #35).
 '           - Sh  - 10/16/2026 - THE $pg LIST IS CHECKED (Jerry). Validate Reference Page Tags reads
@@ -6522,6 +6530,16 @@ Sub Dx_Manual_Tag_with_Dollar_pg()
 '
 ' Dx_Manual_Tag_with_Dollar_pg Macro
 '
+' Version: 2.0  Date: 10/17/2026 - a page RANGE gets the DBT continuation code, exactly as AutoTag
+'                                Ref Pages gives it (Jerry): 16-18 becomes $pg16-18[[*lec*]][[*i*]]18,
+'                                and so do 22B-23B, A27B-A29B and AA30BB-AA33BB. A range typed with
+'                                spaces round its hyphen, or two hyphens - 16 - 18, 16--18 - is
+'                                closed up first, as AutoTag does. The code comes from
+'                                Dx_Pg_Range_Continuation and gets the hidden DBT Code style from
+'                                Dx_Set_DBT_Codes_Color_and_Style, as before. Retagging a line takes
+'                                off any continuation code already at its end first, hidden or not,
+'                                so the code is always rebuilt from the range the user can see:
+'                                16-18 edited to 16-19 and retagged ends ...[[*i*]]19, not 18
 ' Version: 1.9  Date: 10/6/2026 - reads the line straight from the selection, not through the
 '                                clipboard. Jerry, on 3.0.539: "64A" raised -2147221040, "DataObject:
 '                                GetFromClipboard OpenClipboard Failed", twice - another program held
@@ -6543,6 +6561,28 @@ Sub Dx_Manual_Tag_with_Dollar_pg()
 '
     Application.Run MacroName:="Sh_Is_Doc_Open"
     Application.Run MacroName:="Sh_Remove_DollarPG_For_Retag"
+
+    ' AN OLD CONTINUATION CODE COMES OFF TOO. Sh_Remove_DollarPG_For_Retag, shared with large print,
+    ' takes off only the $pg. The [[*lec*]][[*i*]]18 after a range is hidden (DBT Code style), and
+    ' with hidden text not shown Selection.Text below does not see it, so the line would read 16-18
+    ' and get the code a second time; and a range the user has edited from 16-18 to 16-19 would keep
+    ' the stale 18. So the paragraph is read here with IncludeHiddenText, and a code at its end is
+    ' deleted; the code is then rebuilt below from what is left. The delete is guarded: only when
+    ' the range's own text is exactly the code that was found. (Jerry, 10/17/2026)
+    Dim paraRng As Range
+    Dim codeRng As Range
+    Dim paraText As String
+    Dim codeAt As Long
+    Set paraRng = Selection.Paragraphs(1).Range.Duplicate
+    paraRng.TextRetrievalMode.IncludeHiddenText = True
+    If Right$(paraRng.Text, 1) = vbCr Then paraRng.MoveEnd Unit:=wdCharacter, count:=-1
+    paraText = paraRng.Text
+    codeAt = Dx_Pg_Continuation_Code_Start(paraText)
+    If codeAt > 0 Then
+        Set codeRng = ActiveDocument.Range(paraRng.start + codeAt - 1, paraRng.End)
+        codeRng.TextRetrievalMode.IncludeHiddenText = True
+        If StrComp(codeRng.Text, Mid$(paraText, codeAt), vbBinaryCompare) = 0 Then codeRng.Delete
+    End If
 
     Selection.HomeKey Unit:=wdLine
     Selection.EndKey Unit:=wdLine, Extend:=wdExtend
@@ -6573,6 +6613,23 @@ Sub Dx_Manual_Tag_with_Dollar_pg()
         Exit Sub
     End If
 
+    ' A RANGE TYPED WITH SPACES ROUND ITS HYPHEN, or with two hyphens - 16 - 18, 16--18 - is closed
+    ' up to 16-18 first, as braille AutoTag Ref Pages does before it tags (Dx_Close_Up_Pg_Range_
+    ' Hyphens), so the continuation code below sees the range. Anything else comes back from
+    ' Dx_Closed_Up_Pg_Range unchanged and nothing is written. The write is guarded the same way as
+    ' AutoTag's: only when the text from the start of the line is exactly what was read, which a
+    ' line carrying hidden DBT codes never is. (Jerry, 10/17/2026)
+    Dim closedUp As String
+    Dim lineRng As Range
+    closedUp = Dx_Closed_Up_Pg_Range(Possible_LC_Roman)
+    If StrComp(closedUp, Possible_LC_Roman, vbBinaryCompare) <> 0 Then
+        Set lineRng = ActiveDocument.Range(Selection.start, Selection.start + Len(Possible_LC_Roman))
+        If StrComp(lineRng.Text, Possible_LC_Roman, vbBinaryCompare) = 0 Then
+            lineRng.Text = closedUp
+            Possible_LC_Roman = closedUp
+        End If
+    End If
+
     ' if this is an EBAE document - then it might be a lower case roman numeral needing a [[*ii*]] code.
     ' Dx_Ensure_BrailleType(False) reads the book's own setting, else the translation table SWIFT
     ' recorded, and asks and records nothing. "" - a book with no braille code recorded, which
@@ -6601,9 +6658,22 @@ Sub Dx_Manual_Tag_with_Dollar_pg()
     
     Selection.TypeText Text:="$pg"
     Selection.HomeKey Unit:=wdLine
-    
+
+    ' A PAGE RANGE GETS THE DBT CONTINUATION CODE, as AutoTag Ref Pages gives it (Jerry,
+    ' 10/17/2026): 16-18 becomes $pg16-18[[*lec*]][[*i*]]18. Dx_Pg_Range_Continuation returns ""
+    ' for anything AutoTag does not code - a single page, an en dash, two sides of different
+    ' shapes. An old code on this line was taken off at the top, so retagging never doubles it.
+    ' The code is typed at the end of the line; the pass below gives it the hidden DBT Code style.
+    Dim contCode As String
+    contCode = Dx_Pg_Range_Continuation(Possible_LC_Roman)
+    If Len(contCode) > 0 Then
+        Selection.EndKey Unit:=wdLine
+        Selection.TypeText Text:=contCode
+        Selection.HomeKey Unit:=wdLine
+    End If
+
     Application.Run MacroName:="Dx_Set_DBT_Codes_Color_and_Style"   ' clears Find and Replace itself
-    
+
 End Sub  '***** end of Dx_Manual_Tag_with_Dollar_pg Macro *****
 
 Sub Dx_Fix_En_Dash_Errors()
@@ -8040,6 +8110,102 @@ Private Function Dx_Pg_Text_Is_Range(ByVal s As String) As Boolean
     Next i
 
 End Function   '*** end of Dx_Pg_Text_Is_Range function ***
+
+Private Function Dx_Pg_Range_Continuation(ByVal s As String) As String
+'
+' The DBT continuation code for a page range, exactly as Dx_AutoTag_Page_Numbers writes it, to go
+' straight after the range: "16-18" gives "[[*lec*]][[*i*]]18", so the tagged line reads
+' $pg16-18[[*lec*]][[*i*]]18. Anything AutoTag does not code gives "".
+'
+' AutoTag codes a range in five passes, each one plain hyphen between two sides of the SAME shape:
+'   number                  16-18
+'   letter number           A27-A29
+'   number letter           22B-23B
+'   letter number letter    A27B-A29B, AA30BB-AA33BB
+'   letters only            v-vi
+' and gives every one the code plus the side after the hyphen. Not coded, as in AutoTag: an en
+' dash, a space round the hyphen (Dx_Closed_Up_Pg_Range closes that up first), two hyphens, two
+' sides of different shapes (22-23B), and a line that already carries the code - its brackets fit
+' no shape. (Manual Tag takes an old code off first, with Dx_Pg_Continuation_Code_Start, because
+' with hidden text not shown it cannot see one.)
+'
+' Used by Dx_Manual_Tag_with_Dollar_pg. AutoTag keeps its own Find passes; this mirrors them, and
+' tests/test_manual_tag_range_code.py checks that the two agree on the shapes.
+'
+' Version: 1.0  Date: 10/17/2026 - new, for Manual Tag Ref Page (Jerry)
+'
+    Dim hy As Long
+    Dim leftShape As String
+    Dim rightPart As String
+
+    hy = InStr(s, "-")
+    If hy < 2 Or hy >= Len(s) Then Exit Function            ' no hyphen, or one at either end
+    If InStr(hy + 1, s, "-") > 0 Then Exit Function         ' more than one hyphen
+
+    leftShape = Dx_Pg_Range_Side_Shape(Left$(s, hy - 1))
+    rightPart = Mid$(s, hy + 1)
+    If StrComp(leftShape, Dx_Pg_Range_Side_Shape(rightPart), vbBinaryCompare) <> 0 Then Exit Function
+
+    Select Case leftShape
+        Case "D", "LD", "DL", "LDL", "L"
+            Dx_Pg_Range_Continuation = "[[*lec*]][[*i*]]" & rightPart
+    End Select
+
+End Function   '*** end of Dx_Pg_Range_Continuation function ***
+
+Private Function Dx_Pg_Range_Side_Shape(ByVal p As String) As String
+'
+' The shape of one side of a page range, as AutoTag's Find patterns see it: each run of digits is
+' "D", each run of letters A-Z or a-z is "L". 16 is "D", 22B "DL", A27B "LDL", AA30BB "LDL", v "L".
+' Anything holding another character - a space, a dash, a bracket - or nothing at all gives "".
+'
+' Version: 1.0  Date: 10/17/2026 - new, for Dx_Pg_Range_Continuation (Jerry)
+'
+    Dim i As Long
+    Dim ch As String
+    Dim kind As String
+    Dim sideShape As String
+
+    For i = 1 To Len(p)
+        ch = Mid$(p, i, 1)
+        If ch >= "0" And ch <= "9" Then
+            kind = "D"
+        ElseIf (ch >= "A" And ch <= "Z") Or (ch >= "a" And ch <= "z") Then
+            kind = "L"
+        Else
+            Exit Function
+        End If
+        If Right$(sideShape, 1) <> kind Then sideShape = sideShape & kind
+    Next i
+
+    Dx_Pg_Range_Side_Shape = sideShape
+
+End Function   '*** end of Dx_Pg_Range_Side_Shape function ***
+
+Private Function Dx_Pg_Continuation_Code_Start(ByVal s As String) As Long
+'
+' Where a DBT continuation code starts in a tagged line, read WITH its hidden text: 6 for
+' "16-18[[*lec*]][[*i*]]18". The code must be the end of the line - [[*lec*]][[*i*]] and then
+' nothing but the page after it, no other bracket. Anything else gives 0: a line with no code,
+' a single page, an EBAE $pg[[*ii*]]v (a different code, at the front), or a code in mid-line.
+'
+' Used by Dx_Manual_Tag_with_Dollar_pg to take an old code off before it retags, so the code is
+' rebuilt from the range the user can see.
+'
+' Version: 1.0  Date: 10/17/2026 - new, for Manual Tag Ref Page (Jerry)
+'
+    Const CONT_CODE As String = "[[*lec*]][[*i*]]"
+    Dim p As Long
+    Dim tail As String
+
+    p = InStrRev(s, CONT_CODE)
+    If p = 0 Then Exit Function
+    tail = Mid$(s, p + Len(CONT_CODE))
+    If InStr(tail, "[") > 0 Or InStr(tail, "]") > 0 Then Exit Function
+
+    Dx_Pg_Continuation_Code_Start = p
+
+End Function   '*** end of Dx_Pg_Continuation_Code_Start function ***
 
 Private Function Dx_Is_Pg_Range_Part(ByVal p As String) As Boolean
 '

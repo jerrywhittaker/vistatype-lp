@@ -242,7 +242,7 @@ Word cannot empty only part of the undo list, so Jerry had it taken out (3.0.473
 Do not add it again.
 
 **One real edit, nothing needed:** `Lp_Keep_With_Next_Para`, `Lp_Toggle_Space_After_Current_Para`,
-`Sh_Keep_Lines_Of_Para_Together`, `Sh_Move_Paragraph_To_Next_Page`, both Manual Tag macros (3–4),
+`Sh_Keep_Lines_Of_Para_Together`, `Sh_Move_Paragraph_To_Next_Page`, large print Manual Tag (3–4), braille Manual Tag (3–7: from 10/17/2026 a range adds up to three — an old continuation code off, a spaced hyphen closed up, the new code typed; counted by reading, not measured),
 `Dx_Change_Prodnotes_To_Transcriber_Notes`, `Dx_Set_Whole_Document_To_Times_New_Roman_14`,
 `Dx_Remove_Breaks`, `Dx_Remove_Column_Breaks`, `Dx_Remove_Keep_With_Next`,
 `Dx_Remove_Optional_Hyphens`, `Sh_Remove_Multi_Spaces`, `Sh_Replace_Manual_Line_Break`,
