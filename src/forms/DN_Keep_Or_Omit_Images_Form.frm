@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} DN_Keep_Or_Omit_Images_Form 
-   Caption         =   "Keep or Omit Images (325)"
-   ClientHeight    =   1668
+   Caption         =   "Large Print or Braille (325)"
+   ClientHeight    =   1665
    ClientLeft      =   120
    ClientTop       =   465
    ClientWidth     =   3255
@@ -15,8 +15,14 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
 '
-' DN_Keep_Or_Omit_Images_Form
+' DN_Keep_Or_Omit_Images_Form  -  "Large Print or Braille (325)"
 '
+' Version: 2.0  Date: 10/18/2026 - asks LARGE PRINT OR BRAILLE instead of keep or omit images
+'                                (Jerry, 10/18/2026, issue #37). Both answers keep the pictures;
+'                                braille drops them later, elsewhere, so the conversion no longer
+'                                offers to. The answer decides what happens to a book's MathML
+'                                equations. The form keeps its name so nothing that refers to it
+'                                breaks; the option buttons are LargePrint and Braille now.
 ' Version: 1.1  Date: 10/12/2026 - the red X did nothing: QueryClose set Cancel = True,
 '                                then unloaded, and Word ignores an Unload there (Jerry, 10/12/2026).
 '                                The X now only clears the answer and lets the box close.
@@ -25,18 +31,15 @@ Attribute VB_Exposed = False
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
 ' Asked straight after the DAISY/NIMAS choice, by Sh_Convert_XML_File_To_Word_Document.
-' Braille almost never wants the pictures; large print always does. Omitting them also skips
-' the longest stage of the conversion by a wide margin. Jerry timed the same book on the same
-' VM both ways, 8/5/2026: 5 min 30 sec keeping the images, 2 min 30 sec omitting them.
 '
-' Answers through Sh_GP_String_2, "KEEP" or "OMIT", the way the type form answers through
+' Answers through Sh_GP_String_2, "LP" or "BRL", the way the type form answers through
 ' Sh_GP_String_1. An empty string means canceled, and the caller stops.
 
 Private Sub CmdOkay_Click()
-    If OmitImages = True Then
-        Sh_GP_String_2 = "OMIT"
+    If Braille.Value = True Then
+        Sh_GP_String_2 = "BRL"
     Else
-        Sh_GP_String_2 = "KEEP"
+        Sh_GP_String_2 = "LP"
     End If
 
     Unload Me
@@ -55,9 +58,8 @@ Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
 End Sub
 
 Private Sub UserForm_Initialize()
-    'Keep images is the default - large print is the common case and the safe one, since
-    'omitting throws the pictures away and the conversion would have to be run again.
-    KeepImages.Value = True
+    'Large print is the default, as keeping the images was before it.
+    LargePrint.Value = True
 
     'Center UserForm within the Word application window
     Me.StartUpPosition = 0

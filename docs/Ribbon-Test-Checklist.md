@@ -105,8 +105,28 @@ somewhere else on purpose:
 ### DAISY, NIMAS, and Text Tools
 
 - [ ] **DAISY or NIMAS to Word**  `DN_Menu_Starter`
-  - opens dialog **DN XML Type Form**, then **DN Keep Or Omit Images Form**
-    (the manual route and `DN Auto Or Manual Form` were removed 9/17/2026)
+  - opens Braille user form **Convert DAISY or NIMAS .xml to Word (327)**, then Braille user
+    form **Large Print or Braille (325)** (it asked keep or omit images until 10/18/2026; both
+    answers now keep the pictures). The manual route and `DN Auto Or Manual Form` were removed
+    9/17/2026.
+  - [ ] Braille, on a book with MathML (the Imagine IM A1 7&8 NIMAS book): Braille user form
+        **Large Print or Braille (325)**, choose braille. **No** LP user form **Equations (398)**
+        appears. Each equation comes in as one line of text starting
+        `<math xmlns="http://www.w3.org/1998/Math/MathML"`, and a math letter such as an italic
+        x is still there, not a space. Braille message **Operation Complete (313)** names no
+        equations that failed.
+  - [ ] Then, on that book, Braille user form **Braille File Cleanup (332)** > Fix Errors, and
+        Braille user form **Selected Cleanup (333)** over a paragraph holding an equation: the
+        `<math ...>...</math>` text is exactly as before - `id="m1"` keeps its straight quote
+        (no double prime), no curly quotes inside it, a middle dot is still a middle dot. Search
+        for `VTMATH` afterwards: nothing is found. (Issue #37: braille cleanup leaves the MathML
+        alone.)
+  - [ ] **Compress Linear Math** with an equation's MathML text selected: Braille message
+        **Braille Macros (273)**, Yes - the MathML is left exactly as it was.
+  - [ ] **Compress Linear Math** on a selected expression in a book with other x's in it:
+        Braille message **Braille Macros (273)**, Yes - only the selection changes; an x
+        elsewhere (in "next", say) is still an x. Then Ctrl+Z back past it and save: search for
+        `VTMATH` - nothing is found.
 - [ ] **Text File Para Fix**  `DN_Remove_Para_Formatting_From_Text_Files`
   - opens dialog **DN Text File Para Fix Warning**: Continue Button
 
@@ -283,7 +303,19 @@ somewhere else on purpose:
     - dialog **DN XML Type Form**
         - [ ] (the manual route and `DN Auto Or Manual Form` were removed 9/17/2026;
               `DN_Menu_Starter` now calls `Sh_Convert_XML_File_To_Word_Document` directly)
-    - dialog **DN Keep Or Omit Images Form**
+    - LP user form **Large Print or Braille (325)** (asked keep or omit images until
+      10/18/2026; both answers now keep the pictures)
+        - [ ] Large print, on a book with MathML (the Imagine IM A1 7&8 NIMAS book): LP user
+              form **Large Print or Braille (325)**, choose large print, then LP user form
+              **Equations (398)** appears before anything is done to the book.
+        - [ ] LP user form **Equations (398)**, Word equations: the equations come in as Word
+              equations, inline; LP message **Operation Complete (313)** says how many, if any,
+              went in as their pictures instead.
+        - [ ] LP user form **Equations (398)**, EQ pictures: each equation comes in as its EQ
+              picture, embedded (the book still shows them after the book folder is renamed).
+        - [ ] LP user form **Equations (398)**, Cancel, and again with the red X: LP message
+              **VistaType LP (399)** says the book has not been converted, and nothing is.
+        - [ ] A book with no MathML: LP user form **Equations (398)** never appears.
 - [ ] **Text File Para Fix** &nbsp;`DN_Remove_Para_Formatting_From_Text_Files`
     - dialog **DN Text File Para Fix Warning**
         - [ ] Continue Button - "Continue Button"

@@ -86,6 +86,10 @@ Public Sub VtRunAllTests()
     Set Suite = TestErrorLog_Suite()
     Reporter.ListenTo Suite
 
+    Reporter.Trace "building MathML equations"
+    Set Suite = TestMathML_Suite()
+    Reporter.ListenTo Suite
+
     Reporter.Finish
     Exit Sub
 

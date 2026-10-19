@@ -18,7 +18,43 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Dx  - 10/17/2026 - MANUAL TAG REF PAGE: a page range now gets the DBT continuation code,
+' Notes:    - DN  - 10/18/2026 - THE BOOK'S OWN PICTURES ARE ASPECT-LOCKED TOO (Jerry): the <img>
+'           - DN  - 10/18/2026 - pictures, in Sh_Convert_XML_File_To_Word_Document's picture loop.
+'           - DN  - 10/18/2026 - EQUATION PICTURES HAVE THEIR ASPECT RATIO LOCKED (Jerry), the EQ
+'           - DN  - 10/18/2026 - pictures choice and the fallback alike: Sh_MathML_Put_Picture.
+'           - DN  - 10/18/2026 - EQUATIONS, speed (measured, 2,139 equations: 556 s to 186 s): the
+'           - DN  - 10/18/2026 - converted book's undo list is cleared once before the walk, and the
+'           - DN  - 10/18/2026 - placeholders' places are read once from its text instead of a Find
+'           - DN  - 10/18/2026 - per equation; each is checked, and Find is still used if it is not
+'           - DN  - 10/18/2026 - there. New: Sh_MathML_Placeholder_Positions.
+'           - Dx  - 10/18/2026 - BRAILLE CLEANUP LEAVES THE MATHML ALONE (Jerry, issue #37): Full File
+'           - Dx  - 10/18/2026 - Cleanup (and so Attach BANA Template's first cleanup), Selected
+'           - Dx  - 10/18/2026 - Cleanup (333), Compress Linear Math, AutoTag Ref Pages' spacing pass
+'           - Dx  - 10/18/2026 - and Exercise Levels park each <math>...</math> as a mark before the
+'           - Dx  - 10/18/2026 - passes and put it back after, error paths included; the originals
+'           - Dx  - 10/18/2026 - wait in document variables, so the next cleanup recovers a stopped
+'           - Dx  - 10/18/2026 - one. New: Dx_Math_Park, Dx_Math_Restore and helpers. Second
+'           - Dx  - 10/18/2026 - review: the stored texts survive the restore (Ctrl+Z), the selection
+'           - Dx  - 10/18/2026 - cleanups park the selection only, and a save puts back any mark left
+'           - Dx  - 10/18/2026 - (Dx_Math_Before_Save, from VtEvents), and so does opening the book
+'           - Dx  - 10/18/2026 - (Dx_Math_On_Open, VtEvents and AutoExec). COMPRESS LINEAR MATH: its x to
+'           - Dx  - 10/18/2026 - times-sign pass ran on past the selection through the whole book
+'           - Dx  - 10/18/2026 - (wdFindContinue); wdFindStop now.
+'           - DN  - 10/18/2026 - EQUATIONS, review: the stylesheet is compiled once (XSLTemplate);
+'           - DN  - 10/18/2026 - altimg read with quoted values and XML entities and %XX unescaped;
+'           - DN  - 10/18/2026 - a picture goes in before its placeholder comes out; Word's Find is
+'           - DN  - 10/18/2026 - reset after the walk; braille MathML keeps every character.
+'           - Sh  - 10/18/2026 - Sh_One_Log_Line no longer turns every character from U+8000 up into
+'           - Sh  - 10/18/2026 - a space (AscW is negative there).
+'           - DN  - 10/18/2026 - DAISY/NIMAS CONVERSION AND EQUATIONS (issue #37): box 325 asks large
+'           - DN  - 10/18/2026 - print or braille ("LP"/"BRL") instead of keep or omit images, and
+'           - DN  - 10/18/2026 - both keep the pictures; the OMIT branch is gone. A book's MathML is
+'           - DN  - 10/18/2026 - parked as VTEQnnnnnn placeholders for the import, which used to drop
+'           - DN  - 10/18/2026 - it. Large print asks "Equations (398)": Word equations (Word's own
+'           - DN  - 10/18/2026 - MML2OMML.XSL, InsertXML) or the altimg pictures; Cancel says 399.
+'           - DN  - 10/18/2026 - Braille gets each equation back as MathML text for DBT. New:
+'           - DN  - 10/18/2026 - Sh_MathML_* helpers, Sh_OMML_Package, Sh_Strip_Xml_Declaration.
+'           - Dx  - 10/17/2026 - MANUAL TAG REF PAGE: a page range now gets the DBT continuation code,
 '           - Dx  - 10/17/2026 - as braille AutoTag Ref Pages gives it (Jerry): 16-18 becomes
 '           - Dx  - 10/17/2026 - $pg16-18[[*lec*]][[*i*]]18, and so do 22B-23B, A27B-A29B, AA30BB-AA33BB.
 '           - Dx  - 10/17/2026 - A spaced or doubled hyphen is closed up first, as AutoTag does. New:
@@ -2847,7 +2883,8 @@ Public Lp_Sec_Starts_Changed As Long
 Public Lp_Pic_Percent As String
 
 Public Sh_GP_String_1 As String
-Public Sh_GP_String_2 As String   ' the conversion's image choice, "KEEP" or "OMIT"
+Public Sh_GP_String_2 As String   ' the conversion's large print or braille choice (325), "LP" or "BRL"
+Public Sh_GP_String_3 As String   ' the conversion's equation choice (398), "OMML" or "PICTURE"
 ' Sh_GP_Boolean_1 and Sh_GP_Counter_1 stood here until 9/4/2026. Only
 ' Sh_Is_End_Paragraph_Mark_Included ever wrote them and nothing ever read them back, so they went
 ' with that macro when Change Picture Color stopped round-tripping. Sh_GP_String_1 and
@@ -2896,6 +2933,11 @@ Public Sh_Start_Pos As Long        ' Selection.Start when the outermost macro be
 Public Sh_Start_Doc As String      ' the document it was measured in
 Public Sh_Pos_Depth As Long        ' nesting level; only the outermost macro returns the user
 Public Sh_Pos_Saved As Boolean     ' guards against a return with no matching save (would jump to a stale spot)
+
+' How many braille MathML parks are in force (issue #37, 10/18/2026): 0 none, 1 one, more when a
+' park was asked for inside another - that inner one is a no-op, and so is its restore. See the
+' note above Dx_Math_Park. A run that stops on End clears it with the rest of the project's state.
+Private Dx_Math_Depth As Long
 
 ' HOW MANY PICTURES THE LAST RUN OF Lp_Same_Pic_Apply CHANGED. Module-level rather than handed
 ' back through the parameters, because every helper in this project takes ByVal parameters - the
@@ -3260,6 +3302,7 @@ Public Sh_LastSeenAs As String
 
 Sub AutoExec()
     ' Runs once when Word starts (fires even from a STARTUP global template, unlike AutoOpen).
+    ' 10/18/2026: ends by putting back any braille MathML park marks left in an open document.
     On Error Resume Next
 
     ' FIRST OF ALL, and only ever once per machine: put Jerry's starting values on the two
@@ -3279,6 +3322,14 @@ Sub AutoExec()
     End If
     ' A document opened as part of Word startup opens before this hook exists; handle it now.
     If (Not gEvents Is Nothing) And Documents.count > 0 Then Sh_HandleDocumentOpened
+
+    ' And every document already open: put back any braille MathML park marks a cleanup that
+    ' stopped left in it (issue #37, 10/18/2026). Only a book holding marks is changed; see
+    ' Dx_Math_On_Open. VtEvents' App_DocumentOpen does the same for every book opened later.
+    Dim openDoc As Document
+    For Each openDoc In Documents
+        Dx_Math_On_Open openDoc
+    Next openDoc
 End Sub
 
 Public Function Sh_GetLastDocEvent() As String
@@ -6058,6 +6109,11 @@ Public Sub Dx_Fix_Common_File_Errors_Run(ByVal quiet As Boolean)
 
 ' Dx_Fix_Common_File_Errors Macro
 '
+' Version: 3.2  Date: 10/18/2026 - LEAVES THE MATHML ALONE (Jerry, issue #37): every MathML element
+'                                  is parked by Dx_Math_Park before the first pass and put back by
+'                                  Dx_Math_Restore after the last, and on the way out of an error
+'                                  too, which then goes on to the caller as before. Attach BANA
+'                                  Template's first-attach cleanup runs this, so it is covered
 ' Version: 3.1  Date: 10/11/2026 - always the whole book (Jerry, 10/11/2026): Dx_Ffc_Step
 '                                  collapses the selection before every pass. Text selected when
 '                                  the button was pressed, or left selected by a pass's own Find,
@@ -6101,6 +6157,8 @@ Public Sub Dx_Fix_Common_File_Errors_Run(ByVal quiet As Boolean)
 
     Dim su_Prev As Boolean
     Dim stepNo As Long
+    Dim mathDoc As Document
+    Dim errNum As Long, errText As String
 
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
@@ -6109,6 +6167,14 @@ Public Sub Dx_Fix_Common_File_Errors_Run(ByVal quiet As Boolean)
     ' the percentage, so adding or removing a pass needs no arithmetic - only the total in
     ' Dx_Ffc_Step kept honest. Sh_Progress_Say traps, so the box can never stop the cleanup.
     Sh_Progress_Open "Braille - Full File Cleanup"
+
+    ' FIRST, before any pass: the book's MathML is set aside, so no pass below can change it, and
+    ' it goes back after the last one (issue #37 - see the note above Dx_Math_Park). From here to
+    ' the restore an error puts it back before going on (FfcFailed).
+    Set mathDoc = ActiveDocument
+    On Error GoTo FfcFailed
+    Dx_Ffc_Step stepNo, "Setting the equations (MathML) aside"
+    Dx_Math_Park mathDoc.Content
 
     '------------- start cleanup ------------------
 
@@ -6264,6 +6330,11 @@ Public Sub Dx_Fix_Common_File_Errors_Run(ByVal quiet As Boolean)
     Dx_Ffc_Step stepNo, "Coloring the $pg tags red"
     Application.Run MacroName:="Dx_Color_Dollar_PG_Red"
 
+    ' The MathML back, exactly as it was found, now that every pass has run.
+    Dx_Ffc_Step stepNo, "Putting the equations (MathML) back"
+    Dx_Math_Restore mathDoc
+    On Error GoTo 0
+
     Sh_Progress_Say 100, "Finished."
 
     ActiveDocument.UndoClear
@@ -6280,11 +6351,23 @@ Public Sub Dx_Fix_Common_File_Errors_Run(ByVal quiet As Boolean)
     ' file runs this automatically, and large print - the behavior he asked this to match - runs
     ' its own cleanup and says nothing. Run from the ribbon or the cleanup menu it still reports.
     If Not quiet Then MsgBox "End of Fix Common File Errors", , "Braille Macros (264)"
-    
+    Exit Sub
+
+FfcFailed:
+    ' The book must not be left holding the marks. Put the MathML back, take the bar down, and
+    ' let the error go on to whoever called this, exactly as it did before there was a handler.
+    errNum = Err.Number
+    errText = Err.Description
+    Dx_Math_Restore mathDoc, True
+    Sh_Progress_Close
+    Application.ScreenUpdating = su_Prev
+    Err.Raise errNum, "Dx_Fix_Common_File_Errors_Run", errText
+
 End Sub '***** end of Dx_Fix_Common_File_Errors_Run Macro *****
 
 Private Sub Dx_Ffc_Step(ByRef stepNo As Long, ByVal what As String)
 '
+' Version: 1.2  Date: 10/18/2026 - two more steps, the MathML set aside and put back (issue #37): 39
 ' Version: 1.1  Date: 10/11/2026 - collapses the selection before every pass - see the note below
 ' Version: 1.0  Date: 8/29/2026
 '
@@ -6297,16 +6380,17 @@ Private Sub Dx_Ffc_Step(ByRef stepNo As Long, ByVal what As String)
 ' stepNo is BYREF, and deliberately: it is a counter the caller owns and this has to advance it.
 ' That is the one shape the project's ByVal rule does not cover.
 '
-' DX_FFC_STEPS is ONE MORE than the 36 passes, and deliberately. Each step announces itself
-' BEFORE its pass runs, so a total of 36 would put the bar at 100% while the last pass was still
-' working - which is the one thing a progress bar must never say. At 37 the last step reads 97%
+' DX_FFC_STEPS is ONE MORE than the 38 steps, and deliberately. Each step announces itself
+' BEFORE its pass runs, so a total of 38 would put the bar at 100% while the last pass was still
+' working - which is the one thing a progress bar must never say. At 39 the last step reads 97%
 ' and the caller sets 100 once the work is actually done.
 '
-' 36 is the count with EVERY conditional pass running - the three that fire only for EBAE or for
-' Nemeth. A UEB textbook skips all three and finishes at 89%, then jumps to 100. A bar that
-' arrives a little short is honest; one that arrives early is not.
+' 38 is the 36 passes plus the MathML set aside and put back (10/18/2026), with EVERY conditional
+' pass running - the three that fire only for EBAE or for Nemeth. A UEB textbook skips all three
+' and finishes at 90%, then jumps to 100. A bar that arrives a little short is honest; one that
+' arrives early is not.
 
-    Const DX_FFC_STEPS As Long = 37
+    Const DX_FFC_STEPS As Long = 39
 
     ' FULL FILE CLEANUP IS THE WHOLE BOOK, always - only Selection Clean Up honors a selection
     ' (Jerry, 10/11/2026). Many passes work on the selection when there is one, and some can leave
@@ -6319,6 +6403,405 @@ Private Sub Dx_Ffc_Step(ByRef stepNo As Long, ByVal what As String)
     Sh_Progress_Say 100# * stepNo / DX_FFC_STEPS, what
 
 End Sub  '*** end of Dx_Ffc_Step ***
+
+' ===== BRAILLE CLEANUP LEAVES THE MATHML ALONE (issue #37, Jerry, 10/18/2026) =====
+'
+' A braille conversion of a NIMAS or DAISY book puts each equation in as MathML text,
+' <math xmlns="http://www.w3.org/1998/Math/MathML" ...>...</math>, for DBT to read. The braille
+' cleanup passes would damage it: Dx_Fix_Primes makes id="m1" into id="m1" with a double prime,
+' the quote pass curls the quotes round every attribute, Dx_Fix_Para_Space_Errors makes a middle
+' dot a space, the Nemeth passes take out U+2061, the en dash and space passes rewrite what is
+' between the tags, and Compress Linear Math makes x into a times sign and takes out the spaces.
+'
+' So, ONE mechanism instead of a test in every pass: before the passes, each MathML element in
+' the main text is PARKED - its exact text stored in a document variable and the element
+' replaced by a short mark - and after them every mark is put back as the text it stood for.
+'
+' THE MARK is U+27E6, VTMATH, six digits, U+27E7 - a white square bracket either side.
+' Chosen against every pass that runs while it is there:
+'   - no quote marks, spaces, tabs, hyphens, dashes, middle dots, x, =, < or >, $ or "pg", so
+'     the primes, quote, dash, space, Nemeth, Compress Linear Math and $pg passes have nothing
+'     to change INSIDE it;
+'   - it starts and ends with a bracket no pass names, not a digit or a letter, so what is
+'     BESIDE it is treated as it was beside "<" and ">" - a quote after it is not made a prime
+'     (digit + quote), "a)" plus a tab is not made a list marker, and no "^013 letter or digit"
+'     page-number pattern can start on it;
+'   - all capitals already, so the small caps pass has no case to change.
+' The digits are fixed width, so no mark is the start of another.
+'
+' THE STORE is the document's own variables, VtMathPark000001 and on, not memory: if a cleanup
+' stops part way - a pass that fails inside Application.Run goes to Word's own error box, and an
+' End in a guard, neither of which any handler here can catch - the original text is still in
+' the book. Three things put it back: every entry point's own error path; the NEXT braille
+' cleanup, before it does anything else (Dx_Math_Park starts with Dx_Math_Put_Back); so a book
+' is not SAVED holding marks, Dx_Math_Before_Save on every save (VtEvents); and, since an End
+' or an error in Word's own box also unhooks the events for the rest of the session,
+' Dx_Math_On_Open whenever the book is opened again (VtEvents and AutoExec).
+'
+' THE STORED TEXTS OUTLIVE THE RESTORE, on purpose, and stay in the book until its next park (second review, 10/18/2026). Selected Cleanup
+' and Compress Linear Math do not clear the undo list, and the park and the restore are each an
+' undo step, so Ctrl+Z past the restore brings the marks back - and they must still have their
+' text to go back to. The next park drops whatever nothing needs any more (Dx_Math_Prune), and
+' numbers its marks above any it had to keep. The text goes back with Range.Text, so
+' it takes the mark's character formatting, which the mark took from the element's first
+' character when it was parked: the converter puts the MathML in in the paragraph's own font,
+' so that is its formatting.
+'
+' Only the MAIN TEXT is parked (tables included) - that is where the converter puts equations -
+' and only what is in the range a cleanup works on: the whole book for Full File Cleanup, the
+' selection for Selected Cleanup and Compress Linear Math. A park asked for inside another is a
+' no-op (Dx_Math_Depth), and so is its restore.
+
+Private Function Dx_Math_Park_Mark(ByVal n As Long) As String
+    '
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' The mark that stands in for parked equation n while the braille passes run - see above.
+    '   Dx_Math_Park_Mark(12)  =  ChrW(&H27E6) & "VTMATH000012" & ChrW(&H27E7)
+    Dx_Math_Park_Mark = ChrW(&H27E6) & "VTMATH" & Format$(n, "000000") & ChrW(&H27E7)
+End Function   '*** end of Dx_Math_Park_Mark function ***
+
+Private Function Dx_Math_Park_Var(ByVal n As Long) As String
+    '
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' The document variable that holds parked equation n's text: VtMathPark000012.
+    Dx_Math_Park_Var = "VtMathPark" & Format$(n, "000000")
+End Function   '*** end of Dx_Math_Park_Var function ***
+
+Private Function Dx_Math_Mark_Number(ByVal t As String) As Long
+    '
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' The number in a park mark, 12 for ChrW(&H27E6) & "VTMATH000012" & ChrW(&H27E7) - 0 when t is
+    ' not exactly one mark.
+    Dim digits As String
+    If Len(t) <> 14 Then Exit Function
+    If Left$(t, 7) <> ChrW(&H27E6) & "VTMATH" Or Right$(t, 1) <> ChrW(&H27E7) Then Exit Function
+    digits = Mid$(t, 8, 6)
+    If digits Like "######" Then Dx_Math_Mark_Number = CLng(digits)
+End Function   '*** end of Dx_Math_Mark_Number function ***
+
+Private Function Dx_Math_Element_Length(ByVal s As String) As Long
+    '
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' How much of s, from its first character, is ONE MathML element as the braille conversion
+    ' puts it in: "<math", then white space, ">" or "/", the start tag (a ">" inside a quoted
+    ' value does not end it), and either "/>" or everything up to the first "</math" and the ">"
+    ' after it. 0 when s does not start with one, or it does not close within s - <mathematics>
+    ' is not MathML, and an element with no end is left alone rather than guessed at.
+    '   Dx_Math_Element_Length("<math alttext=""a > b""><mi>x</mi></math> and more")  =  39
+
+    Dim tagLen As Long, closeAt As Long, gt As Long
+
+    If Left$(s, 5) <> "<math" Or Len(s) < 6 Then Exit Function
+    Select Case Mid$(s, 6, 1)
+        Case " ", vbTab, vbCr, vbLf, ">", "/"
+        Case Else
+            Exit Function
+    End Select
+
+    tagLen = Sh_Xml_Start_Tag_Length(s)
+    If tagLen = 0 Then Exit Function
+    If Mid$(s, tagLen - 1, 1) = "/" Then
+        Dx_Math_Element_Length = tagLen          ' <math ... /> - empty, and whole
+        Exit Function
+    End If
+
+    closeAt = InStr(tagLen + 1, s, "</math", vbBinaryCompare)
+    If closeAt = 0 Then Exit Function
+    gt = InStr(closeAt + 6, s, ">", vbBinaryCompare)
+    If gt = 0 Then Exit Function
+    If Trim$(Replace(Replace(Replace(Mid$(s, closeAt + 6, gt - closeAt - 6), vbTab, ""), vbCr, ""), vbLf, "")) <> "" Then
+        Exit Function                            ' </mathx> or the like - not the close
+    End If
+    Dx_Math_Element_Length = gt
+End Function   '*** end of Dx_Math_Element_Length function ***
+
+Public Function Dx_Math_Park(ByVal target As Range) As Long
+    '
+    ' Version: 1.1  Date: 10/18/2026 - second review: parks only what is in target (the selection,
+    '                                for Selected Cleanup and Compress Linear Math), costs one Find
+    '                                when there is no "<math" in it, never parks a picture or a
+    '                                field, numbers new marks above any stored text still waiting,
+    '                                and is a no-op when a park is already in force (the depth)
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' Sets every MathML element that starts in target - from the start of target's first
+    ' paragraph, so one the selection begins inside is included - aside before a braille cleanup,
+    ' and answers how many. See the note above. First it puts back any mark already in the book
+    ' (a cleanup that stopped, or Ctrl+Z past a restore) and drops the stored texts nothing needs.
+    ' An element is left where it is, unprotected, when its text cannot be read back exactly as
+    ' found, holds a picture or a field, or cannot be stored (a document variable holds about
+    ' 65,000 characters). On an error everything parked so far goes back, then the error goes on.
+
+    Dim doc As Document
+    Dim a As Range, c As Range, el As Range
+    Dim pos As Long, n As Long, L As Long, winEnd As Long, top As Long
+    Dim win As String, txt As String
+    Dim stored As Boolean
+    Dim errNum As Long, errText As String
+
+    ' Already inside a park - Dx_Prompt_Save_Before_Braille can run Full File Cleanup from a pass
+    ' that Full File Cleanup itself runs. The outer park covers it; its restore does the work.
+    If Dx_Math_Depth > 0 Then
+        Dx_Math_Depth = Dx_Math_Depth + 1
+        Exit Function
+    End If
+
+    Set doc = target.Document
+    Dx_Math_Put_Back doc
+    top = Dx_Math_Prune(doc)
+    Dx_Math_Depth = 1
+
+    On Error GoTo ParkFailed
+    pos = target.Paragraphs(1).Range.Start
+    Do
+        ' The first time round this is the whole cost for a book with no MathML: one Find.
+        Set a = Sh_Find_Text_Forward(doc, "<math", pos)
+        If a Is Nothing Then Exit Do
+        If a.Start >= target.End Then Exit Do
+        pos = a.End
+
+        ' Enough text to hold the element: up to the next "</math" and a little after it, or,
+        ' with no close at all, enough for an empty <math ... />.
+        Set c = Sh_Find_Text_Forward(doc, "</math", a.End)
+        If c Is Nothing Then
+            winEnd = a.Start + 4000
+        Else
+            winEnd = c.End + 40
+        End If
+        If winEnd > a.Start + 65000 Then winEnd = a.Start + 65000
+        If winEnd > doc.Content.End Then winEnd = doc.Content.End
+        win = doc.Range(a.Start, winEnd).Text
+
+        L = Dx_Math_Element_Length(win)
+        If L > 0 Then
+            Set el = doc.Range(a.Start, a.Start + L)
+            ' Range.Text would throw away a picture or a field - only possible when a "<math"
+            ' in the prose runs on to a real equation's close - so such a span is left alone.
+            If el.InlineShapes.count = 0 And el.Fields.count = 0 Then
+                txt = el.Text
+                If txt = Left$(win, L) Then
+                    On Error Resume Next
+                    doc.Variables.Add Name:=Dx_Math_Park_Var(top + n + 1), Value:=txt
+                    stored = (Err.Number = 0)
+                    Err.Clear
+                    On Error GoTo ParkFailed
+                    If stored Then
+                        n = n + 1
+                        el.Text = Dx_Math_Park_Mark(top + n)
+                        pos = el.End
+                    End If
+                End If
+            End If
+        End If
+    Loop
+
+    Sh_Reset_Find_Parameters
+    Dx_Math_Park = n
+    Exit Function
+
+ParkFailed:
+    errNum = Err.Number
+    errText = Err.Description
+    Dx_Math_Restore doc, True
+    Err.Raise errNum, "Dx_Math_Park", errText
+End Function   '*** end of Dx_Math_Park function ***
+
+Public Function Dx_Math_Restore(ByVal doc As Document, Optional ByVal unwinding As Boolean = False) As Long
+    '
+    ' Version: 1.1  Date: 10/18/2026 - second review: the stored texts are KEPT (Ctrl+Z past the
+    '                                restore brings the marks back, and they must still have
+    '                                something to go back to); the next park drops them. Honors
+    '                                the park depth; unwinding puts everything back whatever it is
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' Ends a park: puts back every MathML element Dx_Math_Park set aside in doc, exactly as it was
+    ' found, and answers how many. Inside a nested park it only counts the depth down - the outer
+    ' one's restore does the work. unwinding is for the error paths: everything goes back now and
+    ' the depth is cleared, since the error is unwinding every park there is. Never raises, and
+    ' safe to call when nothing is parked.
+
+    If Dx_Math_Depth > 1 And Not unwinding Then
+        Dx_Math_Depth = Dx_Math_Depth - 1
+        Exit Function
+    End If
+    Dx_Math_Depth = 0
+    Dx_Math_Restore = Dx_Math_Put_Back(doc)
+End Function   '*** end of Dx_Math_Restore function ***
+
+Private Function Dx_Math_Put_Back(ByVal doc As Document) As Long
+    '
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' Every park mark in doc's main text becomes the text stored for it, walking the marks in
+    ' order - one Find each, and one in all when there are none. A mark whose text cannot be
+    ' found or put back is left as it is. The stored texts are NOT deleted (see Dx_Math_Prune).
+    ' Never raises; answers how many went back.
+
+    Dim r As Range, m As Range
+    Dim pos As Long, num As Long, n As Long
+    Dim original As String
+
+    On Error Resume Next
+    If doc Is Nothing Then Exit Function
+    If doc.Variables.count = 0 Then Exit Function
+
+    pos = doc.Content.Start
+    Do
+        Set r = Nothing
+        Set r = Sh_Find_Text_Forward(doc, ChrW(&H27E6) & "VTMATH", pos)
+        If r Is Nothing Then Exit Do
+        If Err.Number <> 0 Then Exit Do
+        pos = r.End
+        Set m = doc.Range(r.Start, r.Start + Len(Dx_Math_Park_Mark(1)))
+        num = Dx_Math_Mark_Number(m.Text)
+        If num > 0 Then
+            original = ""
+            original = doc.Variables(Dx_Math_Park_Var(num)).Value
+            If Err.Number = 0 And original <> "" Then
+                m.Text = original
+                If Err.Number = 0 Then
+                    n = n + 1
+                    pos = m.End
+                End If
+            End If
+        End If
+        Err.Clear
+    Loop
+    Err.Clear
+
+    Sh_Reset_Find_Parameters
+    Dx_Math_Put_Back = n
+End Function   '*** end of Dx_Math_Put_Back function ***
+
+Private Function Dx_Math_Prune(ByVal doc As Document) As Long
+    '
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' Run by Dx_Math_Park straight after Dx_Math_Put_Back. Deletes every stored text whose mark is
+    ' no longer in the book - the ones put back, and the ones whose mark was deleted - and keeps
+    ' those whose mark is still there (its text could not go back). Answers the highest number
+    ' kept, so new marks are numbered above it and can never share a number with a leftover.
+    ' Never raises.
+
+    Dim v As Variable
+    Dim r As Range
+    Dim marks As New Collection, names As New Collection
+    Dim nm As Variant, probe As Variant
+    Dim pos As Long, num As Long, top As Long
+
+    On Error Resume Next
+    If doc.Variables.count = 0 Then Exit Function
+
+    For Each v In doc.Variables
+        If Left$(v.Name, 10) = "VtMathPark" Then names.Add v.Name
+    Next v
+    If names.count = 0 Then Exit Function
+
+    ' The marks still in the book, by number.
+    pos = doc.Content.Start
+    Do
+        Set r = Nothing
+        Set r = Sh_Find_Text_Forward(doc, ChrW(&H27E6) & "VTMATH", pos)
+        If r Is Nothing Then Exit Do
+        If Err.Number <> 0 Then Exit Do
+        pos = r.End
+        num = Dx_Math_Mark_Number(doc.Range(r.Start, r.Start + Len(Dx_Math_Park_Mark(1))).Text)
+        If num > 0 Then
+            marks.Add num, CStr(num)
+            If num > top Then top = num
+        End If
+        Err.Clear
+    Loop
+    Err.Clear
+
+    For Each nm In names
+        Err.Clear
+        probe = marks(CStr(Val(Mid$(nm, 11))))
+        If Err.Number <> 0 Then
+            Err.Clear
+            doc.Variables(nm).Delete
+        End If
+    Next nm
+    Err.Clear
+
+    Sh_Reset_Find_Parameters
+    Dx_Math_Prune = top
+End Function   '*** end of Dx_Math_Prune function ***
+
+Public Sub Dx_Math_Before_Save(ByVal doc As Document)
+    '
+    ' Version: 1.1  Date: 10/18/2026 - ship-safety review: does nothing while a park is in force
+    '                                (an AutoSave during a cleanup's DoEvents, or the nested
+    '                                Dx_Prompt_Save_Before_Braille save) - the marks save with
+    '                                their stored texts and the cleanup's own restore finishes the
+    '                                job; and looks for a mark with one Find instead of reading the
+    '                                whole text of the book on every save
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' THE SAFETY NET: a book is not SAVED holding park marks. Called from VtEvents'
+    ' App_DocumentBeforeSave for every save. The cleanups restore on their own error paths, but
+    ' an End (a guard in a pass, the old-template stop in Dx_Is_BANA_Template_Attached) or an
+    ' error inside Application.Run skips every handler - so whatever is left is put back here.
+    ' Those same two also reset the VBA project, which unhooks the events until Word starts
+    ' again, so Dx_Math_On_Open is the second net. Says nothing and never raises.
+
+    On Error Resume Next
+    If Dx_Math_Depth > 0 Then Exit Sub
+    If Dx_Math_Marks_Waiting(doc) Then Dx_Math_Put_Back doc
+    Err.Clear
+End Sub   '*** end of Dx_Math_Before_Save ***
+
+Public Sub Dx_Math_On_Open(ByVal doc As Document)
+    '
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' THE SECOND NET (ship-safety review, 10/18/2026). An End or an error in Word's own box resets
+    ' the VBA project, which drops the application-event hook until AutoExec runs again at the
+    ' next start of Word - so from then on Dx_Math_Before_Save never fires, and a book can be
+    ' saved holding marks. When it is opened again, here, from VtEvents' App_DocumentOpen and from
+    ' AutoExec for the documents already open when Word starts, the marks are put back. That
+    ' changes the document, so it then asks to be saved - but only a book that actually holds
+    ' marks is touched; every other one is only looked at. Says nothing and never raises.
+
+    On Error Resume Next
+    If Dx_Math_Marks_Waiting(doc) Then Dx_Math_Put_Back doc
+    Err.Clear
+End Sub   '*** end of Dx_Math_On_Open ***
+
+Private Function Dx_Math_Marks_Waiting(ByVal doc As Document) As Boolean
+    '
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' Does doc hold a park mark? The cheap tests first: a document with no variables stops at
+    ' once, and one with no VtMathPark variable after a look at its variable names. A book that
+    ' has been parked keeps its stored texts until its next park (Ctrl+Z safety - see the note
+    ' above Dx_Math_Park), so for that book it is ONE Find in the main text, on a Range of its
+    ' own - the selection does not move - and Word's Find is put back after it. Never raises.
+
+    Dim v As Variable
+    Dim found As Boolean
+    Dim r As Range
+
+    On Error Resume Next
+    If doc Is Nothing Then Exit Function
+    If doc.Variables.count = 0 Then Exit Function
+    For Each v In doc.Variables
+        If Left$(v.Name, 10) = "VtMathPark" Then
+            found = True
+            Exit For
+        End If
+    Next v
+    If Not found Then Exit Function
+
+    Set r = Sh_Find_Text_Forward(doc, ChrW(&H27E6) & "VTMATH", doc.Content.Start)
+    Sh_Reset_Find_Parameters
+    Dx_Math_Marks_Waiting = Not (r Is Nothing)
+    Err.Clear
+End Function   '*** end of Dx_Math_Marks_Waiting function ***
 
 Sub Dx_Color_Dollar_PG_Red()
 '
@@ -7002,6 +7485,8 @@ End Sub   '***** End of Dx_Spelling_List Macro *****
 
 Sub Dx_AutoTag_Page_Numbers()
 '
+' Version: 3.6  Date: 10/18/2026 - the MathML of a converted book is set aside around the paragraph
+'                                spacing pass it runs first, and put back after it (issue #37)
 ' Version: 3.5  Date: 10/7/2026 - turns formatting marks on BEFORE tagging instead of after: a page
 '                                number whose paragraph mark is hidden was missed on a book with them
 '                                off (Jerry, on 3.0.541, a Normal-template book)
@@ -7056,10 +7541,20 @@ Sub Dx_AutoTag_Page_Numbers()
 
     Dim strLength As Integer
 
-    Application.Run MacroName:="Dx_Fix_Para_Space_Errors"
     Dim su_Prev As Boolean
+    Dim errNum As Long, errText As String
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False ' Turn screen updating off
+
+    ' The one braille cleanup pass AutoTag runs, and the one that would damage MathML text (a
+    ' middle dot becomes a space) - so the book's MathML is set aside around it (issue #37), with
+    ' the screen already off. The page-number passes below need no such care: every one looks
+    ' for a whole paragraph of page number, and MathML text starts with "<".
+    On Error GoTo MathFailed
+    Dx_Math_Park ActiveDocument.Content
+    Application.Run MacroName:="Dx_Fix_Para_Space_Errors"
+    Dx_Math_Restore ActiveDocument
+    On Error GoTo 0
     Sh_Save_User_Position
 
     ' FORMATTING MARKS ON BEFORE THE FIRST PASS, not after the last (10/7/2026). A page-number
@@ -7822,7 +8317,17 @@ LoopEnd:
             Sh_Validation_Choices_Form.Show
         End If
     End If
-    
+    Exit Sub
+
+MathFailed:
+    ' Only the MathML park and the spacing pass are covered. Put the MathML back, then let the
+    ' error go on as it always has.
+    errNum = Err.Number
+    errText = Err.Description
+    Dx_Math_Restore ActiveDocument, True
+    Application.ScreenUpdating = su_Prev
+    Err.Raise errNum, "Dx_AutoTag_Page_Numbers", errText
+
 End Sub   '***** end of Dx_AutoTag_Page_Numbers Macro *************
 
 Function Dx_Merge_Adjacent_Pg_Numbers(ByVal targetDoc As Document) As Long
@@ -8491,6 +8996,7 @@ End Sub  '***** end of Dx_Format_Exercise_Lv_1_and_Lv_2 Macro *****
 ' styles this macro applies - Exercise1, Exercise2, Ex2Nemeth2, DBT Code - resolve exactly as
 ' they do in the transcriber's own book. That is the job Dx_Attach_Same_BANA_Template did.
 '
+' Version: 1.1  Date: 10/18/2026 - MathML in the list is set aside around the passes (issue #37)
 ' Version: 1.0  Date: 8/31/2026
 Public Sub Dx_Exercise_Levels_Hidden(ByVal src As Range)
     Dim origDoc As Document
@@ -8549,8 +9055,13 @@ Public Sub Dx_Exercise_Levels_Hidden(ByVal src As Range)
     Sh_Last_Activity = "Exercise levels: copying the list out"
     tempDoc.Content.FormattedText = work.FormattedText
 
+    ' The MathML in the list is set aside in the scratch document and put back before the list
+    ' goes home (issue #37). On an error the scratch document is closed unsaved, so the book
+    ' itself never holds a mark.
     Sh_Last_Activity = "Exercise levels: formatting the list"
+    Dx_Math_Park tempDoc.Content
     Dx_Ex_Passes tempDoc
+    Dx_Math_Restore tempDoc
 
     Sh_Last_Activity = "Exercise levels: restoring the paragraph marks"
     Sh_Set_Trailing_Para_Marks tempDoc, srcTrail
@@ -8576,6 +9087,7 @@ eom:
     errNum = Err.Number
     errText = Err.Description
     On Error Resume Next
+    Dx_Math_Restore tempDoc, True     ' clears the park; the scratch document goes unsaved anyway
     If Not tempDoc Is Nothing Then tempDoc.Close SaveChanges:=wdDoNotSaveChanges
     Application.ScreenUpdating = su_Prev
     Sh_Return_User_To_Start_Position
@@ -10099,10 +10611,20 @@ Sub Dx_Compress_Linear_Math()
 '
 '  Author: Jerry Whittaker   jerry@vistatypelp.org
 '
+'  Version: 1.3  Date: 10/18/2026 - LEAVES THE MATHML ALONE (Jerry, issue #37): the MathML in the
+'                                  selection is parked before the passes and put back after them,
+'                                  and on an error too. AND THE SELECTION ONLY: the first pass (x to
+'                                  the times sign) ran with wdFindContinue, so Replace All went on
+'                                  past the selection through the whole book - every x in it became
+'                                  a times sign, "next" became "ne" + times sign + "t". wdFindStop,
+'                                  like every other pass here
 '  Version: 1.2  Date: 9/29/2026 - stops if the user cancels the braille translation box (331)
 '  Version: 1.1  Date: 4/7/2023 - added check for BANA template
 '  Version: 1.0  Date: 9/13/2019 - Modification from LP Version
 '
+    Dim mathDoc As Document
+    Dim errNum As Long, errText As String
+
     If Not Dx_Is_BANA_Template_Attached() Then Exit Sub
     
     If Selection.Type <> wdSelectionNormal Then
@@ -10119,6 +10641,11 @@ Sub Dx_Compress_Linear_Math()
     
 CompressThis:
 
+    ' The selection's MathML is set aside first, so none of the passes below can touch it.
+    Set mathDoc = ActiveDocument
+    On Error GoTo CompressFailed
+    Dx_Math_Park Selection.Range
+
     'convert normal "x" (multiply) with math x
     Selection.Find.ClearFormatting
     Selection.Find.Replacement.ClearFormatting
@@ -10126,7 +10653,7 @@ CompressThis:
         .Text = "x"
         .Replacement.Text = "×" 'unicode 00D7
         .Forward = True
-        .Wrap = wdFindContinue
+        .Wrap = wdFindStop    ' the selection only - wdFindContinue ran on through the whole book
         .Format = False
         .MatchCase = False
         .MatchWholeWord = False
@@ -10234,8 +10761,19 @@ CompressThis:
             .Wrap = wdFindStop
         End With
         Selection.Find.Execute Replace:=wdReplaceAll
-        Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
-    
+
+    Dx_Math_Restore mathDoc
+    On Error GoTo 0
+    Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
+    Exit Sub
+
+CompressFailed:
+    errNum = Err.Number
+    errText = Err.Description
+    Dx_Math_Restore mathDoc, True
+    Application.ScreenUpdating = True
+    Sh_Report_Error "Dx_Compress_Linear_Math", errNum, errText
+
 End Sub   '*** End of Dx_Compress_Linear_Math macro ***
 
 Sub Dx_Convert_Hyperliks_To_Text()
@@ -31824,6 +32362,12 @@ End Function   '*** end of Sh_Read_Log_Text ***
 '
 ' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
+' Version: 1.1  Date: 10/18/2026 - every character from U+8000 up was turned into a space too.
+'                                AscW answers an Integer, so U+8000 to U+FFFF come back NEGATIVE
+'                                (ChrW(&HE000) gives -8192) and passed the "below 32" test - CJK
+'                                text, Private Use characters, and both halves of every character
+'                                above U+FFFF (a math letter such as U+1D465) were lost from the
+'                                log. The code is now read as 0 to 65535 (And &HFFFF&).
 ' Version: 1.0  Date: 10/7/2026
 '
 Public Function Sh_One_Log_Line(ByVal s As String) As String
@@ -31835,7 +32379,7 @@ Public Function Sh_One_Log_Line(ByVal s As String) As String
     out = ""
     For i = 1 To Len(s)
         ch = Mid$(s, i, 1)
-        code = AscW(ch)
+        code = AscW(ch) And &HFFFF&     ' 0 to 65535, never negative - see 1.1
         If code < 32 Or code = 127 Then ch = " "
         out = out & ch
     Next i
@@ -34248,6 +34792,8 @@ Sub Sh_Convert_XML_File_To_Word_Document()
 '
 ' Automatically converts an .xml (NIMAS or DAISY) file into a Word Document with reference pages tagged with $pg
 '
+' Version: 2.2  Date: 10/18/2026 - the book's own pictures (the <img> pictures) have their aspect ratio locked in the picture loop, as the EQ pictures already are (Jerry), so a later resize keeps their shape. Large print and braille alike
+' Version: 2.1  Date: 10/18/2026 - EQUATIONS (issue #37, Jerry). Box 325 asks large print or braille instead of keep or omit images; both keep the pictures, and the OMIT branch of the picture loop is gone (braille drops pictures elsewhere). The XML is read BEFORE the bar opens, so a book's MathML is found before any question about it. Each math element is parked as a VTEQnnnnnn placeholder in a separate import file (the .txt and .html beside the book are unchanged), and put back after the import: large print asks Equations (398) - Word equations or the EQ pictures - and Cancel stops with 399 before anything is done to the book; braille gets the MathML back as text for DBT. Equations that could not go in as asked are counted in 313
 ' Version: 2.0  Date: 9/17/2026 - the converted book's OWN spelling and grammar marks are turned back on before the save (Jerry). ShowSpellingErrors and ShowGrammaticalErrors are switched off for the import and were never restored - they are document properties, so they were written into the saved .docx and the book was handed on with proofing marks suppressed and nothing saying why. Also: the Save As branch activates the converted book before .Execute, and a failure of the closing prodnote note no longer reaches the error handler, whose standing advice would be wrong after a successful save
 ' Version: 1.9  Date: 9/17/2026 - the converted book is set in VistaTypeLP Sans when that face is installed and Tahoma when it is not, instead of Tahoma outright. The face is deliberately NOT embedded here - Lp_Attach_The_Template does that when the LP template goes on (Jerry). ERROR TRAPPING: the macro had none at all - every failure reached the transcriber as Word's own Run-time error dialog and left live spell check, grammar check and background pagination switched off for the session. On Error GoTo ConvertFailed now covers it from Step 1 on, every On Error GoTo 0 re-arms it rather than switching it off, and the handler restores Word's settings, closes the bar, leaves the part-converted book in front in Print view, and reports through Sh_Report_Error
 ' Version: 1.8  Date: 9/17/2026 - the document is STABILIZED BEFORE dialog 295 rather than after it, so pressing Okay goes straight to the Save As instead of into another wait (Jerry). Dialog 295 now says the document has been stabilized; dialog 308's closing sentence reworded (Jerry's own text)
@@ -34281,7 +34827,8 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     Dim finalDoc As Document
     Dim start As Single
     Dim fileContent As String
-    
+    Dim importPath As String
+
     Dim origState As Long, origTop As Long, origLeft As Long
     Dim su_Prev As Boolean, pag_Prev As Boolean, spell_Prev As Boolean, gram_Prev As Boolean
     Dim optsSaved As Boolean
@@ -34325,34 +34872,26 @@ Sub Sh_Convert_XML_File_To_Word_Document()
         Exit Sub
     End If
 
-    ' --- Step 4b: keep the images, or leave them out? ---
-    ' Braille almost never wants the pictures and large print always does, so this is asked
-    ' rather than guessed (Jerry, 8/5/2026). It is also the single biggest lever on how long
-    ' the conversion takes. MEASURED end to end by Jerry on the same book and the same VM:
-    ' 5 min 30 sec keeping the images, 2 min 30 sec omitting them. Embedding was 213 seconds
-    ' of that, and dropping the pictures shortens the save as well - the file no longer has
-    ' 86 MB of JPEGs to write.
+    ' --- Step 4b: large print or braille? ---
+    ' Box 325 asked "keep or omit images" until 10/18/2026. It asks large print or braille now
+    ' (Jerry, issue #37): the answer decides what happens to the book's equations, and BOTH keep
+    ' the pictures - braille drops them later, elsewhere, so the conversion no longer offers to.
     Sh_GP_String_2 = ""
     DN_Keep_Or_Omit_Images_Form.Show
-    If Sh_GP_String_2 <> "KEEP" And Sh_GP_String_2 <> "OMIT" Then
-        MsgBox "No image choice was made. The process will now end.", vbExclamation, "Process Aborted (311)"
+    If Sh_GP_String_2 <> "LP" And Sh_GP_String_2 <> "BRL" Then
+        MsgBox "No choice was made. The process will now end.", vbExclamation, "Process Aborted (311)"
         Exit Sub
     End If
 
-    ' --- Show the progress box before any real work starts ---
-    ' It has to be up from the first stage. An earlier rewrite of Step 6 removed the opening
-    ' Show along with the temp-document code it was sitting in, so the box did not appear until
-    ' the repaginate stage and the user watched a still screen until then (8/3/2026).
-    Sh_Progress_Open "Converting the book"
-    Sh_Progress_Say 1, "Reading the " & Sh_GP_String_1 & " file."
-    DoEvents
-
-    ' --- Step 5: Read XML using UTF-8 Stream
+    ' --- Step 5: Read XML using UTF-8 Stream ---
+    ' Read HERE, before the bar opens, rather than after it: whether the book has MathML decides
+    ' whether there is one more question, and every question comes before the bar and before
+    ' anything is done to the book (Jerry, 10/12/2026, and issue #37). Reading takes well under
+    ' a second; the files written beside the book come much later, in Step 8.
     xmlFile = folderPath & fileName
     txtCopy = folderPath & Left(fileName, InStrRev(fileName, ".") - 1) & ".txt"
     htmlPath = folderPath & Left(fileName, InStrRev(fileName, ".") - 1) & ".html"
 
-    
     Dim tStream As Object
     Set tStream = CreateObject("ADODB.Stream")
     tStream.Charset = "utf-8"
@@ -34363,6 +34902,41 @@ Sub Sh_Convert_XML_File_To_Word_Document()
 
     fileContent = Replace(fileContent, ChrW(&HC2), "")
     fileContent = Replace(fileContent, ChrW(&HA0), " ")
+
+    ' --- Step 5b: equations (issue #37) ---
+    ' Word's HTML importer drops MathML and keeps only its bare text, so a NIMAS book's equations
+    ' arrived as run-together characters and the EQ picture named in each altimg never arrived.
+    ' "#" means the book has none, and then nothing below changes and nothing more is asked.
+    Dim mathPrefix As String, mathMode As String, mathNote As String
+    Dim mathFragments As Variant
+    mathPrefix = Sh_MathML_Prefix(fileContent)
+
+    If mathPrefix <> "#" Then
+        If Sh_GP_String_2 = "BRL" Then
+            ' Braille keeps the MathML, as text in the Word file, for DBT (Jerry, 10/18/2026).
+            ' Not asked: there is nothing to choose.
+            mathMode = "BRL"
+        Else
+            ' Large print: the transcriber chooses Word equations or the EQ pictures. Asked
+            ' only when the book has MathML.
+            Sh_GP_String_3 = ""
+            DN_Equations_Form.Show
+            If Sh_GP_String_3 <> "OMML" And Sh_GP_String_3 <> "PICTURE" Then
+                Sh_Say "No choice was made about the equations, so the book has not been converted.", _
+                       "VistaType LP (399)"
+                Exit Sub
+            End If
+            mathMode = Sh_GP_String_3
+        End If
+    End If
+
+    ' --- Show the progress box before any real work starts ---
+    ' It has to be up from the first stage. An earlier rewrite of Step 6 removed the opening
+    ' Show along with the temp-document code it was sitting in, so the box did not appear until
+    ' the repaginate stage and the user watched a still screen until then (8/3/2026).
+    Sh_Progress_Open "Converting the book"
+    Sh_Progress_Say 1, "Preparing the " & Sh_GP_String_1 & " file."
+    DoEvents
 
     ' --- Step 6: Tagging Logic ---
     '
@@ -34439,7 +35013,21 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     outStream.WriteText fileContent
     outStream.SaveToFile txtCopy, 2
     outStream.Close
-    
+
+    ' The file Word imports. The same as the .html, except that each equation is parked as a
+    ' VTEQnnnnnn placeholder, because the importer would drop it (issue #37). A file of its own,
+    ' so the .txt and .html beside the book keep their MathML exactly as before; it is deleted
+    ' once the import is done. A book with no MathML imports the .html, as it always has.
+    importPath = htmlPath
+    If mathMode <> "" Then
+        mathFragments = Sh_MathML_Fragments(fileContent, mathPrefix)
+        importPath = folderPath & "~VistaType-import.html"
+        outStream.Open
+        outStream.WriteText Sh_MathML_To_Placeholders(fileContent, mathPrefix)
+        outStream.SaveToFile importPath, 2
+        outStream.Close
+    End If
+
     Set outStream = Nothing
 
     ' --- Step 9: Final Reveal & Image Embedding ---
@@ -34495,7 +35083,14 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     On Error GoTo ConvertFailed   ' re-arm, do not switch error handling off
 
     ' Use InsertFile instead of Copy/Paste to prevent the 0x5 Clipboard Crash
-    finalDoc.Range.InsertFile fileName:=htmlPath, ConfirmConversions:=False
+    finalDoc.Range.InsertFile fileName:=importPath, ConfirmConversions:=False
+
+    If importPath <> htmlPath Then
+        On Error Resume Next
+        Kill importPath
+        Err.Clear
+        On Error GoTo ConvertFailed   ' re-arm, do not switch error handling off
+    End If
 
     ' Permanently embed all images and break links so the security warning goes away forever.
     ' BreakLink embeds the image InsertFile already loaded, so no per-image .Update re-fetch
@@ -34516,46 +35111,35 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     ' only one that can show progress at all - the import and the save are single blocking calls
     ' and nothing can move during them. The bar steps every 10 images rather than every one: a
     ' repaint per image would add its own cost to the very loop being measured.
+    '
+    ' Both answers to 325 keep the pictures (issue #37). The loop that deleted them for "omit
+    ' images" went with that choice, 10/18/2026.
     Dim shp As inlineShape
     Dim nShapes As Long, iShape As Long
+    Dim picSpan As Single
+
+    ' The bar's share: 6 to 77 as before, or 6 to 45 when the equations still have to go in after.
+    picSpan = 71
+    If mathMode <> "" Then picSpan = 39
 
     nShapes = finalDoc.InlineShapes.Count
-    If Sh_GP_String_2 = "OMIT" Then
-        Sh_Progress_Say 6, "Removing " & Format(nShapes, "#,##0") & " images."
-    Else
-        Sh_Progress_Say 6, "Embedding " & Format(nShapes, "#,##0") & _
-            " images. This is the longest part of the conversion."
-    End If
+    Sh_Progress_Say 6, "Embedding " & Format(nShapes, "#,##0") & _
+        " images. This is the longest part of the conversion."
 
-    If Sh_GP_String_2 = "OMIT" Then
-
-        ' Backwards: deleting a shape renumbers every one after it, so a forward loop would
-        ' step over every second picture.
-        For iShape = nShapes To 1 Step -1
-            finalDoc.InlineShapes(iShape).Delete
-            If iShape Mod 10 = 0 And nShapes > 0 Then
-                Sh_Progress_Say 6 + (71 * (nShapes - iShape) / nShapes), _
-                    "Removing image " & Format(nShapes - iShape, "#,##0") & " of " & Format(nShapes, "#,##0") & "."
-                DoEvents
-            End If
-        Next iShape
-
-    Else
-
-        For Each shp In finalDoc.InlineShapes
-            If Not shp.LinkFormat Is Nothing Then
-                shp.LinkFormat.SavePictureWithDocument = True
-                shp.LinkFormat.BreakLink
-            End If
-            iShape = iShape + 1
-            If iShape Mod 10 = 0 And nShapes > 0 Then
-                Sh_Progress_Say 6 + (71 * iShape / nShapes), _
-                    "Embedding image " & Format(iShape, "#,##0") & " of " & Format(nShapes, "#,##0") & "."
-                DoEvents
-            End If
-        Next shp
-
-    End If
+    For Each shp In finalDoc.InlineShapes
+        If Not shp.LinkFormat Is Nothing Then
+            shp.LinkFormat.SavePictureWithDocument = True
+            shp.LinkFormat.BreakLink
+        End If
+        ' Every picture keeps its shape when it is resized later (Jerry, 10/18/2026), linked or not.
+        shp.LockAspectRatio = msoTrue
+        iShape = iShape + 1
+        If iShape Mod 10 = 0 And nShapes > 0 Then
+            Sh_Progress_Say 6 + (picSpan * iShape / nShapes), _
+                "Embedding image " & Format(iShape, "#,##0") & " of " & Format(nShapes, "#,##0") & "."
+            DoEvents
+        End If
+    Next shp
 
     ' Unlink any remaining field codes Word might complain about
     finalDoc.Fields.Unlink
@@ -34589,6 +35173,18 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     ' Selection - and finalDoc is not activated until eight lines below, so the pass was landing
     ' on whatever was in front. Jerry, 9/17/2026: the tags came out black on both DAISY and NIMAS.
     Sh_Color_Dollar_PG_Red finalDoc
+
+    ' --- The equations go back in (issue #37) ---
+    ' After the picture loop, so a picture put in here is embedded from the start and is not
+    ' walked again; and after the prodnote quotes, the Prodnote color and the red $pg, all of
+    ' which work on the text and none of which should meet a Word equation - the quote pass
+    ' deletes single characters by position. Before the font and the repaginate, which must still
+    ' follow. Large print: Word equations or the EQ pictures. Braille: the MathML as text, for DBT.
+    If mathMode <> "" Then
+        Sh_Progress_Say 45, "Putting in " & Format(UBound(mathFragments) + 1, "#,##0") & " equations."
+        Sh_Spin_DoEvents
+        mathNote = Sh_MathML_Put_In(finalDoc, mathFragments, mathPrefix, mathMode, folderPath, 45, 75)
+    End If
 
     ' --- STABILIZE FIRST, THEN TELL THE USER, THEN SAVE (Jerry, 9/17/2026) ---
     ' The order used to be: show the book, say "the document will now be stabilized and then
@@ -34789,7 +35385,9 @@ SaveTheFile:
     ActiveWindow.View.Type = wdPrintView
     Sh_Spin_DoEvents
     
-    MsgBox "Conversion is complete and the file has been stabilized and saved", vbInformation, "Operation Complete (313)"
+    ' Any equation that did not go in as asked is counted here (issue #37); "" when all did.
+    If mathNote <> "" Then mathNote = vbCr & vbCr & mathNote
+    MsgBox "Conversion is complete and the file has been stabilized and saved" & mathNote, vbInformation, "Operation Complete (313)"
 
     ' A converted book that carries prodnotes needs a word of explanation -- what they are,
     ' why they are red, and what to do with them for braille and for large print. Shown after
@@ -34845,6 +35443,11 @@ ConvertFailed:
     Application.ScreenUpdating = True
     Application.ScreenRefresh
 
+    ' The equations' import file, if the run got as far as writing it and not as far as deleting it.
+    If importPath <> "" And importPath <> htmlPath Then
+        If Dir(importPath) <> "" Then Kill importPath
+    End If
+
     ' The bar has to be entirely gone before anything is brought to the front, or Windows hands
     ' the focus straight back to it - the same ordering the successful path and the cancelled-save
     ' path both use.
@@ -34870,6 +35473,1041 @@ ConvertFailed:
     Sh_Report_Error "Sh_Convert_XML_File_To_Word_Document", errNum, errText
 
 End Sub   '*** end of Sh_Convert_XML_File_To_Word_Document macro ***
+
+' ***** MathML equations in a DAISY/NIMAS book (issue #37) *****
+'
+' A NIMAS book carries its equations as MathML, <m:math altimg="./images/U07C01/EQp010-001.jpg">
+' ... </m:math>, with the "m" prefix declared once on the root <dtbook>. Word's HTML importer
+' drops the MathML tags and keeps their bare text, so the equation arrived as run-together
+' characters and the picture named in altimg (the "EQ" files) never arrived at all (Jerry,
+' 10/18/2026, the Imagine IM A1 7&8 book: 2,139 equations, not one EQ picture in the Word file).
+'
+' So Sh_Convert_XML_File_To_Word_Document takes each equation OUT of the text it imports, leaving
+' a placeholder (VTEQ000001, VTEQ000002, ...), keeps the MathML, and puts each one back after the
+' import - as a Word equation or its picture for large print, and as MathML text for braille, for
+' DBT to read. Jerry's rules, 10/18/2026.
+'
+' Everything down to Sh_OMML_Package is a pure string helper and is tested in
+' tests/vba/TestMathML.bas. Every parameter is ByVal.
+'
+' Author: Jerry Whittaker - jerry@vistatypelp.org
+
+Private Function Sh_MathML_Namespace() As String
+    '
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    Sh_MathML_Namespace = "http://www.w3.org/1998/Math/MathML"
+End Function   '*** end of Sh_MathML_Namespace function ***
+
+Private Function Sh_MathML_Prefix(ByVal xml As String) As String
+    '
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' How the book writes its MathML elements: "m:" (or whatever prefix the book declares for the
+    ' MathML namespace), "" when it declares the namespace as the default on a bare <math>, and
+    ' "#" when there is no MathML in it at all - a declaration with no math element after it
+    ' counts as none. A prefix is matched as letters, digits and underscores only; a book using
+    ' a dot or a hyphen in its prefix (legal, never seen) is treated as having no MathML, which
+    ' is how every book was converted before this.
+
+    Dim re As Object, ms As Object, i As Long
+    Dim pfx As String
+
+    Sh_MathML_Prefix = "#"
+
+    Set re = CreateObject("VBScript.RegExp")
+    re.Global = True
+    re.IgnoreCase = False
+
+    re.Pattern = "xmlns:([A-Za-z_][A-Za-z0-9_]*)\s*=\s*[""']http://www\.w3\.org/1998/Math/MathML[""']"
+    Set ms = re.Execute(xml)
+    For i = 0 To ms.count - 1
+        pfx = ms(i).SubMatches(0)
+        If Sh_MathML_Element_Count(xml, pfx & ":") > 0 Then
+            Sh_MathML_Prefix = pfx & ":"
+            Exit Function
+        End If
+    Next i
+
+    re.Pattern = "xmlns\s*=\s*[""']http://www\.w3\.org/1998/Math/MathML[""']"
+    If re.Test(xml) Then
+        If Sh_MathML_Element_Count(xml, "") > 0 Then Sh_MathML_Prefix = ""
+    End If
+End Function   '*** end of Sh_MathML_Prefix function ***
+
+Private Function Sh_MathML_Pattern(ByVal prefix As String) As String
+    '
+    ' Version: 1.1  Date: 10/18/2026 - the start tag is read respecting quoted attribute values.
+    '                                [^>]* stopped at a ">" inside a value, alttext="x > 2", so
+    '                                an empty <m:math alttext="x > 2"/> missed its own "/>" and
+    '                                ran on to the NEXT equation's </m:math>, swallowing the text
+    '                                between them.
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' One whole math element, written with that prefix: an empty <m:math .../>, or <m:math ...>
+    ' up to the FIRST </m:math> after it. Math never nests, so the first close is its own.
+    ' Inside the start tag a quoted value is taken whole ("..." or '...'), and a "/" counts as
+    ' the end only when a ">" follows it. VBScript's RegExp has no "dot matches newline" switch,
+    ' hence [\s\S].
+
+    Sh_MathML_Pattern = "<" & prefix & "math(?=[\s>/])(?:""[^""]*""|'[^']*'|[^'"">/]|/(?!>))*" & _
+                        "(?:/>|>[\s\S]*?</" & prefix & "math\s*>)"
+End Function   '*** end of Sh_MathML_Pattern function ***
+
+Private Function Sh_MathML_Element_Count(ByVal xml As String, ByVal prefix As String) As Long
+    '
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    Dim re As Object
+    Set re = CreateObject("VBScript.RegExp")
+    re.Global = True
+    re.IgnoreCase = False
+    re.Pattern = Sh_MathML_Pattern(prefix)
+    Sh_MathML_Element_Count = re.Execute(xml).count
+End Function   '*** end of Sh_MathML_Element_Count function ***
+
+Private Function Sh_MathML_Placeholder(ByVal n As Long) As String
+    '
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' The text left where equation n was. Fixed width, so no placeholder is the start of another
+    ' (VTEQ000001 is not the start of VTEQ000012); letters and digits only, so Word's HTML importer
+    ' keeps it as plain text, and nothing in the converter's $pg or prodnote passes can match it.
+    Sh_MathML_Placeholder = "VTEQ" & Format$(n, "000000")
+End Function   '*** end of Sh_MathML_Placeholder function ***
+
+Private Function Sh_MathML_Fragments(ByVal xml As String, ByVal prefix As String) As Variant
+    '
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' Every math element in the book, in order, as a zero-based array of strings - element 0 is
+    ' the one Sh_MathML_To_Placeholders numbers 1. No math: an empty array, UBound -1.
+
+    Dim re As Object, ms As Object, i As Long
+    Dim out() As String
+
+    Set re = CreateObject("VBScript.RegExp")
+    re.Global = True
+    re.IgnoreCase = False
+    re.Pattern = Sh_MathML_Pattern(prefix)
+    Set ms = re.Execute(xml)
+
+    If ms.count = 0 Then
+        Sh_MathML_Fragments = Split(vbNullString)
+        Exit Function
+    End If
+
+    ReDim out(0 To ms.count - 1)
+    For i = 0 To ms.count - 1
+        out(i) = ms(i).Value
+    Next i
+    Sh_MathML_Fragments = out
+End Function   '*** end of Sh_MathML_Fragments function ***
+
+Private Function Sh_MathML_To_Placeholders(ByVal xml As String, ByVal prefix As String) As String
+    '
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' The same text with each math element replaced by its placeholder, numbered from 1 in the
+    ' order Sh_MathML_Fragments lists them. Same pattern, so the two always agree.
+
+    Dim re As Object, ms As Object, i As Long
+    Dim parts() As String
+    Dim pos As Long
+
+    Set re = CreateObject("VBScript.RegExp")
+    re.Global = True
+    re.IgnoreCase = False
+    re.Pattern = Sh_MathML_Pattern(prefix)
+    Set ms = re.Execute(xml)
+
+    If ms.count = 0 Then
+        Sh_MathML_To_Placeholders = xml
+        Exit Function
+    End If
+
+    ' Built as pieces and joined once: 2,139 equations in a 900 KB book.
+    ReDim parts(0 To 2 * ms.count)
+    pos = 1
+    For i = 0 To ms.count - 1
+        parts(2 * i) = Mid$(xml, pos, ms(i).FirstIndex + 1 - pos)
+        parts(2 * i + 1) = Sh_MathML_Placeholder(i + 1)
+        pos = ms(i).FirstIndex + 1 + ms(i).Length
+    Next i
+    parts(2 * ms.count) = Mid$(xml, pos)
+
+    Sh_MathML_To_Placeholders = Join(parts, "")
+End Function   '*** end of Sh_MathML_To_Placeholders function ***
+
+Private Function Sh_MathML_Altimg(ByVal fragment As String) As String
+    '
+    ' Version: 1.1  Date: 10/18/2026 - reads the start tag respecting quoted values. The pattern
+    '                                stopped at the first ">", so a raw ">" in an earlier
+    '                                attribute - alttext="x > 2" altimg="EQ1.jpg" - hid the altimg
+    '                                and the picture was never found
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' The altimg attribute of the math element's opening tag, exactly as written (entities and
+    ' all - Sh_MathML_Picture_Path reads them) - "" when it has none. Only the opening tag is
+    ' looked at, and only a real attribute counts: altimg written inside another value does not.
+    '   <m:math alttext="x > 2" altimg="./images/EQ1.jpg">  ->  ./images/EQ1.jpg
+
+    Dim tagLen As Long
+    tagLen = Sh_Xml_Start_Tag_Length(fragment)
+    If tagLen = 0 Then Exit Function
+    Sh_MathML_Altimg = Sh_Xml_Attribute(Left$(fragment, tagLen), "altimg")
+End Function   '*** end of Sh_MathML_Altimg function ***
+
+Private Function Sh_Xml_Is_Space(ByVal ch As String) As Boolean
+    '
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' XML's white space: a space, a tab, CR or LF.
+    Sh_Xml_Is_Space = (ch = " " Or ch = vbTab Or ch = vbCr Or ch = vbLf)
+End Function   '*** end of Sh_Xml_Is_Space function ***
+
+Private Function Sh_Xml_Start_Tag_Length(ByVal s As String) As Long
+    '
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' How long the start tag at the front of s is, up to and including the ">" that closes it -
+    ' 0 when s does not start with "<" or the tag never closes. A ">" inside a quoted attribute
+    ' value is part of the value, not the end of the tag:
+    '   Sh_Xml_Start_Tag_Length("<m:math alttext=""x > 2"">x</m:math>")  =  24, not 20
+    ' Either quote mark may open a value, and only the same mark closes it.
+
+    Dim i As Long
+    Dim ch As String, q As String
+
+    If Left$(s, 1) <> "<" Then Exit Function
+    For i = 2 To Len(s)
+        ch = Mid$(s, i, 1)
+        If q <> "" Then
+            If ch = q Then q = ""
+        ElseIf ch = """" Or ch = "'" Then
+            q = ch
+        ElseIf ch = ">" Then
+            Sh_Xml_Start_Tag_Length = i
+            Exit Function
+        End If
+    Next i
+End Function   '*** end of Sh_Xml_Start_Tag_Length function ***
+
+Private Function Sh_Xml_Attribute(ByVal startTag As String, ByVal attrName As String) As String
+    '
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' The value of one attribute of a start tag, exactly as written between its quotes (entities
+    ' are NOT unescaped here) - "" when the tag has no such attribute. Walks the tag attribute
+    ' by attribute, so a name or a ">" written inside another attribute's value is never taken
+    ' for the real thing:
+    '   Sh_Xml_Attribute("<m:math alttext='altimg=""no""' altimg=""yes.jpg"">", "altimg")  =  yes.jpg
+    ' The name must match exactly, case and prefix included.
+
+    Dim i As Long, j As Long, n As Long
+    Dim ch As String, q As String, nm As String, v As String
+
+    n = Len(startTag)
+    If Left$(startTag, 1) <> "<" Then Exit Function
+
+    ' Past the "<" and the element's own name.
+    i = 2
+    Do While i <= n
+        ch = Mid$(startTag, i, 1)
+        If Sh_Xml_Is_Space(ch) Or ch = ">" Or ch = "/" Then Exit Do
+        i = i + 1
+    Loop
+
+    Do
+        Do While i <= n
+            If Not Sh_Xml_Is_Space(Mid$(startTag, i, 1)) Then Exit Do
+            i = i + 1
+        Loop
+        If i > n Then Exit Function
+        ch = Mid$(startTag, i, 1)
+        If ch = ">" Or ch = "/" Then Exit Function
+
+        ' The attribute's name.
+        j = i
+        Do While i <= n
+            ch = Mid$(startTag, i, 1)
+            If ch = "=" Or Sh_Xml_Is_Space(ch) Or ch = ">" Or ch = "/" Then Exit Do
+            i = i + 1
+        Loop
+        nm = Mid$(startTag, j, i - j)
+
+        Do While i <= n
+            If Not Sh_Xml_Is_Space(Mid$(startTag, i, 1)) Then Exit Do
+            i = i + 1
+        Loop
+
+        ' Its value, if it has one.
+        v = ""
+        If Mid$(startTag, i, 1) = "=" Then
+            i = i + 1
+            Do While i <= n
+                If Not Sh_Xml_Is_Space(Mid$(startTag, i, 1)) Then Exit Do
+                i = i + 1
+            Loop
+            If i > n Then Exit Function
+            q = Mid$(startTag, i, 1)
+            If q = """" Or q = "'" Then
+                j = InStr(i + 1, startTag, q)
+                If j = 0 Then Exit Function          ' a value that never closes: no answer
+                v = Mid$(startTag, i + 1, j - i - 1)
+                i = j + 1
+            Else
+                ' Not XML, but read it rather than loop: up to white space or the tag's end.
+                j = i
+                Do While i <= n
+                    ch = Mid$(startTag, i, 1)
+                    If Sh_Xml_Is_Space(ch) Or ch = ">" Then Exit Do
+                    i = i + 1
+                Loop
+                v = Mid$(startTag, j, i - j)
+            End If
+        End If
+
+        If nm = attrName And nm <> "" Then
+            Sh_Xml_Attribute = v
+            Exit Function
+        End If
+    Loop
+End Function   '*** end of Sh_Xml_Attribute function ***
+
+Private Function Sh_Digits_Value(ByVal digits As String, ByVal numBase As Long) As Long
+    '
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' The number a run of decimal (numBase 10) or hexadecimal (16) digits stands for - -1 when
+    ' it is empty, holds anything else, or is past the last Unicode character, U+10FFFF.
+    '   Sh_Digits_Value("2113", 16) = 8467     Sh_Digits_Value("12a", 10) = -1
+
+    Dim i As Long, d As Long, v As Long
+
+    Sh_Digits_Value = -1
+    If Len(digits) = 0 Or Len(digits) > 8 Then Exit Function
+    For i = 1 To Len(digits)
+        d = InStr(1, "0123456789abcdef", LCase$(Mid$(digits, i, 1)), vbBinaryCompare) - 1
+        If d < 0 Or d >= numBase Then Exit Function
+        v = v * numBase + d
+        If v > &H10FFFF Then Exit Function
+    Next i
+    Sh_Digits_Value = v
+End Function   '*** end of Sh_Digits_Value function ***
+
+Private Function Sh_Chr_From_Code(ByVal code As Long) As String
+    '
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' The character for a Unicode code point, as VBA holds it: one character up to U+FFFF, and
+    ' the two halves of a surrogate pair above it (U+1D465, a math italic x, is ChrW(&HD835) &
+    ' ChrW(&HDC65)). "" for a number that is no character.
+
+    Dim c As Long
+    If code < 0 Or code > &H10FFFF Then Exit Function
+    If code < &H10000 Then
+        Sh_Chr_From_Code = ChrW(code)
+    Else
+        c = code - &H10000
+        Sh_Chr_From_Code = ChrW(&HD800& + (c \ &H400&)) & ChrW(&HDC00& + (c And &H3FF&))
+    End If
+End Function   '*** end of Sh_Chr_From_Code function ***
+
+Private Function Sh_Xml_Entity_Char(ByVal ent As String) As String
+    '
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' What one XML entity stands for, given the part between "&" and ";" - amp, lt, gt, quot,
+    ' apos, or a character number, #233 or #xE9. "" when it is none of those.
+
+    Dim code As Long
+    Select Case ent
+        Case "amp": Sh_Xml_Entity_Char = "&"
+        Case "lt": Sh_Xml_Entity_Char = "<"
+        Case "gt": Sh_Xml_Entity_Char = ">"
+        Case "quot": Sh_Xml_Entity_Char = """"
+        Case "apos": Sh_Xml_Entity_Char = "'"
+        Case Else
+            If Left$(ent, 1) <> "#" Then Exit Function
+            If LCase$(Mid$(ent, 2, 1)) = "x" Then
+                code = Sh_Digits_Value(Mid$(ent, 3), 16)
+            Else
+                code = Sh_Digits_Value(Mid$(ent, 2), 10)
+            End If
+            If code > 0 Then Sh_Xml_Entity_Char = Sh_Chr_From_Code(code)
+    End Select
+End Function   '*** end of Sh_Xml_Entity_Char function ***
+
+Private Function Sh_Xml_Unescape(ByVal s As String) As String
+    '
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' An attribute value as XML means it: &amp; &lt; &gt; &quot; &apos; and the numbered ones,
+    ' &#233; and &#xE9;, become their characters. An "&" that starts none of them is kept as it
+    ' is. One pass, left to right, so &amp;lt; is "&lt;" and not "<".
+    '   Sh_Xml_Unescape("images/7&amp;8/EQ&#x20;1.jpg")  =  images/7&8/EQ 1.jpg
+
+    Dim pos As Long, amp As Long, semi As Long
+    Dim out As String, rep As String
+
+    If InStr(1, s, "&") = 0 Then
+        Sh_Xml_Unescape = s
+        Exit Function
+    End If
+
+    pos = 1
+    Do
+        amp = InStr(pos, s, "&")
+        If amp = 0 Then Exit Do
+        semi = InStr(amp + 1, s, ";")
+        rep = ""
+        If semi > amp + 1 And semi - amp <= 10 Then rep = Sh_Xml_Entity_Char(Mid$(s, amp + 1, semi - amp - 1))
+        If rep = "" Then
+            out = out & Mid$(s, pos, amp - pos + 1)
+            pos = amp + 1
+        Else
+            out = out & Mid$(s, pos, amp - pos) & rep
+            pos = semi + 1
+        End If
+    Loop
+    Sh_Xml_Unescape = out & Mid$(s, pos)
+End Function   '*** end of Sh_Xml_Unescape function ***
+
+Private Function Sh_Url_Unescape(ByVal s As String) As String
+    '
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' A path written as a URL, as the file system means it: each %XX is the byte XX, and a run of
+    ' them is read as UTF-8, so %20 is a space and %C3%A9 is e-acute. A byte that is not part of
+    ' good UTF-8 is read as the Latin-1 character of that number, and a "%" not followed by two
+    ' hex digits is kept as it is.
+    '   Sh_Url_Unescape("EQ%201%C3%A9.jpg")  =  "EQ 1" & ChrW(233) & ".jpg"
+
+    Dim i As Long, n As Long, k As Long, m As Long
+    Dim nb As Long, need As Long, c As Long, code As Long
+    Dim b() As Long
+    Dim ok As Boolean
+    Dim out As String
+
+    If InStr(1, s, "%") = 0 Then
+        Sh_Url_Unescape = s
+        Exit Function
+    End If
+
+    n = Len(s)
+    ReDim b(1 To n)
+    i = 1
+    Do While i <= n
+        If Mid$(s, i, 1) = "%" And i <= n - 2 And Sh_Digits_Value(Mid$(s, i + 1, 2), 16) >= 0 Then
+            ' The whole run of %XX bytes, then decoded together.
+            nb = 0
+            Do While i <= n - 2
+                If Mid$(s, i, 1) <> "%" Then Exit Do
+                c = Sh_Digits_Value(Mid$(s, i + 1, 2), 16)
+                If c < 0 Then Exit Do
+                nb = nb + 1
+                b(nb) = c
+                i = i + 3
+            Loop
+
+            k = 1
+            Do While k <= nb
+                c = b(k)
+                need = 0
+                If c >= &HF0 And c < &HF8 Then
+                    need = 3: code = c And &H7
+                ElseIf c >= &HE0 And c < &HF0 Then
+                    need = 2: code = c And &HF
+                ElseIf c >= &HC0 And c < &HE0 Then
+                    need = 1: code = c And &H1F
+                End If
+                ok = (need > 0 And k + need <= nb)
+                If ok Then
+                    For m = 1 To need
+                        If (b(k + m) And &HC0) <> &H80 Then
+                            ok = False
+                            Exit For
+                        End If
+                        code = code * 64 + (b(k + m) And &H3F)
+                    Next m
+                End If
+                If ok Then
+                    out = out & Sh_Chr_From_Code(code)
+                    k = k + need + 1
+                Else
+                    out = out & ChrW(c)
+                    k = k + 1
+                End If
+            Loop
+        Else
+            out = out & Mid$(s, i, 1)
+            i = i + 1
+        End If
+    Loop
+    Sh_Url_Unescape = out
+End Function   '*** end of Sh_Url_Unescape function ***
+
+Private Function Sh_MathML_Picture_Path(ByVal folderPath As String, ByVal altimg As String) As String
+    '
+    ' Version: 1.1  Date: 10/18/2026 - reads the altimg as XML and as a URL: entities (&amp;
+    '                                &lt; &gt; &quot; &apos; &#233; &#xE9;) first, then every
+    '                                %XX escape, not only %20 - "7&amp;8" is the folder 7&8, and
+    '                                "EQ%C3%A9" is EQ e-acute
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' The file an altimg names, as a Windows path: "./images/U07C01/EQp010-001.jpg" in the book
+    ' folder C:\Books\Imagine\ is C:\Books\Imagine\images\U07C01\EQp010-001.jpg. The attribute is
+    ' unescaped as XML, then as a URL; a leading "./" goes and "/" becomes "\". A path that is
+    ' already whole (C:\..., \\server) is kept as it is. No altimg, no path.
+
+    Dim p As String
+    p = Trim$(altimg)
+    If p = "" Then Exit Function
+
+    p = Sh_Url_Unescape(Sh_Xml_Unescape(p))
+    Do While Left$(p, 2) = "./"
+        p = Mid$(p, 3)
+    Loop
+    p = Replace(p, "/", "\")
+
+    If Left$(p, 2) = "\\" Or Mid$(p, 2, 1) = ":" Then
+        Sh_MathML_Picture_Path = p
+        Exit Function
+    End If
+
+    If Left$(p, 1) = "\" Then p = Mid$(p, 2)
+    If folderPath <> "" And Right$(folderPath, 1) <> "\" Then folderPath = folderPath & "\"
+    Sh_MathML_Picture_Path = folderPath & p
+End Function   '*** end of Sh_MathML_Picture_Path function ***
+
+Private Function Sh_MathML_With_Namespace(ByVal fragment As String, ByVal prefix As String) As String
+    '
+    ' Version: 1.1  Date: 10/18/2026 - the opening tag is read respecting quoted values, and the
+    '                                declaration is looked for as an attribute: a ">" or an
+    '                                "xmlns:m=" written inside alttext no longer misleads it
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' An equation cut out of the book no longer has the root <dtbook> that declared its prefix,
+    ' so MSXML cannot read it until the declaration is put back on its own opening tag:
+    ' <m:math id="m1" ...> becomes <m:math xmlns:m="http://www.w3.org/1998/Math/MathML" id="m1" ...>.
+    ' Left alone when the tag already declares it. Measured on VistaBuild 10/18/2026: with this,
+    ' all 2,139 equations of the Imagine book loaded and transformed.
+
+    Dim tagName As String, declName As String
+    Dim gt As Long
+
+    tagName = "<" & prefix & "math"
+    If Left$(fragment, Len(tagName)) <> tagName Then
+        Sh_MathML_With_Namespace = fragment
+        Exit Function
+    End If
+
+    If prefix = "" Then
+        declName = "xmlns"
+    Else
+        declName = "xmlns:" & Left$(prefix, Len(prefix) - 1)
+    End If
+
+    gt = Sh_Xml_Start_Tag_Length(fragment)
+    If gt = 0 Then gt = Len(fragment)
+    If Sh_Xml_Attribute(Left$(fragment, gt), declName) <> "" Then
+        Sh_MathML_With_Namespace = fragment
+        Exit Function
+    End If
+
+    Sh_MathML_With_Namespace = tagName & " " & declName & "=""" & Sh_MathML_Namespace() & """" & _
+                               Mid$(fragment, Len(tagName) + 1)
+End Function   '*** end of Sh_MathML_With_Namespace function ***
+
+Private Function Sh_MathML_Unprefixed(ByVal fragment As String, ByVal prefix As String) As String
+    '
+    ' Version: 1.1  Date: 10/18/2026 - the opening tag is read respecting quoted values, and the
+    '                                namespace is looked for as an attribute, as in
+    '                                Sh_MathML_With_Namespace
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' An equation in the standard, self-contained form, for braille - the MathML text DBT reads
+    ' (Jerry, 10/18/2026, "embed the math ml in the word document"):
+    '   <m:math display="inline" altimg="..."><m:mi>x</m:mi></m:math>
+    ' becomes
+    '   <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline" altimg="..."><mi>x</mi></math>
+    '
+    ' The prefix comes off the START AND END TAGS ONLY - "<m:" and "</m:". Text inside an element
+    ' cannot hold a bare "<" in XML, so "m:" in the text itself is never touched. Every attribute
+    ' stays, and so does every entity, &#x2113; included, exactly as written: this is text, never
+    ' parsed. A declaration of the old prefix on the tag goes, since nothing uses it any more.
+
+    Dim re As Object
+    Dim pfxName As String, s As String
+    Dim gt As Long
+
+    s = fragment
+    Set re = CreateObject("VBScript.RegExp")
+    re.Global = True
+    re.IgnoreCase = False
+
+    If prefix <> "" Then
+        pfxName = Left$(prefix, Len(prefix) - 1)
+        re.Pattern = "<(/?)" & pfxName & ":"
+        s = re.Replace(s, "<$1")
+        re.Pattern = "\s+xmlns:" & pfxName & "\s*=\s*(?:""[^""]*""|'[^']*')"
+        s = re.Replace(s, "")
+    End If
+
+    If Left$(s, 5) <> "<math" Then
+        Sh_MathML_Unprefixed = s
+        Exit Function
+    End If
+
+    gt = Sh_Xml_Start_Tag_Length(s)
+    If gt = 0 Then gt = Len(s)
+    If Sh_Xml_Attribute(Left$(s, gt), "xmlns") = "" Then
+        s = "<math xmlns=""" & Sh_MathML_Namespace() & """" & Mid$(s, 6)
+    End If
+
+    Sh_MathML_Unprefixed = s
+End Function   '*** end of Sh_MathML_Unprefixed function ***
+
+Private Function Sh_Strip_Xml_Declaration(ByVal s As String) As String
+    '
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' MSXML's transformNode starts its answer with <?xml version="1.0" ...?>, which cannot sit
+    ' inside the package Sh_OMML_Package wraps it in. Leading white space goes with it.
+
+    Dim q As Long
+    s = LTrim$(s)
+    Do While Left$(s, 1) = vbCr Or Left$(s, 1) = vbLf Or Left$(s, 1) = vbTab
+        s = LTrim$(Mid$(s, 2))
+    Loop
+    If Left$(s, 5) = "<?xml" Then
+        q = InStr(1, s, "?>")
+        If q > 0 Then s = Mid$(s, q + 2)
+    End If
+    Do While Left$(s, 1) = vbCr Or Left$(s, 1) = vbLf Or Left$(s, 1) = vbTab Or Left$(s, 1) = " "
+        s = Mid$(s, 2)
+    Loop
+    Sh_Strip_Xml_Declaration = s
+End Function   '*** end of Sh_Strip_Xml_Declaration function ***
+
+Private Function Sh_OMML_Package(ByVal omml As String) As String
+    '
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' A Word equation, wrapped as the smallest Flat-OPC package Range.InsertXML takes. MEASURED on
+    ' VistaBuild 10/18/2026: a bare <m:oMath> fails ("XML markup cannot be inserted in the
+    ' specified location"); inside this package it goes in inline, the paragraph count does not
+    ' change, and the paragraph keeps its style. All 2,139 equations of the Imagine book.
+
+    Sh_OMML_Package = _
+        "<pkg:package xmlns:pkg=""http://schemas.microsoft.com/office/2006/xmlPackage"">" & _
+        "<pkg:part pkg:name=""/_rels/.rels"" pkg:contentType=""application/vnd.openxmlformats-package.relationships+xml"">" & _
+        "<pkg:xmlData><Relationships xmlns=""http://schemas.openxmlformats.org/package/2006/relationships"">" & _
+        "<Relationship Id=""rId1"" Type=""http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument"" Target=""word/document.xml""/>" & _
+        "</Relationships></pkg:xmlData></pkg:part>" & _
+        "<pkg:part pkg:name=""/word/document.xml"" pkg:contentType=""application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"">" & _
+        "<pkg:xmlData><w:document xmlns:w=""http://schemas.openxmlformats.org/wordprocessingml/2006/main"" " & _
+        "xmlns:m=""http://schemas.openxmlformats.org/officeDocument/2006/math""><w:body><w:p>" & _
+        omml & _
+        "</w:p></w:body></w:document></pkg:xmlData></pkg:part></pkg:package>"
+End Function   '*** end of Sh_OMML_Package function ***
+
+Private Function Sh_Find_Text_From(ByVal targetDoc As Document, ByVal findText As String, _
+                                   ByVal fromPos As Long) As Range
+    '
+    ' Version: 1.1  Date: 10/18/2026 - the search itself is Sh_Find_Text_Forward, shared with the
+    '                                braille cleanups' Dx_Math_Park
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' The first place findText appears at or after fromPos, as a Range - Nothing if it is not
+    ' there. Searched on to the end, then once from the top, so a position that came out wrong
+    ' costs time rather than an equation. Like Sh_Find_Text_Forward, it leaves Word's Find
+    ' holding findText: the caller puts it back with Sh_Reset_Find_Parameters when it is done.
+
+    Dim r As Range
+    Set r = Sh_Find_Text_Forward(targetDoc, findText, fromPos)
+    If r Is Nothing And fromPos > targetDoc.Content.Start Then
+        Set r = Sh_Find_Text_Forward(targetDoc, findText, targetDoc.Content.Start)
+    End If
+    Set Sh_Find_Text_From = r
+End Function   '*** end of Sh_Find_Text_From function ***
+
+Private Function Sh_Find_Text_Forward(ByVal targetDoc As Document, ByVal findText As String, _
+                                      ByVal fromPos As Long) As Range
+    '
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' The first place findText appears at or after fromPos, searching forward to the end of the
+    ' main text only - Nothing if it is not there. Exact text, case and all, no wildcards.
+    '
+    ' Range.Find and Word's own Find box share their settings, so this leaves findText and Match
+    ' Case in Word's Find. Every walk that uses it ends with Sh_Reset_Find_Parameters, error
+    ' paths included (issue #37 review).
+
+    Dim r As Range
+
+    If fromPos < targetDoc.Content.Start Then fromPos = targetDoc.Content.Start
+    If fromPos >= targetDoc.Content.End Then Exit Function
+
+    Set r = targetDoc.Range(fromPos, targetDoc.Content.End)
+    With r.Find
+        .ClearFormatting
+        .Text = findText
+        .Forward = True
+        .Wrap = wdFindStop
+        .Format = False
+        .MatchCase = True
+        .MatchWholeWord = False
+        .MatchWildcards = False
+        .MatchSoundsLike = False
+        .MatchAllWordForms = False
+    End With
+    If r.Find.Execute Then Set Sh_Find_Text_Forward = r
+End Function   '*** end of Sh_Find_Text_Forward function ***
+
+Private Function Sh_MathML_Put_Equation(ByVal r As Range, ByVal xslt As Object, ByVal xsl As Object, _
+                                        ByVal mathml As String) As Boolean
+    '
+    ' Version: 1.1  Date: 10/18/2026 - the converter is compiled ONCE for the whole book: xslt is
+    '                                an MSXML XSLTemplate made from MML2OMML.XSL, and each
+    '                                equation gets a processor from it. transformNode compiled
+    '                                the stylesheet again for every one of the 2,139. If the
+    '                                template could not be made (xslt Nothing), or fails on this
+    '                                equation, transformNode with xsl is used as before
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' One equation in as a Word equation, over the placeholder r covers. The MEASURED recipe
+    ' (VistaBuild, 10/18/2026, all 2,139 equations): MSXML 6 reads the MathML, Word's own
+    ' MML2OMML.XSL turns it into OMML, and Range.InsertXML takes it in a Flat-OPC package.
+    ' False if any step fails - the caller then puts the picture in instead.
+
+    Dim src As Object, proc As Object
+    Dim omml As String
+
+    On Error GoTo Failed
+
+    Set src = CreateObject("MSXML2.DOMDocument.6.0")
+    src.async = False
+    src.validateOnParse = False
+    src.resolveExternals = False
+    If Not src.loadXML(mathml) Then Exit Function
+    If src.parseError.errorCode <> 0 Then Exit Function
+
+    If Not xslt Is Nothing Then
+        On Error Resume Next
+        Set proc = xslt.createProcessor()
+        proc.input = src
+        proc.transform
+        omml = proc.output
+        If Err.Number <> 0 Then omml = ""
+        Err.Clear
+        On Error GoTo Failed
+    End If
+    If Len(omml) = 0 Then omml = src.transformNode(xsl)
+
+    omml = Sh_Strip_Xml_Declaration(omml)
+    If Len(omml) = 0 Then Exit Function
+
+    r.InsertXML Sh_OMML_Package(omml)
+    Sh_MathML_Put_Equation = True
+    Exit Function
+
+Failed:
+    Err.Clear
+    Sh_MathML_Put_Equation = False
+End Function   '*** end of Sh_MathML_Put_Equation function ***
+
+Private Function Sh_MathML_Put_Picture(ByVal r As Range, ByVal picPath As String) As Boolean
+    '
+    ' Version: 1.2  Date: 10/18/2026 - the picture's aspect ratio is locked as soon as it is in
+    '                                (Jerry: "when equations are presented as pictures, the
+    '                                pictures must have the aspect ratio locked"). Both routes -
+    '                                the EQ pictures choice and the fallback when a Word equation
+    '                                fails - come through here.
+    ' Version: 1.1  Date: 10/18/2026 - the picture goes in FIRST, in front of the placeholder,
+    '                                and the placeholder is taken out only once the picture is
+    '                                in. It used to be cleared first, so a picture that failed
+    '                                left nothing behind - not the VTEQ text message 313 tells
+    '                                the transcriber to search for
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' The equation's picture, embedded rather than linked, in place of the placeholder r covers.
+    ' False when there is no picture to put in - no altimg, no such file, or Word would not take
+    ' it - and the placeholder is then left where it is, so the transcriber can find it.
+
+    Dim at As Range, ph As Range
+    Dim pic As InlineShape
+    Dim phText As String
+
+    On Error GoTo Failed
+    If picPath = "" Then Exit Function
+    If Dir(picPath, vbNormal) = "" Then Exit Function
+
+    phText = r.Text
+    Set at = r.Duplicate
+    at.Collapse Direction:=wdCollapseStart
+    Set pic = at.InlineShapes.AddPicture(fileName:=picPath, LinkToFile:=False, SaveWithDocument:=True, Range:=at)
+    pic.LockAspectRatio = msoTrue              ' an equation picture keeps its shape (Jerry, 10/18/2026)
+
+    ' The placeholder now sits straight after the picture. Only that exact text is taken out.
+    Set ph = r.Document.Range(pic.Range.End, pic.Range.End + Len(phText))
+    If ph.Text <> phText Then
+        pic.Delete
+        Exit Function
+    End If
+    ph.Text = ""
+    Sh_MathML_Put_Picture = True
+    Exit Function
+
+Failed:
+    Err.Clear
+    On Error Resume Next
+    If Not pic Is Nothing Then pic.Delete      ' the placeholder stays, alone, findable
+    Err.Clear
+    Sh_MathML_Put_Picture = False
+End Function   '*** end of Sh_MathML_Put_Picture function ***
+
+Private Function Sh_MathML_Put_Text(ByVal r As Range, ByVal mathml As String) As Boolean
+    '
+    ' Version: 1.1  Date: 10/18/2026 - on one line through Sh_MathML_One_Line, not Sh_One_Log_Line,
+    '                                which (until its own 1.1) turned every character from U+8000
+    '                                up into a space - a math letter such as U+1D465 was lost
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' The MathML itself as plain text, for braille, in place of the placeholder r covers - set as
+    ' Range.Text, never through the HTML importer, which is what dropped the tags in the first
+    ' place. On one line: a line break inside the element would make a new Word paragraph, so
+    ' each one becomes a space, which MathML does not count. In the paragraph's own font, with no
+    ' style of its own - Jerry is to check it in DBT first, 10/18/2026.
+
+    On Error GoTo Failed
+    r.Text = Sh_MathML_One_Line(mathml)
+    Sh_MathML_Put_Text = True
+    Exit Function
+
+Failed:
+    Err.Clear
+    Sh_MathML_Put_Text = False
+End Function   '*** end of Sh_MathML_Put_Text function ***
+
+Private Function Sh_MathML_One_Line(ByVal s As String) As String
+    '
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' The MathML on one line: CR LF, CR, LF and tab each become one space, and NOTHING ELSE
+    ' changes - every other character, those above U+FFFF and the Private Use ones included,
+    ' stays exactly as it was.
+    '   "<math>" & vbCrLf & vbTab & "<mi>x</mi></math>"  ->  "<math>  <mi>x</mi></math>"
+    Sh_MathML_One_Line = Replace(Replace(Replace(Replace(s, vbCrLf, " "), vbCr, " "), vbLf, " "), vbTab, " ")
+End Function   '*** end of Sh_MathML_One_Line function ***
+
+Private Function Sh_MathML_Placeholder_Positions(ByVal txt As String, ByVal n As Long) As Variant
+    '
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' Where placeholders 1 to n are in a document whose Content.Text is txt, as document
+    ' positions counted from the start of the text: an array 1 To n, each -1 if that placeholder
+    ' is not there. Each is looked for after the one before, as the walk goes. Range.Text gives
+    ' the end of a table cell as TWO characters, CR and BEL (Chr(7)), for ONE position in the
+    ' document, so each BEL before a placeholder pulls its position back by one. Anything else
+    ' that does not match is caught by the caller, which checks every place before using it.
+    '   "ab VTEQ000001"                                   ->  (3)
+    '   "x" & Chr(13) & Chr(7) & "VTEQ000001"             ->  (2)   (3 in the text, 1 BEL before)
+    '   "VTEQ000002 VTEQ000001", n = 2                    ->  (11, -1)
+    Dim pos() As Long
+    Dim k As Long, p As Long, at As Long, bel As Long, bels As Long
+    Dim ph As String
+
+    If n <= 0 Then
+        Sh_MathML_Placeholder_Positions = Array()
+        Exit Function
+    End If
+    ReDim pos(1 To n)
+    p = 1
+    bel = InStr(1, txt, Chr$(7), vbBinaryCompare)
+    For k = 1 To n
+        ph = Sh_MathML_Placeholder(k)
+        at = InStr(p, txt, ph, vbBinaryCompare)
+        If at = 0 Then
+            pos(k) = -1
+        Else
+            Do While bel > 0 And bel < at
+                bels = bels + 1
+                bel = InStr(bel + 1, txt, Chr$(7), vbBinaryCompare)
+            Loop
+            pos(k) = at - 1 - bels
+            p = at + Len(ph)
+        End If
+    Next k
+    Sh_MathML_Placeholder_Positions = pos
+End Function   '*** end of Sh_MathML_Placeholder_Positions function ***
+
+Private Function Sh_MathML_Put_In(ByVal targetDoc As Document, ByVal fragments As Variant, _
+        ByVal prefix As String, ByVal mode As String, ByVal folderPath As String, _
+        ByVal pctFrom As Single, ByVal pctTo As Single) As String
+    '
+    ' Version: 1.2  Date: 10/18/2026 - SPEED (measured on the build box, 2,139 equations: 556 s
+    '                                to 186 s). The converted book's undo list is cleared once
+    '                                before the walk - it made each InsertXML cost 0.2 s instead
+    '                                of 0.06 s, and the book is brand new, so nothing is lost. The
+    '                                placeholders' places are read once from Content.Text
+    '                                (Sh_MathML_Placeholder_Positions) instead of a Find per
+    '                                equation; each place is checked against the placeholder's own
+    '                                characters first, and Find from the last insertion is still
+    '                                used for one that does not match
+    ' Version: 1.1  Date: 10/18/2026 - MML2OMML.XSL is loaded into a free-threaded document and
+    '                                compiled once, as an XSLTemplate, for the whole book; the
+    '                                plain document and transformNode stay as the fallback. Word's
+    '                                Find is put back with Sh_Reset_Find_Parameters when the walk
+    '                                ends, and on the way out of an error too - it was left with
+    '                                Match Case on and the last VTEQ placeholder in it
+    ' Version: 1.0  Date: 10/18/2026
+    '
+    ' Puts every parked equation back, walking FORWARD through the book from placeholder 1, each
+    ' search starting where the last insertion ended. mode is "OMML" (Word equations), "PICTURE"
+    ' (the altimg pictures) or "BRL" (the MathML as text). Moves the bar from pctFrom to pctTo.
+    '
+    ' Answers "" when every equation went in as asked; otherwise a sentence for the closing
+    ' message saying how many went in as pictures instead and how many could not go in at all.
+    ' One that could not go in keeps its placeholder, VTEQ and six digits, so it can be found.
+
+    Dim xsl As Object, xslt As Object
+    Dim r As Range
+    Dim i As Long, n As Long
+    Dim lastEnd As Long, phEnd As Long, lenBefore As Long
+    Dim asPicture As Long, notPlaced As Long
+    Dim done As Boolean
+    Dim picPath As String, msg As String
+    Dim errNum As Long, errText As String
+    Dim placeAt As Variant, shift As Long, grown As Long
+    Dim ph As String
+
+    n = UBound(fragments) - LBound(fragments) + 1
+    If n <= 0 Then Exit Function
+
+    ' Word's own converter, loaded once and compiled once. Without it every equation goes in as
+    ' its picture and is counted, rather than the conversion stopping. An XSLTemplate needs its
+    ' stylesheet in a FREE-THREADED document; if that cannot be had, the plain one alone still
+    ' works through transformNode, as measured.
+    If mode = "OMML" Then
+        On Error Resume Next
+        Set xsl = CreateObject("MSXML2.FreeThreadedDOMDocument.6.0")
+        If Not xsl Is Nothing Then
+            xsl.async = False
+            If Not xsl.Load(Application.Path & "\MML2OMML.XSL") Then Set xsl = Nothing
+        End If
+        If Err.Number <> 0 Then Set xsl = Nothing
+        Err.Clear
+        If Not xsl Is Nothing Then
+            Set xslt = CreateObject("MSXML2.XSLTemplate.6.0")
+            If Not xslt Is Nothing Then Set xslt.stylesheet = xsl
+            If Err.Number <> 0 Then Set xslt = Nothing
+            Err.Clear
+        Else
+            Set xsl = CreateObject("MSXML2.DOMDocument.6.0")
+            If Not xsl Is Nothing Then
+                xsl.async = False
+                If Not xsl.Load(Application.Path & "\MML2OMML.XSL") Then Set xsl = Nothing
+            End If
+            If Err.Number <> 0 Then Set xsl = Nothing
+            Err.Clear
+        End If
+    End If
+
+    On Error GoTo PutInFailed
+
+    ' The book is brand new, so its undo list holds nothing the user wants - and every insertion
+    ' costs three times as much with it there.
+    targetDoc.UndoClear
+
+    ' Where every placeholder is, read once from the text. shift is how far the book has moved
+    ' since: it grows by whatever each insertion added, and is corrected whenever Find has to
+    ' be used, so the places after that one line up again.
+    placeAt = Sh_MathML_Placeholder_Positions(targetDoc.Content.Text, n)
+    shift = targetDoc.Content.Start
+    lastEnd = targetDoc.Content.Start
+    For i = 1 To n
+        done = False
+        ph = Sh_MathML_Placeholder(i)
+        Set r = Nothing
+        If placeAt(i) >= 0 Then
+            If placeAt(i) + shift + Len(ph) <= targetDoc.Content.End Then
+                Set r = targetDoc.Range(placeAt(i) + shift, placeAt(i) + shift + Len(ph))
+                If r.Text <> ph Then Set r = Nothing
+            End If
+        End If
+        If r Is Nothing Then
+            Set r = Sh_Find_Text_From(targetDoc, ph, lastEnd)
+            If Not r Is Nothing Then
+                If placeAt(i) >= 0 Then shift = r.Start - placeAt(i)
+            End If
+        End If
+
+        If r Is Nothing Then
+            notPlaced = notPlaced + 1
+        Else
+            lenBefore = targetDoc.Content.End
+            phEnd = r.End
+            picPath = Sh_MathML_Picture_Path(folderPath, Sh_MathML_Altimg(fragments(LBound(fragments) + i - 1)))
+
+            Select Case mode
+                Case "BRL"
+                    done = Sh_MathML_Put_Text(r, Sh_MathML_Unprefixed(fragments(LBound(fragments) + i - 1), prefix))
+                Case "OMML"
+                    If Not xsl Is Nothing Then
+                        done = Sh_MathML_Put_Equation(r, xslt, xsl, _
+                            Sh_MathML_With_Namespace(fragments(LBound(fragments) + i - 1), prefix))
+                    End If
+                    If Not done Then
+                        done = Sh_MathML_Put_Picture(r, picPath)
+                        If done Then asPicture = asPicture + 1
+                    End If
+                Case Else   ' "PICTURE"
+                    done = Sh_MathML_Put_Picture(r, picPath)
+            End Select
+
+            ' However much the book grew or shrank moves every placeholder after this one.
+            grown = targetDoc.Content.End - lenBefore
+            shift = shift + grown
+            If done Then
+                ' Where the insertion ends: the placeholder's end, moved by that much.
+                lastEnd = phEnd + grown
+            Else
+                notPlaced = notPlaced + 1
+                lastEnd = phEnd
+            End If
+        End If
+
+        If i Mod 10 = 0 Or i = n Then
+            Sh_Progress_Say pctFrom + ((pctTo - pctFrom) * i / n), _
+                "Putting in equation " & Format(i, "#,##0") & " of " & Format(n, "#,##0") & "."
+            DoEvents
+        End If
+    Next i
+    Sh_Reset_Find_Parameters
+
+    If asPicture > 0 Then
+        msg = Format(asPicture, "#,##0") & IIf(asPicture = 1, " equation", " equations") & _
+              " could not be made into a Word equation, and went in as " & _
+              IIf(asPicture = 1, "its picture", "their pictures") & " instead."
+    End If
+    If notPlaced > 0 Then
+        If msg <> "" Then msg = msg & vbCr & vbCr
+        msg = msg & Format(notPlaced, "#,##0") & IIf(notPlaced = 1, " equation", " equations") & _
+              " could not be put in. Each one is marked in the text by VTEQ and six digits - " & _
+              "search for VTEQ to find them."
+    End If
+    Sh_MathML_Put_In = msg
+    Exit Function
+
+PutInFailed:
+    ' Word's Find back to its defaults, then the error goes on to the converter's own handler.
+    errNum = Err.Number
+    errText = Err.Description
+    Sh_Reset_Find_Parameters
+    Err.Raise errNum, "Sh_MathML_Put_In", errText
+End Function   '*** end of Sh_MathML_Put_In function ***
 
 Function Sh_Tag_Prodnotes_As_Prodnote_Style(ByVal src As String) As String
 '

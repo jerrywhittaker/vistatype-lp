@@ -9,6 +9,7 @@ Attribute VB_Name = "TestTextHelpers"
 ' The small shared helpers. Nothing here touches a document, which is exactly why they can be
 ' tested at all.
 '
+' Version: 1.1  Date: 10/18/2026 - Sh_One_Log_Line keeps the characters from U+8000 up
 ' Version: 1.0  Date: 9/20/2026
 '
 Option Explicit
@@ -114,6 +115,14 @@ Public Function TestTextHelpers_Suite() As TestSuite
         .IsEqual Sh_One_Log_Line(""), ""
         .IsEqual Sh_One_Log_Line(vbCrLf & vbNullChar), ""
         .IsEqual Sh_One_Log_Line("caf" & ChrW(233)), "caf" & ChrW(233)
+    End With
+
+    ' 10/18/2026: AscW is NEGATIVE from U+8000 up, so every such character passed the "below 32"
+    ' test and became a space - both halves of a math letter, CJK text, Private Use characters.
+    With Suite.Test("a log line keeps the characters from U+8000 up")
+        .IsEqual Sh_One_Log_Line("x" & ChrW(&HD835) & ChrW(&HDC65) & ChrW(&HE000) & ChrW(&H8000) & ChrW(&HFFFD)), _
+                 "x" & ChrW(&HD835) & ChrW(&HDC65) & ChrW(&HE000) & ChrW(&H8000) & ChrW(&HFFFD)
+        .IsEqual Sh_One_Log_Line("a" & ChrW(&H7F) & "b"), "a b"
     End With
 
     Set TestTextHelpers_Suite = Suite
