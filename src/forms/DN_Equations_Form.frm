@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} DN_Equations_Form 
    Caption         =   "Equations (398)"
-   ClientHeight    =   1665
+   ClientHeight    =   2805
    ClientLeft      =   120
    ClientTop       =   465
    ClientWidth     =   3255
@@ -17,6 +17,9 @@ Attribute VB_Exposed = False
 '
 ' DN_Equations_Form  -  "Equations (398)"
 '
+' Version: 1.1  Date: 10/20/2026 - a line at the top says the file contains math equations and asks
+'                                how they should go in; the first choice reads "Word equations
+'                                (OMML)" (Jerry)
 ' Version: 1.0  Date: 10/18/2026 - new (Jerry, 10/18/2026, issue #37)
 '
 ' Author: Jerry Whittaker - jerry@vistatypelp.org

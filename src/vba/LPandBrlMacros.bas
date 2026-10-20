@@ -18,7 +18,12 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - DN  - 10/18/2026 - THE BOOK'S OWN PICTURES ARE ASPECT-LOCKED TOO (Jerry): the <img>
+' Notes:    - DN  - 10/20/2026 - BRAILLE EQUATIONS ARE WORD EQUATIONS (OMML) NOW (Jerry): a braille
+'           - DN  - 10/20/2026 - conversion puts each equation in exactly as large print's "Word
+'           - DN  - 10/20/2026 - equations (OMML)" does, instead of the MathML as text. Still not
+'           - DN  - 10/20/2026 - asked: box 398 is for large print only. Box 398 says the book holds
+'           - DN  - 10/20/2026 - equations and asks how they should go in.
+'           - DN  - 10/18/2026 - THE BOOK'S OWN PICTURES ARE ASPECT-LOCKED TOO (Jerry): the <img>
 '           - DN  - 10/18/2026 - pictures, in Sh_Convert_XML_File_To_Word_Document's picture loop.
 '           - DN  - 10/18/2026 - EQUATION PICTURES HAVE THEIR ASPECT RATIO LOCKED (Jerry), the EQ
 '           - DN  - 10/18/2026 - pictures choice and the fallback alike: Sh_MathML_Put_Picture.
@@ -34792,6 +34797,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
 '
 ' Automatically converts an .xml (NIMAS or DAISY) file into a Word Document with reference pages tagged with $pg
 '
+' Version: 2.3  Date: 10/20/2026 - a braille conversion puts the equations in as Word equations (OMML), as large print's "Word equations (OMML)" choice does, instead of the MathML as text (Jerry). Still not asked for braille.
 ' Version: 2.2  Date: 10/18/2026 - the book's own pictures (the <img> pictures) have their aspect ratio locked in the picture loop, as the EQ pictures already are (Jerry), so a later resize keeps their shape. Large print and braille alike
 ' Version: 2.1  Date: 10/18/2026 - EQUATIONS (issue #37, Jerry). Box 325 asks large print or braille instead of keep or omit images; both keep the pictures, and the OMIT branch of the picture loop is gone (braille drops pictures elsewhere). The XML is read BEFORE the bar opens, so a book's MathML is found before any question about it. Each math element is parked as a VTEQnnnnnn placeholder in a separate import file (the .txt and .html beside the book are unchanged), and put back after the import: large print asks Equations (398) - Word equations or the EQ pictures - and Cancel stops with 399 before anything is done to the book; braille gets the MathML back as text for DBT. Equations that could not go in as asked are counted in 313
 ' Version: 2.0  Date: 9/17/2026 - the converted book's OWN spelling and grammar marks are turned back on before the save (Jerry). ShowSpellingErrors and ShowGrammaticalErrors are switched off for the import and were never restored - they are document properties, so they were written into the saved .docx and the book was handed on with proofing marks suppressed and nothing saying why. Also: the Save As branch activates the converted book before .Execute, and a failure of the closing prodnote note no longer reaches the error handler, whose standing advice would be wrong after a successful save
@@ -34913,9 +34919,10 @@ Sub Sh_Convert_XML_File_To_Word_Document()
 
     If mathPrefix <> "#" Then
         If Sh_GP_String_2 = "BRL" Then
-            ' Braille keeps the MathML, as text in the Word file, for DBT (Jerry, 10/18/2026).
+            ' Braille gets Word equations, the same as large print's "Word equations (OMML)"
+            ' (Jerry, 10/20/2026). It had the MathML as text, for DBT, from 10/18/2026.
             ' Not asked: there is nothing to choose.
-            mathMode = "BRL"
+            mathMode = "OMML"
         Else
             ' Large print: the transcriber chooses Word equations or the EQ pictures. Asked
             ' only when the book has MathML.
@@ -35179,7 +35186,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     ' walked again; and after the prodnote quotes, the Prodnote color and the red $pg, all of
     ' which work on the text and none of which should meet a Word equation - the quote pass
     ' deletes single characters by position. Before the font and the repaginate, which must still
-    ' follow. Large print: Word equations or the EQ pictures. Braille: the MathML as text, for DBT.
+    ' follow. Large print: Word equations or the EQ pictures. Braille: Word equations.
     If mathMode <> "" Then
         Sh_Progress_Say 45, "Putting in " & Format(UBound(mathFragments) + 1, "#,##0") & " equations."
         Sh_Spin_DoEvents

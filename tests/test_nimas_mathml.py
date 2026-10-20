@@ -13,6 +13,9 @@ MathML. His rules, the same day:
   a Word equation (or its picture if that fails) or the picture for large print, and the MathML
   as text for braille, for DBT.
 
+Jerry, 10/20/2026: braille gets Word equations (OMML) instead, exactly as large print's "Word
+equations (OMML)" choice does, and box 398 says the book holds equations before it asks.
+
 The question forms and the Word side cannot run headlessly (tests/vba/README.md), so these are
 checks on the source. The string helpers are tested for real in tests/vba/TestMathML.bas.
 """
@@ -78,6 +81,23 @@ def test_math_question_only_for_large_print_and_only_with_mathml(repo_root):
     assert any(re.match(r"\s*Else\s*$", l) for l in lines[brl:ask]), (
         "the equation question is not in the large print branch")
     assert sum("DN_Equations_Form.Show" in l for l in lines) == 1
+
+
+def test_braille_gets_word_equations(repo_root):
+    """Jerry, 10/20/2026: a braille conversion puts the equations in as Word equations, the same
+    mode large print's "Word equations (OMML)" uses - not the MathML text, and not asked."""
+    lines = _converter(repo_root)
+    brl = _first(lines, r'If Sh_GP_String_2 = "BRL" Then')
+    ask = _first(lines, r"DN_Equations_Form\.Show")
+    branch = "\n".join(lines[brl:ask])
+    assert re.search(r'mathMode = "OMML"', branch), "braille does not get Word equations"
+    assert 'mathMode = "BRL"' not in "\n".join(lines), "braille still gets the MathML as text"
+
+
+def test_398_says_the_book_has_equations(repo_root):
+    frx = (repo_root / "src" / "forms" / "DN_Equations_Form.frx").read_bytes().decode("latin-1")
+    assert "This file contains math equations. How do you want them presented in the output file?" in frx
+    assert "Word equations (OMML)" in frx
 
 
 def test_every_question_comes_before_anything_changes(repo_root):
