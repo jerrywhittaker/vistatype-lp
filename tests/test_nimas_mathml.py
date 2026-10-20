@@ -10,11 +10,15 @@ MathML. His rules, the same day:
   Word equations or EQ pictures ("Equations (398)"). Cancel stops with a message (399) before
   anything is done to the book.
 - Each equation is parked as a VTEQnnnnnn placeholder for the import and put back afterwards:
-  a Word equation (or its picture if that fails) or the picture for large print, and the MathML
-  as text for braille, for DBT.
+  a Word equation (or its picture if that fails) or the picture for large print. (Braille got
+  the MathML as text, for DBT, until 10/20/2026.)
 
 Jerry, 10/20/2026: braille gets Word equations (OMML) instead, exactly as large print's "Word
-equations (OMML)" choice does, and box 398 says the book holds equations before it asks.
+equations (OMML)" choice does, and box 398 says the book holds equations before it asks. The
+same day he had the MathML-as-text code removed - Sh_MathML_Put_Text, Sh_MathML_One_Line,
+Sh_MathML_Unprefixed and the "BRL" mode of Sh_MathML_Put_In - and with it the braille cleanup
+park (Dx_Math_Park and its helpers) that kept the cleanup passes off that text. The last test
+here checks that none of it is defined or called anywhere in src/.
 
 The question forms and the Word side cannot run headlessly (tests/vba/README.md), so these are
 checks on the source. The string helpers are tested for real in tests/vba/TestMathML.bas.
@@ -28,13 +32,13 @@ CONVERTER = "Sh_Convert_XML_File_To_Word_Document"
 HELPERS = ("Sh_MathML_Namespace", "Sh_MathML_Prefix", "Sh_MathML_Pattern", "Sh_MathML_Element_Count",
            "Sh_MathML_Placeholder", "Sh_MathML_Fragments", "Sh_MathML_To_Placeholders",
            "Sh_MathML_Altimg", "Sh_MathML_Picture_Path", "Sh_MathML_With_Namespace",
-           "Sh_MathML_Unprefixed", "Sh_Strip_Xml_Declaration", "Sh_OMML_Package",
+           "Sh_Strip_Xml_Declaration", "Sh_OMML_Package",
            "Sh_Find_Text_From", "Sh_MathML_Put_Equation", "Sh_MathML_Put_Picture",
-           "Sh_MathML_Put_Text", "Sh_MathML_Put_In",
+           "Sh_MathML_Put_In",
            # the review, 10/18/2026
            "Sh_Xml_Is_Space", "Sh_Xml_Start_Tag_Length", "Sh_Xml_Attribute", "Sh_Digits_Value",
            "Sh_Chr_From_Code", "Sh_Xml_Entity_Char", "Sh_Xml_Unescape", "Sh_Url_Unescape",
-           "Sh_Find_Text_Forward", "Sh_MathML_One_Line",
+           "Sh_Find_Text_Forward",
            # the speed fix, 10/18/2026
            "Sh_MathML_Placeholder_Positions")
 
@@ -143,16 +147,14 @@ def test_the_equations_are_parked_and_put_back(repo_root):
 def test_each_mode_puts_in_what_it_should(repo_root):
     procs = _procs(repo_root)
     put_in = "\n".join(procs["Sh_MathML_Put_In"])
-    for mode in ('"BRL"', '"OMML"'):
-        assert f"Case {mode}" in put_in
-    assert re.search(r"Sh_MathML_Put_Text\(r, Sh_MathML_Unprefixed\(", put_in), "braille is not given the MathML text"
+    # Two modes only (Jerry, 10/20/2026): braille comes as "OMML", like large print's Word equations.
+    # "PICTURE" is the Case Else; there is no "BRL" (MathML text) case any more.
+    cases = re.findall(r"^\s*Case\s+(.+?)\s*$", put_in, re.M)
+    assert cases == ['"OMML"', "Else"], f"Sh_MathML_Put_In's modes are {cases}, not OMML and the picture"
     assert re.search(r"Sh_MathML_Put_Equation\(r, xslt, xsl,\s*_?\s*Sh_MathML_With_Namespace\(", put_in.replace("\n", " "))
     assert re.search(r"If Not done Then\s+done = Sh_MathML_Put_Picture\(r, picPath\)\s+If done Then asPicture",
                      put_in), "a Word equation that fails does not fall back to its picture"
     assert 'MML2OMML.XSL' in put_in
-
-    text = "\n".join(procs["Sh_MathML_Put_Text"])
-    assert re.search(r"r\.Text = ", text) and "InsertFile" not in text and "InsertXML" not in text
 
     pic = "\n".join(procs["Sh_MathML_Put_Picture"])
     assert re.search(r"AddPicture\W.*LinkToFile:=False, SaveWithDocument:=True", pic), "the picture is not embedded"
@@ -164,13 +166,6 @@ def test_each_mode_puts_in_what_it_should(repo_root):
     # The count of equations that did not go in as asked reaches the closing message.
     body = "\n".join(_converter(repo_root))
     assert re.search(r'MsgBox "Conversion is complete[^\n]*& mathNote, vbInformation, "Operation Complete \(313\)"', body)
-
-
-def test_braille_puts_text_not_a_new_style(repo_root):
-    """Jerry, 10/18/2026: ordinary paragraph font, no style of its own and nothing hidden, until
-    he has checked it in DBT."""
-    text = "\n".join(_procs(repo_root)["Sh_MathML_Put_Text"])
-    assert not re.search(r"\.Style\s*=|\.Hidden|\.Font\.", text)
 
 
 def test_no_new_msgbox(repo_root):
@@ -201,7 +196,7 @@ def test_every_helper_takes_byval(repo_root):
 def test_the_helpers_have_vba_examples(repo_root):
     vba = (repo_root / "tests" / "vba" / "TestMathML.bas").read_bytes().decode("latin-1")
     for name in ("Sh_MathML_Prefix", "Sh_MathML_To_Placeholders", "Sh_MathML_Picture_Path",
-                 "Sh_MathML_With_Namespace", "Sh_MathML_Unprefixed", "Sh_MathML_Placeholder_Positions"):
+                 "Sh_MathML_With_Namespace", "Sh_MathML_Placeholder_Positions"):
         assert f"'@uses {name}" in vba
     runner = (repo_root / "tests" / "vba" / "VtRunTests.bas").read_bytes().decode("latin-1")
     assert "TestMathML_Suite()" in runner
@@ -213,20 +208,11 @@ def _body(repo_root, name):
     return _procs(repo_root)[name]
 
 
-def test_braille_mathml_keeps_every_character(repo_root):
+def test_log_line_keeps_every_character(repo_root):
     """Sh_One_Log_Line's "below 32" test read AscW, which is NEGATIVE from U+8000 up, so every
     such character - both halves of a math letter like U+1D465, every Private Use character -
-    became a space. The braille MathML must not go through it, and the log line must not lose
-    them either."""
-    text = "\n".join(_body(repo_root, "Sh_MathML_Put_Text"))
-    assert "Sh_One_Log_Line" not in text, "the braille MathML still goes through the log-line cleaner"
-    assert re.search(r"r\.Text = Sh_MathML_One_Line\(mathml\)", text)
-    one = "\n".join(_body(repo_root, "Sh_MathML_One_Line"))
-    assert "Replace(" in one and "Mid$(" not in one and "AscW" not in one, (
-        "Sh_MathML_One_Line must only Replace line breaks and tabs, not walk the characters")
-    for brk in ("vbCrLf", "vbCr", "vbLf", "vbTab"):
-        assert brk in one
-
+    became a space. Found with the braille MathML text (removed 10/20/2026); the log-line fix
+    stays."""
     log = "\n".join(_body(repo_root, "Sh_One_Log_Line"))
     assert re.search(r"code = AscW\(ch\) And &HFFFF&", log), "Sh_One_Log_Line still reads AscW signed"
 
@@ -255,9 +241,8 @@ def test_altimg_reads_quoted_values(repo_root):
     assert "[^>]" not in alt, "altimg still stops at the first >"
     pattern = "\n".join(_body(repo_root, "Sh_MathML_Pattern"))
     assert "[^>]*/>" not in pattern, "an empty math element still stops at the first >"
-    for name in ("Sh_MathML_With_Namespace", "Sh_MathML_Unprefixed"):
-        body = "\n".join(_body(repo_root, name))
-        assert "Sh_Xml_Start_Tag_Length(" in body and 'InStr(1, ' + ('fragment' if 'Namespace' in name else 's') + ', ">")' not in body, name
+    body = "\n".join(_body(repo_root, "Sh_MathML_With_Namespace"))
+    assert "Sh_Xml_Start_Tag_Length(" in body and 'InStr(1, fragment, ">")' not in body
 
     path = "\n".join(_body(repo_root, "Sh_MathML_Picture_Path"))
     assert "Sh_Url_Unescape(Sh_Xml_Unescape(p))" in path, "altimg is not unescaped, XML first, then URL"
@@ -363,3 +348,40 @@ def test_the_converters_picture_loop_locks_every_pictures_aspect_ratio(repo_root
         elif s == "End If":
             depth -= 1
     assert locked, "the picture loop does not lock every picture's aspect ratio (outside any If)"
+
+
+# --- The MathML text and the braille cleanup park are gone (Jerry, 10/20/2026) ---------------
+
+REMOVED = ("Sh_MathML_Put_Text", "Sh_MathML_One_Line", "Sh_MathML_Unprefixed",
+           "Dx_Math_Park_Mark", "Dx_Math_Park_Var", "Dx_Math_Mark_Number", "Dx_Math_Element_Length",
+           "Dx_Math_Park", "Dx_Math_Restore", "Dx_Math_Put_Back", "Dx_Math_Prune",
+           "Dx_Math_Before_Save", "Dx_Math_On_Open", "Dx_Math_Marks_Waiting", "Dx_Math_Depth")
+
+
+def _code_only(line):
+    """The line without a trailing comment - a ' outside a string starts one."""
+    inside = False
+    for i, ch in enumerate(line):
+        if ch == '"':
+            inside = not inside
+        elif ch == "'" and not inside:
+            return line[:i]
+    return line
+
+
+def test_mathml_text_and_braille_park_are_gone(repo_root):
+    """Braille gets Word equations (OMML) now, so the MathML-as-text path and the park that kept
+    braille cleanup off it were removed completely. Nothing in src/ may define or call any of
+    it, and no cleanup may look for the park's VTMATH marks. Comments are allowed to name them -
+    the module's dated changelog is the history."""
+    src = repo_root / "src"
+    files = [p for p in src.rglob("*") if p.suffix.lower() in (".bas", ".cls", ".frm")]
+    assert files, "no VBA found under src/"
+    hits = []
+    for p in files:
+        for n, line in enumerate(p.read_bytes().decode("latin-1").splitlines(), 1):
+            code = _code_only(line)
+            for name in REMOVED + ("VTMATH",):
+                if re.search(rf"\b{name}\b", code):
+                    hits.append(f"{p.relative_to(repo_root)}:{n}: {name}")
+    assert not hits, "removed MathML text / park code is still in use:\n" + "\n".join(hits)

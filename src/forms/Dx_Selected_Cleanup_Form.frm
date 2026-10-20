@@ -27,10 +27,12 @@ End Sub
 
 Private Sub Okay_Click()
 '
+' Version: 2.8  Date: 10/20/2026 - the selection's MathML is no longer parked and put back: braille
+'                               gets Word equations (OMML) now, not MathML text (Jerry).
 ' Version: 2.7  Date: 10/18/2026 - LEAVES THE MATHML ALONE (Jerry, issue #37): every MathML element
-'                               in the selection - what every pass here works on - is parked by
-'                               Dx_Math_Park before the first pass and put back by Dx_Math_Restore
-'                               after the last, and in CleanupFailed too.
+'                               in the selection - what every pass here works on - is parked
+'                               before the first pass and put back after the last, and in
+'                               CleanupFailed too.
 ' Version: 2.6  Date: 10/12/2026 - Okay with nothing selected says 317 and stops with Exit Sub, not
 '                               End, which closed any box that stays open (issue #33).
 ' Version: 2.5  Date: 10/12/2026 - the two passes that ask a question - Remove Bullets (329) and
@@ -88,7 +90,6 @@ Private Sub Okay_Click()
     Dim total As Long, done As Long, i As Long
     Dim keep As Range
     Dim bulletStyle As String, bulletHyper As String, breakAnswer As String
-    Dim mathDoc As Document
 
     If Selection.Type <> wdSelectionNormal Then
         Sh_Say "Text must be selected first!", "Braille Macros (317)"
@@ -181,11 +182,6 @@ Private Sub Okay_Click()
     On Error GoTo CleanupFailed
     Sh_Progress_Open "Cleaning up the selection"
 
-    ' The selection's MathML is set aside before any pass and goes back after the last (issue
-    ' #37). keep follows the text as the marks go in and come out.
-    Set mathDoc = ActiveDocument
-    Dx_Math_Park keep
-
     For i = 1 To 13
         If wanted(i) Then
             ' Announced BEFORE the pass runs, so the bar never reads 100% while work is still
@@ -210,8 +206,6 @@ Private Sub Okay_Click()
         End If
     Next i
 
-    Dx_Math_Restore mathDoc
-
     Sh_Progress_Say 100, "Finished"
     Sh_Progress_Close
     On Error GoTo 0
@@ -228,8 +222,6 @@ CleanupFailed:
     failNumber = Err.Number
     failText = Err.Description
 
-    ' The book must not be left holding the marks.
-    If Not mathDoc Is Nothing Then Dx_Math_Restore mathDoc, True
     Sh_Progress_Close
     Application.ScreenUpdating = True
     Application.ScreenRefresh

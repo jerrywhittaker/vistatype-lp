@@ -26,12 +26,10 @@ SEQUENCES = {
     "Lp_Fix_Common_File_Errors": "Lp_Ffc_Step",
 }
 
-# Calls that are not cleanup passes, so need no step in front of them. Dx_Math_Park and
-# Dx_Math_Restore set the book's MathML aside and put it back (issue #37, 10/18/2026): they work
-# on Ranges, never the selection, and the restore also runs on the error path, with no step.
+# Calls that are not cleanup passes, so need no step in front of them.
 NOT_A_PASS = re.compile(
     r"^(Sh_Save_User_Position|Sh_Return_User_To_Start_Position|Sh_Spin_DoEvents|Sh_Progress_\w+"
-    r"|MS_Clear_F_and_R_Params_and_Clipboard|Dx_Math_Park|Dx_Math_Restore)$")
+    r"|MS_Clear_F_and_R_Params_and_Clipboard)$")
 
 COLLAPSE = re.compile(r"^\s*Selection\.Collapse\b")
 

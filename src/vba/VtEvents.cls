@@ -18,11 +18,8 @@ Option Explicit
 Public WithEvents App As Word.Application
 Attribute App.VB_VarHelpID = -1
 
-' Dx_Math_On_Open: a book saved holding braille MathML park marks (the events were unhooked by an
-' End) gets its MathML back when it is opened again. Only a book holding marks is changed.
 Private Sub App_DocumentOpen(ByVal Doc As Document)
     Sh_HandleDocumentOpened Doc
-    Dx_Math_On_Open Doc
 End Sub
 
 Private Sub App_NewDocument(ByVal Doc As Document)
@@ -31,13 +28,6 @@ End Sub
 
 Private Sub App_DocumentBeforeClose(ByVal Doc As Document, Cancel As Boolean)
     Sh_HandleDocumentClosing Doc
-End Sub
-
-' A book is never saved holding the braille cleanups' MathML park marks (issue #37, 10/18/2026).
-' Dx_Math_Before_Save says nothing, never raises, does nothing while a cleanup's park is in force,
-' and costs next to nothing on a document that has never been parked - see the note on it.
-Private Sub App_DocumentBeforeSave(ByVal Doc As Document, SaveAsUI As Boolean, Cancel As Boolean)
-    Dx_Math_Before_Save Doc
 End Sub
 
 ' Raised every time a document window becomes the active one - clicking another window,

@@ -61,7 +61,7 @@ Private Sub UserForm_Initialize()
     ' Start Userform Centered inside Word Screen (for dual monitors)
     Me.StartUpPosition = 0
     Me.Left = Application.Left + (0.5 * Application.Width) - (0.5 * Me.Width)
-    Me.top = Application.top + (0.5 * Application.Height) - (0.5 * Me.Height)
+    Me.Top = Application.Top + (0.5 * Application.Height) - (0.5 * Me.Height)
 
     ' The Software Agreement summary. One shared copy in LPandBrlMacros so the LP and
     ' Braille dialogs can never drift apart, and so the wording stays in git-tracked

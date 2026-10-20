@@ -6,64 +6,31 @@ Attribute VB_Name = "TestMathML"
 '@uses Sh_MathML_Altimg
 '@uses Sh_MathML_Picture_Path
 '@uses Sh_MathML_With_Namespace
-'@uses Sh_MathML_Unprefixed
 '@uses Sh_Strip_Xml_Declaration
 '@uses Sh_OMML_Package
 '@uses Sh_Xml_Start_Tag_Length
 '@uses Sh_Xml_Attribute
 '@uses Sh_Xml_Unescape
 '@uses Sh_Url_Unescape
-'@uses Sh_MathML_One_Line
 '@uses Sh_MathML_Placeholder_Positions
-'@uses Dx_Math_Park_Mark
-'@uses Dx_Math_Mark_Number
-'@uses Dx_Math_Element_Length
 '
 ' The string helpers behind the DAISY/NIMAS converter's equations (issue #37): finding a book's
 ' MathML and its prefix, parking each equation as a placeholder, the picture path from altimg,
-' the namespace put back for MSXML, and the self-contained MathML text braille gets for DBT.
-' Nothing here touches a document. The parts that do - Find, InsertXML, AddPicture - are for
-' the headless conversion and for real Word.
+' and the namespace put back for MSXML. Large print and braille both get Word equations (OMML)
+' or, in large print only, the pictures. Nothing here touches a document. The parts that do -
+' Find, InsertXML, AddPicture - are for the headless conversion and for real Word.
 '
-' From the review of 10/18/2026: start tags read with their quoted values (a ">" in alttext), the
-' altimg unescaped as XML and as a URL, the braille MathML kept character for character, and the
-' braille cleanups' park - the mark and the rule for what one MathML element is.
+' From the review of 10/18/2026: start tags read with their quoted values (a ">" in alttext), and
+' the altimg unescaped as XML and as a URL.
 '
+' Version: 1.3  Date: 10/20/2026 - the braille MathML text tests and the braille cleanup park
+'                                tests are gone with the code they tested: braille gets Word
+'                                equations (OMML) now (Jerry)
 ' Version: 1.2  Date: 10/18/2026 - where the placeholders are, read from the text (the speed fix)
 ' Version: 1.1  Date: 10/18/2026 - the review's examples
 ' Version: 1.0  Date: 10/18/2026
 '
 Option Explicit
-
-Private Function Park_Model(ByVal s As String, ByVal originals As Collection) As String
-    ' The walk Dx_Math_Park makes through a book, done on a string: at each "<math", the element
-    ' Dx_Math_Element_Length measures is stored and replaced by its mark. A MODEL of the walk,
-    ' here in the test - the book version reads the same text through Word's Find.
-    Dim pos As Long, at As Long, L As Long, out As String
-    pos = 1
-    Do
-        at = InStr(pos, s, "<math")
-        If at = 0 Then Exit Do
-        L = Dx_Math_Element_Length(Mid$(s, at))
-        If L = 0 Then
-            out = out & Mid$(s, pos, at - pos + 5)
-            pos = at + 5
-        Else
-            originals.Add Mid$(s, at, L)
-            out = out & Mid$(s, pos, at - pos) & Dx_Math_Park_Mark(originals.count)
-            pos = at + L
-        End If
-    Loop
-    Park_Model = out & Mid$(s, pos)
-End Function
-
-Private Function Restore_Model(ByVal s As String, ByVal originals As Collection) As String
-    Dim i As Long
-    For i = 1 To originals.count
-        s = Replace(s, Dx_Math_Park_Mark(i), originals(i))
-    Next i
-    Restore_Model = s
-End Function
 
 Private Function NIMAS_Sample() As String
     ' The shape of the Imagine IM A1 7&8 book: the prefix declared once on the root, inline math.
@@ -176,26 +143,6 @@ Public Function TestMathML_Suite() As TestSuite
             "<m:math xmlns:m=""http://www.w3.org/1998/Math/MathML""><m:mi>x</m:mi></m:math>"
     End With
 
-    ' --- The MathML text braille gets, for DBT.
-    With Suite.Test("braille: the prefix comes off the tags and the namespace goes on the root")
-        f = Sh_MathML_Fragments(x, "m:")
-        .IsEqual Sh_MathML_Unprefixed(f(0), "m:"), _
-            "<math xmlns=""http://www.w3.org/1998/Math/MathML"" id=""m1"" display=""inline"" " & _
-            "altimg=""./images/U07C01/EQp010-001.jpg"" alttext=""""><mi>x</mi><mo>+</mo><mn>2</mn></math>"
-    End With
-
-    With Suite.Test("braille: text inside the tags is not touched, entities stay as written")
-        .IsEqual Sh_MathML_Unprefixed("<m:math><m:mtext>m:s and a:b</m:mtext><m:mi>&#x2113;</m:mi></m:math>", "m:"), _
-            "<math xmlns=""http://www.w3.org/1998/Math/MathML""><mtext>m:s and a:b</mtext><mi>&#x2113;</mi></math>"
-    End With
-
-    With Suite.Test("braille: an old prefix declaration on the tag goes, and one namespace is left")
-        .IsEqual Sh_MathML_Unprefixed("<m:math xmlns:m=""http://www.w3.org/1998/Math/MathML"" id=""a""><m:mi>x</m:mi></m:math>", "m:"), _
-            "<math xmlns=""http://www.w3.org/1998/Math/MathML"" id=""a""><mi>x</mi></math>"
-        .IsEqual Sh_MathML_Unprefixed("<math xmlns=""http://www.w3.org/1998/Math/MathML""><mi>x</mi></math>", ""), _
-            "<math xmlns=""http://www.w3.org/1998/Math/MathML""><mi>x</mi></math>"
-    End With
-
     ' --- The OMML package for InsertXML.
     With Suite.Test("the XML declaration MSXML puts on its answer comes off")
         .IsEqual Sh_Strip_Xml_Declaration("<?xml version=""1.0"" encoding=""UTF-16""?>" & vbCrLf & "<m:oMath/>"), "<m:oMath/>"
@@ -257,53 +204,6 @@ Public Function TestMathML_Suite() As TestSuite
     With Suite.Test("the picture path reads entities and escapes")
         .IsEqual Sh_MathML_Picture_Path("C:\Books\Imagine IM  A1 7&8\", "./images/7&amp;8/EQ%201.jpg"), _
             "C:\Books\Imagine IM  A1 7&8\images\7&8\EQ 1.jpg"
-    End With
-
-    ' --- The braille MathML keeps every character.
-    With Suite.Test("braille MathML: line breaks and tabs become spaces, nothing else changes")
-        Dim mathX As String
-        mathX = ChrW(&HD835) & ChrW(&HDC65)            ' U+1D465, mathematical italic x
-        .IsEqual Sh_MathML_One_Line("<math>" & vbCrLf & vbTab & "<mi>" & mathX & "</mi>" & ChrW(&HE000) & _
-                                    ChrW(&H8000) & vbLf & "</math>"), _
-            "<math>  <mi>" & mathX & "</mi>" & ChrW(&HE000) & ChrW(&H8000) & " </math>"
-    End With
-
-    ' --- The braille cleanups' park.
-    With Suite.Test("the park mark: fixed width, brackets no pass names")
-        .IsEqual Dx_Math_Park_Mark(12), ChrW(&H27E6) & "VTMATH000012" & ChrW(&H27E7)
-        .IsEqual Len(Dx_Math_Park_Mark(1)), Len(Dx_Math_Park_Mark(999999))
-    End With
-
-    With Suite.Test("a mark is read back to its number, and nothing else is")
-        .IsEqual Dx_Math_Mark_Number(Dx_Math_Park_Mark(12)), 12
-        .IsEqual Dx_Math_Mark_Number(Dx_Math_Park_Mark(999999)), 999999
-        .IsEqual Dx_Math_Mark_Number(ChrW(&H27E6) & "VTMATH00001x" & ChrW(&H27E7)), 0
-        .IsEqual Dx_Math_Mark_Number(ChrW(&H27E6) & "VTMATH000012"), 0
-        .IsEqual Dx_Math_Mark_Number("VTEQ000012"), 0
-    End With
-
-    With Suite.Test("one MathML element is measured whole, and only a real one")
-        .IsEqual Dx_Math_Element_Length("<math alttext=""a > b""><mi>x</mi></math> and more"), 39
-        .IsEqual Dx_Math_Element_Length("<math/> x"), 7
-        .IsEqual Dx_Math_Element_Length("<math xmlns=""http://www.w3.org/1998/Math/MathML"" /> rest"), 51
-        .IsEqual Dx_Math_Element_Length("<math><mi>x</mi></math >"), 24
-        .IsEqual Dx_Math_Element_Length("<math>" & vbCr & "<mi>x</mi>" & vbCr & "</math>"), 25
-        .IsEqual Dx_Math_Element_Length("<mathematics>x</mathematics>"), 0
-        .IsEqual Dx_Math_Element_Length("<math><mi>x</mi>"), 0
-        .IsEqual Dx_Math_Element_Length("<math><mi>x</mi></mathx>"), 0
-    End With
-
-    With Suite.Test("a book's MathML parks as marks and comes back exactly")
-        Dim book As String, parked As String
-        Dim kept As New Collection
-        book = "Solve <math xmlns=""http://www.w3.org/1998/Math/MathML"" id=""m1"" alttext='x > 2'>" & _
-               "<mi>x</mi><mo>" & ChrW(183) & "</mo><mn>2</mn></math>"" for x." & vbCr & _
-               "Then <math id=""m2""/> and <mathematics> and <math><mi>y</mi></math>."
-        parked = Park_Model(book, kept)
-        .IsEqual kept.count, 3
-        .IsEqual parked, "Solve " & Dx_Math_Park_Mark(1) & """ for x." & vbCr & "Then " & Dx_Math_Park_Mark(2) & _
-                         " and <mathematics> and " & Dx_Math_Park_Mark(3) & "."
-        .IsEqual Restore_Model(parked, kept), book
     End With
 
     ' --- Where the placeholders are, read once from the book's text (the speed fix).

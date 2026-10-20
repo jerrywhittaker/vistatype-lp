@@ -111,22 +111,12 @@ somewhere else on purpose:
     9/17/2026.
   - [ ] Braille, on a book with MathML (the Imagine IM A1 7&8 NIMAS book): Braille user form
         **Large Print or Braille (325)**, choose braille. **No** LP user form **Equations (398)**
-        appears. Each equation comes in as one line of text starting
-        `<math xmlns="http://www.w3.org/1998/Math/MathML"`, and a math letter such as an italic
-        x is still there, not a space. Braille message **Operation Complete (313)** names no
-        equations that failed.
-  - [ ] Then, on that book, Braille user form **Braille File Cleanup (332)** > Fix Errors, and
-        Braille user form **Selected Cleanup (333)** over a paragraph holding an equation: the
-        `<math ...>...</math>` text is exactly as before - `id="m1"` keeps its straight quote
-        (no double prime), no curly quotes inside it, a middle dot is still a middle dot. Search
-        for `VTMATH` afterwards: nothing is found. (Issue #37: braille cleanup leaves the MathML
-        alone.)
-  - [ ] **Compress Linear Math** with an equation's MathML text selected: Braille message
-        **Braille Macros (273)**, Yes - the MathML is left exactly as it was.
+        appears. The equations come in as Word equations, inline - the same as large print's
+        "Word equations (OMML)" choice (Jerry, 10/20/2026). Braille message **Operation Complete
+        (313)** says how many, if any, went in as their pictures instead.
   - [ ] **Compress Linear Math** on a selected expression in a book with other x's in it:
         Braille message **Braille Macros (273)**, Yes - only the selection changes; an x
-        elsewhere (in "next", say) is still an x. Then Ctrl+Z back past it and save: search for
-        `VTMATH` - nothing is found.
+        elsewhere (in "next", say) is still an x.
 - [ ] **Text File Para Fix**  `DN_Remove_Para_Formatting_From_Text_Files`
   - opens dialog **DN Text File Para Fix Warning**: Continue Button
 
