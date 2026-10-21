@@ -90,6 +90,10 @@ Public Sub VtRunAllTests()
     Set Suite = TestMathML_Suite()
     Reporter.ListenTo Suite
 
+    Reporter.Trace "building MathType equations (MTEF)"
+    Set Suite = TestMTEF_Suite()
+    Reporter.ListenTo Suite
+
     Reporter.Finish
     Exit Sub
 

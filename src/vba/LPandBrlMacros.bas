@@ -18,7 +18,44 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Dx  - 10/20/2026 - MATHML TEXT AND THE BRAILLE CLEANUP PARK ARE REMOVED (Jerry): braille
+' Notes:    - DN  - 10/20/2026 - BRACKETS IN WORD EQUATIONS NO LONGER SPLIT (issue #38): Word's
+'           - DN  - 10/20/2026 - MML2OMML.XSL took the one operator inside (-5), (P+b), [x+y] or |x+y| for
+'           - DN  - 10/20/2026 - the bracket's separator, so (-5) came out "(|5)". The MathML handed to it
+'           - DN  - 10/20/2026 - now has the inside of such a bracket wrapped in an mrow of its own; the book
+'           - DN  - 10/20/2026 - is not changed. A list - (3, 4), {1, 2} - keeps its commas as before.
+'           - DN  - 10/20/2026 - Measured on VistaBuild with Word's stylesheet: 17 of Section D's 470
+'           - DN  - 10/20/2026 - equations and 62 of the Imagine book's 2,139 were split, none now; the rest
+'           - DN  - 10/20/2026 - come out byte for byte the same. New: Sh_MathML_Wrap_Fences and its walk,
+'           - DN  - 10/20/2026 - Sh_MathML_Wrap_Fences_In, called from Sh_MathML_Put_Equation.
+'           - DN  - 10/20/2026 - MATHTYPE EQUATIONS IN A NIMAS CONVERSION, STEPS 3 AND 4 (Jerry's
+'           - DN  - 10/20/2026 - plan): box 398 offers "MathType equations" when MathType is installed
+'           - DN  - 10/20/2026 - (Sh_MathType_Is_Installed). Each equation goes in as a MathType
+'           - DN  - 10/20/2026 - equation with its EQ picture showing (Sh_MathML_Put_MathType,
+'           - DN  - 10/20/2026 - Sh_MathType_Package, Sh_Picture_Size_Pt, Sh_Read_File_Bytes,
+'           - DN  - 10/20/2026 - Sh_Points_Text), falling back to a Word equation and then to its
+'           - DN  - 10/20/2026 - picture, both counted in 313. MathType's Format Equations then draws
+'           - DN  - 10/20/2026 - them all (Sh_MathType_Format_Equations, through MathPage.WLL's
+'           - DN  - 10/20/2026 - MTInitAPI and MTTermAPI, declared at the top of this module); if
+'           - DN  - 10/20/2026 - MathType cannot be reached the conversion carries on and 313 says to
+'           - DN  - 10/20/2026 - click Format Equations once on the MathType tab. Measured headlessly
+'           - DN  - 10/20/2026 - on VistaBuild, Section D: 470 of 470 in as MathType equations in 21 s,
+'           - DN  - 10/20/2026 - drawn in 91 s; 414 the target's size exactly.
+'           - DN  - 10/20/2026 - LETTERS IN A ONE-COLUMN TABLE STAY BOLD ITALIC (Jerry, 10/20/2026):
+'           - DN  - 10/20/2026 - MathType's own conversion makes every letter directly in a cell of a
+'           - DN  - 10/20/2026 - one-column table plain italic, and the MTEF helpers had copied it; now
+'           - DN  - 10/20/2026 - they are written like every other letter. Section D: 446 of 470 byte
+'           - DN  - 10/20/2026 - for byte, the other 24 differing only by this and issue #38.
+'           - DN  - 10/20/2026 - MATHTYPE EQUATIONS FROM THE MATHML, STEPS 1 AND 2 (Jerry's plan): new
+'           - DN  - 10/20/2026 - pure helpers that write an equation as MathType's MTEF
+'           - DN  - 10/20/2026 - (Sh_MTEF_From_MathML, with Sh_MTEF_Not_Handled saying why one is
+'           - DN  - 10/20/2026 - refused), wrap it in the OLE compound file Word keeps a MathType
+'           - DN  - 10/20/2026 - equation in (Sh_MTEF_Ole_File), and turn that into Base64 (Sh_Base64).
+'           - DN  - 10/20/2026 - Measured against MathType on VistaBuild: Section D, 453 of 470 byte
+'           - DN  - 10/20/2026 - for byte (the other 17 differ only by issue #38 in the target); 355
+'           - DN  - 10/20/2026 - more through MathType's Convert Equations, 299 the same, 49 refused, 7
+'           - DN  - 10/20/2026 - differ only by that route's faults. Nothing calls them yet (Step 3).
+'           - DN  - 10/20/2026 - Tests: tests/vba/TestMTEF.bas, tests/test_mtef_helpers.py.
+'           - Dx  - 10/20/2026 - MATHML TEXT AND THE BRAILLE CLEANUP PARK ARE REMOVED (Jerry): braille
 '           - Dx  - 10/20/2026 - gets Word equations (OMML) now, so the MathML-as-text path is gone
 '           - Dx  - 10/20/2026 - (Sh_MathML_Put_Text, Sh_MathML_One_Line, Sh_MathML_Unprefixed and the
 '           - Dx  - 10/20/2026 - "BRL" mode of Sh_MathML_Put_In), and so is the park that kept braille
@@ -2897,7 +2934,7 @@ Public Lp_Pic_Percent As String
 
 Public Sh_GP_String_1 As String
 Public Sh_GP_String_2 As String   ' the conversion's large print or braille choice (325), "LP" or "BRL"
-Public Sh_GP_String_3 As String   ' the conversion's equation choice (398), "OMML" or "PICTURE"
+Public Sh_GP_String_3 As String   ' the conversion's equation choice (398), "OMML", "MATHTYPE" or "PICTURE"
 ' Sh_GP_Boolean_1 and Sh_GP_Counter_1 stood here until 9/4/2026. Only
 ' Sh_Is_End_Paragraph_Mark_Included ever wrote them and nothing ever read them back, so they went
 ' with that macro when Change Picture Color stopped round-tripping. Sh_GP_String_1 and
@@ -3117,6 +3154,22 @@ Public PRM As String  ' Print Page Right Margin
 Public PPO As String  ' Print Page Orintation (L=Landscape, P=Portrait)
 Public DM As String   ' Document Media - can be "Paper" (P) or "Screen" (S)
 Public MirrorString As String ' yes or no
+
+' --- MathType, for the DAISY/NIMAS converter's "MathType equations" (10/20/2026) ---------------
+' MathType's own API, in its Word add-in library MathPage.WLL, which MathType loads into Word
+' with its MathType tab. Only Sh_MathType_Format_Equations calls these, inside an error trap: on
+' a machine without MathType the call fails with "file not found" and the conversion carries on.
+' MTInitAPI connects to MathType (options 0, wait up to 30 seconds) and must come before its
+' Format Equations macro is run from code - measured on VistaBuild, Step 0, 10/20/2026.
+#If VBA7 Then
+    Private Declare PtrSafe Function Sh_MT_InitAPI Lib "MathPage.WLL" Alias "MTInitAPI" _
+        (ByVal options As Integer, ByVal timeout As Integer) As Long
+    Private Declare PtrSafe Function Sh_MT_TermAPI Lib "MathPage.WLL" Alias "MTTermAPI" () As Long
+#Else
+    Private Declare Function Sh_MT_InitAPI Lib "MathPage.WLL" Alias "MTInitAPI" _
+        (ByVal options As Integer, ByVal timeout As Integer) As Long
+    Private Declare Function Sh_MT_TermAPI Lib "MathPage.WLL" Alias "MTTermAPI" () As Long
+#End If
 
 ' --- Application-event wiring -------------------------------------------------------------
 ' The add-in ships in Word's STARTUP folder, where AutoOpen/AutoNew/AutoClose do NOT fire per
@@ -34338,6 +34391,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
 '
 ' Automatically converts an .xml (NIMAS or DAISY) file into a Word Document with reference pages tagged with $pg
 '
+' Version: 2.4  Date: 10/20/2026 - MATHTYPE EQUATIONS (Jerry's plan, Steps 3 and 4): box 398 offers "MathType equations" when MathType is installed; each equation goes in as a MathType equation made from its MathML, falling back to a Word equation and then its picture (counted in 313), and MathType's Format Equations then draws them all on its own stretch of the bar. If MathType cannot be reached, the conversion carries on and 313 tells the user to click Format Equations once on the MathType tab
 ' Version: 2.3  Date: 10/20/2026 - a braille conversion puts the equations in as Word equations (OMML), as large print's "Word equations (OMML)" choice does, instead of the MathML as text (Jerry). Still not asked for braille.
 ' Version: 2.2  Date: 10/18/2026 - the book's own pictures (the <img> pictures) have their aspect ratio locked in the picture loop, as the EQ pictures already are (Jerry), so a later resize keeps their shape. Large print and braille alike
 ' Version: 2.1  Date: 10/18/2026 - EQUATIONS (issue #37, Jerry). Box 325 asks large print or braille instead of keep or omit images; both keep the pictures, and the OMIT branch of the picture loop is gone (braille drops pictures elsewhere). The XML is read BEFORE the bar opens, so a book's MathML is found before any question about it. Each math element is parked as a VTEQnnnnnn placeholder in a separate import file (the .txt and .html beside the book are unchanged), and put back after the import: large print asks Equations (398) - Word equations or the EQ pictures - and Cancel stops with 399 before anything is done to the book; braille gets the MathML back as text for DBT. Equations that could not go in as asked are counted in 313
@@ -34465,11 +34519,12 @@ Sub Sh_Convert_XML_File_To_Word_Document()
             ' Not asked: there is nothing to choose.
             mathMode = "OMML"
         Else
-            ' Large print: the transcriber chooses Word equations or the EQ pictures. Asked
-            ' only when the book has MathML.
+            ' Large print: the transcriber chooses Word equations, MathType equations (offered
+            ' only when MathType is installed) or the EQ pictures. Asked only when the book has
+            ' MathML.
             Sh_GP_String_3 = ""
             DN_Equations_Form.Show
-            If Sh_GP_String_3 <> "OMML" And Sh_GP_String_3 <> "PICTURE" Then
+            If Sh_GP_String_3 <> "OMML" And Sh_GP_String_3 <> "MATHTYPE" And Sh_GP_String_3 <> "PICTURE" Then
                 Sh_Say "No choice was made about the equations, so the book has not been converted.", _
                        "VistaType LP (399)"
                 Exit Sub
@@ -34728,7 +34783,24 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     ' which work on the text and none of which should meet a Word equation - the quote pass
     ' deletes single characters by position. Before the font and the repaginate, which must still
     ' follow. Large print: Word equations or the EQ pictures. Braille: Word equations.
-    If mathMode <> "" Then
+    If mathMode = "MATHTYPE" Then
+        ' MathType equations go in with their EQ pictures showing, and MathType then draws every
+        ' one (Format Equations) on its own stretch of the bar. If MathType cannot be reached the
+        ' conversion carries on, and the closing message (313) says what to do.
+        Sh_Progress_Say 45, "Putting in " & Format(UBound(mathFragments) + 1, "#,##0") & " equations."
+        Sh_Spin_DoEvents
+        mathNote = Sh_MathML_Put_In(finalDoc, mathFragments, mathPrefix, mathMode, folderPath, 45, 62)
+        Sh_Progress_Say 62, "MathType is drawing the equations - one long step, so the bar waits."
+        Sh_Spin_DoEvents
+        If Not Sh_MathType_Format_Equations(finalDoc) Then
+            If mathNote <> "" Then mathNote = mathNote & vbCr & vbCr
+            mathNote = mathNote & "MathType could not be reached to draw the equations, so each one still " & _
+                       "shows its picture from the book. To finish them, open the MathType tab and " & _
+                       "click Format Equations once."
+        End If
+        Sh_Progress_Show
+        Sh_Progress_Say 75, "The equations are in."
+    ElseIf mathMode <> "" Then
         Sh_Progress_Say 45, "Putting in " & Format(UBound(mathFragments) + 1, "#,##0") & " equations."
         Sh_Spin_DoEvents
         mathNote = Sh_MathML_Put_In(finalDoc, mathFragments, mathPrefix, mathMode, folderPath, 45, 75)
@@ -35568,6 +35640,141 @@ Private Function Sh_MathML_With_Namespace(ByVal fragment As String, ByVal prefix
                                Mid$(fragment, Len(tagName) + 1)
 End Function   '*** end of Sh_MathML_With_Namespace function ***
 
+Private Function Sh_MathML_Wrap_Fences(ByVal mathml As String) As String
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' Issue #38. Word's MML2OMML.XSL reads an mrow that opens and closes with a matching pair of
+    ' fences - ( ), [ ], { }, | | and the rest of its list - as a bracket, and when every mo
+    ' between the two is the same character it takes that character for the bracket's
+    ' SEPARATOR. So (-5), written
+    '     <m:mrow><m:mo>(</m:mo><m:mo>-</m:mo><m:mn>5</m:mn><m:mo>)</m:mo></m:mrow>
+    ' came out as a bracket of two parts, nothing and 5, split by the minus, and Word showed
+    ' "(|5)". The same with (P+b), [x+y], |x+y|. Measured on VistaBuild 10/20/2026 with Word's
+    ' own MML2OMML.XSL: 17 of the 470 equations of Unit 8 Section D, 62 of the 2,139 of the
+    ' Imagine book; none after this.
+    '
+    ' The cure: whatever lies between the two fences goes into an mrow of its own, so the
+    ' stylesheet sees one item and no separators, and the bracket is one part, -5:
+    '     <m:mrow><m:mo>(</m:mo><m:mrow><m:mo>-</m:mo><m:mn>5</m:mn></m:mrow><m:mo>)</m:mo></m:mrow>
+    '
+    ' Only an mrow the stylesheet WOULD split is touched: both ends a matching pair of fences,
+    ' and every mo between them the same. A real list keeps its separators - when that one
+    ' character is a comma, a semicolon or a bar, (3, 4) and {1, 2} come out exactly as before,
+    ' a bracket of two parts. Fences in the middle of a row, a pair that does not match - (-5]
+    ' - and mfenced are left alone: the stylesheet does not split those.
+    '
+    ' Only the copy handed to MML2OMML.XSL is changed, never the book. When nothing needs
+    ' wrapping the MathML comes back exactly as it came, so every equation without the fault
+    ' gives the same Word equation as before (measured: byte for byte, the other 2,077 of the
+    ' Imagine book). Anything MSXML cannot read comes back as it came too.
+
+    Dim doc As Object
+
+    On Error GoTo Unchanged
+    Sh_MathML_Wrap_Fences = mathml
+
+    Set doc = CreateObject("MSXML2.DOMDocument.6.0")
+    doc.async = False
+    doc.validateOnParse = False
+    doc.resolveExternals = False
+    If Not doc.loadXML(mathml) Then Exit Function
+    If doc.parseError.errorCode <> 0 Then Exit Function
+
+    If Sh_MathML_Wrap_Fences_In(doc.documentElement) > 0 Then
+        Sh_MathML_Wrap_Fences = doc.documentElement.xml
+    End If
+    Exit Function
+
+Unchanged:
+    Err.Clear
+    Sh_MathML_Wrap_Fences = mathml
+End Function   '*** end of Sh_MathML_Wrap_Fences function ***
+
+Private Function Sh_MathML_Wrap_Fences_In(ByVal node As Object) As Long
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' Sh_MathML_Wrap_Fences' walk: wraps the inside of every mrow at or below node that
+    ' MML2OMML.XSL would split, and says how many it wrapped. The fence pairs are the
+    ' stylesheet's own (its OpenChars and CloseChars, matched as it matches them). A new mrow
+    ' is walked too, so a pair nested inside it is found.
+
+    Dim els() As Object, row As Object
+    Dim nEl As Long, nMo As Long, i As Long, p As Long
+    Dim firstAt As Long, lastAt As Long
+    Dim ns As String, openChars As String, closeChars As String
+    Dim o As String, c As String, sep As String, t As String, qName As String
+    Dim same As Boolean
+
+    If node.nodeType <> 1 Then Exit Function
+    ns = Sh_MathML_Namespace()
+
+    If node.namespaceURI = ns And node.baseName = "mrow" Then
+        ' The element children, and where the first and last of them sit among all the
+        ' children - white space and comments are not items.
+        ReDim els(0 To node.childNodes.length)
+        firstAt = -1
+        For i = 0 To node.childNodes.length - 1
+            If node.childNodes.Item(i).nodeType = 1 Then
+                Set els(nEl) = node.childNodes.Item(i)
+                nEl = nEl + 1
+                If firstAt < 0 Then firstAt = i
+                lastAt = i
+            End If
+        Next i
+
+        If nEl >= 3 Then
+            If els(0).namespaceURI = ns And els(0).baseName = "mo" And _
+               els(nEl - 1).namespaceURI = ns And els(nEl - 1).baseName = "mo" Then
+                openChars = "([{<" & ChrW$(&H230A) & ChrW$(&H2308) & ChrW$(&H27E6) & "|" & ChrW$(&H2016)
+                closeChars = ")]}>" & ChrW$(&H230B) & ChrW$(&H2309) & ChrW$(&H27E7) & "|" & ChrW$(&H2016)
+                o = Trim$(els(0).Text)
+                c = Trim$(els(nEl - 1).Text)
+                p = 0
+                If Len(o) = 1 Then p = InStr(1, openChars, o, vbBinaryCompare)
+                If p > 0 Then
+                    If c = Mid$(closeChars, p, 1) Then
+                        ' Would the stylesheet take the mo in between for a separator?
+                        same = True
+                        For i = 1 To nEl - 2
+                            If els(i).namespaceURI = ns And els(i).baseName = "mo" Then
+                                t = Trim$(els(i).Text)
+                                nMo = nMo + 1
+                                If nMo = 1 Then
+                                    sep = t
+                                ElseIf t <> sep Then
+                                    same = False
+                                End If
+                            End If
+                        Next i
+                        If nMo > 0 And same And sep <> "," And sep <> ";" And sep <> "|" And _
+                           sep <> ChrW$(&H2223) Then
+                            If node.prefix = "" Then
+                                qName = "mrow"
+                            Else
+                                qName = node.prefix & ":mrow"
+                            End If
+                            Set row = node.ownerDocument.createNode(1, qName, ns)
+                            ' Everything between the two fences, white space included, in
+                            ' order: each move takes the next one out of node.
+                            For i = firstAt + 1 To lastAt - 1
+                                row.appendChild node.childNodes.Item(firstAt + 1)
+                            Next i
+                            node.insertBefore row, node.childNodes.Item(firstAt + 1)
+                            Sh_MathML_Wrap_Fences_In = 1
+                        End If
+                    End If
+                End If
+            End If
+        End If
+    End If
+
+    For i = 0 To node.childNodes.length - 1
+        Sh_MathML_Wrap_Fences_In = Sh_MathML_Wrap_Fences_In + Sh_MathML_Wrap_Fences_In(node.childNodes.Item(i))
+    Next i
+End Function   '*** end of Sh_MathML_Wrap_Fences_In function ***
+
 Private Function Sh_Strip_Xml_Declaration(ByVal s As String) As String
     '
     ' Version: 1.0  Date: 10/18/2026
@@ -35611,6 +35818,1654 @@ Private Function Sh_OMML_Package(ByVal omml As String) As String
         omml & _
         "</w:p></w:body></w:document></pkg:xmlData></pkg:part></pkg:package>"
 End Function   '*** end of Sh_OMML_Package function ***
+
+' ===========================================================================================
+' MathType equations made from the book's MathML (10/20/2026, Steps 1 and 2 of the MathType plan)
+' ===========================================================================================
+'
+' MathType keeps an equation as MTEF ("MathType Equation Format", version 5) inside a small OLE
+' compound file: the Equation Native stream. These helpers build both from one equation's MathML,
+' with no Word objects and no MathType: MSXML reads the MathML, and the bytes are written here.
+' The picture Word shows for the equation is NOT made here - MathType's Format Equations draws it
+' from the MTEF (measured on VistaBuild 10/20/2026, Step 0).
+'
+' WHAT "RIGHT" MEANS. MathType's own output, by the route Jerry uses today: the MathML made into
+' Word equations, then MathType's Convert Equations. Measured 10/20/2026 on VistaBuild:
+'   - Section D of the Imagine book ("Section D with MathType.docx", 470 equations): 446 come out
+'     byte for byte the same, once the COLOR records that conversion adds are left out. The other
+'     24 differ in two ways only. 17 carry issue #38 in the target: Word's MML2OMML.XSL turned the
+'     minus, plus or comma inside a bracketed group such as (-5) into a "|"; here it stays as
+'     written. And 7 (some of the 17 too) have letters directly in a cell of a one-column table,
+'     which that conversion makes plain italic whatever the book says; here they stay bold italic
+'     like every other letter (Jerry, 10/20/2026).
+'   - 355 more test equations, run through the same route headlessly (MML2OMML.XSL, InsertXML,
+'     MTConvertEquations.DoConvertEquations): 275 the same byte for byte, 49 refused here, and 31
+'     different only by the one-column-table letters (24) or that route's two faults (7) - #38
+'     again, and a row holding both < and >, which it turns into angle brackets. Here they stay
+'     less-than and greater-than.
+'
+' ANYTHING NOT SEEN THAT WAY IS REFUSED: the answer is Empty, and Sh_MTEF_Not_Handled says why,
+' so the converter can put that equation in another way. Accepted: math, mrow, mstyle and
+' semantics (passed through), mi, mn, mo, mtext (the characters listed in Sh_MTEF_Put_Token),
+' msup, msub, msubsup, mfrac (bevelled and no-line too), msqrt, mroot, mfenced with one
+' argument, menclose (box, top, bottom, left, right, the three strikes, radical), mover and
+' munder as accents (bar, hat, tilde, dot, arrows, primes as superscripts), mtable/mtr/mtd, and
+' brackets ( ) [ ] { } | | written as mo pairs. Refused: mspace, mpadded, mphantom, maction,
+' merror, ms, mmultiscripts, munderover, mlabeledtr, cells that span, mfenced with more than one
+' argument, menclose circle and roundedbox, and every character not listed - each of these came
+' out wrong, or not at all, through MathType's own conversion, or was never tried.
+'
+' Every helper is pure and every parameter is ByVal; the state of one equation travels in a
+' Scripting.Dictionary (see Sh_MTEF_Walk). Tested in tests/vba/TestMTEF.bas.
+
+Private Function Sh_MTEF_From_MathML(ByVal mathml As String) As Variant
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' One equation's MTEF, as a Byte array, from its MathML - a fragment as
+    ' Sh_MathML_With_Namespace returns it. Empty when anything in it is not handled; ask
+    ' Sh_MTEF_Not_Handled for the reason. The bytes are MathType's own 193-byte preamble (header,
+    ' fonts, preferences, the FULL size and the opening LINE), the equation, and two ENDs.
+    '   b = Sh_MTEF_From_MathML("<m:math xmlns:m=""http://www.w3.org/1998/Math/MathML""><m:mn>1</m:mn></m:math>")
+    '   ' -> the preamble, then 02 00 88 31 00 (the number 1), then 00 00: 200 bytes
+
+    Dim st As Object
+    Set st = Sh_MTEF_Walk(mathml)
+    If st Is Nothing Then Exit Function
+    If st("why") <> "" Then Exit Function
+    Sh_MTEF_From_MathML = Sh_MTEF_Text_Bytes(Sh_MTEF_Hex_Text(Sh_MTEF_Preamble_Hex()) & st("out") & _
+                                             ChrW(0) & ChrW(0))
+End Function   '*** end of Sh_MTEF_From_MathML function ***
+
+Private Function Sh_MTEF_Not_Handled(ByVal mathml As String) As String
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' Why Sh_MTEF_From_MathML gives Empty for this equation - "" when it does not.
+    '   Sh_MTEF_Not_Handled("<m:math xmlns:m=""http://www.w3.org/1998/Math/MathML""><m:mspace/></m:math>")
+    '   ' -> "mspace is not handled"
+
+    Dim st As Object
+    Set st = Sh_MTEF_Walk(mathml)
+    If st Is Nothing Then
+        Sh_MTEF_Not_Handled = "Scripting.Dictionary could not be made"
+    Else
+        Sh_MTEF_Not_Handled = st("why")
+    End If
+End Function   '*** end of Sh_MTEF_Not_Handled function ***
+
+Private Function Sh_MTEF_Walk(ByVal mathml As String) As Object
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' Reads the MathML and writes the equation's records, without the preamble or the two ENDs.
+    ' The answer is the state of the walk, a Scripting.Dictionary:
+    '   "out"    - the records so far, one character per byte (ChrW(0) to ChrW(255))
+    '   "size"   - the size in force: 10 FULL, 11 SUB, 12 SUB2. MathType writes a size record only
+    '              when the size changes, so this is remembered from one record to the next
+    '   "styled" - True once the bold italic style record (08 01 03) has been written; MathType
+    '              writes it once per equation, before the first bold italic letter
+    '   "why"    - "" while all is well; the first reason anything was refused
+    ' Nothing only when the Dictionary itself cannot be made.
+    '   Sh_MTEF_Walk("<m:math xmlns:m=""...MathML""><m:mn>1</m:mn></m:math>")("out")
+    '   ' -> ChrW(2) & ChrW(0) & ChrW(&H88) & ChrW(&H31) & ChrW(0)
+
+    Dim st As Object, doc As Object, root As Object, kids As Collection
+
+    On Error Resume Next
+    Set st = CreateObject("Scripting.Dictionary")
+    On Error GoTo Failed
+    If st Is Nothing Then Exit Function
+
+    st("out") = ""
+    st("size") = 10
+    st("styled") = False
+    st("why") = ""
+
+    Set doc = CreateObject("MSXML2.DOMDocument.6.0")
+    doc.async = False
+    doc.validateOnParse = False
+    doc.resolveExternals = False
+    doc.preserveWhiteSpace = True
+    If Not doc.loadXML(mathml) Then
+        st("why") = "the MathML could not be read"
+    Else
+        Set root = doc.documentElement
+        If root.baseName <> "math" Or root.namespaceURI <> Sh_MathML_Namespace() Then
+            st("why") = "it is not a MathML math element"
+        Else
+            Set kids = Sh_MTEF_Kids(root)
+            If kids Is Nothing Then
+                st("why") = "text outside a token element"
+            Else
+                Sh_MTEF_Put_Row st, kids, 1, kids.count, 10
+            End If
+        End If
+    End If
+
+    Set Sh_MTEF_Walk = st
+    Exit Function
+
+Failed:
+    st("why") = "error " & Err.Number & ": " & Err.Description
+    Err.Clear
+    Set Sh_MTEF_Walk = st
+End Function   '*** end of Sh_MTEF_Walk function ***
+
+Private Function Sh_MTEF_Kids(ByVal node As Object) As Collection
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' The element children of a MathML element, in order. White space between them is not a
+    ' child; any other text there is not MathML, so the answer is then Nothing.
+    '   Sh_MTEF_Kids(<m:mrow> <m:mi>x</m:mi> <m:mn>2</m:mn> </m:mrow>).Count  ->  2
+
+    Dim c As New Collection
+    Dim k As Object
+
+    For Each k In node.childNodes
+        Select Case k.nodeType
+            Case 1
+                c.Add k
+            Case 3, 4
+                If Sh_MTEF_Collapse(k.nodeValue) <> "" Then Exit Function
+        End Select
+    Next k
+    Set Sh_MTEF_Kids = c
+End Function   '*** end of Sh_MTEF_Kids function ***
+
+Private Function Sh_MTEF_One(ByVal node As Object) As Collection
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' One element as a list of one, for a template slot that holds a single argument - a script,
+    ' a numerator, a root's index.
+    '   Sh_MTEF_One(denominator).Count  ->  1
+
+    Dim c As New Collection
+    c.Add node
+    Set Sh_MTEF_One = c
+End Function   '*** end of Sh_MTEF_One function ***
+
+Private Function Sh_MTEF_Collapse(ByVal s As String) As String
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' Text as MathML reads it: XML white space (space, tab, CR, LF) at either end goes, and every
+    ' run of it inside becomes one space. Thin and em spaces are not XML white space and are kept.
+    ' MathType's own conversion does the same (measured: <mtext> a  b </mtext> is "a b").
+    '   Sh_MTEF_Collapse("  Original" & vbLf & "  equation ")  ->  "Original equation"
+
+    s = Replace(Replace(Replace(s, vbTab, " "), vbCr, " "), vbLf, " ")
+    Do While InStr(1, s, "  ") > 0
+        s = Replace(s, "  ", " ")
+    Loop
+    Sh_MTEF_Collapse = Trim$(s)
+End Function   '*** end of Sh_MTEF_Collapse function ***
+
+Private Function Sh_MTEF_Mo_Text(ByVal node As Object) As String
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' What a MathML mo holds, read as MathML reads it - "" for anything that is not an mo, and for
+    ' an mo holding an element.
+    '   Sh_MTEF_Mo_Text(<m:mo stretchy="false"> ( </m:mo>)  ->  "("
+
+    Dim k As Object
+
+    If node.baseName <> "mo" Then Exit Function
+    If node.namespaceURI <> Sh_MathML_Namespace() Then Exit Function
+    For Each k In node.childNodes
+        If k.nodeType = 1 Then Exit Function
+    Next k
+    Sh_MTEF_Mo_Text = Sh_MTEF_Collapse(node.Text)
+End Function   '*** end of Sh_MTEF_Mo_Text function ***
+
+Private Function Sh_MTEF_Match_Fence(ByVal kids As Collection, ByVal i As Long, _
+                                     ByVal last As Long) As Long
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' kids(i) is an mo ( [ { or |. The index of the mo that closes it among kids(i + 1) to
+    ' kids(last), brackets nested between counted as they come: 0 when nothing closes it (it is
+    ' then an ordinary character), -1 when a different bracket closes it first - "[ x )", which
+    ' MathType's conversion makes an interval template, never tried here. A bar opens when the
+    ' innermost open bracket is not a bar and closes when it is, so | a | + | b | is two pairs and a
+    ' third bar on its own is a character - as the conversion does it.
+    '   kids = f ( x ) = 0  ->  Sh_MTEF_Match_Fence(kids, 2, 5) = 4
+
+    Dim stack As String, t As String, j As Long
+
+    For j = i To last
+        t = Sh_MTEF_Mo_Text(kids(j))
+        Select Case t
+            Case "(", "[", "{"
+                stack = stack & t
+            Case ")", "]", "}"
+                If stack = "" Then Exit Function
+                If Right$(stack, 1) <> Mid$("([{", InStr(1, ")]}", t), 1) Then
+                    Sh_MTEF_Match_Fence = -1
+                    Exit Function
+                End If
+                stack = Left$(stack, Len(stack) - 1)
+                If stack = "" Then
+                    Sh_MTEF_Match_Fence = j
+                    Exit Function
+                End If
+            Case "|"
+                If Right$(stack, 1) = "|" Then
+                    stack = Left$(stack, Len(stack) - 1)
+                    If stack = "" Then
+                        Sh_MTEF_Match_Fence = j
+                        Exit Function
+                    End If
+                Else
+                    stack = stack & t
+                End If
+        End Select
+    Next j
+End Function   '*** end of Sh_MTEF_Match_Fence function ***
+
+Private Sub Sh_MTEF_Fail(ByVal st As Object, ByVal why As String)
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' Records why the equation cannot be made; the first reason is the one kept.
+    '   Sh_MTEF_Fail st, "mspace is not handled"
+
+    If st("why") = "" Then st("why") = why
+End Sub   '*** end of Sh_MTEF_Fail sub ***
+
+Private Sub Sh_MTEF_Add(ByVal st As Object, ByVal b As Long)
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' One byte onto the end of the records.
+    '   Sh_MTEF_Add st, &H0A   ' FULL
+
+    st("out") = st("out") & ChrW(b And &HFF)
+End Sub   '*** end of Sh_MTEF_Add sub ***
+
+Private Sub Sh_MTEF_Set_Size(ByVal st As Object, ByVal size As Long)
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' The size record (10 FULL, 11 SUB, 12 SUB2), written only when the size in force is
+    ' different. This is why MathType writes FULL after a superscript, before the next character -
+    ' and nothing at all when the superscript ends the line.
+    '   Sh_MTEF_Set_Size st, 11   ' -> 0B, unless SUB is already in force
+
+    If st("size") <> size Then
+        Sh_MTEF_Add st, size
+        st("size") = size
+    End If
+End Sub   '*** end of Sh_MTEF_Set_Size sub ***
+
+Private Sub Sh_MTEF_Put_Char(ByVal st As Object, ByVal typeface As Long, ByVal mtCode As Long, _
+                             ByVal font8 As Long, ByVal size As Long, ByVal embell As Long)
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' A CHAR record: 02, options, typeface + 128, the MTCode (Unicode, low byte first), the
+    ' character's place in its font when font8 is 0 or more (option 04), and an embellishment -
+    ' a bar, hat, prime and so on - when embell is not 0 (option 01: 06 00 embell 00 follows).
+    ' Typefaces: -1 bold italic (through the style record, written once, BEFORE any size record),
+    ' 1 TEXT, 2 FUNCTION, 3 VARIABLE, 4 and 5 lower and upper case Greek, 6 SYMBOL, 7 VECTOR (bold),
+    ' 8 NUMBER, 11 MT Extra, 22 EXPAND (a bracket of a template), 24 SPACE.
+    '   Sh_MTEF_Put_Char st, 6, &H2212, &H2D, 10, 0   ' minus -> 02 04 86 12 22 2D
+
+    If typeface = -1 And Not st("styled") Then
+        Sh_MTEF_Add st, 8          ' FONT_STYLE_DEF: font 1 (Times New Roman), bold italic
+        Sh_MTEF_Add st, 1
+        Sh_MTEF_Add st, 3
+        st("styled") = True
+    End If
+    Sh_MTEF_Set_Size st, size
+    Sh_MTEF_Add st, 2
+    Sh_MTEF_Add st, IIf(font8 >= 0, 4, 0) Or IIf(embell <> 0, 1, 0)
+    Sh_MTEF_Add st, typeface + 128
+    Sh_MTEF_Add st, mtCode And &HFF&
+    Sh_MTEF_Add st, (mtCode And &HFF00&) \ &H100&
+    If font8 >= 0 Then Sh_MTEF_Add st, font8
+    If embell <> 0 Then
+        Sh_MTEF_Add st, 6
+        Sh_MTEF_Add st, 0
+        Sh_MTEF_Add st, embell
+        Sh_MTEF_Add st, 0
+    End If
+End Sub   '*** end of Sh_MTEF_Put_Char sub ***
+
+Private Sub Sh_MTEF_Put_Template(ByVal st As Object, ByVal selector As Long, ByVal variation As Long, _
+                                 ByVal size As Long)
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' The start of a TMPL record: 03, options 0, selector, variation, template options 0. The
+    ' caller writes the slots and the closing 00. Selectors used: 1 parentheses, 2 braces,
+    ' 3 brackets, 4 bars, 10 root, 11 fraction, 12 underbar, 13 overbar, 27 subscript,
+    ' 28 superscript, 29 both, 31 arrow over, 32 tilde over, 33 hat over, 36 strike, 37 box.
+    '   Sh_MTEF_Put_Template st, 11, 0, 10   ' -> 03 00 0B 00 00
+
+    Sh_MTEF_Set_Size st, size
+    Sh_MTEF_Add st, 3
+    Sh_MTEF_Add st, 0
+    Sh_MTEF_Add st, selector
+    Sh_MTEF_Add st, variation
+    Sh_MTEF_Add st, 0
+End Sub   '*** end of Sh_MTEF_Put_Template sub ***
+
+Private Sub Sh_MTEF_Put_Line(ByVal st As Object, ByVal kids As Collection, ByVal first As Long, _
+                             ByVal last As Long, ByVal size As Long)
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' A LINE record (one template slot, or one table cell) holding kids(first) to kids(last), at
+    ' that size; first > last is an empty slot, 01 00 00. kids Nothing is a slot that is not there
+    ' at all - the missing subscript of a superscript, the index of a square root - written as
+    ' 01 01, with no END.
+    '   Sh_MTEF_Put_Line st, Nothing, 0, 0, 11   ' -> 0B 01 01
+
+    Sh_MTEF_Set_Size st, size
+    Sh_MTEF_Add st, 1
+    If kids Is Nothing Then
+        Sh_MTEF_Add st, 1
+        Exit Sub
+    End If
+    Sh_MTEF_Add st, 0
+    Sh_MTEF_Put_Row st, kids, first, last, size
+    Sh_MTEF_Add st, 0
+End Sub   '*** end of Sh_MTEF_Put_Line sub ***
+
+Private Sub Sh_MTEF_Put_Fence(ByVal st As Object, ByVal kids As Collection, ByVal i As Long, _
+                              ByVal j As Long, ByVal size As Long)
+    '
+    ' Version: 1.1  Date: 10/20/2026 - the one-column-table rule is gone (Jerry, 10/20/2026), and
+    '                                with it the clearCell parameter
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' The bracket pair kids(i) and kids(j) as MathType's bracket template round what lies between:
+    ' ( ) selector 1, { } 2, [ ] 3, | | 4 (MathType's own bar characters EC07 and EC08), always
+    ' variation 3 (both sides), the two brackets written as EXPAND characters after the slot.
+    '   Sh_MTEF_Put_Fence st, kids, 1, 3, 10   ' kids = ( x )
+    '   ' -> 03 00 01 03 00  01 00 [x] 00  02 00 96 28 00  02 00 96 29 00  00
+
+    Dim t As String
+    Dim sel As Long, openCode As Long, closeCode As Long
+
+    t = Sh_MTEF_Mo_Text(kids(i))
+    Select Case t
+        Case "(": sel = 1: openCode = &H28: closeCode = &H29
+        Case "{": sel = 2: openCode = &H7B: closeCode = &H7D
+        Case "[": sel = 3: openCode = &H5B: closeCode = &H5D
+        Case "|": sel = 4: openCode = &HEC07&: closeCode = &HEC08&
+    End Select
+
+    Sh_MTEF_Put_Template st, sel, 3, size
+    Sh_MTEF_Put_Line st, kids, i + 1, j - 1, size
+    Sh_MTEF_Put_Char st, 22, openCode, -1, size, 0
+    Sh_MTEF_Put_Char st, 22, closeCode, -1, size, 0
+    Sh_MTEF_Add st, 0
+End Sub   '*** end of Sh_MTEF_Put_Fence sub ***
+
+Private Sub Sh_MTEF_Put_Row(ByVal st As Object, ByVal kids As Collection, ByVal first As Long, _
+                            ByVal last As Long, ByVal size As Long)
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' kids(first) to kids(last), one after another in the same line, each bracket pair made a
+    ' bracket template (Sh_MTEF_Match_Fence, Sh_MTEF_Put_Fence). A bracket nothing closes is an
+    ' ordinary character; brackets that close each other wrongly refuse the equation.
+    '   Sh_MTEF_Put_Row st, kids, 1, 4, 10   ' kids = f ( x )
+    '   ' -> f, then the parentheses template round x
+
+    Dim i As Long, j As Long, t As String
+
+    i = first
+    Do While i <= last
+        If st("why") <> "" Then Exit Sub
+        t = Sh_MTEF_Mo_Text(kids(i))
+        j = 0
+        If t = "(" Or t = "[" Or t = "{" Or t = "|" Then j = Sh_MTEF_Match_Fence(kids, i, last)
+        If j < 0 Then
+            Sh_MTEF_Fail st, "brackets that do not match"
+            Exit Sub
+        ElseIf j > 0 Then
+            Sh_MTEF_Put_Fence st, kids, i, j, size
+            i = j + 1
+        Else
+            Sh_MTEF_Put_Node st, kids(i), size
+            i = i + 1
+        End If
+    Loop
+End Sub   '*** end of Sh_MTEF_Put_Row sub ***
+
+Private Sub Sh_MTEF_Put_Node(ByVal st As Object, ByVal node As Object, ByVal size As Long)
+    '
+    ' Version: 1.1  Date: 10/20/2026 - the one-column-table rule is gone (Jerry, 10/20/2026)
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' One MathML element. mrow and mstyle are their contents (mstyle's attributes change nothing
+    ' in MathType's conversion either), semantics its first child. Every other element is a
+    ' template. Anything not listed is refused.
+    '   Sh_MTEF_Put_Node st, <m:msqrt><m:mn>2</m:mn></m:msqrt>, 10
+    '   ' -> 03 00 0A 00 00  01 00 [2] 00  0B 01 01  00
+
+    Dim kids As Collection, tag As String, t As String
+    Dim n As Long, i As Long
+
+    If st("why") <> "" Then Exit Sub
+    If node.namespaceURI <> Sh_MathML_Namespace() Then
+        Sh_MTEF_Fail st, node.nodeName & " is not MathML"
+        Exit Sub
+    End If
+
+    tag = node.baseName
+    Select Case tag
+        Case "mi", "mn", "mo", "mtext"
+            Sh_MTEF_Put_Token st, node, size, 0
+            Exit Sub
+        Case "mrow", "mstyle", "semantics", "msup", "msub", "msubsup", "mfrac", "msqrt", "mroot", _
+             "menclose", "mfenced", "mover", "munder", "mtable"
+        Case Else
+            Sh_MTEF_Fail st, tag & " is not handled"
+            Exit Sub
+    End Select
+
+    Set kids = Sh_MTEF_Kids(node)
+    If kids Is Nothing Then
+        Sh_MTEF_Fail st, "text outside a token element, in " & tag
+        Exit Sub
+    End If
+    n = kids.count
+
+    Select Case tag
+        Case "mrow", "mstyle"
+            ' A whole mrow that is one bracket pair: the template.
+            If tag = "mrow" And n >= 2 Then
+                t = Sh_MTEF_Mo_Text(kids(1))
+                If t = "(" Or t = "[" Or t = "{" Or t = "|" Then
+                    If Sh_MTEF_Match_Fence(kids, 1, n) = n Then
+                        Sh_MTEF_Put_Fence st, kids, 1, n, size
+                        Exit Sub
+                    End If
+                End If
+            End If
+            Sh_MTEF_Put_Row st, kids, 1, n, size
+            Exit Sub
+
+        Case "semantics"
+            If n = 0 Then
+                Sh_MTEF_Fail st, "an empty semantics is not handled"
+                Exit Sub
+            End If
+            For i = 2 To n
+                If kids(i).baseName <> "annotation" And kids(i).baseName <> "annotation-xml" Then
+                    Sh_MTEF_Fail st, kids(i).nodeName & " in semantics is not handled"
+                    Exit Sub
+                End If
+            Next i
+            Sh_MTEF_Put_Node st, kids(1), size
+            Exit Sub
+    End Select
+
+    Select Case tag
+        Case "msup", "msub", "msubsup"
+            Sh_MTEF_Put_Scripts st, node, kids, size
+        Case "mfrac"
+            Sh_MTEF_Put_Fraction st, node, kids, size
+        Case "msqrt", "mroot"
+            Sh_MTEF_Put_Root st, node, kids, size
+        Case "menclose"
+            Sh_MTEF_Put_Enclose st, node, kids, size
+        Case "mfenced"
+            Sh_MTEF_Put_Fenced st, node, kids, size
+        Case "mover", "munder"
+            Sh_MTEF_Put_Accent st, node, kids, size
+        Case "mtable"
+            Sh_MTEF_Put_Table st, node, kids, size
+    End Select
+End Sub   '*** end of Sh_MTEF_Put_Node sub ***
+
+Private Function Sh_MTEF_Script_Size(ByVal size As Long) As Long
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' The size of a script, or of a root's index, written at this size: FULL gives SUB, SUB gives
+    ' SUB2, and SUB2 stays SUB2 (measured three levels deep).
+    '   Sh_MTEF_Script_Size(10)  ->  11
+
+    If size >= 11 Then Sh_MTEF_Script_Size = 12 Else Sh_MTEF_Script_Size = 11
+End Function   '*** end of Sh_MTEF_Script_Size function ***
+
+Private Function Sh_MTEF_One_Char(ByVal node As Object) As Object
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' The token element - mi, mn, mo or mtext, inside any number of single-child mrows - that comes
+    ' out as exactly one character; Nothing when node is anything else. MathType's conversion
+    ' puts a bar, hat or prime on such a character as an embellishment, and on anything bigger as
+    ' a template.
+    '   Sh_MTEF_One_Char(<m:mrow><m:mi>x</m:mi></m:mrow>)  ->  the mi
+
+    Dim kids As Collection, t As String
+
+    Do While node.baseName = "mrow"
+        Set kids = Sh_MTEF_Kids(node)
+        If kids Is Nothing Then Exit Function
+        If kids.count <> 1 Then Exit Function
+        Set node = kids(1)
+    Loop
+    If node.namespaceURI <> Sh_MathML_Namespace() Then Exit Function
+    Select Case node.baseName
+        Case "mi", "mn", "mo", "mtext"
+        Case Else
+            Exit Function
+    End Select
+    Set kids = Sh_MTEF_Kids(node)
+    If Not kids Is Nothing Then
+        If kids.count > 0 Then Exit Function
+    End If
+    t = Sh_MTEF_Collapse(node.Text)
+    If Len(t) <> 1 Then Exit Function
+    If AscW(t) >= &H2061 And AscW(t) <= &H2063 Then Exit Function
+    Set Sh_MTEF_One_Char = node
+End Function   '*** end of Sh_MTEF_One_Char function ***
+
+Private Sub Sh_MTEF_Put_Scripts(ByVal st As Object, ByVal node As Object, ByVal kids As Collection, _
+                                ByVal size As Long)
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' msup, msub, msubsup. The baseChar goes first, in the line itself; then the template - 28, 27 or
+    ' 29 - its two slots (subscript, superscript) one size down, the missing one written as an
+    ' empty slot. A superscript that is a prime on a one-character baseChar is MathType's prime
+    ' embellishment instead: ' or U+2032 is 5, U+2033 (or two U+2032) is 6, U+2034 is 18.
+    '   Sh_MTEF_Put_Scripts st, <m:msup><m:mi>x</m:mi><m:mn>2</m:mn></m:msup>, kids, 10
+    '   ' -> [x] 03 00 1C 00 00  0B 01 01  01 00 [2] 00  00
+
+    Dim tag As String, sc As Object, baseChar As Object, sk As Collection
+    Dim sel As Long, emb As Long, scriptSize As Long, t As String
+
+    tag = node.baseName
+    If tag = "msubsup" Then
+        If kids.count <> 3 Then
+            Sh_MTEF_Fail st, "msubsup needs three arguments"
+            Exit Sub
+        End If
+        sel = 29
+    Else
+        If kids.count <> 2 Then
+            Sh_MTEF_Fail st, tag & " needs two arguments"
+            Exit Sub
+        End If
+        If tag = "msup" Then sel = 28 Else sel = 27
+    End If
+    scriptSize = Sh_MTEF_Script_Size(size)
+
+    If sel = 28 Then
+        Set sc = kids(2)
+        Do While sc.baseName = "mrow"
+            Set sk = Sh_MTEF_Kids(sc)
+            If sk Is Nothing Then Exit Do
+            If sk.count <> 1 Then Exit Do
+            Set sc = sk(1)
+        Loop
+        t = Sh_MTEF_Mo_Text(sc)
+        If t = "'" Or t = ChrW(&H2032) Then
+            emb = 5
+        ElseIf t = ChrW(&H2033) Then
+            emb = 6
+        ElseIf t = ChrW(&H2034) Then
+            emb = 18
+        ElseIf sc.baseName = "mrow" Then
+            Set sk = Sh_MTEF_Kids(sc)
+            If Not sk Is Nothing Then
+                If sk.count = 2 Then
+                    If Sh_MTEF_Mo_Text(sk(1)) = ChrW(&H2032) And Sh_MTEF_Mo_Text(sk(2)) = ChrW(&H2032) Then emb = 6
+                End If
+            End If
+        End If
+        If emb <> 0 Then
+            Set baseChar = Sh_MTEF_One_Char(kids(1))
+            If Not baseChar Is Nothing Then
+                Sh_MTEF_Put_Token st, baseChar, size, emb
+                Exit Sub
+            End If
+        End If
+    End If
+
+    Sh_MTEF_Put_Node st, kids(1), size
+    Sh_MTEF_Put_Template st, sel, 0, size
+    Select Case sel
+        Case 28
+            Sh_MTEF_Put_Line st, Nothing, 0, 0, scriptSize
+            Sh_MTEF_Put_Line st, Sh_MTEF_One(kids(2)), 1, 1, scriptSize
+        Case 27
+            Sh_MTEF_Put_Line st, Sh_MTEF_One(kids(2)), 1, 1, scriptSize
+            Sh_MTEF_Put_Line st, Nothing, 0, 0, scriptSize
+        Case 29
+            Sh_MTEF_Put_Line st, Sh_MTEF_One(kids(2)), 1, 1, scriptSize
+            Sh_MTEF_Put_Line st, Sh_MTEF_One(kids(3)), 1, 1, scriptSize
+    End Select
+    Sh_MTEF_Add st, 0
+End Sub   '*** end of Sh_MTEF_Put_Scripts sub ***
+
+Private Sub Sh_MTEF_Put_Fraction(ByVal st As Object, ByVal node As Object, ByVal kids As Collection, _
+                                 ByVal size As Long)
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' mfrac: template 11, numerator and denominator at the same size - variation 2 (a slash) when
+    ' bevelled="true". With no line (linethickness 0, in any unit) MathType's conversion makes it a
+    ' one-column, two-row MATRIX instead, and so does this. Any other linethickness is an ordinary
+    ' fraction there, as here.
+    '   Sh_MTEF_Put_Fraction st, <m:mfrac><m:mn>1</m:mn><m:mn>2</m:mn></m:mfrac>, kids, 10
+    '   ' -> 03 00 0B 00 00  01 00 [1] 00  01 00 [2] 00  00
+
+    Dim re As Object, lt As String, bev As String
+
+    If kids.count <> 2 Then
+        Sh_MTEF_Fail st, "mfrac needs two arguments"
+        Exit Sub
+    End If
+    lt = LCase$(Sh_MTEF_Collapse(node.getAttribute("linethickness") & ""))
+    bev = LCase$(Sh_MTEF_Collapse(node.getAttribute("bevelled") & ""))
+    If bev <> "" And bev <> "true" And bev <> "false" Then
+        Sh_MTEF_Fail st, "mfrac bevelled=""" & bev & """ is not handled"
+        Exit Sub
+    End If
+
+    Set re = CreateObject("VBScript.RegExp")
+    re.Pattern = "^(0+\.?0*|\.0+)(px|pt|em|ex|mm|cm|in)?$"
+    If re.Test(lt) Then
+        If bev = "true" Or size <> 10 Then
+            Sh_MTEF_Fail st, "a fraction with no line, bevelled or in a script, is not handled"
+            Exit Sub
+        End If
+        Sh_MTEF_Set_Size st, size
+        Sh_MTEF_Add st, 5
+        Sh_MTEF_Add st, 0
+        Sh_MTEF_Add st, 1
+        Sh_MTEF_Add st, 1
+        Sh_MTEF_Add st, 1
+        Sh_MTEF_Add st, 2
+        Sh_MTEF_Add st, 1
+        Sh_MTEF_Add st, 0
+        Sh_MTEF_Add st, 0
+    Else
+        Sh_MTEF_Put_Template st, 11, IIf(bev = "true", 2, 0), size
+    End If
+    Sh_MTEF_Put_Line st, Sh_MTEF_One(kids(1)), 1, 1, size
+    Sh_MTEF_Put_Line st, Sh_MTEF_One(kids(2)), 1, 1, size
+    Sh_MTEF_Add st, 0
+End Sub   '*** end of Sh_MTEF_Put_Fraction sub ***
+
+Private Sub Sh_MTEF_Put_Root(ByVal st As Object, ByVal node As Object, ByVal kids As Collection, _
+                             ByVal size As Long)
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' msqrt and mroot: template 10, variation 0 (square) or 1 (nth root); the radicand first, then
+    ' the index one size down - for a square root an empty slot.
+    '   Sh_MTEF_Put_Root st, <m:mroot><m:mn>8</m:mn><m:mn>3</m:mn></m:mroot>, kids, 10
+    '   ' -> 03 00 0A 01 00  01 00 [8] 00  0B 01 00 [3] 00  00
+
+    If node.baseName = "msqrt" Then
+        Sh_MTEF_Put_Template st, 10, 0, size
+        Sh_MTEF_Put_Line st, kids, 1, kids.count, size
+        Sh_MTEF_Put_Line st, Nothing, 0, 0, Sh_MTEF_Script_Size(size)
+    Else
+        If kids.count <> 2 Then
+            Sh_MTEF_Fail st, "mroot needs two arguments"
+            Exit Sub
+        End If
+        Sh_MTEF_Put_Template st, 10, 1, size
+        Sh_MTEF_Put_Line st, Sh_MTEF_One(kids(1)), 1, 1, size
+        Sh_MTEF_Put_Line st, Sh_MTEF_One(kids(2)), 1, 1, Sh_MTEF_Script_Size(size)
+    End If
+    Sh_MTEF_Add st, 0
+End Sub   '*** end of Sh_MTEF_Put_Root sub ***
+
+Private Sub Sh_MTEF_Put_Enclose(ByVal st As Object, ByVal node As Object, ByVal kids As Collection, _
+                                ByVal size As Long)
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' menclose, one notation only, as MathType's conversion makes it: box 37/30 (all four sides),
+    ' top 13 (overbar), bottom 12 (underbar), left and right 4 with one bar, updiagonalstrike
+    ' 36/2, downdiagonalstrike 36/4, horizontalstrike 36/1, radical a square root. circle and
+    ' roundedbox come out as a square box there, longdiv and actuarial not at all: refused.
+    '   Sh_MTEF_Put_Enclose st, <m:menclose notation="box">...</m:menclose>, kids, 10
+    '   ' -> 03 00 25 1E 00  01 00 [...] 00  00
+
+    Dim nt As String, sel As Long, variation As Long
+
+    nt = Sh_MTEF_Collapse(node.getAttribute("notation") & "")
+    Select Case nt
+        Case "radical"
+            Sh_MTEF_Put_Template st, 10, 0, size
+            Sh_MTEF_Put_Line st, kids, 1, kids.count, size
+            Sh_MTEF_Put_Line st, Nothing, 0, 0, Sh_MTEF_Script_Size(size)
+            Sh_MTEF_Add st, 0
+            Exit Sub
+        Case "box": sel = 37: variation = 30
+        Case "top": sel = 13: variation = 0
+        Case "bottom": sel = 12: variation = 0
+        Case "left": sel = 4: variation = 1
+        Case "right": sel = 4: variation = 2
+        Case "updiagonalstrike": sel = 36: variation = 2
+        Case "downdiagonalstrike": sel = 36: variation = 4
+        Case "horizontalstrike": sel = 36: variation = 1
+        Case Else
+            Sh_MTEF_Fail st, "menclose notation=""" & nt & """ is not handled"
+            Exit Sub
+    End Select
+
+    Sh_MTEF_Put_Template st, sel, variation, size
+    Sh_MTEF_Put_Line st, kids, 1, kids.count, size
+    If nt = "left" Then Sh_MTEF_Put_Char st, 22, &HEC07&, -1, size, 0
+    If nt = "right" Then Sh_MTEF_Put_Char st, 22, &HEC08&, -1, size, 0
+    Sh_MTEF_Add st, 0
+End Sub   '*** end of Sh_MTEF_Put_Enclose sub ***
+
+Private Sub Sh_MTEF_Put_Fenced(ByVal st As Object, ByVal node As Object, ByVal kids As Collection, _
+                               ByVal size As Long)
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' mfenced with one argument (or none) and matching brackets - ( ) by default, [ ], { } or | | -
+    ' as the bracket template. With more than one argument MathType's conversion writes the
+    ' separators as "|" (the same fault as issue #38), and mixed brackets as an interval: refused.
+    '   Sh_MTEF_Put_Fenced st, <m:mfenced open="[" close="]"><m:mi>x</m:mi></m:mfenced>, kids, 10
+    '   ' -> 03 00 03 03 00  01 00 [x] 00  02 00 96 5B 00  02 00 96 5D 00  00
+
+    Dim o As String, c As String, sel As Long, openCode As Long, closeCode As Long
+
+    If kids.count > 1 Then
+        Sh_MTEF_Fail st, "mfenced with more than one argument is not handled"
+        Exit Sub
+    End If
+    o = "(": c = ")"
+    If Not IsNull(node.getAttribute("open")) Then o = Sh_MTEF_Collapse(node.getAttribute("open"))
+    If Not IsNull(node.getAttribute("close")) Then c = Sh_MTEF_Collapse(node.getAttribute("close"))
+    Select Case o & c
+        Case "()": sel = 1: openCode = &H28: closeCode = &H29
+        Case "{}": sel = 2: openCode = &H7B: closeCode = &H7D
+        Case "[]": sel = 3: openCode = &H5B: closeCode = &H5D
+        Case "||": sel = 4: openCode = &HEC07&: closeCode = &HEC08&
+        Case Else
+            Sh_MTEF_Fail st, "mfenced open=""" & o & """ close=""" & c & """ is not handled"
+            Exit Sub
+    End Select
+
+    Sh_MTEF_Put_Template st, sel, 3, size
+    Sh_MTEF_Put_Line st, kids, 1, kids.count, size
+    Sh_MTEF_Put_Char st, 22, openCode, -1, size, 0
+    Sh_MTEF_Put_Char st, 22, closeCode, -1, size, 0
+    Sh_MTEF_Add st, 0
+End Sub   '*** end of Sh_MTEF_Put_Fenced sub ***
+
+Private Sub Sh_MTEF_Put_Accent(ByVal st As Object, ByVal node As Object, ByVal kids As Collection, _
+                               ByVal size As Long)
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' mover and munder whose second argument is one accent character. On a one-character base it
+    ' is an embellishment of that character; on anything bigger, a template - as MathType's
+    ' conversion does it:
+    '   over  macron U+00AF, U+0305   bar 17        / overbar template 13
+    '         ^                       hat 9         / hat template 33 (accent="true")
+    '         ~, U+02DC               tilde 8       / tilde template 32 (~ only, accent="true")
+    '         U+02D9                  dot 2         / refused
+    '         U+2192 right arrow      arrow 11      / arrow template 31/2 (accent="true")
+    '         U+21C0, U+2194          refused       / arrow template 31/10, 31/3 (accent="true")
+    '   under _, U+0332, U+00AF       under bar 29  / underbar template 12 (_ only)
+    ' Anything else - a limit, a label over an arrow, munderover - is refused.
+    '   Sh_MTEF_Put_Accent st, <m:mover><m:mi>x</m:mi><m:mo>&#xAF;</m:mo></m:mover>, kids, 10
+    '   ' -> 02 01 7F 78 00 06 00 11 00   (x with a bar)
+
+    Dim a As String, code As Long, emb As Long, sel As Long, variation As Long, expand As Long
+    Dim needAccent As Boolean, isAccent As Boolean, over As Boolean
+    Dim oneChar As Object
+
+    If kids.count <> 2 Then
+        Sh_MTEF_Fail st, node.baseName & " needs two arguments"
+        Exit Sub
+    End If
+    a = Sh_MTEF_Mo_Text(kids(2))
+    If Len(a) <> 1 Then
+        Sh_MTEF_Fail st, node.baseName & " that is not an accent is not handled"
+        Exit Sub
+    End If
+    code = AscW(a) And &HFFFF&
+    over = (node.baseName = "mover")
+    isAccent = (LCase$(Sh_MTEF_Collapse(node.getAttribute("accent") & "")) = "true")
+    sel = -1
+
+    If over Then
+        Select Case code
+            Case &HAF, &H305: emb = 17: sel = 13
+            Case &H5E: emb = 9: sel = 33: expand = &H302: needAccent = True
+            Case &H7E: emb = 8: sel = 32: expand = &H303: needAccent = True
+            Case &H2DC: emb = 8
+            Case &H2D9: emb = 2
+            Case &H2192: emb = 11: sel = 31: variation = 2: expand = &H20D7: needAccent = True
+            Case &H21C0: sel = 31: variation = 10: expand = &H20D1: needAccent = True
+            Case &H2194: sel = 31: variation = 3: expand = &H20E1: needAccent = True
+        End Select
+    Else
+        Select Case code
+            Case &H5F: emb = 29: sel = 12
+            Case &H332, &HAF: emb = 29
+        End Select
+    End If
+
+    Set oneChar = Sh_MTEF_One_Char(kids(1))
+    If Not oneChar Is Nothing And emb <> 0 Then
+        Sh_MTEF_Put_Token st, oneChar, size, emb
+    ElseIf oneChar Is Nothing And sel >= 0 And (isAccent Or Not needAccent) Then
+        Sh_MTEF_Put_Template st, sel, variation, size
+        Sh_MTEF_Put_Line st, Sh_MTEF_One(kids(1)), 1, 1, size
+        If expand <> 0 Then Sh_MTEF_Put_Char st, 22, expand, -1, size, 0
+        Sh_MTEF_Add st, 0
+    Else
+        Sh_MTEF_Fail st, node.baseName & " with U+" & Right$("000" & Hex$(code), 4) & " is not handled"
+    End If
+End Sub   '*** end of Sh_MTEF_Put_Accent sub ***
+
+Private Sub Sh_MTEF_Put_Table(ByVal st As Object, ByVal node As Object, ByVal rows As Collection, _
+                              ByVal size As Long)
+    '
+    ' Version: 1.1  Date: 10/20/2026 - a one-column table's letters stay bold italic (Jerry,
+    '                                10/20/2026); MathType's conversion made them plain italic
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' A MATRIX record: 05, options 0, then 01 01 01 - every table MathType's conversion made has
+    ' those alignments, whatever columnalign, frame or lines say - the rows, the columns, the
+    ' partition lines (none: (rows + 4) \ 4 and (columns + 4) \ 4 zero bytes), one LINE per cell
+    ' across each row, and 00. A short row is filled out with empty cells, as the conversion does.
+    ' Refused: a table in a script, mlabeledtr, rowspan and columnspan, an empty row.
+    '   Sh_MTEF_Put_Table st, <m:mtable> with 2 rows of 1 cell, rows, 10
+    '   ' -> 05 00 01 01 01 02 01 00 00 [LINE] [LINE] 00
+
+    Dim r As Variant, c As Variant, cells As Collection, content As Collection
+    Dim cols As Long, i As Long
+
+    If size <> 10 Then
+        Sh_MTEF_Fail st, "a table inside a script is not handled"
+        Exit Sub
+    End If
+    If rows.count = 0 Or rows.count > 250 Then
+        Sh_MTEF_Fail st, "a table with " & rows.count & " rows is not handled"
+        Exit Sub
+    End If
+    For Each r In rows
+        If r.baseName <> "mtr" Or r.namespaceURI <> Sh_MathML_Namespace() Then
+            Sh_MTEF_Fail st, r.nodeName & " in a table is not handled"
+            Exit Sub
+        End If
+        Set cells = Sh_MTEF_Kids(r)
+        If cells Is Nothing Then
+            Sh_MTEF_Fail st, "text outside a token element, in mtr"
+            Exit Sub
+        End If
+        If cells.count = 0 Or cells.count > 250 Then
+            Sh_MTEF_Fail st, "a table row with " & cells.count & " cells is not handled"
+            Exit Sub
+        End If
+        If cells.count > cols Then cols = cells.count
+        For Each c In cells
+            If c.baseName <> "mtd" Or c.namespaceURI <> Sh_MathML_Namespace() Then
+                Sh_MTEF_Fail st, c.nodeName & " in a table row is not handled"
+                Exit Sub
+            End If
+            If (c.getAttribute("rowspan") & "") <> "" Or (c.getAttribute("columnspan") & "") <> "" Then
+                Sh_MTEF_Fail st, "a table cell with rowspan or columnspan is not handled"
+                Exit Sub
+            End If
+        Next c
+    Next r
+
+    Sh_MTEF_Set_Size st, size
+    Sh_MTEF_Add st, 5
+    Sh_MTEF_Add st, 0
+    Sh_MTEF_Add st, 1
+    Sh_MTEF_Add st, 1
+    Sh_MTEF_Add st, 1
+    Sh_MTEF_Add st, rows.count
+    Sh_MTEF_Add st, cols
+    For i = 1 To (rows.count + 4) \ 4
+        Sh_MTEF_Add st, 0
+    Next i
+    For i = 1 To (cols + 4) \ 4
+        Sh_MTEF_Add st, 0
+    Next i
+
+    For Each r In rows
+        Set cells = Sh_MTEF_Kids(r)
+        For Each c In cells
+            Set content = Sh_MTEF_Kids(c)
+            If content Is Nothing Then
+                Sh_MTEF_Fail st, "text outside a token element, in mtd"
+                Exit Sub
+            End If
+            Sh_MTEF_Put_Line st, content, 1, content.count, size
+            If st("why") <> "" Then Exit Sub
+        Next c
+        For i = Sh_MTEF_Kids(r).count + 1 To cols
+            Sh_MTEF_Put_Line st, New Collection, 1, 0, size
+        Next i
+    Next r
+    Sh_MTEF_Add st, 0
+End Sub   '*** end of Sh_MTEF_Put_Table sub ***
+
+Private Function Sh_MTEF_Symbol_Place(ByVal code As Long) As Long
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' An operator's place in the Symbol font, as MathType's conversion writes it (SYMBOL, typeface
+    ' 6); -1 when it is not one of these.
+    '   Sh_MTEF_Symbol_Place(&H2264)  ->  &HA3   (less than or equal to)
+
+    Select Case code
+        Case &H2B, &H3D, &H3C, &H3E, &HB0, &HB1: Sh_MTEF_Symbol_Place = code   ' + = < > degree +-
+        Case &H2212: Sh_MTEF_Symbol_Place = &H2D       ' minus
+        Case &H22C5: Sh_MTEF_Symbol_Place = &HD7       ' dot operator
+        Case &H2260: Sh_MTEF_Symbol_Place = &HB9       ' not equal
+        Case &H2248: Sh_MTEF_Symbol_Place = &HBB       ' almost equal
+        Case &HD7: Sh_MTEF_Symbol_Place = &HB4         ' times
+        Case &HF7: Sh_MTEF_Symbol_Place = &HB8         ' divide
+        Case &H2264: Sh_MTEF_Symbol_Place = &HA3       ' less or equal
+        Case &H2265: Sh_MTEF_Symbol_Place = &HB3       ' greater or equal
+        Case &H221E: Sh_MTEF_Symbol_Place = &HA5       ' infinity
+        Case &H2220: Sh_MTEF_Symbol_Place = &HD0       ' angle
+        Case &H22A5: Sh_MTEF_Symbol_Place = &H5E       ' perpendicular
+        Case &H2245: Sh_MTEF_Symbol_Place = &H40       ' congruent
+        Case &H223C: Sh_MTEF_Symbol_Place = &H7E       ' similar (tilde operator)
+        Case &H2208: Sh_MTEF_Symbol_Place = &HCE       ' element of
+        Case &H2209: Sh_MTEF_Symbol_Place = &HCF       ' not an element of
+        Case &H2282: Sh_MTEF_Symbol_Place = &HCC       ' subset
+        Case &H2286: Sh_MTEF_Symbol_Place = &HCD       ' subset or equal
+        Case &H222A: Sh_MTEF_Symbol_Place = &HC8       ' union
+        Case &H2229: Sh_MTEF_Symbol_Place = &HC7       ' intersection
+        Case &H2190: Sh_MTEF_Symbol_Place = &HAC       ' arrows: left, up, right, down
+        Case &H2191: Sh_MTEF_Symbol_Place = &HAD
+        Case &H2192: Sh_MTEF_Symbol_Place = &HAE
+        Case &H2193: Sh_MTEF_Symbol_Place = &HAF
+        Case &H2194: Sh_MTEF_Symbol_Place = &HAB       ' left right arrow
+        Case &H21D2: Sh_MTEF_Symbol_Place = &HDE       ' implies
+        Case &H21D4: Sh_MTEF_Symbol_Place = &HDB       ' if and only if
+        Case &H2234: Sh_MTEF_Symbol_Place = &H5C       ' therefore
+        Case &H221D: Sh_MTEF_Symbol_Place = &HB5       ' proportional to
+        Case &H2261: Sh_MTEF_Symbol_Place = &HBA       ' identical to
+        Case &H2026: Sh_MTEF_Symbol_Place = &HBC       ' ellipsis
+        Case &H2202: Sh_MTEF_Symbol_Place = &HB6       ' partial
+        Case &H2207: Sh_MTEF_Symbol_Place = &HD1       ' nabla
+        Case &H2211: Sh_MTEF_Symbol_Place = &HE5       ' sum (as a character)
+        Case &H220F: Sh_MTEF_Symbol_Place = &HD5       ' product (as a character)
+        Case &H222B: Sh_MTEF_Symbol_Place = &HF2       ' integral (as a character)
+        Case &H221A: Sh_MTEF_Symbol_Place = &HD6       ' radical sign
+        Case &HAC: Sh_MTEF_Symbol_Place = &HD8         ' not
+        Case &H2200: Sh_MTEF_Symbol_Place = &H22       ' for all
+        Case &H2203: Sh_MTEF_Symbol_Place = &H24       ' there exists
+        Case &H2033: Sh_MTEF_Symbol_Place = &HB2       ' double prime
+        Case &H2205: Sh_MTEF_Symbol_Place = &HC6       ' empty set
+        Case &H2044: Sh_MTEF_Symbol_Place = &HA4       ' fraction slash
+        Case Else: Sh_MTEF_Symbol_Place = -1
+    End Select
+End Function   '*** end of Sh_MTEF_Symbol_Place function ***
+
+Private Function Sh_MTEF_Extra_Place(ByVal code As Long) As Long
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' An operator's place in MathType's MT Extra font (typeface 11), as its conversion writes it;
+    ' -1 when it is not one of these.
+    '   Sh_MTEF_Extra_Place(&H2213)  ->  &H6D   (minus or plus)
+
+    Select Case code
+        Case &H25B3: Sh_MTEF_Extra_Place = &H56        ' triangle
+        Case &H2225: Sh_MTEF_Extra_Place = &H50        ' parallel
+        Case &H226A: Sh_MTEF_Extra_Place = &H3D        ' much less than
+        Case &H226B: Sh_MTEF_Extra_Place = &H3F        ' much greater than
+        Case &H22EF: Sh_MTEF_Extra_Place = &H4C        ' midline ellipsis
+        Case &H2218: Sh_MTEF_Extra_Place = &H6F        ' ring operator
+        Case &H2213: Sh_MTEF_Extra_Place = &H6D        ' minus or plus
+        Case &H2243: Sh_MTEF_Extra_Place = &H3B        ' asymptotically equal
+        Case Else: Sh_MTEF_Extra_Place = -1
+    End Select
+End Function   '*** end of Sh_MTEF_Extra_Place function ***
+
+Private Function Sh_MTEF_Greek_Place(ByVal code As Long) As Long
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' A Greek letter's place in the Symbol font - the Latin letter it sits on there - or -1 when
+    ' code is not a Greek letter MathType's conversion was seen to write that way. Upper case is
+    ' typeface 5, lower case (and the variants) typeface 4.
+    '   Sh_MTEF_Greek_Place(&H3C0)  ->  &H70   (pi on "p")
+
+    Const UPPER As String = "ABGDEZHQIKLMNXOPR?STUFCYW"    ' U+0391 to U+03A9 (U+03A2 unused)
+    Const LOWER As String = "abgdezhqiklmnxoprVstufcyw"    ' U+03B1 to U+03C9 (U+03C2 final sigma)
+
+    Sh_MTEF_Greek_Place = -1
+    If code >= &H391 And code <= &H3A9 And code <> &H3A2 Then
+        Sh_MTEF_Greek_Place = AscW(Mid$(UPPER, code - &H391 + 1, 1))
+    ElseIf code >= &H3B1 And code <= &H3C9 Then
+        Sh_MTEF_Greek_Place = AscW(Mid$(LOWER, code - &H3B1 + 1, 1))
+    ElseIf code = &H3D1 Then
+        Sh_MTEF_Greek_Place = &H4A                     ' theta symbol
+    ElseIf code = &H3D5 Then
+        Sh_MTEF_Greek_Place = &H66                     ' phi symbol
+    ElseIf code = &H3D6 Then
+        Sh_MTEF_Greek_Place = &H76                     ' pi symbol
+    End If
+End Function   '*** end of Sh_MTEF_Greek_Place function ***
+
+Private Sub Sh_MTEF_Put_Token(ByVal st As Object, ByVal node As Object, ByVal size As Long, _
+                              ByVal embell As Long)
+    '
+    ' Version: 1.1  Date: 10/20/2026 - letters directly in a cell of a one-column table are
+    '                                written like every other letter, bold italic in this book
+    '                                (Jerry, 10/20/2026). MathType's own conversion makes them
+    '                                plain italic (VARIABLE) whatever their mathvariant - 32
+    '                                letters in Section D - and Version 1.0 copied that
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' The characters of an mi, mn, mo or mtext, each as MathType's conversion writes it - and
+    ' with embell (see Sh_MTEF_Put_Char) on its one character. Empty: nothing at all, as there.
+    '   mi     letters by mathvariant: bold-italic bold italic (the style record), italic VARIABLE,
+    '          bold VECTOR, normal TEXT; none: VARIABLE for one letter, TEXT for more ("sin").
+    '          Greek on the Symbol font (TEXT when normal); digits NUMBER; a space a no-break
+    '          space; the tatweel (U+0640) Section D uses as a blank, VARIABLE - all four in the
+    '          target are, inside tables and out, so that is MathType's handling of the character
+    '   mn     digits NUMBER; "." "," FUNCTION; letters and a space TEXT; thin space SPACE; minus
+    '   mo     SYMBOL and MT Extra characters on their fonts (Sh_MTEF_Symbol_Place,
+    '          Sh_MTEF_Extra_Place); hyphen and dashes as the minus; prime as "'" and U+2217 as "*"
+    '          in FUNCTION; the rest of the listed punctuation FUNCTION; letters only ("lim",
+    '          "mod") VARIABLE; the invisible U+2061 to U+2063 nothing
+    '   mtext  TEXT: printable ASCII, U+00A1 to U+00FF, Greek letters, quotes, ellipsis, bullet,
+    '          dashes, euro; a space or no-break space U+00A0; minus "-"; thin, em and hair spaces
+    '          as MathType's own spaces EF02, EF05 and EF0A
+    ' Anything else refuses the equation, naming the character.
+    '   Sh_MTEF_Put_Token st, <m:mo>&#x2212;</m:mo>, 10, 0   ' -> 02 04 86 12 22 2D
+
+    Dim txt As String, tag As String, ch As String, v As String
+    Dim i As Long, n As Long, code As Long, f8 As Long, tf As Long
+    Dim tfs() As Long, codes() As Long, f8s() As Long
+    Dim k As Object, isLetter As Boolean, allLetters As Boolean
+
+    tag = node.baseName
+    For Each k In node.childNodes
+        If k.nodeType = 1 Then
+            Sh_MTEF_Fail st, tag & " holding an element (" & k.nodeName & ") is not handled"
+            Exit Sub
+        End If
+    Next k
+    txt = Sh_MTEF_Collapse(node.Text)
+    If txt = "" Then Exit Sub
+
+    v = Sh_MTEF_Collapse(node.getAttribute("mathvariant") & "")
+    If tag = "mi" Then
+        Select Case v
+            Case "", "normal", "bold", "italic", "bold-italic"
+            Case Else
+                Sh_MTEF_Fail st, "mi mathvariant=""" & v & """ is not handled"
+                Exit Sub
+        End Select
+    End If
+
+    allLetters = True
+    For i = 1 To Len(txt)
+        code = AscW(Mid$(txt, i, 1)) And &HFFFF&
+        If Not ((code >= &H41 And code <= &H5A) Or (code >= &H61 And code <= &H7A)) Then allLetters = False
+    Next i
+
+    ReDim tfs(1 To Len(txt))
+    ReDim codes(1 To Len(txt))
+    ReDim f8s(1 To Len(txt))
+
+    For i = 1 To Len(txt)
+        ch = Mid$(txt, i, 1)
+        code = AscW(ch) And &HFFFF&
+        isLetter = (code >= &H41 And code <= &H5A) Or (code >= &H61 And code <= &H7A)
+        tf = -2
+        f8 = -1
+        Select Case tag
+            Case "mi"
+                If code >= &H30 And code <= &H39 Then
+                    If v = "" Or v = "bold-italic" Then tf = 8
+                ElseIf isLetter Then
+                    Select Case v
+                        Case "bold-italic": tf = -1
+                        Case "italic": tf = 3
+                        Case "bold": tf = 7
+                        Case "normal": tf = 1
+                        Case Else
+                            If Len(txt) = 1 Then tf = 3 Else tf = 1
+                    End Select
+                ElseIf code = &H20 Then
+                    tf = 1: code = &HA0
+                ElseIf code = &H640 Then
+                    tf = 3
+                ElseIf Sh_MTEF_Greek_Place(code) >= 0 Then
+                    If v = "normal" Then
+                        tf = 1
+                    ElseIf v <> "italic" Then
+                        f8 = Sh_MTEF_Greek_Place(code)
+                        If code >= &H391 And code <= &H3A9 Then tf = 5 Else tf = 4
+                    End If
+                End If
+
+            Case "mn"
+                If code >= &H30 And code <= &H39 Then
+                    tf = 8
+                ElseIf ch = "." Or ch = "," Then
+                    tf = 2
+                ElseIf code = &H2009 Then
+                    tf = 24: code = &HEF02&
+                ElseIf code = &H2212 Then
+                    tf = 6: f8 = &H2D
+                ElseIf code = &H20 Then
+                    tf = 1: code = &HA0
+                ElseIf isLetter Then
+                    tf = 1
+                End If
+
+            Case "mo"
+                If allLetters Then
+                    tf = 3
+                ElseIf code >= &H2061 And code <= &H2063 Then
+                    tf = -3
+                ElseIf Sh_MTEF_Symbol_Place(code) >= 0 Then
+                    tf = 6: f8 = Sh_MTEF_Symbol_Place(code)
+                ElseIf Sh_MTEF_Extra_Place(code) >= 0 Then
+                    tf = 11: f8 = Sh_MTEF_Extra_Place(code)
+                ElseIf code = &H2D Or code = &H2013 Or code = &H2014 Then
+                    tf = 6: code = &H2212: f8 = &H2D
+                ElseIf code = &H2032 Then
+                    tf = 2: code = &H27
+                ElseIf code = &H2217 Then
+                    tf = 2: code = &H2A
+                ElseIf InStr(1, ".,()[]{}|_/:~!%'*#&$@;?""\" & ChrW(&HB7) & ChrW(&H2022), ch, vbBinaryCompare) > 0 Then
+                    tf = 2
+                End If
+
+            Case "mtext"
+                Select Case code
+                    Case &H2009: tf = 24: code = &HEF02&
+                    Case &H2003: tf = 24: code = &HEF05&
+                    Case &H200A: tf = 24: code = &HEF0A&
+                    Case &H20, &HA0: tf = 1: code = &HA0
+                    Case &H2212: tf = 1: code = &H2D
+                    Case &H21 To &H7E, &HA1 To &HFF, &H2018, &H2019, &H201C, &H201D, &H2026, &H2022, _
+                         &H2013, &H2014, &H20AC, &H391 To &H3A1, &H3A3 To &H3A9, &H3B1 To &H3C9
+                        tf = 1
+                End Select
+        End Select
+
+        If tf = -2 Then
+            Sh_MTEF_Fail st, "the character U+" & Right$("000" & Hex$(AscW(ch) And &HFFFF&), 4) & _
+                             " in " & tag & IIf(v <> "", " (" & v & ")", "") & " is not handled"
+            Exit Sub
+        End If
+        If tf <> -3 Then
+            n = n + 1
+            tfs(n) = tf
+            codes(n) = code
+            f8s(n) = f8
+        End If
+    Next i
+
+    If embell <> 0 And n <> 1 Then
+        Sh_MTEF_Fail st, "an accent on more than one character is not handled"
+        Exit Sub
+    End If
+    For i = 1 To n
+        Sh_MTEF_Put_Char st, tfs(i), codes(i), f8s(i), size, embell
+    Next i
+End Sub   '*** end of Sh_MTEF_Put_Token sub ***
+
+Private Function Sh_MTEF_Preamble_Hex() As String
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' The first 193 bytes of every one of the 470 equations in the target, identical in all, and
+    ' of every equation MathType's Convert Equations made on VistaBuild: the MTEF 5 header
+    ' (MathType 7, "DSMT7", inline), the WinAllBasicCodePages encoding, the fonts Times New Roman,
+    ' Symbol, Courier New and MT Extra, MathType's default preferences, the FULL size, and the
+    ' LINE the equation's records go in.
+    '   Len(Sh_MTEF_Preamble_Hex())  ->  386
+
+    Sh_MTEF_Preamble_Hex = _
+        "050100070C44534D543700011357696E416C6C4261736963436F6465506167657300110554696D6573204E657720526F" & _
+        "6D616E00110353796D626F6C001105436F7572696572204E65770011044D5420457874726100120008212F27F25F218F" & _
+        "212F475F4150F21F1E4150F4150F4100F445F425F48F425F4100F4100F435F4100F21F20A5F20A25F48F21F4100F4100" & _
+        "F40F48F417F48F4100F21A5F445F45F45F45F45F410F0C01000100010202020200020001010100030001000400000A01" & _
+        "00"
+End Function   '*** end of Sh_MTEF_Preamble_Hex function ***
+
+Private Function Sh_MTEF_Hex_Text(ByVal hexText As String) As String
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' Hex digits as text, one character per byte (ChrW(0) to ChrW(255)) - the form these helpers
+    ' build their bytes in before Sh_MTEF_Text_Bytes turns them into a Byte array.
+    '   Sh_MTEF_Hex_Text("0A01")  ->  ChrW(10) & ChrW(1)
+
+    Dim i As Long, out As String
+    out = String$(Len(hexText) \ 2, " ")
+    For i = 1 To Len(hexText) \ 2
+        Mid$(out, i, 1) = ChrW(CLng("&H" & Mid$(hexText, 2 * i - 1, 2)))
+    Next i
+    Sh_MTEF_Hex_Text = out
+End Function   '*** end of Sh_MTEF_Hex_Text function ***
+
+Private Function Sh_MTEF_Text_Bytes(ByVal s As String) As Variant
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' Text holding one byte per character, as a Byte array (zero-based). Empty text, Empty.
+    '   Sh_MTEF_Text_Bytes(ChrW(5) & ChrW(1))  ->  a Byte array 05 01
+
+    Dim b() As Byte, i As Long
+    If Len(s) = 0 Then Exit Function
+    ReDim b(0 To Len(s) - 1)
+    For i = 1 To Len(s)
+        b(i - 1) = AscW(Mid$(s, i, 1)) And &HFF
+    Next i
+    Sh_MTEF_Text_Bytes = b
+End Function   '*** end of Sh_MTEF_Text_Bytes function ***
+
+Private Function Sh_MTEF_U16(ByVal v As Long) As String
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' A 16-bit value, low byte first, as two characters of byte text.
+    '   Sh_MTEF_U16(&H3E)  ->  ChrW(&H3E) & ChrW(0)
+
+    Sh_MTEF_U16 = ChrW(v And &HFF&) & ChrW((v And &HFF00&) \ &H100&)
+End Function   '*** end of Sh_MTEF_U16 function ***
+
+Private Function Sh_MTEF_U32(ByVal v As Long) As String
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' A 32-bit value, low byte first, as four characters of byte text. The compound file's
+    ' markers are written as negative Longs: -1 FFFFFFFF (free, no stream), -2 FFFFFFFE (end of
+    ' a chain), -3 FFFFFFFD (a FAT sector).
+    '   Sh_MTEF_U32(-2)  ->  FE FF FF FF
+
+    Sh_MTEF_U32 = ChrW(v And &HFF&) & ChrW((v And &HFF00&) \ &H100&) & _
+                  ChrW((v And &HFF0000) \ &H10000) & ChrW(((v And &HFF000000) \ &H1000000) And &HFF&)
+End Function   '*** end of Sh_MTEF_U32 function ***
+
+Private Function Sh_MTEF_Dir_Entry(ByVal entryName As String, ByVal kind As Long, ByVal color As Long, _
+                                   ByVal leftId As Long, ByVal rightId As Long, ByVal childId As Long, _
+                                   ByVal clsid As String, ByVal start As Long, ByVal size As Long) As String
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' One 128-byte directory entry of the compound file, as byte text: the name in UTF-16 with
+    ' its terminating zero, padded to 64 bytes; the name's length in bytes; kind (5 root,
+    ' 2 stream, 0 unused); color (1 black, 0 red); the left, right and child entries (-1 none);
+    ' the class id (16 bytes of byte text, or ""); state and times (zero); the first sector; the
+    ' size. An unused entry has name "".
+    '   Len(Sh_MTEF_Dir_Entry("Equation Native", 2, 0, -1, -1, -1, "", 4, 316))  ->  128
+
+    Dim n As String, i As Long
+
+    If entryName <> "" Then
+        For i = 1 To Len(entryName)
+            n = n & Sh_MTEF_U16(AscW(Mid$(entryName, i, 1)) And &HFFFF&)
+        Next i
+        n = n & Sh_MTEF_U16(0)
+    End If
+    Sh_MTEF_Dir_Entry = n & String$(64 - Len(n), ChrW(0)) & Sh_MTEF_U16(Len(n)) & _
+                        ChrW(kind) & ChrW(color) & _
+                        Sh_MTEF_U32(leftId) & Sh_MTEF_U32(rightId) & Sh_MTEF_U32(childId) & _
+                        clsid & String$(16 - Len(clsid), ChrW(0)) & _
+                        String$(4 + 16, ChrW(0)) & Sh_MTEF_U32(start) & Sh_MTEF_U32(size) & Sh_MTEF_U32(0)
+End Function   '*** end of Sh_MTEF_Dir_Entry function ***
+
+Private Function Sh_MTEF_Ole_File(ByVal mtef As Variant) As Variant
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' The OLE compound file Word keeps a MathType equation in (word/embeddings/oleObjectN.bin), as
+    ' a Byte array, from the MTEF. The layout is the one proved on VistaBuild in Step 0, where
+    ' Word took it and MathType redrew it: a 512-byte header, then sector 0 the FAT, sectors 1-2
+    ' the directory (root, \1CompObj, \1Ole, \3ObjInfo, Equation Native), sector 3 the mini-FAT,
+    ' sectors 4 on the mini stream - the small streams in 64-byte pieces. CompObj, Ole and ObjInfo
+    ' are the target's own bytes, the same in all 470 equations. Equation Native is the 28-byte
+    ' header (28, version 2.0, clipboard format C213, the MTEF's length, four reserved zeros) and
+    ' the MTEF.
+    '
+    ' An Equation Native of 4,096 bytes or more (an MTEF of 4,068 or more) cannot go in the mini
+    ' stream, so it follows it in ordinary sectors of its own, chained in the FAT; olefile reads
+    ' that back correctly, but no equation that large has been put in Word yet. One FAT sector
+    ' covers the whole file only up to 128 sectors, so an MTEF over about 60 KB gives Empty, and so
+    ' does anything that is not a Byte array.
+    '   Sh_MTEF_Ole_File(Sh_MTEF_From_MathML(x))  ->  a Byte array starting D0 CF 11 E0 A1 B1 1A E1;
+    '   3,072 bytes for an MTEF of up to 228 bytes (the number 1 is 200), and 512 more for each
+    '   further 512 bytes or so of MTEF
+
+    Const FREE_SECT As Long = -1
+    Const END_CHAIN As Long = -2
+    Const FAT_SECT As Long = -3
+    Const NO_STREAM As Long = -1
+
+    Dim m As String, en As String, mini As String, miniFat As String, fat As String
+    Dim dirs As String, hdr As String, clsid As String
+    Dim streams(1 To 4) As String, starts(1 To 4) As Long
+    Dim i As Long, j As Long, k As Long, nMini As Long, nBig As Long, nFat As Long, bigFirst As Long
+    Dim big As Boolean
+
+    If Not IsArray(mtef) Then Exit Function
+    If VarType(mtef) <> (vbArray Or vbByte) Then Exit Function
+    If UBound(mtef) < LBound(mtef) Then Exit Function
+
+    For i = LBound(mtef) To UBound(mtef)
+        m = m & ChrW(mtef(i))
+    Next i
+
+    ' Equation Native: the EQNOLEFILEHDR, then the MTEF.
+    en = Sh_MTEF_U16(28) & Sh_MTEF_U32(&H20000) & Sh_MTEF_U16(&HC213&) & Sh_MTEF_U32(Len(m)) & _
+         String$(16, ChrW(0)) & m
+
+    streams(1) = Sh_MTEF_Hex_Text( _
+        "0100FEFF030A0000FFFFFFFF03CE020000000000C000000000000046160000004D6174685479706520372E3020" & _
+        "4571756174696F6E000C0000004D61746854797065204546000F0000004571756174696F6E2E44534D543400F4" & _
+        "39B271000000000000000000000000")
+    streams(2) = Sh_MTEF_Hex_Text("0100000208000000000000000000000000000000")
+    streams(3) = Sh_MTEF_Hex_Text("000003000400")
+    streams(4) = en
+    big = (Len(en) >= 4096)
+
+    ' The mini stream: each small stream in whole 64-byte pieces, its chain in the mini-FAT.
+    For i = 1 To 4
+        If i = 4 And big Then Exit For
+        k = (Len(streams(i)) + 63) \ 64
+        If k = 0 Then k = 1
+        starts(i) = Len(mini) \ 64
+        For j = 1 To k
+            If j < k Then
+                miniFat = miniFat & Sh_MTEF_U32(starts(i) + j)
+            Else
+                miniFat = miniFat & Sh_MTEF_U32(END_CHAIN)
+            End If
+        Next j
+        mini = mini & streams(i) & String$(k * 64 - Len(streams(i)), ChrW(0))
+    Next i
+    nMini = (Len(mini) + 511) \ 512
+    If big Then nBig = (Len(en) + 511) \ 512
+    If 4 + nMini + nBig > 128 Then Exit Function
+
+    ' The FAT: sector 0 itself, the directory's two sectors, the mini-FAT, the mini stream, and
+    ' a big Equation Native after it.
+    fat = Sh_MTEF_U32(FAT_SECT) & Sh_MTEF_U32(2) & Sh_MTEF_U32(END_CHAIN) & Sh_MTEF_U32(END_CHAIN)
+    For j = 1 To nMini
+        If j < nMini Then fat = fat & Sh_MTEF_U32(4 + j) Else fat = fat & Sh_MTEF_U32(END_CHAIN)
+    Next j
+    If big Then
+        bigFirst = 4 + nMini
+        starts(4) = bigFirst
+        For j = 1 To nBig
+            If j < nBig Then fat = fat & Sh_MTEF_U32(bigFirst + j) Else fat = fat & Sh_MTEF_U32(END_CHAIN)
+        Next j
+    End If
+    nFat = Len(fat) \ 4
+    For j = nFat + 1 To 128
+        fat = fat & Sh_MTEF_U32(FREE_SECT)
+    Next j
+    For j = Len(miniFat) \ 4 + 1 To 128
+        miniFat = miniFat & Sh_MTEF_U32(FREE_SECT)
+    Next j
+
+    ' The directory. Its red-black tree, by name length and then name: CompObj (black) is the
+    ' root's child, with Ole (black) on its left and ObjInfo (black) on its right, and Equation
+    ' Native (red) to the right of ObjInfo. The root carries MathType's class id
+    ' {0002CE03-0000-0000-C000-000000000046} and the mini stream.
+    clsid = Sh_MTEF_Hex_Text("03CE020000000000C000000000000046")
+    dirs = Sh_MTEF_Dir_Entry("Root Entry", 5, 1, NO_STREAM, NO_STREAM, 1, clsid, 4, Len(mini)) & _
+           Sh_MTEF_Dir_Entry(ChrW(1) & "CompObj", 2, 1, 2, 3, NO_STREAM, "", starts(1), Len(streams(1))) & _
+           Sh_MTEF_Dir_Entry(ChrW(1) & "Ole", 2, 1, NO_STREAM, NO_STREAM, NO_STREAM, "", starts(2), Len(streams(2))) & _
+           Sh_MTEF_Dir_Entry(ChrW(3) & "ObjInfo", 2, 1, NO_STREAM, 4, NO_STREAM, "", starts(3), Len(streams(3))) & _
+           Sh_MTEF_Dir_Entry("Equation Native", 2, 0, NO_STREAM, NO_STREAM, NO_STREAM, "", starts(4), Len(en))
+    For j = 1 To 3
+        dirs = dirs & Sh_MTEF_Dir_Entry("", 0, 0, NO_STREAM, NO_STREAM, NO_STREAM, "", 0, 0)
+    Next j
+
+    ' The header: signature, version 3 (512-byte sectors, 64-byte mini sectors), one FAT sector,
+    ' the directory at sector 1, the 4,096-byte mini stream cutoff, the mini-FAT at sector 3, and
+    ' sector 0 as the first and only entry of the FAT list.
+    hdr = Sh_MTEF_Hex_Text("D0CF11E0A1B11AE1") & String$(16, ChrW(0)) & _
+          Sh_MTEF_U16(&H3E) & Sh_MTEF_U16(3) & Sh_MTEF_U16(&HFFFE&) & Sh_MTEF_U16(9) & Sh_MTEF_U16(6) & _
+          String$(6, ChrW(0)) & _
+          Sh_MTEF_U32(0) & Sh_MTEF_U32(1) & Sh_MTEF_U32(1) & Sh_MTEF_U32(0) & Sh_MTEF_U32(4096) & _
+          Sh_MTEF_U32(3) & Sh_MTEF_U32(1) & Sh_MTEF_U32(END_CHAIN) & Sh_MTEF_U32(0) & Sh_MTEF_U32(0)
+    For j = 1 To 108
+        hdr = hdr & Sh_MTEF_U32(FREE_SECT)
+    Next j
+
+    m = hdr & fat & dirs & miniFat & mini & String$(nMini * 512 - Len(mini), ChrW(0))
+    If big Then m = m & en & String$(nBig * 512 - Len(en), ChrW(0))
+    Sh_MTEF_Ole_File = Sh_MTEF_Text_Bytes(m)
+End Function   '*** end of Sh_MTEF_Ole_File function ***
+
+Private Function Sh_Base64(ByVal bytes As Variant) As String
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' A Byte array as Base64 on one line, as a Flat-OPC package's pkg:binaryData wants it. MSXML
+    ' does the encoding (an element typed bin.base64) and breaks its answer into lines, which are
+    ' joined again here. Not a Byte array, or none: "".
+    '   Sh_Base64(Sh_MTEF_Text_Bytes("Man"))  ->  "TWFu"
+
+    Dim doc As Object, el As Object
+
+    If Not IsArray(bytes) Then Exit Function
+    If VarType(bytes) <> (vbArray Or vbByte) Then Exit Function
+    If UBound(bytes) < LBound(bytes) Then Exit Function
+
+    Set doc = CreateObject("MSXML2.DOMDocument.6.0")
+    Set el = doc.createElement("b")
+    el.DataType = "bin.base64"
+    el.nodeTypedValue = bytes
+    Sh_Base64 = Replace(Replace(el.Text, vbLf, ""), vbCr, "")
+End Function   '*** end of Sh_Base64 function ***
+
+Private Function Sh_Picture_Size_Pt(ByVal bytes As Variant) As Variant
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' How big Word draws a picture, from the picture file's own bytes: Array(width, height, ext)
+    ' with the width and height in points and ext "jpg", "png" or "gif"; Empty when the bytes are
+    ' none of those or the size cannot be read. Points = pixels * 72 / dots per inch, the dots per
+    ' inch read where the file keeps them - a JPEG's JFIF header, a PNG's pHYs chunk - and 96 when
+    ' it does not say (a GIF never does). The book's EQ pictures are 300 dpi JPEGs: a 371 x 55
+    ' pixel one is 89.04 x 13.2 points, the size the target gives equation 1 before MathType
+    ' redraws it.
+    '   Sh_Picture_Size_Pt(bytes of EQp346-001.jpg)  ->  Array(89.04, 13.2, "jpg")
+
+    Dim n As Long, i As Long, segLen As Long, marker As Long
+    Dim w As Double, h As Double, dpiX As Double, dpiY As Double
+
+    If Not IsArray(bytes) Then Exit Function
+    If VarType(bytes) <> (vbArray Or vbByte) Then Exit Function
+    n = UBound(bytes) - LBound(bytes) + 1
+    If n < 24 Then Exit Function
+    i = LBound(bytes)
+    dpiX = 96
+    dpiY = 96
+
+    If bytes(i) = &HFF And bytes(i + 1) = &HD8 Then
+        ' JPEG: walk the segments to the frame header (SOF0 to SOF15, not DHT C4, JPG C8, DAC CC).
+        i = i + 2
+        Do While i + 9 <= UBound(bytes)
+            If bytes(i) <> &HFF Then Exit Function
+            marker = bytes(i + 1)
+            segLen = CLng(bytes(i + 2)) * 256 + bytes(i + 3)
+            If marker = &HE0 And segLen >= 14 And i + 15 <= UBound(bytes) Then
+                ' APP0 "JFIF": units, then the two densities
+                If bytes(i + 4) = &H4A And bytes(i + 5) = &H46 And bytes(i + 6) = &H49 And bytes(i + 7) = &H46 Then
+                    Select Case bytes(i + 11)
+                        Case 1
+                            dpiX = CLng(bytes(i + 12)) * 256 + bytes(i + 13)
+                            dpiY = CLng(bytes(i + 14)) * 256 + bytes(i + 15)
+                        Case 2
+                            dpiX = (CLng(bytes(i + 12)) * 256 + bytes(i + 13)) * 2.54
+                            dpiY = (CLng(bytes(i + 14)) * 256 + bytes(i + 15)) * 2.54
+                    End Select
+                End If
+            ElseIf marker >= &HC0 And marker <= &HCF And marker <> &HC4 And marker <> &HC8 And marker <> &HCC Then
+                h = CLng(bytes(i + 5)) * 256 + bytes(i + 6)
+                w = CLng(bytes(i + 7)) * 256 + bytes(i + 8)
+                Exit Do
+            End If
+            If segLen < 2 Then Exit Function
+            i = i + 2 + segLen
+        Loop
+        If w <= 0 Or h <= 0 Or dpiX <= 0 Or dpiY <= 0 Then Exit Function
+        Sh_Picture_Size_Pt = Array(Round(w * 72 / dpiX, 2), Round(h * 72 / dpiY, 2), "jpg")
+
+    ElseIf bytes(i) = &H89 And bytes(i + 1) = &H50 And bytes(i + 2) = &H4E And bytes(i + 3) = &H47 Then
+        ' PNG: IHDR is always first; pHYs, if there is one, comes before the image data.
+        w = Sh_Picture_U32BE(bytes, i + 16)
+        h = Sh_Picture_U32BE(bytes, i + 20)
+        i = i + 8
+        Do While i + 12 <= UBound(bytes)
+            segLen = Sh_Picture_U32BE(bytes, i)
+            If bytes(i + 4) = &H49 And bytes(i + 5) = &H44 And bytes(i + 6) = &H41 And bytes(i + 7) = &H54 Then Exit Do
+            If bytes(i + 4) = &H70 And bytes(i + 5) = &H48 And bytes(i + 6) = &H59 And bytes(i + 7) = &H73 Then
+                ' pHYs: pixels per unit X, Y, then the unit - 1 is the meter
+                If i + 16 <= UBound(bytes) Then
+                    If bytes(i + 16) = 1 Then
+                        dpiX = Sh_Picture_U32BE(bytes, i + 8) * 0.0254
+                        dpiY = Sh_Picture_U32BE(bytes, i + 12) * 0.0254
+                    End If
+                End If
+                Exit Do
+            End If
+            If segLen < 0 Then Exit Function
+            i = i + 12 + segLen
+        Loop
+        If w <= 0 Or h <= 0 Or dpiX <= 0 Or dpiY <= 0 Then Exit Function
+        Sh_Picture_Size_Pt = Array(Round(w * 72 / dpiX, 2), Round(h * 72 / dpiY, 2), "png")
+
+    ElseIf bytes(i) = &H47 And bytes(i + 1) = &H49 And bytes(i + 2) = &H46 Then
+        ' GIF: the logical screen size, low byte first; no density, so 96 dpi.
+        w = CLng(bytes(i + 7)) * 256 + bytes(i + 6)
+        h = CLng(bytes(i + 9)) * 256 + bytes(i + 8)
+        If w <= 0 Or h <= 0 Then Exit Function
+        Sh_Picture_Size_Pt = Array(Round(w * 72 / 96, 2), Round(h * 72 / 96, 2), "gif")
+    End If
+End Function   '*** end of Sh_Picture_Size_Pt function ***
+
+Private Function Sh_Picture_U32BE(ByVal bytes As Variant, ByVal at As Long) As Double
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' Four bytes at bytes(at), high byte first, as a number - a Double, because a Long cannot hold
+    ' the top half of the range. PNG writes every length and size this way.
+    '   Sh_Picture_U32BE(bytes 00 00 01 73 at 0, 0)  ->  371
+
+    Sh_Picture_U32BE = ((CDbl(bytes(at)) * 256 + bytes(at + 1)) * 256 + bytes(at + 2)) * 256 + bytes(at + 3)
+End Function   '*** end of Sh_Picture_U32BE function ***
+
+Private Function Sh_Read_File_Bytes(ByVal path As String) As Variant
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' A whole file as a Byte array; Empty when there is no such file, it is empty, or it cannot be
+    ' read. Never raises.
+    '   Sh_Read_File_Bytes("C:\Books\Imagine\images\U08C04\EQp346-001.jpg")  ->  its bytes
+
+    Dim f As Integer, n As Long
+    Dim b() As Byte
+
+    On Error GoTo Failed
+    If path = "" Then Exit Function
+    If Dir(path, vbNormal) = "" Then Exit Function
+    n = FileLen(path)
+    If n <= 0 Then Exit Function
+    f = FreeFile
+    Open path For Binary Access Read As #f
+    ReDim b(0 To n - 1)
+    Get #f, 1, b
+    Close #f
+    Sh_Read_File_Bytes = b
+    Exit Function
+
+Failed:
+    Err.Clear
+    On Error Resume Next
+    If f <> 0 Then Close #f
+    Err.Clear
+End Function   '*** end of Sh_Read_File_Bytes function ***
+
+Private Function Sh_Points_Text(ByVal v As Double) As String
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' A number as the XML wants it, with a point for the decimals whatever the machine's own
+    ' setting (Str$ always uses a point; Format$ would write 89,04 on a German Windows).
+    '   Sh_Points_Text(89.04)  ->  "89.04"
+
+    Sh_Points_Text = Trim$(Str$(Round(v, 2)))
+    If Left$(Sh_Points_Text, 1) = "." Then Sh_Points_Text = "0" & Sh_Points_Text
+End Function   '*** end of Sh_Points_Text function ***
+
+Private Function Sh_MathType_Package(ByVal oleBase64 As String, ByVal picBase64 As String, _
+                                     ByVal picExt As String, ByVal widthPt As Double, _
+                                     ByVal heightPt As Double) As String
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' A MathType equation, wrapped as the Flat-OPC package Range.InsertXML takes - the markup
+    ' proved on VistaBuild in Step 0 (10/20/2026; all 470 equations of Section D went in as
+    ' Equation.DSMT4, about 61 ms each). The OLE file (Sh_MTEF_Ole_File, in Base64) is the
+    ' equation; the picture (jpg, png or gif, in Base64) is only what Word shows until MathType's
+    ' Format Equations draws the real one, and widthPt x heightPt (points) is its size until then.
+    ' Word renumbers the relationship ids, the shape id and the object id itself.
+    '   Sh_MathType_Package(Sh_Base64(ole), Sh_Base64(jpg), "jpg", 89.04, 13.2)
+    '   ' -> <pkg:package ...><w:object w:dxaOrig="1781" w:dyaOrig="264"><v:shape ...
+    '        style="width:89.04pt;height:13.2pt" ...><o:OLEObject ProgID="Equation.DSMT4" ...
+
+    Dim ct As String
+
+    Select Case LCase$(picExt)
+        Case "png": ct = "image/png"
+        Case "gif": ct = "image/gif"
+        Case Else: picExt = "jpg": ct = "image/jpeg"
+    End Select
+
+    Sh_MathType_Package = _
+        "<pkg:package xmlns:pkg=""http://schemas.microsoft.com/office/2006/xmlPackage"">" & _
+        "<pkg:part pkg:name=""/_rels/.rels"" pkg:contentType=""application/vnd.openxmlformats-package.relationships+xml"">" & _
+        "<pkg:xmlData><Relationships xmlns=""http://schemas.openxmlformats.org/package/2006/relationships"">" & _
+        "<Relationship Id=""rId1"" Type=""http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument"" Target=""word/document.xml""/>" & _
+        "</Relationships></pkg:xmlData></pkg:part>" & _
+        "<pkg:part pkg:name=""/word/_rels/document.xml.rels"" pkg:contentType=""application/vnd.openxmlformats-package.relationships+xml"">" & _
+        "<pkg:xmlData><Relationships xmlns=""http://schemas.openxmlformats.org/package/2006/relationships"">" & _
+        "<Relationship Id=""rIdImg1"" Type=""http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"" Target=""media/image1." & picExt & """/>" & _
+        "<Relationship Id=""rIdOle1"" Type=""http://schemas.openxmlformats.org/officeDocument/2006/relationships/oleObject"" Target=""embeddings/oleObject1.bin""/>" & _
+        "</Relationships></pkg:xmlData></pkg:part>"
+    Sh_MathType_Package = Sh_MathType_Package & _
+        "<pkg:part pkg:name=""/word/document.xml"" pkg:contentType=""application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"">" & _
+        "<pkg:xmlData><w:document xmlns:w=""http://schemas.openxmlformats.org/wordprocessingml/2006/main"" " & _
+        "xmlns:r=""http://schemas.openxmlformats.org/officeDocument/2006/relationships"" " & _
+        "xmlns:v=""urn:schemas-microsoft-com:vml"" xmlns:o=""urn:schemas-microsoft-com:office:office""><w:body><w:p><w:r>" & _
+        "<w:object w:dxaOrig=""" & CStr(CLng(Round(widthPt * 20))) & """ w:dyaOrig=""" & CStr(CLng(Round(heightPt * 20))) & """>" & _
+        "<v:shape id=""_x0000_i1025"" type=""#_x0000_t75"" style=""width:" & Sh_Points_Text(widthPt) & "pt;height:" & _
+        Sh_Points_Text(heightPt) & "pt"" o:ole=""""><v:imagedata r:id=""rIdImg1"" o:title=""""/></v:shape>" & _
+        "<o:OLEObject Type=""Embed"" ProgID=""Equation.DSMT4"" ShapeID=""_x0000_i1025"" DrawAspect=""Content"" " & _
+        "ObjectID=""_1854020731"" r:id=""rIdOle1""/></w:object></w:r></w:p></w:body></w:document></pkg:xmlData></pkg:part>" & _
+        "<pkg:part pkg:name=""/word/embeddings/oleObject1.bin"" pkg:contentType=""application/vnd.openxmlformats-officedocument.oleObject"" pkg:compression=""store"">" & _
+        "<pkg:binaryData>" & oleBase64 & "</pkg:binaryData></pkg:part>" & _
+        "<pkg:part pkg:name=""/word/media/image1." & picExt & """ pkg:contentType=""" & ct & """ pkg:compression=""store"">" & _
+        "<pkg:binaryData>" & picBase64 & "</pkg:binaryData></pkg:part></pkg:package>"
+End Function   '*** end of Sh_MathType_Package function ***
 
 Private Function Sh_Find_Text_From(ByVal targetDoc As Document, ByVal findText As String, _
                                    ByVal fromPos As Long) As Range
@@ -35668,6 +37523,9 @@ End Function   '*** end of Sh_Find_Text_Forward function ***
 Private Function Sh_MathML_Put_Equation(ByVal r As Range, ByVal xslt As Object, ByVal xsl As Object, _
                                         ByVal mathml As String) As Boolean
     '
+    ' Version: 1.2  Date: 10/20/2026 - the MathML goes through Sh_MathML_Wrap_Fences first, so
+    '                                MML2OMML.XSL no longer splits (-5) into "(|5)" or (P+b)
+    '                                into a bracket of two parts (issue #38)
     ' Version: 1.1  Date: 10/18/2026 - the converter is compiled ONCE for the whole book: xslt is
     '                                an MSXML XSLTemplate made from MML2OMML.XSL, and each
     '                                equation gets a processor from it. transformNode compiled
@@ -35690,7 +37548,7 @@ Private Function Sh_MathML_Put_Equation(ByVal r As Range, ByVal xslt As Object, 
     src.async = False
     src.validateOnParse = False
     src.resolveExternals = False
-    If Not src.loadXML(mathml) Then Exit Function
+    If Not src.loadXML(Sh_MathML_Wrap_Fences(mathml)) Then Exit Function
     If src.parseError.errorCode <> 0 Then Exit Function
 
     If Not xslt Is Nothing Then
@@ -35716,6 +37574,67 @@ Failed:
     Err.Clear
     Sh_MathML_Put_Equation = False
 End Function   '*** end of Sh_MathML_Put_Equation function ***
+
+Private Function Sh_MathML_Put_MathType(ByVal r As Range, ByVal mathml As String, _
+                                        ByVal picPath As String) As Boolean
+    '
+    ' Version: 1.1  Date: 10/20/2026 - True as soon as the object is in its paragraph; a placeholder
+    '                                still showing no longer sends the equation in twice (review)
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' One equation in as a MathType equation, over the placeholder r covers: its MTEF
+    ' (Sh_MTEF_From_MathML), in the OLE file MathType keeps it in (Sh_MTEF_Ole_File), with the
+    ' book's EQ picture as what Word shows until MathType's Format Equations draws the equation -
+    ' or, when the book has no picture for it, a blank one-pixel picture 12 points square. False
+    ' when the MathML holds something not handled (Sh_MTEF_Not_Handled says what) or Word would
+    ' not take it; the placeholder is then still there for the caller's next try.
+    '   Sh_MathML_Put_MathType(placeholderRange, mathml, "C:\Books\Imagine\images\EQp346-001.jpg")
+
+    Dim mtef As Variant, ole As Variant, pic As Variant, size As Variant
+    Dim picB64 As String, picExt As String, w As Double, h As Double
+    Dim para As Range, shapesBefore As Long
+
+    On Error GoTo Failed
+
+    mtef = Sh_MTEF_From_MathML(mathml)
+    If IsEmpty(mtef) Then Exit Function
+    ole = Sh_MTEF_Ole_File(mtef)
+    If IsEmpty(ole) Then Exit Function
+
+    pic = Sh_Read_File_Bytes(picPath)
+    If Not IsEmpty(pic) Then size = Sh_Picture_Size_Pt(pic)
+    If IsEmpty(size) Then
+        ' A transparent 1 x 1 PNG: MathType replaces it with the drawn equation.
+        picB64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII="
+        picExt = "png"
+        w = 12
+        h = 12
+    Else
+        picB64 = Sh_Base64(pic)
+        picExt = size(2)
+        w = size(0)
+        h = size(1)
+    End If
+
+    ' The placeholder (VTEQ and six digits) becomes the object: one more picture in its paragraph.
+    ' Counted in the paragraph, not by the document's length - an
+    ' embedded object carries its EMBED field code, so the book grows by more than one character
+    ' (measured: 16 for the number 1).
+    Set para = r.Paragraphs(1).Range
+    shapesBefore = para.InlineShapes.count
+    r.InsertXML Sh_MathType_Package(Sh_Base64(ole), picB64, picExt, w, h)
+    ' Once the object is in, it is in: answering False here would send the caller on to put the
+    ' same equation in a second time, as a Word equation or its picture (review, 10/20/2026).
+    ' Only "nothing went in" is a failure.
+    Set para = r.Paragraphs(1).Range
+    If para.InlineShapes.count <= shapesBefore Then Exit Function
+    Sh_MathML_Put_MathType = True
+    Exit Function
+
+Failed:
+    Err.Clear
+    Sh_MathML_Put_MathType = False
+End Function   '*** end of Sh_MathML_Put_MathType function ***
 
 Private Function Sh_MathML_Put_Picture(ByVal r As Range, ByVal picPath As String) As Boolean
     '
@@ -35812,6 +37731,10 @@ Private Function Sh_MathML_Put_In(ByVal targetDoc As Document, ByVal fragments A
         ByVal prefix As String, ByVal mode As String, ByVal folderPath As String, _
         ByVal pctFrom As Single, ByVal pctTo As Single) As String
     '
+    ' Version: 1.4  Date: 10/20/2026 - "MATHTYPE": each equation goes in as a MathType equation
+    '                                (Sh_MathML_Put_MathType); one that cannot falls back to a
+    '                                Word equation, then to its picture, and both are counted
+    '                                (Jerry's MathType plan, Step 3)
     ' Version: 1.3  Date: 10/20/2026 - the "BRL" mode is gone, and with it the MathML put in as text
     '                                and the three functions that did it: braille gets Word
     '                                equations (OMML) now, the same as large print (Jerry)
@@ -35833,19 +37756,22 @@ Private Function Sh_MathML_Put_In(ByVal targetDoc As Document, ByVal fragments A
     ' Version: 1.0  Date: 10/18/2026
     '
     ' Puts every parked equation back, walking FORWARD through the book from placeholder 1, each
-    ' search starting where the last insertion ended. mode is "OMML" (Word equations) or
+    ' search starting where the last insertion ended. mode is "OMML" (Word equations),
+    ' "MATHTYPE" (MathType equations, drawn afterwards by Sh_MathType_Format_Equations) or
     ' "PICTURE" (the altimg pictures); braille comes as "OMML" too. Moves the bar from pctFrom to
     ' pctTo.
     '
     ' Answers "" when every equation went in as asked; otherwise a sentence for the closing
-    ' message saying how many went in as pictures instead and how many could not go in at all.
+    ' message saying how many went in as Word equations or pictures instead and how many could
+    ' not go in at all.
     ' One that could not go in keeps its placeholder, VTEQ and six digits, so it can be found.
 
     Dim xsl As Object, xslt As Object
     Dim r As Range
     Dim i As Long, n As Long
     Dim lastEnd As Long, phEnd As Long, lenBefore As Long
-    Dim asPicture As Long, notPlaced As Long
+    Dim asPicture As Long, notPlaced As Long, asOMML As Long
+    Dim mathml As String
     Dim done As Boolean
     Dim picPath As String, msg As String
     Dim errNum As Long, errText As String
@@ -35859,7 +37785,7 @@ Private Function Sh_MathML_Put_In(ByVal targetDoc As Document, ByVal fragments A
     ' its picture and is counted, rather than the conversion stopping. An XSLTemplate needs its
     ' stylesheet in a FREE-THREADED document; if that cannot be had, the plain one alone still
     ' works through transformNode, as measured.
-    If mode = "OMML" Then
+    If mode = "OMML" Or mode = "MATHTYPE" Then
         On Error Resume Next
         Set xsl = CreateObject("MSXML2.FreeThreadedDOMDocument.6.0")
         If Not xsl Is Nothing Then
@@ -35930,6 +37856,18 @@ Private Function Sh_MathML_Put_In(ByVal targetDoc As Document, ByVal fragments A
                         done = Sh_MathML_Put_Picture(r, picPath)
                         If done Then asPicture = asPicture + 1
                     End If
+                Case "MATHTYPE"
+                    ' A MathType equation; failing that a Word equation, then the picture.
+                    mathml = Sh_MathML_With_Namespace(fragments(LBound(fragments) + i - 1), prefix)
+                    done = Sh_MathML_Put_MathType(r, mathml, picPath)
+                    If Not done And Not xsl Is Nothing Then
+                        done = Sh_MathML_Put_Equation(r, xslt, xsl, mathml)
+                        If done Then asOMML = asOMML + 1
+                    End If
+                    If Not done Then
+                        done = Sh_MathML_Put_Picture(r, picPath)
+                        If done Then asPicture = asPicture + 1
+                    End If
                 Case Else   ' "PICTURE"
                     done = Sh_MathML_Put_Picture(r, picPath)
             End Select
@@ -35954,10 +37892,16 @@ Private Function Sh_MathML_Put_In(ByVal targetDoc As Document, ByVal fragments A
     Next i
     Sh_Reset_Find_Parameters
 
+    If asOMML > 0 Then
+        msg = Format(asOMML, "#,##0") & IIf(asOMML = 1, " equation", " equations") & _
+              " could not be made into a MathType equation, and went in as " & _
+              IIf(asOMML = 1, "a Word equation", "Word equations") & " instead."
+    End If
     If asPicture > 0 Then
-        msg = Format(asPicture, "#,##0") & IIf(asPicture = 1, " equation", " equations") & _
-              " could not be made into a Word equation, and went in as " & _
-              IIf(asPicture = 1, "its picture", "their pictures") & " instead."
+        If msg <> "" Then msg = msg & vbCr & vbCr
+        msg = msg & Format(asPicture, "#,##0") & IIf(asPicture = 1, " equation", " equations") & _
+              " could not be made into " & IIf(mode = "MATHTYPE", "a MathType or a Word equation", "a Word equation") & _
+              ", and went in as " & IIf(asPicture = 1, "its picture", "their pictures") & " instead."
     End If
     If notPlaced > 0 Then
         If msg <> "" Then msg = msg & vbCr & vbCr
@@ -35975,6 +37919,69 @@ PutInFailed:
     Sh_Reset_Find_Parameters
     Err.Raise errNum, "Sh_MathML_Put_In", errText
 End Function   '*** end of Sh_MathML_Put_In function ***
+
+Function Sh_MathType_Is_Installed() As Boolean
+    '
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' True when MathType's equation object, Equation.DSMT4, is registered on this machine - the
+    ' test DN_Equations_Form uses to offer "MathType equations" at all. Read from the registry,
+    ' and it never raises: anything that goes wrong is False. Not Private: the form calls it.
+    '   Sh_MathType_Is_Installed()  ->  True on VistaBuild (MathType 7)
+
+    Dim sh As Object, clsid As String
+
+    On Error Resume Next
+    Set sh = CreateObject("WScript.Shell")
+    If sh Is Nothing Then Exit Function
+    clsid = sh.RegRead("HKEY_CLASSES_ROOT\Equation.DSMT4\CLSID\")
+    If Err.Number <> 0 Then clsid = ""
+    Err.Clear
+    Sh_MathType_Is_Installed = (Left$(clsid, 1) = "{")
+End Function   '*** end of Sh_MathType_Is_Installed function ***
+
+Private Function Sh_MathType_Format_Equations(ByVal targetDoc As Document) As Boolean
+    '
+    ' Version: 1.1  Date: 10/20/2026 - the screen is switched off again after MathType switches it on;
+    '                                False when MathType drew no equations (review)
+    ' Version: 1.0  Date: 10/20/2026
+    '
+    ' Has MathType redraw every equation in targetDoc - its Format Equations, whole document, with
+    ' MathType's own preferences - so each shows the drawn equation and its true size instead of
+    ' the EQ picture it went in with. The recipe measured on VistaBuild in Step 0 (10/20/2026, 470
+    ' equations in 79 seconds): connect to MathType with MTInitAPI FIRST - without it Format
+    ' Equations stops behind a message nobody can see - then Application.Run its
+    ' DoFormatEquations, then MTTermAPI. True when that ran without an error. False when MathType's
+    ' add-in or its MathPage.WLL is not loaded, or anything else fails; nothing is stopped, and the
+    ' converter's closing message (313) tells the user to run Format Equations once by hand.
+    '   If Not Sh_MathType_Format_Equations(finalDoc) Then mathNote = mathNote & ...
+
+    Dim connected As Boolean, r As Long, eqCount As Long
+
+    On Error GoTo Failed
+    targetDoc.Activate
+    targetDoc.Range(0, 0).Select
+    r = Sh_MT_InitAPI(0, 30)
+    If r <= 0 Then Exit Function
+    connected = True
+    Application.Run "MTFormatEquations.DoFormatEquations", False, 2, "", False, False, eqCount
+    ' MathType's Format Equations ends by switching the screen back on; the font pass and the
+    ' repaginate that follow must not run on a live screen.
+    Application.ScreenUpdating = False
+    connected = False
+    r = Sh_MT_TermAPI()
+    ' It catches its own errors and can return having drawn nothing; then the closing message
+    ' must still tell the user to run Format Equations by hand.
+    Sh_MathType_Format_Equations = (eqCount > 0)
+    Exit Function
+
+Failed:
+    Err.Clear
+    On Error Resume Next
+    If connected Then r = Sh_MT_TermAPI()
+    Err.Clear
+    Sh_MathType_Format_Equations = False
+End Function   '*** end of Sh_MathType_Format_Equations function ***
 
 Function Sh_Tag_Prodnotes_As_Prodnote_Style(ByVal src As String) As String
 '

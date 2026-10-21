@@ -40,7 +40,9 @@ HELPERS = ("Sh_MathML_Namespace", "Sh_MathML_Prefix", "Sh_MathML_Pattern", "Sh_M
            "Sh_Chr_From_Code", "Sh_Xml_Entity_Char", "Sh_Xml_Unescape", "Sh_Url_Unescape",
            "Sh_Find_Text_Forward",
            # the speed fix, 10/18/2026
-           "Sh_MathML_Placeholder_Positions")
+           "Sh_MathML_Placeholder_Positions",
+           # brackets MML2OMML.XSL split, issue #38, 10/20/2026
+           "Sh_MathML_Wrap_Fences", "Sh_MathML_Wrap_Fences_In")
 
 
 def _procs(repo_root):
@@ -120,12 +122,13 @@ def test_cancel_stops_with_a_message(repo_root):
     lines = _converter(repo_root)
     ask = _first(lines, r"DN_Equations_Form\.Show")
     near = "\n".join(lines[ask:ask + 8])
-    assert re.search(r'If Sh_GP_String_3 <> "OMML" And Sh_GP_String_3 <> "PICTURE" Then', near)
+    assert re.search(r'If Sh_GP_String_3 <> "OMML" And Sh_GP_String_3 <> "MATHTYPE" And Sh_GP_String_3 <> "PICTURE" Then', near)
     assert re.search(r'Sh_Say "[^"]+",\s*_?\s*"VistaType LP \(399\)"', near.replace("\n", " "))
     assert re.search(r"Exit Sub", near)
 
     code = "\n".join(form_code(repo_root, "DN_Equations_Form"))
     assert re.search(r'Sh_GP_String_3\s*=\s*"OMML"', code) and re.search(r'Sh_GP_String_3\s*=\s*"PICTURE"', code)
+    assert re.search(r'Sh_GP_String_3\s*=\s*"MATHTYPE"', code)
     frm = (repo_root / "src" / "forms" / "DN_Equations_Form.frm").read_bytes().decode("latin-1")
     assert 'Caption         =   "Equations (398)"' in frm
 
@@ -147,10 +150,11 @@ def test_the_equations_are_parked_and_put_back(repo_root):
 def test_each_mode_puts_in_what_it_should(repo_root):
     procs = _procs(repo_root)
     put_in = "\n".join(procs["Sh_MathML_Put_In"])
-    # Two modes only (Jerry, 10/20/2026): braille comes as "OMML", like large print's Word equations.
-    # "PICTURE" is the Case Else; there is no "BRL" (MathML text) case any more.
+    # Braille comes as "OMML", like large print's Word equations (Jerry, 10/20/2026); "MATHTYPE"
+    # is large print's third choice (Steps 3 and 4 of the MathType plan, 10/20/2026). "PICTURE"
+    # is the Case Else; there is no "BRL" (MathML text) case any more.
     cases = re.findall(r"^\s*Case\s+(.+?)\s*$", put_in, re.M)
-    assert cases == ['"OMML"', "Else"], f"Sh_MathML_Put_In's modes are {cases}, not OMML and the picture"
+    assert cases == ['"OMML"', '"MATHTYPE"', "Else"], f"Sh_MathML_Put_In's modes are {cases}"
     assert re.search(r"Sh_MathML_Put_Equation\(r, xslt, xsl,\s*_?\s*Sh_MathML_With_Namespace\(", put_in.replace("\n", " "))
     assert re.search(r"If Not done Then\s+done = Sh_MathML_Put_Picture\(r, picPath\)\s+If done Then asPicture",
                      put_in), "a Word equation that fails does not fall back to its picture"
@@ -196,7 +200,8 @@ def test_every_helper_takes_byval(repo_root):
 def test_the_helpers_have_vba_examples(repo_root):
     vba = (repo_root / "tests" / "vba" / "TestMathML.bas").read_bytes().decode("latin-1")
     for name in ("Sh_MathML_Prefix", "Sh_MathML_To_Placeholders", "Sh_MathML_Picture_Path",
-                 "Sh_MathML_With_Namespace", "Sh_MathML_Placeholder_Positions"):
+                 "Sh_MathML_With_Namespace", "Sh_MathML_Placeholder_Positions",
+                 "Sh_MathML_Wrap_Fences"):
         assert f"'@uses {name}" in vba
     runner = (repo_root / "tests" / "vba" / "VtRunTests.bas").read_bytes().decode("latin-1")
     assert "TestMathML_Suite()" in runner
@@ -385,3 +390,32 @@ def test_mathml_text_and_braille_park_are_gone(repo_root):
                 if re.search(rf"\b{name}\b", code):
                     hits.append(f"{p.relative_to(repo_root)}:{n}: {name}")
     assert not hits, "removed MathML text / park code is still in use:\n" + "\n".join(hits)
+
+
+# --- Issue #38, 10/20/2026 ------------------------------------------------------------------
+
+def test_brackets_are_wrapped_before_mml2omml(repo_root):
+    """Word's MML2OMML.XSL took the one operator inside (-5) or (P+b) for the bracket's
+    separator, and (-5) came out "(|5)": 17 of Section D's 470 equations, 62 of the Imagine
+    book's 2,139, measured on VistaBuild 10/20/2026. Sh_MathML_Put_Equation must hand the
+    stylesheet the MathML with each such bracket's inside wrapped - and load nothing else, so
+    no route reaches the stylesheet unwrapped. What the wrap does is tested for real, Word's
+    stylesheet included, in tests/vba/TestMathML.bas."""
+    eq = _body(repo_root, "Sh_MathML_Put_Equation")
+    loads = [l for l in eq if ".loadXML(" in l]
+    assert loads, "Sh_MathML_Put_Equation loads no MathML"
+    assert all("loadXML(Sh_MathML_Wrap_Fences(mathml))" in l for l in loads), (
+        "Sh_MathML_Put_Equation loads the MathML without Sh_MathML_Wrap_Fences:\n" + "\n".join(loads))
+    assert not any(re.search(r"\.load\(", l) for l in eq)
+
+    # The wrap is on the copy for the stylesheet only: the parked fragments are not touched.
+    put_in = "\n".join(_body(repo_root, "Sh_MathML_Put_In"))
+    assert "Sh_MathML_Wrap_Fences" not in put_in
+    assert not re.search(r"fragments\([^)]*\)\s*=", put_in), "Sh_MathML_Put_In rewrites a parked equation"
+
+    walk = "\n".join(_body(repo_root, "Sh_MathML_Wrap_Fences_In"))
+    # A list keeps its separators: comma, semicolon, bar.
+    for sep in ('sep <> ","', 'sep <> ";"', 'sep <> "|"'):
+        assert sep in walk, f"the walk wraps a list too ({sep} missing)"
+    # The fence pairs are MML2OMML.XSL's own, in its order.
+    assert 'openChars = "([{<"' in walk and 'closeChars = ")]}>"' in walk

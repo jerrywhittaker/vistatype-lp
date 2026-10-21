@@ -303,6 +303,17 @@ somewhere else on purpose:
               went in as their pictures instead.
         - [ ] LP user form **Equations (398)**, EQ pictures: each equation comes in as its EQ
               picture, embedded (the book still shows them after the book folder is renamed).
+        - [ ] LP user form **Equations (398)** on a machine with MathType: a third choice,
+              "MathType equations" (Alt+M), sits under the other two. On a machine without
+              MathType it is not there and the box is its old size.
+        - [ ] LP user form **Equations (398)**, MathType equations (Section D, 470 equations):
+              each comes in as a MathType equation (double-click opens it in MathType), MathType
+              redraws them all near the end of the bar, and LP message **Operation Complete (313)**
+              says how many, if any, went in as Word equations or pictures instead. Measured
+              headlessly 10/20/2026: 470 of 470 went in, 21 s; Format Equations 91 s.
+        - [ ] The same with MathType's tab not loaded in Word: the conversion still finishes, the
+              equations show their pictures, and LP message **Operation Complete (313)** says to
+              click Format Equations once on the MathType tab.
         - [ ] LP user form **Equations (398)**, Cancel, and again with the red X: LP message
               **VistaType LP (399)** says the book has not been converted, and nothing is.
         - [ ] A book with no MathML: LP user form **Equations (398)** never appears.

@@ -13,6 +13,8 @@ Attribute VB_Name = "TestMathML"
 '@uses Sh_Xml_Unescape
 '@uses Sh_Url_Unescape
 '@uses Sh_MathML_Placeholder_Positions
+'@uses Sh_MathML_Wrap_Fences
+'@uses Sh_MathML_Wrap_Fences_In
 '
 ' The string helpers behind the DAISY/NIMAS converter's equations (issue #37): finding a book's
 ' MathML and its prefix, parking each equation as a placeholder, the picture path from altimg,
@@ -23,6 +25,8 @@ Attribute VB_Name = "TestMathML"
 ' From the review of 10/18/2026: start tags read with their quoted values (a ">" in alttext), and
 ' the altimg unescaped as XML and as a URL.
 '
+' Version: 1.4  Date: 10/20/2026 - brackets MML2OMML.XSL used to split, (-5) into "(|5)" (issue #38):
+'                                the MathML is wrapped, and Word's own stylesheet is run on it
 ' Version: 1.3  Date: 10/20/2026 - the braille MathML text tests and the braille cleanup park
 '                                tests are gone with the code they tested: braille gets Word
 '                                equations (OMML) now (Jerry)
@@ -40,6 +44,46 @@ Private Function NIMAS_Sample() As String
         "<m:mi>x</m:mi><m:mo>+</m:mo><m:mn>2</m:mn></m:math> for x.</p>" & _
         "<p>Then <m:math id=""m2"" display=""inline"" altimg=""./images/U07C01/EQp010-002.jpg"" alttext="""">" & vbCrLf & _
         "  <m:msup><m:mi>y</m:mi><m:mn>2</m:mn></m:msup>" & vbCrLf & "</m:math>.</p></dtbook>"
+End Function
+
+Private Function Eq(ByVal body As String) As String
+    ' One equation as Sh_MathML_Put_Equation receives it: the namespace back on its own tag.
+    Eq = "<m:math xmlns:m=""http://www.w3.org/1998/Math/MathML"">" & body & "</m:math>"
+End Function
+
+Private Function Mo(ByVal ch As String) As String
+    Mo = "<m:mo>" & ch & "</m:mo>"
+End Function
+
+Private Function Minus() As String
+    Minus = ChrW(&H2212)
+End Function
+
+Private Function Omml_Parts(ByVal mathml As String) As String
+    ' Word's own MML2OMML.XSL run on mathml, as Sh_MathML_Put_Equation runs it, and the brackets
+    ' it made, each as its number of parts: "1" for (-5) as one part, "2" for (-5) split in
+    ' two, "1 2" for two brackets. "ERROR" when the stylesheet or the MathML cannot be read.
+    Dim src As Object, xsl As Object, out As Object, d As Object
+    Dim omml As String, r As String
+    On Error GoTo Failed
+    Set xsl = CreateObject("MSXML2.DOMDocument.6.0")
+    xsl.async = False
+    If Not xsl.Load(Application.Path & "\MML2OMML.XSL") Then GoTo Failed
+    Set src = CreateObject("MSXML2.DOMDocument.6.0")
+    src.async = False
+    If Not src.loadXML(mathml) Then GoTo Failed
+    omml = src.transformNode(xsl)
+    Set out = CreateObject("MSXML2.DOMDocument.6.0")
+    out.async = False
+    If Not out.loadXML(omml) Then GoTo Failed
+    out.setProperty "SelectionNamespaces", "xmlns:m='http://schemas.openxmlformats.org/officeDocument/2006/math'"
+    For Each d In out.selectNodes("//m:d")
+        r = r & " " & CStr(d.selectNodes("m:e").length)
+    Next d
+    Omml_Parts = Trim$(r)
+    Exit Function
+Failed:
+    Omml_Parts = "ERROR"
 End Function
 
 Public Function TestMathML_Suite() As TestSuite
@@ -242,6 +286,74 @@ Public Function TestMathML_Suite() As TestSuite
     With Suite.Test("no placeholders asked for, an empty list")
         f = Sh_MathML_Placeholder_Positions("VTEQ000001", 0)
         .IsEqual UBound(f), -1
+    End With
+
+    ' --- Issue #38: brackets Word's MML2OMML.XSL used to split at the one operator inside.
+    Dim m5 As String, pb As String, wrapped As String
+    m5 = Eq("<m:mrow><m:mo stretchy=""false"">(</m:mo>" & Mo(Minus()) & "<m:mn>5</m:mn><m:mo stretchy=""false"">)</m:mo></m:mrow>")
+    pb = Eq("<m:mrow>" & Mo("(") & "<m:mi>P</m:mi>" & Mo("+") & "<m:mi>b</m:mi>" & Mo(")") & "</m:mrow>")
+
+    With Suite.Test("(-5): what is inside the brackets becomes one mrow")
+        .IsEqual Sh_MathML_Wrap_Fences(m5), _
+            Eq("<m:mrow><m:mo stretchy=""false"">(</m:mo><m:mrow>" & Mo(Minus()) & "<m:mn>5</m:mn></m:mrow>" & _
+               "<m:mo stretchy=""false"">)</m:mo></m:mrow>")
+    End With
+
+    With Suite.Test("(P+b), [x+y], |x+y|, {x+y}: the same")
+        .IsEqual Sh_MathML_Wrap_Fences(pb), _
+            Eq("<m:mrow>" & Mo("(") & "<m:mrow><m:mi>P</m:mi>" & Mo("+") & "<m:mi>b</m:mi></m:mrow>" & Mo(")") & "</m:mrow>")
+        .IsEqual Sh_MathML_Wrap_Fences(Eq("<m:mrow>" & Mo("[") & "<m:mi>x</m:mi>" & Mo("+") & "<m:mi>y</m:mi>" & Mo("]") & "</m:mrow>")), _
+            Eq("<m:mrow>" & Mo("[") & "<m:mrow><m:mi>x</m:mi>" & Mo("+") & "<m:mi>y</m:mi></m:mrow>" & Mo("]") & "</m:mrow>")
+        .IsEqual Sh_MathML_Wrap_Fences(Eq("<m:mrow>" & Mo("|") & "<m:mi>x</m:mi>" & Mo("+") & "<m:mi>y</m:mi>" & Mo("|") & "</m:mrow>")), _
+            Eq("<m:mrow>" & Mo("|") & "<m:mrow><m:mi>x</m:mi>" & Mo("+") & "<m:mi>y</m:mi></m:mrow>" & Mo("|") & "</m:mrow>")
+        .IsEqual Sh_MathML_Wrap_Fences(Eq("<m:mrow>" & Mo("{") & "<m:mi>x</m:mi>" & Mo("+") & "<m:mi>y</m:mi>" & Mo("}") & "</m:mrow>")), _
+            Eq("<m:mrow>" & Mo("{") & "<m:mrow><m:mi>x</m:mi>" & Mo("+") & "<m:mi>y</m:mi></m:mrow>" & Mo("}") & "</m:mrow>")
+    End With
+
+    With Suite.Test("a list keeps its commas: (3, 4) and {1, 2} come back exactly as they came")
+        x = Eq("<m:mrow>" & Mo("(") & "<m:mn>3</m:mn>" & Mo(",") & "<m:mn>4</m:mn>" & Mo(")") & "</m:mrow>")
+        .IsEqual Sh_MathML_Wrap_Fences(x), x
+        x = Eq("<m:mrow>" & Mo("{") & "<m:mn>1</m:mn>" & Mo(",") & "<m:mn>2</m:mn>" & Mo("}") & "</m:mrow>")
+        .IsEqual Sh_MathML_Wrap_Fences(x), x
+    End With
+
+    With Suite.Test("nested brackets: ((-5)+1) - the inner and the outer are each one part")
+        .IsEqual Sh_MathML_Wrap_Fences(Eq("<m:mrow>" & Mo("(") & "<m:mrow>" & Mo("(") & Mo(Minus()) & "<m:mn>5</m:mn>" & Mo(")") & _
+                                          "</m:mrow>" & Mo("+") & "<m:mn>1</m:mn>" & Mo(")") & "</m:mrow>")), _
+            Eq("<m:mrow>" & Mo("(") & "<m:mrow><m:mrow>" & Mo("(") & "<m:mrow>" & Mo(Minus()) & "<m:mn>5</m:mn></m:mrow>" & Mo(")") & _
+               "</m:mrow>" & Mo("+") & "<m:mn>1</m:mn></m:mrow>" & Mo(")") & "</m:mrow>")
+    End With
+
+    With Suite.Test("left alone: brackets that do not match, mixed operators, brackets mid-row")
+        x = Eq("<m:mrow>" & Mo("(") & Mo(Minus()) & "<m:mn>5</m:mn>" & Mo("]") & "</m:mrow>")
+        .IsEqual Sh_MathML_Wrap_Fences(x), x
+        x = Eq("<m:mrow>" & Mo("(") & "<m:mi>x</m:mi>" & Mo("+") & "<m:mi>y</m:mi>" & Mo(Minus()) & "<m:mi>z</m:mi>" & Mo(")") & "</m:mrow>")
+        .IsEqual Sh_MathML_Wrap_Fences(x), x
+        x = Eq("<m:mrow><m:mn>2</m:mn>" & Mo("(") & Mo(Minus()) & "<m:mn>5</m:mn>" & Mo(")") & "</m:mrow>")
+        .IsEqual Sh_MathML_Wrap_Fences(x), x
+        x = Eq("<m:mrow>" & Mo("(") & "<m:mi>x</m:mi>" & Mo(")") & "</m:mrow>")
+        .IsEqual Sh_MathML_Wrap_Fences(x), x
+    End With
+
+    With Suite.Test("MathML with no prefix, and MathML that cannot be read")
+        .IsEqual Sh_MathML_Wrap_Fences("<math xmlns=""http://www.w3.org/1998/Math/MathML""><mrow><mo>(</mo><mo>" & Minus() & _
+                                       "</mo><mn>5</mn><mo>)</mo></mrow></math>"), _
+            "<math xmlns=""http://www.w3.org/1998/Math/MathML""><mrow><mo>(</mo><mrow><mo>" & Minus() & _
+            "</mo><mn>5</mn></mrow><mo>)</mo></mrow></math>"
+        .IsEqual Sh_MathML_Wrap_Fences("<m:math><m:mi>x</m:mi></m:math>"), "<m:math><m:mi>x</m:mi></m:math>"
+        .IsEqual Sh_MathML_Wrap_Fences(""), ""
+    End With
+
+    With Suite.Test("Word's own MML2OMML.XSL: split before, one part after; a list still two")
+        .IsEqual Omml_Parts(m5), "2", "(-5) as it is in the book - got {0}, expected {1}"
+        .IsEqual Omml_Parts(Sh_MathML_Wrap_Fences(m5)), "1", "(-5) wrapped - got {0}, expected {1}"
+        .IsEqual Omml_Parts(pb), "2", "(P+b) as it is in the book - got {0}, expected {1}"
+        .IsEqual Omml_Parts(Sh_MathML_Wrap_Fences(pb)), "1", "(P+b) wrapped - got {0}, expected {1}"
+        x = Eq("<m:mrow>" & Mo("(") & "<m:mn>3</m:mn>" & Mo(",") & "<m:mn>4</m:mn>" & Mo(")") & "</m:mrow>")
+        .IsEqual Omml_Parts(Sh_MathML_Wrap_Fences(x)), "2", "(3, 4) is still a list of two - got {0}, expected {1}"
+        wrapped = Sh_MathML_Wrap_Fences(Eq("<m:mrow>" & Mo("(") & "<m:mrow>" & Mo("(") & Mo(Minus()) & "<m:mn>5</m:mn>" & Mo(")") & _
+                                           "</m:mrow>" & Mo("+") & "<m:mn>1</m:mn>" & Mo(")") & "</m:mrow>"))
+        .IsEqual Omml_Parts(wrapped), "1 1", "((-5)+1) - got {0}, expected {1}"
     End With
 
     Set TestMathML_Suite = Suite
