@@ -18,7 +18,7 @@ import re
 from test_toc_box_stays_open import form_code
 from test_toc_never_deletes_a_line import module_text, procedures
 
-NEW = ("Sh_Picture_Size_Pt", "Sh_Picture_U32BE", "Sh_Read_File_Bytes", "Sh_Points_Text",
+NEW = ("Sh_MathType_Braille_Prefs", "Sh_MathType_Drop_Prefs", "Sh_Picture_Size_Pt", "Sh_Picture_U32BE", "Sh_Read_File_Bytes", "Sh_Points_Text",
        "Sh_MathType_Package", "Sh_MathML_Put_MathType", "Sh_MathType_Is_Installed",
        "Sh_MathType_Format_Equations")
 CONVERTER = "Sh_Convert_XML_File_To_Word_Document"
@@ -64,7 +64,7 @@ def test_new_procedures_have_version_and_example(repo_root):
             if not l.strip().startswith("'"):
                 break
             block.append(l.strip())
-        assert any(l.startswith("' Version: 1.0  Date: 10/20/2026") for l in block), name
+        assert any(re.match(r"' Version: 1\.0  Date: 10/2[02]/2026", l) for l in block), name
         assert any(l.startswith("'   ") and name in l for l in block), f"{name} has no example"
 
 
@@ -80,11 +80,44 @@ def test_the_api_is_declared_for_both_vba_versions(repo_root):
 def test_format_equations_connects_first_and_never_stops_the_conversion(repo_root):
     body = _body(repo_root, "Sh_MathType_Format_Equations")
     init = body.index("Sh_MT_InitAPI(0, 30)")
-    run = body.index('Application.Run "MTFormatEquations.DoFormatEquations", False, 2, "", False, False,')
+    run = body.index('Application.Run "MTFormatEquations.DoFormatEquations", False, source, "", False, False,')
     term = body.index("Sh_MT_TermAPI()")
     assert init < run < term
     assert body.index("On Error GoTo Failed") < init
     assert "targetDoc.Activate" in body
+
+
+def test_braille_is_formatted_in_times_12_not_the_users_settings(repo_root):
+    """Jerry, 10/22/2026: Format Equations used the transcriber's own MathType settings - set for
+    large print - for braille books too. Braille now hands MathType its factory Times New Roman
+    12 point in the book's MTPreferences property (source 1) and takes it out again; large print
+    keeps the user's settings (source 2). Measured on VistaBuild: whichever source is chosen
+    replaces each equation's own settings."""
+    body = _body(repo_root, "Sh_MathType_Format_Equations")
+    assert "ByVal forBraille As Boolean" in "\n".join(_procs(repo_root)["Sh_MathType_Format_Equations"][:3])
+    two = body.index("source = 2")
+    brl = body.index("If forBraille Then", two)
+    add = body.index('CustomDocumentProperties.Add Name:="MTPreferences"', brl)
+    one = body.index("source = 1", add)
+    run = body.index('"MTFormatEquations.DoFormatEquations", False, source,', one)
+    drop = body.index("If forBraille Then Sh_MathType_Drop_Prefs targetDoc", run)
+    assert two < brl < add < one < run < drop
+    fail = body[body.index("Failed:"):]
+    assert "Sh_MathType_Drop_Prefs targetDoc" in fail, "the property is left behind on an error"
+
+    prefs = _body(repo_root, "Sh_MathType_Braille_Prefs")
+    for piece in ('"[Styles]"', '"Text=Times New Roman"', '"Variable=Times New Roman,I"',
+                  '"[Sizes]"', '"Full=12 pt"', '"Script=58 %"', '"ScriptScript=42 %"', '"[Spacing]"'):
+        assert piece in prefs, piece
+    assert "vbCrLf" in prefs
+
+    drop_body = _body(repo_root, "Sh_MathType_Drop_Prefs")
+    assert "On Error Resume Next" in drop_body
+    assert 'CustomDocumentProperties("MTPreferences").Delete' in drop_body
+
+    conv = "\n".join(_procs(repo_root)[CONVERTER])
+    assert "MathType is formatting the equations" in conv and "drawing the equations" not in conv
+    assert "could not be reached to format the equations" in conv
 
 
 def test_is_installed_reads_the_registry_and_cannot_raise(repo_root):
@@ -121,7 +154,7 @@ def test_the_converter_formats_after_the_walk_and_before_the_font(repo_root):
     text = "\n".join(lines)
     assert 'If Sh_GP_String_3 <> "OMML" And Sh_GP_String_3 <> "MATHTYPE" And Sh_GP_String_3 <> "PICTURE" Then' in text
     walk = text.index("Sh_MathML_Put_In(finalDoc, mathFragments, mathPrefix, mathMode, folderPath, 45, 62)")
-    fmt = text.index("If Not Sh_MathType_Format_Equations(finalDoc) Then")
+    fmt = text.index('If Not Sh_MathType_Format_Equations(finalDoc, (Sh_GP_String_2 = "BRL")) Then')
     font = text.index("Sh_Set_Whole_Document_Font doc")
     assert walk < fmt < font
     # A failure is told in 313, not stopped on.
@@ -174,7 +207,7 @@ def test_without_mathtype_the_converter_does_not_try_to_draw(repo_root):
     text = "\n".join(_procs(repo_root)[CONVERTER])
     walk = text.index("Sh_MathML_Put_In(finalDoc, mathFragments, mathPrefix, mathMode, folderPath, 45, 62)")
     check = text.index("If Not Sh_MathType_Is_Installed() Then", walk)
-    fmt = text.index("If Not Sh_MathType_Format_Equations(finalDoc) Then")
+    fmt = text.index('If Not Sh_MathType_Format_Equations(finalDoc, (Sh_GP_String_2 = "BRL")) Then')
     assert walk < check < fmt
     note = text[check:fmt]
     assert "MathType is not installed on this computer" in note and "Else" in note

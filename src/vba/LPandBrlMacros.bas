@@ -18,7 +18,13 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - DN  - 10/22/2026 - EQUATIONS (398) FOR BRAILLE, AND MATHTYPE WITHOUT MATHTYPE (Jerry): a
+' Notes:    - DN  - 10/22/2026 - BRAILLE EQUATIONS IN TIMES NEW ROMAN 12 (Jerry): MathType's Format
+'           - DN  - 10/22/2026 - Equations used the transcriber's own MathType settings, set for large
+'           - DN  - 10/22/2026 - print on Jerry's PC, for braille books too. A braille book now gets
+'           - DN  - 10/22/2026 - MathType's factory settings (Sh_MathType_Braille_Prefs), handed over
+'           - DN  - 10/22/2026 - in the book's MTPreferences property and removed after
+'           - DN  - 10/22/2026 - (Sh_MathType_Drop_Prefs). The bar says "formatting the equations".
+'           - DN  - 10/22/2026 - EQUATIONS (398) FOR BRAILLE, AND MATHTYPE WITHOUT MATHTYPE (Jerry): a
 '           - DN  - 10/22/2026 - braille conversion of a book with MathML now asks Equations (398), with
 '           - DN  - 10/22/2026 - "Pictures of the equations" grayed out; it went in as Word equations
 '           - DN  - 10/22/2026 - unasked. 398 always offers "MathType equations"; chosen on a computer
@@ -34400,6 +34406,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
 '
 ' Automatically converts an .xml (NIMAS or DAISY) file into a Word Document with reference pages tagged with $pg
 '
+' Version: 2.6  Date: 10/22/2026 - a braille book's MathType equations are formatted in MathType's standard Times New Roman 12 point, never the transcriber's own (large print) MathType settings; the bar says "formatting", not "drawing", the equations (Jerry)
 ' Version: 2.5  Date: 10/22/2026 - Equations (398) is asked for braille too, with the pictures grayed out, and always offers "MathType equations" (Jerry). Chosen without MathType installed, 398 asks VistaType LP (400) whether to go on, and Cancel there returns to 398; going on, the equations are made but not drawn (Format Equations is skipped), and 313 says they show their pictures and cannot be edited on this computer. A DoEvents after 398 lets Word redraw before the bar goes up
 ' Version: 2.4  Date: 10/20/2026 - MATHTYPE EQUATIONS (Jerry's plan, Steps 3 and 4): box 398 offers "MathType equations" when MathType is installed; each equation goes in as a MathType equation made from its MathML, falling back to a Word equation and then its picture (counted in 313), and MathType's Format Equations then draws them all on its own stretch of the bar. If MathType cannot be reached, the conversion carries on and 313 tells the user to click Format Equations once on the MathType tab
 ' Version: 2.3  Date: 10/20/2026 - a braille conversion puts the equations in as Word equations (OMML), as large print's "Word equations (OMML)" choice does, instead of the MathML as text (Jerry). Still not asked for braille.
@@ -34807,11 +34814,13 @@ Sub Sh_Convert_XML_File_To_Word_Document()
                        "cannot be edited here. On a computer with MathType, open the MathType tab and " & _
                        "click Format Equations once."
         Else
-            Sh_Progress_Say 62, "MathType is drawing the equations - one long step, so the bar waits."
+            Sh_Progress_Say 62, "MathType is formatting the equations - one long step, so the bar waits."
             Sh_Spin_DoEvents
-            If Not Sh_MathType_Format_Equations(finalDoc) Then
+            ' Braille gets MathType's standard Times New Roman 12 point, not the transcriber's own
+            ' MathType settings, which may be set for large print (Jerry, 10/22/2026).
+            If Not Sh_MathType_Format_Equations(finalDoc, (Sh_GP_String_2 = "BRL")) Then
                 If mathNote <> "" Then mathNote = mathNote & vbCr & vbCr
-                mathNote = mathNote & "MathType could not be reached to draw the equations, so each one still " & _
+                mathNote = mathNote & "MathType could not be reached to format the equations, so each one still " & _
                            "shows its picture from the book. To finish them, open the MathType tab and " & _
                            "click Format Equations once."
             End If
@@ -37959,8 +37968,17 @@ Function Sh_MathType_Is_Installed() As Boolean
     Sh_MathType_Is_Installed = (Left$(clsid, 1) = "{")
 End Function   '*** end of Sh_MathType_Is_Installed function ***
 
-Private Function Sh_MathType_Format_Equations(ByVal targetDoc As Document) As Boolean
+Private Function Sh_MathType_Format_Equations(ByVal targetDoc As Document, _
+                                              ByVal forBraille As Boolean) As Boolean
     '
+    ' Version: 1.2  Date: 10/22/2026 - forBraille: a braille book is formatted with MathType's factory
+    '                                settings, Times New Roman 12 point (Sh_MathType_Braille_Prefs),
+    '                                handed over in the book's "MTPreferences" property (source 1)
+    '                                and taken out again afterwards. Large print still uses the
+    '                                transcriber's own MathType settings (source 2), which Jerry has
+    '                                set for large print and which reached braille books too (Jerry).
+    '                                Whatever settings Format Equations is given replace each
+    '                                equation's own - measured on VistaBuild 10/22/2026
     ' Version: 1.1  Date: 10/20/2026 - the screen is switched off again after MathType switches it on;
     '                                False when MathType drew no equations (review)
     ' Version: 1.0  Date: 10/20/2026
@@ -37973,9 +37991,9 @@ Private Function Sh_MathType_Format_Equations(ByVal targetDoc As Document) As Bo
     ' DoFormatEquations, then MTTermAPI. True when that ran without an error. False when MathType's
     ' add-in or its MathPage.WLL is not loaded, or anything else fails; nothing is stopped, and the
     ' converter's closing message (313) tells the user to run Format Equations once by hand.
-    '   If Not Sh_MathType_Format_Equations(finalDoc) Then mathNote = mathNote & ...
+    '   If Not Sh_MathType_Format_Equations(finalDoc, (Sh_GP_String_2 = "BRL")) Then mathNote = ...
 
-    Dim connected As Boolean, r As Long, eqCount As Long
+    Dim connected As Boolean, r As Long, eqCount As Long, source As Long
 
     On Error GoTo Failed
     targetDoc.Activate
@@ -37983,7 +38001,18 @@ Private Function Sh_MathType_Format_Equations(ByVal targetDoc As Document) As Bo
     r = Sh_MT_InitAPI(0, 30)
     If r <= 0 Then Exit Function
     connected = True
-    Application.Run "MTFormatEquations.DoFormatEquations", False, 2, "", False, False, eqCount
+    ' Source 2 is the transcriber's own MathType settings; source 1 is the book's "MTPreferences"
+    ' property. Source 1 with no property formats nothing (eqCount 0), with no message - so a
+    ' property that could not be set ends as "could not be reached" in 313, never as large print.
+    source = 2
+    If forBraille Then
+        Sh_MathType_Drop_Prefs targetDoc
+        targetDoc.CustomDocumentProperties.Add Name:="MTPreferences", LinkToContent:=False, _
+            Type:=msoPropertyTypeString, Value:=Sh_MathType_Braille_Prefs()
+        source = 1
+    End If
+    Application.Run "MTFormatEquations.DoFormatEquations", False, source, "", False, False, eqCount
+    If forBraille Then Sh_MathType_Drop_Prefs targetDoc
     ' MathType's Format Equations ends by switching the screen back on; the font pass and the
     ' repaginate that follow must not run on a live screen.
     Application.ScreenUpdating = False
@@ -37998,9 +38027,94 @@ Failed:
     Err.Clear
     On Error Resume Next
     If connected Then r = Sh_MT_TermAPI()
+    If forBraille Then Sh_MathType_Drop_Prefs targetDoc
     Err.Clear
     Sh_MathType_Format_Equations = False
 End Function   '*** end of Sh_MathType_Format_Equations function ***
+
+Private Sub Sh_MathType_Drop_Prefs(ByVal targetDoc As Document)
+    '
+    ' Version: 1.0  Date: 10/22/2026
+    '
+    ' Takes the "MTPreferences" property out of targetDoc, if it is there, so the braille settings
+    ' handed to Format Equations are not left behind in the book. Never raises.
+    '   Sh_MathType_Drop_Prefs finalDoc
+
+    On Error Resume Next
+    targetDoc.CustomDocumentProperties("MTPreferences").Delete
+    Err.Clear
+End Sub   '*** end of Sh_MathType_Drop_Prefs ***
+
+Private Function Sh_MathType_Braille_Prefs() As String
+    '
+    ' Version: 1.0  Date: 10/22/2026
+    '
+    ' MathType's factory equation preferences - Times New Roman 12 point, superscripts 58% and
+    ' second-level ones 42% - as the text MathType keeps in a document's "MTPreferences"
+    ' property: the body of its own "Times+Symbol 12.eqp" without the comment lines, measured on
+    ' VistaBuild 10/22/2026. Sh_MathType_Format_Equations hands it to Format Equations for a
+    ' braille book, so the transcriber's own MathType settings (Jerry's are set for large print)
+    ' do not reach it.
+    '   Sh_MathType_Braille_Prefs()  ->  "[Styles]" & vbCrLf & "Text=Times New Roman" & ...
+
+    Dim s As String
+    s = s & "[Styles]" & vbCrLf
+    s = s & "Text=Times New Roman" & vbCrLf
+    s = s & "Function=Times New Roman" & vbCrLf
+    s = s & "Variable=Times New Roman,I" & vbCrLf
+    s = s & "LCGreek=Symbol,I" & vbCrLf
+    s = s & "UCGreek=Symbol" & vbCrLf
+    s = s & "Symbol=Symbol" & vbCrLf
+    s = s & "Vector=Times New Roman,B" & vbCrLf
+    s = s & "Number=Times New Roman" & vbCrLf
+    s = s & "User1=Courier New" & vbCrLf
+    s = s & "User2=Times New Roman" & vbCrLf
+    s = s & "MTExtra=MT Extra" & vbCrLf
+    s = s & vbCrLf
+    s = s & "[Sizes]" & vbCrLf
+    s = s & "Full=12 pt" & vbCrLf
+    s = s & "Script=58 %" & vbCrLf
+    s = s & "ScriptScript=42 %" & vbCrLf
+    s = s & "Symbol=150 %" & vbCrLf
+    s = s & "SubSymbol=100 %" & vbCrLf
+    s = s & "User1=75 %" & vbCrLf
+    s = s & "User2=150 %" & vbCrLf
+    s = s & "SmallLargeIncr=1 pt" & vbCrLf
+    s = s & vbCrLf
+    s = s & "[Spacing]" & vbCrLf
+    s = s & "LineSpacing=150 %" & vbCrLf
+    s = s & "MatrixRowSpacing=150 %" & vbCrLf
+    s = s & "MatrixColSpacing=100 %" & vbCrLf
+    s = s & "SuperscriptHeight=45 %" & vbCrLf
+    s = s & "SubscriptDepth=25 %" & vbCrLf
+    s = s & "SubSupGap=8 %" & vbCrLf
+    s = s & "LimHeight=25 %" & vbCrLf
+    s = s & "LimDepth=100 %" & vbCrLf
+    s = s & "LimLineSpacing=100 %" & vbCrLf
+    s = s & "NumerHeight=35 %" & vbCrLf
+    s = s & "DenomDepth=100 %" & vbCrLf
+    s = s & "FractBarOver=8 %" & vbCrLf
+    s = s & "FractBarThick=5 %" & vbCrLf
+    s = s & "SubFractBarThick=2.5 %" & vbCrLf
+    s = s & "FractGap=8 %" & vbCrLf
+    s = s & "FenceOver=8 %" & vbCrLf
+    s = s & "OperSpacing=100 %" & vbCrLf
+    s = s & "NonOperSpacing=100 %" & vbCrLf
+    s = s & "CharWidth=0 %" & vbCrLf
+    s = s & "MinGap=8 %" & vbCrLf
+    s = s & "VertRadGap=17 %" & vbCrLf
+    s = s & "HorizRadGap=8 %" & vbCrLf
+    s = s & "RadWidth=100 %" & vbCrLf
+    s = s & "EmbellGap=12.5 %" & vbCrLf
+    s = s & "PrimeHeight=45 %" & vbCrLf
+    s = s & "BoxStrokeThick=5 %" & vbCrLf
+    s = s & "StikeThruThick=5 %" & vbCrLf
+    s = s & "MatrixLineThick=5 %" & vbCrLf
+    s = s & "RadStrokeThick=5 %" & vbCrLf
+    s = s & "HorizFenceGap=10 %" & vbCrLf
+    Sh_MathType_Braille_Prefs = s
+End Function   '*** end of Sh_MathType_Braille_Prefs function ***
+
 
 Function Sh_Tag_Prodnotes_As_Prodnote_Style(ByVal src As String) As String
 '
