@@ -18,7 +18,16 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - DN  - 10/20/2026 - BRACKETS IN WORD EQUATIONS NO LONGER SPLIT (issue #38): Word's
+' Notes:    - DN  - 10/22/2026 - EQUATIONS (398) FOR BRAILLE, AND MATHTYPE WITHOUT MATHTYPE (Jerry): a
+'           - DN  - 10/22/2026 - braille conversion of a book with MathML now asks Equations (398), with
+'           - DN  - 10/22/2026 - "Pictures of the equations" grayed out; it went in as Word equations
+'           - DN  - 10/22/2026 - unasked. 398 always offers "MathType equations"; chosen on a computer
+'           - DN  - 10/22/2026 - without MathType, VistaType LP (400) asks whether to go on, since the
+'           - DN  - 10/22/2026 - equations cannot be edited there, and Cancel returns to 398. Going on,
+'           - DN  - 10/22/2026 - each equation is still made a MathType equation showing its EQ picture,
+'           - DN  - 10/22/2026 - Format Equations is skipped, and 313 says so. Sh_Convert_XML_File_To_
+'           - DN  - 10/22/2026 - Word_Document, DN_Equations_Form.
+'           - DN  - 10/20/2026 - BRACKETS IN WORD EQUATIONS NO LONGER SPLIT (issue #38): Word's
 '           - DN  - 10/20/2026 - MML2OMML.XSL took the one operator inside (-5), (P+b), [x+y] or |x+y| for
 '           - DN  - 10/20/2026 - the bracket's separator, so (-5) came out "(|5)". The MathML handed to it
 '           - DN  - 10/20/2026 - now has the inside of such a bracket wrapped in an mrow of its own; the book
@@ -34391,6 +34400,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
 '
 ' Automatically converts an .xml (NIMAS or DAISY) file into a Word Document with reference pages tagged with $pg
 '
+' Version: 2.5  Date: 10/22/2026 - Equations (398) is asked for braille too, with the pictures grayed out, and always offers "MathType equations" (Jerry). Chosen without MathType installed, 398 asks VistaType LP (400) whether to go on, and Cancel there returns to 398; going on, the equations are made but not drawn (Format Equations is skipped), and 313 says they show their pictures and cannot be edited on this computer. A DoEvents after 398 lets Word redraw before the bar goes up
 ' Version: 2.4  Date: 10/20/2026 - MATHTYPE EQUATIONS (Jerry's plan, Steps 3 and 4): box 398 offers "MathType equations" when MathType is installed; each equation goes in as a MathType equation made from its MathML, falling back to a Word equation and then its picture (counted in 313), and MathType's Format Equations then draws them all on its own stretch of the bar. If MathType cannot be reached, the conversion carries on and 313 tells the user to click Format Equations once on the MathType tab
 ' Version: 2.3  Date: 10/20/2026 - a braille conversion puts the equations in as Word equations (OMML), as large print's "Word equations (OMML)" choice does, instead of the MathML as text (Jerry). Still not asked for braille.
 ' Version: 2.2  Date: 10/18/2026 - the book's own pictures (the <img> pictures) have their aspect ratio locked in the picture loop, as the EQ pictures already are (Jerry), so a later resize keeps their shape. Large print and braille alike
@@ -34513,24 +34523,22 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     mathPrefix = Sh_MathML_Prefix(fileContent)
 
     If mathPrefix <> "#" Then
-        If Sh_GP_String_2 = "BRL" Then
-            ' Braille gets Word equations, the same as large print's "Word equations (OMML)"
-            ' (Jerry, 10/20/2026). It had the MathML as text, for DBT, from 10/18/2026.
-            ' Not asked: there is nothing to choose.
-            mathMode = "OMML"
-        Else
-            ' Large print: the transcriber chooses Word equations, MathType equations (offered
-            ' only when MathType is installed) or the EQ pictures. Asked only when the book has
-            ' MathML.
-            Sh_GP_String_3 = ""
-            DN_Equations_Form.Show
-            If Sh_GP_String_3 <> "OMML" And Sh_GP_String_3 <> "MATHTYPE" And Sh_GP_String_3 <> "PICTURE" Then
-                Sh_Say "No choice was made about the equations, so the book has not been converted.", _
-                       "VistaType LP (399)"
-                Exit Sub
-            End If
-            mathMode = Sh_GP_String_3
+        ' The transcriber chooses Word equations, MathType equations or the EQ pictures. Asked
+        ' only when the book has MathML, for braille as well as large print (Jerry, 10/22/2026);
+        ' braille has the pictures grayed out, since 398 reads Sh_GP_String_2. MathType chosen
+        ' without MathType installed is asked about on 398 itself (400). Braille went in as Word
+        ' equations unasked from 10/20/2026, and as MathML text from 10/18/2026.
+        Sh_GP_String_3 = ""
+        DN_Equations_Form.Show
+        If Sh_GP_String_3 <> "OMML" And Sh_GP_String_3 <> "MATHTYPE" And Sh_GP_String_3 <> "PICTURE" Then
+            Sh_Say "No choice was made about the equations, so the book has not been converted.", _
+                   "VistaType LP (399)"
+            Exit Sub
         End If
+        mathMode = Sh_GP_String_3
+        ' Let Word redraw where 398 was before the bar goes up. With 400 asked on top of it, 398
+        ' was still drawn on the screen when the bar appeared (Jerry, testing 3.0.600).
+        DoEvents
     End If
 
     ' --- Show the progress box before any real work starts ---
@@ -34782,7 +34790,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     ' walked again; and after the prodnote quotes, the Prodnote color and the red $pg, all of
     ' which work on the text and none of which should meet a Word equation - the quote pass
     ' deletes single characters by position. Before the font and the repaginate, which must still
-    ' follow. Large print: Word equations or the EQ pictures. Braille: Word equations.
+    ' follow. Large print: Word, MathType or the EQ pictures. Braille: Word or MathType (398).
     If mathMode = "MATHTYPE" Then
         ' MathType equations go in with their EQ pictures showing, and MathType then draws every
         ' one (Format Equations) on its own stretch of the bar. If MathType cannot be reached the
@@ -34790,13 +34798,23 @@ Sub Sh_Convert_XML_File_To_Word_Document()
         Sh_Progress_Say 45, "Putting in " & Format(UBound(mathFragments) + 1, "#,##0") & " equations."
         Sh_Spin_DoEvents
         mathNote = Sh_MathML_Put_In(finalDoc, mathFragments, mathPrefix, mathMode, folderPath, 45, 62)
-        Sh_Progress_Say 62, "MathType is drawing the equations - one long step, so the bar waits."
-        Sh_Spin_DoEvents
-        If Not Sh_MathType_Format_Equations(finalDoc) Then
+        If Not Sh_MathType_Is_Installed() Then
+            ' Chosen anyway, on 400: there is nothing here to draw them, so they keep their
+            ' pictures until the book reaches a machine that has MathType.
             If mathNote <> "" Then mathNote = mathNote & vbCr & vbCr
-            mathNote = mathNote & "MathType could not be reached to draw the equations, so each one still " & _
-                       "shows its picture from the book. To finish them, open the MathType tab and " & _
+            mathNote = mathNote & "MathType is not installed on this computer, so the MathType equations " & _
+                       "show their pictures from the book (a blank space where the book has none) and " & _
+                       "cannot be edited here. On a computer with MathType, open the MathType tab and " & _
                        "click Format Equations once."
+        Else
+            Sh_Progress_Say 62, "MathType is drawing the equations - one long step, so the bar waits."
+            Sh_Spin_DoEvents
+            If Not Sh_MathType_Format_Equations(finalDoc) Then
+                If mathNote <> "" Then mathNote = mathNote & vbCr & vbCr
+                mathNote = mathNote & "MathType could not be reached to draw the equations, so each one still " & _
+                           "shows its picture from the book. To finish them, open the MathType tab and " & _
+                           "click Format Equations once."
+            End If
         End If
         Sh_Progress_Show
         Sh_Progress_Say 75, "The equations are in."
@@ -37758,7 +37776,7 @@ Private Function Sh_MathML_Put_In(ByVal targetDoc As Document, ByVal fragments A
     ' Puts every parked equation back, walking FORWARD through the book from placeholder 1, each
     ' search starting where the last insertion ended. mode is "OMML" (Word equations),
     ' "MATHTYPE" (MathType equations, drawn afterwards by Sh_MathType_Format_Equations) or
-    ' "PICTURE" (the altimg pictures); braille comes as "OMML" too. Moves the bar from pctFrom to
+    ' "PICTURE" (the altimg pictures); braille comes as "OMML" or "MATHTYPE". Moves the bar from pctFrom to
     ' pctTo.
     '
     ' Answers "" when every equation went in as asked; otherwise a sentence for the closing
@@ -37925,7 +37943,8 @@ Function Sh_MathType_Is_Installed() As Boolean
     ' Version: 1.0  Date: 10/20/2026
     '
     ' True when MathType's equation object, Equation.DSMT4, is registered on this machine - the
-    ' test DN_Equations_Form uses to offer "MathType equations" at all. Read from the registry,
+    ' test DN_Equations_Form uses to ask (400) before making MathType equations without it, and
+    ' the converter uses to skip Format Equations. Read from the registry,
     ' and it never raises: anything that goes wrong is False. Not Private: the form calls it.
     '   Sh_MathType_Is_Installed()  ->  True on VistaBuild (MathType 7)
 

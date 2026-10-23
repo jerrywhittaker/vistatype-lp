@@ -134,15 +134,47 @@ def test_the_converter_formats_after_the_walk_and_before_the_font(repo_root):
     assert "Fields.Unlink" not in between and "InlineShapes" not in between
 
 
-def test_the_form_offers_mathtype_only_when_installed(repo_root):
+def test_the_form_always_offers_mathtype_and_asks_400_without_it(repo_root):
+    """Jerry, 10/22/2026: "MathType equations" is always on 398. Chosen where MathType is not
+    installed, Okay asks VistaType LP (400) whether to go on; Cancel there leaves 398 up, with no
+    answer given, for another choice."""
     code = "\n".join(form_code(repo_root, "DN_Equations_Form"))
-    assert "If Not Sh_MathType_Is_Installed() Then" in code
-    assert "MathTypeEquations.Visible = False" in code
+    assert "MathTypeEquations.Visible" not in code, "the MathType choice can still be hidden"
     assert 'MathTypeEquations.Accelerator = "M"' in code
-    assert re.search(r'ElseIf MathTypeEquations\.Visible And MathTypeEquations\.Value = True Then\s+'
-                     r'Sh_GP_String_3 = "MATHTYPE"', code)
+    # Same font as the other choices (Jerry, testing 3.0.599: it was smaller).
+    assert "MathTypeEquations.Font.Name = WordEquations.Font.Name" in code
+    assert "MathTypeEquations.Font.Size = WordEquations.Font.Size" in code
+    # MathType first and the default, then Word equations, then the pictures (Jerry, 10/22/2026).
+    init = code[code.index("Private Sub UserForm_Initialize()"):]
+    assert "MathTypeEquations.Value = True" in init and "WordEquations.Value = True" not in init
+    order = [init.index(s) for s in ("MathTypeEquations.Top = topFirst", "WordEquations.Top = topSecond",
+                                     "EquationPictures.Top = topThird")]
+    assert order == sorted(order)
+    assert "MathTypeEquations.TabIndex = 0" in init and "WordEquations.TabIndex = 1" in init
+    assert "EquationPictures.TabIndex = 2" in init
+    okay = code[code.index("Private Sub CmdOkay_Click()"):code.index("Private Sub CmdCancel_Click()")]
+    mt = okay[okay.index("ElseIf MathTypeEquations.Value = True Then"):]
+    ask = mt.index("If Not Sh_MathType_Is_Installed() Then")
+    q = mt.index('Sh_Ask("MathType is not installed on this computer, resulting in an inability "')
+    assert '"Do you wish to continue creating MathType equations?"' in mt
+    assert re.search(r'"VistaType LP \(400\)"\) Then Exit Sub', mt), "No on 400 does not return to 398"
+    answer = mt.index('Sh_GP_String_3 = "MATHTYPE"')
+    assert ask < q < answer
+    assert "MsgBox" not in code
     frx = (repo_root / "src" / "forms" / "DN_Equations_Form.frx").read_bytes().decode("latin-1")
     assert "MathTypeEquations" in frx and "MathType equations" in frx
     # W, P, O and C are taken by the other four controls; M is the new one's.
     for other in ("WordEquations", "EquationPictures", "CmdOkay", "CmdCancel"):
         assert f'{other}.Accelerator = "M"' not in code
+
+
+def test_without_mathtype_the_converter_does_not_try_to_draw(repo_root):
+    """MathType equations made on a machine without MathType are not handed to Format Equations;
+    313 says they show their pictures and cannot be edited here."""
+    text = "\n".join(_procs(repo_root)[CONVERTER])
+    walk = text.index("Sh_MathML_Put_In(finalDoc, mathFragments, mathPrefix, mathMode, folderPath, 45, 62)")
+    check = text.index("If Not Sh_MathType_Is_Installed() Then", walk)
+    fmt = text.index("If Not Sh_MathType_Format_Equations(finalDoc) Then")
+    assert walk < check < fmt
+    note = text[check:fmt]
+    assert "MathType is not installed on this computer" in note and "Else" in note

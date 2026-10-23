@@ -303,9 +303,17 @@ somewhere else on purpose:
               went in as their pictures instead.
         - [ ] LP user form **Equations (398)**, EQ pictures: each equation comes in as its EQ
               picture, embedded (the book still shows them after the book folder is renamed).
-        - [ ] LP user form **Equations (398)** on a machine with MathType: a third choice,
-              "MathType equations" (Alt+M), sits under the other two. On a machine without
-              MathType it is not there and the box is its old size.
+        - [ ] LP user form **Equations (398)**: "MathType equations" (Alt+M) is always there,
+              under the other two, whether or not MathType is installed.
+        - [ ] Braille, on a book with MathML: LP user form **Large Print or Braille (325)**, choose
+              braille, then LP user form **Equations (398)** appears with "Pictures of the
+              equations" grayed out.
+        - [ ] On a machine WITHOUT MathType, LP user form **Equations (398)**, MathType equations,
+              Okay: LP message **VistaType LP (400)** asks whether to go on. Cancel (and Esc, and
+              the red X) comes back to 398 for another choice. Okay goes on: the equations show
+              their pictures, and LP message **Operation Complete (313)** says MathType is not
+              installed and they cannot be edited on this computer. Do it for large print and for
+              braille.
         - [ ] LP user form **Equations (398)**, MathType equations (Section D, 470 equations):
               each comes in as a MathType equation (double-click opens it in MathType), MathType
               redraws them all near the end of the bar, and LP message **Operation Complete (313)**

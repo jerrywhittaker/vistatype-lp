@@ -77,27 +77,40 @@ def test_no_omit_branch(repo_root):
     assert "BreakLink" in body, "the converter no longer embeds the pictures"
 
 
-def test_math_question_only_for_large_print_and_only_with_mathml(repo_root):
+def test_math_question_only_with_mathml_for_both_outputs(repo_root):
+    """Jerry, 10/22/2026: Equations (398) is asked for braille as well as large print, whenever
+    the book has MathML - no longer inside a large print branch."""
     lines = _converter(repo_root)
     found = _first(lines, r'mathPrefix = Sh_MathML_Prefix\(fileContent\)')
     has = _first(lines, r'If mathPrefix <> "#" Then')
-    brl = _first(lines, r'If Sh_GP_String_2 = "BRL" Then')
     ask = _first(lines, r"DN_Equations_Form\.Show")
-    assert found < has < brl < ask, "the equation question is not inside 'has MathML' and 'not braille'"
-    assert any(re.match(r"\s*Else\s*$", l) for l in lines[brl:ask]), (
-        "the equation question is not in the large print branch")
+    assert found < has < ask, "the equation question is not inside 'has MathML'"
+    between = "\n".join(lines[has:ask])
+    assert "Sh_GP_String_2" not in between, "the equation question still depends on 325's answer"
     assert sum("DN_Equations_Form.Show" in l for l in lines) == 1
 
 
-def test_braille_gets_word_equations(repo_root):
-    """Jerry, 10/20/2026: a braille conversion puts the equations in as Word equations, the same
-    mode large print's "Word equations (OMML)" uses - not the MathML text, and not asked."""
+def test_braille_grays_out_the_pictures(repo_root):
+    """Jerry, 10/22/2026: on a braille conversion 398 has "Pictures of the equations" grayed out,
+    and a grayed-out choice can never be the answer."""
+    code = "\n".join(form_code(repo_root, "DN_Equations_Form"))
+    init = code[code.index("Private Sub UserForm_Initialize()"):]
+    assert re.search(r'If Sh_GP_String_2 = "BRL" Then EquationPictures\.Enabled = False', init)
+    assert re.search(r'If EquationPictures\.Value = True And EquationPictures\.Enabled Then\s+'
+                     r'Sh_GP_String_3 = "PICTURE"', code)
     lines = _converter(repo_root)
-    brl = _first(lines, r'If Sh_GP_String_2 = "BRL" Then')
-    ask = _first(lines, r"DN_Equations_Form\.Show")
-    branch = "\n".join(lines[brl:ask])
-    assert re.search(r'mathMode = "OMML"', branch), "braille does not get Word equations"
     assert 'mathMode = "BRL"' not in "\n".join(lines), "braille still gets the MathML as text"
+
+
+def test_398_is_gone_from_the_screen_before_the_bar(repo_root):
+    """Jerry, testing 3.0.600: after "yes" on 400, the bar appeared with 398 still drawn. Word
+    gets a DoEvents to redraw between the answer and the bar."""
+    lines = _converter(repo_root)
+    ask = _first(lines, r"DN_Equations_Form\.Show")
+    answer = _first(lines, r"mathMode = Sh_GP_String_3")
+    bar = _first(lines, r"Sh_Progress_Open")
+    assert ask < answer < bar
+    assert any(re.match(r"\s*DoEvents\s*$", l) for l in lines[answer:bar])
 
 
 def test_398_says_the_book_has_equations(repo_root):
