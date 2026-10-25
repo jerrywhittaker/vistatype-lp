@@ -18,7 +18,17 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - DN  - 10/22/2026 - BRAILLE EQUATIONS IN TIMES NEW ROMAN 12 (Jerry): MathType's Format
+' Notes:    - DN  - 10/25/2026 - EMPTY PAGE NUMBERS IN A DAISY BOOK MADE FROM AN EPUB (Jerry):
+'           - DN  - 10/25/2026 - Convert DAISY/NIMAS to Word tagged none of the 345 page numbers
+'           - DN  - 10/25/2026 - of Bookshare's "Basic Math & Pre-Algebra For Dummies". Each is an
+'           - DN  - 10/25/2026 - empty <pagenum ... id="pagenum_0000163" />, the number only in the
+'           - DN  - 10/25/2026 - id, and the converter read the number from the text. A second pass,
+'           - DN  - 10/25/2026 - for DAISY and NIMAS alike, tags the empty ones from the digits at
+'           - DN  - 10/25/2026 - the end of the id, leading zeros dropped ($pg163), or $pg? when the
+'           - DN  - 10/25/2026 - id has no digits or they are all zeros, for the user to fill in.
+'           - DN  - 10/25/2026 - The text patterns are unchanged. New: Sh_Tag_Empty_Pagenums, called
+'           - DN  - 10/25/2026 - from Sh_Convert_XML_File_To_Word_Document.
+'           - DN  - 10/22/2026 - BRAILLE EQUATIONS IN TIMES NEW ROMAN 12 (Jerry): MathType's Format
 '           - DN  - 10/22/2026 - Equations used the transcriber's own MathType settings, set for large
 '           - DN  - 10/22/2026 - print on Jerry's PC, for braille books too. A braille book now gets
 '           - DN  - 10/22/2026 - MathType's factory settings (Sh_MathType_Braille_Prefs), handed over
@@ -34406,6 +34416,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
 '
 ' Automatically converts an .xml (NIMAS or DAISY) file into a Word Document with reference pages tagged with $pg
 '
+' Version: 2.7  Date: 10/25/2026 - EMPTY <pagenum> ELEMENTS ARE TAGGED (Jerry): a DAISY book made from an EPUB writes each page number as <pagenum ... id="pagenum_0000163" />, the number only in the id, and none were tagged. A second pass, for DAISY and NIMAS alike, tags the empty ones from the digits at the end of the id, $pg163, or $pg? when the id has none or they are all zeros (Sh_Tag_Empty_Pagenums). The two patterns that read the number from the text are unchanged
 ' Version: 2.6  Date: 10/22/2026 - a braille book's MathType equations are formatted in MathType's standard Times New Roman 12 point, never the transcriber's own (large print) MathType settings; the bar says "formatting", not "drawing", the equations (Jerry)
 ' Version: 2.5  Date: 10/22/2026 - Equations (398) is asked for braille too, with the pictures grayed out, and always offers "MathType equations" (Jerry). Chosen without MathType installed, 398 asks VistaType LP (400) whether to go on, and Cancel there returns to 398; going on, the equations are made but not drawn (Format Equations is skipped), and 313 says they show their pictures and cannot be edited on this computer. A DoEvents after 398 lets Word redraw before the bar goes up
 ' Version: 2.4  Date: 10/20/2026 - MATHTYPE EQUATIONS (Jerry's plan, Steps 3 and 4): box 398 offers "MathType equations" when MathType is installed; each equation goes in as a MathType equation made from its MathML, falling back to a Word equation and then its picture (counted in 313), and MathType's Format Equations then draws them all on its own stretch of the bar. If MathType cannot be reached, the conversion carries on and 313 tells the user to click Format Equations once on the MathType tab
@@ -34590,7 +34601,14 @@ Sub Sh_Convert_XML_File_To_Word_Document()
         reTag.Pattern = ">([0-9A-z-]{1,}</pagenum>)"
         fileContent = reTag.Replace(fileContent, "<p>$pg$1<p></p>")
     End If
-    
+
+    ' A DAISY book made from an EPUB writes every page number as an EMPTY element, its number
+    ' only in the id - <pagenum page="normal" id="pagenum_0000163" ... /> - so the patterns
+    ' above, which read the number from the text, tagged none of them (Jerry, 10/25/2026). A
+    ' second pass, for DAISY and NIMAS alike, tags only the empty ones; the ones above have
+    ' already been handled and are not empty.
+    fileContent = Sh_Tag_Empty_Pagenums(fileContent)
+
     Sh_Progress_Show
 
     ' Start it turning. Showing the form does not: without this the spinner flag stays False
@@ -38202,6 +38220,60 @@ Function Sh_Tag_Prodnotes_As_Prodnote_Style(ByVal src As String) As String
     ReDim Preserve parts(0 To n)
     Sh_Tag_Prodnotes_As_Prodnote_Style = Join(parts, "")
 End Function   '*** end of Sh_Tag_Prodnotes_As_Prodnote_Style function ***
+
+Function Sh_Tag_Empty_Pagenums(ByVal xml As String) As String
+'
+' Tags the EMPTY <pagenum> elements of a DAISY or NIMAS book with $pg, for
+' Sh_Convert_XML_File_To_Word_Document, which runs it after its own two patterns.
+'
+' A DAISY book made from an EPUB (Bookshare's "Basic Math & Pre-Algebra For Dummies", 345 of
+' them) writes every page number as an element with nothing in it, the number only in its id:
+'   <pagenum epub:type="pagebreak" page="normal" id="pagenum_0000163" smilref="...#pagenum_0000163" />
+' The converter's patterns read the number from the TEXT, >163</pagenum>, so not one was tagged.
+' Measured in that book: the id comes before or after page="normal", the number is padded to
+' 5, 6 or 7 digits, one id is just "p", and two are all zeros.
+'
+' Only an empty element is matched - self-closing, or <pagenum ...></pagenum> with nothing but
+' white space between. One the converter has already tagged has text in it (and has lost the
+' ">" of its opening tag), so it can never match here.
+'
+' The number is the run of digits at the END of the id, leading zeros dropped: pagenum_0000163
+' is $pg163. With no id, an id that does not end in digits, or digits that are all zeros, the
+' tag is $pg? so the user can find the place and put the number in by hand.
+'
+' THE SHAPE LEFT BEHIND is exactly what the converter's DAISY pattern leaves: the opening tag
+' without its closing ">", then <p>$pg163<p></p></pagenum><p></p>. A tagged empty element and
+' a tagged full one are then the same characters, so Word's HTML import treats them the same
+' way and nothing downstream has to know which kind the book had. A $pg that lands in the
+' middle of a sentence (32 of them in that book sit after a </span>) is given its own line by
+' File Cleanup's Sh_Para_Before_Dollar, the same as a mid-sentence one from the patterns.
+'
+' "$" IN THE REPLACEMENTS: VBScript's RegExp gives a meaning only to $ followed by a digit, &,
+' `, ' or another $. So $pg and $pg? go through as written - the converter's own patterns have
+' always relied on $p staying literal - and $2 and $1 are the captured groups.
+'
+' Version: 1.0  Date: 10/25/2026 - Jerry
+'
+    ' The end of an empty element: />, or > then white space then </pagenum>. The attributes are
+    ' matched lazily so the white space before /> is not kept in the tag.
+    Const EMPTY_END As String = "\s*(?:/>|>\s*</pagenum>)"
+
+    Dim re As Object
+    Set re = CreateObject("VBScript.RegExp")
+    re.Global = True
+    re.IgnoreCase = False
+
+    ' 1. An id ending in a number that is not all zeros. $1 is the opening tag up to its last
+    '    attribute; $2 is the number without its leading zeros.
+    re.Pattern = "(<pagenum\b[^>]*?\sid=""[^""]*?0*([1-9][0-9]*)""[^>]*?)" & EMPTY_END
+    xml = re.Replace(xml, "$1<p>$pg$2<p></p></pagenum><p></p>")
+
+    ' 2. Every empty one left: no id, no number at the end of it, or all zeros.
+    re.Pattern = "(<pagenum\b[^>]*?)" & EMPTY_END
+    xml = re.Replace(xml, "$1<p>$pg?<p></p></pagenum><p></p>")
+
+    Sh_Tag_Empty_Pagenums = xml
+End Function   '*** end of Sh_Tag_Empty_Pagenums function ***
 
 Function Sh_Strip_Prodnote_Enclosing_Quotes(ByVal targetDoc As Document) As Long
 '

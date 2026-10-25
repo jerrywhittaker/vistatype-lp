@@ -94,6 +94,10 @@ Public Sub VtRunAllTests()
     Set Suite = TestMTEF_Suite()
     Reporter.ListenTo Suite
 
+    Reporter.Trace "building Empty page number elements (DAISY from EPUB)"
+    Set Suite = TestEmptyPagenums_Suite()
+    Reporter.ListenTo Suite
+
     Reporter.Finish
     Exit Sub
 
