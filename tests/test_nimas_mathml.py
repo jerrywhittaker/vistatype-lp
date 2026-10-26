@@ -42,7 +42,9 @@ HELPERS = ("Sh_MathML_Namespace", "Sh_MathML_Prefix", "Sh_MathML_Pattern", "Sh_M
            # the speed fix, 10/18/2026
            "Sh_MathML_Placeholder_Positions",
            # brackets MML2OMML.XSL split, issue #38, 10/20/2026
-           "Sh_MathML_Wrap_Fences", "Sh_MathML_Wrap_Fences_In")
+           "Sh_MathML_Wrap_Fences", "Sh_MathML_Wrap_Fences_In",
+           # equations hidden in comments, issue #40, 10/25/2026
+           "Sh_MathML_Uncomment")
 
 
 def _procs(repo_root):
@@ -148,7 +150,8 @@ def test_cancel_stops_with_a_message(repo_root):
 
 def test_the_equations_are_parked_and_put_back(repo_root):
     lines = _converter(repo_root)
-    park = _first(lines, r"Sh_MathML_To_Placeholders\(fileContent, mathPrefix\)")
+    # parked from the import text, its hidden equations brought out of their comments (issue #40)
+    park = _first(lines, r"Sh_MathML_To_Placeholders\(importText, mathPrefix\)")
     imp = _first(lines, r"InsertFile fileName:=importPath")
     pics = _first(lines, r"Next shp")
     back = _first(lines, r"Sh_MathML_Put_In\(finalDoc, mathFragments, mathPrefix, mathMode, folderPath")

@@ -18,7 +18,24 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - DN  - 10/25/2026 - EMPTY PAGE NUMBERS IN A DAISY BOOK MADE FROM AN EPUB (Jerry):
+' Notes:    - DN  - 10/25/2026 - EQUATIONS HIDDEN IN COMMENTS (issue #40): Bookshare's "Basic Math &
+'           - DN  - 10/25/2026 - Pre-Algebra For Dummies" puts each equation's MathML in a comment after
+'           - DN  - 10/25/2026 - the book's picture of it, and Word's import drops comments, so none of its
+'           - DN  - 10/25/2026 - 1,861 equations went in. Sh_MathML_Uncomment brings each one out of its
+'           - DN  - 10/25/2026 - comment, the picture before it becoming its altimg, so the picture goes in
+'           - DN  - 10/25/2026 - only where the equation cannot (Jerry). Sh_MathML_With_Namespace takes off a
+'           - DN  - 10/25/2026 - stray xmlns1:m="...", which MSXML refused on four of them. Every other
+'           - DN  - 10/25/2026 - comment is taken out of the import file too (review), so no math left in one
+'           - DN  - 10/25/2026 - is counted or parked and then lost with it.
+'           - DN  - 10/25/2026 - BLACK BOOK BEHIND "FORMATTING THE EQUATIONS" (issue #39): with MathType
+'           - DN  - 10/25/2026 - equations chosen and a blank Document1 open, Word showed Document2, the converted book, with
+'           - DN  - 10/25/2026 - its document area black when the bar reached "MathType is formatting the equations".
+'           - DN  - 10/25/2026 - Sh_MathType_Format_Equations brings the book forward (Format Equations works only on
+'           - DN  - 10/25/2026 - ActiveDocument) while the screen is off, and Word does not paint a window brought forward
+'           - DN  - 10/25/2026 - that way. A refresh after the Activate, with the screen still off, did not cure it
+'           - DN  - 10/25/2026 - (still black on 3.0.608, Jerry). The screen is now switched on and refreshed just
+'           - DN  - 10/25/2026 - before Format Equations, which switches it off itself. Not yet seen on screen.
+'           - DN  - 10/25/2026 - EMPTY PAGE NUMBERS IN A DAISY BOOK MADE FROM AN EPUB (Jerry):
 '           - DN  - 10/25/2026 - Convert DAISY/NIMAS to Word tagged none of the 345 page numbers
 '           - DN  - 10/25/2026 - of Bookshare's "Basic Math & Pre-Algebra For Dummies". Each is an
 '           - DN  - 10/25/2026 - empty <pagenum ... id="pagenum_0000163" />, the number only in the
@@ -34416,6 +34433,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
 '
 ' Automatically converts an .xml (NIMAS or DAISY) file into a Word Document with reference pages tagged with $pg
 '
+' Version: 2.8  Date: 10/25/2026 - EQUATIONS HIDDEN IN COMMENTS (issue #40, Jerry): a DAISY book made from an EPUB puts each equation's MathML inside an XML comment straight after the book's picture of it, and the importer drops comments, so no equation went in with any choice on Equations (398), while the bar said 1,861 and 313 said to search for VTEQ. The import file now has each one brought out of its comment, with the picture before it made its altimg and taken out of the text (Sh_MathML_Uncomment): the picture goes in only where the equation cannot. Every other comment is taken out of the import file too, so no math left inside one is counted or parked. The .txt and .html beside the book are unchanged
 ' Version: 2.7  Date: 10/25/2026 - EMPTY <pagenum> ELEMENTS ARE TAGGED (Jerry): a DAISY book made from an EPUB writes each page number as <pagenum ... id="pagenum_0000163" />, the number only in the id, and none were tagged. A second pass, for DAISY and NIMAS alike, tags the empty ones from the digits at the end of the id, $pg163, or $pg? when the id has none or they are all zeros (Sh_Tag_Empty_Pagenums). The two patterns that read the number from the text are unchanged
 ' Version: 2.6  Date: 10/22/2026 - a braille book's MathType equations are formatted in MathType's standard Times New Roman 12 point, never the transcriber's own (large print) MathType settings; the bar says "formatting", not "drawing", the equations (Jerry)
 ' Version: 2.5  Date: 10/22/2026 - Equations (398) is asked for braille too, with the pictures grayed out, and always offers "MathType equations" (Jerry). Chosen without MathType installed, 398 asks VistaType LP (400) whether to go on, and Cancel there returns to 398; going on, the equations are made but not drawn (Format Equations is skipped), and 313 says they show their pictures and cannot be edited on this computer. A DoEvents after 398 lets Word redraw before the bar goes up
@@ -34654,12 +34672,22 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     ' VTEQnnnnnn placeholder, because the importer would drop it (issue #37). A file of its own,
     ' so the .txt and .html beside the book keep their MathML exactly as before; it is deleted
     ' once the import is done. A book with no MathML imports the .html, as it always has.
+    '
+    ' A book may hide its equations in comments, each straight after the book's own picture of it -
+    ' <img src="images/eq01036.png" .../> <!--<m:math ...>...</m:math>--> - and the importer drops
+    ' comments, placeholder and all (issue #40). Sh_MathML_Uncomment brings each one out first and
+    ' makes that picture its altimg, so the picture goes in only where the equation cannot (Jerry,
+    ' 10/25/2026). Every other comment goes too, so no math is counted or parked inside one. The
+    ' import file only: the .txt and .html beside the book are as written above, and the book's
+    ' MathML prefix and 398 were read from fileContent before this.
     importPath = htmlPath
     If mathMode <> "" Then
-        mathFragments = Sh_MathML_Fragments(fileContent, mathPrefix)
+        Dim importText As String
+        importText = Sh_MathML_Uncomment(fileContent, mathPrefix)
+        mathFragments = Sh_MathML_Fragments(importText, mathPrefix)
         importPath = folderPath & "~VistaType-import.html"
         outStream.Open
-        outStream.WriteText Sh_MathML_To_Placeholders(fileContent, mathPrefix)
+        outStream.WriteText Sh_MathML_To_Placeholders(importText, mathPrefix)
         outStream.SaveToFile importPath, 2
         outStream.Close
     End If
@@ -35304,6 +35332,102 @@ Private Function Sh_MathML_To_Placeholders(ByVal xml As String, ByVal prefix As 
     Sh_MathML_To_Placeholders = Join(parts, "")
 End Function   '*** end of Sh_MathML_To_Placeholders function ***
 
+Private Function Sh_MathML_Uncomment(ByVal xml As String, ByVal prefix As String) As String
+    '
+    ' Version: 1.1  Date: 10/25/2026 - every other comment is taken out as well (review): math left
+    '                                inside one was still counted and parked, and its placeholder
+    '                                then went with the comment - "Putting in" counted an equation
+    '                                that never arrived, and 313 sent the user looking for a VTEQ
+    '                                that was not there. Word's import drops comments anyway
+    ' Version: 1.0  Date: 10/25/2026
+    '
+    ' Issue #40. A DAISY book made from an EPUB (Bookshare's "Basic Math & Pre-Algebra For
+    ' Dummies", all 1,861 equations) writes each equation as the book's picture of it with the
+    ' MathML after it in a COMMENT:
+    '   <img src="images/eq01036.png" alt="5 times 2" ... />
+    '   <!--<m:math xmlns:m="..."><m:mrow>...</m:mrow></m:math>-->
+    ' Sh_MathML_To_Placeholders parked the math and left <!--VTEQ000001-->, and Word's importer
+    ' drops comments, so not one equation went in. Jerry, 10/25/2026: the equations are wanted,
+    ' and the picture only where the equation cannot go in.
+    '
+    ' So each comment that holds one math element and nothing else (white space aside) is taken
+    ' away and the math left in its place. When the book's picture is straight before it (white
+    ' space between, nothing else), the picture is taken out too and its src becomes the math's
+    ' altimg - so the converter's own fallback puts that picture in only where the equation fails,
+    ' and MathType shows it until Format Equations draws the equation. An altimg is read from the
+    ' book folder as the <base href> reads an <img src>, so both name the same file.
+    '   <img src="images/eq1.png" /> <!--<m:math><m:mn>5</m:mn></m:math>-->
+    '       ->  <m:math altimg="images/eq1.png"><m:mn>5</m:mn></m:math>
+    '   <p>x</p><!-- <m:math><m:mn>5</m:mn></m:math> -->  ->  <p>x</p><m:math><m:mn>5</m:mn></m:math>
+    ' Every OTHER comment is taken out - anything else, two math elements, another prefix - since
+    ' the import would drop it anyway, and math left inside one would be counted and parked for
+    ' nothing. So the text this hands back has no comments at all. Math that already has an altimg
+    ' keeps it, and the picture before it stays; so does a picture with no src, or one on the web
+    ' or in a data: URI. Only the import text comes here; the .txt and .html keep every comment.
+
+    Dim re As Object, ms As Object, m As Object, one As Object, mm As Object
+    Dim i As Long, pos As Long
+    Dim parts() As String
+    Dim imgTag As String, gap As String, mathml As String, src As String, q As String
+    Dim tagName As String
+
+    Set re = CreateObject("VBScript.RegExp")
+    re.Global = True
+    re.IgnoreCase = False
+    ' Every comment, with the <img .../> straight before it if there is one. A comment ends at the
+    ' first "-->"; a quoted value in the img tag is taken whole.
+    re.Pattern = "(?:(<img(?=[\s>/])(?:""[^""]*""|'[^']*'|[^'"">])*>)(\s*))?<!--([\s\S]*?)-->"
+    Set ms = re.Execute(xml)
+    If ms.count = 0 Then
+        Sh_MathML_Uncomment = xml
+        Exit Function
+    End If
+
+    ' What a comment must hold to be brought out: one math element, nothing else.
+    Set one = CreateObject("VBScript.RegExp")
+    one.Global = False
+    one.IgnoreCase = False
+    one.Pattern = "^\s*(" & Sh_MathML_Pattern(prefix) & ")\s*$"
+    tagName = "<" & prefix & "math"
+
+    ' Built as pieces and joined once, as Sh_MathML_To_Placeholders does: 1,861 in a 3 MB book.
+    ReDim parts(0 To 2 * ms.count)
+    pos = 1
+    For i = 0 To ms.count - 1
+        Set m = ms(i)
+        parts(2 * i) = Mid$(xml, pos, m.FirstIndex + 1 - pos)
+        imgTag = m.SubMatches(0) & ""
+        gap = m.SubMatches(1) & ""
+        parts(2 * i + 1) = imgTag & gap        ' the comment goes; the picture before it stays
+        mathml = ""
+        If one.Test(m.SubMatches(2) & "") Then
+            Set mm = one.Execute(m.SubMatches(2) & "")
+            mathml = mm(0).SubMatches(0) & ""
+            ' Two math elements in one comment would read as one; that comment just goes.
+            If InStr(2, mathml, tagName) > 0 Then mathml = ""
+        End If
+
+        If mathml <> "" Then
+            src = ""
+            If imgTag <> "" And Sh_MathML_Altimg(mathml) = "" Then
+                src = Sh_Xml_Attribute(imgTag, "src")
+                If InStr(1, src, "://") > 0 Or LCase$(Left$(Trim$(src), 5)) = "data:" Then src = ""
+            End If
+            If src <> "" Then
+                q = """"
+                If InStr(1, src, """") > 0 Then q = "'"
+                parts(2 * i + 1) = tagName & " altimg=" & q & src & q & Mid$(mathml, Len(tagName) + 1)
+            Else
+                parts(2 * i + 1) = imgTag & gap & mathml
+            End If
+        End If
+        pos = m.FirstIndex + 1 + m.Length
+    Next i
+    parts(2 * ms.count) = Mid$(xml, pos)
+
+    Sh_MathML_Uncomment = Join(parts, "")
+End Function   '*** end of Sh_MathML_Uncomment function ***
+
 Private Function Sh_MathML_Altimg(ByVal fragment As String) As String
     '
     ' Version: 1.1  Date: 10/18/2026 - reads the start tag respecting quoted values. The pattern
@@ -35648,6 +35772,11 @@ End Function   '*** end of Sh_MathML_Picture_Path function ***
 
 Private Function Sh_MathML_With_Namespace(ByVal fragment As String, ByVal prefix As String) As String
     '
+    ' Version: 1.2  Date: 10/25/2026 - a stray xmlns1:m="..." (xmlns, digits, a colon) is taken off
+    '                                the opening tag first. Four equations of Bookshare's "Basic
+    '                                Math & Pre-Algebra For Dummies" carry one, and MSXML refused
+    '                                them: "Reference to undeclared namespace prefix: 'xmlns1'"
+    '                                (issue #40, measured on VistaBuild)
     ' Version: 1.1  Date: 10/18/2026 - the opening tag is read respecting quoted values, and the
     '                                declaration is looked for as an attribute: a ">" or an
     '                                "xmlns:m=" written inside alttext no longer misleads it
@@ -35676,6 +35805,22 @@ Private Function Sh_MathML_With_Namespace(ByVal fragment As String, ByVal prefix
 
     gt = Sh_Xml_Start_Tag_Length(fragment)
     If gt = 0 Then gt = Len(fragment)
+
+    ' xmlns1:m="..." is not a declaration at all to MSXML but an attribute in a namespace
+    ' "xmlns1" that nothing declares, so the equation will not load (issue #40). Taken off the
+    ' opening tag only:
+    '   <m:math xmlns1:m="http://www.w3.org/1998/Math/MathML">  ->  <m:math>, then declared below
+    Dim re As Object
+    Set re = CreateObject("VBScript.RegExp")
+    re.Global = True
+    re.IgnoreCase = False
+    re.Pattern = "\s+xmlns[0-9]+:[A-Za-z_][A-Za-z0-9_]*\s*=\s*(?:""[^""]*""|'[^']*')"
+    If re.Test(Left$(fragment, gt)) Then
+        fragment = re.Replace(Left$(fragment, gt), "") & Mid$(fragment, gt + 1)
+        gt = Sh_Xml_Start_Tag_Length(fragment)
+        If gt = 0 Then gt = Len(fragment)
+    End If
+
     If Sh_Xml_Attribute(Left$(fragment, gt), declName) <> "" Then
         Sh_MathML_With_Namespace = fragment
         Exit Function
@@ -37989,6 +38134,13 @@ End Function   '*** end of Sh_MathType_Is_Installed function ***
 Private Function Sh_MathType_Format_Equations(ByVal targetDoc As Document, _
                                               ByVal forBraille As Boolean) As Boolean
     '
+    ' Version: 1.4  Date: 10/25/2026 - the screen is switched on, and refreshed, just before Format
+    '                                Equations, which switches it off itself: 1.3's refresh with the
+    '                                screen off did not paint the book - still black on 3.0.608,
+    '                                measured by Jerry (issue #39)
+    ' Version: 1.3  Date: 10/25/2026 - Application.ScreenRefresh straight after targetDoc.Activate: with
+    '                                the screen off, the book came forward unpainted and its document
+    '                                area showed black behind the bar (issue #39)
     ' Version: 1.2  Date: 10/22/2026 - forBraille: a braille book is formatted with MathType's factory
     '                                settings, Times New Roman 12 point (Sh_MathType_Braille_Prefs),
     '                                handed over in the book's "MTPreferences" property (source 1)
@@ -38014,6 +38166,11 @@ Private Function Sh_MathType_Format_Equations(ByVal targetDoc As Document, _
     Dim connected As Boolean, r As Long, eqCount As Long, source As Long
 
     On Error GoTo Failed
+    ' Format Equations works only on ActiveDocument, so the book must be brought forward - but
+    ' the screen is switched off here, and Word does not repaint a window brought forward with
+    ' ScreenUpdating off. The book has never been drawn since Documents.Add, so it showed with
+    ' its document area BLACK behind the bar at "formatting the equations" (issue #39). The
+    ' screen is switched on to paint it just before Format Equations, below.
     targetDoc.Activate
     targetDoc.Range(0, 0).Select
     r = Sh_MT_InitAPI(0, 30)
@@ -38029,6 +38186,13 @@ Private Function Sh_MathType_Format_Equations(ByVal targetDoc As Document, _
             Type:=msoPropertyTypeString, Value:=Sh_MathType_Braille_Prefs()
         source = 1
     End If
+    ' The screen goes ON here so Word paints the book: Application.ScreenRefresh with the screen
+    ' still off did not paint it - the book stayed black and MathType drew its equation outlines
+    ' on the black (measured by Jerry on 3.0.608, 10/25/2026). Format Equations switches the
+    ' screen off itself as it starts. On here, not straight after the Activate, so the early
+    ' exits above still leave the screen off for the font pass and the repaginate.
+    Application.ScreenUpdating = True
+    Application.ScreenRefresh
     Application.Run "MTFormatEquations.DoFormatEquations", False, source, "", False, False, eqCount
     If forBraille Then Sh_MathType_Drop_Prefs targetDoc
     ' MathType's Format Equations ends by switching the screen back on; the font pass and the

@@ -98,6 +98,10 @@ Public Sub VtRunAllTests()
     Set Suite = TestEmptyPagenums_Suite()
     Reporter.ListenTo Suite
 
+    Reporter.Trace "building Equations hidden in comments (DAISY from EPUB)"
+    Set Suite = TestMathMLComments_Suite()
+    Reporter.ListenTo Suite
+
     Reporter.Finish
     Exit Sub
 
