@@ -149,14 +149,16 @@ def test_the_package_is_step_zeros_markup(repo_root):
     assert "r.InsertXML Sh_MathType_Package(Sh_Base64(ole)" in put
 
 
-def test_the_converter_formats_after_the_walk_and_before_the_font(repo_root):
+def test_the_converter_formats_after_the_walk_and_after_the_font(repo_root):
+    # Format Equations came before the font pass until 10/27/2026; it now runs after the font
+    # pass, the repaginate and the save (issue #42 - see test_mathtype_format_after_save.py).
     lines = _procs(repo_root)[CONVERTER]
     text = "\n".join(lines)
     assert 'If Sh_GP_String_3 <> "OMML" And Sh_GP_String_3 <> "MATHTYPE" And Sh_GP_String_3 <> "PICTURE" Then' in text
     walk = text.index("Sh_MathML_Put_In(finalDoc, mathFragments, mathPrefix, mathMode, folderPath, 45, 62)")
     fmt = text.index('If Not Sh_MathType_Format_Equations(finalDoc, (Sh_GP_String_2 = "BRL")) Then')
     font = text.index("Sh_Set_Whole_Document_Font doc")
-    assert walk < fmt < font
+    assert walk < font < fmt
     # A failure is told in 313, not stopped on.
     note = text[fmt:fmt + 600]
     assert "Format Equations once" in note and "MathType tab" in note

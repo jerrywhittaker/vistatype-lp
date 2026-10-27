@@ -109,3 +109,54 @@ def test_the_split_needs_a_bullet_after_the_break(repo_root):
     assert "ChrW(&H25A0)" in body and "ChrW(&H2022)" in body, (
         "Lp_TOC_Break_Ends_Entry must split only before a bullet - a wrapped heading such as "
         "'Unit 1<line break>Place Value and Numbers' must stay one paragraph")
+
+
+def counting_loop(lines):
+    """The lines of the bold count: from 'boldCount = 0' up to where Lp_TOC_Bold_Marks_Headings
+    is asked."""
+    start = first_line(lines, r"^\s*boldCount\s*=\s*0\b", "The bold count no longer starts at boldCount = 0")
+    asked = first_line(lines, r"=\s*Lp_TOC_Bold_Marks_Headings\(",
+                       "Format the TOC must ask Lp_TOC_Bold_Marks_Headings")
+    assert start < asked
+    return lines[start:asked]
+
+
+def test_a_bold_line_with_its_own_page_number_can_be_an_entry(repo_root):
+    """Issue #45, 10/27/2026, "Write Source": every page number in the contents page is bold, so
+    104 wholly bold section lines ("Ideas 21") were headings - no tab, no leader, no TOC 1. Jerry:
+    they are entries. The heading test must ask Lp_TOC_Bold_Line_Is_Entry, with the number counts
+    and whether the line ends in a page number, read the same way the count reads it."""
+    _, stmt = heading_decision(the_macro(repo_root)[ROOT_SUB])
+    assert re.search(
+        r"And\s+Not\s+Lp_TOC_Bold_Line_Is_Entry\(\s*numberBoldCount\s*,\s*numberPlainCount\s*,\s*"
+        r"Lp_TOC_Line_Ends_In_Page_Number\(\s*Lp_TOC_Count_Text\(\s*paraText\s*\)\s*\)\s*\)",
+        stmt), (
+        "A wholly bold line that ends in a page number must not be a heading when the other "
+        "entries' numbers are bold - the heading test must ask Lp_TOC_Bold_Line_Is_Entry")
+
+
+def test_the_numbers_are_counted_on_the_lines_that_are_not_wholly_bold(repo_root):
+    loop = counting_loop(the_macro(repo_root)[ROOT_SUB])
+    plain = first_line(loop, r"^\s*plainCount\s*=\s*plainCount\s*\+\s*1",
+                       "The bold count no longer counts plainCount")
+    asked = first_line(loop, r"\bLp_TOC_Number_Is_Bold\(\s*para\.Range\s*\)",
+                       "The bold count must ask Lp_TOC_Number_Is_Bold of each line")
+    assert plain < asked, (
+        "The page numbers must be counted in the branch for lines that are NOT wholly bold - a "
+        "bold section line's own number is what the count must not lean on")
+    body = "\n".join(loop)
+    assert re.search(r"numberBoldCount\s*=\s*numberBoldCount\s*\+\s*1", body)
+    assert re.search(r"numberPlainCount\s*=\s*numberPlainCount\s*\+\s*1", body)
+    lines = the_macro(repo_root)[ROOT_SUB]
+    start = first_line(lines, r"^\s*boldCount\s*=\s*0\b", "boldCount = 0")
+    for name in ("numberBoldCount", "numberPlainCount"):
+        assert any(re.search(rf"^\s*{name}\s*=\s*0\b", c) for c in lines[start:start + 6]), (
+            f"{name} must start at 0 beside boldCount")
+
+
+def test_the_number_test_trims_the_tail_by_character(repo_root):
+    body = "\n".join(the_macro(repo_root)["Lp_TOC_Number_Is_Bold"])
+    assert re.search(r"MoveEnd\s+Unit:=wdCharacter\s*,\s*Count:=-1", body), (
+        "Lp_TOC_Number_Is_Bold must take the paragraph mark off by CHARACTER, as "
+        "Lp_TOC_Para_Is_Bold does - in a table cell the paragraph and cell marks are one character")
+    assert "On Error GoTo" in body, "Lp_TOC_Number_Is_Bold must answer False when Word cannot tell"

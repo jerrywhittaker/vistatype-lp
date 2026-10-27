@@ -18,6 +18,21 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - DN  - 10/27/2026 - THE BOOK IS SAVED BEFORE MATHTYPE FORMATS THE EQUATIONS (issue #42,
+'           - DN  - 10/27/2026 - Jerry): MathType's whole-book Format Equations sometimes crashes Word in
+'           - DN  - 10/27/2026 - MT6.DLL or hangs it, and the book was still an unsaved Document2, so the
+'           - DN  - 10/27/2026 - whole conversion was lost. Now the font pass and repaginate, then box 401
+'           - DN  - 10/27/2026 - (new, in place of 295, says the formatting comes after the save and what
+'           - DN  - 10/27/2026 - to do if Word stops), then the Save As, then Format Equations, a second
+'           - DN  - 10/27/2026 - repaginate and a plain save. A crash or hang now costs only the
+'           - DN  - 10/27/2026 - formatting. A mitigation, not a cure: what crashes MathType is unknown.
+' Notes:    - LP  - 10/27/2026 - FORMAT TOC: A BOLD SECTION LINE WITH ITS OWN PAGE NUMBER GETS ITS TAB, LEADER
+'           - LP  - 10/27/2026 - AND TOC 1 (issue #45, Jerry, "Write Source"). Every entry's page number was
+'           - LP  - 10/27/2026 - bold, so bold marked the headings and 104 wholly bold section lines ("Ideas
+'           - LP  - 10/27/2026 - 21") were left Normal with no tab. The count now also asks whether the other
+'           - LP  - 10/27/2026 - entries' page numbers are bold (Lp_TOC_Number_Is_Bold); when most are, a bold
+'           - LP  - 10/27/2026 - line ending in a page number is an entry (Lp_TOC_Bold_Line_Is_Entry). A bold
+'           - LP  - 10/27/2026 - line with no page number stays a heading.
 ' Notes:    - LP  - 10/27/2026 - FORMAT TOC LEFT THE ORIGINAL UNDERNEATH (issue #44, Jerry, 3.0.612):
 '           - LP  - 10/27/2026 - Word 16.0.20527 no longer REPLACES on a FormattedText assignment onto a range
 '           - LP  - 10/27/2026 - that holds text - it puts the new text in front and leaves the old. New
@@ -27309,6 +27324,46 @@ NotBold:
     Lp_TOC_Para_Is_Bold = False
 End Function
 
+Private Function Lp_TOC_Number_Is_Bold(ByVal paraRange As Range) As Boolean
+    '
+    ' True when the LAST visible character of the paragraph - its page number, on a line that ends
+    ' in one - is bold. Feeds the count Lp_TOC_Bold_Line_Is_Entry decides from (issue #45).
+    '
+    ' The tail is trimmed the way Lp_TOC_Para_Is_Bold trims it, for the same reasons: the
+    ' paragraph mark (and the end-of-cell mark with it, by CHARACTER), then trailing spaces and
+    ' non-breaking spaces, each of which carries formatting of its own. Only the last character is
+    ' asked: a page number is set as one run, and a line that ends in one has a digit or a roman
+    ' numeral there.
+    '
+    ' Version: 1.0  Date: 10/27/2026 - new.
+    '
+    Dim r As Range
+    Dim ch As String
+    Dim lastEnd As Long
+
+    On Error GoTo NotBold
+
+    Set r = paraRange.Duplicate
+    r.MoveEnd Unit:=wdCharacter, Count:=-1
+    Do While r.End > r.start
+        ch = r.Characters.Last.Text
+        If ch <> " " And ch <> Chr(160) Then Exit Do
+        lastEnd = r.End
+        r.MoveEnd Unit:=wdCharacter, Count:=-1
+        ' The no-progress guard Lp_TOC_Para_Is_Bold carries, and for the same reason.
+        If r.End >= lastEnd Then Exit Do
+    Loop
+
+    If r.start >= r.End Then Exit Function      ' nothing but the trimmings
+
+    Lp_TOC_Number_Is_Bold = (r.Characters.Last.Font.Bold = True)
+    Exit Function
+
+NotBold:
+    ' Could not tell. False counts the number as plain, which leans toward the rule as it stood.
+    Lp_TOC_Number_Is_Bold = False
+End Function
+
 ' A PAGE NUMBER STANDING ALONE ON ITS OWN LINE IS PULLED UP ONTO THE LINE ABOVE.
 '
 ' Jerry, 9/17/2026, reporting "Problem TOC.docx" - a NIMAS contents page in which the entry text
@@ -27576,6 +27631,39 @@ Private Function Lp_TOC_Bold_Marks_Headings(ByVal boldCount As Long, ByVal plain
         Lp_TOC_Bold_Marks_Headings = True
     Else
         Lp_TOC_Bold_Marks_Headings = (boldCount < plainCount)
+    End If
+End Function
+
+' IS A WHOLLY BOLD LINE THAT ENDS IN A PAGE NUMBER AN ENTRY AFTER ALL? Asked of each wholly bold
+' line once Lp_TOC_Bold_Marks_Headings has said bold marks a heading on this contents page.
+'
+' Jerry's "TOC Problem - Sections with pg numberrs.docx" ("Write Source"), 10/27/2026, issue #45:
+' EVERY entry's page number is bold. 104 section lines are bold from end to end, number and all -
+' "Ideas 21", "Writing a Descriptive Paragraph 44" - and 229 lines under them have a plain or
+' part-bold title and a bold number. 104 against 229, so bold marked the headings, and all 104
+' section lines were left Normal with no tab and no leader. Bold on a section line's number said
+' nothing there: every number in the book is bold.
+'
+' So the numbers are counted as well, over the lines that are NOT wholly bold: numberBoldCount
+' whose page number is bold, numberPlainCount whose page number is plain. When more are bold than
+' plain, a wholly bold line that ends in a page number is an entry - it gets its tab, its dot
+' leader and TOC 1 like the lines under it. Jerry, 10/27/2026: nothing extra to keep, no bold
+' and no blank line. A bold line with no page number ("The Writing Process") stays a heading.
+'
+' "Table of Contents with Bold.docx" (9/7/2026) is untouched: its entries' numbers are plain, so
+' its bold "Section 1" and "Section 2" stay headings. Not covered, and not seen: a book whose
+' entries' numbers are bold AND whose bold headings end in a number - or in a word read as a
+' roman numeral, "Part II" (see Lp_TOC_Page_Number_Pattern). Those would now be entries.
+'
+' Version: 1.0  Date: 10/27/2026 - new.
+'
+Private Function Lp_TOC_Bold_Line_Is_Entry(ByVal numberBoldCount As Long, _
+                                           ByVal numberPlainCount As Long, _
+                                           ByVal endsInPageNumber As Boolean) As Boolean
+    If Not endsInPageNumber Then
+        Lp_TOC_Bold_Line_Is_Entry = False
+    Else
+        Lp_TOC_Bold_Line_Is_Entry = (numberBoldCount > numberPlainCount)
     End If
 End Function
 
@@ -27928,6 +28016,14 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     ' into a tab, un-bolds the number, applies TOC 1, and lays a tab in front of the "pn" in each
     ' Print Pg Num paragraph.
     '
+    ' Version: 3.6  Date: 10/27/2026 - A BOLD SECTION LINE WITH ITS OWN PAGE NUMBER IS AN ENTRY when
+    '                                the other entries' page numbers are bold too (issue #45).
+    '                                Jerry's "Write Source": every page number bold, 104 wholly
+    '                                bold section lines ("Ideas 21") left Normal with no tab. The
+    '                                bold count now also counts the numbers of the lines that are
+    '                                not wholly bold, and Lp_TOC_Bold_Line_Is_Entry decides. Jerry,
+    '                                10/27/2026: they get the leader and TOC 1 like the lines
+    '                                under them. A bold line with no page number stays a heading.
     ' Version: 3.5  Date: 10/27/2026 - THE ORIGINAL TOC WAS LEFT UNDER THE FORMATTED ONE (issue #44).
     '                                Jerry, 10/27/2026: "missing the page numbers which appear
     '                                below the bold items" - they were in the leftover original.
@@ -28145,6 +28241,8 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     Dim boldCount As Long
     Dim plainCount As Long
     Dim boldMarksHeadings As Boolean
+    Dim numberBoldCount As Long
+    Dim numberPlainCount As Long
     Dim spaceBeforePn As Boolean
 
     ' A SELECTION INSIDE A TABLE IS REFUSED, not attempted. Lp_Table_Tools shows this dialog
@@ -28396,6 +28494,8 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     ' are plain, still has its bold "Section 1" read as a heading.
     boldCount = 0
     plainCount = 0
+    numberBoldCount = 0
+    numberPlainCount = 0
     '
     ' The text is read through Lp_TOC_Count_Text, so a line whose number sits behind a tab or a
     ' dot leader, or has a space after it, is counted too - see the note there. A $pg line and a
@@ -28410,6 +28510,14 @@ Sub Lp_TOC_CleanAndFormat_TOC()
                 boldCount = boldCount + 1
             Else
                 plainCount = plainCount + 1
+                ' AND IS ITS PAGE NUMBER BOLD? (issue #45) Asked only of the lines that are not
+                ' wholly bold - the entries, if bold marks the headings - see
+                ' Lp_TOC_Bold_Line_Is_Entry.
+                If Lp_TOC_Number_Is_Bold(para.Range) Then
+                    numberBoldCount = numberBoldCount + 1
+                Else
+                    numberPlainCount = numberPlainCount + 1
+                End If
             End If
         End If
     Next para
@@ -28421,6 +28529,8 @@ Sub Lp_TOC_CleanAndFormat_TOC()
         paraNo = paraNo + 1
         paraText = para.Range.Text
         isHeading(paraNo) = boldMarksHeadings And Lp_TOC_Para_Is_Bold(para.Range) _
+                            And Not Lp_TOC_Bold_Line_Is_Entry(numberBoldCount, numberPlainCount, _
+                                    Lp_TOC_Line_Ends_In_Page_Number(Lp_TOC_Count_Text(paraText))) _
                             And InStr(paraText, "..") = 0 _
                             And InStr(paraText, vbTab) = 0 _
                             And Not Lp_TOC_Line_Is_Link_Entry(paraText, Lp_TOC_Last_Char_Color(para.Range))
@@ -34560,6 +34670,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
 '
 ' Automatically converts an .xml (NIMAS or DAISY) file into a Word Document with reference pages tagged with $pg
 '
+' Version: 3.0  Date: 10/27/2026 - THE BOOK IS SAVED BEFORE MATHTYPE FORMATS THE EQUATIONS (issue #42, Jerry): MathType's whole-book Format Equations sometimes crashes Word in MT6.DLL or hangs it, and it ran while the book was still an unsaved Document2, so the whole conversion was lost. With MathType equations chosen and MathType installed, the font pass and the repaginate now come first, box 401 (in place of 295) says the book is saved before the formatting and what to do if Word stops during it, the Save As follows, and then Format Equations runs, with a second repaginate and a plain save after it. Background pagination and live spelling and grammar stay off until after Format Equations, as before. A declined Save As still formats, unsaved. Every other path is unchanged
 ' Version: 2.9  Date: 10/27/2026 - TABLES OF EQUATIONS TAKEN APART (issue #43, Jerry): a table that holds an equation is taken apart in the import file, after Sh_MathML_Uncomment and before the equations are counted and parked (Sh_MathML_Untable). Every cell's content, words included, becomes a paragraph of its own in reading order, row by row and left to right; an empty cell gives nothing, a caption comes first, and the table is gone. Tables with no equation are not touched. Large print and braille alike. The .txt and .html beside the book are unchanged
 ' Version: 2.8  Date: 10/25/2026 - EQUATIONS HIDDEN IN COMMENTS (issue #40, Jerry): a DAISY book made from an EPUB puts each equation's MathML inside an XML comment straight after the book's picture of it, and the importer drops comments, so no equation went in with any choice on Equations (398), while the bar said 1,861 and 313 said to search for VTEQ. The import file now has each one brought out of its comment, with the picture before it made its altimg and taken out of the text (Sh_MathML_Uncomment): the picture goes in only where the equation cannot. Every other comment is taken out of the import file too, so no math left inside one is counted or parked. The .txt and .html beside the book are unchanged
 ' Version: 2.7  Date: 10/25/2026 - EMPTY <pagenum> ELEMENTS ARE TAGGED (Jerry): a DAISY book made from an EPUB writes each page number as <pagenum ... id="pagenum_0000163" />, the number only in the id, and none were tagged. A second pass, for DAISY and NIMAS alike, tags the empty ones from the digits at the end of the id, $pg163, or $pg? when the id has none or they are all zeros (Sh_Tag_Empty_Pagenums). The two patterns that read the number from the text are unchanged
@@ -34608,6 +34719,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     Dim su_Prev As Boolean, pag_Prev As Boolean, spell_Prev As Boolean, gram_Prev As Boolean
     Dim optsSaved As Boolean
     Dim errNum As Long, errText As String
+    Dim mtFormat As Boolean, saveDeclined As Boolean, saveLine As String
 
     ' EVERY route out of here from this point on goes through ConvertFailed (Jerry, 9/17/2026).
     ' Until today this macro had no handler at all, so a failure anywhere in it reached the
@@ -34981,8 +35093,9 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     ' follow. Large print: Word, MathType or the EQ pictures. Braille: Word or MathType (398).
     If mathMode = "MATHTYPE" Then
         ' MathType equations go in with their EQ pictures showing, and MathType then draws every
-        ' one (Format Equations) on its own stretch of the bar. If MathType cannot be reached the
-        ' conversion carries on, and the closing message (313) says what to do.
+        ' one (Format Equations) on its own stretch of the bar - AFTER the book is saved, at
+        ' FormatTheEquations below (Jerry, 10/27/2026, issue #42). If MathType cannot be reached
+        ' the conversion carries on, and the closing message (313) says what to do.
         Sh_Progress_Say 45, "Putting in " & Format(UBound(mathFragments) + 1, "#,##0") & " equations."
         Sh_Spin_DoEvents
         mathNote = Sh_MathML_Put_In(finalDoc, mathFragments, mathPrefix, mathMode, folderPath, 45, 62)
@@ -34995,19 +35108,14 @@ Sub Sh_Convert_XML_File_To_Word_Document()
                        "cannot be edited here. On a computer with MathType, open the MathType tab and " & _
                        "click Format Equations once."
         Else
-            Sh_Progress_Say 62, "MathType is formatting the equations - one long step, so the bar waits."
-            Sh_Spin_DoEvents
-            ' Braille gets MathType's standard Times New Roman 12 point, not the transcriber's own
-            ' MathType settings, which may be set for large print (Jerry, 10/22/2026).
-            If Not Sh_MathType_Format_Equations(finalDoc, (Sh_GP_String_2 = "BRL")) Then
-                If mathNote <> "" Then mathNote = mathNote & vbCr & vbCr
-                mathNote = mathNote & "MathType could not be reached to format the equations, so each one still " & _
-                           "shows its picture from the book. To finish them, open the MathType tab and " & _
-                           "click Format Equations once."
-            End If
+            ' Format Equations is NOT run here. It is the step that can take Word down - a crash
+            ' in MathType's MT6.DLL on about half the whole-book runs of a 1,358-equation book,
+            ' or a hang (issue #42) - and here the book is still an unsaved Document2, so the
+            ' whole conversion went with it. It runs after the save, at FormatTheEquations.
+            mtFormat = True
         End If
         Sh_Progress_Show
-        Sh_Progress_Say 75, "The equations are in."
+        Sh_Progress_Say IIf(mtFormat, 62, 75), "The equations are in."
     ElseIf mathMode <> "" Then
         Sh_Progress_Say 45, "Putting in " & Format(UBound(mathFragments) + 1, "#,##0") & " equations."
         Sh_Spin_DoEvents
@@ -35063,7 +35171,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     ' match the file on screen, and the document would be left dirty. Color is not touched, so
     ' the red $pg tags and the red prodnotes survive it. (Jerry, 8/5/2026)
     Sh_Progress_Show
-    Sh_Progress_Say 76, "Setting the document font to " & convFont & " 12"
+    Sh_Progress_Say IIf(mtFormat, 63, 76), "Setting the document font to " & convFont & " 12"
     Sh_Spin_DoEvents
     Sh_Set_Whole_Document_Font doc, convFont, 12
 
@@ -35075,7 +35183,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     ' save slower, and the save is already the second longest step on a book with pictures.
 
     Sh_Progress_Show
-    Sh_Progress_Say 78, "Repaginating the document"
+    Sh_Progress_Say IIf(mtFormat, 64, 78), "Repaginating the document"
     Sh_Spin_DoEvents
     Sh_PauseSeconds 0.3   'brief tick so the status form paints
 
@@ -35085,9 +35193,14 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     ' --- Speed: heavy work is done. Restore the background-processing options we silenced.
     ' (Fields.Unlink already made every field static text, so the old Fields.Update pass here
     ' was redundant.) ---
-    Application.Options.CheckGrammarAsYouType = gram_Prev
-    Application.Options.CheckSpellingAsYouType = spell_Prev
-    Application.Options.Pagination = pag_Prev
+    ' NOT YET when MathType still has to format the equations (issue #42). Format Equations has
+    ' always run with these three off, and still does now that it comes after the save; they
+    ' are put back after it, at FormatTheEquations.
+    If Not mtFormat Then
+        Application.Options.CheckGrammarAsYouType = gram_Prev
+        Application.Options.CheckSpellingAsYouType = spell_Prev
+        Application.Options.Pagination = pag_Prev
+    End If
 
     ' And the converted book's own proofing marks, switched off for the import. True rather than
     ' a captured value: this document was made by Documents.Add a few steps ago and never had a
@@ -35116,9 +35229,25 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     currentdoc.Activate         ' Ensure the specific document is active
     Sh_Spin_DoEvents
 
-    MsgBox "Here is the " & Sh_GP_String_1 & " file in Word format." & _
-    vbCrLf & vbCrLf & "All reference page numbers have been tagged with $pg tags ready for validation." & _
-    vbCrLf & vbCrLf & "The document has been stabilized and will now be saved as a Word document with a .docx file type.", vbInformation, "VistaType LP (295)"
+    If mtFormat Then
+        ' Box 295's words, plus the order of what follows (Jerry, 10/27/2026, issue #42): the user
+        ' must know the book is saved BEFORE MathType formats the equations, how long that can
+        ' take, and what to do if Word stops during it. In place of 295, not after it, so there
+        ' is one box to close before the Save As, not two.
+        Sh_Say "Here is the " & Sh_GP_String_1 & " file in Word format." & vbCr & vbCr & _
+               "All reference page numbers have been tagged with $pg tags ready for validation." & vbCr & vbCr & _
+               "The document has been stabilized and will now be saved as a Word document with a .docx " & _
+               "file type. MathType formats the equations after the save, not before it." & vbCr & vbCr & _
+               "Formatting the equations can take several minutes on a large book. When it is finished, " & _
+               "the book is saved again." & vbCr & vbCr & _
+               "If Word stops or closes while MathType is formatting, the converted book is not lost: " & _
+               "open the saved book, then click Format Equations on the MathType tab.", _
+               "VistaType LP (401)"
+    Else
+        MsgBox "Here is the " & Sh_GP_String_1 & " file in Word format." & _
+        vbCrLf & vbCrLf & "All reference page numbers have been tagged with $pg tags ready for validation." & _
+        vbCrLf & vbCrLf & "The document has been stabilized and will now be saved as a Word document with a .docx file type.", vbInformation, "VistaType LP (295)"
+    End If
 
     ' Force the Word Application and your specific document to the front
     Application.Activate
@@ -35127,8 +35256,14 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     Sh_PauseSeconds 0.5   'brief settle so the Save As dialog receives focus cleanly
 
     Dim dlgSaveAs As Dialog
+    If mtFormat Then
+        saveLine = "Saving the book now, before MathType formats the equations - on a book with many images this is the second longest step, so the bar waits and the spinner turns."
+    Else
+        saveLine = "Saving the document - on a book with many images this is the second longest step, so the bar waits and the spinner turns."
+    End If
 SaveTheFile:
-    ' Now save the stabilized document exactly once.
+    ' Now save the stabilized document exactly once - or, when MathType formats the equations,
+    ' once here before it and once more after it, at FormatTheEquations (issue #42).
     If doc.Path = "" Then
         ' Unnamed document: force the Save As dialog.
         ' Capture ONE dialog object and use it for BOTH .Display and .Execute, so the file
@@ -35141,27 +35276,17 @@ SaveTheFile:
             userChoice = MsgBox( _
                 "You canceled the Save As." & vbCrLf & vbCrLf & _
                 "Continuing without saving may result in an unstable Word document." & vbCrLf & vbCrLf & _
+                IIf(mtFormat, "If Word stops while MathType formats the equations, the converted book will be lost." & vbCrLf & vbCrLf, "") & _
                 "Do you want to reconsider and save this file?", _
                 vbYesNo + vbExclamation, _
                 "Save As Canceled (312)")
 
             If userChoice = vbNo Then
-                Sh_Progress_Close
-
-                ' Leave the CONVERTED BOOK on the screen (Jerry, 9/17/2026). This was the only
-                ' way out of this macro that did not, so declining the save dropped the
-                ' transcriber back onto the blank document Word opened at startup - the
-                ' converted book was still there, just not in front, which reads as the
-                ' conversion having been thrown away. Same three lines the successful path
-                ' uses below, in the same order: the form has to be entirely gone first, or
-                ' Windows hands focus back to it.
-                Application.Activate
-                doc.Activate
-                On Error Resume Next
-                ActiveWindow.View.Type = wdPrintView
-                On Error GoTo ConvertFailed   ' re-arm, do not switch error handling off
-
-                Exit Sub
+                ' Carry on unsaved, as before. When MathType is to format the equations it still
+                ' does, on the unsaved book, as it did when it came before the save (issue #42);
+                ' the way out, unchanged, is just after it.
+                saveDeclined = True
+                GoTo FormatTheEquations
             Else
                 GoTo SaveTheFile
             End If
@@ -35169,7 +35294,7 @@ SaveTheFile:
             ' --- SUCCESSFUL FILE CHOICE ---
             ' 1. Show the non-modal form BEFORE saving
             Sh_Progress_Show
-            Sh_Progress_Say 80, "Saving the document - on a book with many images this is the second longest step, so the bar waits and the spinner turns."
+            Sh_Progress_Say IIf(mtFormat, 65, 80), saveLine
             Sh_Spin_DoEvents
 
             ' 2. Bring the CONVERTED BOOK to the front before executing. Sh_Progress_Show, two
@@ -35192,11 +35317,83 @@ SaveTheFile:
     Else
         ' Named document: save it in place, exactly once.
         Sh_Progress_Show
-        Sh_Progress_Say 80, "Saving the document - on a book with many images this is the second longest step, so the bar waits and the spinner turns."
+        Sh_Progress_Say IIf(mtFormat, 65, 80), saveLine
         Sh_Spin_DoEvents
         Sh_PauseSeconds 0.5   'brief tick so the status form paints
 
         doc.Save
+    End If
+
+FormatTheEquations:
+    ' --- MATHTYPE FORMATS THE EQUATIONS, AFTER THE SAVE (Jerry, 10/27/2026, issue #42) ---
+    ' MathType's whole-book Format Equations sometimes crashes Word in MT6.DLL, and sometimes
+    ' hangs it. It used to run before the save, while the book was still an unsaved Document2,
+    ' so the whole conversion was lost with it. It runs here now, with the book on disk, so a
+    ' crash or a hang costs only the formatting: the user opens the saved book and clicks
+    ' Format Equations on the MathType tab (box 401 said so before the Save As).
+    '
+    ' The font pass and the first repaginate ran before the save and do not depend on it; the
+    ' REPAGINATE IS DONE AGAIN after it, because MathType redraws every equation at its true
+    ' size, which moves line and page breaks. Then a second, plain save - the file on disk
+    ' matches the screen, and the 7/18/2026 rule (stabilize, then save) holds for each save.
+    ' Background pagination and live spelling and grammar stay off through it, as they always
+    ' were for Format Equations, and go back on here.
+    If mtFormat Then
+        Sh_Progress_Show
+        If doc.Path <> "" Then
+            Sh_Progress_Say 66, "The book is saved. MathType is formatting the equations - one long step, so the bar waits."
+        Else
+            Sh_Progress_Say 66, "MathType is formatting the equations - one long step, so the bar waits."
+        End If
+        Sh_Spin_DoEvents
+        ' Braille gets MathType's standard Times New Roman 12 point, not the transcriber's own
+        ' MathType settings, which may be set for large print (Jerry, 10/22/2026).
+        If Not Sh_MathType_Format_Equations(finalDoc, (Sh_GP_String_2 = "BRL")) Then
+            If mathNote <> "" Then mathNote = mathNote & vbCr & vbCr
+            mathNote = mathNote & "MathType could not be reached to format the equations, so each one still " & _
+                       "shows its picture from the book. To finish them, open the MathType tab and " & _
+                       "click Format Equations once."
+        End If
+        Sh_Progress_Show
+        Sh_Progress_Say 94, "The equations are formatted. Repaginating the document."
+        Sh_Spin_DoEvents
+        doc.Repaginate
+        doc.UndoClear
+
+        Application.Options.CheckGrammarAsYouType = gram_Prev
+        Application.Options.CheckSpellingAsYouType = spell_Prev
+        Application.Options.Pagination = pag_Prev
+
+        If doc.Path <> "" Then
+            Sh_Progress_Say 96, "Saving the book again, with the equations formatted."
+            Sh_Spin_DoEvents
+            doc.Save
+        End If
+
+        ' Format Equations leaves the screen off (Sh_MathType_Format_Equations switches it off
+        ' after MathType). Back on and painted before the bar closes and the book comes forward,
+        ' or the closing message sits over a black workspace (version 1.6, 7/22/2026).
+        Application.ScreenUpdating = su_Prev
+        Application.ScreenRefresh
+    End If
+
+    If saveDeclined Then
+        Sh_Progress_Close
+
+        ' Leave the CONVERTED BOOK on the screen (Jerry, 9/17/2026). This was the only
+        ' way out of this macro that did not, so declining the save dropped the
+        ' transcriber back onto the blank document Word opened at startup - the
+        ' converted book was still there, just not in front, which reads as the
+        ' conversion having been thrown away. Same three lines the successful path
+        ' uses below, in the same order: the form has to be entirely gone first, or
+        ' Windows hands focus back to it.
+        Application.Activate
+        doc.Activate
+        On Error Resume Next
+        ActiveWindow.View.Type = wdPrintView
+        On Error GoTo ConvertFailed   ' re-arm, do not switch error handling off
+
+        Exit Sub
     End If
 
     Sh_Progress_Say 100, "Finished."

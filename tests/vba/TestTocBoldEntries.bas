@@ -1,5 +1,6 @@
 Attribute VB_Name = "TestTocBoldEntries"
 '@uses Lp_TOC_Bold_Marks_Headings
+'@uses Lp_TOC_Bold_Line_Is_Entry
 '@uses Lp_TOC_Break_Ends_Entry
 '@uses Lp_TOC_Count_Text
 '
@@ -9,9 +10,14 @@ Attribute VB_Name = "TestTocBoldEntries"
 ' tab, because the page number was not at the end of the paragraph. The counts and lines below
 ' are that file's, and "Table of Contents with Bold.docx"'s.
 '
+' And a contents page where every page number is bold (issue #45, 10/27/2026, "Write Source"):
+' 104 wholly bold section lines carry their own page number - "Ideas 21" - over 229 lines whose
+' numbers are bold too. Those section lines are entries, not headings.
+'
 ' Numbers and strings only: counting the lines off a Range would hang this runner
 ' (tests/vba/README.md).
 '
+' Version: 1.2  Date: 10/27/2026 - a bold line with its own page number, when every number is bold (#45).
 ' Version: 1.1  Date: 9/28/2026 - the break must come before a bullet; the count's reading of a line.
 ' Version: 1.0  Date: 9/28/2026
 '
@@ -38,6 +44,28 @@ Public Function TestTocBoldEntries_Suite() As TestSuite
 
     With Suite.Test("nothing to count keeps the rule as it was")
         .IsOk Lp_TOC_Bold_Marks_Headings(0, 0)
+    End With
+
+    With Suite.Test("a bold line with its own page number is an entry when the other numbers are bold")
+        ' "Write Source", issue #45: 104 wholly bold section lines, 229 others, all 229 of their
+        ' page numbers bold. Jerry, 10/27/2026: the section lines get the leader and TOC 1.
+        .IsOk Lp_TOC_Bold_Marks_Headings(104, 229)
+        .IsOk Lp_TOC_Bold_Line_Is_Entry(229, 0, True)
+        .IsOk Lp_TOC_Bold_Line_Is_Entry(120, 109, True)
+    End With
+
+    With Suite.Test("a bold line with its own page number stays a heading when the other numbers are plain")
+        ' "Table of Contents with Bold.docx", 9/7/2026: "Section 1" and "Section 2" over 40 plain
+        ' entries.
+        .NotOk Lp_TOC_Bold_Line_Is_Entry(0, 40, True)
+        .NotOk Lp_TOC_Bold_Line_Is_Entry(20, 20, True)
+        .NotOk Lp_TOC_Bold_Line_Is_Entry(0, 0, True)
+    End With
+
+    With Suite.Test("a bold line with no page number stays a heading")
+        ' "The Writing Process", a unit name in "Write Source".
+        .NotOk Lp_TOC_Bold_Line_Is_Entry(229, 0, False)
+        .NotOk Lp_TOC_Bold_Line_Is_Entry(0, 40, False)
     End With
 
     With Suite.Test("the count reads a tabbed, leadered or trailing-space line as ending in its number")
