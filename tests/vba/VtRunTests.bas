@@ -102,6 +102,10 @@ Public Sub VtRunAllTests()
     Set Suite = TestMathMLComments_Suite()
     Reporter.ListenTo Suite
 
+    Reporter.Trace "building Tables of equations taken apart (DAISY/NIMAS)"
+    Set Suite = TestMathMLTables_Suite()
+    Reporter.ListenTo Suite
+
     Reporter.Finish
     Exit Sub
 

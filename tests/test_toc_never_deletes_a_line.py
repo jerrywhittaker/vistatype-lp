@@ -19,6 +19,13 @@ and fails if any of them can remove a paragraph:
 What it deliberately does NOT catch: Lp_TOC_Join_Orphan_Page_Numbers writes a TAB over the
 paragraph mark of the line above a page number standing on its own line. That joins two lines
 into one entry and loses no text, and it is intended.
+
+ONE DELETE IS ALLOWED, and only in Lp_TOC_CleanAndFormat_TOC itself: `homeRng.Delete`, on a TOC
+that ends the book, immediately before the formatted TOC is assigned into the same place (issue
+#44, 10/27/2026). Word 16.0.20527 stopped replacing on a FormattedText assignment, so the copy
+home has to take the old TOC out itself. It removes the TOC that is being REPLACED, not a line of
+it - every line comes back in the assignment that follows. COPY_HOME below holds both halves, and
+the allowance stands only while the assignment is there.
 """
 import re
 
@@ -29,6 +36,10 @@ PROC_START = re.compile(
     re.IGNORECASE)
 PROC_END = re.compile(r"^\s*End\s+(Sub|Function)\b", re.IGNORECASE)
 PARA_MARK = re.compile(r"\^p|\^013|\^13\b", re.IGNORECASE)
+
+# The copy home's own delete, and the assignment that must follow it - see the note above.
+COPY_HOME_DELETE = "homeRng.Delete"
+COPY_HOME = "homeRng.FormattedText = bodyRng.FormattedText"
 
 
 def strip_comment(line):
@@ -81,8 +92,12 @@ def line_removers(procs, names):
     found = []
     for name in sorted(names):
         lines = procs[name]
-        for code in lines:
+        stripped = [c.strip() for c in lines]
+        for i, code in enumerate(lines):
             if re.search(r"\.(Delete|Cut)\b", code, re.IGNORECASE):
+                if (name == ROOT_SUB and code.strip() == COPY_HOME_DELETE
+                        and COPY_HOME in stripped[i + 1:]):
+                    continue
                 found.append((name, code.strip()))
             # Lp_TOC_Replace <range>, <find>, <replace>, <wildcards>
             m = re.match(r'\s*Lp_TOC_Replace\s+\w+\s*,\s*"([^"]*)"\s*,\s*"([^"]*)"', code)
@@ -155,6 +170,18 @@ def test_the_checker_catches_a_find_block_that_takes_away_a_paragraph_mark():
     procs = procedures(FIXTURE.replace("    Dim s As String\n", block))
     found = line_removers(procs, reached_from(procs, ROOT_SUB))
     assert [n for n, _ in found] == ["Lp_TOC_Inner"]
+
+
+def test_the_copy_home_delete_is_allowed_only_before_the_copy_home():
+    home = "    homeRng.Delete\n    homeRng.FormattedText = bodyRng.FormattedText\n"
+    procs = procedures(FIXTURE.replace("    Lp_TOC_Helper workRng\n", home))
+    assert line_removers(procs, reached_from(procs, ROOT_SUB)) == []
+    # Without the assignment after it, it is an ordinary delete.
+    procs = procedures(FIXTURE.replace("    Lp_TOC_Helper workRng\n", "    homeRng.Delete\n"))
+    assert line_removers(procs, reached_from(procs, ROOT_SUB)) == [(ROOT_SUB, "homeRng.Delete")]
+    # And in a helper it is not allowed at all.
+    procs = procedures(FIXTURE.replace('s = "it\'s fine"', home.strip()))
+    assert [n for n, _ in line_removers(procs, reached_from(procs, ROOT_SUB))] == ["Lp_TOC_Inner"]
 
 
 def test_a_replace_that_keeps_the_paragraph_mark_is_allowed():

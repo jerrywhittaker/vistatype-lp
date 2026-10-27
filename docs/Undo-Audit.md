@@ -216,6 +216,12 @@ when the TOC ends the book), `Lp_Horz_To_Vert_Hidden` (`:15292`, 1),
 `Lp_Exercise_Levels_Hidden` (`:14612`, 1), `Dx_Exercise_Levels_Hidden` (`:7092`, 1 — **the
 worked example on the braille side**), both Import Exported Selection macros (1 each).
 
+> **10/27/2026, issue #44:** Word 16.0.20527 stopped replacing on a `FormattedText` assignment,
+> so Format TOC, both Exercise Levels and Horizontal to Vertical now put the new text in and
+> then delete the old (`Sh_Replace_With_Formatted_Text`) — **one press more each: 2, 5 when the
+> TOC ends the book, 2, 2, 2.** Inferred from the two edits, not measured. The imports are
+> unchanged; they always inserted at the cursor.
+
 All ten table helpers are reached **only** from inside `Lp_Table_Convert_Hidden`, working on the
 scratch document's table, so none of them touches the book. Dialogs 178 and 200 truthfully say
 two presses.

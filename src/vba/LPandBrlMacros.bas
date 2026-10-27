@@ -18,7 +18,24 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - DN  - 10/26/2026 - PROGRESS BAR OUT OF SIGHT WHILE MATHTYPE FORMATS (Jerry, 3.0.610): once
+' Notes:    - LP  - 10/27/2026 - FORMAT TOC LEFT THE ORIGINAL UNDERNEATH (issue #44, Jerry, 3.0.612):
+'           - LP  - 10/27/2026 - Word 16.0.20527 no longer REPLACES on a FormattedText assignment onto a range
+'           - LP  - 10/27/2026 - that holds text - it puts the new text in front and leaves the old. New
+'           - LP  - 10/27/2026 - Sh_Replace_With_Formatted_Text puts the new text in at the range's start, then
+'           - LP  - 10/27/2026 - deletes the old by position; Format TOC (a TOC ending the book is deleted first
+'           - LP  - 10/27/2026 - and its last paragraph styled while empty), both Exercise Levels and Horizontal
+'           - LP  - 10/27/2026 - to Vertical use it. The hidden document Resize Pictures in a Selected Range
+'           - LP  - 10/27/2026 - reads pictures through is emptied before each one.
+'           - LP  - 10/27/2026 - The TOC box now says Ctrl+Z TWICE (five times when the TOC ends the
+'           - LP  - 10/27/2026 - document) - measured; it said once.
+'           - DN  - 10/27/2026 - TABLES OF EQUATIONS TAKEN APART (issue #43, Jerry): Bookshare's "Basic
+'           - DN  - 10/27/2026 - Math & Pre-Algebra For Dummies" sets equations two to four side by side in
+'           - DN  - 10/27/2026 - one-row tables, and MathType enlarges them for large print so they no
+'           - DN  - 10/27/2026 - longer fit. Sh_MathML_Untable (new) takes apart every table holding an
+'           - DN  - 10/27/2026 - equation before the import: each cell a paragraph of its own, row by row,
+'           - DN  - 10/27/2026 - left to right, words included; empty cells give nothing; a caption comes
+'           - DN  - 10/27/2026 - first. Tables with no equation are untouched. Large print and braille.
+'           - DN  - 10/26/2026 - PROGRESS BAR OUT OF SIGHT WHILE MATHTYPE FORMATS (Jerry, 3.0.610): once
 '           - DN  - 10/26/2026 - the converted book came forward for Format Equations, the bar could not
 '           - DN  - 10/26/2026 - be seen; it showed only when the pointer rested on the blank Document1
 '           - DN  - 10/26/2026 - on the taskbar. Word 365 gives each document its own window and the bar
@@ -8672,6 +8689,10 @@ End Sub  '***** end of Dx_Format_Exercise_Lv_1_and_Lv_2 Macro *****
 ' styles this macro applies - Exercise1, Exercise2, Ex2Nemeth2, DBT Code - resolve exactly as
 ' they do in the transcriber's own book. That is the job Dx_Attach_Same_BANA_Template did.
 '
+' Version: 1.3  Date: 10/27/2026 - the list comes home through Sh_Replace_With_Formatted_Text: Word
+'                                16.0.20527 inserts in front on a FormattedText assignment instead
+'                                of replacing, which would leave the old list under the new one
+'                                (issue #44). Two undo steps now, not one.
 ' Version: 1.2  Date: 10/20/2026 - the MathML is no longer set aside around the passes: braille gets
 '                                Word equations (OMML) now, not MathML text (Jerry)
 ' Version: 1.1  Date: 10/18/2026 - MathML in the list is set aside around the passes (issue #37)
@@ -8739,11 +8760,13 @@ Public Sub Dx_Exercise_Levels_Hidden(ByVal src As Range)
     Sh_Last_Activity = "Exercise levels: restoring the paragraph marks"
     Sh_Set_Trailing_Para_Marks tempDoc, srcTrail
 
-    ' Home in one assignment, which Word records as a single undo step. The scratch document's
-    ' own final paragraph mark is never part of the text and is left behind.
+    ' Home: the new list in, then the old one out - two undo steps since issue #44, when Word
+    ' 16.0.20527 stopped replacing on a FormattedText assignment. See
+    ' Sh_Replace_With_Formatted_Text. The scratch document's own final paragraph mark is never
+    ' part of the text and is left behind.
     Sh_Last_Activity = "Exercise levels: copying the list home"
     Set body = tempDoc.Range(0, tempDoc.Content.End - 1)
-    work.FormattedText = body.FormattedText
+    Sh_Replace_With_Formatted_Text work, body
 
     tempDoc.Close SaveChanges:=wdDoNotSaveChanges
     Set tempDoc = Nothing
@@ -16997,6 +17020,10 @@ End Sub  '***** end of Lp_Format_Exercise_Lv_1_and_Lv_2 Macro *****
 '     any third document open that is a guess. The range this is handed is the range the text
 '     goes back into.
 '
+' Version: 1.1  Date: 10/27/2026 - the list comes home through Sh_Replace_With_Formatted_Text: Word
+'                                16.0.20527 inserts in front on a FormattedText assignment instead
+'                                of replacing, which would leave the old list under the new one
+'                                (issue #44). Two undo steps now, not one.
 ' Version: 1.0  Date: 9/1/2026
 Public Sub Lp_Exercise_Levels_Hidden(ByVal src As Range)
     Dim origDoc As Document
@@ -17058,11 +17085,13 @@ Public Sub Lp_Exercise_Levels_Hidden(ByVal src As Range)
     Sh_Last_Activity = "Exercise levels: restoring the paragraph marks"
     Sh_Set_Trailing_Para_Marks tempDoc, srcTrail
 
-    ' Home in one assignment, which Word records as a single undo step. The scratch document's
-    ' own final paragraph mark is never part of the text and is left behind.
+    ' Home: the new list in, then the old one out - two undo steps since issue #44, when Word
+    ' 16.0.20527 stopped replacing on a FormattedText assignment. See
+    ' Sh_Replace_With_Formatted_Text. The scratch document's own final paragraph mark is never
+    ' part of the text and is left behind.
     Sh_Last_Activity = "Exercise levels: copying the list home"
     Set body = tempDoc.Range(0, tempDoc.Content.End - 1)
-    work.FormattedText = body.FormattedText
+    Sh_Replace_With_Formatted_Text work, body
 
     tempDoc.Close SaveChanges:=wdDoNotSaveChanges
     Set tempDoc = Nothing
@@ -17677,6 +17706,10 @@ End Function
 ' resolve the same way on both sides. That is why this needs no separate braille route: a BANA
 ' document gets a BANA temporary document.
 '
+' Version: 1.1  Date: 10/27/2026 - the list comes home through Sh_Replace_With_Formatted_Text: Word
+'                                16.0.20527 inserts in front on a FormattedText assignment instead
+'                                of replacing, which would leave the old list under the new one
+'                                (issue #44). Two undo steps now, not one.
 ' Version: 1.0  Date: 8/12/2026
 Public Sub Lp_Horz_To_Vert_Hidden(ByVal src As Range, ByVal listKind As String, _
                                   ByVal sortWanted As Boolean)
@@ -17744,10 +17777,12 @@ Public Sub Lp_Horz_To_Vert_Hidden(ByVal src As Range, ByVal listKind As String, 
     ' Put the trailing mark count back to what the selection had - see above.
     Sh_Set_Trailing_Para_Marks tempDoc, srcTrail
 
-    ' Home in one assignment, which Word records as a single undo step. The temporary
-    ' document's own final paragraph mark is never part of the text and is left behind.
+    ' Home: the new list in, then the old one out - two undo steps since issue #44, when Word
+    ' 16.0.20527 stopped replacing on a FormattedText assignment. See
+    ' Sh_Replace_With_Formatted_Text. The temporary document's own final paragraph mark is never
+    ' part of the text and is left behind.
     Set body = tempDoc.Range(0, tempDoc.Content.End - 1)
-    work.FormattedText = body.FormattedText
+    Sh_Replace_With_Formatted_Text work, body
 
     tempDoc.Close SaveChanges:=wdDoNotSaveChanges
     Application.ScreenUpdating = su_Prev
@@ -17862,6 +17897,52 @@ Public Sub Sh_Set_Trailing_Para_Marks(ByVal doc As Document, ByVal wanted As Lon
     Loop While guard < 20
 eom:
 End Sub
+
+' Puts formatted text in the place of what a range in the book holds.
+'
+' WORD 16.0.20527 STOPPED REPLACING (issue #44, measured on the build box 10/27/2026). Assigning
+' FormattedText to a range that holds text used to replace it. From that update it puts the new
+' text IN FRONT and leaves the old text where it was - Format TOC came back with the original TOC
+' still sitting under the formatted one. Assigning to an EMPTY range inserts, on every Word.
+'
+' So the new text goes in at the target's start, and then the old text - now just after it - is
+' deleted. In that order, not delete-first, for two reasons:
+'   * THE LANDING NEVER MOVES. Deleting first leaves the target on whatever FOLLOWED it, and when
+'     that is a table the text lands in the table's first cell (inferred from how Word places a
+'     range at the start of a table - not measured).
+'   * A FAILED ASSIGNMENT LOSES NOTHING. The old text is still there when the caller's error
+'     handler runs.
+' The old text is found by POSITION, not by the live range: which way Word moves a range's bounds
+' when text arrives at its edge is exactly the kind of thing an update changes. StoryLength, not
+' Content.End, so a selection in a text box or a footnote is counted in its own story.
+'
+' Two edits in the book, so Ctrl+Z is two presses where it was one. Never hand it a range that
+' IS a table: assigning over a table fills its cells - Lp_Table_Convert_Hidden deletes the table
+' first for that reason. Errors are left to the caller's own handler.
+'
+' Version: 1.0  Date: 10/27/2026 - new (issue #44).
+Public Sub Sh_Replace_With_Formatted_Text(ByVal target As Range, ByVal source As Range)
+    Dim startAt As Long
+    Dim oldLen As Long
+    Dim added As Long
+    Dim landing As Range
+    Dim oldRng As Range
+
+    startAt = target.start
+    oldLen = target.End - target.start
+
+    Set landing = target.Duplicate
+    landing.Collapse Direction:=wdCollapseStart
+    added = landing.StoryLength
+    landing.FormattedText = source.FormattedText
+    added = landing.StoryLength - added
+
+    If oldLen > 0 Then
+        Set oldRng = target.Duplicate
+        oldRng.SetRange startAt + added, startAt + added + oldLen
+        oldRng.Delete
+    End If
+End Sub   '*** end of Sh_Replace_With_Formatted_Text ***
 
 ' Version: 1.0  Date: 8/12/2026
 Private Sub Lp_Hv_Repl(ByVal doc As Document, ByVal findText As String, ByVal replText As String)
@@ -18534,7 +18615,8 @@ Public Sub Lp_Tocb_Okay(ByVal job As Long)
         Case 1
             Lp_TOC_Format_Ok = False
             Lp_TOC_CleanAndFormat_TOC
-            If Lp_TOC_Format_Ok Then msg = "Press Ctrl+Z once to return to the original TOC."
+            If Lp_TOC_Format_Ok Then msg = "Press Ctrl+Z twice to return to the original TOC " & _
+                "(five times if the TOC ends the document)."
         Case 2
             Lp_TOC_Bars_Applied = False
             Lp_TOC_Color_Bars_Form.Show
@@ -24783,6 +24865,12 @@ End Function   '***** end of Lp_Same_Pic_Is_Picture *****
 ' pick the wrong one, and the part that never did read the picture in row 1, column 1 of Jerry's
 ' table.
 '
+' Version: 3.1  Date: 10/27/2026 - the hidden document is emptied before each picture goes in.
+'                                It is used for every picture in a run, and Word 16.0.20527
+'                                puts FormattedText IN FRONT of what a range holds instead of
+'                                replacing it (issue #44), so from the second picture on it held
+'                                two pictures and the count below called every one unreadable.
+'                                Found by reading, not tested.
 ' Version: 3.0  Date: 9/15/2026 - one way of reading a picture, the hidden document, for every
 '                                picture. Was the paragraph with the hidden document behind it
 ' Version: 2.1  Date: 9/15/2026 - the picture's own range is no longer one of the ways
@@ -24802,6 +24890,8 @@ Private Function Lp_Same_Pic_Data(ByVal s As InlineShape, ByVal reader As Docume
 
     If reader Is Nothing Then Exit Function
 
+    ' Emptied first - it still holds the last picture read (issue #44, see Version 3.1).
+    reader.Content.Delete
     reader.Content.FormattedText = s.Range.FormattedText
     x = reader.Content.WordOpenXML
     If Lp_Same_Pic_Count(x, "pkg:name=""/word/media/") <> 1 Then GoTo unreadable
@@ -27838,6 +27928,15 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     ' into a tab, un-bolds the number, applies TOC 1, and lays a tab in front of the "pn" in each
     ' Print Pg Num paragraph.
     '
+    ' Version: 3.5  Date: 10/27/2026 - THE ORIGINAL TOC WAS LEFT UNDER THE FORMATTED ONE (issue #44).
+    '                                Jerry, 10/27/2026: "missing the page numbers which appear
+    '                                below the bold items" - they were in the leftover original.
+    '                                Word 16.0.20527 puts FormattedText in front of a range that
+    '                                holds text instead of replacing it. The new TOC now goes in
+    '                                and the old one comes out, through
+    '                                Sh_Replace_With_Formatted_Text; a TOC that ends the book is
+    '                                deleted first and its last paragraph styled while empty.
+    '                                One more Ctrl+Z press either way (inferred, not measured).
     ' Version: 3.4  Date: 10/11/2026 - the in-a-table refusal is message 395, not 321 (issue #29):
     '                                Dx_Prompt_Save_Before_Braille had 321 first (9/3/2026), so
     '                                a report of "message 321" could have meant either one.
@@ -28695,13 +28794,14 @@ SkipTab:
 tidy:
     Sh_Last_Activity = "Format TOC: bringing the result back"
 
-    ' HOME, IN ONE ASSIGNMENT - and that is the whole undo. Everything above happened in another
-    ' document, so none of it is in this book's undo stack. Ctrl+Z once.
+    ' HOME, IN TWO EDITS - and that is the whole undo. Everything above happened in another
+    ' document, so none of it is in this book's undo stack.
     '
-    ' Unlike Lp_Table_Convert_Hidden this can be a single step: the landing is paragraphs, not a
-    ' table, so assigning FormattedText over it REPLACES it. Assigning over a range that IS a
-    ' table fills the table's cells instead, which is why that macro has to delete first and costs
-    ' two presses.
+    ' It was ONE assignment over homeRng until 10/27/2026 (issue #44). Word 16.0.20527 stopped
+    ' replacing on a FormattedText assignment: the formatted TOC went in FRONT of the original
+    ' and the original stayed, page numbers on the line below and all - measured on the build box
+    ' on Jerry's "Problem TOC" files, 29 paragraphs became 44. Now the new TOC goes in and the old
+    ' one comes out, as two edits. See Sh_Replace_With_Formatted_Text.
     Set bodyRng = tempDoc.Range(tempDoc.Paragraphs(2).Range.start, tempDoc.Content.End - 1)
 
     ' AN EMPTY BODY IS NEVER ASSIGNED. tidy is also reached by the "every character was junk"
@@ -28716,25 +28816,36 @@ tidy:
         ' after, a heading's space before - has nowhere to travel in. It is carried by hand here.
         ' Never fatal. It costs three more undo presses, so it runs ONLY when the TOC really does
         ' end the book - measured 9/7/2026: one press for an ordinary TOC, four for one that ends
-        ' the book.
+        ' the book (before issue #44 added one to each).
         '
         ' BEFORE THE TEXT COMES HOME, not after (9/28/2026). Setting the style afterwards dropped
         ' the direct bold of the last line's text - "Reference Sheet A25" at the end of "TOC with
-        ' Black Boxes.docx" came out plain. Set first, the style lands on the old last line, which
-        ' the assignment then replaces with text that keeps its own formatting; the paragraph mark
-        ' keeps the style.
-        On Error Resume Next
+        ' Black Boxes.docx" came out plain.
+        '
+        ' DELETE FIRST HERE, and only here (issue #44, 10/27/2026). The old TOC comes out, which
+        ' leaves the book's final paragraph EMPTY; the style goes onto that empty paragraph, where
+        ' there is no text for it to strip; then the new TOC goes in, its last line's text keeping
+        ' its own formatting. Nothing follows the book's final paragraph, so the landing cannot
+        ' move onto a table the way it could in the middle of a book. The style was set before the
+        ' delete until now, on the old last line; which paragraph's formatting Word keeps when a
+        ' run of paragraphs is deleted up to the final mark is not something to depend on.
         If endClipped Then
+            homeRng.Delete
+            homeRng.Collapse Direction:=wdCollapseStart
+
+            On Error Resume Next
             Set paraRange = bodyRng.Paragraphs(bodyRng.Paragraphs.count).Range
             With doc.Paragraphs(doc.Paragraphs.count)
                 .Style = paraRange.Paragraphs(1).Style.NameLocal
                 .SpaceBefore = paraRange.Paragraphs(1).SpaceBefore
                 .SpaceAfter = paraRange.Paragraphs(1).SpaceAfter
             End With
-        End If
-        On Error GoTo eom
+            On Error GoTo eom
 
-        homeRng.FormattedText = bodyRng.FormattedText
+            homeRng.FormattedText = bodyRng.FormattedText
+        Else
+            Sh_Replace_With_Formatted_Text homeRng, bodyRng
+        End If
 
     End If
 
@@ -34449,6 +34560,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
 '
 ' Automatically converts an .xml (NIMAS or DAISY) file into a Word Document with reference pages tagged with $pg
 '
+' Version: 2.9  Date: 10/27/2026 - TABLES OF EQUATIONS TAKEN APART (issue #43, Jerry): a table that holds an equation is taken apart in the import file, after Sh_MathML_Uncomment and before the equations are counted and parked (Sh_MathML_Untable). Every cell's content, words included, becomes a paragraph of its own in reading order, row by row and left to right; an empty cell gives nothing, a caption comes first, and the table is gone. Tables with no equation are not touched. Large print and braille alike. The .txt and .html beside the book are unchanged
 ' Version: 2.8  Date: 10/25/2026 - EQUATIONS HIDDEN IN COMMENTS (issue #40, Jerry): a DAISY book made from an EPUB puts each equation's MathML inside an XML comment straight after the book's picture of it, and the importer drops comments, so no equation went in with any choice on Equations (398), while the bar said 1,861 and 313 said to search for VTEQ. The import file now has each one brought out of its comment, with the picture before it made its altimg and taken out of the text (Sh_MathML_Uncomment): the picture goes in only where the equation cannot. Every other comment is taken out of the import file too, so no math left inside one is counted or parked. The .txt and .html beside the book are unchanged
 ' Version: 2.7  Date: 10/25/2026 - EMPTY <pagenum> ELEMENTS ARE TAGGED (Jerry): a DAISY book made from an EPUB writes each page number as <pagenum ... id="pagenum_0000163" />, the number only in the id, and none were tagged. A second pass, for DAISY and NIMAS alike, tags the empty ones from the digits at the end of the id, $pg163, or $pg? when the id has none or they are all zeros (Sh_Tag_Empty_Pagenums). The two patterns that read the number from the text are unchanged
 ' Version: 2.6  Date: 10/22/2026 - a braille book's MathType equations are formatted in MathType's standard Times New Roman 12 point, never the transcriber's own (large print) MathType settings; the bar says "formatting", not "drawing", the equations (Jerry)
@@ -34696,10 +34808,17 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     ' 10/25/2026). Every other comment goes too, so no math is counted or parked inside one. The
     ' import file only: the .txt and .html beside the book are as written above, and the book's
     ' MathML prefix and 398 were read from fileContent before this.
+    '
+    ' Then every table that holds an equation is taken apart, each cell a paragraph of its own in
+    ' reading order, and the table gone (issue #43, Jerry, 10/27/2026): MathType enlarges the
+    ' equations for large print, so side by side in a table they no longer fit. After the
+    ' uncommenting, so the equations that were hidden in comments are seen; large print and
+    ' braille alike. Tables with no equation are not touched.
     importPath = htmlPath
     If mathMode <> "" Then
         Dim importText As String
         importText = Sh_MathML_Uncomment(fileContent, mathPrefix)
+        importText = Sh_MathML_Untable(importText, mathPrefix)
         mathFragments = Sh_MathML_Fragments(importText, mathPrefix)
         importPath = folderPath & "~VistaType-import.html"
         outStream.Open
@@ -35443,6 +35562,216 @@ Private Function Sh_MathML_Uncomment(ByVal xml As String, ByVal prefix As String
 
     Sh_MathML_Uncomment = Join(parts, "")
 End Function   '*** end of Sh_MathML_Uncomment function ***
+
+Private Function Sh_MathML_Untable(ByVal xml As String, ByVal prefix As String) As String
+    '
+    ' Version: 1.0  Date: 10/27/2026
+    '
+    ' Issue #43, Jerry, 10/27/2026. A table that holds an equation is taken apart before the
+    ' import: every cell's content becomes a paragraph of its own, words included, in reading
+    ' order - row by row, left to right - so words to the right of an equation follow below it.
+    ' An empty cell gives nothing, a caption comes first, and the table is gone. A table with no
+    ' equation is not touched. Why: in large print MathType enlarges the equations, so two or
+    ' three side by side in a table no longer fit; on lines of their own the transcriber can
+    ' arrange them. Bookshare's "Basic Math & Pre-Algebra For Dummies" puts them in one-row
+    ' "Dummies-Mini-Table" tables, two to four to a row:
+    '   <table><tbody><tr><td><p>2 x 4 = 8</p></td><td><p>3 x 5 = 15</p></td></tr></tbody></table>
+    '       ->  <p>2 x 4 = 8</p> <p>3 x 5 = 15</p>
+    '
+    ' Run on the import text after Sh_MathML_Uncomment, which is when an equation hidden in a
+    ' comment after its picture has become a live math element and can be seen here, and before
+    ' the equations are counted and parked. No equation is dropped: only a cell with nothing in
+    ' it but white space and empty tags gives nothing, and a math element or a picture is never
+    ' that. Anything else inside the table but outside its cells - a page number between rows -
+    ' is kept, in its place.
+    '
+    ' Nested tables: a walk over the table tags with a level for each open table, so a table
+    ' inside a cell is settled first, and the one around it then sees the answer. A table around
+    ' an equation table holds an equation too, so it is taken apart as well; a table with no
+    ' equation inside one that is taken apart stays whole, in the paragraphs of its cell. A table
+    ' that never closes leaves the whole text as it was.
+
+    Dim mathRe As Object, re As Object, ms As Object, m As Object
+    Dim i As Long, pos As Long, d As Long, nOut As Long
+    Dim seg As String, tagText As String, tagName As String, rep As String
+    Dim isClose As Boolean, selfClosed As Boolean
+    Dim outParts() As String
+    ' One of each per open table: the table as written so far (inner answers in place), the
+    ' paragraphs so far, its caption, the cell or caption being read, and which of those is open.
+    Dim fWhole() As String, fOut() As String, fCap() As String, fCell() As String
+    Dim fInCell() As Boolean, fInCap() As Boolean
+
+    Sh_MathML_Untable = xml
+
+    Set mathRe = CreateObject("VBScript.RegExp")
+    mathRe.Global = False
+    mathRe.IgnoreCase = False
+    mathRe.Pattern = "<" & prefix & "math(?=[\s>/])"
+    If Not mathRe.Test(xml) Then Exit Function
+
+    ' The table tags only. A quoted value is taken whole; <thead> is not <th>, and MathML's own
+    ' <m:mtd> and <mtd> are not <td>.
+    Set re = CreateObject("VBScript.RegExp")
+    re.Global = True
+    re.IgnoreCase = True
+    re.Pattern = "<(/?)(table|caption|tr|td|th)(?=[\s>/])(?:""[^""]*""|'[^']*'|[^'"">])*>"
+    Set ms = re.Execute(xml)
+    If ms.count = 0 Then Exit Function
+
+    ReDim outParts(0 To ms.count)
+    ReDim fWhole(0 To 4): ReDim fOut(0 To 4): ReDim fCap(0 To 4): ReDim fCell(0 To 4)
+    ReDim fInCell(0 To 4): ReDim fInCap(0 To 4)
+    d = 0
+    nOut = 0
+    pos = 1
+
+    For i = 0 To ms.count - 1
+        Set m = ms(i)
+        seg = Mid$(xml, pos, m.FirstIndex + 1 - pos)
+        tagText = m.Value
+        tagName = LCase$(m.SubMatches(1) & "")
+        isClose = (m.SubMatches(0) & "" = "/")
+        selfClosed = (Right$(tagText, 2) = "/>")
+        pos = m.FirstIndex + 1 + m.Length
+
+        ' The text before this tag goes where the walk is.
+        If d = 0 Then
+            outParts(nOut) = outParts(nOut) & seg
+        Else
+            fWhole(d) = fWhole(d) & seg
+            If fInCell(d) Or fInCap(d) Then
+                fCell(d) = fCell(d) & seg
+            Else
+                fOut(d) = fOut(d) & Sh_MathML_Table_Leftover(seg)
+            End If
+        End If
+
+        If d = 0 And Not (tagName = "table" And Not isClose And Not selfClosed) Then
+            ' outside any table: a stray tag, or an empty <table/>, stays as written
+            outParts(nOut) = outParts(nOut) & tagText
+        ElseIf tagName = "table" And Not isClose And Not selfClosed Then
+            If d = 0 Then nOut = nOut + 1
+            d = d + 1
+            If d > UBound(fWhole) Then
+                ReDim Preserve fWhole(0 To 2 * d): ReDim Preserve fOut(0 To 2 * d)
+                ReDim Preserve fCap(0 To 2 * d): ReDim Preserve fCell(0 To 2 * d)
+                ReDim Preserve fInCell(0 To 2 * d): ReDim Preserve fInCap(0 To 2 * d)
+            End If
+            fWhole(d) = tagText
+            fOut(d) = ""
+            fCap(d) = ""
+            fCell(d) = ""
+            fInCell(d) = False
+            fInCap(d) = False
+        ElseIf tagName = "table" And selfClosed Then
+            ' an empty <table/> inside a table: text like any other
+            fWhole(d) = fWhole(d) & tagText
+            If fInCell(d) Or fInCap(d) Then fCell(d) = fCell(d) & tagText
+        Else
+            ' A cell, row, caption or table closing - or another opening - ends the cell or
+            ' caption being read, so one left open still counts.
+            If fInCell(d) Then fOut(d) = fOut(d) & Sh_MathML_Cell_Paragraph(fCell(d))
+            If fInCap(d) Then fCap(d) = fCap(d) & Sh_MathML_Cell_Paragraph(fCell(d))
+            fInCell(d) = False
+            fInCap(d) = False
+            fCell(d) = ""
+            fWhole(d) = fWhole(d) & tagText
+
+            If tagName = "table" Then
+                ' Closing: taken apart if it holds an equation, else as written.
+                If mathRe.Test(fWhole(d)) Then
+                    rep = fCap(d) & fOut(d)
+                Else
+                    rep = fWhole(d)
+                End If
+                d = d - 1
+                If d = 0 Then
+                    outParts(nOut) = rep
+                    nOut = nOut + 1
+                Else
+                    fWhole(d) = fWhole(d) & rep
+                    If fInCell(d) Or fInCap(d) Then
+                        fCell(d) = fCell(d) & rep
+                    Else
+                        fOut(d) = fOut(d) & rep
+                    End If
+                End If
+            ElseIf Not isClose And Not selfClosed Then
+                If tagName = "td" Or tagName = "th" Then fInCell(d) = True
+                If tagName = "caption" Then fInCap(d) = True
+            End If
+        End If
+    Next i
+
+    ' A table that never closes: the text stays exactly as it was.
+    If d <> 0 Then Exit Function
+
+    outParts(nOut) = outParts(nOut) & Mid$(xml, pos)
+    ReDim Preserve outParts(0 To nOut)
+    Sh_MathML_Untable = Join(outParts, "")
+End Function   '*** end of Sh_MathML_Untable function ***
+
+Private Function Sh_MathML_Cell_Paragraph(ByVal cellText As String) As String
+    '
+    ' Version: 1.0  Date: 10/27/2026
+    '
+    ' Issue #43. What one cell (or caption) of a table being taken apart becomes. Nothing, when
+    ' it holds only white space, no-break spaces and empty tags - no words, no picture, no math.
+    ' Its content as it is, when that is already paragraphs (<p>, a heading, a list, a table
+    ' that stays): the Dummies book writes each cell as one <p>. Otherwise wrapped in a <p>, so
+    ' it is a paragraph of its own. Each ends with a line break, for anyone reading the text.
+
+    Dim re As Object, bare As String
+
+    Set re = CreateObject("VBScript.RegExp")
+    re.Global = True
+    re.IgnoreCase = True
+    re.Pattern = "^\s+|\s+$"
+    cellText = re.Replace(cellText, "")
+
+    ' a picture or a math element, whatever the prefix, is never empty
+    re.Pattern = "<(img|math|[A-Za-z_][A-Za-z0-9_.-]*:math)(?=[\s>/])"
+    If Not re.Test(cellText) Then
+        re.Pattern = "<[^>]*>|&#160;|&#xa0;|&nbsp;|\s"
+        bare = re.Replace(cellText, "")
+        bare = Replace(bare, ChrW(160), "")
+        If bare = "" Then
+            Sh_MathML_Cell_Paragraph = ""
+            Exit Function
+        End If
+    End If
+
+    re.Pattern = "<(p|div|h[1-6]|hd|ul|ol|li|dl|list|blockquote|pre|table|sidebar|imggroup|poem|linegroup|note|level[1-6]?)(?=[\s>/])"
+    If re.Test(cellText) Then
+        Sh_MathML_Cell_Paragraph = cellText & vbLf
+    Else
+        Sh_MathML_Cell_Paragraph = "<p>" & cellText & "</p>" & vbLf
+    End If
+End Function   '*** end of Sh_MathML_Cell_Paragraph function ***
+
+Private Function Sh_MathML_Table_Leftover(ByVal between As String) As String
+    '
+    ' Version: 1.0  Date: 10/27/2026
+    '
+    ' Issue #43. What lies inside a table being taken apart but outside its cells and caption:
+    ' white space and the <thead>, <tbody>, <tfoot>, <colgroup> and <col> tags, which go - and
+    ' anything else, such as a page number between two rows, which is kept as it is.
+
+    Dim re As Object, rest As String
+
+    Set re = CreateObject("VBScript.RegExp")
+    re.Global = True
+    re.IgnoreCase = True
+    re.Pattern = "</?(thead|tbody|tfoot|colgroup|col)(?=[\s>/])(?:""[^""]*""|'[^']*'|[^'"">])*>"
+    rest = re.Replace(between, "")
+    re.Pattern = "^\s+|\s+$"
+    rest = re.Replace(rest, "")
+    If rest = "" Then
+        Sh_MathML_Table_Leftover = ""
+    Else
+        Sh_MathML_Table_Leftover = rest & vbLf
+    End If
+End Function   '*** end of Sh_MathML_Table_Leftover function ***
 
 Private Function Sh_MathML_Altimg(ByVal fragment As String) As String
     '
