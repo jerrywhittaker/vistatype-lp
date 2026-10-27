@@ -11,10 +11,16 @@ repaint a window brought forward with ScreenUpdating off.
 
 The first cure, Application.ScreenRefresh straight after the Activate with the screen still
 off, did NOT paint it: on 3.0.608 the book was still black and MathType drew its equation
-outlines on the black (measured by Jerry, 10/25/2026). The cure now is to switch the screen ON
-and refresh it after the Activate, immediately before the Format Equations call - which
-switches the screen off itself as it starts - and to switch it off again after Format
-Equations, so the font pass and the repaginate still run with the screen off.
+outlines on the black (measured by Jerry, 10/25/2026). The second, switching the screen ON and
+refreshing it immediately before the Format Equations call, painted the book on the build box's
+screen with 94 and 482 equations, but on Jerry's whole book (1,861 equations, 3.0.609) Document2
+was black from the start (Jerry, 10/26/2026). Switching the screen on only asks Word to paint;
+Format Equations switches it off the moment it starts, before Word has processed the paint.
+
+The cure now: the screen ON, then a DoEvents (Sh_Spin_DoEvents, the converter's own yield while
+the bar is up) so Word paints, immediately before the Format Equations call; no ScreenRefresh,
+since the screen going on is what painted it on the build box, with or without one. The screen
+goes off again after Format Equations, so the font pass and the repaginate still run with it off.
 
 The painting itself cannot be tested (it needs Word on a screen), so these are checks on the
 source of Sh_MathType_Format_Equations.
@@ -23,6 +29,7 @@ from test_toc_never_deletes_a_line import module_text, procedures
 
 FUNC = "Sh_MathType_Format_Equations"
 CALL = 'application.run "mtformatequations.doformatequations"'
+DOEVENTS = ("sh_spin_doevents", "doevents")
 
 
 def _statements(repo_root):
@@ -44,15 +51,16 @@ def _activate_and_call(code):
     return acts[0], calls[0]
 
 
-def test_screen_on_and_refreshed_just_before_format_equations(repo_root):
+def test_screen_on_then_doevents_just_before_format_equations(repo_root):
     code = _statements(repo_root)
     _, c = _activate_and_call(code)
     assert c >= 2 and _key(code[c - 2]) == "application.screenupdating = true" \
-        and _key(code[c - 1]) == "application.screenrefresh", (
+        and _key(code[c - 1]) in DOEVENTS, (
         f"{FUNC}: the two statements before Format Equations must be "
-        f"Application.ScreenUpdating = True then Application.ScreenRefresh, or the book stays "
-        f"black behind the bar (issue #39; a refresh with the screen off did not paint it, "
-        f"measured by Jerry on 3.0.608); found {code[max(c - 2, 0):c]!r}")
+        f"Application.ScreenUpdating = True then Sh_Spin_DoEvents, or the book stays black "
+        f"behind the bar (issue #39; a refresh with the screen off did not paint it on 3.0.608, "
+        f"and the screen on without letting Word paint left the whole book black from the start "
+        f"on 3.0.609, both measured by Jerry); found {code[max(c - 2, 0):c]!r}")
 
 
 def test_no_refresh_with_the_screen_off(repo_root):

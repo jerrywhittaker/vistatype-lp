@@ -125,6 +125,28 @@ Private Sh_Timing_Last As Double       ' Timer at the stage before
         (ByVal lpClassName As String, ByVal lpWindowName As String) As Long
 #End If
 
+' Sh_SetOwnerApi, added 10/26/2026 for Sh_Progress_Over: it changes which Word window OWNS the
+' progress bar. Word 365 gives each document a window of its own, and a modeless UserForm belongs
+' to the window that was in front when it was shown - it sits above that window and goes behind
+' any other. GWL_HWNDPARENT (-8) is the slot that holds a top-level window's owner.
+' Three declarations, not two: 64-bit Office has SetWindowLongPtrA, but 32-bit Windows' user32
+' has NO SetWindowLongPtrA at all (it is only a C macro there), so 32-bit Office - which is VBA7
+' too - must name SetWindowLongA, where LongPtr is 4 bytes and matches its LONG exactly. Office
+' before 2010 has no VBA7, no PtrSafe and no LongPtr.
+#If VBA7 Then
+    #If Win64 Then
+        Private Declare PtrSafe Function Sh_SetOwnerApi Lib "user32" Alias "SetWindowLongPtrA" _
+            (ByVal hwnd As LongPtr, ByVal nIndex As Long, ByVal dwNewLong As LongPtr) As LongPtr
+    #Else
+        Private Declare PtrSafe Function Sh_SetOwnerApi Lib "user32" Alias "SetWindowLongA" _
+            (ByVal hwnd As LongPtr, ByVal nIndex As Long, ByVal dwNewLong As LongPtr) As LongPtr
+    #End If
+#Else
+    Private Declare Function Sh_SetOwnerApi Lib "user32" Alias "SetWindowLongA" _
+        (ByVal hwnd As Long, ByVal nIndex As Long, ByVal dwNewLong As Long) As Long
+#End If
+Private Const SH_GWL_HWNDPARENT As Long = -8
+
 ' Show/hide a command bar by name, tolerating bars that don't exist in this Word version
 ' (e.g. the legacy "Styles"/"Navigation" bars raise error 5 in Word 2016+). Non-critical UI.
 Public Sub Sh_SetBarVisible(ByVal barName As String, ByVal vis As Boolean)
@@ -1185,17 +1207,62 @@ End Sub  '*** end of Sh_Progress_Hide ***
 Public Sub Sh_Progress_Show()
 ' Put a hidden bar back on screen. The counterpart to Sh_Progress_Hide; see the note there.
 '
+' Also hands the bar back to the window of the document it was opened over, before bringing that
+' document forward, in case Sh_Progress_Over lent it to another one (the DAISY converter does,
+' for MathType's Format Equations). Otherwise the bar would stay with the other window and
+' vanish behind the document brought forward here. When nothing lent it, the owner is set to the
+' window that already owns it, and nothing changes.
+'
+' Version: 1.1  Date: 10/26/2026 - hands the bar back to its own document's window (Sh_Progress_Over)
 ' Version: 1.0  Date: 9/6/2026
 
     If Not Sh_Progress_Up Then Exit Sub
 
     On Error Resume Next
     Sh_Convert_Progress_Form.Show vbModeless
+    Sh_Progress_Over Sh_Progress_Doc
     Sh_Focus_Document Sh_Progress_Doc
     Err.Clear
     On Error GoTo 0
 
 End Sub  '*** end of Sh_Progress_Show ***
+
+Public Sub Sh_Progress_Over(ByVal d As Document)
+' Keeps the bar in front of document d's window, WITHOUT bringing d forward and without moving
+' the keyboard. Call it BEFORE d is brought forward; the next Sh_Progress_Show gives the bar back
+' to the document it was opened over.
+'
+' Why it is needed: Word 365 gives each document a window of its own, and the bar belongs to the
+' window that was in front when Sh_Progress_Open showed it. It sits above that window and goes
+' BEHIND any other. The DAISY converter opens the bar over the transcriber's own document (the
+' blank Document1, often) and then brings the converted book forward for MathType's Format
+' Equations, which works only on the active document - so for the whole format, about 12 minutes
+' on a big book, the bar was out of sight, showing only when the pointer rested on Document1 on
+' the taskbar (Jerry, 3.0.610, 10/26/2026). Bringing Document1 forward instead would cover the
+' book, which must be in front and painted for MathType (issue #39).
+'
+' The window is changed underneath the form, not the form re-shown: unloading and showing it
+' again would lose the fill, the message and the spinner. The bar's window is found by its title,
+' which Sh_Progress_Open set; the caption is read only while the flag is up, so the form is never
+' loaded by asking.
+'
+' Version: 1.0  Date: 10/26/2026
+#If VBA7 Then
+    Dim bar As LongPtr
+#Else
+    Dim bar As Long
+#End If
+
+    If Not Sh_Progress_Up Then Exit Sub
+    If d Is Nothing Then Exit Sub
+
+    On Error Resume Next
+    bar = Sh_FindWindowApi("ThunderDFrame", Sh_Convert_Progress_Form.Caption)
+    If bar <> 0 Then Sh_SetOwnerApi bar, SH_GWL_HWNDPARENT, d.ActiveWindow.hwnd
+    Err.Clear
+    On Error GoTo 0
+
+End Sub  '*** end of Sh_Progress_Over ***
 
 Public Sub Sh_Progress_Close()
 ' Takes the bar off screen. Unload rather than Hide, so the next Open starts from a fresh form

@@ -18,7 +18,23 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - DN  - 10/25/2026 - EQUATIONS HIDDEN IN COMMENTS (issue #40): Bookshare's "Basic Math &
+' Notes:    - DN  - 10/26/2026 - PROGRESS BAR OUT OF SIGHT WHILE MATHTYPE FORMATS (Jerry, 3.0.610): once
+'           - DN  - 10/26/2026 - the converted book came forward for Format Equations, the bar could not
+'           - DN  - 10/26/2026 - be seen; it showed only when the pointer rested on the blank Document1
+'           - DN  - 10/26/2026 - on the taskbar. Word 365 gives each document its own window and the bar
+'           - DN  - 10/26/2026 - belongs to the one in front when it opened. Sh_Progress_Over (new, in
+'           - DN  - 10/26/2026 - ShNonModalMessage) hands the bar to the book's window just before the book
+'           - DN  - 10/26/2026 - comes forward, and Sh_Progress_Show now hands it back to its own
+'           - DN  - 10/26/2026 - document's window. Document1 is NOT brought forward. Not yet seen on screen.
+'           - DN  - 10/26/2026 - BLACK BOOK BEHIND "FORMATTING THE EQUATIONS", AGAIN (issue #39): the
+'           - DN  - 10/26/2026 - screen-on-and-refresh of 10/25 painted the book on the build box with
+'           - DN  - 10/26/2026 - 94 and 482 equations, but on Jerry's whole book (1,861 equations, 3.0.609)
+'           - DN  - 10/26/2026 - Document2 was black from the start. Switching the screen on only asks Word
+'           - DN  - 10/26/2026 - to paint, and MathType switched it off again before Word got to it.
+'           - DN  - 10/26/2026 - Sh_MathType_Format_Equations now lets Word paint (Sh_Spin_DoEvents)
+'           - DN  - 10/26/2026 - between the screen going on and Format Equations; the ScreenRefresh is
+'           - DN  - 10/26/2026 - gone, since the screen going on is what painted it. Not yet seen on screen.
+'           - DN  - 10/25/2026 - EQUATIONS HIDDEN IN COMMENTS (issue #40): Bookshare's "Basic Math &
 '           - DN  - 10/25/2026 - Pre-Algebra For Dummies" puts each equation's MathML in a comment after
 '           - DN  - 10/25/2026 - the book's picture of it, and Word's import drops comments, so none of its
 '           - DN  - 10/25/2026 - 1,861 equations went in. Sh_MathML_Uncomment brings each one out of its
@@ -38134,6 +38150,16 @@ End Function   '*** end of Sh_MathType_Is_Installed function ***
 Private Function Sh_MathType_Format_Equations(ByVal targetDoc As Document, _
                                               ByVal forBraille As Boolean) As Boolean
     '
+    ' Version: 1.6  Date: 10/26/2026 - the progress bar is handed to the book's window (Sh_Progress_Over)
+    '                                before the book is brought forward, so it stays in front of the
+    '                                book while MathType formats; it was behind the book, seen only
+    '                                over the blank Document1 on the taskbar (Jerry, 3.0.610). The
+    '                                converter's Sh_Progress_Show after this hands it back
+    ' Version: 1.5  Date: 10/26/2026 - a DoEvents (Sh_Spin_DoEvents) straight after the screen goes on,
+    '                                so Word paints the book before MathType switches the screen off
+    '                                again; ScreenRefresh taken out. 1.4 painted the book on the build
+    '                                box's screen with 94 and 482 equations, but on Jerry's whole book
+    '                                (1,861 equations, 3.0.609) it was black from the start (issue #39)
     ' Version: 1.4  Date: 10/25/2026 - the screen is switched on, and refreshed, just before Format
     '                                Equations, which switches it off itself: 1.3's refresh with the
     '                                screen off did not paint the book - still black on 3.0.608,
@@ -38171,6 +38197,13 @@ Private Function Sh_MathType_Format_Equations(ByVal targetDoc As Document, _
     ' ScreenUpdating off. The book has never been drawn since Documents.Add, so it showed with
     ' its document area BLACK behind the bar at "formatting the equations" (issue #39). The
     ' screen is switched on to paint it just before Format Equations, below.
+    ' The bar goes with the book. It belongs to the window that was in front when it was opened
+    ' (the transcriber's own document, often the blank Document1), so the Activate below would
+    ' put it behind the book for the whole of Format Equations - about 12 minutes on a big book
+    ' (Jerry, 3.0.610, 10/26/2026). Handed over BEFORE the Activate, so the book comes forward
+    ' with the bar above it; the converter's Sh_Progress_Show after this function hands it back,
+    ' whichever way this function ends. Nothing here touches the screen.
+    Sh_Progress_Over targetDoc
     targetDoc.Activate
     targetDoc.Range(0, 0).Select
     r = Sh_MT_InitAPI(0, 30)
@@ -38191,8 +38224,14 @@ Private Function Sh_MathType_Format_Equations(ByVal targetDoc As Document, _
     ' on the black (measured by Jerry on 3.0.608, 10/25/2026). Format Equations switches the
     ' screen off itself as it starts. On here, not straight after the Activate, so the early
     ' exits above still leave the screen off for the font pass and the repaginate.
+    ' Switching the screen on only asks Word to paint; the paint happens when Word next gets
+    ' to process its messages. Format Equations switches the screen off the moment it starts,
+    ' so the DoEvents gives Word that chance first: without it the book painted on the build
+    ' box with 94 and 482 equations, but stayed black from the start on Jerry's whole book on
+    ' a busy machine (3.0.609, 10/26/2026). No ScreenRefresh: the screen going on is what
+    ' painted it on the build box's screen, with or without one (10/26/2026, screenshots).
     Application.ScreenUpdating = True
-    Application.ScreenRefresh
+    Sh_Spin_DoEvents
     Application.Run "MTFormatEquations.DoFormatEquations", False, source, "", False, False, eqCount
     If forBraille Then Sh_MathType_Drop_Prefs targetDoc
     ' MathType's Format Equations ends by switching the screen back on; the font pass and the
