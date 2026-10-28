@@ -29,6 +29,13 @@ Private Sub UserForm_Initialize()
 ' The text lives here rather than in the form's binary layout file so that it can be read and
 ' edited as text, in the VBE or in src/forms.
 '
+' Version: 1.3  Date: 10/28/2026 - the note's last lines were hidden below the box (Jerry, 3.0.619,
+'                                "the text is being cut off at the bottom by the button"): measured
+'                                on the build box, the box is 254.4 points high, about 20 lines of
+'                                Tahoma 10.2, and the note needs about 21 to 22 (estimated). The box
+'                                is made 42 points (about 3 lines) taller, and the button and the
+'                                form's bottom move down with it. The Close button gets Alt+C
+'                                (Jerry); it had no Alt key
 ' Version: 1.2  Date: 8/8/2026 - the note now points braille transcribers at Delete Prodnotes on
 '                                their OWN tab (it is on both), and names the group the way the
 '                                ribbon does - "File Cleanup", not "File Cleanup Group". The
@@ -71,6 +78,16 @@ Private Sub UserForm_Initialize()
     ' Put the caret at the start rather than the end, so a note long enough to scroll opens
     ' at its first line.
     Info_Text.selStart = 0
+
+    ' Room for the whole note without scrolling: about 3 lines more than the layout file gives,
+    ' with the button and the form's bottom moved down to match.
+    Info_Text.Height = Info_Text.Height + 42
+    Close_Me.Top = Close_Me.Top + 42
+    Me.Height = Me.Height + 42
+
+    ' Close, with Alt+C (Jerry, 10/28/2026).
+    Close_Me.Caption = "Close"
+    Close_Me.Accelerator = "C"
 
     ' Start the form centered inside the Word window, which also puts it on the right screen
     ' when there are two. Same approach as Sh_Hyperlink_Info_Form.
