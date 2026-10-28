@@ -23,6 +23,8 @@ BOXES = {
                                  + ["FillToRightMargin", "CancelButton", "TextBox1", "SpinButton1"],
     "Lp_Horz_To_Vert_List_Form": ["Cmd_Ok", "Cmd_Cancel", "AscendingOrderCheckbox", "Ordered_List",
                                   "Spaced_List", "TabbedList"],
+    # Stays open only when shown through Sh_Ask_Modeless (box 402, 10/28/2026).
+    "Sh_Message_Form": ["Msg_Text", "Okay_Button", "Cancel_Button"],
 }
 
 
@@ -47,7 +49,7 @@ def test_one_shared_f6_for_every_box(repo_root):
     toggle = "\n".join(sprocs["Sh_Box_ToggleFocus"])
     for who, sub in (("pg", "Sh_PgVal_ToggleFocus"), ("tocb", "Lp_Tocb_ToggleFocus"),
                      ("rst", "Lp_Rst_ToggleFocus"), ("fil", "Lp_Fil_ToggleFocus"),
-                     ("hv", "Lp_Hvb_ToggleFocus")):
+                     ("hv", "Lp_Hvb_ToggleFocus"), ("msg", "Sh_Ask_Modeless_ToggleFocus")):
         assert f'Case "{who}"' in toggle and sub in toggle, f"F6 cannot reach the {who} box"
 
     # Nothing binds F6 on its own any more - every KeyBindings.Add for F6 is in Sh_Box_BindKeys.

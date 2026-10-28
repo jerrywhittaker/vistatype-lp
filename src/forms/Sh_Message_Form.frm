@@ -37,6 +37,9 @@ Attribute VB_Exposed = False
 '
 ' Author: Jerry Whittaker -  jerry@vistatypelp.org
 '
+' Version: 1.1  Date: 10/28/2026 - can also be shown so it STAYS OPEN, through Sh_Ask_Modeless
+'                                 (ShNonModalMessage), for box 402; F6 and Shift+F6 on each
+'                                 control send the keyboard back to the book there
 ' Version: 1.0  Date: 8/23/2026
 
 ' WHAT IT SAYS COMES IN THROUGH FOUR VARIABLES IN LPandBrlMacros - Sh_Msg_Body, Sh_Msg_Title,
@@ -72,6 +75,31 @@ End Sub
 Private Sub Cancel_Button_Click()
     Sh_Msg_Answer = False
     Me.Hide
+End Sub
+
+' F6 AND SHIFT+F6 SEND THE KEYBOARD BACK TO THE BOOK when this is the question Sh_Ask_Modeless
+' keeps open (box 402) - the F6 rule for boxes that stay open (docs/UI-Conventions.md). On a
+' message shown the ordinary, modal way the key does nothing, as before:
+' Sh_Ask_Modeless_KeyToDocument checks which instance is asking. 10/28/2026.
+Private Sub Msg_Text_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    If KeyCode = vbKeyF6 Then
+        KeyCode = 0
+        Sh_Ask_Modeless_KeyToDocument Me
+    End If
+End Sub
+
+Private Sub Okay_Button_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    If KeyCode = vbKeyF6 Then
+        KeyCode = 0
+        Sh_Ask_Modeless_KeyToDocument Me
+    End If
+End Sub
+
+Private Sub Cancel_Button_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    If KeyCode = vbKeyF6 Then
+        KeyCode = 0
+        Sh_Ask_Modeless_KeyToDocument Me
+    End If
 End Sub
 
 Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)

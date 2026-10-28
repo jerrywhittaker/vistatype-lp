@@ -147,6 +147,21 @@ Private Sh_Timing_Last As Double       ' Timer at the stage before
 #End If
 Private Const SH_GWL_HWNDPARENT As Long = -8
 
+' Sh_SleepApi, added 10/28/2026 for Sh_Ask_Modeless: the wait while a question stays open sleeps
+' between DoEvents, so the loop costs next to nothing and Word keeps up with typing and clicks.
+#If VBA7 Then
+    Private Declare PtrSafe Sub Sh_SleepApi Lib "kernel32" Alias "Sleep" (ByVal dwMilliseconds As Long)
+#Else
+    Private Declare Sub Sh_SleepApi Lib "kernel32" Alias "Sleep" (ByVal dwMilliseconds As Long)
+#End If
+
+' The question that stays open (Sh_Ask_Modeless, box 402): its own instance of Sh_Message_Form,
+' its title (for F6 to find its window), the book it was asked over, and whether it is up.
+Private Sh_AskBox_Form As Sh_Message_Form
+Private Sh_AskBox_Title As String
+Private Sh_AskBox_Doc As Document
+Private Sh_AskBox_Up As Boolean
+
 ' Show/hide a command bar by name, tolerating bars that don't exist in this Word version
 ' (e.g. the legacy "Styles"/"Navigation" bars raise error 5 in Word 2016+). Non-critical UI.
 Public Sub Sh_SetBarVisible(ByVal barName As String, ByVal vis As Boolean)
@@ -710,7 +725,8 @@ Public Sub Sh_Box_Closed(ByVal who As String)
     If Len(Sh_Box_Stack) = 0 Then Sh_Box_UnbindKeys
 End Sub  '***** end of Sh_Box_Closed *****
 
-' Which box has F6 and watches the cursor: "pg", "tocb", "rst", "fil", "hv", or "" when none is up.
+' Which box has F6 and watches the cursor: "pg", "tocb", "rst", "fil", "hv", "msg" (a question
+' that stays open, Sh_Ask_Modeless - it holds no range, so it watches nothing), or "" when none is up.
 '
 ' Version: 1.0  Date: 9/23/2026
 Public Function Sh_Box_On_Top() As String
@@ -722,6 +738,7 @@ End Function  '***** end of Sh_Box_On_Top *****
 ' leaves the list, and one press goes by with nothing done. With nothing on the list at all - after
 ' an End, which wipes the list but not the binding - the key goes back to Word.
 '
+' Version: 1.1  Date: 10/28/2026 - "msg", the question that stays open (Sh_Ask_Modeless, box 402)
 ' Version: 1.0  Date: 9/23/2026
 Public Sub Sh_Box_ToggleFocus()
     On Error Resume Next
@@ -736,6 +753,8 @@ Public Sub Sh_Box_ToggleFocus()
             Lp_Fil_ToggleFocus
         Case "hv"
             Lp_Hvb_ToggleFocus
+        Case "msg"
+            Sh_Ask_Modeless_ToggleFocus
         Case Else
             Sh_Box_Stack = ""
             Sh_Box_UnbindKeys
@@ -841,6 +860,147 @@ Public Sub Sh_Focus_Document(ByVal d As Document)
     Sh_SetForegroundWindowApi d.ActiveWindow.hwnd
     Sh_SetFocusApi d.ActiveWindow.hwnd
 End Sub
+
+'=========================================================================================
+' A QUESTION THAT STAYS OPEN while the transcriber works in Word - box 402 (Jerry, 10/28/2026:
+' "the new message (402) should be a non-modal message so that the user can start and configure
+' MathType").
+'
+' Sh_Ask's message, Okay and Cancel, in Sh_Message_Form like every other message, but shown
+' vbModeless: the macro that asks WAITS here while Word stays usable, so the transcriber can open
+' MathType and set it up with the instructions still on screen. Okay answers True; Cancel, Esc and
+' the red X answer False, through Sh_Message_Form's own handlers, unchanged - the X is Cancel
+' (Jerry's rule, 10/11/2026).
+'
+' ITS OWN INSTANCE of the form, not the default one Sh_Say and Sh_Ask use. Word is usable while
+' this is up, so the transcriber can run another VistaType LP macro, and that macro's Sh_Say shows
+' and then UNLOADS the default instance: with one shared instance, that would take this box off
+' the screen and read as Cancel. The form reads its words from Sh_Msg_Body and Sh_Msg_Title when
+' the instance is made, so a later Sh_Say changes nothing on this one. The answer still comes back
+' through Sh_Msg_Answer; a Sh_Say in between sets it False when it starts, and the press on this
+' box that ends the wait is the last thing to write it, read straight after.
+'
+' THE WAIT is DoEvents and a 50 ms Sleep. Reading Visible on this instance never re-creates it,
+' as reading the default instance's would: the variable holds the loaded form. Not measured: the
+' VBA macro is still running while it waits, and whether a ribbon button that runs another macro
+' (MathType's Inline, say) works during it needs Word on a screen.
+'
+' A BOX THAT STAYS OPEN, so it follows the F6 rule (docs/UI-Conventions.md, 9/23/2026): it joins
+' the list as "msg", so F6 and Shift+F6 in the book bring it forward (Sh_Ask_Modeless_ToggleFocus);
+' F6 or Shift+F6 on any of its controls sends the keyboard back to the book
+' (Sh_Ask_Modeless_KeyToDocument, from the form's KeyDown handlers); and it opens with the BOOK
+' holding the keyboard. Cancel stays Cancel rather than becoming Done: here it is a real choice -
+' not to go on with what the box is waiting for. No range is held, so there is no out-of-range
+' message.
+'
+' The book d is brought forward BEFORE the box is shown, because a modeless form belongs to the
+' window in front when it appears, sits above that window and goes behind any other (the #41 row
+' of docs/Reported-Errors.md) - so the box rides with the book and never covers another program's
+' window, MathType's included.
+'
+' Version: 1.0  Date: 10/28/2026 - new, for box 402 (Jerry)
+Public Function Sh_Ask_Modeless(ByVal body As String, ByVal titleText As String, _
+                                ByVal d As Document) As Boolean
+    Dim stillUp As Boolean
+
+    Sh_Msg_Body = body
+    Sh_Msg_Title = titleText
+    Sh_Msg_Offer_Cancel = True
+    Sh_Msg_Answer = False
+
+    On Error Resume Next
+    If Not d Is Nothing Then
+        d.Activate
+        d.ActiveWindow.Activate
+    End If
+    Err.Clear
+
+    Set Sh_AskBox_Form = New Sh_Message_Form
+    If Err.Number = 0 Then Sh_AskBox_Form.Show vbModeless
+    If Err.Number <> 0 Then
+        ' The words matter more than the box staying open: ask it the ordinary way, as Sh_Ask
+        ' does, which has its own fallback if even that cannot be shown.
+        Err.Clear
+        If Not Sh_AskBox_Form Is Nothing Then Unload Sh_AskBox_Form
+        Set Sh_AskBox_Form = Nothing
+        Err.Clear
+        On Error GoTo 0
+        Sh_Ask_Modeless = Sh_Ask(body, titleText)
+        Exit Function
+    End If
+
+    Sh_AskBox_Title = titleText
+    Set Sh_AskBox_Doc = d
+    Sh_AskBox_Up = True
+    Sh_Box_Opened "msg"
+    Sh_Focus_Document d
+
+    Do
+        DoEvents
+        Sh_SleepApi 50
+        stillUp = False
+        stillUp = Sh_AskBox_Form.Visible
+    Loop While stillUp
+
+    Sh_Ask_Modeless = Sh_Msg_Answer
+    Sh_AskBox_Up = False
+    Unload Sh_AskBox_Form
+    Set Sh_AskBox_Form = Nothing
+    Sh_Focus_Document d
+    Sh_Box_Closed "msg"
+    Set Sh_AskBox_Doc = Nothing
+    Err.Clear
+    On Error GoTo 0
+
+End Function  '***** end of Sh_Ask_Modeless *****
+
+' What F6 runs, through Sh_Box_ToggleFocus, while the question is the newest box up and the book
+' has the keyboard. The safety net: fired with no question up, it leaves the shared list.
+'
+' Version: 1.0  Date: 10/28/2026
+Public Sub Sh_Ask_Modeless_ToggleFocus()
+    On Error Resume Next
+    If Not Sh_AskBox_Up Then
+        Sh_Box_Closed "msg"
+        Exit Sub
+    End If
+    Sh_Focus_Modeless_Form Sh_AskBox_Title
+    Err.Clear
+End Sub  '***** end of Sh_Ask_Modeless_ToggleFocus *****
+
+' The other half, from every control's KeyDown on Sh_Message_Form: the keyboard back to the book.
+' Only for the instance Sh_Ask_Modeless is waiting on - on a message shown the ordinary, modal
+' way, F6 does nothing, as before. The book it was asked over if that is still open, else the
+' document in front.
+'
+' Version: 1.0  Date: 10/28/2026
+Public Sub Sh_Ask_Modeless_KeyToDocument(ByVal f As Object)
+    On Error Resume Next
+    If Not Sh_AskBox_Up Then Exit Sub
+    If Not f Is Sh_AskBox_Form Then Exit Sub
+    If Sh_Doc_Is_Open(Sh_AskBox_Doc) Then
+        Sh_Focus_Document Sh_AskBox_Doc
+    ElseIf Documents.count > 0 Then
+        Sh_Focus_Document ActiveDocument
+    End If
+    Err.Clear
+End Sub  '***** end of Sh_Ask_Modeless_KeyToDocument *****
+
+' True while document d is still open. Touching a closed Document raises rather than answering
+' Nothing, so the test is to read its name and see. Never raises. The same test as
+' Sh_PgVal_DocIsOpen, for any caller.
+'
+' Version: 1.0  Date: 10/28/2026
+Public Function Sh_Doc_Is_Open(ByVal d As Document) As Boolean
+    Dim s As String
+    If d Is Nothing Then Exit Function
+    On Error Resume Next
+    Err.Clear
+    s = d.Name
+    Sh_Doc_Is_Open = (Err.Number = 0) And (Len(s) > 0)
+    Err.Clear
+    On Error GoTo 0
+End Function  '***** end of Sh_Doc_Is_Open *****
 
 ' Open the list with the cursor on its first real line, ready for Locate. Straight to
 ' the top, then past any leading blank paragraph the paste may have left behind.
@@ -1263,6 +1423,35 @@ Public Sub Sh_Progress_Over(ByVal d As Document)
     On Error GoTo 0
 
 End Sub  '*** end of Sh_Progress_Over ***
+
+Public Sub Sh_Progress_Rehome(ByVal d As Document)
+' Makes document d the bar's home for the rest of the run: from here on, every Sh_Progress_Show
+' and the Sh_Progress_Close bring d forward and give the bar to d's window, instead of the
+' document that was in front when Sh_Progress_Open put the bar up.
+'
+' Why it is needed: the DAISY converter opens the bar over the document in front at the start -
+' the blank Document1, often - and builds the book in a new window. Once the book is saved and on
+' screen there is no reason to keep showing Document1, but every Show and the Close still brought
+' it forward: after MathType's Format Equations, the repaginate, the second save and the end of
+' the run all happened with Document1 in front, and closing the bar handed the activation to
+' Document1, its owner window (Jerry, 10/27/2026). Changing the home changes nothing else - the
+' fill, the message and the spinner stay as they are.
+'
+' Gated on the flag like every other helper here: with no bar up it does nothing, and it never
+' loads the form by asking.
+'
+' Version: 1.0  Date: 10/27/2026 - new.
+
+    If Not Sh_Progress_Up Then Exit Sub
+    If d Is Nothing Then Exit Sub
+
+    On Error Resume Next
+    Set Sh_Progress_Doc = d
+    Sh_Progress_Over d
+    Err.Clear
+    On Error GoTo 0
+
+End Sub  '*** end of Sh_Progress_Rehome ***
 
 Public Sub Sh_Progress_Close()
 ' Takes the bar off screen. Unload rather than Hide, so the next Open starts from a fresh form

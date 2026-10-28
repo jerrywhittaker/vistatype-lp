@@ -112,7 +112,8 @@ words in the dialog, which VistaType LP does control.
 Jerry's rule, 9/23/2026. A box that stays open while the transcriber works in the book — a
 **modeless** UserForm, shown with `.Show vbModeless` — follows these rules. That covers Table and
 TOC Tools' TOC box (354), Resize Pictures in a Selected Range (375), Type Fill-In Lines (357),
-Horizontal List to Vertical (348), the $pg validation menus, and **every box made modeless from now on**, new or converted. The progress bar and the "please
+Horizontal List to Vertical (348), the $pg validation menus, the DAISY/NIMAS converter's MathType
+set-up box (402, a message shown through `Sh_Ask_Modeless` that the conversion waits on), and **every box made modeless from now on**, new or converted. The progress bar and the "please
 wait" notice are not boxes the transcriber works in, and are not covered.
 
 - **F6 and Shift+F6 move the keyboard between the book and the box**, both ways. In the box,

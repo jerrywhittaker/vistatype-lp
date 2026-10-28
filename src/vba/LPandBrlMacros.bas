@@ -18,6 +18,20 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - DN  - 10/28/2026 - BOX 402 STAYS OPEN, AFTER THE SAVE (Jerry): 402 (large print with MathType)
+'           - DN  - 10/28/2026 - moves from before 401 to after the Save As, just before Format Equations,
+'           - DN  - 10/28/2026 - and stays open (Sh_Ask_Modeless, ShNonModalMessage) so the transcriber can
+'           - DN  - 10/28/2026 - open MathType and set it up; the conversion waits, the bar hidden. Okay
+'           - DN  - 10/28/2026 - formats; Cancel or the red X skips the formatting and 313 says how to do
+'           - DN  - 10/28/2026 - it later. F6/Shift+F6 between the box and the book. New closing line:
+'           - DN  - 10/28/2026 - "When MathType is set up, click Okay to format the equations."
+' Notes:    - DN  - 10/27/2026 - DAISY/NIMAS WITH MATHTYPE, THREE CHANGES (Jerry): the book, not the blank
+'           - DN  - 10/27/2026 - document, is in front after the second save - the bar's home moves to the
+'           - DN  - 10/27/2026 - book before Format Equations (Sh_Progress_Rehome, ShNonModalMessage), so
+'           - DN  - 10/27/2026 - the bar no longer brings Document1 forward after it. The bar (373) says "so
+'           - DN  - 10/27/2026 - the bar will not move" instead of "so the bar waits". New box 402, large
+'           - DN  - 10/27/2026 - print with MathType installed only, before 401: how to set MathType's face
+'           - DN  - 10/27/2026 - and sizes for large-print equations and save them (Jerry's text).
 ' Notes:    - DN  - 10/27/2026 - ONLY AN "EQ" PICTURE BECOMES AN EQUATION (issue #46, Jerry): where a
 '           - DN  - 10/27/2026 - book puts MathML in a comment after its picture (issue #40), the two are
 '           - DN  - 10/27/2026 - paired only when the picture's file name - not its folder - holds "eq",
@@ -34677,6 +34691,8 @@ Sub Sh_Convert_XML_File_To_Word_Document()
 '
 ' Automatically converts an .xml (NIMAS or DAISY) file into a Word Document with reference pages tagged with $pg
 '
+' Version: 3.2  Date: 10/28/2026 - BOX 402 STAYS OPEN, AND COMES AFTER THE SAVE (Jerry): on the large-print MathType path 402 now comes after 401 and the Save As and before Format Equations, as a box that stays open (Sh_Ask_Modeless) so the transcriber can open MathType and set it up; the conversion waits on it with the bar hidden. Okay formats the equations; Cancel or the red X leaves them unformatted, with no second save, and 313 says to click Format Equations on the MathType tab when MathType is set up. One line added to Jerry's text: "When MathType is set up, click Okay to format the equations." If the book is closed while 402 is up, the run ends quietly with Word's options put back
+' Version: 3.1  Date: 10/27/2026 - THREE CHANGES (Jerry): (1) THE BOOK, NOT THE BLANK DOCUMENT, IS IN FRONT AFTER THE SECOND SAVE: on the MathType path the progress bar's home is moved to the book (Sh_Progress_Rehome) before Format Equations, so the Sh_Progress_Show after it and the Sh_Progress_Close no longer bring the blank Document1 forward for the repaginate, the second save and the end. (2) The bar (373) says "so the bar will not move" instead of "so the bar waits", all five lines. (3) New box 402, large print with MathType only, before 401: how to set MathType up for large-print equations, Jerry's text
 ' Version: 3.0  Date: 10/27/2026 - THE BOOK IS SAVED BEFORE MATHTYPE FORMATS THE EQUATIONS (issue #42, Jerry): MathType's whole-book Format Equations sometimes crashes Word in MT6.DLL or hangs it, and it ran while the book was still an unsaved Document2, so the whole conversion was lost. With MathType equations chosen and MathType installed, the font pass and the repaginate now come first, box 401 (in place of 295) says the book is saved before the formatting and what to do if Word stops during it, the Save As follows, and then Format Equations runs, with a second repaginate and a plain save after it. Background pagination and live spelling and grammar stay off until after Format Equations, as before. A declined Save As still formats, unsaved. Every other path is unchanged
 ' Version: 2.9  Date: 10/27/2026 - TABLES OF EQUATIONS TAKEN APART (issue #43, Jerry): a table that holds an equation is taken apart in the import file, after Sh_MathML_Uncomment and before the equations are counted and parked (Sh_MathML_Untable). Every cell's content, words included, becomes a paragraph of its own in reading order, row by row and left to right; an empty cell gives nothing, a caption comes first, and the table is gone. Tables with no equation are not touched. Large print and braille alike. The .txt and .html beside the book are unchanged
 ' Version: 2.8  Date: 10/25/2026 - EQUATIONS HIDDEN IN COMMENTS (issue #40, Jerry): a DAISY book made from an EPUB puts each equation's MathML inside an XML comment straight after the book's picture of it, and the importer drops comments, so no equation went in with any choice on Equations (398), while the bar said 1,861 and 313 said to search for VTEQ. The import file now has each one brought out of its comment, with the picture before it made its altimg and taken out of the text (Sh_MathML_Uncomment): the picture goes in only where the equation cannot. Every other comment is taken out of the import file too, so no math left inside one is counted or parked. The .txt and .html beside the book are unchanged
@@ -34727,6 +34743,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     Dim optsSaved As Boolean
     Dim errNum As Long, errText As String
     Dim mtFormat As Boolean, saveDeclined As Boolean, saveLine As String
+    Dim lpNote As String, mtSkip As Boolean
 
     ' EVERY route out of here from this point on goes through ConvertFailed (Jerry, 9/17/2026).
     ' Until today this macro had no handler at all, so a failure anywhere in it reached the
@@ -34970,7 +34987,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     Set currentdoc = ActiveDocument 'will work with blank, unsaved documents too
 
     Sh_Progress_Show
-    Sh_Progress_Say 4, "Importing the book into Word - one long step, so the bar waits and the spinner turns."
+    Sh_Progress_Say 4, "Importing the book into Word - one long step, so the bar will not move and the spinner turns."
     Sh_Spin_DoEvents
     Sh_PauseSeconds 0.3   'brief tick so the status form paints
 
@@ -35264,9 +35281,9 @@ Sub Sh_Convert_XML_File_To_Word_Document()
 
     Dim dlgSaveAs As Dialog
     If mtFormat Then
-        saveLine = "Saving the book now, before MathType formats the equations - on a book with many images this is the second longest step, so the bar waits and the spinner turns."
+        saveLine = "Saving the book now, before MathType formats the equations - on a book with many images this is the second longest step, so the bar will not move and the spinner turns."
     Else
-        saveLine = "Saving the document - on a book with many images this is the second longest step, so the bar waits and the spinner turns."
+        saveLine = "Saving the document - on a book with many images this is the second longest step, so the bar will not move and the spinner turns."
     End If
 SaveTheFile:
     ' Now save the stabilized document exactly once - or, when MathType formats the equations,
@@ -35346,32 +35363,123 @@ FormatTheEquations:
     ' Background pagination and live spelling and grammar stay off through it, as they always
     ' were for Format Equations, and go back on here.
     If mtFormat Then
-        Sh_Progress_Show
-        If doc.Path <> "" Then
-            Sh_Progress_Say 66, "The book is saved. MathType is formatting the equations - one long step, so the bar waits."
-        Else
-            Sh_Progress_Say 66, "MathType is formatting the equations - one long step, so the bar waits."
+        ' BOX 402, LARGE PRINT ONLY, AND IT STAYS OPEN (Jerry, 10/27 and 10/28/2026): how to set
+        ' MathType up to make large-print equations - the face, the sizes, and saving them as a
+        ' preferences file. Jerry, 10/28/2026: "the new message (402) should be a non-modal message
+        ' so that the user can start and configure MathType. It should come after message 401
+        ' (after the file save) and before the equation formatting." So it comes HERE, after the
+        ' Save As (or a declined one), and the conversion WAITS on it (Sh_Ask_Modeless,
+        ' ShNonModalMessage) while the transcriber opens MathType and sets it up. Okay goes on to
+        ' Format Equations, which uses the user's own MathType settings for large print. Cancel or
+        ' the red X leaves the equations unformatted, and 313 says how to format them later.
+        '
+        ' Only when MathType is here to set up (mtFormat is True only when MathType equations were
+        ' chosen AND MathType is installed). Not for braille: a braille book's equations are
+        ' formatted in MathType's standard Times New Roman 12 point, whatever the user's own
+        ' MathType settings are (10/22/2026), so there is nothing to set up.
+        '
+        ' Jerry's own text, kept as written, with one closing line added (10/28/2026) so the
+        ' transcriber knows the conversion is waiting on the Okay. The converter does know the face
+        ' (convFont) and the 12 point it set above, but 12 point is not the book's large-print size
+        ' - that comes with the LP template - so neither is put into the words.
+        '
+        ' Sh_Message_Form, not a MsgBox: about 1,500 characters, past the 1,024 at which a MsgBox
+        ' cuts off; the form's text box scrolls past 26 lines. Built a line at a time because VBA
+        ' allows only 24 line continuations in a statement. THE BAR IS HIDDEN FIRST - it was put
+        ' back for the save - so it cannot sit over MathType or over the box while the box is up;
+        ' it comes back for Format Equations.
+        mtSkip = False
+        If Sh_GP_String_2 = "LP" Then
+            lpNote = "This book has been identified as a large-print title, and MathType is installed on this computer. "
+            lpNote = lpNote & "MathType can be set up to produce large-print equations by opening MathType and setting the font "
+            lpNote = lpNote & "size to match the size used in the book's base font (Normal style) text. The equation font can "
+            lpNote = lpNote & "also be changed to match the book's typeface, either VistaTypeLP Sans or Tahoma." & vbCr
+            lpNote = lpNote & vbCr
+            lpNote = lpNote & "Here is how to set up the font MathType uses:" & vbCr
+            lpNote = lpNote & "1. Open MathType and select ""Inline""." & vbCr
+            lpNote = lpNote & "2. Select the ""Style"" tab followed by ""Define"" on the menu." & vbCr
+            lpNote = lpNote & "3. In the ""Define Styles"" dialog, change the ""Primary Font"" to the font used in the book "
+            lpNote = lpNote & "(VistaTypeLP Sans or Tahoma)." & vbCr
+            lpNote = lpNote & "4. Select the ""Apply"" button, then select the ""OK"" button." & vbCr
+            lpNote = lpNote & vbCr
+            lpNote = lpNote & "Here is how to set up the font sizes MathType uses:" & vbCr
+            lpNote = lpNote & "1. Select the ""Size"" tab." & vbCr
+            lpNote = lpNote & "2. Change the ""Full"" setting to match the point size used in the document." & vbCr
+            lpNote = lpNote & "3. Change the ""Subscript/Superscript"" setting to match the point size used in the document, "
+            lpNote = lpNote & "and make sure that ""%"" is changed to ""Points""." & vbCr
+            lpNote = lpNote & "4. Make the same changes (as above) for ""Sub-Subscript/Superscript""." & vbCr
+            lpNote = lpNote & "5. Select the ""Apply"" button, then select the ""OK"" button." & vbCr
+            lpNote = lpNote & vbCr
+            lpNote = lpNote & "The current settings can be stored in a location of your choice by selecting the ""Preferences"" "
+            lpNote = lpNote & "tab followed by ""Equation Preferences"" on the menu, then selecting ""Save to File"". It is "
+            lpNote = lpNote & "suggested that the file be named using the base font size. The saved preferences can then be "
+            lpNote = lpNote & "loaded from that file when needed." & vbCr
+            lpNote = lpNote & vbCr
+            lpNote = lpNote & "When MathType is set up, click Okay to format the equations."
+            Sh_Progress_Hide
+            mtSkip = Not Sh_Ask_Modeless(lpNote, "VistaType LP (402)", doc)
+
+            ' Word is usable while 402 is up, so the book may have been closed. Then there is
+            ' nothing to format or save, and touching the closed book would raise and reach
+            ' ConvertFailed, whose box says nothing has been saved - wrong here. Word's options
+            ' back, the bar down, and out.
+            If Not Sh_Doc_Is_Open(doc) Then
+                Application.Options.CheckGrammarAsYouType = gram_Prev
+                Application.Options.CheckSpellingAsYouType = spell_Prev
+                Application.Options.Pagination = pag_Prev
+                Sh_Progress_Close
+                Exit Sub
+            End If
         End If
-        Sh_Spin_DoEvents
-        ' Braille gets MathType's standard Times New Roman 12 point, not the transcriber's own
-        ' MathType settings, which may be set for large print (Jerry, 10/22/2026).
-        If Not Sh_MathType_Format_Equations(finalDoc, (Sh_GP_String_2 = "BRL")) Then
+
+        ' THE BAR'S HOME BECOMES THE BOOK from here on (Jerry, 10/27/2026). The bar was opened over
+        ' the document in front at the start - the blank Document1, often - and every
+        ' Sh_Progress_Show and the Sh_Progress_Close bring THAT document forward and give the bar
+        ' back to its window. So after Format Equations, Document1 came forward for the repaginate,
+        ' the second save and the repaint, and the bar closed over it, which hands Windows'
+        ' activation to Document1 as the bar's owner. The book is on screen and saved by now, so
+        ' nothing is gained by hiding it: from here every Show, and the Close, bring the BOOK
+        ' forward, and the doc.Activate at the end has nothing to undo. Before the Show below, so
+        ' that Show already puts the book in front, painted, for MathType (issues #39, #41).
+        Sh_Progress_Rehome doc
+        If mtSkip Then
+            ' CANCEL OR THE RED X ON 402 (10/28/2026): the equations are left as they are and the
+            ' book as it was saved - nothing has changed since the Save As, so there is nothing to
+            ' repaginate or save again. 313 says how to format them later, in the words used when
+            ' MathType cannot be reached. The bar stays hidden; its Close below brings the book
+            ' forward, since its home is the book now.
             If mathNote <> "" Then mathNote = mathNote & vbCr & vbCr
-            mathNote = mathNote & "MathType could not be reached to format the equations, so each one still " & _
-                       "shows its picture from the book. To finish them, open the MathType tab and " & _
-                       "click Format Equations once."
+            mathNote = mathNote & "The equations were not formatted, because VistaType LP (402) was canceled, " & _
+                       "so each one still shows its picture from the book. When MathType is set up, " & _
+                       "click Format Equations on the MathType tab, then save the book."
+        Else
+            Sh_Progress_Show
+            If doc.Path <> "" Then
+                Sh_Progress_Say 66, "The book is saved. MathType is formatting the equations - one long step, so the bar will not move."
+            Else
+                Sh_Progress_Say 66, "MathType is formatting the equations - one long step, so the bar will not move."
+            End If
+            Sh_Spin_DoEvents
+            ' Braille gets MathType's standard Times New Roman 12 point, not the transcriber's own
+            ' MathType settings, which may be set for large print (Jerry, 10/22/2026).
+            If Not Sh_MathType_Format_Equations(finalDoc, (Sh_GP_String_2 = "BRL")) Then
+                If mathNote <> "" Then mathNote = mathNote & vbCr & vbCr
+                mathNote = mathNote & "MathType could not be reached to format the equations, so each one still " & _
+                           "shows its picture from the book. To finish them, open the MathType tab and " & _
+                           "click Format Equations once."
+            End If
+            Sh_Progress_Show
+            Sh_Progress_Say 94, "The equations are formatted. Repaginating the document."
+            Sh_Spin_DoEvents
+            doc.Repaginate
+            doc.UndoClear
         End If
-        Sh_Progress_Show
-        Sh_Progress_Say 94, "The equations are formatted. Repaginating the document."
-        Sh_Spin_DoEvents
-        doc.Repaginate
-        doc.UndoClear
 
         Application.Options.CheckGrammarAsYouType = gram_Prev
         Application.Options.CheckSpellingAsYouType = spell_Prev
         Application.Options.Pagination = pag_Prev
 
-        If doc.Path <> "" Then
+        If doc.Path <> "" And Not mtSkip Then
             Sh_Progress_Say 96, "Saving the book again, with the equations formatted."
             Sh_Spin_DoEvents
             doc.Save
@@ -35412,6 +35520,10 @@ FormatTheEquations:
     Sh_Spin_DoEvents
     
     'Re-assert dominance for your saved document AFTER the form is entirely gone
+    ' The LAST thing to choose the window: the 313 message and the prodnote note below are both
+    ' shown over the book, and on the MathType path the bar's home was moved to the book before
+    ' Format Equations (Sh_Progress_Rehome), so the Close above brings the book forward, not the
+    ' blank document (Jerry, 10/27/2026).
     Application.Activate
     doc.Activate
     ActiveWindow.View.Type = wdPrintView
