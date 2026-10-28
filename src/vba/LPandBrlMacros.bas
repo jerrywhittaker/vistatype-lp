@@ -64,6 +64,11 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - LP  - 10/27/2026 - reads pictures through is emptied before each one.
 '           - LP  - 10/27/2026 - The TOC box now says Ctrl+Z TWICE (five times when the TOC ends the
 '           - LP  - 10/27/2026 - document) - measured; it said once.
+'           - DN  - 10/28/2026 - ONE-ROW TABLES OF TYPED EQUATIONS TAKEN APART TOO (issue #43, Jerry): a
+'           - DN  - 10/28/2026 - one-row table in which every cell that is not empty holds an equation -
+'           - DN  - 10/28/2026 - a math element, or typed text with an equals sign (Basic Math's
+'           - DN  - 10/28/2026 - "25% = 0.25" and "A = (2, 3)" rows) - is taken apart like a table of
+'           - DN  - 10/28/2026 - equations. More rows, or a cell of plain words, and it stays a table.
 '           - DN  - 10/27/2026 - TABLES OF EQUATIONS TAKEN APART (issue #43, Jerry): Bookshare's "Basic
 '           - DN  - 10/27/2026 - Math & Pre-Algebra For Dummies" sets equations two to four side by side in
 '           - DN  - 10/27/2026 - one-row tables, and MathType enlarges them for large print so they no
@@ -34691,6 +34696,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
 '
 ' Automatically converts an .xml (NIMAS or DAISY) file into a Word Document with reference pages tagged with $pg
 '
+' Version: 3.3  Date: 10/28/2026 - ONE-ROW TABLES OF TYPED EQUATIONS TAKEN APART TOO (issue #43, Jerry): Sh_MathML_Untable now also takes apart a one-row table in which every cell that is not empty holds an equation, a math element or typed text with an equals sign - Basic Math's "25% = 0.25" and "A = (2, 3)" rows. A table of more rows, or with a cell of plain words, stays a table
 ' Version: 3.2  Date: 10/28/2026 - BOX 402 STAYS OPEN, AND COMES AFTER THE SAVE (Jerry): on the large-print MathType path 402 now comes after 401 and the Save As and before Format Equations, as a box that stays open (Sh_Ask_Modeless) so the transcriber can open MathType and set it up; the conversion waits on it with the bar hidden. Okay formats the equations; Cancel or the red X leaves them unformatted, with no second save, and 313 says to click Format Equations on the MathType tab when MathType is set up. One line added to Jerry's text: "When MathType is set up, click Okay to format the equations." If the book is closed while 402 is up, the run ends quietly with Word's options put back
 ' Version: 3.1  Date: 10/27/2026 - THREE CHANGES (Jerry): (1) THE BOOK, NOT THE BLANK DOCUMENT, IS IN FRONT AFTER THE SECOND SAVE: on the MathType path the progress bar's home is moved to the book (Sh_Progress_Rehome) before Format Equations, so the Sh_Progress_Show after it and the Sh_Progress_Close no longer bring the blank Document1 forward for the repaginate, the second save and the end. (2) The bar (373) says "so the bar will not move" instead of "so the bar waits", all five lines. (3) New box 402, large print with MathType only, before 401: how to set MathType up for large-print equations, Jerry's text
 ' Version: 3.0  Date: 10/27/2026 - THE BOOK IS SAVED BEFORE MATHTYPE FORMATS THE EQUATIONS (issue #42, Jerry): MathType's whole-book Format Equations sometimes crashes Word in MT6.DLL or hangs it, and it ran while the book was still an unsaved Document2, so the whole conversion was lost. With MathType equations chosen and MathType installed, the font pass and the repaginate now come first, box 401 (in place of 295) says the book is saved before the formatting and what to do if Word stops during it, the Save As follows, and then Format Equations runs, with a second repaginate and a plain save after it. Background pagination and live spelling and grammar stay off until after Format Equations, as before. A declined Save As still formats, unsaved. Every other path is unchanged
@@ -34947,9 +34953,10 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     '
     ' Then every table that holds an equation is taken apart, each cell a paragraph of its own in
     ' reading order, and the table gone (issue #43, Jerry, 10/27/2026): MathType enlarges the
-    ' equations for large print, so side by side in a table they no longer fit. After the
-    ' uncommenting, so the equations that were hidden in comments are seen; large print and
-    ' braille alike. Tables with no equation are not touched.
+    ' equations for large print, so side by side in a table they no longer fit. So is a one-row
+    ' table whose every cell holds an equation typed as text, "25% = 0.25" (Jerry, 10/28/2026).
+    ' After the uncommenting, so the equations that were hidden in comments are seen; large print
+    ' and braille alike. Other tables with no equation are not touched.
     importPath = htmlPath
     If mathMode <> "" Then
         Dim importText As String
@@ -35923,6 +35930,12 @@ End Function   '*** end of Sh_MathML_Is_Eq_Picture function ***
 
 Private Function Sh_MathML_Untable(ByVal xml As String, ByVal prefix As String) As String
     '
+    ' Version: 1.1  Date: 10/28/2026 - a one-row table in which every cell that is not empty holds
+    '                                an equation - a math element, or typed text with an equals
+    '                                sign - is taken apart too (Jerry): Basic Math's two rows of
+    '                                typed equations, "25% = 0.25 | 50% = 0.5 ..." before $pg181
+    '                                and "A = (2, 3) | B = ..." before $pg233. More than one row,
+    '                                or one cell of plain words, and the table stays
     ' Version: 1.0  Date: 10/27/2026
     '
     ' Issue #43, Jerry, 10/27/2026. A table that holds an equation is taken apart before the
@@ -35958,6 +35971,10 @@ Private Function Sh_MathML_Untable(ByVal xml As String, ByVal prefix As String) 
     ' paragraphs so far, its caption, the cell or caption being read, and which of those is open.
     Dim fWhole() As String, fOut() As String, fCap() As String, fCell() As String
     Dim fInCell() As Boolean, fInCap() As Boolean
+    ' And per open table, for the one-row rule: its rows, its cells that are not empty, and
+    ' whether every one of those holds an equation.
+    Dim fRows() As Long, fCells() As Long, fAllEq() As Boolean
+    Dim takeApart As Boolean
 
     Sh_MathML_Untable = xml
 
@@ -35979,6 +35996,7 @@ Private Function Sh_MathML_Untable(ByVal xml As String, ByVal prefix As String) 
     ReDim outParts(0 To ms.count)
     ReDim fWhole(0 To 4): ReDim fOut(0 To 4): ReDim fCap(0 To 4): ReDim fCell(0 To 4)
     ReDim fInCell(0 To 4): ReDim fInCap(0 To 4)
+    ReDim fRows(0 To 4): ReDim fCells(0 To 4): ReDim fAllEq(0 To 4)
     d = 0
     nOut = 0
     pos = 1
@@ -36014,6 +36032,8 @@ Private Function Sh_MathML_Untable(ByVal xml As String, ByVal prefix As String) 
                 ReDim Preserve fWhole(0 To 2 * d): ReDim Preserve fOut(0 To 2 * d)
                 ReDim Preserve fCap(0 To 2 * d): ReDim Preserve fCell(0 To 2 * d)
                 ReDim Preserve fInCell(0 To 2 * d): ReDim Preserve fInCap(0 To 2 * d)
+                ReDim Preserve fRows(0 To 2 * d): ReDim Preserve fCells(0 To 2 * d)
+                ReDim Preserve fAllEq(0 To 2 * d)
             End If
             fWhole(d) = tagText
             fOut(d) = ""
@@ -36021,6 +36041,9 @@ Private Function Sh_MathML_Untable(ByVal xml As String, ByVal prefix As String) 
             fCell(d) = ""
             fInCell(d) = False
             fInCap(d) = False
+            fRows(d) = 0
+            fCells(d) = 0
+            fAllEq(d) = True
         ElseIf tagName = "table" And selfClosed Then
             ' an empty <table/> inside a table: text like any other
             fWhole(d) = fWhole(d) & tagText
@@ -36028,7 +36051,14 @@ Private Function Sh_MathML_Untable(ByVal xml As String, ByVal prefix As String) 
         Else
             ' A cell, row, caption or table closing - or another opening - ends the cell or
             ' caption being read, so one left open still counts.
-            If fInCell(d) Then fOut(d) = fOut(d) & Sh_MathML_Cell_Paragraph(fCell(d))
+            If fInCell(d) Then
+                rep = Sh_MathML_Cell_Paragraph(fCell(d))
+                If rep <> "" Then
+                    fCells(d) = fCells(d) + 1
+                    If Not (mathRe.Test(fCell(d)) Or Sh_MathML_Typed_Equation(fCell(d))) Then fAllEq(d) = False
+                End If
+                fOut(d) = fOut(d) & rep
+            End If
             If fInCap(d) Then fCap(d) = fCap(d) & Sh_MathML_Cell_Paragraph(fCell(d))
             fInCell(d) = False
             fInCap(d) = False
@@ -36036,8 +36066,11 @@ Private Function Sh_MathML_Untable(ByVal xml As String, ByVal prefix As String) 
             fWhole(d) = fWhole(d) & tagText
 
             If tagName = "table" Then
-                ' Closing: taken apart if it holds an equation, else as written.
-                If mathRe.Test(fWhole(d)) Then
+                ' Closing: taken apart if it holds an equation, or is one row whose every cell
+                ' holds one, typed or not; else as written.
+                takeApart = mathRe.Test(fWhole(d))
+                If fRows(d) = 1 And fCells(d) > 0 And fAllEq(d) Then takeApart = True
+                If takeApart Then
                     rep = fCap(d) & fOut(d)
                 Else
                     rep = fWhole(d)
@@ -36055,6 +36088,7 @@ Private Function Sh_MathML_Untable(ByVal xml As String, ByVal prefix As String) 
                     End If
                 End If
             ElseIf Not isClose And Not selfClosed Then
+                If tagName = "tr" Then fRows(d) = fRows(d) + 1
                 If tagName = "td" Or tagName = "th" Then fInCell(d) = True
                 If tagName = "caption" Then fInCap(d) = True
             End If
@@ -36068,6 +36102,21 @@ Private Function Sh_MathML_Untable(ByVal xml As String, ByVal prefix As String) 
     ReDim Preserve outParts(0 To nOut)
     Sh_MathML_Untable = Join(outParts, "")
 End Function   '*** end of Sh_MathML_Untable function ***
+
+Private Function Sh_MathML_Typed_Equation(ByVal cellText As String) As Boolean
+    '
+    ' Version: 1.0  Date: 10/28/2026
+    '
+    ' Issue #43, Jerry, 10/28/2026. True when a table cell holds an equation typed as text, which
+    ' is to say an equals sign in its words - not inside a tag: "25% = 0.25", "<em>A</em> = (2, 3)".
+
+    Dim re As Object
+
+    Set re = CreateObject("VBScript.RegExp")
+    re.Global = True
+    re.Pattern = "<[^>]*>"
+    Sh_MathML_Typed_Equation = (InStr(1, re.Replace(cellText, ""), "=") > 0)
+End Function   '*** end of Sh_MathML_Typed_Equation function ***
 
 Private Function Sh_MathML_Cell_Paragraph(ByVal cellText As String) As String
     '

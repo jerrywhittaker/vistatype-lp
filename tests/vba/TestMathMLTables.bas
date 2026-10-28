@@ -2,6 +2,7 @@ Attribute VB_Name = "TestMathMLTables"
 '@uses Sh_MathML_Untable
 '@uses Sh_MathML_Uncomment
 '@uses Sh_MathML_Fragments
+'@uses Sh_MathML_Typed_Equation
 '
 ' Tables of equations taken apart before the import (issue #43, Jerry, 10/27/2026). Any table
 ' that holds an equation becomes one paragraph per cell, words included, row by row and left
@@ -9,6 +10,8 @@ Attribute VB_Name = "TestMathMLTables"
 ' with no equation is not touched. The first shape is Bookshare's "Basic Math & Pre-Algebra
 ' For Dummies" one-row "Dummies-Mini-Table". Nothing here touches a document.
 '
+' Version: 1.2  Date: 10/28/2026 - a one-row table whose every cell holds an equation typed as
+'                                text is taken apart too; more rows, or a cell of words, stay
 ' Version: 1.1  Date: 10/27/2026 - a table of pictures without "eq" in their names, each with
 '                                math in a comment, stays a table (issue #46)
 ' Version: 1.0  Date: 10/27/2026
@@ -138,6 +141,37 @@ Public Function TestMathMLTables_Suite() As TestSuite
             "</tr></tbody></table>"
         .IsEqual UBound(Sh_MathML_Fragments(t, "m:")), -1
         .IsEqual Sh_MathML_Untable(t, "m:"), t
+    End With
+
+    With Suite.Test("a one-row table of typed equations is taken apart too (Basic Math, before $pg181 and $pg233)")
+        t = "<table class=""Dummies-Mini-Table""><tbody><tr>" & _
+            "<td class=""Mini-TB-Body""><p class=""Mini-TB-Body"">25% = 0.25</p></td>" & _
+            "<td class=""Mini-TB-Body""><p class=""Mini-TB-Body"">50% = 0.5</p></td>" & _
+            "<td><p> </p></td></tr></tbody></table>"
+        .IsEqual Sh_MathML_Untable(E1() & t, "m:"), E1() & "<p class=""Mini-TB-Body"">25% = 0.25</p>" & vbLf & _
+            "<p class=""Mini-TB-Body"">50% = 0.5</p>" & vbLf
+        t = "<table><tr><td><p><em>A</em><span class=""text""> = (2, 3) </span></p></td>" & _
+            "<td><p><em>B</em> = (4, 1)</p></td></tr></table>"
+        .IsEqual Sh_MathML_Untable(E1() & t, "m:"), E1() & "<p><em>A</em><span class=""text""> = (2, 3) </span></p>" & vbLf & _
+            "<p><em>B</em> = (4, 1)</p>" & vbLf
+    End With
+
+    With Suite.Test("typed equations in more than one row, or beside a cell of words, stay a table")
+        t = "<table><tr><td>a = 1</td></tr><tr><td>b = 2</td></tr></table>"
+        .IsEqual Sh_MathML_Untable(E1() & t, "m:"), E1() & t
+        t = "<table><tr><td>a = 1</td><td>Notes</td></tr></table>"
+        .IsEqual Sh_MathML_Untable(E1() & t, "m:"), E1() & t
+        t = "<table><tr><td><p> </p></td></tr></table>"
+        .IsEqual Sh_MathML_Untable(E1() & t, "m:"), E1() & t
+        t = "<table><tr><td><p class=""a=b"">words</p></td></tr></table>"
+        .IsEqual Sh_MathML_Untable(E1() & t, "m:"), E1() & t
+    End With
+
+    With Suite.Test("an equals sign inside a tag is not a typed equation")
+        .IsOk Sh_MathML_Typed_Equation("<p>25% = 0.25</p>")
+        .IsOk Sh_MathML_Typed_Equation("<em>A</em> = (2, 3)")
+        .NotOk Sh_MathML_Typed_Equation("<p class=""x"">words</p>")
+        .NotOk Sh_MathML_Typed_Equation("")
     End With
 
     Set TestMathMLTables_Suite = Suite

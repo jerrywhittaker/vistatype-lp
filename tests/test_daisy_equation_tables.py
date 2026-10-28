@@ -26,6 +26,7 @@ CONVERTER = "Sh_Convert_XML_File_To_Word_Document"
 HELPER = "Sh_MathML_Untable"
 CELL = "Sh_MathML_Cell_Paragraph"
 LEFTOVER = "Sh_MathML_Table_Leftover"
+TYPED = "Sh_MathML_Typed_Equation"
 
 VBA_STRING = re.compile(r'"((?:[^"]|"")*)"')
 
@@ -133,7 +134,11 @@ def test_outside_the_cells_only_the_structure_goes(repo_root):
 
 def test_a_table_is_kept_whole_unless_it_holds_an_equation(repo_root):
     body = "\n".join(_procs(repo_root)[HELPER])
-    assert "If mathRe.Test(fWhole(d)) Then" in body
+    assert "takeApart = mathRe.Test(fWhole(d))" in body
+    # Jerry, 10/28/2026: or one row, every cell that is not empty an equation, typed or not
+    assert "If fRows(d) = 1 And fCells(d) > 0 And fAllEq(d) Then takeApart = True" in body
+    assert 'If tagName = "tr" Then fRows(d) = fRows(d) + 1' in body
+    assert "If Not (mathRe.Test(fCell(d)) Or Sh_MathML_Typed_Equation(fCell(d))) Then fAllEq(d) = False" in body
     assert "rep = fCap(d) & fOut(d)" in body            # the caption first
     assert "rep = fWhole(d)" in body
     # a table that never closes leaves the text as it was
@@ -146,7 +151,8 @@ def test_the_helpers_take_byval_and_say_nothing(repo_root):
     assert "(ByVal xml As String, ByVal prefix As String) As String" in procs[HELPER][0]
     assert "(ByVal cellText As String) As String" in procs[CELL][0]
     assert "(ByVal between As String) As String" in procs[LEFTOVER][0]
-    for name in (HELPER, CELL, LEFTOVER):
+    assert "(ByVal cellText As String) As Boolean" in procs[TYPED][0]
+    for name in (HELPER, CELL, LEFTOVER, TYPED):
         assert not any("MsgBox" in l or "Sh_Say" in l or "Sh_Ask" in l for l in procs[name])
 
 
@@ -155,3 +161,12 @@ def test_the_vba_suite_is_registered(repo_root):
     assert f"'@uses {HELPER}" in vba
     runner = (repo_root / "tests" / "vba" / "VtRunTests.bas").read_bytes().decode("latin-1")
     assert "TestMathMLTables_Suite()" in runner
+
+
+def test_a_typed_equation_is_an_equals_sign_outside_the_tags(repo_root):
+    """Jerry, 10/28/2026: Basic Math's one-row tables of typed equations come apart too."""
+    (tags,) = _patterns(_procs(repo_root)[TYPED])
+    typed = lambda c: "=" in re.sub(tags, "", c)
+    assert typed('<p class="Mini-TB-Body">25% = 0.25</p>')
+    assert typed('<em id="em_1">A</em><span class="text"> = (2, 3) </span>')
+    assert not typed('<p class="a" id="b">words</p>')
