@@ -135,6 +135,61 @@ def test_the_picture_becomes_the_altimg_only_when_there_is_none(repo_root):
     assert "parts(2 * i + 1) = imgTag & gap & mathml" in body
 
 
+def test_only_a_picture_with_eq_in_its_file_name_is_paired(repo_root):
+    """Jerry, 10/27/2026 (issue #46): a book's pictures of equations have "EQ" in their file
+    names. A picture straight before the comment is paired with its math only when its file name
+    - not its folder - holds "eq", any case; any other picture stays and the comment goes."""
+    lines = _procs(repo_root)[HELPER]
+    test = _index(lines, "If Not Sh_MathML_Is_Eq_Picture(imgTag) Then mathml = \"\"")
+    guard = _index(lines, 'If mathml <> "" And imgTag <> "" Then')
+    # after the comment is found to hold one math element, before anything is built from it
+    assert _index(lines, "If InStr(2, mathml, tagName) > 0 Then mathml = \"\"") < guard < test
+    assert test < _index(lines, 'If imgTag <> "" And Sh_MathML_Altimg(mathml) = "" Then')
+
+    eq = _procs(repo_root)["Sh_MathML_Is_Eq_Picture"]
+    assert "(ByVal imgTag As String) As Boolean" in eq[0]
+    body = "\n".join(eq)
+    assert 'Sh_Xml_Attribute(imgTag, "src")' in body
+    assert 'LCase$(Left$(src, 5)) = "data:" Then Exit Function' in body
+    # the file name only: after the last / or \, any case
+    assert 'cut = InStrRev(src, "/")' in body
+    assert 'If InStrRev(src, "\\") > cut Then cut = InStrRev(src, "\\")' in body
+    assert 'InStr(1, Mid$(src, cut + 1), "eq", vbTextCompare) > 0' in body
+
+
+def _is_eq_picture(src):
+    """The helper's rule, written out here to run on the measured and the issue's shapes."""
+    src = src.strip()
+    if not src or src[:5].lower() == "data:":
+        return False
+    src = src.split("?")[0].split("#")[0]
+    return "eq" in re.split(r"[/\\]", src)[-1].lower()
+
+
+def test_the_eq_rule_on_the_shapes_in_the_issue():
+    assert _is_eq_picture("images/eq01036.png")
+    assert _is_eq_picture("EQp010-001.jpg")
+    assert not _is_eq_picture("fig01.png")
+    assert not _is_eq_picture("images/eq/fig01.png")
+    assert not _is_eq_picture("eq\\fig01.png")
+    assert not _is_eq_picture("")
+    assert not _is_eq_picture("data:image/png;base64,eqAA")
+    # NIMAS altimg names never reach the rule (live math is not in a comment), and would fail it
+    assert not _is_eq_picture("p155-003.png")
+
+
+def test_live_math_never_reaches_the_eq_rule(repo_root):
+    """Only Sh_MathML_Uncomment asks about the picture's name, and only of a comment it found:
+    NIMAS math with its own altimg (Big Ideas Math, p155-003.png) is never looked at."""
+    procs = _procs(repo_root)
+    callers = [name for name, lines in procs.items()
+               if name != "Sh_MathML_Is_Eq_Picture"
+               and any("Sh_MathML_Is_Eq_Picture(" in l for l in lines)]
+    assert callers == [HELPER]
+    vba = (repo_root / "tests" / "vba" / "TestMathMLComments.bas").read_bytes().decode("latin-1")
+    assert "'@uses Sh_MathML_Is_Eq_Picture" in vba
+
+
 def test_a_stray_xmlns_digits_declaration_is_taken_off(repo_root):
     lines = _procs(repo_root)["Sh_MathML_With_Namespace"]
     pat = re.compile(_pattern(lines, "re.Pattern ="))

@@ -3,6 +3,7 @@ Attribute VB_Name = "TestMathMLComments"
 '@uses Sh_MathML_With_Namespace
 '@uses Sh_MathML_Fragments
 '@uses Sh_MathML_Pattern
+'@uses Sh_MathML_Is_Eq_Picture
 '
 ' Equations hidden in XML comments, each straight after the book's own picture of it (issue #40,
 ' Jerry, 10/25/2026, Bookshare's "Basic Math & Pre-Algebra For Dummies"). Sh_MathML_Uncomment
@@ -11,6 +12,8 @@ Attribute VB_Name = "TestMathMLComments"
 ' that book. Also the stray xmlns1:m="..." four of its equations carry, which MSXML refused.
 ' Nothing here touches a document.
 '
+' Version: 1.2  Date: 10/27/2026 - only a picture with "eq" in its file name is paired with the
+'                                math (issue #46, Jerry); the pairs below use eq names
 ' Version: 1.1  Date: 10/25/2026 - every other comment is taken out of the import text too, so no
 '                                math left in one is counted (review)
 ' Version: 1.0  Date: 10/25/2026
@@ -46,13 +49,13 @@ Public Function TestMathMLComments_Suite() As TestSuite
     End With
 
     With Suite.Test("white space of any kind, or none, between the picture and the comment, and inside it")
-        .IsEqual Sh_MathML_Uncomment(Img("a.png") & "<!--<m:math>" & Body() & "-->", "m:"), _
-                 "<m:math altimg=""a.png"">" & Body()
-        .IsEqual Sh_MathML_Uncomment(Img("a.png") & vbCrLf & vbTab & " <!--" & vbCrLf & " <m:math>" & Body() & _
+        .IsEqual Sh_MathML_Uncomment(Img("eq1.png") & "<!--<m:math>" & Body() & "-->", "m:"), _
+                 "<m:math altimg=""eq1.png"">" & Body()
+        .IsEqual Sh_MathML_Uncomment(Img("eq1.png") & vbCrLf & vbTab & " <!--" & vbCrLf & " <m:math>" & Body() & _
                                      " " & vbCrLf & "-->", "m:"), _
-                 "<m:math altimg=""a.png"">" & Body()
-        .IsEqual Sh_MathML_Uncomment("<img src='b c.png'/><!--<m:math>" & Body() & "-->", "m:"), _
-                 "<m:math altimg=""b c.png"">" & Body()
+                 "<m:math altimg=""eq1.png"">" & Body()
+        .IsEqual Sh_MathML_Uncomment("<img src='b eq.png'/><!--<m:math>" & Body() & "-->", "m:"), _
+                 "<m:math altimg=""b eq.png"">" & Body()
     End With
 
     With Suite.Test("a comment holding math with no picture before it is only taken away")
@@ -73,7 +76,7 @@ Public Function TestMathMLComments_Suite() As TestSuite
     End With
 
     With Suite.Test("math left in a comment is not counted: only the equations that reach Word are")
-        t = Img("a.png") & "<!--<m:math>" & Body() & "-->" & _
+        t = Img("eq1.png") & "<!--<m:math>" & Body() & "-->" & _
             "<!--<m:math><m:mn>1</m:mn></m:math><m:math><m:mn>2</m:mn></m:math>-->" & _
             "<!-- see <m:math>" & Body() & " -->"
         ' before: all four math elements counted, three of them inside comments the import drops
@@ -85,19 +88,20 @@ Public Function TestMathMLComments_Suite() As TestSuite
 
     With Suite.Test("math that already has an altimg keeps it, and the picture before it stays")
         t = "<m:math altimg=""EQ1.jpg"">" & Body()
-        .IsEqual Sh_MathML_Uncomment(Img("a.png") & " <!--" & t & "-->", "m:"), Img("a.png") & " " & t
+        .IsEqual Sh_MathML_Uncomment(Img("eq2.png") & " <!--" & t & "-->", "m:"), Img("eq2.png") & " " & t
         ' and live math, not in a comment, is not touched at all
         t = Img("a.png") & " " & t
         .IsEqual Sh_MathML_Uncomment(t, "m:"), t
     End With
 
-    With Suite.Test("a picture on the web or in a data: URI, or with no src, is not made an altimg")
-        .IsEqual Sh_MathML_Uncomment("<img src=""http://x.org/a.png""/><!--<m:math>" & Body() & "-->", "m:"), _
-                 "<img src=""http://x.org/a.png""/><m:math>" & Body()
-        .IsEqual Sh_MathML_Uncomment("<img src=""data:image/png;base64,AAA""/><!--<m:math>" & Body() & "-->", "m:"), _
-                 "<img src=""data:image/png;base64,AAA""/><m:math>" & Body()
-        .IsEqual Sh_MathML_Uncomment("<img alt=""x""/><!--<m:math>" & Body() & "-->", "m:"), _
-                 "<img alt=""x""/><m:math>" & Body()
+    With Suite.Test("a picture on the web is not made an altimg; one in a data: URI or with no src has no file name")
+        .IsEqual Sh_MathML_Uncomment("<img src=""http://x.org/eq1.png""/><!--<m:math>" & Body() & "-->", "m:"), _
+                 "<img src=""http://x.org/eq1.png""/><m:math>" & Body()
+        ' no file name, so no "eq": the picture stays and the comment goes (issue #46)
+        .IsEqual Sh_MathML_Uncomment("<img src=""data:image/png;base64,eqAA""/><!--<m:math>" & Body() & "-->", "m:"), _
+                 "<img src=""data:image/png;base64,eqAA""/>"
+        .IsEqual Sh_MathML_Uncomment("<img alt=""eq""/><!--<m:math>" & Body() & "-->", "m:"), _
+                 "<img alt=""eq""/>"
     End With
 
     With Suite.Test("a src with an entity is carried over exactly as written")
@@ -106,9 +110,48 @@ Public Function TestMathMLComments_Suite() As TestSuite
     End With
 
     With Suite.Test("each pair in a run of them, and the text between kept")
-        t = Img("a.png") & "<!--<m:math>" & Body() & "--><p>and</p>" & Img("b.png") & vbLf & "<!--<m:math>" & Body() & "-->"
+        t = Img("eq1.png") & "<!--<m:math>" & Body() & "--><p>and</p>" & Img("eq2.png") & vbLf & "<!--<m:math>" & Body() & "-->"
         .IsEqual Sh_MathML_Uncomment(t, "m:"), _
-                 "<m:math altimg=""a.png"">" & Body() & "<p>and</p><m:math altimg=""b.png"">" & Body()
+                 "<m:math altimg=""eq1.png"">" & Body() & "<p>and</p><m:math altimg=""eq2.png"">" & Body()
+    End With
+
+    With Suite.Test("only a picture with ""eq"" in its file name, any case, is paired with the math (issue #46)")
+        .IsEqual Sh_MathML_Uncomment(Img("images/eq01036.png") & "<!--<m:math>" & Body() & "-->", "m:"), _
+                 "<m:math altimg=""images/eq01036.png"">" & Body()
+        .IsEqual Sh_MathML_Uncomment(Img("images/EQp010-001.jpg") & " <!--<m:math>" & Body() & "-->", "m:"), _
+                 "<m:math altimg=""images/EQp010-001.jpg"">" & Body()
+        ' any other picture stays a picture, and the comment goes, math and all
+        .IsEqual Sh_MathML_Uncomment("<p>a</p>" & Img("images/fig01.png") & " <!--<m:math>" & Body() & "--><p>b</p>", "m:"), _
+                 "<p>a</p>" & Img("images/fig01.png") & " <p>b</p>"
+        ' "eq" only in the folder does not count
+        .IsEqual Sh_MathML_Uncomment(Img("images/eq/fig01.png") & "<!--<m:math>" & Body() & "-->", "m:"), _
+                 Img("images/eq/fig01.png")
+        .IsEqual Sh_MathML_Uncomment(Img("eq\fig01.png") & "<!--<m:math>" & Body() & "-->", "m:"), Img("eq\fig01.png")
+        .IsEqual Sh_MathML_Uncomment(Img("fig01.png?v=eq") & "<!--<m:math>" & Body() & "-->", "m:"), Img("fig01.png?v=eq")
+        ' even math with its own altimg goes with the comment when the picture before it is not an eq one
+        .IsEqual Sh_MathML_Uncomment(Img("fig01.png") & "<!--<m:math altimg=""eq9.png"">" & Body() & "-->", "m:"), _
+                 Img("fig01.png")
+        ' nothing is counted from the comment that went
+        t = Sh_MathML_Uncomment(Img("fig01.png") & "<!--<m:math>" & Body() & "-->", "m:")
+        .IsEqual UBound(Sh_MathML_Fragments(t, "m:")), -1
+        ' the test itself, on the file name alone
+        .IsEqual Sh_MathML_Is_Eq_Picture("<img src=""images/eq01036.png"" />"), True
+        .IsEqual Sh_MathML_Is_Eq_Picture("<img src='EQp010-001.jpg'/>"), True
+        .IsEqual Sh_MathML_Is_Eq_Picture("<img src=""images/fig01.png"" />"), False
+        .IsEqual Sh_MathML_Is_Eq_Picture("<img src=""images/eq/fig01.png"" />"), False
+        .IsEqual Sh_MathML_Is_Eq_Picture("<img alt=""eq"" />"), False
+    End With
+
+    With Suite.Test("NIMAS math with its own altimg, not in a comment, stays an equation whatever its picture is named")
+        t = "<p>x</p><m:math altimg=""p155-003.png"" " & Decl() & ">" & Body() & "<p>y</p>"
+        .IsEqual Sh_MathML_Uncomment(t, "m:"), t
+        t = Img("p155-003.png") & " <m:math altimg=""p155-003.png"">" & Body()
+        .IsEqual Sh_MathML_Uncomment(t, "m:"), t
+        .IsEqual UBound(Sh_MathML_Fragments(Sh_MathML_Uncomment(t, "m:"), "m:")), 0
+    End With
+
+    With Suite.Test("math in a comment with no picture before it still comes out, with no altimg")
+        .IsEqual Sh_MathML_Uncomment("<p>x</p> <!--<m:math>" & Body() & "-->", "m:"), "<p>x</p> <m:math>" & Body()
     End With
 
     With Suite.Test("no comment at all: the text unchanged")

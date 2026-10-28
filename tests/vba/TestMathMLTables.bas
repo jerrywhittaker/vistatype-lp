@@ -9,6 +9,8 @@ Attribute VB_Name = "TestMathMLTables"
 ' with no equation is not touched. The first shape is Bookshare's "Basic Math & Pre-Algebra
 ' For Dummies" one-row "Dummies-Mini-Table". Nothing here touches a document.
 '
+' Version: 1.1  Date: 10/27/2026 - a table of pictures without "eq" in their names, each with
+'                                math in a comment, stays a table (issue #46)
 ' Version: 1.0  Date: 10/27/2026
 '
 Option Explicit
@@ -122,6 +124,20 @@ Public Function TestMathMLTables_Suite() As TestSuite
         .IsEqual UBound(Sh_MathML_Fragments(Sh_MathML_Untable(t, "m:"), "m:")), 1
         .IsEqual InStr(1, Sh_MathML_Untable(t, "m:"), "<table"), 0
         .IsEqual InStr(1, Sh_MathML_Untable(t, "m:"), "<td"), 0
+    End With
+
+    With Suite.Test("a table of pictures without ""eq"" in their names, math in comments, stays a table (issue #46)")
+        t = "<table><tbody><tr>" & _
+            "<td><p><img src=""images/fig01.png"" alt=""a"" />  <!--" & E1() & "-->  </p></td>" & _
+            "<td><p><img src=""images/eq/fig02.png"" alt=""b"" /><!--<m:math><m:mn>15</m:mn></m:math>--></p></td>" & _
+            "</tr></tbody></table>"
+        t = Sh_MathML_Uncomment(t, "m:")
+        .IsEqual t, "<table><tbody><tr>" & _
+            "<td><p><img src=""images/fig01.png"" alt=""a"" />    </p></td>" & _
+            "<td><p><img src=""images/eq/fig02.png"" alt=""b"" /></p></td>" & _
+            "</tr></tbody></table>"
+        .IsEqual UBound(Sh_MathML_Fragments(t, "m:")), -1
+        .IsEqual Sh_MathML_Untable(t, "m:"), t
     End With
 
     Set TestMathMLTables_Suite = Suite

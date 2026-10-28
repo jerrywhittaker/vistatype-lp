@@ -18,6 +18,13 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - DN  - 10/27/2026 - ONLY AN "EQ" PICTURE BECOMES AN EQUATION (issue #46, Jerry): where a
+'           - DN  - 10/27/2026 - book puts MathML in a comment after its picture (issue #40), the two are
+'           - DN  - 10/27/2026 - paired only when the picture's file name - not its folder - holds "eq",
+'           - DN  - 10/27/2026 - any case (Sh_MathML_Is_Eq_Picture). Any other picture stays a picture and
+'           - DN  - 10/27/2026 - the comment goes. Math in a comment with no picture before it still
+'           - DN  - 10/27/2026 - comes out. Live NIMAS math with its own altimg is not affected. Wanted
+'           - DN  - 10/27/2026 - behavior, not a fault: Basic Math already had every pair named eq.
 ' Notes:    - DN  - 10/27/2026 - THE BOOK IS SAVED BEFORE MATHTYPE FORMATS THE EQUATIONS (issue #42,
 '           - DN  - 10/27/2026 - Jerry): MathType's whole-book Format Equations sometimes crashes Word in
 '           - DN  - 10/27/2026 - MT6.DLL or hangs it, and the book was still an unsaved Document2, so the
@@ -35666,6 +35673,11 @@ End Function   '*** end of Sh_MathML_To_Placeholders function ***
 
 Private Function Sh_MathML_Uncomment(ByVal xml As String, ByVal prefix As String) As String
     '
+    ' Version: 1.2  Date: 10/27/2026 - ONLY AN "EQ" PICTURE IS PAIRED (issue #46, Jerry): a picture
+    '                                straight before the comment is paired with its math only when
+    '                                its file name - not its folder - holds "eq", any case
+    '                                (Sh_MathML_Is_Eq_Picture). Any other picture stays a picture
+    '                                and the comment goes, math and all
     ' Version: 1.1  Date: 10/25/2026 - every other comment is taken out as well (review): math left
     '                                inside one was still counted and parked, and its placeholder
     '                                then went with the comment - "Putting in" counted an equation
@@ -35696,6 +35708,14 @@ Private Function Sh_MathML_Uncomment(ByVal xml As String, ByVal prefix As String
     ' nothing. So the text this hands back has no comments at all. Math that already has an altimg
     ' keeps it, and the picture before it stays; so does a picture with no src, or one on the web
     ' or in a data: URI. Only the import text comes here; the .txt and .html keep every comment.
+    '
+    ' Jerry, 10/27/2026 (issue #46): a book's pictures of equations have "EQ" in their file names.
+    ' So when a picture is straight before the comment, the math comes out only if that picture's
+    ' file name (not its folder) holds "eq", in any case: images/eq01036.png, EQp010-001.jpg. Any
+    ' other picture - fig01.png, images/eq/fig01.png, one with no src or in a data: URI - stays a
+    ' picture, and the comment goes as every other comment does. Math in a comment with no picture
+    ' straight before it still comes out, with no altimg. Live math is never looked at here, so
+    ' NIMAS math with its own altimg (p155-003.png) is an equation whatever its picture is named.
 
     Dim re As Object, ms As Object, m As Object, one As Object, mm As Object
     Dim i As Long, pos As Long
@@ -35738,6 +35758,11 @@ Private Function Sh_MathML_Uncomment(ByVal xml As String, ByVal prefix As String
             ' Two math elements in one comment would read as one; that comment just goes.
             If InStr(2, mathml, tagName) > 0 Then mathml = ""
         End If
+        ' A picture straight before: the math is its equation only when the picture's file name
+        ' holds "eq" (issue #46); otherwise the picture stays and the comment goes.
+        If mathml <> "" And imgTag <> "" Then
+            If Not Sh_MathML_Is_Eq_Picture(imgTag) Then mathml = ""
+        End If
 
         If mathml <> "" Then
             src = ""
@@ -35759,6 +35784,30 @@ Private Function Sh_MathML_Uncomment(ByVal xml As String, ByVal prefix As String
 
     Sh_MathML_Uncomment = Join(parts, "")
 End Function   '*** end of Sh_MathML_Uncomment function ***
+
+Private Function Sh_MathML_Is_Eq_Picture(ByVal imgTag As String) As Boolean
+    '
+    ' Version: 1.0  Date: 10/27/2026
+    '
+    ' Issue #46, Jerry, 10/27/2026: a book's pictures of equations have "EQ" in their file names.
+    ' True when the <img> tag's src names a file whose name - after the last / or \, before any ?
+    ' or # - holds "eq" in any case. A folder named eq does not count, and a picture with no src
+    ' or in a data: URI has no file name.
+    '   <img src="images/eq01036.png" />  -> True     <img src="EQp010-001.jpg" />  -> True
+    '   <img src="fig01.png" />           -> False    <img src="images/eq/fig01.png" /> -> False
+
+    Dim src As String, cut As Long
+
+    src = Trim$(Sh_Xml_Attribute(imgTag, "src"))
+    If src = "" Or LCase$(Left$(src, 5)) = "data:" Then Exit Function
+    cut = InStr(1, src, "?")
+    If cut > 0 Then src = Left$(src, cut - 1)
+    cut = InStr(1, src, "#")
+    If cut > 0 Then src = Left$(src, cut - 1)
+    cut = InStrRev(src, "/")
+    If InStrRev(src, "\") > cut Then cut = InStrRev(src, "\")
+    Sh_MathML_Is_Eq_Picture = (InStr(1, Mid$(src, cut + 1), "eq", vbTextCompare) > 0)
+End Function   '*** end of Sh_MathML_Is_Eq_Picture function ***
 
 Private Function Sh_MathML_Untable(ByVal xml As String, ByVal prefix As String) As String
     '
