@@ -223,6 +223,17 @@ tools/windows/  Export-Vba.ps1 / Import-Vba.ps1 / New-UserForm.ps1 / Run-VbaTest
                  argument as an expression. It reports each control's position before removing it,
                  which is the only record of the hole left behind. Added 8/20/2026 to take the
                  Typeface choice off Lp_Attach_An_Lp_Template_Form
+                watch42.ps1 / Install-Watch42.ps1 — a READ-ONLY watcher for issue #42 (Word crashes or
+                 hangs in MathType's Format Equations), added 10/28/2026. Installed BY HAND, not by any
+                 make target, to C:\Users\jerry\VistaWatch\ — outside the build folder, whose tools/ is
+                 wiped before every build — as the logon task "VistaType Watch42": Jerry's own session,
+                 hidden (conhost --headless), Idle priority. Every 30 s it logs each Word and MathType
+                 process with its start time to watch42.log (capped at about 10 MB); when Word crashes,
+                 hangs, or vanishes while the timing log says MathType is formatting, it copies Office's
+                 diagnostics logs, the WER report, the timing-log tail and the mtu*.tmp list into a
+                 capture-* folder there before Windows clears them. Never stops Word or MathType.
+                 Install: scp both to vistabuild:VistaWatch/, then run Install-Watch42.ps1 there;
+                 remove with Install-Watch42.ps1 -Remove (the output folder stays)
                 Setup-SigningTools.ps1 — one-time box preparation for CODE SIGNING, added
                  8/17/2026 when Jerry bought the Certum card. Installs only the Windows SDK's
                  SigningTools feature (which lands in the usual C:\Program Files (x86)\Windows
