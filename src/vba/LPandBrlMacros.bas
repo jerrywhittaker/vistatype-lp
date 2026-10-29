@@ -64,6 +64,13 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - LP  - 10/27/2026 - reads pictures through is emptied before each one.
 '           - LP  - 10/27/2026 - The TOC box now says Ctrl+Z TWICE (five times when the TOC ends the
 '           - LP  - 10/27/2026 - document) - measured; it said once.
+'           - DN  - 10/28/2026 - ERROR 5825 WHILE PUTTING IN THE EQUATIONS (issue #47, Jerry): the converted
+'           - DN  - 10/28/2026 - book was closed partway, and ConvertFailed's own finalDoc.Activate raised a
+'           - DN  - 10/28/2026 - second error inside the handler, which On Error Resume Next cannot catch
+'           - DN  - 10/28/2026 - there. It escaped to the ribbon, logged as DN_Menu_Starter 5825 and the first
+'           - DN  - 10/28/2026 - error lost. ConvertFailed and Sh_MathML_Put_Picture's Failed now leave the
+'           - DN  - 10/28/2026 - handler state (On Error GoTo -1) before Resume Next; a closed book gets
+'           - DN  - 10/28/2026 - box 403, which says so, instead of an error report.
 '           - DN  - 10/28/2026 - ONE-ROW TABLES OF TYPED EQUATIONS TAKEN APART TOO (issue #43, Jerry): a
 '           - DN  - 10/28/2026 - one-row table in which every cell that is not empty holds an equation -
 '           - DN  - 10/28/2026 - a math element, or typed text with an equals sign (Basic Math's
@@ -34696,6 +34703,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
 '
 ' Automatically converts an .xml (NIMAS or DAISY) file into a Word Document with reference pages tagged with $pg
 '
+' Version: 3.4  Date: 10/28/2026 - ERROR 5825 WHILE PUTTING IN THE EQUATIONS (issue #47, Jerry): the converted book had been closed partway through, and ConvertFailed's own finalDoc.Activate then raised 5825 INSIDE the handler, where On Error Resume Next does not catch it; it escaped to RibbonAction, was logged as DN_Menu_Starter, and the first error was lost. ConvertFailed now runs On Error GoTo -1 straight after taking its copy of the error, so it finishes and reports under its own name; and when the converted book is gone, box 403 says so instead of asking for an error report
 ' Version: 3.3  Date: 10/28/2026 - ONE-ROW TABLES OF TYPED EQUATIONS TAKEN APART TOO (issue #43, Jerry): Sh_MathML_Untable now also takes apart a one-row table in which every cell that is not empty holds an equation, a math element or typed text with an equals sign - Basic Math's "25% = 0.25" and "A = (2, 3)" rows. A table of more rows, or with a cell of plain words, stays a table
 ' Version: 3.2  Date: 10/28/2026 - BOX 402 STAYS OPEN, AND COMES AFTER THE SAVE (Jerry): on the large-print MathType path 402 now comes after 401 and the Save As and before Format Equations, as a box that stays open (Sh_Ask_Modeless) so the transcriber can open MathType and set it up; the conversion waits on it with the bar hidden. Okay formats the equations; Cancel or the red X leaves them unformatted, with no second save, and 313 says to click Format Equations on the MathType tab when MathType is set up. One line added to Jerry's text: "When MathType is set up, click Okay to format the equations." If the book is closed while 402 is up, the run ends quietly with Word's options put back
 ' Version: 3.1  Date: 10/27/2026 - THREE CHANGES (Jerry): (1) THE BOOK, NOT THE BLANK DOCUMENT, IS IN FRONT AFTER THE SECOND SAVE: on the MathType path the progress bar's home is moved to the book (Sh_Progress_Rehome) before Format Equations, so the Sh_Progress_Show after it and the Sh_Progress_Close no longer bring the blank Document1 forward for the repaginate, the second save and the end. (2) The bar (373) says "so the bar will not move" instead of "so the bar waits", all five lines. (3) New box 402, large print with MathType only, before 401: how to set MathType up for large-print equations, Jerry's text
@@ -34747,7 +34755,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     Dim origState As Long, origTop As Long, origLeft As Long
     Dim su_Prev As Boolean, pag_Prev As Boolean, spell_Prev As Boolean, gram_Prev As Boolean
     Dim optsSaved As Boolean
-    Dim errNum As Long, errText As String
+    Dim errNum As Long, errText As String, bookGone As Boolean
     Dim mtFormat As Boolean, saveDeclined As Boolean, saveLine As String
     Dim lpNote As String, mtSkip As Boolean
 
@@ -35578,6 +35586,10 @@ ConvertFailed:
     ' after any of it reports 0.
     errNum = Err.Number
     errText = Err.Description
+    ' Out of the handler state before Resume Next (issue #47): inside it, Resume Next catches
+    ' nothing, and an error below - finalDoc.Activate on a book that has been closed - escapes to
+    ' the ribbon under the button's name, and the error above is never reported.
+    On Error GoTo -1
     On Error Resume Next
 
     ' Word's own settings before anything else, and ONLY when they were actually captured.
@@ -35608,7 +35620,15 @@ ConvertFailed:
     ' Without this they are left on whichever document the progress bar last activated - their
     ' own, from before the conversion - and a failure then reads as the work having vanished.
     ' finalDoc is Nothing if the run failed before Documents.Add, which is why this is guarded.
+    ' The book may have been closed while the run was under way (issue #47); reading its name
+    ' then gives 5825, "Object has been deleted".
     If Not finalDoc Is Nothing Then
+        Err.Clear
+        bookGone = (finalDoc.Name = "")
+        If Err.Number <> 0 Then bookGone = True
+        Err.Clear
+    End If
+    If Not finalDoc Is Nothing And Not bookGone Then
         Application.Activate
         finalDoc.Activate
         finalDoc.ActiveWindow.View.Type = wdPrintView
@@ -35621,6 +35641,14 @@ ConvertFailed:
     ' The part-converted book is left exactly as it stands, not repaired and not thrown away. It
     ' may be most of the way there and worth keeping; this macro holds no record of how far it
     ' got, so guessing at a cleanup would be worse than leaving it.
+    ' A book closed partway is not a fault to report: the user closed it (issue #47).
+    If bookGone Then
+        Sh_Say "The converted book was closed before the conversion finished." & vbCr & vbCr & _
+               "If the book was saved, open the saved book. If not, run the conversion again and " & _
+               "leave the book open until the progress bar has gone.", _
+               "VistaType LP (403)"
+        Exit Sub
+    End If
     Sh_Report_Error "Sh_Convert_XML_File_To_Word_Document", errNum, errText
 
 End Sub   '*** end of Sh_Convert_XML_File_To_Word_Document macro ***
@@ -38580,6 +38608,9 @@ End Function   '*** end of Sh_MathML_Put_MathType function ***
 
 Private Function Sh_MathML_Put_Picture(ByVal r As Range, ByVal picPath As String) As Boolean
     '
+    ' Version: 1.3  Date: 10/28/2026 - Failed leaves the handler state (On Error GoTo -1) before
+    '                                On Error Resume Next, so a pic.Delete that fails there is
+    '                                caught instead of escaping to the converter (issue #47)
     ' Version: 1.2  Date: 10/18/2026 - the picture's aspect ratio is locked as soon as it is in
     '                                (Jerry: "when equations are presented as pictures, the
     '                                pictures must have the aspect ratio locked"). Both routes -
@@ -38621,7 +38652,9 @@ Private Function Sh_MathML_Put_Picture(ByVal r As Range, ByVal picPath As String
     Exit Function
 
 Failed:
-    Err.Clear
+    ' Out of the handler state first (issue #47): inside it, Resume Next catches nothing, and a
+    ' pic.Delete that fails would escape to the converter.
+    On Error GoTo -1
     On Error Resume Next
     If Not pic Is Nothing Then pic.Delete      ' the placeholder stays, alone, findable
     Err.Clear
