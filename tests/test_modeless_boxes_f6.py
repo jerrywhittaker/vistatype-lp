@@ -52,12 +52,15 @@ def test_one_shared_f6_for_every_box(repo_root):
                      ("hv", "Lp_Hvb_ToggleFocus"), ("msg", "Sh_Ask_Modeless_ToggleFocus")):
         assert f'Case "{who}"' in toggle and sub in toggle, f"F6 cannot reach the {who} box"
 
-    # Nothing binds F6 on its own any more - every KeyBindings.Add for F6 is in Sh_Box_BindKeys.
+    # Nothing binds a key on its own any more - every KeyBindings.Add is in Sh_Box_BindKeys: F6,
+    # Shift+F6, and (10/30/2026) the newest box's own Alt keys, test_box_alt_keys_in_book.py.
     macros = module_text(repo_root)
     everything = macros + "\n" + shared
     adds = [line for line in everything.splitlines()
             if "KeyBindings.Add" in line and not line.lstrip().startswith("'")]
-    assert len(adds) == 2, f"F6 bound somewhere other than Sh_Box_BindKeys: {adds}"
+    assert len(adds) == 3, f"a key bound somewhere other than Sh_Box_BindKeys: {adds}"
+    assert all(line in sprocs["Sh_Box_BindKeys"] for line in adds), (
+        f"a key bound somewhere other than Sh_Box_BindKeys: {adds}")
 
     procs = procedures(macros)
     for box, who in (("Lp_Tocb", "tocb"), ("Lp_Rst", "rst")):

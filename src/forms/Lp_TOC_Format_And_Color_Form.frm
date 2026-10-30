@@ -15,6 +15,8 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 ' Lp_TOC_Format_And_Color_Form
 '
+' Version: 2.3  Date: 10/30/2026 - Clean and format the TOC (FormatTheTOCButton) is Alt+C, not Alt+F
+'                               (Jerry). Set in UserForm_Initialize, after Cancel becomes D.
 ' Version: 2.2  Date: 9/29/2026 - the title was cut off before its number (issue #22).
 '                               The form is 228 points wide inside (ClientWidth 4560), not 204.75, so the
 '                               title, measured in Segoe UI 9 point, fits with about 20 pixels to spare. Every
@@ -116,6 +118,12 @@ Private Sub UserForm_Initialize()
     ' control keeps its name so the .frx does not have to change.
     CancelButton.Caption = "Done"
     CancelButton.Accelerator = "D"
+
+    ' CLEAN AND FORMAT THE TOC IS ALT+C - Jerry, 10/30/2026; it was F, which Word's File tab also
+    ' answers. Set here, AFTER Cancel's letter has become D, so C is never on two controls at once.
+    ' The .frx still says F; this wins. The same letter is bound in Word while the box is up
+    ' (Sh_Box_AltKeys "tocb", Lp_Tocb_AltKey).
+    FormatTheTOCButton.Accelerator = "C"
 
     Application.Run MacroName:="MS_Set_Word_Config_For_Large_Print"
     ' From: https://www.thespreadsheetguru.com/the-code-vault/launch-vba-userforms-in-correct-window-with-dual-monitors

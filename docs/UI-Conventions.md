@@ -123,6 +123,24 @@ wait" notice are not boxes the transcriber works in, and are not covered.
   leaves it with `Sh_Box_Closed` (both in `ShNonModalMessage`); **the newest box up has F6**, and
   closing it hands F6 to the box opened before. Never bind F6 for one box on its own — that is
   how a live box was left without it (review, 9/23/2026).
+- **The box's own Alt keys work from the book too** — Jerry, 10/30/2026. A form's Alt keys
+  fire only while the form has the keyboard, and the book has it, so Alt+F on Type Fill-In
+  Lines (357) opened Word's File tab instead. While a box is the newest up, the Alt key of each
+  of its buttons is bound in Word as well, alongside F6: list the letters in `Sh_Box_AltKeys`
+  and give the box an `_AltKey` sub that does what each control does (`Lp_Fil_AltKey`,
+  `Lp_Rst_AltKey`, `Lp_Tocb_AltKey`, `Lp_Hvb_AltKey`, `Sh_PgVal_AltKey`,
+  `Sh_Ask_Modeless_AltKey`). Read the box's controls only after its is-it-up flag, and into
+  variables before any `If`. Closing the box hands the keys to the box opened before, or back
+  to Word. A box that is one name on the list but has two menus with different letters (the $pg
+  menus) is listed under `Sh_Box_AltName`'s name for each menu, and each swap binds again.
+  The cost, accepted: Word's own use of those keys (Alt+F for the File tab, Alt+P for Layout,
+  Alt+R for Review, Alt+S for References, Alt+W for View, Alt+L for Developer, Alt+1 to Alt+0
+  for the Quick Access Toolbar) is unavailable while the box is up — which is why the TOC box's
+  Clean and format the TOC is Alt+C, not Alt+F (Jerry, 10/30/2026): a letter can be moved off one
+  of Word's tabs when the box has a free one. Do not wrap the call into the box's macro in On
+  Error Resume Next: an error in it must show from the key as it does from the button. Done for
+  every box that stays open (357 and 375 confirmed by Jerry on 3.0.624; 354, 348, 364, 366 and 402 not built
+  yet); `tests/test_box_alt_keys_in_book.py` holds each list to the form's real letters.
 - **When the box first appears, the book has the keyboard**, not the box. So does every press of a button that
   types into or converts the book (357, 348), so the transcriber can move to the next place and press again.
 - **Cancel becomes Done.** A box that stays open has nothing to cancel; Done closes it, and the

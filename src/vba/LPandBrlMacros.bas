@@ -18,6 +18,28 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 10/30/2026 - THE BOXES' ALT KEYS WORK FROM THE BOOK (Jerry): Type Fill-In Lines
+'           - Lp  - 10/30/2026 - (357) and Resize Pictures in a Selected Range (375) give the keyboard
+'           - Lp  - 10/30/2026 - to the book, so their Alt keys went to Word - Alt+F opened the File
+'           - Lp  - 10/30/2026 - tab. While one of them is the newest box up, its Alt keys are bound
+'           - Lp  - 10/30/2026 - in Word as F6 is (Sh_Box_AltKeys, ShNonModalMessage), and released
+'           - Lp  - 10/30/2026 - when it closes: 357 Alt+1 to Alt+0, F, D (Lp_Fil_AltKey); 375 Alt+A,
+'           - Lp  - 10/30/2026 - U, D, F, P, L, C, V (Lp_Rst_AltKey). Word's own Alt+F, Alt+P and
+'           - Lp  - 10/30/2026 - Alt+1 to Alt+0 are not available while that box is up.
+'           - Lp  - 10/30/2026 - THE OTHER FIVE BOXES THAT STAY OPEN, the same way (Jerry: "do all
+'           - Lp  - 10/30/2026 - five"): the TOC box (354) Alt+C, A, R, O, D (Lp_Tocb_AltKey);
+'           - Lp  - 10/30/2026 - Horizontal List to Vertical (348) Alt+O, D, S, A, L, T
+'           - Lp  - 10/30/2026 - (Lp_Hvb_AltKey); the $pg menus, Validate $pg Tags (364) Alt+L, D,
+'           - Lp  - 10/30/2026 - W and Delete/change/add $pg (366) Alt+R, D, W (Sh_PgVal_AltKey,
+'           - Lp  - 10/30/2026 - which menu's letters follow the menu on screen); and the question
+'           - Lp  - 10/30/2026 - that stays open (402) Alt+O, C (Sh_Ask_Modeless_AltKey). While one
+'           - Lp  - 10/30/2026 - is up, Word's own Alt+R, Alt+S, Alt+W and Alt+L are not available.
+'           - Lp  - 10/30/2026 - On the TOC box (354), Clean and format the TOC is ALT+C, NOT ALT+F
+'           - Lp  - 10/30/2026 - (Jerry), set in the form's UserForm_Initialize after Cancel's C has
+'           - Lp  - 10/30/2026 - become D; so the box takes Word's Alt+R only, and Alt+F is the File
+'           - Lp  - 10/30/2026 - tab again. And an error in the macro an Alt key runs now shows, as
+'           - Lp  - 10/30/2026 - it does from the button (Sh_Box_AltKey had swallowed it, so Locate
+'           - Lp  - 10/30/2026 - and Return on the $pg menus failed in silence from Alt+L and Alt+R).
 ' Notes:    - DN  - 10/28/2026 - BOX 402 STAYS OPEN, AFTER THE SAVE (Jerry): 402 (large print with MathType)
 '           - DN  - 10/28/2026 - moves from before 401 to after the Save As, just before Format Equations,
 '           - DN  - 10/28/2026 - and stays open (Sh_Ask_Modeless, ShNonModalMessage) so the transcriber can
@@ -16986,6 +17008,57 @@ Public Sub Lp_Fil_KeyToDocument()
     Err.Clear
 End Sub  '***** end of Lp_Fil_KeyToDocument *****
 
+' ALT KEYS FROM THE BOOK - Jerry, 10/30/2026. The box gives the keyboard to the book, so its own
+' Alt keys never reached it: Alt+F opened Word's File tab instead of pressing Fill to Right Margin.
+' While this is the newest box up, its Alt keys are bound in Word too (Sh_Box_AltKeys,
+' ShNonModalMessage) and each comes here, through Sh_Box_AltKey. Each Case does exactly what that
+' button's _Click on the form does. Alt+0 is the 10 button. Not while a fill is being typed:
+' Lp_Fil_Type and Lp_Fil_Done each ignore a press then, as they do for a click.
+'
+' Version: 1.0  Date: 10/30/2026
+Public Sub Lp_Fil_AltKey(ByVal key As String)
+    Dim extra As Long
+
+    ' The safety net, as for F6: fired with no box up, it leaves the shared list.
+    If Not Lp_Fil_IsOn Then
+        Sh_Box_Closed "fil"
+        Exit Sub
+    End If
+
+    Select Case UCase$(key)
+        Case "1"
+            Lp_Fil_Type 1, 1
+        Case "2"
+            Lp_Fil_Type 1, 2
+        Case "3"
+            Lp_Fil_Type 1, 3
+        Case "4"
+            Lp_Fil_Type 1, 4
+        Case "5"
+            Lp_Fil_Type 1, 5
+        Case "6"
+            Lp_Fil_Type 1, 6
+        Case "7"
+            Lp_Fil_Type 1, 7
+        Case "8"
+            Lp_Fil_Type 1, 8
+        Case "9"
+            Lp_Fil_Type 1, 9
+        Case "0"
+            Lp_Fil_Type 1, 10
+        Case "F"
+            ' The spinner on the box, read only while the box is up - touching a member of a form
+            ' that is down would create it.
+            On Error Resume Next
+            extra = Lp_Type_Fill_In_Line_Form.SpinButton1.Value
+            Err.Clear
+            On Error GoTo 0
+            Lp_Fil_Type 2, extra
+        Case "D"
+            Lp_Fil_Done
+    End Select
+End Sub  '***** end of Lp_Fil_AltKey *****
+
 Sub Lp_Format_Exercise_Lv_1_and_Lv_2()
 
 ' Lp_Format_Exercise_Lv_1_and_Lv_2 Macro
@@ -18202,6 +18275,73 @@ Public Sub Lp_Hvb_KeyToDocument()
     Err.Clear
 End Sub  '***** end of Lp_Hvb_KeyToDocument *****
 
+' ALT KEYS FROM THE BOOK - Jerry, 10/30/2026, as for Type Fill-In Lines (357). The box gives the
+' keyboard to the book, so its own Alt keys went to Word: Alt+S opened the References tab instead
+' of ticking the sort box, and Alt+L the Developer tab. While this is the newest box up, its Alt
+' keys are bound in Word too (Sh_Box_AltKeys, ShNonModalMessage) and each comes here, through
+' Sh_Box_AltKey. Alt+A, Alt+L and Alt+T choose the kind of list, and Alt+S ticks or clears the
+' sort box, as on the box. Alt+O does what Okay's _Click does: the kind of list is read off the
+' same option buttons, in the same order, and the sort box with it, and both are handed to
+' Lp_Hvb_Okay. Alt+D is Done.
+'
+' The form's members are read only past the Lp_Hvb_IsOn test - touching a member of a form that is
+' down would create it. Each read is into a variable first: under On Error Resume Next, an If whose
+' test raises goes on into its Then. A read that fails converts nothing: with nothing read, the
+' list would otherwise go through as tabbed and unsorted, which nobody chose.
+'
+' Version: 1.0  Date: 10/30/2026
+Public Sub Lp_Hvb_AltKey(ByVal key As String)
+    Dim ordered As Boolean, spaced As Boolean, sortWanted As Boolean
+    Dim readOk As Boolean
+    Dim listKind As String
+
+    ' The safety net, as for F6: fired with no box up, it leaves the shared list.
+    If Not Lp_Hvb_IsOn Then
+        Sh_Box_Closed "hv"
+        Exit Sub
+    End If
+
+    Select Case UCase$(key)
+        Case "O"
+            On Error Resume Next
+            Err.Clear
+            ordered = (Lp_Horz_To_Vert_List_Form.Ordered_List.Value = True)
+            spaced = (Lp_Horz_To_Vert_List_Form.Spaced_List.Value = True)
+            sortWanted = (Lp_Horz_To_Vert_List_Form.AscendingOrderCheckbox.Value = True)
+            readOk = (Err.Number = 0)
+            Err.Clear
+            On Error GoTo 0
+            If Not readOk Then Exit Sub
+
+            If ordered Then
+                listKind = "ORDERED"
+            ElseIf spaced Then
+                listKind = "SPACED"
+            Else
+                listKind = "TABBED"
+            End If
+            Lp_Hvb_Okay listKind, sortWanted
+        Case "D"
+            Lp_Hvb_Done
+        Case "S", "A", "L", "T"
+            On Error Resume Next
+            With Lp_Horz_To_Vert_List_Form
+                Select Case UCase$(key)
+                    Case "S"
+                        .AscendingOrderCheckbox.Value = Not (.AscendingOrderCheckbox.Value = True)
+                    Case "A"
+                        .Ordered_List.Value = True
+                    Case "L"
+                        .Spaced_List.Value = True
+                    Case "T"
+                        .TabbedList.Value = True
+                End Select
+            End With
+            Err.Clear
+            On Error GoTo 0
+    End Select
+End Sub  '***** end of Lp_Hvb_AltKey *****
+
 Sub Lp_Table_Tools()
 '
 ' Version: 1.9  Date: 10/9/2026 - no End anywhere (issue #18). End unloaded every box that stays
@@ -18619,6 +18759,76 @@ Public Sub Lp_Tocb_KeyToDocument()
     End If
     Err.Clear
 End Sub  '***** end of Lp_Tocb_KeyToDocument *****
+
+' ALT KEYS FROM THE BOOK - Jerry, 10/30/2026, as for Type Fill-In Lines (357). The box gives the
+' keyboard to the book, so its own Alt keys went to Word: Alt+F opened the File tab instead of
+' choosing Format the TOC, and Alt+R the Review tab. While this is the newest box up, its Alt keys
+' are bound in Word too (Sh_Box_AltKeys, ShNonModalMessage) and each comes here, through
+' Sh_Box_AltKey. Alt+C, Alt+A and Alt+R choose Clean and format the TOC, Add Color Bars and Remove
+' Color Bars, as on the box. Clean and format the TOC is C, not F, from 1.1 (Jerry, 10/30/2026):
+' the form's UserForm_Initialize sets it, after Cancel's C has become D. Alt+O does what Okay's
+' _Click does: the job is read off the same three option buttons, in the same order, and handed
+' to Lp_Tocb_Okay. Alt+D is Done - the Cancel
+' button, whose letter UserForm_Initialize makes D.
+'
+' The form's members are read only past the Lp_Tocb_IsOn test - touching a member of a form that
+' is down would create it, and this one's Initialize reconfigures Word. Each read is into a
+' variable first: under On Error Resume Next, an If whose test raises goes on into its Then. A
+' read that fails presses nothing, rather than saying "choose what to do" (386) about a box that
+' could not be read.
+'
+' Version: 1.1  Date: 10/30/2026 - Clean and format the TOC is Alt+C, not Alt+F
+' Version: 1.0  Date: 10/30/2026
+Public Sub Lp_Tocb_AltKey(ByVal key As String)
+    Dim fmt As Boolean, addBars As Boolean, removeBars As Boolean
+    Dim readOk As Boolean
+    Dim job As Long
+
+    ' The safety net, as for F6: fired with no box up, it leaves the shared list.
+    If Not Lp_Tocb_IsOn Then
+        Lp_Tocb_UnbindKeys
+        Exit Sub
+    End If
+
+    Select Case UCase$(key)
+        Case "O"
+            On Error Resume Next
+            Err.Clear
+            fmt = (Lp_TOC_Format_And_Color_Form.FormatTheTOCButton.Value = True)
+            addBars = (Lp_TOC_Format_And_Color_Form.AddColorBarsButton.Value = True)
+            removeBars = (Lp_TOC_Format_And_Color_Form.RemoveColorBarsButton.Value = True)
+            readOk = (Err.Number = 0)
+            Err.Clear
+            On Error GoTo 0
+            If Not readOk Then Exit Sub
+
+            job = 0
+            If fmt Then
+                job = 1
+            ElseIf addBars Then
+                job = 2
+            ElseIf removeBars Then
+                job = 3
+            End If
+            Lp_Tocb_Okay job
+        Case "D"
+            Lp_Tocb_Done
+        Case "C", "A", "R"
+            On Error Resume Next
+            With Lp_TOC_Format_And_Color_Form
+                Select Case UCase$(key)
+                    Case "C"
+                        .FormatTheTOCButton.Value = True
+                    Case "A"
+                        .AddColorBarsButton.Value = True
+                    Case "R"
+                        .RemoveColorBarsButton.Value = True
+                End Select
+            End With
+            Err.Clear
+            On Error GoTo 0
+    End Select
+End Sub  '***** end of Lp_Tocb_AltKey *****
 
 ' What the box's Okay runs. job is the choice: 1 Format the TOC, 2 Add Color Bars, 3 Remove
 ' Color Bars.
@@ -24736,6 +24946,61 @@ Public Sub Lp_Rst_KeyToDocument()
     End If
     Err.Clear
 End Sub  '***** end of Lp_Rst_KeyToDocument *****
+
+' ALT KEYS FROM THE BOOK - Jerry, 10/30/2026. The box gives the keyboard to the book, so its own
+' Alt keys never reached it: Alt+F opened Word's File tab instead of ticking "Attach the picture
+' to the paragraph which follows it." While this is the newest box up, its Alt keys are bound in
+' Word too (Sh_Box_AltKeys, ShNonModalMessage) and each comes here, through Sh_Box_AltKey. Each
+' Case does what that control's Alt key does on the box: a button is pressed, a tick box is
+' ticked or cleared, a position button is chosen. Use Last Size is dead until a size has been
+' used (Lp_Rst_Offer_Last_Size), and its Alt key does nothing until then, as on the box.
+'
+' The form's members are read only past the Lp_Rst_IsOn test - touching a member of a form that
+' is down would create it. Each read is into a variable first: under On Error Resume Next, an
+' If whose test raises goes on into its Then.
+'
+' Version: 1.0  Date: 10/30/2026
+Public Sub Lp_Rst_AltKey(ByVal key As String)
+    Dim live As Boolean
+
+    ' The safety net, as for F6: fired with no box up, it leaves the shared list.
+    If Not Lp_Rst_IsOn Then
+        Lp_Rst_UnbindKeys
+        Exit Sub
+    End If
+
+    Select Case UCase$(key)
+        Case "A"
+            Lp_Rst_Apply
+        Case "U"
+            On Error Resume Next
+            live = False
+            live = Lp_Same_Pic_Range_Form.LastSizeButton.Enabled
+            Err.Clear
+            On Error GoTo 0
+            If live Then Lp_Rst_Apply_Last_Size
+        Case "D"
+            Lp_Rst_Done
+        Case "F", "P", "L", "C", "V"
+            On Error Resume Next
+            With Lp_Same_Pic_Range_Form
+                Select Case UCase$(key)
+                    Case "F"
+                        .JoinNextParaButton.Value = Not (.JoinNextParaButton.Value = True)
+                    Case "P"
+                        .JoinPrevParaButton.Value = Not (.JoinPrevParaButton.Value = True)
+                    Case "L"
+                        .LeftAlignButton.Value = True
+                    Case "C"
+                        .CenterButton.Value = True
+                    Case "V"
+                        .LeaveAsIsButton.Value = True
+                End Select
+            End With
+            Err.Clear
+            On Error GoTo 0
+    End Select
+End Sub  '***** end of Lp_Rst_AltKey *****
 
 ' Lp_Rst_Keys_Are_Bound stood here, 9/22/2026 to 9/23/2026. The box asked it whether F6 was really
 ' its own, because it stood aside for a $pg validation. The key is shared now (Sh_Box_Opened) and

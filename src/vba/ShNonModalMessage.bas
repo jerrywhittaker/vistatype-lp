@@ -48,11 +48,21 @@ Private Const SH_PGVAL_TITLE_DOC As String = "Delete/change/add $pg (366)"
 ' box that stays open - see Sh_Box_Opened.)
 Private Const SH_BOX_KEY_MACRO As String = "LPandBRL.ShNonModalMessage.Sh_Box_ToggleFocus"
 
+' The newest box's own Alt keys, bound in Word while it is up (Sh_Box_AltKeys, 10/30/2026). One
+' macro per key, named for the key - Alt+F runs Sh_Box_Alt_F - because a key binding cannot hand
+' a macro an argument. Named in full for the same reason as SH_BOX_KEY_MACRO.
+Private Const SH_BOX_ALT_MACRO As String = "LPandBRL.ShNonModalMessage.Sh_Box_Alt_"
+
 ' The boxes that stay open and are up now, oldest first, newest last: "" when none, else like
 ' "|pg|tocb|". The newest has F6, and only the newest watches the cursor. Wiped by End, like every
 ' module variable - and End takes the boxes down too, so the two stay in step; the binding left
 ' behind is removed by the first F6 afterwards (Sh_Box_ToggleFocus).
 Private Sh_Box_Stack As String
+
+' Which box's Alt keys are bound in Word now, by the name Sh_Box_AltName gives it ("pg2" or "pg4"
+' for the $pg menus): "" when none. End wipes this and leaves the bindings behind; the next Sh_Box_BindKeys then binds afresh, and an Alt key pressed before that finds no
+' box and takes the bindings away (Sh_Box_AltKey).
+Private Sh_Box_AltFor As String
 
 ' The document the please-wait box was opened over, so focus can be handed back to it.
 Private Sh_PleaseWait_Doc As Document
@@ -583,6 +593,45 @@ Public Sub Sh_PgVal_KeyToDocument()
     End If
 End Sub
 
+' ALT KEYS FROM THE BOOK - Jerry, 10/30/2026, as for Type Fill-In Lines (357). The menus give the
+' keyboard to the document, so their own Alt keys went to Word: Alt+W opened the View tab instead
+' of the directions. While a menu is the newest box up, its Alt keys are bound in Word too
+' (Sh_Box_AltKeys) and each comes here, through Sh_Box_AltKey. Each Case does what that button's
+' _Click does on the menu on screen: on Validate $pg Tags (364), Alt+L Locate, Alt+D Done, Alt+W
+' the directions (Sh_Valid_Ref_Pg_No_1_Form); on Delete/change/add $pg (366), Alt+R Return, Alt+D
+' Done, Alt+W the directions (Sh_Valid_Ref_Pg_No_3_Form). Only that menu's letters are bound
+' (Sh_Box_AltName), and a letter of the other menu does nothing here, in case one is ever left.
+'
+' Which menu is up is read from Sh_PgVal_MenuIsOn, never from the forms - touching one creates it.
+'
+' Version: 1.0  Date: 10/30/2026
+Public Sub Sh_PgVal_AltKey(ByVal key As String)
+    Dim menu As Long
+
+    menu = Sh_PgVal_MenuIsOn
+
+    ' The safety net, as for F6: fired with no menu up, it leaves the shared list.
+    If menu = 0 Then
+        Sh_PgVal_UnbindKeys
+        Exit Sub
+    End If
+
+    Select Case UCase$(key)
+        Case "L"
+            If menu = 2 Then Sh_PgVal_LocateInDocument
+        Case "R"
+            If menu = 4 Then Sh_PgVal_ReturnToTempAndAdvance
+        Case "D"
+            Sh_PgVal_Done
+        Case "W"
+            If menu = 2 Then
+                Sh_Valid_Ref_Pg_No_1_Form.Show
+            Else
+                Sh_Valid_Ref_Pg_No_3_Form.Show
+            End If
+    End Select
+End Sub  '***** end of Sh_PgVal_AltKey *****
+
 ' Hand the keyboard to the menu that is up.
 '
 ' Two ways of doing it, because the first one is better and the second one always works. Windows
@@ -641,21 +690,29 @@ End Sub
 ' Unload before Show so UserForm_Initialize re-runs: it positions the form over the ACTIVE
 ' document using ActiveWindow.GetPoint, which is only right if it runs after the swap.
 ' The form being left is hidden, never unloaded, because its own click handler is on the stack.
+'
+' Each swap binds the Alt keys again, after Sh_PgVal_MenuIsOn has changed: the two menus have
+' different letters (Sh_Box_AltName). Nothing changes when another box is the newest.
+'
+' Version: 1.1  Date: 10/30/2026 - binds the Alt keys of the menu now on screen
 Private Sub Sh_PgVal_SwapToTempForm()
     On Error Resume Next
     Unload Sh_Valid_Ref_Pg_No_2_Form
     Sh_Valid_Ref_Pg_No_2_Form.Show vbModeless
     Sh_Valid_Ref_Pg_No_4_Form.Hide
     Sh_PgVal_MenuIsOn = 2
+    Sh_Box_BindKeys
     Sh_PgVal_FocusDocument Sh_PgVal_TempDoc
 End Sub
 
+' Version: 1.1  Date: 10/30/2026 - binds the Alt keys of the menu now on screen
 Private Sub Sh_PgVal_SwapToSourceForm()
     On Error Resume Next
     Unload Sh_Valid_Ref_Pg_No_4_Form
     Sh_Valid_Ref_Pg_No_4_Form.Show vbModeless
     Sh_Valid_Ref_Pg_No_2_Form.Hide
     Sh_PgVal_MenuIsOn = 4
+    Sh_Box_BindKeys
     Sh_PgVal_FocusDocument Sh_PgVal_SourceDoc
 End Sub
 
@@ -719,10 +776,16 @@ Public Sub Sh_Box_Opened(ByVal who As String)
     Sh_Box_BindKeys
 End Sub  '***** end of Sh_Box_Opened *****
 
+' Version: 1.1  Date: 10/30/2026 - with a box still up, binds again, so the Alt keys in Word become
+'                                the ones of the box that is now the newest (Sh_Box_AltKeys).
 ' Version: 1.0  Date: 9/23/2026
 Public Sub Sh_Box_Closed(ByVal who As String)
     Sh_Box_Stack = Sh_Box_Remove(Sh_Box_Stack, who)
-    If Len(Sh_Box_Stack) = 0 Then Sh_Box_UnbindKeys
+    If Len(Sh_Box_Stack) = 0 Then
+        Sh_Box_UnbindKeys
+    Else
+        Sh_Box_BindKeys
+    End If
 End Sub  '***** end of Sh_Box_Closed *****
 
 ' Which box has F6 and watches the cursor: "pg", "tocb", "rst", "fil", "hv", "msg" (a question
@@ -767,9 +830,24 @@ End Sub  '***** end of Sh_Box_ToggleFocus *****
 ' above the old Sh_PgVal_BindKeys explains: Application state put back, and no "save changes to
 ' LPandBRL.dotm?" on the way out.
 '
+' THE NEWEST BOX'S ALT KEYS, 10/30/2026: the Alt key of each button on the newest box is bound in
+' Word as well, so Alt+F pressed in the book runs Fill to Right Margin on 357 instead of opening
+' Word's File tab. Only when the newest box has changed: this runs on every press of 357's
+' buttons, and the same keys are bound already. The old box's keys are cleared first, because
+' two boxes can share a letter - F is on both 357 and 375 - and Word keeps one command per key.
+'
+' The two $pg menus are both "pg" on the list but have different letters, so the name the keys are
+' bound under is Sh_Box_AltName's - "pg2" or "pg4" - and each swap of menu binds again
+' (Sh_PgVal_SwapToTempForm, Sh_PgVal_SwapToSourceForm).
+'
+' Version: 1.2  Date: 10/30/2026 - binds under Sh_Box_AltName, so the $pg menus' keys follow the
+'                                menu on screen
+' Version: 1.1  Date: 10/30/2026 - binds the newest box's Alt keys (Sh_Box_AltKeys)
 ' Version: 1.0  Date: 9/23/2026
 Private Sub Sh_Box_BindKeys()
     Dim ctxWas As Object
+    Dim who As String, keys As String, ch As String
+    Dim i As Long
 
     On Error Resume Next
     Set ctxWas = CustomizationContext
@@ -778,6 +856,20 @@ Private Sub Sh_Box_BindKeys()
                     KeyCategory:=wdKeyCategoryMacro, Command:=SH_BOX_KEY_MACRO
     KeyBindings.Add KeyCode:=BuildKeyCode(wdKeyShift, wdKeyF6), _
                     KeyCategory:=wdKeyCategoryMacro, Command:=SH_BOX_KEY_MACRO
+
+    who = Sh_Box_AltName(Sh_Box_Top(Sh_Box_Stack), Sh_PgVal_MenuIsOn)
+    If who <> Sh_Box_AltFor Or Len(who) = 0 Then
+        Sh_Box_Clear_AltKeys
+        Err.Clear
+        keys = Sh_Box_AltKeys(who)
+        For i = 1 To Len(keys)
+            ch = Mid$(keys, i, 1)
+            KeyBindings.Add KeyCode:=BuildKeyCode(wdKeyAlt, Asc(ch)), _
+                            KeyCategory:=wdKeyCategoryMacro, Command:=SH_BOX_ALT_MACRO & ch
+        Next i
+        ' A failed Add leaves Sh_Box_AltFor alone, so the next button press binds again, as F6 does
+        If Err.Number = 0 Then Sh_Box_AltFor = who
+    End If
     ThisDocument.Saved = True
     If Not ctxWas Is Nothing Then CustomizationContext = ctxWas
     Err.Clear
@@ -787,6 +879,7 @@ End Sub  '***** end of Sh_Box_BindKeys *****
 ' macro names, so this can always clean up after itself. Backwards: clearing a binding moves
 ' everything above it down, so a forward loop would step over the second one.
 '
+' Version: 1.1  Date: 10/30/2026 - clears the newest box's Alt keys too (Sh_Box_Clear_AltKeys)
 ' Version: 1.0  Date: 9/23/2026
 Private Sub Sh_Box_UnbindKeys()
     Dim i As Long
@@ -807,10 +900,237 @@ Private Sub Sh_Box_UnbindKeys()
             KeyBindings(i).Clear
         End If
     Next i
+    Sh_Box_Clear_AltKeys
     ThisDocument.Saved = True
     If Not ctxWas Is Nothing Then CustomizationContext = ctxWas
     Err.Clear
 End Sub  '***** end of Sh_Box_UnbindKeys *****
+
+' Clears every Alt key bound for a box, whichever box it was bound for - matched on the macro
+' name, so a binding left behind by End is found too. Backwards, as in Sh_Box_UnbindKeys. Called
+' only from Sh_Box_BindKeys and Sh_Box_UnbindKeys, which have already set CustomizationContext
+' to this add-in and put it back afterwards.
+'
+' Version: 1.0  Date: 10/30/2026
+Private Sub Sh_Box_Clear_AltKeys()
+    Dim i As Long
+
+    On Error Resume Next
+    For i = KeyBindings.count To 1 Step -1
+        If InStr(1, KeyBindings(i).Command, "Sh_Box_Alt_", vbTextCompare) > 0 Then
+            KeyBindings(i).Clear
+        End If
+    Next i
+    Sh_Box_AltFor = ""
+    Err.Clear
+End Sub  '***** end of Sh_Box_Clear_AltKeys *****
+
+' THE ALT KEYS OF A BOX THAT STAYS OPEN - Jerry, 10/30/2026. A box's own Alt keys work only while
+' the box has the keyboard, and a box that stays open gives the keyboard to the book (the rule in
+' docs/UI-Conventions.md). So Alt+F pressed in the book went to Word and opened the File tab,
+' instead of pressing Fill to Right Margin on Type Fill-In Lines (357). While a box is the newest
+' up, the keys listed here are bound in Word too, each to Sh_Box_Alt_<key>, and pressing one in
+' the book does what pressing it on the box does. Word's own use of those keys - Alt+F for the
+' File tab, Alt+P for Layout, Alt+R for Review, Alt+S for References, Alt+W for View, Alt+L for
+' Developer, Alt+1 to Alt+0 for the Quick Access Toolbar - is not available while the box is up.
+' Jerry accepted that for 357 and 375, 10/30/2026, and asked for the other boxes the same day.
+'
+' Each letter is the button's Accelerator, as the .frx sets it or as the form's
+' UserForm_Initialize changes it; tests/test_box_alt_keys_in_book.py holds the two together.
+' who is the name on the list of boxes, except the $pg menus: see Sh_Box_AltName.
+'
+' Version: 1.2  Date: 10/30/2026 - the TOC box's Clean and format the TOC is C, not F
+' Version: 1.1  Date: 10/30/2026 - every box that stays open: the TOC box (354), Horizontal List
+'                                to Vertical (348), the two $pg menus (364, 366) and the question
+'                                that stays open (402)
+' Version: 1.0  Date: 10/30/2026
+Public Function Sh_Box_AltKeys(ByVal who As String) As String
+    Select Case who
+        Case "fil"
+            ' 357: the 1 to 10 buttons (0 is 10), Fill to Right Margin, Done
+            Sh_Box_AltKeys = "1234567890FD"
+        Case "rst"
+            ' 375: Apply, Use Last Size, Done, the two Attach tick boxes (Follows, Precedes),
+            ' and the three position buttons (Left, Center, leave as is)
+            Sh_Box_AltKeys = "AUDFPLCV"
+        Case "tocb"
+            ' 354: the three jobs (Clean and format the TOC, Add Color Bars, Remove Color Bars),
+            ' Okay, and Done - the Cancel button. UserForm_Initialize makes Cancel's letter D and
+            ' Clean and format the TOC's C (it was F, Word's File tab - Jerry, 10/30/2026)
+            Sh_Box_AltKeys = "CAROD"
+        Case "hv"
+            ' 348: Okay, Done, the Sort in Ascending Order tick box, and the three kinds of list
+            ' (Ordered, Spaced, Tabbed)
+            Sh_Box_AltKeys = "ODSALT"
+        Case "pg2"
+            ' Validate $pg Tags (364), over the tag list: Locate, Done, the directions
+            Sh_Box_AltKeys = "LDW"
+        Case "pg4"
+            ' Delete/change/add $pg (366), over the book: Return, Done, the directions
+            Sh_Box_AltKeys = "RDW"
+        Case "msg"
+            ' 402, the question that stays open: Okay, Cancel
+            Sh_Box_AltKeys = "OC"
+    End Select
+End Function  '***** end of Sh_Box_AltKeys *****
+
+' The name a box's Alt keys are listed and bound under: the name on the list of boxes, except the
+' two $pg menus. Both are "pg" on the list - one validation, one F6 - but each has its own letters,
+' L on the tag list's menu and R on the book's, so they are "pg2" and "pg4" here, after
+' Sh_PgVal_MenuIsOn (pgMenu); "pg0" binds nothing. Strings in and out, so
+' tests/vba/TestModelessBoxes.bas can check it headlessly.
+'
+' Version: 1.0  Date: 10/30/2026
+Public Function Sh_Box_AltName(ByVal who As String, ByVal pgMenu As Long) As String
+    If who = "pg" Then
+        Sh_Box_AltName = "pg" & CStr(pgMenu)
+    Else
+        Sh_Box_AltName = who
+    End If
+End Function  '***** end of Sh_Box_AltName *****
+
+' What every Sh_Box_Alt_<key> runs: the key goes to the newest box, the one its keys were bound
+' for. The safety net, as for F6: with no box on the list - after an End, which wipes the list but
+' not the bindings - the keys go back to Word, and that one press goes by with nothing done.
+'
+' NO On Error Resume Next HERE. An error inside the box's own macro must show, as it does when
+' the button is clicked - the _Click has no handler either. Under Resume Next an error in Locate
+' or Return on the $pg menus (Sh_PgVal_LocateInDocument, Sh_PgVal_ReturnToTempAndAdvance, which
+' have no handler) went by in silence from Alt+L and Alt+R, and the transcriber saw nothing
+' happen. Each box's _AltKey keeps Resume Next only round its reads of the form, and turns it off
+' before it calls the macro; the macros with their own handlers (Lp_Fil_Type, Lp_Tocb_Okay,
+' Lp_Hvb_Okay) report as they always have. The two safety nets below, Sh_Box_UnbindKeys and
+' Sh_Box_BindKeys, guard themselves.
+'
+' Version: 1.2  Date: 10/30/2026 - errors in the box's macro are no longer swallowed
+' Version: 1.1  Date: 10/30/2026 - the TOC box, Horizontal List to Vertical, the $pg menus and 402
+' Version: 1.0  Date: 10/30/2026
+Public Sub Sh_Box_AltKey(ByVal key As String)
+    Select Case Sh_Box_Top(Sh_Box_Stack)
+        Case "fil"
+            Lp_Fil_AltKey key
+        Case "rst"
+            Lp_Rst_AltKey key
+        Case "tocb"
+            Lp_Tocb_AltKey key
+        Case "hv"
+            Lp_Hvb_AltKey key
+        Case "pg"
+            Sh_PgVal_AltKey key
+        Case "msg"
+            Sh_Ask_Modeless_AltKey key
+        Case ""
+            Sh_Box_Stack = ""
+            Sh_Box_UnbindKeys
+        Case Else
+            ' Bound for a box that is no longer the newest. Every change of newest binds again,
+            ' so this should not happen; if it does, the newest box's keys are put in.
+            Sh_Box_AltFor = ""
+            Sh_Box_BindKeys
+    End Select
+End Sub  '***** end of Sh_Box_AltKey *****
+
+' What each Alt key runs while a box is up and the book has the keyboard - one macro per key in
+' Sh_Box_AltKeys, all the same. Public, because a key binding can reach nothing else.
+'
+' Version: 1.0  Date: 10/30/2026
+Public Sub Sh_Box_Alt_0()
+    Sh_Box_AltKey "0"
+End Sub  '***** end of Sh_Box_Alt_0 *****
+
+Public Sub Sh_Box_Alt_1()
+    Sh_Box_AltKey "1"
+End Sub  '***** end of Sh_Box_Alt_1 *****
+
+Public Sub Sh_Box_Alt_2()
+    Sh_Box_AltKey "2"
+End Sub  '***** end of Sh_Box_Alt_2 *****
+
+Public Sub Sh_Box_Alt_3()
+    Sh_Box_AltKey "3"
+End Sub  '***** end of Sh_Box_Alt_3 *****
+
+Public Sub Sh_Box_Alt_4()
+    Sh_Box_AltKey "4"
+End Sub  '***** end of Sh_Box_Alt_4 *****
+
+Public Sub Sh_Box_Alt_5()
+    Sh_Box_AltKey "5"
+End Sub  '***** end of Sh_Box_Alt_5 *****
+
+Public Sub Sh_Box_Alt_6()
+    Sh_Box_AltKey "6"
+End Sub  '***** end of Sh_Box_Alt_6 *****
+
+Public Sub Sh_Box_Alt_7()
+    Sh_Box_AltKey "7"
+End Sub  '***** end of Sh_Box_Alt_7 *****
+
+Public Sub Sh_Box_Alt_8()
+    Sh_Box_AltKey "8"
+End Sub  '***** end of Sh_Box_Alt_8 *****
+
+Public Sub Sh_Box_Alt_9()
+    Sh_Box_AltKey "9"
+End Sub  '***** end of Sh_Box_Alt_9 *****
+
+Public Sub Sh_Box_Alt_A()
+    Sh_Box_AltKey "A"
+End Sub  '***** end of Sh_Box_Alt_A *****
+
+Public Sub Sh_Box_Alt_C()
+    Sh_Box_AltKey "C"
+End Sub  '***** end of Sh_Box_Alt_C *****
+
+Public Sub Sh_Box_Alt_D()
+    Sh_Box_AltKey "D"
+End Sub  '***** end of Sh_Box_Alt_D *****
+
+Public Sub Sh_Box_Alt_F()
+    Sh_Box_AltKey "F"
+End Sub  '***** end of Sh_Box_Alt_F *****
+
+Public Sub Sh_Box_Alt_L()
+    Sh_Box_AltKey "L"
+End Sub  '***** end of Sh_Box_Alt_L *****
+
+' Version: 1.0  Date: 10/30/2026
+Public Sub Sh_Box_Alt_O()
+    Sh_Box_AltKey "O"
+End Sub  '***** end of Sh_Box_Alt_O *****
+
+Public Sub Sh_Box_Alt_P()
+    Sh_Box_AltKey "P"
+End Sub  '***** end of Sh_Box_Alt_P *****
+
+' Version: 1.0  Date: 10/30/2026
+Public Sub Sh_Box_Alt_R()
+    Sh_Box_AltKey "R"
+End Sub  '***** end of Sh_Box_Alt_R *****
+
+' Version: 1.0  Date: 10/30/2026
+Public Sub Sh_Box_Alt_S()
+    Sh_Box_AltKey "S"
+End Sub  '***** end of Sh_Box_Alt_S *****
+
+' Version: 1.0  Date: 10/30/2026
+Public Sub Sh_Box_Alt_T()
+    Sh_Box_AltKey "T"
+End Sub  '***** end of Sh_Box_Alt_T *****
+
+Public Sub Sh_Box_Alt_U()
+    Sh_Box_AltKey "U"
+End Sub  '***** end of Sh_Box_Alt_U *****
+
+Public Sub Sh_Box_Alt_V()
+    Sh_Box_AltKey "V"
+End Sub  '***** end of Sh_Box_Alt_V *****
+
+' Version: 1.0  Date: 10/30/2026
+Public Sub Sh_Box_Alt_W()
+    Sh_Box_AltKey "W"
+End Sub  '***** end of Sh_Box_Alt_W *****
+
 
 ' The list itself, as plain strings so tests/vba/TestModelessBoxes.bas can check it headlessly.
 ' A box opened again moves to the top rather than appearing twice.
@@ -985,6 +1305,42 @@ Public Sub Sh_Ask_Modeless_KeyToDocument(ByVal f As Object)
     End If
     Err.Clear
 End Sub  '***** end of Sh_Ask_Modeless_KeyToDocument *****
+
+' ALT KEYS FROM THE BOOK - Jerry, 10/30/2026, as for Type Fill-In Lines (357). The question opens
+' with the book holding the keyboard, so Alt+O and Alt+C went to Word. While it is the newest box
+' up, both are bound in Word too (Sh_Box_AltKeys) and each comes here, through Sh_Box_AltKey, and
+' does what that button's _Click on Sh_Message_Form does: the answer is set and the box is hidden.
+'
+' NOTHING ELSE. The wait in Sh_Ask_Modeless sees the box go, exactly as after a click, and it is
+' the wait that unloads the box and leaves the list of boxes - and leaving the list is what hands
+' the Alt keys back to a box underneath, 357 or 375 (Sh_Box_Closed binds that box's keys again).
+' This runs INSIDE the wait's DoEvents, so unloading the form or leaving the list here would pull
+' them out from under the wait.
+'
+' Only the instance Sh_Ask_Modeless is waiting on, and only while it is up. It is held in a
+' variable, not the form's default instance, so touching it cannot create a form.
+'
+' Version: 1.0  Date: 10/30/2026
+Public Sub Sh_Ask_Modeless_AltKey(ByVal key As String)
+    ' The safety net, as for F6: fired with no question up, it leaves the shared list.
+    If Not Sh_AskBox_Up Then
+        Sh_Box_Closed "msg"
+        Exit Sub
+    End If
+    If Sh_AskBox_Form Is Nothing Then Exit Sub
+
+    On Error Resume Next
+    Select Case UCase$(key)
+        Case "O"
+            Sh_Msg_Answer = True
+            Sh_AskBox_Form.Hide
+        Case "C"
+            Sh_Msg_Answer = False
+            Sh_AskBox_Form.Hide
+    End Select
+    Err.Clear
+    On Error GoTo 0
+End Sub  '***** end of Sh_Ask_Modeless_AltKey *****
 
 ' True while document d is still open. Touching a closed Document raises rather than answering
 ' Nothing, so the test is to read its name and see. Never raises. The same test as
