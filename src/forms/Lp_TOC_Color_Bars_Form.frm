@@ -18,6 +18,10 @@ Attribute VB_Exposed = False
 '
 ' Converts lead lines in TOC styles to alternating color of choice - changes tab value of dots to none
 '
+' Version: 1.5 Date: 11/1/2026 - bars, and the leader dots coming off, are for TOC 1 to TOC 5 only
+'                               (Lp_TOC_Is_Entry_Style), the same test Add Color Bars on the TOC
+'                               box (354) makes first. Before, any style starting "TOC" took a
+'                               bar - TOC 6 to TOC 9 and TOC Heading too. Jerry.
 ' Version: 1.4 Date: 10/11/2026 - "Keep lead dots in the color bars" is ticked when the box opens
 '                               (Jerry).
 ' Version: 1.3 Date: 10/11/2026 - each entry KEEPS ITS BOLD AND ITALIC (issue #17, Jerry). Setting the
@@ -197,12 +201,12 @@ Private Sub OkayButton_Click()
         
         ' Apply style to every other paragraph. The style strips direct bold and italic, so they
         ' are remembered first and put back after (issue #17).
-        If Left(para.Range.Style, 3) = "TOC" And NextColor = 1 Then
+        If Lp_TOC_Is_Entry_Style(para.Range.Style) And NextColor = 1 Then
             emph = Lp_Remember_Bold_Italic(para.Range)
             para.Range.Style = BarColor1
             Lp_Restore_Bold_Italic para.Range, emph
             NextColor = 2
-        ElseIf Left(para.Range.Style, 3) = "TOC" And NextColor = 2 Then
+        ElseIf Lp_TOC_Is_Entry_Style(para.Range.Style) And NextColor = 2 Then
             emph = Lp_Remember_Bold_Italic(para.Range)
             para.Range.Style = BarColor2
             Lp_Restore_Bold_Italic para.Range, emph
@@ -218,8 +222,8 @@ Private Sub OkayButton_Click()
     
         ' Loop through each paragraph in the selection
         For Each para In Selection.Paragraphs
-            ' Check if the paragraph's style starts with "TOC"
-            If Left(para.Style, 3) = "TOC" Then
+            ' Only TOC 1 to TOC 5, the paragraphs that took a bar above
+            If Lp_TOC_Is_Entry_Style(para.Style) Then
                 ' Loop through each tab stop in the paragraph
                 For Each tabStop In para.TabStops
                     ' Remove the leader from the tab stop if it exists

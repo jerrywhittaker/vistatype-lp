@@ -21,7 +21,9 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Notes:    - Lp  - 11/1/2026 - ADD COLOR BARS ON THE TOC BOX (354) SAYS WHEN THERE IS NOTHING TO ADD
 '           - Lp  - 11/1/2026 - THEM TO (Jerry): with no TOC 1 to TOC 5 paragraph in the selected
 '           - Lp  - 11/1/2026 - TOC it gives 208 and never opens the colors box (353), as Remove
-'           - Lp  - 11/1/2026 - Color Bars already said there were none to remove (209).
+'           - Lp  - 11/1/2026 - Color Bars already said there were none to remove (209). And the
+'           - Lp  - 11/1/2026 - colors box (353) puts bars on TOC 1 to TOC 5 only, and takes the
+'           - Lp  - 11/1/2026 - leader dots off those only - not TOC 6 to TOC 9 or TOC Heading.
 ' Notes:    - Lp  - 10/30/2026 - THE BOXES' ALT KEYS WORK FROM THE BOOK (Jerry): Type Fill-In Lines
 '           - Lp  - 10/30/2026 - (357) and Resize Pictures in a Selected Range (375) give the keyboard
 '           - Lp  - 10/30/2026 - to the book, so their Alt keys went to Word - Alt+F opened the File
@@ -18638,9 +18640,10 @@ End Function  '***** end of Lp_Tocb_Is_Outside *****
 
 ' True when a paragraph in this style is a TOC entry that Add Color Bars can put a bar on - TOC 1
 ' to TOC 5 (Jerry, 11/1/2026). A string in and a Boolean out, so the VBA suite can reach it.
+' Public because the colors box (353) uses it too, for which paragraphs take a bar.
 '
 ' Version: 1.0  Date: 11/1/2026
-Private Function Lp_TOC_Is_Entry_Style(ByVal styleName As String) As Boolean
+Public Function Lp_TOC_Is_Entry_Style(ByVal styleName As String) As Boolean
     Select Case styleName
         Case "TOC 1", "TOC 2", "TOC 3", "TOC 4", "TOC 5"
             Lp_TOC_Is_Entry_Style = True

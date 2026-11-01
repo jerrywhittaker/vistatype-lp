@@ -120,3 +120,14 @@ def test_keep_lead_dots_is_ticked_when_the_box_opens(repo_root):
     assert re.search(r"\bLeaveDots(\.Value)?\s*=\s*True\b", body, re.I), (
         f"{FORM}'s UserForm_Initialize no longer ticks LeaveDots; the box would open with the "
         "leader dots set to come off.")
+
+
+def test_only_toc_1_to_5_take_a_bar(repo_root):
+    """Jerry, 11/1/2026: bars, and the leader dots coming off, are for TOC 1 to TOC 5 only - the
+    same test Add Color Bars on the TOC box (354) makes before this form opens. Before, any style
+    starting "TOC" took a bar, TOC 6 to TOC 9 and TOC Heading too."""
+    code = form_code(repo_root, FORM)
+    loose = [c for c in code if re.search(r'Left\(\s*para\b[^)]*,\s*3\s*\)\s*=\s*"TOC"', c)]
+    assert not loose, f"{FORM} counts any style starting \"TOC\" again: {loose[0].strip()}"
+    assert sum("Lp_TOC_Is_Entry_Style(" in c for c in code) >= 3, (
+        f"{FORM} must ask Lp_TOC_Is_Entry_Style for both colors and for the leader dots")
