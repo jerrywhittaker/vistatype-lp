@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_Bakgrnd_Picture_Menu_Form 
    Caption         =   "Background and Picture Tools (344)"
-   ClientHeight    =   6435
+   ClientHeight    =   7035
    ClientLeft      =   120
    ClientTop       =   465
    ClientWidth     =   5640
@@ -15,6 +15,9 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
 ' Lp_Bakgrnd_Picture_Menu_Form
+' Version: 2.0  Date: 11/1/2026 - LocatePictureButton, Locate the Picture on the Clipboard (Alt+L),
+'                                 below Resize Throughout; Exit moved down and the form made 30
+'                                 points taller to make room (Jerry).
 ' Version: 1.9  Date: 9/23/2026 - Jerry's shortcut key label reads B,P; its caption (spelled
 '                                 "Shortcut") and hover text are set here.
 ' Version: 1.8  Date: 9/21/2026 - Pictures to Color or Grayscale works again. The handler is
@@ -117,6 +120,15 @@ Private Sub SamePictureRangeButton_Click()
     ' through the bridge, once the menu has gone. Attach LP Template goes the same way.
     Lp_Bakgrnd_Picture_Menu_Form.Hide
     Sh_BridgeTargetMacro = "Lp_Resize_Pictures_In_Range"
+    Application.OnTime Now, "Sh_StartSpinnerBridge"
+    Unload Me
+End Sub
+
+Private Sub LocatePictureButton_Click()
+    ' Locate the Picture on the Clipboard (Jerry, 11/1/2026). The box it opens stays open, so it
+    ' is started through the bridge once this modal menu has gone, as Resize Throughout is above.
+    Lp_Bakgrnd_Picture_Menu_Form.Hide
+    Sh_BridgeTargetMacro = "Lp_Locate_Picture"
     Application.OnTime Now, "Sh_StartSpinnerBridge"
     Unload Me
 End Sub

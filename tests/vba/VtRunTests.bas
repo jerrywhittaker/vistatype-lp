@@ -66,6 +66,10 @@ Public Sub VtRunAllTests()
     Set Suite = TestTocBox_Suite()
     Reporter.ListenTo Suite
 
+    Reporter.Trace "building Locate This Picture steps through the copies"
+    Set Suite = TestLocatePicture_Suite()
+    Reporter.ListenTo Suite
+
     Reporter.Trace "building Boxes that stay open share F6"
     Set Suite = TestModelessBoxes_Suite()
     Reporter.ListenTo Suite

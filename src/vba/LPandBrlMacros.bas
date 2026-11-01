@@ -18,6 +18,12 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 11/1/2026 - LOCATE THE PICTURE ON THE CLIPBOARD (Jerry): a new button on
+'           - Lp  - 11/1/2026 - Background and Picture Tools (344) opens Locate This Picture (404),
+'           - Lp  - 11/1/2026 - a box that stays open. The picture on the clipboard - copied in the
+'           - Lp  - 11/1/2026 - book, or its file copied in File Explorer - is found in the
+'           - Lp  - 11/1/2026 - selection, or the whole book, and Next and Previous step through the
+'           - Lp  - 11/1/2026 - copies. The clipboard is read, never changed. Messages 405 to 412.
 ' Notes:    - Lp  - 11/1/2026 - NUMBERS IN WORD EQUATIONS ARE NO LONGER DASHED (issue #48, Jerry):
 '           - Lp  - 11/1/2026 - Word counts an equation's plain numbers and letters as italic, so
 '           - Lp  - 11/1/2026 - Italics to Dashed Underline dashed them, in the attach and in File
@@ -3178,6 +3184,25 @@ Private Lp_Rst_HasLast As Boolean     ' a size has been used, so Use Last Size h
 ' tests/test_form_caption_constants_match.py holds them together.
 Private Const LP_RST_TITLE As String = "Resize Pictures in a Selected Range (375)"
 Private Const LP_RST_BAR_MIN As Long = 25    ' below this many pictures in the range, no bar
+
+' LOCATE THIS PICTURE (404), which stays open - Jerry, 11/1/2026. The picture on the clipboard is
+' found in the book, or in the selection, and the box steps from one copy to the next. The part of
+' the book looked in is held as a LIVE Range, as 375 holds one, and so is each copy found: a Range
+' follows the transcriber's edits between presses, and a copy deleted since collapses to nothing,
+' which is how Next and Previous know to step over it.
+Private Lp_Locp_Doc As Document       ' the book the copies were found in
+Private Lp_Locp_Range As Range        ' the part of the book looked in
+Private Lp_Locp_Story As Long         ' its story
+Private Lp_Locp_IsOn As Boolean       ' the box is up. NEVER ask the form's .Visible - that creates it
+Private Lp_Locp_Busy As Boolean       ' a step is moving the selection; refuses a second press
+Private Lp_Locp_Warned_At As String  ' where 409 was last said, "start:end"; "" when not
+Private Lp_Locp_Hits As Collection    ' a Range for each copy found, in the order of the book
+Private Lp_Locp_At As Long            ' the copy on screen, counted from 1
+Private Lp_Locp_Whole As Boolean      ' looking in the whole book, so there is no range to leave
+
+' The box's window title, for F6 - it must be the form's WHOLE caption, and
+' tests/test_form_caption_constants_match.py holds the two together.
+Private Const LP_LOCP_TITLE As String = "Locate This Picture (404)"
 
 ' TABLE AND TOC TOOLS - THE TOC BOX (354), which stays open - Jerry, 9/22/2026. The same idea as
 ' 375 above: the TOC range is taken once into a LIVE Range and held until Done, so the transcriber
@@ -25359,7 +25384,458 @@ Private Function Lp_Same_Pic_Count(ByVal x As String, ByVal what As String) As L
         p = p + Len(what)
     Loop
     Lp_Same_Pic_Count = n
-End Function   '***** end of Lp_Same_Pic_Count *****the whole of what Change Picture Color does.
+End Function   '***** end of Lp_Same_Pic_Count *****
+
+' ============================================================================================
+' LOCATE THIS PICTURE - Jerry, 11/1/2026. "If I copy a picture to the clipboard, can you write a
+' macro that will locate and step through the document or a selection in the document locating
+' the same picture." The picture is copied either inside the book, or from a DAISY or NIMAS
+' images folder in File Explorer (Ctrl+C on the file).
+'
+' THE CLIPBOARD IS READ, NEVER CHANGED. Its picture is pasted into a hidden document of its own and
+' read there with Lp_Same_Pic_Data, the one way every picture is read for a comparison (see the
+' note above that function) - so the clipboard picture and every picture in the book are read
+' exactly the same way. Measured on vistabuild 11/1/2026, for a PNG and a JPEG each: a picture
+' file copied as File Explorer copies it, and a picture copied inside a converted book, both read
+' back byte for byte the same as the copies in the book, and the clipboard held the same thing
+' before and after.
+'
+' Only pictures in line with the text are looked at, as in 375 (Lp_Same_Pic_Is_Picture), and the
+' match is on the picture's own bytes - its description is not used, because a picture on the
+' clipboard from a folder has none.
+' ============================================================================================
+
+' Bkgrnd & Picture Tools - Locate the Picture on the Clipboard
+'
+' Author: Jerry Whittaker - jerry@vistatypelp.org
+'
+' Version: 1.0  Date: 11/1/2026
+Public Sub Lp_Locate_Picture()
+    Dim book As Document
+    Dim r As Range
+    Dim pasted As Document, reader As Document
+    Dim pasteErr As Long, picCount As Long
+    Dim isPic As Boolean
+    Dim refData As String
+    Dim matches As Collection
+    Dim s As InlineShape
+    Dim barUp As Boolean
+    Dim errNum As Long, errText As String
+
+    Application.Run MacroName:="Sh_Is_Doc_Open"
+
+    ' Already running: the box she has is brought back, and becomes the newest (Sh_Box_Opened).
+    ' A second run would hold a second list of copies and nobody could tell which one Next walks.
+    If Lp_Locp_IsOn Then
+        Lp_Locp_BindKeys
+        On Error Resume Next
+        Lp_Locate_Picture_Form.Show vbModeless
+        Err.Clear
+        On Error GoTo 0
+        Exit Sub
+    End If
+
+    ' WHERE TO LOOK: the selection, or the whole book when nothing is selected - a placed cursor,
+    ' or one picture clicked, which is a one-character selection.
+    Set book = ActiveDocument
+    Set r = Selection.Range
+    If r.End - r.Start < 2 Then Set r = book.Content
+
+    ' --- THE CLIPBOARD, pasted into a hidden document and nowhere else. Any failure to paste -
+    ' an empty clipboard (4605), a folder copied (5345) - is the same answer to her: there is no
+    ' picture there to look for.
+    On Error Resume Next
+    Set pasted = Documents.Add(Visible:=False)
+    Set reader = Documents.Add(Visible:=False)
+    Err.Clear
+    pasted.Content.Paste
+    pasteErr = Err.Number
+    Err.Clear
+    If pasteErr = 0 Then
+        picCount = pasted.InlineShapes.count
+        ' A file that is not a picture - a .txt copied in File Explorer - pastes as an icon,
+        ' which is one in-line shape but not a picture.
+        If picCount = 1 Then isPic = Lp_Same_Pic_Is_Picture(pasted.InlineShapes(1))
+    End If
+    Err.Clear
+    On Error GoTo 0
+
+    If picCount > 1 Then
+        Lp_Locp_Close_Docs pasted, reader
+        Sh_Say "There is more than one picture on the clipboard." & vbCr & vbCr _
+             & "Copy ONE picture - click it once in the book and press Ctrl+C, or click its file " _
+             & "once in File Explorer and press Ctrl+C - then choose Locate the Picture on the " _
+             & "Clipboard again.", "VistaType LP (406)"
+        Exit Sub
+    End If
+    If Not isPic Then
+        Lp_Locp_Close_Docs pasted, reader
+        Sh_Say "There is no picture on the clipboard." & vbCr & vbCr _
+             & "Copy the picture you want to find first - click it once in the book and press " _
+             & "Ctrl+C, or click its file once in a DAISY or NIMAS images folder in File " _
+             & "Explorer and press Ctrl+C - then choose Locate the Picture on the Clipboard " _
+             & "again.", "VistaType LP (405)"
+        Exit Sub
+    End If
+
+    refData = Lp_Same_Pic_Data(pasted.InlineShapes(1), reader)
+    If Len(refData) = 0 Then
+        Lp_Locp_Close_Docs pasted, reader
+        Sh_Say "VistaType LP could not read the picture on the clipboard, so it cannot tell " _
+             & "which pictures in the book are the same one." & vbCr & vbCr _
+             & "Nothing has been changed.", "VistaType LP (407)"
+        Exit Sub
+    End If
+
+    ' --- FIND, with the same procedure 375 uses, so there is one rule for "the same picture".
+    ' No model picture in the book to leave out, so its start and story are -1, which no picture
+    ' has.
+    On Error GoTo eom
+    If r.InlineShapes.count >= LP_RST_BAR_MIN Then
+        Sh_Progress_Open "Locating the picture on the clipboard"
+        barUp = True
+    End If
+    Sh_Last_Activity = "Locate the picture on the clipboard: comparing pictures"
+    Set matches = Lp_Same_Pic_Find(r.InlineShapes, Nothing, "", refData, reader, -1, -1)
+    If barUp Then
+        Sh_Progress_Close
+        barUp = False
+    End If
+    Sh_Last_Activity = ""
+    On Error GoTo 0
+    Lp_Locp_Close_Docs pasted, reader
+
+    If matches.count = 0 Then
+        Sh_Focus_Document book
+        If r.Start = book.Content.Start And r.End = book.Content.End Then
+            Sh_Say "That picture is not in the book." & vbCr & vbCr _
+                 & "Only pictures in line with the text are looked at. If the pictures float " _
+                 & "over the text, use All Pictures to Inline first.", "VistaType LP (408)"
+        Else
+            Sh_Say "That picture is not in the part of the book you selected." & vbCr & vbCr _
+                 & "Only pictures in line with the text are looked at. To look in the whole " _
+                 & "book, click once in it so nothing is selected, and choose Locate the Picture " _
+                 & "on the Clipboard again.", "VistaType LP (412)"
+        End If
+        Exit Sub
+    End If
+
+    Set Lp_Locp_Hits = New Collection
+    For Each s In matches
+        Lp_Locp_Hits.Add s.Range.Duplicate
+    Next s
+    Set Lp_Locp_Doc = book
+    Set Lp_Locp_Range = r.Duplicate
+    Lp_Locp_Story = Lp_Locp_Range.StoryType
+    Lp_Locp_At = 0
+    Lp_Locp_Whole = (r.Start = book.Content.Start And r.End = book.Content.End)
+    Lp_Locp_Busy = False
+    Lp_Locp_Warned_At = ""
+
+    ' The flag goes up BEFORE the box does, and the box joins the list of boxes before it first
+    ' moves the selection - see Lp_Rst_Finish for why the order matters.
+    Lp_Locp_IsOn = True
+    Lp_Locp_BindKeys
+    Lp_Locate_Picture_Form.Show vbModeless
+
+    Lp_Locp_Busy = True
+    Sh_Focus_Document Lp_Locp_Doc
+    Lp_Locp_Go 1
+    Lp_Locp_Busy = False
+    Sh_Focus_Document Lp_Locp_Doc
+    Exit Sub
+
+eom:
+    errNum = Err.Number
+    errText = Err.Description
+    On Error Resume Next
+    If barUp Then Sh_Progress_Close
+    Lp_Locp_Close_Docs pasted, reader
+    Sh_Last_Activity = ""
+    Err.Clear
+    On Error GoTo 0
+    Sh_Report_Error "Lp_Locate_Picture", errNum, errText
+End Sub  '***** end of Lp_Locate_Picture *****
+
+' Closes the two hidden documents, unsaved. Either may be Nothing.
+'
+' Version: 1.0  Date: 11/1/2026
+Private Sub Lp_Locp_Close_Docs(ByVal pasted As Document, ByVal reader As Document)
+    On Error Resume Next
+    If Not pasted Is Nothing Then pasted.Close SaveChanges:=False
+    If Not reader Is Nothing Then reader.Close SaveChanges:=False
+    Err.Clear
+    On Error GoTo 0
+End Sub  '***** end of Lp_Locp_Close_Docs *****
+
+' Which copy Next or Previous goes to, from the one on screen: round to the first after the last,
+' and to the last before the first. 0 when there are none. Numbers in and out, so
+' tests/vba/TestLocatePicture.bas can check it headlessly.
+'
+' Version: 1.0  Date: 11/1/2026
+Private Function Lp_Locp_Step(ByVal cur As Long, ByVal total As Long, ByVal forward As Boolean) As Long
+    If total < 1 Then Exit Function
+    If forward Then
+        If cur < 1 Or cur >= total Then
+            Lp_Locp_Step = 1
+        Else
+            Lp_Locp_Step = cur + 1
+        End If
+    Else
+        If cur <= 1 Or cur > total Then
+            Lp_Locp_Step = total
+        Else
+            Lp_Locp_Step = cur - 1
+        End If
+    End If
+End Function  '***** end of Lp_Locp_Step *****
+
+' The line at the top of the box: "Picture 2 of 5". Numbers in, for the test.
+'
+' Version: 1.0  Date: 11/1/2026
+Private Function Lp_Locp_Label(ByVal n As Long, ByVal total As Long) As String
+    Lp_Locp_Label = "Picture " & Format(n, "#,##0") & " of " & Format(total, "#,##0")
+End Function  '***** end of Lp_Locp_Label *****
+
+' True when a copy found is still a picture where it was: a copy deleted since collapses its Range
+' to nothing. Guarded: never raises.
+'
+' Version: 1.0  Date: 11/1/2026
+Private Function Lp_Locp_Live(ByVal r As Range) As Boolean
+    On Error Resume Next
+    If r Is Nothing Then Exit Function
+    If r.End - r.Start <> 1 Then Exit Function
+    If r.InlineShapes.count <> 1 Then Exit Function
+    Lp_Locp_Live = Lp_Same_Pic_Is_Picture(r.InlineShapes(1))
+    If Err.Number <> 0 Then Lp_Locp_Live = False
+    Err.Clear
+End Function  '***** end of Lp_Locp_Live *****
+
+' Selects copy n, brings it into view, and says which it is on the box. The caller holds
+' Lp_Locp_Busy, so the cursor watch says nothing about the move.
+'
+' Version: 1.0  Date: 11/1/2026
+Private Sub Lp_Locp_Go(ByVal n As Long)
+    Dim r As Range
+
+    Set r = Lp_Locp_Hits(n)
+    Lp_Locp_At = n
+    On Error Resume Next
+    r.Select
+    ActiveWindow.ScrollIntoView r, True
+    Lp_Locate_Picture_Form.StepText.Caption = Lp_Locp_Label(n, Lp_Locp_Hits.count)
+    Lp_Locate_Picture_Form.Repaint
+    Err.Clear
+    On Error GoTo 0
+End Sub  '***** end of Lp_Locp_Go *****
+
+' What the Next button runs.
+'
+' Version: 1.0  Date: 11/1/2026
+Public Sub Lp_Locp_Next()
+    Lp_Locp_Move True
+End Sub  '***** end of Lp_Locp_Next *****
+
+' What the Previous button runs.
+'
+' Version: 1.0  Date: 11/1/2026
+Public Sub Lp_Locp_Previous()
+    Lp_Locp_Move False
+End Sub  '***** end of Lp_Locp_Previous *****
+
+' Steps to the next or the previous copy, over any copy deleted since the list was made. When none
+' is left, says so and closes the box.
+'
+' Version: 1.0  Date: 11/1/2026
+Private Sub Lp_Locp_Move(ByVal forward As Boolean)
+    Dim n As Long, tries As Long, total As Long
+
+    If Not Lp_Locp_IsOn Then Exit Sub
+    If Lp_Locp_Busy Then Exit Sub
+    ' A press here makes this the box being worked in - the newest, with F6 and the cursor watch.
+    Lp_Locp_BindKeys
+    If Not Lp_Locp_Ready() Then Exit Sub
+
+    Lp_Locp_Busy = True
+    total = Lp_Locp_Hits.count
+    n = Lp_Locp_At
+    Do While tries < total
+        n = Lp_Locp_Step(n, total, forward)
+        tries = tries + 1
+        If Lp_Locp_Live(Lp_Locp_Hits(n)) Then
+            Sh_Focus_Document Lp_Locp_Doc
+            Lp_Locp_Go n
+            Lp_Locp_Busy = False
+            Sh_Focus_Document Lp_Locp_Doc
+            Exit Sub
+        End If
+    Loop
+    Lp_Locp_Busy = False
+
+    Sh_Say "None of the copies of that picture found when you started is still in the book." _
+         & vbCr & vbCr & "Copy the picture again and choose Locate the Picture on the Clipboard " _
+         & "to look again.", "VistaType LP (411)"
+    Lp_Locp_Finish
+End Sub  '***** end of Lp_Locp_Move *****
+
+' True when the book is still open. When it has been closed, says so and ends the run - the box
+' would otherwise sit there pointing at nothing. Another book in front is not a reason to end: the
+' step puts her back in this one.
+'
+' Version: 1.0  Date: 11/1/2026
+Private Function Lp_Locp_Ready() As Boolean
+    If Lp_Rst_Doc_Is_Open(Lp_Locp_Doc) Then
+        Lp_Locp_Ready = True
+        Exit Function
+    End If
+    Sh_Say "The book this was working in has been closed." & vbCr & vbCr _
+         & "Open the book, copy the picture again, and choose Locate the Picture on the " _
+         & "Clipboard.", "VistaType LP (410)"
+    Lp_Locp_Finish
+End Function  '***** end of Lp_Locp_Ready *****
+
+' What the Done button runs, and what the title bar's X runs through UserForm_QueryClose.
+'
+' Version: 1.0  Date: 11/1/2026
+Public Sub Lp_Locp_Done()
+    If Lp_Locp_Busy Then Exit Sub
+    Lp_Locp_Finish
+End Sub  '***** end of Lp_Locp_Done *****
+
+' The one way out, in the order Lp_Rst_Finish sets out: the flag down first, the box hidden before
+' it is unloaded, the picture let go, and the list of boxes left LAST.
+'
+' Version: 1.0  Date: 11/1/2026
+Private Sub Lp_Locp_Finish()
+    Dim backTo As Document
+
+    Set backTo = Lp_Locp_Doc
+    On Error Resume Next
+    Lp_Locp_IsOn = False
+    Lp_Locp_Busy = False
+    Lp_Locp_Warned_At = ""
+    Lp_Locate_Picture_Form.Hide
+    Unload Lp_Locate_Picture_Form
+    Set Lp_Locp_Hits = Nothing
+    Set Lp_Locp_Range = Nothing
+    Set Lp_Locp_Doc = Nothing
+    Lp_Locp_Story = 0
+    Lp_Locp_At = 0
+    Lp_Locp_Whole = False
+    If Lp_Rst_Doc_Is_Open(backTo) Then
+        ' The picture on screen is let go, so her next keystroke does not type over it. The
+        ' cursor is left just after it.
+        If Selection.Type = wdSelectionInlineShape Then Selection.Collapse wdCollapseEnd
+        Sh_Focus_Document backTo
+    End If
+    Lp_Locp_UnbindKeys
+    Err.Clear
+    On Error GoTo 0
+End Sub  '***** end of Lp_Locp_Finish *****
+
+' Word's selection event runs this on every cursor movement (VtEvents); the first test is one
+' Boolean while the box is down. With it up and looking in a selection, a cursor put in text
+' outside it, or a picture selected outside it, gets 409 - at every new spot outside - as 375 and
+' the TOC box do (390, 389). Looking in the whole book there is no range to leave, and nothing
+' is said.
+'
+' Version: 1.0  Date: 11/1/2026
+Public Sub Lp_Locp_Watch_Cursor(ByVal Sel As Selection)
+    Dim inside As Boolean
+    Dim at As String
+
+    If Not Lp_Locp_IsOn Then Exit Sub
+    If Lp_Locp_Whole Then Exit Sub
+    If Lp_Locp_Busy Or Lp_Rst_Busy Or Lp_Tocb_Busy Then Exit Sub
+    If Not Application.ScreenUpdating Then Exit Sub
+    ' ONLY THE NEWEST BOX WATCHES - see Sh_Box_Opened.
+    If Sh_Box_On_Top() <> "locp" Then Exit Sub
+
+    On Error Resume Next
+    If Not (Sel.Document Is Lp_Locp_Doc) Then Exit Sub
+    If Err.Number <> 0 Then Exit Sub
+    If Not Lp_Box_Sel_Is_A_Spot(Sel.Type) Then Exit Sub
+    If Err.Number <> 0 Then Exit Sub
+    ' Inside another box's range is that box's to speak about.
+    If Lp_Tocb_Holds(Sel) Or Lp_Rst_Holds(Sel) Then Exit Sub
+    inside = Lp_Rst_In_Range(Sel.Start, Sel.End, Sel.StoryType, _
+                             Lp_Locp_Range.Start, Lp_Locp_Range.End, Lp_Locp_Story)
+    If Err.Number <> 0 Then Exit Sub
+    On Error GoTo 0
+
+    If inside Then
+        Lp_Locp_Warned_At = ""
+        Exit Sub
+    End If
+
+    at = CStr(Sel.Start) & ":" & CStr(Sel.End)
+    If at = Lp_Locp_Warned_At Then Exit Sub
+    Lp_Locp_Warned_At = at
+    Sh_Say "Your cursor is out of the selected range." & vbCr & vbCr _
+         & "Only copies inside the part of the book you picked when you started are stepped " _
+         & "through. Press Done when you have finished.", "VistaType LP (409)"
+End Sub  '***** end of Lp_Locp_Watch_Cursor *****
+
+' F6, Shift+F6 and the box's Alt keys: joining the shared list gives them to this box while it is
+' the newest (Sh_Box_Opened, ShNonModalMessage).
+'
+' Version: 1.0  Date: 11/1/2026
+Private Sub Lp_Locp_BindKeys()
+    Sh_Box_Opened "locp"
+End Sub  '***** end of Lp_Locp_BindKeys *****
+
+' Version: 1.0  Date: 11/1/2026
+Private Sub Lp_Locp_UnbindKeys()
+    Sh_Box_Closed "locp"
+End Sub  '***** end of Lp_Locp_UnbindKeys *****
+
+' What F6 runs while the box is up. The safety net, as for 375: fired with the box down, it leaves
+' the list.
+'
+' Version: 1.0  Date: 11/1/2026
+Public Sub Lp_Locp_ToggleFocus()
+    On Error Resume Next
+    If Not Lp_Locp_IsOn Then
+        Lp_Locp_UnbindKeys
+        Exit Sub
+    End If
+    Sh_Focus_Modeless_Form LP_LOCP_TITLE
+    Err.Clear
+End Sub  '***** end of Lp_Locp_ToggleFocus *****
+
+' The other half, called from every button's KeyDown on the box.
+'
+' Version: 1.0  Date: 11/1/2026
+Public Sub Lp_Locp_KeyToDocument()
+    On Error Resume Next
+    If Lp_Rst_Doc_Is_Open(Lp_Locp_Doc) Then
+        Sh_Focus_Document Lp_Locp_Doc
+    Else
+        Lp_Locp_Ready
+    End If
+    Err.Clear
+End Sub  '***** end of Lp_Locp_KeyToDocument *****
+
+' The box's Alt keys from the book (Sh_Box_AltKeys): Next, Previous, Done - what each button does.
+'
+' Version: 1.0  Date: 11/1/2026
+Public Sub Lp_Locp_AltKey(ByVal key As String)
+    ' The safety net, as for F6: fired with no box up, it leaves the shared list.
+    If Not Lp_Locp_IsOn Then
+        Lp_Locp_UnbindKeys
+        Exit Sub
+    End If
+
+    Select Case UCase$(key)
+        Case "N"
+            Lp_Locp_Next
+        Case "P"
+            Lp_Locp_Previous
+        Case "D"
+            Lp_Locp_Done
+    End Select
+End Sub  '***** end of Lp_Locp_AltKey *****
+the whole of what Change Picture Color does.
 '
 ' The caller says WHICH pictures, in the three words the dialog offers: "A" every picture in the
 ' document, "S" the picture the transcriber has selected, "R" the pictures inside the text that

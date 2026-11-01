@@ -32,6 +32,7 @@ BOXES = {
     # $pg menus are both "pg" on the list and have their own letters (Sh_Box_AltName).
     "fil": ("fil", "Lp_Type_Fill_In_Line_Form", "Lp_Fil_AltKey"),
     "rst": ("rst", "Lp_Same_Pic_Range_Form", "Lp_Rst_AltKey"),
+    "locp": ("locp", "Lp_Locate_Picture_Form", "Lp_Locp_AltKey"),
     "tocb": ("tocb", "Lp_TOC_Format_And_Color_Form", "Lp_Tocb_AltKey"),
     "hv": ("hv", "Lp_Horz_To_Vert_List_Form", "Lp_Hvb_AltKey"),
     "pg2": ("pg", "Sh_Valid_Ref_Pg_No_2_Form", "Sh_PgVal_AltKey"),
@@ -434,6 +435,7 @@ def test_every_box_leaves_the_list_on_every_way_out(repo_root):
     assert any('Sh_Box_Closed "pg"' in c for c in macros["Sh_PgVal_UnbindKeys"])
     for form, done in (("Lp_Type_Fill_In_Line_Form", "Lp_Fil_Done"),
                        ("Lp_Same_Pic_Range_Form", "Lp_Rst_Done"),
+                       ("Lp_Locate_Picture_Form", "Lp_Locp_Done"),
                        ("Lp_TOC_Format_And_Color_Form", "Lp_Tocb_Done"),
                        ("Lp_Horz_To_Vert_List_Form", "Lp_Hvb_Done"),
                        ("Sh_Valid_Ref_Pg_No_2_Form", "Sh_PgVal_Done"),

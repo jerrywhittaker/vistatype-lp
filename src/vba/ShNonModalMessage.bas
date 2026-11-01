@@ -788,7 +788,7 @@ Public Sub Sh_Box_Closed(ByVal who As String)
     End If
 End Sub  '***** end of Sh_Box_Closed *****
 
-' Which box has F6 and watches the cursor: "pg", "tocb", "rst", "fil", "hv", "msg" (a question
+' Which box has F6 and watches the cursor: "pg", "tocb", "rst", "locp", "fil", "hv", "msg" (a question
 ' that stays open, Sh_Ask_Modeless - it holds no range, so it watches nothing), or "" when none is up.
 '
 ' Version: 1.0  Date: 9/23/2026
@@ -801,6 +801,7 @@ End Function  '***** end of Sh_Box_On_Top *****
 ' leaves the list, and one press goes by with nothing done. With nothing on the list at all - after
 ' an End, which wipes the list but not the binding - the key goes back to Word.
 '
+' Version: 1.2  Date: 11/1/2026 - "locp", Locate This Picture (404)
 ' Version: 1.1  Date: 10/28/2026 - "msg", the question that stays open (Sh_Ask_Modeless, box 402)
 ' Version: 1.0  Date: 9/23/2026
 Public Sub Sh_Box_ToggleFocus()
@@ -812,6 +813,8 @@ Public Sub Sh_Box_ToggleFocus()
             Lp_Tocb_ToggleFocus
         Case "rst"
             Lp_Rst_ToggleFocus
+        Case "locp"
+            Lp_Locp_ToggleFocus
         Case "fil"
             Lp_Fil_ToggleFocus
         Case "hv"
@@ -939,6 +942,7 @@ End Sub  '***** end of Sh_Box_Clear_AltKeys *****
 ' UserForm_Initialize changes it; tests/test_box_alt_keys_in_book.py holds the two together.
 ' who is the name on the list of boxes, except the $pg menus: see Sh_Box_AltName.
 '
+' Version: 1.3  Date: 11/1/2026 - Locate This Picture (404)
 ' Version: 1.2  Date: 10/30/2026 - the TOC box's Clean and format the TOC is C, not F
 ' Version: 1.1  Date: 10/30/2026 - every box that stays open: the TOC box (354), Horizontal List
 '                                to Vertical (348), the two $pg menus (364, 366) and the question
@@ -953,6 +957,9 @@ Public Function Sh_Box_AltKeys(ByVal who As String) As String
             ' 375: Apply, Use Last Size, Done, the two Attach tick boxes (Follows, Precedes),
             ' and the three position buttons (Left, Center, leave as is)
             Sh_Box_AltKeys = "AUDFPLCV"
+        Case "locp"
+            ' 404: Next, Previous, Done
+            Sh_Box_AltKeys = "NPD"
         Case "tocb"
             ' 354: the three jobs (Clean and format the TOC, Add Color Bars, Remove Color Bars),
             ' Okay, and Done - the Cancel button. UserForm_Initialize makes Cancel's letter D and
@@ -1002,6 +1009,7 @@ End Function  '***** end of Sh_Box_AltName *****
 ' Lp_Hvb_Okay) report as they always have. The two safety nets below, Sh_Box_UnbindKeys and
 ' Sh_Box_BindKeys, guard themselves.
 '
+' Version: 1.3  Date: 11/1/2026 - Locate This Picture (404)
 ' Version: 1.2  Date: 10/30/2026 - errors in the box's macro are no longer swallowed
 ' Version: 1.1  Date: 10/30/2026 - the TOC box, Horizontal List to Vertical, the $pg menus and 402
 ' Version: 1.0  Date: 10/30/2026
@@ -1011,6 +1019,8 @@ Public Sub Sh_Box_AltKey(ByVal key As String)
             Lp_Fil_AltKey key
         Case "rst"
             Lp_Rst_AltKey key
+        Case "locp"
+            Lp_Locp_AltKey key
         Case "tocb"
             Lp_Tocb_AltKey key
         Case "hv"
@@ -1093,6 +1103,11 @@ End Sub  '***** end of Sh_Box_Alt_F *****
 Public Sub Sh_Box_Alt_L()
     Sh_Box_AltKey "L"
 End Sub  '***** end of Sh_Box_Alt_L *****
+
+' Version: 1.0  Date: 11/1/2026 - Next on Locate This Picture (404)
+Public Sub Sh_Box_Alt_N()
+    Sh_Box_AltKey "N"
+End Sub  '***** end of Sh_Box_Alt_N *****
 
 ' Version: 1.0  Date: 10/30/2026
 Public Sub Sh_Box_Alt_O()

@@ -23,6 +23,8 @@ BOXES = {
                                  + ["FillToRightMargin", "CancelButton", "TextBox1", "SpinButton1"],
     "Lp_Horz_To_Vert_List_Form": ["Cmd_Ok", "Cmd_Cancel", "AscendingOrderCheckbox", "Ordered_List",
                                   "Spaced_List", "TabbedList"],
+    # Locate This Picture (404), 11/1/2026.
+    "Lp_Locate_Picture_Form": ["NextButton", "PrevButton", "DoneButton"],
     # Stays open only when shown through Sh_Ask_Modeless (box 402, 10/28/2026).
     "Sh_Message_Form": ["Msg_Text", "Okay_Button", "Cancel_Button"],
 }
@@ -48,7 +50,8 @@ def test_one_shared_f6_for_every_box(repo_root):
     assert "SH_BOX_KEY_MACRO" in bind
     toggle = "\n".join(sprocs["Sh_Box_ToggleFocus"])
     for who, sub in (("pg", "Sh_PgVal_ToggleFocus"), ("tocb", "Lp_Tocb_ToggleFocus"),
-                     ("rst", "Lp_Rst_ToggleFocus"), ("fil", "Lp_Fil_ToggleFocus"),
+                     ("rst", "Lp_Rst_ToggleFocus"), ("locp", "Lp_Locp_ToggleFocus"),
+                     ("fil", "Lp_Fil_ToggleFocus"),
                      ("hv", "Lp_Hvb_ToggleFocus"), ("msg", "Sh_Ask_Modeless_ToggleFocus")):
         assert f'Case "{who}"' in toggle and sub in toggle, f"F6 cannot reach the {who} box"
 
@@ -63,7 +66,7 @@ def test_one_shared_f6_for_every_box(repo_root):
         f"a key bound somewhere other than Sh_Box_BindKeys: {adds}")
 
     procs = procedures(macros)
-    for box, who in (("Lp_Tocb", "tocb"), ("Lp_Rst", "rst")):
+    for box, who in (("Lp_Tocb", "tocb"), ("Lp_Rst", "rst"), ("Lp_Locp", "locp")):
         assert any(f'Sh_Box_Opened "{who}"' in c for c in procs[f"{box}_BindKeys"])
         assert any(f'Sh_Box_Closed "{who}"' in c for c in procs[f"{box}_UnbindKeys"])
     assert any('Sh_Box_Opened "pg"' in c for c in sprocs["Sh_PgVal_BindKeys"])
@@ -78,7 +81,8 @@ def test_each_box_joins_before_it_selects_and_leaves_after(repo_root):
     join = next(n for n, c in enumerate(start) if re.search(r"^\s*Lp_Tocb_BindKeys\s*$", c))
     sel = next(n for n, c in enumerate(start) if re.search(r"^\s*Lp_Tocb_Select\s*$", c))
     assert join < sel
-    for fin, leave in (("Lp_Tocb_Finish", "Lp_Tocb_UnbindKeys"), ("Lp_Rst_Finish", "Lp_Rst_UnbindKeys")):
+    for fin, leave in (("Lp_Tocb_Finish", "Lp_Tocb_UnbindKeys"), ("Lp_Rst_Finish", "Lp_Rst_UnbindKeys"),
+                       ("Lp_Locp_Finish", "Lp_Locp_UnbindKeys")):
         body = procs[fin]
         at = next(n for n, c in enumerate(body) if re.search(rf"^\s*{leave}\s*$", c))
         focus = max(n for n, c in enumerate(body) if "Sh_Focus_Document" in c)
@@ -87,7 +91,8 @@ def test_each_box_joins_before_it_selects_and_leaves_after(repo_root):
 
 def test_only_the_newest_box_watches_the_cursor(repo_root):
     procs = procedures(module_text(repo_root))
-    for watch, who in (("Lp_Tocb_Watch_Cursor", "tocb"), ("Lp_Rst_Watch_Cursor", "rst")):
+    for watch, who in (("Lp_Tocb_Watch_Cursor", "tocb"), ("Lp_Rst_Watch_Cursor", "rst"),
+                       ("Lp_Locp_Watch_Cursor", "locp")):
         body = procs[watch]
         say = next(n for n, c in enumerate(body) if "Sh_Say" in c)
         top = next((n for n, c in enumerate(body) if f'Sh_Box_On_Top() <> "{who}"' in c), None)
@@ -131,7 +136,8 @@ def test_a_box_brought_back_or_used_becomes_the_newest(repo_root):
 
 def test_the_watchers_leave_each_others_ranges_alone(repo_root):
     procs = procedures(module_text(repo_root))
-    for watch, other in (("Lp_Tocb_Watch_Cursor", "Lp_Rst_Holds"), ("Lp_Rst_Watch_Cursor", "Lp_Tocb_Holds")):
+    for watch, other in (("Lp_Tocb_Watch_Cursor", "Lp_Rst_Holds"), ("Lp_Rst_Watch_Cursor", "Lp_Tocb_Holds"),
+                         ("Lp_Locp_Watch_Cursor", "Lp_Rst_Holds"), ("Lp_Locp_Watch_Cursor", "Lp_Tocb_Holds")):
         body = procs[watch]
         say = next(n for n, c in enumerate(body) if "Sh_Say" in c)
         for need in (other, "Lp_Box_Sel_Is_A_Spot"):
