@@ -3,11 +3,14 @@ Attribute VB_Name = "TestTocBox"
 '@uses Lp_Tocb_Held_End
 '@uses Lp_Tocb_Trust_Live
 '@uses Lp_Tocb_Is_Outside
+'@uses Lp_TOC_Is_Entry_Style
 '
 ' The two decisions behind the TOC box that stays open (354), Jerry, 9/22/2026: which paragraphs
 ' the held range covers, and where it ends once a job has rewritten the TOC. Numbers in and out,
 ' because anything reaching a Range hangs this runner (tests/vba/README.md).
 '
+' Version: 1.3  Date: 11/1/2026 - Lp_TOC_Is_Entry_Style, which paragraphs Add Color Bars counts
+'                               as TOC entries - TOC 1 to TOC 5 (Jerry).
 ' Version: 1.2  Date: 9/23/2026 - Lp_Tocb_Is_Outside, whether the cursor has left the TOC being
 '                               held, which decides dialog 389.
 ' Version: 1.1  Date: 9/22/2026 - Lp_Tocb_Trust_Live, the choice between the live Range and the
@@ -19,6 +22,19 @@ Option Explicit
 Public Function TestTocBox_Suite() As TestSuite
     Dim Suite As New TestSuite
     Suite.Description = "The TOC box that stays open"
+
+    ' --- which paragraphs Add Color Bars counts as TOC entries (Jerry, 11/1/2026)
+    With Suite.Test("TOC 1 to TOC 5 are entries")
+        .IsOk Lp_TOC_Is_Entry_Style("TOC 1")
+        .IsOk Lp_TOC_Is_Entry_Style("TOC 5")
+    End With
+
+    With Suite.Test("anything else is not an entry")
+        .NotOk Lp_TOC_Is_Entry_Style("TOC 6")
+        .NotOk Lp_TOC_Is_Entry_Style("TOC Heading")
+        .NotOk Lp_TOC_Is_Entry_Style("Normal")
+        .NotOk Lp_TOC_Is_Entry_Style("")
+    End With
 
     ' --- a last paragraph the selection only reaches into is left out
     With Suite.Test("an over-drag into the next paragraph is dropped")

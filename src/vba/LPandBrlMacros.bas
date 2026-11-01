@@ -18,6 +18,10 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 11/1/2026 - ADD COLOR BARS ON THE TOC BOX (354) SAYS WHEN THERE IS NOTHING TO ADD
+'           - Lp  - 11/1/2026 - THEM TO (Jerry): with no TOC 1 to TOC 5 paragraph in the selected
+'           - Lp  - 11/1/2026 - TOC it gives 208 and never opens the colors box (353), as Remove
+'           - Lp  - 11/1/2026 - Color Bars already said there were none to remove (209).
 ' Notes:    - Lp  - 10/30/2026 - THE BOXES' ALT KEYS WORK FROM THE BOOK (Jerry): Type Fill-In Lines
 '           - Lp  - 10/30/2026 - (357) and Resize Pictures in a Selected Range (375) give the keyboard
 '           - Lp  - 10/30/2026 - to the book, so their Alt keys went to Word - Alt+F opened the File
@@ -18632,6 +18636,39 @@ Private Function Lp_Tocb_Is_Outside(ByVal selStart As Long, ByVal selEnd As Long
     Lp_Tocb_Is_Outside = (selStart >= heldEnd)
 End Function  '***** end of Lp_Tocb_Is_Outside *****
 
+' True when a paragraph in this style is a TOC entry that Add Color Bars can put a bar on - TOC 1
+' to TOC 5 (Jerry, 11/1/2026). A string in and a Boolean out, so the VBA suite can reach it.
+'
+' Version: 1.0  Date: 11/1/2026
+Private Function Lp_TOC_Is_Entry_Style(ByVal styleName As String) As Boolean
+    Select Case styleName
+        Case "TOC 1", "TOC 2", "TOC 3", "TOC 4", "TOC 5"
+            Lp_TOC_Is_Entry_Style = True
+    End Select
+End Function  '***** end of Lp_TOC_Is_Entry_Style *****
+
+' True when any paragraph in rng is a TOC entry (Lp_TOC_Is_Entry_Style). Add Color Bars asks this
+' before the colors box (353) comes up, so a selection with no entry in it is told so instead of
+' being taken through two color choices that change nothing - Remove Color Bars already said so.
+'
+' Version: 1.0  Date: 11/1/2026
+Private Function Lp_TOC_Has_Entries(ByVal rng As Range) As Boolean
+    Dim para As Paragraph
+    Dim styleName As String
+
+    For Each para In rng.Paragraphs
+        styleName = vbNullString
+        On Error Resume Next
+        styleName = para.Style
+        Err.Clear
+        On Error GoTo 0
+        If Lp_TOC_Is_Entry_Style(styleName) Then
+            Lp_TOC_Has_Entries = True
+            Exit Function
+        End If
+    Next para
+End Function  '***** end of Lp_TOC_Has_Entries *****
+
 ' Word's selection event runs this on every cursor movement (VtEvents), so the first test is one
 ' Boolean and costs nothing while the TOC box is down. With it up, a cursor moved out of the TOC
 ' being held gets 389, at every new spot outside it. Jerry, 9/23/2026.
@@ -18833,6 +18870,9 @@ End Sub  '***** end of Lp_Tocb_AltKey *****
 ' What the box's Okay runs. job is the choice: 1 Format the TOC, 2 Add Color Bars, 3 Remove
 ' Color Bars.
 '
+' Version: 1.1  Date: 11/1/2026 - Add Color Bars says there is nothing to add them to (208) when
+'                               no paragraph in the TOC is TOC 1 to TOC 5, instead of opening
+'                               the colors box (353) for a job that changes nothing. Jerry.
 ' Version: 1.0  Date: 9/22/2026
 Public Sub Lp_Tocb_Okay(ByVal job As Long)
     Dim charsBefore As Long
@@ -18877,11 +18917,16 @@ Public Sub Lp_Tocb_Okay(ByVal job As Long)
                 "(five times if the TOC ends the document)."
         Case 2
             Lp_TOC_Bars_Applied = False
-            Lp_TOC_Color_Bars_Form.Show
-            ' Unloaded every time, so the next use starts again at the first color. It was only
-            ' ever hidden while every path through the old box ended in End.
-            Unload Lp_TOC_Color_Bars_Form
-            If Lp_TOC_Bars_Applied Then msg = "Color bars added."
+            If Not Lp_TOC_Has_Entries(Lp_Tocb_Range) Then
+                msg = "There are no TOC entries (styles TOC 1 to TOC 5) in the selected TOC " & _
+                      "to add color bars to."
+            Else
+                Lp_TOC_Color_Bars_Form.Show
+                ' Unloaded every time, so the next use starts again at the first color. It was
+                ' only ever hidden while every path through the old box ended in End.
+                Unload Lp_TOC_Color_Bars_Form
+                If Lp_TOC_Bars_Applied Then msg = "Color bars added."
+            End If
         Case 3
             If Lp_TOC_Remove_Color_Bars(Lp_Tocb_Range) Then
                 msg = "Color bars removed."

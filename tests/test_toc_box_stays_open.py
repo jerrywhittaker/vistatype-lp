@@ -145,3 +145,14 @@ def test_every_new_spot_outside_is_said(repo_root):
     assert not any(re.search(r"If Lp_Tocb_Warned Then", c) for c in watch)
     assert any(re.search(r"at\s*=\s*CStr\(Sel\.start\)", c) for c in watch), (
         "the spot 389 was said for must be the selection's own start and end")
+
+
+def test_add_color_bars_says_when_there_is_nothing_to_add_them_to(repo_root):
+    """Jerry, 11/1/2026: Remove said there were no bars to remove; Add opened the colors box (353)
+    even with no TOC 1 to TOC 5 paragraph in the selection, and said nothing."""
+    okay = procedures(module_text(repo_root))["Lp_Tocb_Okay"]
+    ask = next(n for n, c in enumerate(okay) if re.search(r"If Not Lp_TOC_Has_Entries\(Lp_Tocb_Range\)", c))
+    show = next(n for n, c in enumerate(okay) if "Lp_TOC_Color_Bars_Form.Show" in c)
+    assert ask < show, "Add Color Bars must ask whether the TOC has entries before the colors box opens"
+    assert any("no TOC entries" in c for c in okay[ask:show]), (
+        "Add Color Bars must say there is nothing to add bars to")
