@@ -157,3 +157,21 @@ def test_selected_cleanup_checks_the_lp_template_first(repo_root):
     assert guard, (
         f"{FORM}: the Italics to Dashed Underline option must call Lp_Is_Lp_Template_Attached "
         f"before {SUB}.")
+
+
+def test_word_equations_are_never_dashed(repo_root):
+    """Issue #48, Jerry 11/1/2026: numbers in Word equations came out with a dashed underline.
+    Word counts every plain number and letter in an equation as italic (measured on vistabuild),
+    so the helper must step over equations, and a story with equations in it must be walked by
+    the helper - Replace All cannot skip them."""
+    helper = "\n".join(strip_comment(c) for c in _sub(repo_root, HELPER))
+    assert re.search(r"If\s+hit\.OMaths\.count\s*>\s*0\s+Then", helper, re.IGNORECASE), (
+        f"{HELPER} no longer steps over Word equations (issue #48)")
+    assert re.search(r"skipTo\s*=\s*hit\.OMaths\(1\)\.Range\.End", helper, re.IGNORECASE), (
+        f"{HELPER} must go on from the equation's end (issue #48)")
+
+    code = [strip_comment(c) for c in _sub(repo_root, SUB)]
+    check = next((n for n, c in enumerate(code) if re.search(r"\.OMaths\.count\s*>\s*0", c, re.IGNORECASE)), None)
+    branch = next((n for n, c in enumerate(code) if re.match(r"^\s*If\s+selectionOnly\s+Then\b", c, re.IGNORECASE)), None)
+    assert check is not None and branch is not None and check < branch, (
+        f"{SUB} must send a story with equations down the walking path before the Replace Alls (issue #48)")

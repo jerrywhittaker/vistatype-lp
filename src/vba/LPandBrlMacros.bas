@@ -18,6 +18,11 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 11/1/2026 - NUMBERS IN WORD EQUATIONS ARE NO LONGER DASHED (issue #48, Jerry):
+'           - Lp  - 11/1/2026 - Word counts an equation's plain numbers and letters as italic, so
+'           - Lp  - 11/1/2026 - Italics to Dashed Underline dashed them, in the attach and in File
+'           - Lp  - 11/1/2026 - Cleanup. It now steps over every equation; a book with equations is
+'           - Lp  - 11/1/2026 - walked hit by hit instead of with Replace All.
 ' Notes:    - DN  - 11/1/2026 - DAISY OR NIMAS TO WORD NEEDS NO DOCUMENT OPEN (Jerry): message 293
 '           - DN  - 11/1/2026 - ("Cannot continue... no document is open.") no longer stops it; with
 '           - DN  - 11/1/2026 - none open, a blank document is added first for the bar to sit on.
@@ -12280,6 +12285,12 @@ Sub Lp_Italics_To_Dashed_Underline(Optional ByVal selectionOnly As Boolean = Fal
 '
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
+' Version: 1.5  Date: 11/1/2026 - WORD EQUATIONS ARE LEFT ALONE (issue #48, Jerry): numbers in an equation
+'                                 were dashed. Word counts every plain number and letter in an equation as
+'                                 italic (math italic, measured on vistabuild), so Find matched them and the
+'                                 pass dashed them, made them upright and put them back in Cambria Math. The
+'                                 helper now steps over any equation, and a book with equations in it is
+'                                 walked the same way instead of Replace All, which cannot skip them
 ' Version: 1.4  Date: 10/6/2026 - selectionOnly: True keeps every pass inside the selection, for Selected
 '                                 Cleanup. Issue #4: with one paragraph selected, every italic word in
 '                                 the book was dashed. The passes walk the selection one hit at a time
@@ -12325,12 +12336,25 @@ Sub Lp_Italics_To_Dashed_Underline(Optional ByVal selectionOnly As Boolean = Fal
     ' File Cleanup and Normalize Styles call this with a collapsed cursor and rely on the
     ' wdFindContinue wrap of the Replace All passes below to cover the whole book.
 
+    ' WORD EQUATIONS, from 11/1/2026 (issue #48). Word counts every plain number and letter in an
+    ' equation as italic - math italic, with no italic on the run at all - so the Replace Alls below
+    ' dash them, and Replace All has no way to skip an equation. A story with an equation in it is
+    ' therefore walked, as a selection is, by the helper, which steps over every equation. The
+    ' story is the one the cursor is in - the same story the Replace Alls cover. Slower (see
+    ' above), so a book with no equations keeps the Replace Alls.
+    Dim sel As Range
+    If Not selectionOnly Then
+        If ActiveDocument.StoryRanges(Selection.StoryType).OMaths.count > 0 Then
+            Set sel = ActiveDocument.StoryRanges(Selection.StoryType)
+            selectionOnly = True        ' ByVal - walk this story below
+        End If
+    End If
+
     If selectionOnly Then
         ' Selection.Range, not two numbers: a selection in a footnote, text box, header or footer
         ' counts its positions inside its own story, and ActiveDocument.Range would land them in
         ' the main text instead (vba-review, 10/6/2026).
-        Dim sel As Range
-        Set sel = Selection.Range
+        If sel Is Nothing Then Set sel = Selection.Range
         ' Find italic, underline, rItalic, rUnderline: -1 leaves that one out of the Find, or
         ' leaves it unchanged - the same 12 passes, in the same order, as the Replace Alls below
         Lp_Dash_Italics_Pass_In_Range sel, "", 1, wdUnderlineSingle, 1, wdUnderlineNone
@@ -12583,6 +12607,8 @@ Private Sub Lp_Dash_Italics_Pass_In_Range(ByVal within As Range, _
 '
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
+' Version: 1.1  Date: 11/1/2026 - steps over Word equations (issue #48): a hit inside one is not
+'                                 changed, and a hit running into one is cut off where it starts
 ' Version: 1.0  Date: 10/6/2026 - one pass of Lp_Italics_To_Dashed_Underline, kept inside
 '                                 the range it is given (issue #4). Works in that range's own
 '                                 story - main text, footnote, text box, header or footer
@@ -12602,6 +12628,7 @@ Private Sub Lp_Dash_Italics_Pass_In_Range(ByVal within As Range, _
     Dim hit As Range
     Dim nextStart As Long
     Dim rangeEnd As Long
+    Dim skipTo As Long
 
     nextStart = within.Start
     rangeEnd = within.End
@@ -12627,9 +12654,25 @@ Private Sub Lp_Dash_Italics_Pass_In_Range(ByVal within As Range, _
         If hit.Start < nextStart Then hit.Start = nextStart
         If hit.End > rangeEnd Then hit.End = rangeEnd
         If hit.End <= nextStart Then Exit Do
-        If newItalic >= 0 Then hit.Font.Italic = (newItalic = 1)
-        If newUnderline >= 0 Then hit.Font.Underline = newUnderline
+        ' An equation is never changed (issue #48): Word reports its numbers and letters as
+        ' italic. Only the part of the hit before the equation is changed, and the search goes
+        ' on from the equation's end.
+        skipTo = 0
+        If hit.OMaths.count > 0 Then
+            skipTo = hit.OMaths(1).Range.End
+            If hit.OMaths(1).Range.Start > hit.Start Then
+                hit.End = hit.OMaths(1).Range.Start
+            Else
+                hit.End = hit.Start
+            End If
+        End If
+        If hit.End > hit.Start Then
+            If newItalic >= 0 Then hit.Font.Italic = (newItalic = 1)
+            If newUnderline >= 0 Then hit.Font.Underline = newUnderline
+        End If
         nextStart = hit.End
+        If skipTo > nextStart Then nextStart = skipTo
+        If nextStart <= hit.Start Then nextStart = hit.Start + 1
     Loop
 
 End Sub '  ***** End of Lp_Dash_Italics_Pass_In_Range *****************
@@ -35601,7 +35644,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
                "The document has been stabilized and will now be saved as a Word document with a .docx " & _
                "file type. MathType formats the equations after the save, not before it." & vbCr & vbCr & _
                "Formatting the equations can take several minutes on a large book. When it is finished, " & _
-               "the book is saved again." & vbCr & vbCr & _
+               "the book is automatically saved again." & vbCr & vbCr & _
                "If Word stops or closes while MathType is formatting, the converted book is not lost: " & _
                "open the saved book, then click Format Equations on the MathType tab.", _
                "VistaType LP (401)"
