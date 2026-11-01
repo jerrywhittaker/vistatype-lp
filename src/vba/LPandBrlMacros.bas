@@ -24,6 +24,8 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - Lp  - 11/1/2026 - Color Bars already said there were none to remove (209). And the
 '           - Lp  - 11/1/2026 - colors box (353) puts bars on TOC 1 to TOC 5 only, and takes the
 '           - Lp  - 11/1/2026 - leader dots off those only - not TOC 6 to TOC 9 or TOC Heading.
+'           - Lp  - 11/1/2026 - The TOC box's messages (207, 208, 209) say "Choose another action", not
+'           - Lp  - 11/1/2026 - "job" (Jerry).
 ' Notes:    - Lp  - 10/30/2026 - THE BOXES' ALT KEYS WORK FROM THE BOOK (Jerry): Type Fill-In Lines
 '           - Lp  - 10/30/2026 - (357) and Resize Pictures in a Selected Range (375) give the keyboard
 '           - Lp  - 10/30/2026 - to the book, so their Alt keys went to Word - Alt+F opened the File
@@ -18873,6 +18875,7 @@ End Sub  '***** end of Lp_Tocb_AltKey *****
 ' What the box's Okay runs. job is the choice: 1 Format the TOC, 2 Add Color Bars, 3 Remove
 ' Color Bars.
 '
+' Version: 1.2  Date: 11/1/2026 - 207, 208 and 209 say "Choose another action", not "job" (Jerry).
 ' Version: 1.1  Date: 11/1/2026 - Add Color Bars says there is nothing to add them to (208) when
 '                               no paragraph in the TOC is TOC 1 to TOC 5, instead of opening
 '                               the colors box (353) for a job that changes nothing. Jerry.
@@ -18960,7 +18963,7 @@ Public Sub Lp_Tocb_Okay(ByVal job As Long)
         Case Else
             title = "VistaType LP (209)"
     End Select
-    Sh_Say msg & vbCr & vbCr & "The TOC is still selected. Choose another job, or press Done.", title
+    Sh_Say msg & vbCr & vbCr & "The TOC is still selected. Choose another action, or press Done.", title
     Exit Sub
 
 eom:
