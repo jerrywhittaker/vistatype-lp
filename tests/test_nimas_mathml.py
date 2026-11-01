@@ -128,7 +128,7 @@ def test_every_question_comes_before_anything_changes(repo_root):
     read = _first(lines, r"fileContent = tStream\.ReadText")
     ask = _first(lines, r"DN_Equations_Form\.Show")
     q325 = _first(lines, r"DN_Keep_Or_Omit_Images_Form\.Show")
-    for later in (r"Sh_Progress_Open", r"\.SaveToFile", r"Documents\.Add", r"InsertFile"):
+    for later in (r"Sh_Progress_Open", r"\.SaveToFile", r"Set finalDoc = Documents\.Add", r"InsertFile"):
         at = _first(lines, later)
         assert q325 < read < ask < at, f"{later} comes before a question or before the book is read"
 

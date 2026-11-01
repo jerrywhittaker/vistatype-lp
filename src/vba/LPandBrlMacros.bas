@@ -18,6 +18,9 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - DN  - 11/1/2026 - DAISY OR NIMAS TO WORD NEEDS NO DOCUMENT OPEN (Jerry): message 293
+'           - DN  - 11/1/2026 - ("Cannot continue... no document is open.") no longer stops it; with
+'           - DN  - 11/1/2026 - none open, a blank document is added first for the bar to sit on.
 ' Notes:    - Lp  - 11/1/2026 - ADD COLOR BARS ON THE TOC BOX (354) SAYS WHEN THERE IS NOTHING TO ADD
 '           - Lp  - 11/1/2026 - THEM TO (Jerry): with no TOC 1 to TOC 5 paragraph in the selected
 '           - Lp  - 11/1/2026 - TOC it gives 208 and never opens the colors box (353), as Remove
@@ -25696,7 +25699,7 @@ Sub DN_Menu_Starter()
     '                                 (x1:btn_DN_Menu_Starter), not this sub, and the id is unchanged.
     ' Version: 1.0  Date: 3/2/2026
     '
-    ' Sh_Is_Doc_Open is not called here - Sh_Convert_XML_File_To_Word_Document does it first thing.
+    ' No document need be open - Sh_Convert_XML_File_To_Word_Document adds a blank one if none is.
     Sh_Convert_XML_File_To_Word_Document
 
 End Sub
@@ -35019,6 +35022,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
 '
 ' Automatically converts an .xml (NIMAS or DAISY) file into a Word Document with reference pages tagged with $pg
 '
+' Version: 3.5  Date: 11/1/2026 - NO MESSAGE 293 WITH NO DOCUMENT OPEN (Jerry): the conversion opens a book from a folder, so it no longer needs one open and no longer stops with "Cannot continue... no document is open." With none open it adds a blank document first, as Word shows at startup, because the window setup in Step 1 and the progress bar (373) both need a document to stand on
 ' Version: 3.4  Date: 10/28/2026 - ERROR 5825 WHILE PUTTING IN THE EQUATIONS (issue #47, Jerry): the converted book had been closed partway through, and ConvertFailed's own finalDoc.Activate then raised 5825 INSIDE the handler, where On Error Resume Next does not catch it; it escaped to RibbonAction, was logged as DN_Menu_Starter, and the first error was lost. ConvertFailed now runs On Error GoTo -1 straight after taking its copy of the error, so it finishes and reports under its own name; and when the converted book is gone, box 403 says so instead of asking for an error report
 ' Version: 3.3  Date: 10/28/2026 - ONE-ROW TABLES OF TYPED EQUATIONS TAKEN APART TOO (issue #43, Jerry): Sh_MathML_Untable now also takes apart a one-row table in which every cell that is not empty holds an equation, a math element or typed text with an equals sign - Basic Math's "25% = 0.25" and "A = (2, 3)" rows. A table of more rows, or with a cell of plain words, stays a table
 ' Version: 3.2  Date: 10/28/2026 - BOX 402 STAYS OPEN, AND COMES AFTER THE SAVE (Jerry): on the large-print MathType path 402 now comes after 401 and the Save As and before Format Equations, as a box that stays open (Sh_Ask_Modeless) so the transcriber can open MathType and set it up; the conversion waits on it with the bar hidden. Okay formats the equations; Cancel or the red X leaves them unformatted, with no second save, and 313 says to click Format Equations on the MathType tab when MathType is set up. One line added to Jerry's text: "When MathType is set up, click Okay to format the equations." If the book is closed while 402 is up, the run ends quietly with Word's options put back
@@ -35045,7 +35049,10 @@ Sub Sh_Convert_XML_File_To_Word_Document()
 ' Version: 1.1  Date: 7/8/2026 - added non modal message code - and file stabilization code
 ' Version: 1.0  Date: 3/3/2026
 '
-    Sh_Is_Doc_Open
+    ' No Sh_Is_Doc_Open: the book comes from a folder, not from the document on screen (Jerry,
+    ' 11/1/2026). A blank document stands in when none is open - ActiveWindow in Step 1 and the
+    ' bar's home document in Sh_Progress_Open need one.
+    If Application.Documents.count = 0 Then Application.Documents.Add
     Sh_Progress_Hide
     Sh_Spin_DoEvents
 
