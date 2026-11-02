@@ -25409,12 +25409,15 @@ End Function   '***** end of Lp_Same_Pic_Count *****
 '
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
+' Version: 1.1  Date: 11/1/2026 - from review: choosing the button with the box up reads the
+'                               clipboard again instead of bringing back the old list; a floating
+'                               picture on the clipboard gets 413, not "no picture" (405)
 ' Version: 1.0  Date: 11/1/2026
 Public Sub Lp_Locate_Picture()
     Dim book As Document
     Dim r As Range
     Dim pasted As Document, reader As Document
-    Dim pasteErr As Long, picCount As Long
+    Dim pasteErr As Long, picCount As Long, floatCount As Long
     Dim isPic As Boolean
     Dim refData As String
     Dim matches As Collection
@@ -25424,15 +25427,13 @@ Public Sub Lp_Locate_Picture()
 
     Application.Run MacroName:="Sh_Is_Doc_Open"
 
-    ' Already running: the box she has is brought back, and becomes the newest (Sh_Box_Opened).
-    ' A second run would hold a second list of copies and nobody could tell which one Next walks.
+    ' Already running: the box that is up is closed and the clipboard is read again (vba-review,
+    ' 11/1/2026). The clipboard is what this looks for, so copying a second picture and choosing
+    ' the button again must look for THAT picture, not keep stepping through the first one's copies.
+    ' One list of copies at a time, so nobody has to tell which one Next walks.
     If Lp_Locp_IsOn Then
-        Lp_Locp_BindKeys
-        On Error Resume Next
-        Lp_Locate_Picture_Form.Show vbModeless
-        Err.Clear
-        On Error GoTo 0
-        Exit Sub
+        If Lp_Locp_Busy Then Exit Sub
+        Lp_Locp_Finish
     End If
 
     ' WHERE TO LOOK: the selection, or the whole book when nothing is selected - a placed cursor,
@@ -25442,8 +25443,8 @@ Public Sub Lp_Locate_Picture()
     If r.End - r.Start < 2 Then Set r = book.Content
 
     ' --- THE CLIPBOARD, pasted into a hidden document and nowhere else. Any failure to paste -
-    ' an empty clipboard (4605), a folder copied (5345) - is the same answer to her: there is no
-    ' picture there to look for.
+    ' an empty clipboard (4605), a folder copied (5345) - is the same answer to the user: there is
+    ' no picture there to look for.
     On Error Resume Next
     Set pasted = Documents.Add(Visible:=False)
     Set reader = Documents.Add(Visible:=False)
@@ -25456,6 +25457,8 @@ Public Sub Lp_Locate_Picture()
         ' A file that is not a picture - a .txt copied in File Explorer - pastes as an icon,
         ' which is one in-line shape but not a picture.
         If picCount = 1 Then isPic = Lp_Same_Pic_Is_Picture(pasted.InlineShapes(1))
+        ' A picture copied in the book that floats over the text pastes as a floating shape.
+        If picCount = 0 Then floatCount = pasted.Shapes.count
     End If
     Err.Clear
     On Error GoTo 0
@@ -25466,6 +25469,14 @@ Public Sub Lp_Locate_Picture()
              & "Copy ONE picture - click it once in the book and press Ctrl+C, or click its file " _
              & "once in File Explorer and press Ctrl+C - then choose Locate the Picture on the " _
              & "Clipboard again.", "VistaType LP (406)"
+        Exit Sub
+    End If
+    If Not isPic And floatCount > 0 Then
+        Lp_Locp_Close_Docs pasted, reader
+        Sh_Say "The picture on the clipboard floats over the text." & vbCr & vbCr _
+             & "Only pictures in line with the text are looked at. Use All Pictures to Inline " _
+             & "first, then copy the picture again and choose Locate the Picture on the " _
+             & "Clipboard.", "VistaType LP (413)"
         Exit Sub
     End If
     If Not isPic Then
@@ -25680,7 +25691,7 @@ End Sub  '***** end of Lp_Locp_Move *****
 
 ' True when the book is still open. When it has been closed, says so and ends the run - the box
 ' would otherwise sit there pointing at nothing. Another book in front is not a reason to end: the
-' step puts her back in this one.
+' step puts the user back in this one.
 '
 ' Version: 1.0  Date: 11/1/2026
 Private Function Lp_Locp_Ready() As Boolean
@@ -25723,10 +25734,11 @@ Private Sub Lp_Locp_Finish()
     Lp_Locp_At = 0
     Lp_Locp_Whole = False
     If Lp_Rst_Doc_Is_Open(backTo) Then
-        ' The picture on screen is let go, so her next keystroke does not type over it. The
-        ' cursor is left just after it.
-        If Selection.Type = wdSelectionInlineShape Then Selection.Collapse wdCollapseEnd
+        ' The book is brought forward FIRST, so the picture let go is the book's and not one
+        ' selected in whatever document is in front (vba-review, 11/1/2026). Let go so the
+        ' user's next keystroke does not type over it; the cursor is left just after it.
         Sh_Focus_Document backTo
+        If Selection.Type = wdSelectionInlineShape Then Selection.Collapse wdCollapseEnd
     End If
     Lp_Locp_UnbindKeys
     Err.Clear
@@ -25835,7 +25847,8 @@ Public Sub Lp_Locp_AltKey(ByVal key As String)
             Lp_Locp_Done
     End Select
 End Sub  '***** end of Lp_Locp_AltKey *****
-the whole of what Change Picture Color does.
+
+' Change the color of some pictures, and that is the whole of what Change Picture Color does.
 '
 ' The caller says WHICH pictures, in the three words the dialog offers: "A" every picture in the
 ' document, "S" the picture the transcriber has selected, "R" the pictures inside the text that

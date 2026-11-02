@@ -935,7 +935,8 @@ End Sub  '***** end of Sh_Box_Clear_AltKeys *****
 ' up, the keys listed here are bound in Word too, each to Sh_Box_Alt_<key>, and pressing one in
 ' the book does what pressing it on the box does. Word's own use of those keys - Alt+F for the
 ' File tab, Alt+P for Layout, Alt+R for Review, Alt+S for References, Alt+W for View, Alt+L for
-' Developer, Alt+1 to Alt+0 for the Quick Access Toolbar - is not available while the box is up.
+' Developer, Alt+N for Insert (Locate This Picture, 404), Alt+1 to Alt+0 for the Quick Access
+' Toolbar - is not available while the box is up.
 ' Jerry accepted that for 357 and 375, 10/30/2026, and asked for the other boxes the same day.
 '
 ' Each letter is the button's Accelerator, as the .frx sets it or as the form's
