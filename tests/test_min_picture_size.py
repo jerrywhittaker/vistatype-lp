@@ -44,12 +44,25 @@ def test_pictures_only_from_the_normal_size_and_inside_the_margins(repo_root):
 
 
 def test_the_final_size_is_worked_out_before_the_picture_is_touched(repo_root):
-    body = _code(repo_root, "Lp_Enlarge_One_Picture")
-    assert "Lp_Min_Pic_Factor" in body
-    fit = body.find("Lp_Fit_Factor")
-    first_set = body.find(".Width =")
-    assert 0 <= fit < first_set, (
+    plan = _code(repo_root, "Lp_Enlarge_Plan")
+    assert "Lp_Min_Pic_Factor" in plan and "Lp_Fit_Factor" in plan, (
         "the margin fit must be worked into the size BEFORE Width is set - enlarging first asked "
         "Word for sizes past its largest and left a rule line as a thick, stretched bar")
-    assert "Lp_Fit_Inline_Shape_To_Margins" not in body
-    assert "On Error GoTo" in body, "one picture Word will not resize must not end the attach"
+    assert not re.search(r"\.(Width|Height|LockAspectRatio)\s*=", plan), "the plan only reads"
+    one = _code(repo_root, "Lp_Enlarge_One_Picture")
+    assert "Lp_Fit_Inline_Shape_To_Margins" not in one
+    assert "On Error GoTo" in one, "one picture Word will not resize must not end the attach"
+
+
+def test_everything_is_read_before_anything_is_resized(repo_root):
+    """Jerry 11/2/2026: 742 s on a math book. Reading a picture's margins straight after the last
+    one was resized laid the book out again each time (107 pictures x 6.9 s a layout). Part 1
+    reads and lists, Part 2 only resizes, and the margins are asked once when sections agree."""
+    body = _code(repo_root, "Lp_Enlarge_Tiny_Pictures")
+    plan = body.find("Lp_Enlarge_Plan")
+    resize = body.find("Lp_Enlarge_One_Picture")
+    assert 0 <= plan < resize, "every picture must be read before any is resized"
+    loop2 = body[resize - 200:resize]
+    assert "For k = 1 To n" in loop2, "the resizing must be a second loop over the list"
+    assert "Lp_Same_Room_All_Sections" in body, "the margins must be asked once, not per picture"
+    assert "Lp_Pic_Room" not in body

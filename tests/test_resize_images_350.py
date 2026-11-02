@@ -64,8 +64,11 @@ def test_fit_uses_the_pictures_own_section_and_sets_points(repo_root):
     # the room between the margins is worked out by Lp_Pic_Room, shared with the attach's
     # enlarging of tiny pictures (11/1/2026)
     assert "Lp_Pic_Room" in body
-    room = _body(repo_root, "Lp_Pic_Room")
-    assert re.search(r"\.Sections\(1\)\.PageSetup", room), (
+    # and Lp_Pic_Room's arithmetic is Lp_Section_Room's from 11/2/2026
+    assert re.search(r"\.Sections\(1\)", "\n".join(_body(repo_root, "Lp_Pic_Room").splitlines())), (
+        "margins must come from the picture's own section, not ActiveDocument.PageSetup")
+    room = _body(repo_root, "Lp_Section_Room")
+    assert re.search(r"\.PageSetup", room), (
         "margins must come from the picture's own section, not ActiveDocument.PageSetup")
     for m in ("LeftMargin", "RightMargin", "TopMargin", "BottomMargin", "Gutter"):
         assert m in room, f"the fit ignores {m}"

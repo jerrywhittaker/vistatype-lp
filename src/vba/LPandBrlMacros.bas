@@ -18,6 +18,10 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 11/2/2026 - ENLARGING PICTURES SMALLER THAN THE TEXT TOOK 742 S on a math book
+'           - Lp  - 11/2/2026 - (Jerry): each picture's margins were read after the last was
+'           - Lp  - 11/2/2026 - resized, laying the book out again each time. All are read first now,
+'           - Lp  - 11/2/2026 - the margins once, then the sizes are changed.
 ' Notes:    - Lp  - 11/2/2026 - ITALICS TO DASHED UNDERLINE IS FAST AGAIN IN A BOOK WITH EQUATIONS
 '           - Lp  - 11/2/2026 - (Jerry: stalled on 373 for over 25 minutes). The equations are taken
 '           - Lp  - 11/2/2026 - out into a hidden document while the Replace Alls run, then put back
@@ -24232,11 +24236,21 @@ End Sub  '***** end of Lp_Fit_Inline_Shape_To_Margins *****
 ' out of Lp_Fit_Inline_Shape_To_Margins, 11/1/2026, so Lp_Enlarge_Tiny_Pictures fits by the same
 ' room.
 '
+' Version: 1.1  Date: 11/2/2026 - the arithmetic is Lp_Section_Room's now
 ' Version: 1.0  Date: 11/1/2026
 Private Sub Lp_Pic_Room(ByVal s As InlineShape, ByRef availW As Single, ByRef availH As Single)
+    Lp_Section_Room s.Range.Sections(1), availW, availH
+End Sub  '***** end of Lp_Pic_Room *****
+
+' The same room, for one section. Split out of Lp_Pic_Room, 11/2/2026, so the room can be asked
+' once for the whole book: asked per picture, straight after the last picture was resized, it is
+' what made Word lay the whole book out again for every picture (see Lp_Enlarge_Tiny_Pictures).
+'
+' Version: 1.0  Date: 11/2/2026
+Private Sub Lp_Section_Room(ByVal sec As Section, ByRef availW As Single, ByRef availH As Single)
     ' Abs: a negative top or bottom margin is Word's "exactly" margin, and the space it leaves is
     ' the same as a positive one's.
-    With s.Range.Sections(1).PageSetup
+    With sec.PageSetup
         availW = .PageWidth - Abs(.LeftMargin) - Abs(.RightMargin)
         availH = .PageHeight - Abs(.TopMargin) - Abs(.BottomMargin)
         If .GutterPos = wdGutterPosTop Then
@@ -24245,7 +24259,27 @@ Private Sub Lp_Pic_Room(ByVal s As InlineShape, ByRef availW As Single, ByRef av
             availW = availW - .Gutter
         End If
     End With
-End Sub  '***** end of Lp_Pic_Room *****
+End Sub  '***** end of Lp_Section_Room *****
+
+' True, with the room in availW and availH, when every section of the book has the same room - a
+' book of one section always does. False when they differ, or cannot be read: then the room is
+' asked picture by picture.
+'
+' Version: 1.0  Date: 11/2/2026
+Private Function Lp_Same_Room_All_Sections(ByVal Doc As Document, ByRef availW As Single, _
+                                           ByRef availH As Single) As Boolean
+    Dim k As Long
+    Dim w As Single, h As Single
+
+    On Error GoTo Done
+    Lp_Section_Room Doc.Sections(1), availW, availH
+    For k = 2 To Doc.Sections.count
+        Lp_Section_Room Doc.Sections(k), w, h
+        If w <> availW Or h <> availH Then Exit Function
+    Next k
+    Lp_Same_Room_All_Sections = True
+Done:
+End Function  '***** end of Lp_Same_Room_All_Sections *****
 
 ' How much a w by h picture must be multiplied by to fit inside availW by availH, keeping its shape:
 ' 1 when it already fits, otherwise the smaller of the two ratios, so the side that is furthest
@@ -24285,51 +24319,109 @@ End Function  '***** end of Lp_Fit_Factor *****
 '
 ' The Normal style is read, not Lp_Base_Font_Size, which is a string that can be stale or empty.
 '
+' ALL THE READING IS DONE BEFORE ANY PICTURE IS CHANGED (11/2/2026). Jerry's attach of a NIMAS math
+' book spent 742 s here: 107 pictures resized, and a full layout of that book measured 6.9 s - 107
+' times 6.9 is 737. Asking for a picture's section margins straight after the last one was resized
+' made Word lay the book out again each time. Part 1 only reads and lists; Part 2 only changes
+' sizes; the margins are asked once when every section has the same. Measured headlessly on a copy
+' of the book: 0.3 s against 4 to 7 s, every size identical to 0.0001 pt. Headless Word lays out
+' lazily and never showed the 742 s, so the live time is Jerry's next attach to see.
+'
+' Version: 1.1  Date: 11/2/2026 - read first, change after; the margins asked once
 ' Version: 1.0  Date: 11/1/2026
 Private Sub Lp_Enlarge_Tiny_Pictures(ByVal Doc As Document)
     Dim s As InlineShape
     Dim minPts As Single
+    Dim availW As Single, availH As Single
+    Dim sameRoom As Boolean
+    Dim pics() As InlineShape
+    Dim oldW() As Single, oldH() As Single, newW() As Single, newH() As Single
+    Dim n As Long, k As Long
+    Dim w As Single, h As Single, nw As Single, nh As Single
 
     minPts = Doc.Styles(wdStyleNormal).Font.Size
     If minPts <= 0 Then Exit Sub
 
+    sameRoom = Lp_Same_Room_All_Sections(Doc, availW, availH)
+
+    ' Part 1: read only. For Each, not an index: Doc.InlineShapes(i) measured sixteen times slower.
     For Each s In Doc.InlineShapes
         If Lp_Same_Pic_Is_Picture(s) Then
-            Lp_Enlarge_One_Picture s, minPts
+            If Lp_Enlarge_Plan(s, minPts, sameRoom, availW, availH, w, h, nw, nh) Then
+                n = n + 1
+                If n = 1 Then
+                    ReDim pics(1 To 64)
+                    ReDim oldW(1 To 64)
+                    ReDim oldH(1 To 64)
+                    ReDim newW(1 To 64)
+                    ReDim newH(1 To 64)
+                ElseIf n > UBound(pics) Then
+                    ReDim Preserve pics(1 To n + 63)
+                    ReDim Preserve oldW(1 To n + 63)
+                    ReDim Preserve oldH(1 To n + 63)
+                    ReDim Preserve newW(1 To n + 63)
+                    ReDim Preserve newH(1 To n + 63)
+                End If
+                Set pics(n) = s
+                oldW(n) = w
+                oldH(n) = h
+                newW(n) = nw
+                newH(n) = nh
+            End If
         End If
     Next s
+
+    ' Part 2: change only - nothing is read from the book here.
+    For k = 1 To n
+        Lp_Enlarge_One_Picture pics(k), oldW(k), oldH(k), newW(k), newH(k)
+    Next k
 End Sub  '***** end of Lp_Enlarge_Tiny_Pictures *****
 
-' One picture for Lp_Enlarge_Tiny_Pictures. A picture Word will not read or resize is left as it
-' was - put back if it got only one side changed - and is not the end of the attach.
+' Reads one picture and works out its new size, without changing it: True, with the sizes, when it
+' is to be enlarged. The room comes in when every section has the same; otherwise it is asked here,
+' which is safe because nothing has been resized yet.
 '
-' Version: 1.0  Date: 11/1/2026
-Private Sub Lp_Enlarge_One_Picture(ByVal s As InlineShape, ByVal minPts As Single)
-    Dim w As Single, h As Single
+' Version: 1.0  Date: 11/2/2026 - the reading half of what Lp_Enlarge_One_Picture did
+Private Function Lp_Enlarge_Plan(ByVal s As InlineShape, ByVal minPts As Single, _
+                                 ByVal sameRoom As Boolean, ByVal availW As Single, _
+                                 ByVal availH As Single, ByRef w As Single, ByRef h As Single, _
+                                 ByRef newW As Single, ByRef newH As Single) As Boolean
     Dim f As Single
-    Dim availW As Single, availH As Single
 
-    On Error GoTo NotThisOne
+    On Error GoTo Done
     w = s.Width
     h = s.Height
     f = Lp_Min_Pic_Factor(w, h, minPts)
-    If f <= 1 Then Exit Sub
-
-    Lp_Pic_Room s, availW, availH
+    If f <= 1 Then Exit Function
+    If Not sameRoom Then Lp_Pic_Room s, availW, availH
     f = f * Lp_Fit_Factor(w * f, h * f, availW, availH)
-    If f <= 1 Then Exit Sub
+    If f <= 1 Then Exit Function
+    newW = Int(w * f * 100) / 100
+    newH = Int(h * f * 100) / 100
+    Lp_Enlarge_Plan = True
+Done:
+End Function  '***** end of Lp_Enlarge_Plan *****
 
+' One picture for Lp_Enlarge_Tiny_Pictures, at the size Lp_Enlarge_Plan worked out. A picture Word
+' will not resize is put back as it was - if it got only one side changed - and is not the end of
+' the attach.
+'
+' Version: 1.1  Date: 11/2/2026 - the sizes come in; nothing is read from the book here
+' Version: 1.0  Date: 11/1/2026
+Private Sub Lp_Enlarge_One_Picture(ByVal s As InlineShape, ByVal oldW As Single, ByVal oldH As Single, _
+                                   ByVal newW As Single, ByVal newH As Single)
+    On Error GoTo NotThisOne
     s.LockAspectRatio = msoFalse
-    s.Width = Int(w * f * 100) / 100
-    s.Height = Int(h * f * 100) / 100
+    s.Width = newW
+    s.Height = newH
     s.LockAspectRatio = msoTrue
     Exit Sub
 
 NotThisOne:
     On Error Resume Next
     s.LockAspectRatio = msoFalse
-    s.Width = w
-    s.Height = h
+    s.Width = oldW
+    s.Height = oldH
     s.LockAspectRatio = msoTrue
 End Sub  '***** end of Lp_Enlarge_One_Picture *****
 
