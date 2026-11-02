@@ -18,6 +18,10 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 11/2/2026 - ITALICS TO DASHED UNDERLINE IS FAST AGAIN IN A BOOK WITH EQUATIONS
+'           - Lp  - 11/2/2026 - (Jerry: stalled on 373 for over 25 minutes). The equations are taken
+'           - Lp  - 11/2/2026 - out into a hidden document while the Replace Alls run, then put back
+'           - Lp  - 11/2/2026 - (Lp_Dash_Italics_Around_Equations); measured 40 s against 448 s.
 ' Notes:    - Lp  - 11/1/2026 - NO PICTURE SMALLER THAN THE TEXT (Jerry): some pictures showed as
 '           - Lp  - 11/1/2026 - a dot on the screen, even in a book already in large print. The LP
 '           - Lp  - 11/1/2026 - template attach now enlarges any picture whose shorter side is under
@@ -12317,6 +12321,12 @@ Sub Lp_Italics_To_Dashed_Underline(Optional ByVal selectionOnly As Boolean = Fal
 '
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
+' Version: 1.6  Date: 11/2/2026 - FAST AGAIN WITH EQUATIONS (Jerry: a book stalled on 373 for 25 minutes and
+'                                 more). A story with equations is no longer walked hit by hit: the
+'                                 equations are taken out into a hidden document, the Replace Alls run, and
+'                                 each equation is put back where it was (Lp_Dash_Italics_Around_Equations).
+'                                 Measured on vistabuild: 6,396 equations, 618k characters, 40 s against
+'                                 448 s; every equation byte for byte as before
 ' Version: 1.5  Date: 11/1/2026 - WORD EQUATIONS ARE LEFT ALONE (issue #48, Jerry): numbers in an equation
 '                                 were dashed. Word counts every plain number and letter in an equation as
 '                                 italic (math italic, measured on vistabuild), so Find matched them and the
@@ -12369,17 +12379,29 @@ Sub Lp_Italics_To_Dashed_Underline(Optional ByVal selectionOnly As Boolean = Fal
     ' wdFindContinue wrap of the Replace All passes below to cover the whole book.
 
     ' WORD EQUATIONS, from 11/1/2026 (issue #48). Word counts every plain number and letter in an
-    ' equation as italic - math italic, with no italic on the run at all - so the Replace Alls below
-    ' dash them, and Replace All has no way to skip an equation. A story with an equation in it is
-    ' therefore walked, as a selection is, by the helper, which steps over every equation. The
-    ' story is the one the cursor is in - the same story the Replace Alls cover. Slower (see
-    ' above), so a book with no equations keeps the Replace Alls.
+    ' equation as italic - math italic, with no italic on the run at all - so the Replace Alls
+    ' dash them, and Replace All has no way to skip an equation.
+    '
+    ' 11/1/2026 a story with an equation in it was walked by the helper instead, as a selection
+    ' is. Right, but a real math book stalled on 373 for more than 25 minutes (Jerry, 11/2/2026).
+    ' From 11/2/2026 the equations are taken OUT of the story while the Replace Alls run, and put
+    ' back after - see Lp_Dash_Italics_Around_Equations. Two quicker ideas were measured and
+    ' rejected: a temporary mark on the equations plus a Find rule to skip it, and copying the
+    ' equations aside while they stayed in - with the equations still in the story, Replace All
+    ' MERGED two equations with italic text between them into one display equation.
     Dim sel As Range
+    Dim story As Range
     If Not selectionOnly Then
-        If ActiveDocument.StoryRanges(Selection.StoryType).OMaths.count > 0 Then
-            Set sel = ActiveDocument.StoryRanges(Selection.StoryType)
-            selectionOnly = True        ' ByVal - walk this story below
+        Set story = ActiveDocument.StoryRanges(Selection.StoryType)
+        If story.OMaths.count = 0 Then
+            Lp_Dash_Italics_Replace_All
+            Exit Sub
         End If
+        If Lp_Dash_Italics_Around_Equations(story) Then Exit Sub
+        ' The equations would not come out cleanly; they are all back as they were. Walk the story
+        ' hit by hit instead, as 11/1/2026 did - slow, but it never touches an equation.
+        Set sel = ActiveDocument.StoryRanges(Selection.StoryType)
+        selectionOnly = True        ' ByVal - walk this story below
     End If
 
     If selectionOnly Then
@@ -12403,7 +12425,14 @@ Sub Lp_Italics_To_Dashed_Underline(Optional ByVal selectionOnly As Boolean = Fal
         Lp_Dash_Italics_Pass_In_Range sel, ChrW(161), -1, wdUnderlineDash, -1, wdUnderlineNone  ' inverted !
         Exit Sub
     End If
+End Sub '  ***** End of Lp_Italics_To_Dashed_Underline Macro *****************
 
+' The 12 Replace All passes of Lp_Italics_To_Dashed_Underline, for the whole story the cursor is in:
+' each wraps (wdFindContinue), so from a collapsed cursor it covers the story. The equations must be
+' out of the story first, or they are dashed (issue #48) - Lp_Dash_Italics_Around_Equations.
+'
+' Version: 1.0  Date: 11/2/2026 - moved out of Lp_Italics_To_Dashed_Underline, unchanged
+Private Sub Lp_Dash_Italics_Replace_All()
     Selection.Find.ClearFormatting
     With Selection.Find.Font
         .Italic = True
@@ -12631,7 +12660,117 @@ Sub Lp_Italics_To_Dashed_Underline(Optional ByVal selectionOnly As Boolean = Fal
     End With
     Selection.Find.Execute Replace:=wdReplaceAll
     
-End Sub '  ***** End of Lp_Italics_To_Dashed_Underline Macro *****************
+End Sub '  ***** end of Lp_Dash_Italics_Replace_All *****
+
+' THE EQUATIONS OUT, THE REPLACE ALLS, THE EQUATIONS BACK - Jerry, 11/2/2026, after a math book
+' stalled on 373 for more than 25 minutes with every hit walked one at a time.
+'
+' Each equation in the story, first to last, is copied (FormattedText) into a hidden document and
+' deleted from the story, its start noted. The 12 Replace Alls then run on a story with no equation
+' in it, and each equation is put back at its start, LAST TO FIRST, so every noted start is still
+' true when it is used. The passes change formatting only, never the length of the text.
+'
+' MEASURED on vistabuild, 11/2/2026, against the walk it replaces: 798 equations 4.0 s against
+' 44.7 s; 6,396 equations and 618k characters 40.5 s against 448 s. Every equation came back byte
+' for byte, display and in-line, in tables too; every character outside them matched the walk.
+' Learned on the way: setting an equation's Text does not remove it (OMaths.count stays put), and
+' FormattedText given to a range does not replace that range - so Delete, then insert at the point.
+' The hidden document is filled with one paragraph mark per equation up front: adding a paragraph
+' per equation cost most of the time. OMaths(1) every time, never OMaths(i) - always the first,
+' because the ones before it are gone, and an index into OMaths grows slower as the count grows.
+'
+' If anything fails, every equation taken out is put back before the error goes on.
+'
+' EVERY DELETE IS CHECKED (vba-review, 11/2/2026, before it reached anyone): the story must get
+' shorter by exactly the equation taken out. With Track Changes on, Delete only marks an equation
+' deleted - it stays, OMaths(1) is the same one every time, and the book would get it back n times
+' over; and Word's smart cut and paste can take a space away with it. So Track Changes is off while
+' this runs and put back after, and on any Delete that does not shorten the story by exactly the
+' equation, everything taken out so far is put back and this answers False: the caller then walks
+' the story hit by hit, slow but safe. False means "not done", never "failed" - errors still raise.
+'
+' Version: 1.0  Date: 11/2/2026
+Private Function Lp_Dash_Italics_Around_Equations(ByVal story As Range) As Boolean
+    Dim book As Document
+    Dim scratch As Document
+    Dim storyType As Long
+    Dim r As Range, ins As Range
+    Dim n As Long, i As Long, taken As Long
+    Dim cum As Long, e0 As Long
+    Dim lenOut As Long, lenBefore As Long, eqLen As Long
+    Dim ss() As Long, ee() As Long, pp() As Long
+    Dim errNum As Long, errText As String
+    Dim tracking As Boolean, tripped As Boolean
+
+    Set book = story.Document
+    storyType = story.StoryType
+    n = story.OMaths.count
+    If n = 0 Then Exit Function
+    ReDim ss(1 To n)
+    ReDim ee(1 To n)
+    ReDim pp(1 To n)
+
+    tracking = book.TrackRevisions
+    book.TrackRevisions = False
+    Set scratch = Documents.Add(Visible:=False)
+    book.Activate       ' the Replace Alls work through the Selection, which must be the book's
+    On Error GoTo Failed
+
+    scratch.Content.InsertAfter String(n, vbCr)
+    cum = 0
+    For i = 1 To n
+        Set r = book.StoryRanges(storyType).OMaths(1).Range
+        ss(i) = cum
+        e0 = scratch.Content.End
+        scratch.Range(cum, cum).FormattedText = r.FormattedText
+        ee(i) = cum + (scratch.Content.End - e0)
+        cum = ee(i) + 1
+        pp(i) = r.Start
+        eqLen = r.End - r.Start
+        lenBefore = book.StoryRanges(storyType).End
+        r.Delete
+        If book.StoryRanges(storyType).End <> lenBefore - eqLen Then
+            ' Not cleanly out - and possibly not out at all, so it is not counted as taken. A
+            ' space Word took with it would be lost, so it is put back by Undo first.
+            tripped = True
+            If book.StoryRanges(storyType).End < lenBefore Then book.Undo 1
+            GoTo PutBack
+        End If
+        taken = i
+    Next i
+
+    lenOut = book.StoryRanges(storyType).End
+    Lp_Dash_Italics_Replace_All
+    If book.StoryRanges(storyType).End <> lenOut Then
+        errNum = vbObjectError + 513
+        errText = "The text changed length while italics were dashed, so the equations may be out of place."
+    End If
+
+PutBack:
+    On Error Resume Next
+    For i = taken To 1 Step -1
+        Set ins = book.StoryRanges(storyType)
+        ins.SetRange pp(i), pp(i)
+        ins.FormattedText = scratch.Range(ss(i), ee(i)).FormattedText
+        If Err.Number <> 0 And errNum = 0 Then
+            errNum = Err.Number
+            errText = "Equation " & i & " could not be put back: " & Err.Description
+        End If
+        Err.Clear
+    Next i
+    scratch.Close SaveChanges:=wdDoNotSaveChanges
+    book.Activate
+    book.TrackRevisions = tracking
+    On Error GoTo 0
+    If errNum <> 0 Then Err.Raise errNum, "Lp_Dash_Italics_Around_Equations", errText
+    Lp_Dash_Italics_Around_Equations = Not tripped
+    Exit Function
+
+Failed:
+    errNum = Err.Number
+    errText = Err.Description
+    Resume PutBack
+End Function  '***** end of Lp_Dash_Italics_Around_Equations *****
 
 Private Sub Lp_Dash_Italics_Pass_In_Range(ByVal within As Range, _
         ByVal findText As String, ByVal findItalic As Long, ByVal findUnderline As Long, _

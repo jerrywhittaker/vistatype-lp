@@ -40,6 +40,8 @@ EXEMPT = {
         "a cell of the table Tables.Add has just made, less its end-of-cell marker",
     ("LPandBrlMacros", "Lp_Table_Transpose_Table", "dstCellRng"):
         "a cell of the table Tables.Add has just made, less its end-of-cell marker",
+    ("LPandBrlMacros", "Lp_Dash_Italics_Around_Equations", "ins"):
+        "SetRange to one point, pp(i) to pp(i), on the line before - an empty range",
 }
 
 

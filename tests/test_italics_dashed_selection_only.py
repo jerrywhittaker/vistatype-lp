@@ -28,6 +28,8 @@ from test_toc_never_deletes_a_line import module_text, procedures, strip_comment
 
 SUB = "Lp_Italics_To_Dashed_Underline"
 HELPER = "Lp_Dash_Italics_Pass_In_Range"
+REPLACE_ALLS = "Lp_Dash_Italics_Replace_All"     # the whole-book passes, moved out 11/2/2026
+AROUND = "Lp_Dash_Italics_Around_Equations"
 PASSES = 12          # 13 when issue #4 was filed; the bold pass came out 9/20/2026
 FORM = "Lp_Selected_Cleanup_Form.frm"
 WHOLE_BOOK_CALLERS = ("Lp_Fix_Common_File_Errors", "Lp_Normalize_Styles")
@@ -86,7 +88,10 @@ def test_whole_book_passes_wrap_and_come_after_the_selection_path(repo_root):
     _, branch_end = _selection_branch(code)
     before = [c.strip() for c in code[:branch_end] if REPLACE_ALL.search(c)]
     assert not before, f"{SUB} runs a Replace All before the selectionOnly block: {before}"
-    wraps = [c.strip() for c in code if WRAP_ANY.search(c)]
+    assert any(re.search(r"\b" + REPLACE_ALLS + r"\b", strip_comment(c)) for c in code[:branch_end]), (
+        f"{SUB} must run {REPLACE_ALLS} for the whole book")
+    whole = _sub(repo_root, REPLACE_ALLS)
+    wraps = [c.strip() for c in whole if WRAP_ANY.search(c)]
     continuing = [c for c in wraps if WRAP_CONTINUE.search(c)]
     assert len(continuing) == PASSES and len(wraps) == PASSES, (
         f"{SUB}: the {PASSES} whole-book passes must each use .Wrap = wdFindContinue, so File "
@@ -171,7 +176,35 @@ def test_word_equations_are_never_dashed(repo_root):
         f"{HELPER} must go on from the equation's end (issue #48)")
 
     code = [strip_comment(c) for c in _sub(repo_root, SUB)]
-    check = next((n for n, c in enumerate(code) if re.search(r"\.OMaths\.count\s*>\s*0", c, re.IGNORECASE)), None)
+    check = next((n for n, c in enumerate(code) if re.search(r"\.OMaths\.count\s*(>|=)\s*0", c, re.IGNORECASE)), None)
     branch = next((n for n, c in enumerate(code) if re.match(r"^\s*If\s+selectionOnly\s+Then\b", c, re.IGNORECASE)), None)
     assert check is not None and branch is not None and check < branch, (
-        f"{SUB} must send a story with equations down the walking path before the Replace Alls (issue #48)")
+        f"{SUB} must send a story with equations to {AROUND} before the Replace Alls (issue #48)")
+    assert any(re.search(r"\b" + AROUND + r"\b", c) for c in code[:branch]), (
+        f"{SUB} must take the equations out around the Replace Alls (issue #48)")
+
+
+def test_equations_are_out_while_the_replace_alls_run(repo_root):
+    """Jerry 11/2/2026: walking every hit stalled a math book on 373 for over 25 minutes. The
+    equations are taken out into a hidden document, the Replace Alls run, and each is put back,
+    last to first. Measured on vistabuild: 6,396 equations 40 s against 448 s, every equation
+    byte for byte as before. With the equations still in, Replace All merged two equations with
+    italic text between them - so the passes must come after the last Delete."""
+    code = [strip_comment(c) for c in _sub(repo_root, AROUND)]
+    joined = "\n".join(code)
+    assert re.search(r"OMaths\(1\)\.Range", joined), "take the FIRST equation each time - OMaths(i) slows as the count grows"
+    delete = max(n for n, c in enumerate(code) if re.search(r"\br\.Delete\b", c))
+    passes = next(n for n, c in enumerate(code) if re.search(r"\b" + REPLACE_ALLS + r"\b", c))
+    putback = next(n for n, c in enumerate(code) if re.search(r"For\s+i\s*=\s*taken\s+To\s+1\s+Step\s+-1", c, re.I))
+    assert delete < passes < putback, "take out, then the passes, then put back, last to first"
+    assert re.search(r"On\s+Error\s+GoTo\s+Failed", joined) and re.search(r"Resume\s+PutBack", joined), (
+        "a failure must still put every equation back")
+    assert re.search(r"Visible:=False", joined), "the hidden document must stay hidden"
+    # vba-review 11/2/2026: with Track Changes on, Delete only marks an equation deleted, and the
+    # book would get the first equation back n times over. Every Delete is checked.
+    assert re.search(r"TrackRevisions\s*=\s*False", joined), "Track Changes must be off while equations are out"
+    assert re.search(r"TrackRevisions\s*=\s*tracking", joined), "and put back as it was"
+    assert re.search(r"<>\s*lenBefore\s*-\s*eqLen", joined), "every Delete must be checked to shorten the story by the equation"
+    sub = [strip_comment(c) for c in _sub(repo_root, SUB)]
+    assert any(re.search(r"If\s+" + AROUND + r"\(story\)\s+Then\s+Exit\s+Sub", c) for c in sub), (
+        f"when {AROUND} cannot take the equations out cleanly, {SUB} must walk the story instead")
