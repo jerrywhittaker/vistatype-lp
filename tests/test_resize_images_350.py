@@ -61,10 +61,14 @@ def test_only_pictures_and_each_fitted_after_scaling(repo_root):
 
 def test_fit_uses_the_pictures_own_section_and_sets_points(repo_root):
     body = _body(repo_root, "Lp_Fit_Inline_Shape_To_Margins")
-    assert re.search(r"\.Sections\(1\)\.PageSetup", body), (
+    # the room between the margins is worked out by Lp_Pic_Room, shared with the attach's
+    # enlarging of tiny pictures (11/1/2026)
+    assert "Lp_Pic_Room" in body
+    room = _body(repo_root, "Lp_Pic_Room")
+    assert re.search(r"\.Sections\(1\)\.PageSetup", room), (
         "margins must come from the picture's own section, not ActiveDocument.PageSetup")
     for m in ("LeftMargin", "RightMargin", "TopMargin", "BottomMargin", "Gutter"):
-        assert m in body, f"the fit ignores {m}"
+        assert m in room, f"the fit ignores {m}"
     assert "Lp_Fit_Factor" in body
     assert not re.search(r"\.Scale(Width|Height)\s*=", body), (
         "set Width and Height in points: Word keeps the scale as a whole percent, which could "

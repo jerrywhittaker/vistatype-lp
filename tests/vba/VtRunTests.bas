@@ -62,6 +62,10 @@ Public Sub VtRunAllTests()
     Set Suite = TestResizePictures_Suite()
     Reporter.ListenTo Suite
 
+    Reporter.Trace "building No picture smaller than the text"
+    Set Suite = TestMinPictureSize_Suite()
+    Reporter.ListenTo Suite
+
     Reporter.Trace "building The TOC box that stays open"
     Set Suite = TestTocBox_Suite()
     Reporter.ListenTo Suite

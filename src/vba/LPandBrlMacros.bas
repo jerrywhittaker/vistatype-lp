@@ -18,6 +18,13 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 11/1/2026 - NO PICTURE SMALLER THAN THE TEXT (Jerry): some pictures showed as
+'           - Lp  - 11/1/2026 - a dot on the screen, even in a book already in large print. The LP
+'           - Lp  - 11/1/2026 - template attach now enlarges any picture whose shorter side is under
+'           - Lp  - 11/1/2026 - the Normal style's font size until it is that size, keeping its
+'           - Lp  - 11/1/2026 - shape, then fits it inside the margins (Lp_Enlarge_Tiny_Pictures).
+'           - Lp  - 11/1/2026 - Nothing is shrunk; MathType objects, charts and floating pictures
+'           - Lp  - 11/1/2026 - are left alone. Attach only, no button (Jerry).
 ' Notes:    - Lp  - 11/1/2026 - LOCATE THE PICTURE ON THE CLIPBOARD (Jerry): a new button on
 '           - Lp  - 11/1/2026 - Background and Picture Tools (344) opens Locate This Picture (404),
 '           - Lp  - 11/1/2026 - a box that stays open. The picture on the clipboard - copied in the
@@ -21744,6 +21751,9 @@ Sub Lp_Attach_The_Template()
 
     ' Attaches the LP template with style changes
     '
+    ' Version: 4.9  Date: 11/1/2026 - after the style sizes are restored, every picture smaller than
+    '                               the Normal style's font size is enlarged to it, keeping its
+    '                               shape and inside the margins (Lp_Enlarge_Tiny_Pictures, Jerry).
     ' Version: 4.8  Date: 10/12/2026 - a FIRST attach makes every picture inline BEFORE the
     '                                cleanup, which was deleting floating pictures with their
     '                                paragraphs; a RE-ATTACH no longer makes any picture inline
@@ -22186,6 +22196,14 @@ DoEvents
     ' whose headings were styled before the attach - or any re-attach - came out with every
     ' heading at the base size. Must stay AFTER Lp_Normalize_Styles, which sets the sizes read.
     Lp_Restore_Style_Sizes ActiveDocument
+
+Sh_Progress_Say 90, "Enlarging pictures smaller than the text"
+DoEvents
+
+    ' No picture smaller than the text (Jerry, 11/1/2026: some showed as a dot on the screen).
+    ' Must stay AFTER Lp_Normalize_Styles and Lp_Restore_Style_Sizes: the Normal style's size,
+    ' which is the minimum, is only final here. Every attach, so a new point size is caught.
+    Lp_Enlarge_Tiny_Pictures ActiveDocument
 
     ' MOVED HERE FROM THE TOP OF THE ATTACH, 9/6/2026, after Jerry reported: "i re-attached the
     ' LP template for screen and word crashed in the normalize styles routine".
@@ -24054,17 +24072,7 @@ Private Sub Lp_Fit_Inline_Shape_To_Margins(ByVal s As InlineShape)
     Dim w As Single, h As Single
     Dim f As Single
 
-    ' Abs: a negative top or bottom margin is Word's "exactly" margin, and the space it leaves is
-    ' the same as a positive one's.
-    With s.Range.Sections(1).PageSetup
-        availW = .PageWidth - Abs(.LeftMargin) - Abs(.RightMargin)
-        availH = .PageHeight - Abs(.TopMargin) - Abs(.BottomMargin)
-        If .GutterPos = wdGutterPosTop Then
-            availH = availH - .Gutter
-        Else
-            availW = availW - .Gutter
-        End If
-    End With
+    Lp_Pic_Room s, availW, availH
 
     ' BOTH SIZES ARE READ BEFORE EITHER IS SET. With the aspect ratio locked, setting Width moves
     ' Height with it, so reading Height afterwards and multiplying by f again shrank the picture
@@ -24080,6 +24088,25 @@ Private Sub Lp_Fit_Inline_Shape_To_Margins(ByVal s As InlineShape)
     s.Height = Int(h * f * 100) / 100
     s.LockAspectRatio = msoTrue
 End Sub  '***** end of Lp_Fit_Inline_Shape_To_Margins *****
+
+' The width and height between the margins of the section a picture is in, gutter included. Moved
+' out of Lp_Fit_Inline_Shape_To_Margins, 11/1/2026, so Lp_Enlarge_Tiny_Pictures fits by the same
+' room.
+'
+' Version: 1.0  Date: 11/1/2026
+Private Sub Lp_Pic_Room(ByVal s As InlineShape, ByRef availW As Single, ByRef availH As Single)
+    ' Abs: a negative top or bottom margin is Word's "exactly" margin, and the space it leaves is
+    ' the same as a positive one's.
+    With s.Range.Sections(1).PageSetup
+        availW = .PageWidth - Abs(.LeftMargin) - Abs(.RightMargin)
+        availH = .PageHeight - Abs(.TopMargin) - Abs(.BottomMargin)
+        If .GutterPos = wdGutterPosTop Then
+            availH = availH - .Gutter
+        Else
+            availW = availW - .Gutter
+        End If
+    End With
+End Sub  '***** end of Lp_Pic_Room *****
 
 ' How much a w by h picture must be multiplied by to fit inside availW by availH, keeping its shape:
 ' 1 when it already fits, otherwise the smaller of the two ratios, so the side that is furthest
@@ -24099,6 +24126,91 @@ Private Function Lp_Fit_Factor(ByVal w As Single, ByVal h As Single, _
     If availH / h < f Then f = availH / h
     Lp_Fit_Factor = f
 End Function  '***** end of Lp_Fit_Factor *****
+
+' NO PICTURE SMALLER THAN THE TEXT - Jerry, 11/1/2026: "I've encountered some pictures that are just
+' a dot on the screen even in a file which is already large print." Every picture whose shorter side
+' is under the Normal style's font size is enlarged, keeping its shape, until that side is the
+' Normal size; then it is fitted inside the margins, which win - a long thin rule line can come out
+' under the minimum again, and that is accepted. A picture already big enough is never touched, and
+' nothing is ever made smaller here.
+'
+' THE FINAL SIZE IS WORKED OUT IN NUMBERS BEFORE THE PICTURE IS TOUCHED, enlargement and margin fit
+' together, and set once. Enlarging first and fitting after asked Word for sizes past the largest
+' it allows - a 468 by 2 rule line at 18 point wanted 4212 wide - and a refused Width with an
+' accepted Height left a thick, stretched bar (found by review, 11/1/2026, before it reached anyone).
+'
+' Run by the LP template attach only, after the text is at its point size (Jerry: no button).
+' Pictures only, by Lp_Same_Pic_Is_Picture - MathType objects, charts and Word equations are not
+' pictures, and floating pictures are not in-line shapes. Equation PICTURES are, and are enlarged
+' with the rest: every character in large print is at the size set.
+'
+' The Normal style is read, not Lp_Base_Font_Size, which is a string that can be stale or empty.
+'
+' Version: 1.0  Date: 11/1/2026
+Private Sub Lp_Enlarge_Tiny_Pictures(ByVal Doc As Document)
+    Dim s As InlineShape
+    Dim minPts As Single
+
+    minPts = Doc.Styles(wdStyleNormal).Font.Size
+    If minPts <= 0 Then Exit Sub
+
+    For Each s In Doc.InlineShapes
+        If Lp_Same_Pic_Is_Picture(s) Then
+            Lp_Enlarge_One_Picture s, minPts
+        End If
+    Next s
+End Sub  '***** end of Lp_Enlarge_Tiny_Pictures *****
+
+' One picture for Lp_Enlarge_Tiny_Pictures. A picture Word will not read or resize is left as it
+' was - put back if it got only one side changed - and is not the end of the attach.
+'
+' Version: 1.0  Date: 11/1/2026
+Private Sub Lp_Enlarge_One_Picture(ByVal s As InlineShape, ByVal minPts As Single)
+    Dim w As Single, h As Single
+    Dim f As Single
+    Dim availW As Single, availH As Single
+
+    On Error GoTo NotThisOne
+    w = s.Width
+    h = s.Height
+    f = Lp_Min_Pic_Factor(w, h, minPts)
+    If f <= 1 Then Exit Sub
+
+    Lp_Pic_Room s, availW, availH
+    f = f * Lp_Fit_Factor(w * f, h * f, availW, availH)
+    If f <= 1 Then Exit Sub
+
+    s.LockAspectRatio = msoFalse
+    s.Width = Int(w * f * 100) / 100
+    s.Height = Int(h * f * 100) / 100
+    s.LockAspectRatio = msoTrue
+    Exit Sub
+
+NotThisOne:
+    On Error Resume Next
+    s.LockAspectRatio = msoFalse
+    s.Width = w
+    s.Height = h
+    s.LockAspectRatio = msoTrue
+End Sub  '***** end of Lp_Enlarge_One_Picture *****
+
+' How much a w by h picture must be multiplied by for its shorter side to reach minPts, keeping its
+' shape: 1 when that side is already minPts or more, and 1 for any size of zero or less. The
+' shorter side, so a narrow sliver is enlarged as well as a dot. Numbers in, a number out, so
+' tests/vba can run it.
+'
+' Version: 1.0  Date: 11/1/2026
+Private Function Lp_Min_Pic_Factor(ByVal w As Single, ByVal h As Single, _
+                                   ByVal minPts As Single) As Single
+    Dim shorter As Single
+
+    Lp_Min_Pic_Factor = 1
+    If w <= 0 Or h <= 0 Or minPts <= 0 Then Exit Function
+
+    shorter = w
+    If h < shorter Then shorter = h
+    If shorter < minPts Then Lp_Min_Pic_Factor = minPts / shorter
+End Function  '***** end of Lp_Min_Pic_Factor *****
 
 ' RESIZE THIS PICTURE THROUGHOUT THE BOOK WAS HERE, and it is gone - Jerry, 9/22/2026: "the new
 ' resize you've just completed can do the whole book if the whole book is selected." Its button is
