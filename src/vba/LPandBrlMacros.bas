@@ -18,6 +18,10 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 11/2/2026 - STRONG AND EMPHASIS TO BOLD AND ITALIC TOOK 340 TO 450 S on a math
+'           - Lp  - 11/2/2026 - book in every File Cleanup (Jerry): it searched, changed a run and
+'           - Lp  - 11/2/2026 - searched again. All the runs are found first now, then each is changed:
+'           - Lp  - 11/2/2026 - style off, bold or italic back on (Lp_Style_To_Direct).
 ' Notes:    - Lp  - 11/2/2026 - ENLARGING PICTURES SMALLER THAN THE TEXT TOOK 742 S on a math book
 '           - Lp  - 11/2/2026 - (Jerry): each picture's margins were read after the last was
 '           - Lp  - 11/2/2026 - resized, laying the book out again each time. All are read first now,
@@ -23284,23 +23288,44 @@ Private Sub Lp_Style_To_Direct(ByVal styleName As String, ByVal wantBold As Bool
     ' its place. The style itself is untouched - Strong and Emphasis are built in and cannot be
     ' deleted from Word at all.
     '
-    ' Version: 1.1  Date: 9/7/2026 - FIND THEN EDIT, not Replace:=wdReplaceAll. Measured on the
-    '                               build box: a replacement that sets BOTH Replacement.Style and
-    '                               Replacement.Font.Bold applies the style and throws the bold
-    '                               away - the run came back Normal and NOT BOLD, which is worse
-    '                               than leaving it alone. Word gives no way to order those two
-    '                               inside one replacement, so the loop below does them in the
-    '                               order they have to happen: style off first, weight back on
-    '                               second.
+    ' Version: 1.2  Date: 11/2/2026 - SEARCH FIRST, EDIT AFTER. Jerry: 340 to 450 s on Basic Mat1, a
+    '                               NIMAS math book (1,449 runs), every File Cleanup. 1.1 searched,
+    '                               edited a run, and searched again, 1,449 times. Now one read-only
+    '                               walk stores where every run is, and only then is each stored run
+    '                               changed - style off, weight or slant on - with no Find between.
+    '                               Compared on a copy of that book, the whole body XML: identical to
+    '                               1.1. Headless 5 to 8 s against 8 to 11 s; a hidden Word never
+    '                               showed the live minutes, so the live time is the next attach to
+    '                               see. NO REPLACE ALL for the style, though it was quicker still: in
+    '                               a book with Word equations, a Replace All merged two equations
+    '                               with the text between them into one (3.0.637), and nothing here
+    '                               takes the equations out first (vba-review).
+    ' Version: 1.1  Date: 9/7/2026 - FIND THEN EDIT, not Replace:=wdReplaceAll for the weight.
+    '                               Measured on the build box: a replacement that sets BOTH
+    '                               Replacement.Style and Replacement.Font.Bold applies the style
+    '                               and throws the bold away. Measured again 11/2/2026: setting
+    '                               the bold first and then the style loses it too. The style
+    '                               must go first and the weight go on second, so the weight is
+    '                               put back on the stored ranges below, not in the Replace All.
     ' Version: 1.0  Date: 9/7/2026
     '
     ' Guarded: Styles(name) raises 5941 when the document does not carry that style, and this can
     ' do nothing without it - no style means nothing is formatted with it.
     Dim r As Range
-    Dim guard As Long
+    Dim runStart() As Long
+    Dim runEnd() As Long
+    Dim runCount As Long
+    Dim i As Long
 
     If Not Sh_Style_Exists(ActiveDocument, styleName) Then Exit Sub
 
+    ReDim runStart(0 To 255)
+    ReDim runEnd(0 To 255)
+
+    ' 1. Read only: where is every run in that style? Nothing is changed in this loop, so Word has
+    '    no reason to lay the book out again between one hit and the next. A hit that does not move
+    '    on past the last one - Word can hand the same one back, at a table's end-of-row mark - ends
+    '    the walk, so it can never go round for ever with the screen off.
     Set r = ActiveDocument.Content
     With r.Find
         .ClearFormatting
@@ -23320,20 +23345,31 @@ Private Sub Lp_Style_To_Direct(ByVal styleName As String, ByVal wantBold As Bool
         .MatchAllWordForms = False
 
         Do While .Execute
-            ' r is the found run. Style first - it clears direct formatting - then the weight or
-            ' the slant back on top of it.
-            r.Style = ActiveDocument.Styles(wdStyleDefaultParagraphFont)
-            If wantBold Then r.Font.Bold = True
-            If wantItalic Then r.Font.Italic = True
+            If runCount > 0 Then
+                If r.End <= runEnd(runCount - 1) Then Exit Do
+            End If
+            If runCount > UBound(runStart) Then
+                ReDim Preserve runStart(0 To runCount * 2)
+                ReDim Preserve runEnd(0 To runCount * 2)
+            End If
+            runStart(runCount) = r.Start
+            runEnd(runCount) = r.End
+            runCount = runCount + 1
             r.Collapse wdCollapseEnd
-
-            ' The run is no longer in that style, so Execute moves on by itself. The counter is
-            ' insurance only: a loop that cannot end here freezes Word with the screen off, and
-            ' the transcriber sees a hang with nothing to report.
-            guard = guard + 1
-            If guard > 20000 Then Exit Do
         Loop
     End With
+
+    If runCount = 0 Then Exit Sub
+
+    ' 2. Each stored run in turn: the style off first - it clears direct formatting - then the
+    '    weight or the slant back on top of it (see 1.1). No Find in here. Taking a character style
+    '    off changes no text, so the positions stored above still point at the same runs.
+    For i = 0 To runCount - 1
+        Set r = ActiveDocument.Range(runStart(i), runEnd(i))
+        r.Style = ActiveDocument.Styles(wdStyleDefaultParagraphFont)
+        If wantBold Then r.Font.Bold = True
+        If wantItalic Then r.Font.Italic = True
+    Next i
 
 End Sub  '*** end of Lp_Style_To_Direct ***
 
