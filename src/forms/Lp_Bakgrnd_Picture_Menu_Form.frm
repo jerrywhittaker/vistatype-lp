@@ -1,10 +1,10 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_Bakgrnd_Picture_Menu_Form 
    Caption         =   "Background and Picture Tools (344)"
-   ClientHeight    =   7035
+   ClientHeight    =   7260
    ClientLeft      =   120
    ClientTop       =   465
-   ClientWidth     =   5640
+   ClientWidth     =   5655
    OleObjectBlob   =   "Lp_Bakgrnd_Picture_Menu_Form.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
@@ -13,6 +13,7 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
+
 
 ' Lp_Bakgrnd_Picture_Menu_Form
 ' Version: 2.0  Date: 11/1/2026 - LocatePictureButton, Locate the Picture on the Clipboard (Alt+L),
@@ -49,7 +50,7 @@ End Sub
 
 Private Sub BackgroundColorButton_Click()
     Lp_Bakgrnd_Picture_Menu_Form.Hide
-    Application.Run MacroName:="Lp_Toggle_Page_Color"
+    Application.Run macroName:="Lp_Toggle_Page_Color"
     Unload Lp_Bakgrnd_Picture_Menu_Form
     Unload Me
 End Sub
