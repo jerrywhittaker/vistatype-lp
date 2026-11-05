@@ -109,11 +109,6 @@ somewhere else on purpose:
     form **Large Print or Braille (325)** (it asked keep or omit images until 10/18/2026; both
     answers now keep the pictures). The manual route and `DN Auto Or Manual Form` were removed
     9/17/2026.
-  - [ ] Braille, on a book with MathML (the Imagine IM A1 7&8 NIMAS book): Braille user form
-        **Large Print or Braille (325)**, choose braille. **No** LP user form **Equations (398)**
-        appears. The equations come in as Word equations, inline - the same as large print's
-        "Word equations (OMML)" choice (Jerry, 10/20/2026). Braille message **Operation Complete
-        (313)** says how many, if any, went in as their pictures instead.
   - [ ] **Compress Linear Math** on a selected expression in a book with other x's in it:
         Braille message **Braille Macros (273)**, Yes - only the selection changes; an x
         elsewhere (in "next", say) is still an x.
