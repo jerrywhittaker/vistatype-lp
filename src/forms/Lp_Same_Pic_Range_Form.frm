@@ -17,6 +17,7 @@ Attribute VB_Exposed = False
 
 ' Lp_Same_Pic_Range_Form
 '
+' Version: 1.4  Date: 11/5/2026 - the button reads "Edit picture's Alt Text" (Jerry)
 ' Version: 1.3  Date: 11/5/2026 - Edit Description (EditAltButton, Alt+E), above Apply; the
 '                               bottom row and the F6 line moved down 32 points (Jerry). It
 '                               opens Picture Description (414) - Lp_Rst_Edit_Description.
@@ -135,6 +136,11 @@ Private Sub UserForm_Initialize()
     ' cycle between them instead of pressing either. Set here rather than in the .frx so the
     ' choice can be read in the source.
     LeaveAsIsButton.Accelerator = "v"
+
+    ' Jerry's wording, 11/5/2026 (it was "Edit Description"). Alt+E, the E of Edit.
+    EditAltButton.Caption = "Edit picture's Alt Text"
+    EditAltButton.ControlTipText = "Edit picture's Alt Text Button"
+    EditAltButton.Accelerator = "E"
 
     ' Jerry's wording, 9/29/2026 (it was "Move the picture ...", Alt+M, from 9/22/2026). Set here
     ' so it reads in the source rather than only in the .frx. F for Follows and P for Precedes:

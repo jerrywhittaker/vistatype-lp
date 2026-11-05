@@ -1,6 +1,6 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_Pic_Description_Form 
-   Caption         =   "Picture Description (414)"
+   Caption         =   "Picture Alt Text (414)"
    ClientHeight    =   3015
    ClientLeft      =   120
    ClientTop       =   465
@@ -16,6 +16,7 @@ Attribute VB_Exposed = False
 
 ' Lp_Pic_Description_Form - Picture Description (414)
 '
+' Version: 1.1  Date: 11/5/2026 - "Picture Alt Text (414)", and the prompt says alt text (Jerry)
 ' Version: 1.0  Date: 11/5/2026
 '
 ' Jerry, 11/5/2026: from Edit Description on Resize Pictures in a Selected Range (375). The
@@ -43,7 +44,8 @@ Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
 End Sub
 
 Private Sub UserForm_Initialize()
-    PromptLabel.Caption = "Type the description for this picture. When you press Apply, the " _
+    Me.Caption = "Picture Alt Text (414)"
+    PromptLabel.Caption = "Type the alt text for this picture. When you press Apply, the " _
                         & "picture and every copy of it in your range are given it."
     OkayButton.Caption = "Okay"
     OkayButton.Accelerator = "O"

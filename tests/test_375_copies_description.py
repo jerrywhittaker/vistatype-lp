@@ -133,3 +133,22 @@ def test_the_typed_text_is_taken_only_once_nothing_can_refuse(repo_root):
     run = "\n".join(_procs(repo_root)["Lp_Rst_Run"])
     take = run.index("Lp_Rst_Take_New_Alt(ref)")
     assert run.index('"VistaType LP (383)"') < take < run.index("StartCustomRecord")
+
+
+def test_alt_text_is_copied_when_no_size_changes(repo_root):
+    """Jerry, 11/5/2026: "If only the alt-text has been changed (and the size is still the same)
+    the replacement should be done." Nothing between the search and the copy may leave Apply
+    because no copy needed resizing."""
+    run = "\n".join(_procs(repo_root)["Lp_Rst_Run"])
+    find = run.index("Set matches = Lp_Same_Pic_Find(")
+    copy = run.index("Lp_Same_Pic_Copy_Alt(matches, giveAlt)")
+    between = run[find:copy]
+    assert "Lp_Same_Pic_Resized" not in between
+    assert "Lp_Same_Pic_Already" not in between
+    assert "Exit Sub" not in between
+
+
+def test_the_button_says_alt_text(repo_root):
+    from test_toc_box_stays_open import form_code
+    code = "\n".join(form_code(repo_root, "Lp_Same_Pic_Range_Form"))
+    assert 'EditAltButton.Caption = "Edit picture\'s Alt Text"' in code

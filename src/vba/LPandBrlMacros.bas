@@ -25065,7 +25065,7 @@ Public Sub Lp_Rst_Edit_Description()
     End If
     If ref Is Nothing Then
         Sh_Say "Click ONE picture first - click it once so its handles show." & vbCr & vbCr _
-             & "Then press Edit Description to type the description it and its copies are " _
+             & "Then press Edit picture's Alt Text to type the alt text it and its copies are " _
              & "given when you press Apply.", "VistaType LP (415)"
         Sh_Focus_Document Lp_Rst_Doc
         Exit Sub
@@ -25075,7 +25075,7 @@ Public Sub Lp_Rst_Edit_Description()
                            Lp_Rst_Range.Start, Lp_Rst_Range.End, Lp_Rst_Story) Then
         Sh_Say "That picture is not inside the part of the book you picked when you started." _
              & vbCr & vbCr _
-             & "Click a picture inside it and press Edit Description, or press Done to finish.", _
+             & "Click a picture inside it and press Edit picture's Alt Text, or press Done to finish.", _
                "VistaType LP (416)"
         Sh_Focus_Document Lp_Rst_Doc
         Exit Sub
@@ -25108,11 +25108,11 @@ Public Sub Lp_Rst_Edit_Description()
             ' An empty description is never given to the copies (Lp_Same_Pic_Alt_Needs_Copy).
             Lp_Rst_NewAlt = ""
             Set Lp_Rst_NewAltAt = Nothing
-            Lp_Rst_Say_Step "No description to give. Click the picture, or press Done."
+            Lp_Rst_Say_Step "No alt text to give. Click the picture, or press Done."
         Else
             Lp_Rst_NewAlt = Trim$(Lp_Rst_Desc_Text)
             Set Lp_Rst_NewAltAt = ref.Range.Duplicate
-            Lp_Rst_Say_Step "Description ready. Set the picture's size if you need to, then " _
+            Lp_Rst_Say_Step "Alt text ready. Set the picture's size if you need to, then " _
                           & "press Apply."
         End If
     End If
@@ -25165,6 +25165,8 @@ Public Sub Lp_Rst_Apply_Last_Size()
     Lp_Rst_Run True
 End Sub  '***** end of Lp_Rst_Apply_Last_Size *****
 
+' Version: 1.4  Date: 11/5/2026 - the button reads "Edit picture's Alt Text" (Jerry), and the
+'                               box's lines say "alt text"
 ' Version: 1.3  Date: 11/5/2026 - a description typed in Edit Description (414) for THIS picture
 '                               is given to it and to every copy (Lp_Rst_Take_New_Alt). The
 '                               copies are still found by the picture's own, old, description
@@ -25386,7 +25388,7 @@ Private Sub Lp_Rst_Run(ByVal useLastSize As Boolean)
     End If
     If altCopied > 0 Then
         msg = msg & ", " & Format(altCopied, "#,##0") _
-            & IIf(altCopied = 1, " description copied", " descriptions copied")
+            & IIf(altCopied = 1, " alt text copied", " alt texts copied")
     End If
     Lp_Rst_Say_Step msg & ". Click the next picture, or press Done."
 
