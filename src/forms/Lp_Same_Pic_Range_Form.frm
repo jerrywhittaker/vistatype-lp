@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_Same_Pic_Range_Form 
    Caption         =   "Resize Pictures in a Selected Range (375)"
-   ClientHeight    =   4215
+   ClientHeight    =   4860
    ClientLeft      =   120
    ClientTop       =   465
    ClientWidth     =   6165
@@ -17,6 +17,9 @@ Attribute VB_Exposed = False
 
 ' Lp_Same_Pic_Range_Form
 '
+' Version: 1.3  Date: 11/5/2026 - Edit Description (EditAltButton, Alt+E), above Apply; the
+'                               bottom row and the F6 line moved down 32 points (Jerry). It
+'                               opens Picture Description (414) - Lp_Rst_Edit_Description.
 ' Version: 1.2  Date: 9/29/2026 - a second tick box, JoinPrevParaButton, "Attach the picture to
 '                               the paragraph which precedes it." (Alt+P), and the first one
 '                               reworded to "Attach ... follows it." (Alt+F, was Alt+M). Jerry,
@@ -40,6 +43,17 @@ Attribute VB_Exposed = False
 
 Private Sub ApplyButton_Click()
     Lp_Rst_Apply
+End Sub
+
+Private Sub EditAltButton_Click()
+    Lp_Rst_Edit_Description
+End Sub
+
+Private Sub EditAltButton_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    If KeyCode = vbKeyF6 Then
+        KeyCode = 0
+        Lp_Rst_KeyToDocument
+    End If
 End Sub
 
 Private Sub DoneButton_Click()

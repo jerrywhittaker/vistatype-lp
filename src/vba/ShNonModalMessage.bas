@@ -943,6 +943,7 @@ End Sub  '***** end of Sh_Box_Clear_AltKeys *****
 ' UserForm_Initialize changes it; tests/test_box_alt_keys_in_book.py holds the two together.
 ' who is the name on the list of boxes, except the $pg menus: see Sh_Box_AltName.
 '
+' Version: 1.4  Date: 11/5/2026 - Edit Description (E) on 375
 ' Version: 1.3  Date: 11/1/2026 - Locate This Picture (404)
 ' Version: 1.2  Date: 10/30/2026 - the TOC box's Clean and format the TOC is C, not F
 ' Version: 1.1  Date: 10/30/2026 - every box that stays open: the TOC box (354), Horizontal List
@@ -955,9 +956,9 @@ Public Function Sh_Box_AltKeys(ByVal who As String) As String
             ' 357: the 1 to 10 buttons (0 is 10), Fill to Right Margin, Done
             Sh_Box_AltKeys = "1234567890FD"
         Case "rst"
-            ' 375: Apply, Use Last Size, Done, the two Attach tick boxes (Follows, Precedes),
-            ' and the three position buttons (Left, Center, leave as is)
-            Sh_Box_AltKeys = "AUDFPLCV"
+            ' 375: Apply, Use Last Size, Done, Edit Description, the two Attach tick boxes
+            ' (Follows, Precedes), and the three position buttons (Left, Center, leave as is)
+            Sh_Box_AltKeys = "AUDEFPLCV"
         Case "locp"
             ' 404: Next, Previous, Done
             Sh_Box_AltKeys = "NPD"
@@ -1096,6 +1097,10 @@ End Sub  '***** end of Sh_Box_Alt_C *****
 Public Sub Sh_Box_Alt_D()
     Sh_Box_AltKey "D"
 End Sub  '***** end of Sh_Box_Alt_D *****
+
+Public Sub Sh_Box_Alt_E()
+    Sh_Box_AltKey "E"
+End Sub  '***** end of Sh_Box_Alt_E *****
 
 Public Sub Sh_Box_Alt_F()
     Sh_Box_AltKey "F"

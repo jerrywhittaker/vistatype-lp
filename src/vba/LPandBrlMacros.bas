@@ -18,6 +18,14 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
+' Notes:    - Lp  - 11/5/2026 - RESIZE PICTURES IN A SELECTED RANGE (375) COPIES THE DESCRIPTION
+'           - Lp  - 11/5/2026 - of the clicked picture to every copy it resizes (Jerry). A new
+'           - Lp  - 11/5/2026 - button, Edit Description (Alt+E), opens Picture Description (414)
+'           - Lp  - 11/5/2026 - to type it; Apply finds the copies by the old description and then
+'           - Lp  - 11/5/2026 - gives the picture and every copy the new one (Lp_Rst_Edit_Description,
+'           - Lp  - 11/5/2026 - Lp_Same_Pic_Copy_Alt). A description changed in Word instead finds
+'           - Lp  - 11/5/2026 - no copies, so then they are found by the image, then by the old
+'           - Lp  - 11/5/2026 - description (Lp_Same_Pic_Find_By_Image).
 ' Notes:    - Lp  - 11/2/2026 - STRONG AND EMPHASIS TO BOLD AND ITALIC TOOK 340 TO 450 S on a math
 '           - Lp  - 11/2/2026 - book in every File Cleanup (Jerry): it searched, changed a run and
 '           - Lp  - 11/2/2026 - searched again. All the runs are found first now, then each is changed:
@@ -3196,6 +3204,12 @@ Private Lp_Rst_Pictures As Long       ' pictures changed across the whole run, f
 Private Lp_Rst_LastW As Single        ' the size the last press used, for Use Last Size
 Private Lp_Rst_LastH As Single
 Private Lp_Rst_HasLast As Boolean     ' a size has been used, so Use Last Size has one to give
+Private Lp_Rst_NewAlt As String       ' the description typed in Edit Description (414), for the next Apply
+Private Lp_Rst_NewAltAt As Range      ' the picture it was typed for; Nothing when none is waiting
+' What Lp_Pic_Description_Form (414) shows on the way in and hands back on the way out. Public,
+' because the form reads and writes them; Lp_Rst_Desc_Ok is True only after Okay.
+Public Lp_Rst_Desc_Text As String
+Public Lp_Rst_Desc_Ok As Boolean
 
 ' The box's whole window title, written out here rather than read off the form, because touching
 ' the form to read its caption is what creates the form. Windows matches the WHOLE title when it
@@ -24535,6 +24549,168 @@ Private Function Lp_Same_Pic_Find(ByVal pics As InlineShapes, ByVal ref As Inlin
     Next s
 End Function  '***** end of Lp_Same_Pic_Find *****
 
+' FINDS the copies of ref BY THE IMAGE, for when its description finds none - box 375 (Jerry,
+' 11/5/2026): he types the new description on the clicked picture before pressing Apply, so its
+' copies still carry the old description, or none at all.
+'
+' TWO PASSES. First, every picture whose image data is the same as ref's is a copy, and its
+' description - the OLD one - is noted. Second, every other picture carrying one of those old
+' descriptions is a copy too, when it is near enough the same shape as a copy found in the first
+' pass. The second pass is what reaches copies shown at another size: Word stores each picture at
+' the size it is shown (measured 9/16/2026), so those never share image data with ref.
+'
+' The shape is compared with the copy found by the image, NOT with ref: ref may just have been
+' stretched by hand (issue #49).
+'
+' The image is read the one way there is, Lp_Same_Pic_Data, in the hidden document the caller
+' opens. NO UNDO RECORD MAY BE OPEN, as for Lp_Same_Pic_Find. Every picture in the range is read,
+' so this is slower than the search by description - which is why it runs only when that finds
+' nothing.
+'
+' Version: 1.0  Date: 11/5/2026
+Private Function Lp_Same_Pic_Find_By_Image(ByVal pics As InlineShapes, ByVal ref As InlineShape, _
+                                           ByVal refAlt As String, ByVal reader As Document, _
+                                           ByVal refStart As Long, _
+                                           ByVal refStory As Long) As Collection
+    Dim found As Collection
+    Dim oldAlts As Collection
+    Dim shapeOf As Collection
+    Dim s As InlineShape
+    Dim refData As String, alt As String
+    Dim taken As String, key As String
+    Dim total As Long, seen As Long, i As Long
+
+    Set found = New Collection
+    Set oldAlts = New Collection
+    Set shapeOf = New Collection
+    Set Lp_Same_Pic_Find_By_Image = found
+    If pics Is Nothing Or ref Is Nothing Or reader Is Nothing Then Exit Function
+
+    refData = Lp_Same_Pic_Data(ref, reader)
+    If Len(refData) = 0 Then Exit Function
+
+    total = pics.count
+    If total = 0 Then Exit Function
+    taken = "|"
+
+    ' --- First pass: the same image.
+    For Each s In pics
+        seen = seen + 1
+        If seen Mod 10 = 0 Then
+            Sh_Progress_Say 60# * seen / total, _
+                "Comparing picture " & Format(seen, "#,##0") & " of " & Format(total, "#,##0")
+        End If
+
+        If Not (s.Range.StoryType = refStory And s.Range.Start = refStart) Then
+            If Lp_Same_Pic_Is_Picture(s) Then
+                If Lp_Same_Pic_Data(s, reader) = refData Then
+                    found.Add s
+                    key = s.Range.StoryType & ":" & s.Range.Start & "|"
+                    taken = taken & key
+                    alt = ""
+                    On Error Resume Next
+                    alt = Trim$(s.AlternativeText)
+                    Err.Clear
+                    On Error GoTo 0
+                    ' One old description is noted once, with the copy that carried it first,
+                    ' whose shape the second pass compares against.
+                    If Len(alt) > 0 And Not Lp_Same_Pic_Alt_Matches(alt, refAlt) Then
+                        If Not Lp_Same_Pic_Alt_Listed(oldAlts, alt) Then
+                            oldAlts.Add alt
+                            shapeOf.Add s
+                        End If
+                    End If
+                End If
+            End If
+        End If
+    Next s
+
+    If oldAlts.count = 0 Then Exit Function
+
+    ' --- Second pass: the old description, on a picture of the same shape.
+    seen = 0
+    For Each s In pics
+        seen = seen + 1
+        If seen Mod 10 = 0 Then
+            Sh_Progress_Say 60# + 30# * seen / total, _
+                "Checking picture " & Format(seen, "#,##0") & " of " & Format(total, "#,##0")
+        End If
+
+        If Not (s.Range.StoryType = refStory And s.Range.Start = refStart) Then
+            key = "|" & s.Range.StoryType & ":" & s.Range.Start & "|"
+            If InStr(1, taken, key, vbBinaryCompare) = 0 Then
+                If Lp_Same_Pic_Is_Picture(s) Then
+                    alt = ""
+                    On Error Resume Next
+                    alt = Trim$(s.AlternativeText)
+                    Err.Clear
+                    On Error GoTo 0
+                    For i = 1 To oldAlts.count
+                        If Lp_Same_Pic_Alt_Matches(alt, oldAlts(i)) Then
+                            If Lp_Same_Pic_Aspect_Close(s, shapeOf(i)) Then
+                                found.Add s
+                                taken = taken & Mid$(key, 2)
+                            End If
+                            Exit For
+                        End If
+                    Next i
+                End If
+            End If
+        End If
+    Next s
+End Function  '***** end of Lp_Same_Pic_Find_By_Image *****
+
+' True when a description is already on the list, by the same rule as Lp_Same_Pic_Alt_Matches.
+'
+' Version: 1.0  Date: 11/5/2026
+Private Function Lp_Same_Pic_Alt_Listed(ByVal list As Collection, ByVal alt As String) As Boolean
+    Dim i As Long
+
+    For i = 1 To list.count
+        If Lp_Same_Pic_Alt_Matches(alt, list(i)) Then
+            Lp_Same_Pic_Alt_Listed = True
+            Exit Function
+        End If
+    Next i
+End Function  '***** end of Lp_Same_Pic_Alt_Listed *****
+
+' GIVES every picture in matches the model picture's description (Jerry, 11/5/2026, box 375), and
+' says how many it changed. THE CALLER OPENS THE UNDO RECORD, so the descriptions come back with
+' the sizes on the one Ctrl+Z. A picture already carrying exactly that description is not
+' touched, so it puts nothing pointless in the record.
+'
+' Version: 1.0  Date: 11/5/2026
+Private Function Lp_Same_Pic_Copy_Alt(ByVal matches As Collection, ByVal refAlt As String) As Long
+    Dim s As InlineShape
+    Dim i As Long
+    Dim alt As String
+
+    If matches Is Nothing Then Exit Function
+    For i = 1 To matches.count
+        Set s = matches(i)
+        alt = ""
+        On Error Resume Next
+        alt = s.AlternativeText
+        Err.Clear
+        On Error GoTo 0
+        If Lp_Same_Pic_Alt_Needs_Copy(alt, refAlt) Then
+            s.AlternativeText = refAlt
+            Lp_Same_Pic_Copy_Alt = Lp_Same_Pic_Copy_Alt + 1
+        End If
+    Next i
+End Function  '***** end of Lp_Same_Pic_Copy_Alt *****
+
+' True when a copy's description should be replaced by the model's: the model has one, and the
+' copy's is not exactly it - a difference of case or spacing too, because the description the
+' transcriber typed on the model is the one wanted. An empty model description is NEVER copied:
+' that would wipe the copies' descriptions. Strings in, so tests/vba can run it.
+'
+' Version: 1.0  Date: 11/5/2026
+Private Function Lp_Same_Pic_Alt_Needs_Copy(ByVal alt As String, ByVal refAlt As String) As Boolean
+    If Len(Trim$(refAlt)) = 0 Then Exit Function
+    Lp_Same_Pic_Alt_Needs_Copy = (StrComp(alt, refAlt, vbBinaryCompare) <> 0)
+End Function  '***** end of Lp_Same_Pic_Alt_Needs_Copy *****
+
 ' GIVES every picture in matches the model's size, replaces the paragraph mark after it and/or
 ' before it with a space, and sets its paragraph's alignment - whichever of those the caller
 ' asked for.
@@ -24863,6 +25039,113 @@ Public Sub Lp_Resize_Pictures_In_Range()
     Sh_Focus_Document Lp_Rst_Doc
 End Sub  '***** end of Lp_Resize_Pictures_In_Range *****
 
+' What the Edit Description button runs (Jerry, 11/5/2026). The clicked picture's description
+' comes up in Picture Description (414) to be typed or changed; Okay keeps the text for the NEXT
+' APPLY on that picture, and nothing in the book changes here. The picture keeps its old
+' description until Apply, so Apply still finds its copies by it - typing the new one onto the
+' picture first is what made Apply find no copies at all (issue #49).
+'
+' The text belongs to the picture it was typed for, held as a Range so Word keeps it pointing at
+' that picture while the book is edited. Apply on any other picture drops it, unused.
+'
+' Version: 1.0  Date: 11/5/2026
+Public Sub Lp_Rst_Edit_Description()
+    Dim ref As InlineShape
+    Dim current As String
+
+    If Not Lp_Rst_IsOn Then Exit Sub
+    If Lp_Rst_Busy Then Exit Sub
+    Lp_Rst_BindKeys
+    If Not Lp_Rst_Ready() Then Exit Sub
+
+    If Selection.Type = wdSelectionInlineShape Then
+        If Selection.InlineShapes.count = 1 Then
+            If Lp_Same_Pic_Is_Picture(Selection.InlineShapes(1)) Then Set ref = Selection.InlineShapes(1)
+        End If
+    End If
+    If ref Is Nothing Then
+        Sh_Say "Click ONE picture first - click it once so its handles show." & vbCr & vbCr _
+             & "Then press Edit Description to type the description it and its copies are " _
+             & "given when you press Apply.", "VistaType LP (415)"
+        Sh_Focus_Document Lp_Rst_Doc
+        Exit Sub
+    End If
+
+    If Not Lp_Rst_In_Range(ref.Range.Start, ref.Range.End, ref.Range.StoryType, _
+                           Lp_Rst_Range.Start, Lp_Rst_Range.End, Lp_Rst_Story) Then
+        Sh_Say "That picture is not inside the part of the book you picked when you started." _
+             & vbCr & vbCr _
+             & "Click a picture inside it and press Edit Description, or press Done to finish.", _
+               "VistaType LP (416)"
+        Sh_Focus_Document Lp_Rst_Doc
+        Exit Sub
+    End If
+
+    ' What the box opens with: the text already typed for this picture, if any, or else its own.
+    If Lp_Rst_New_Alt_Is_For(ref) Then
+        current = Lp_Rst_NewAlt
+    Else
+        On Error Resume Next
+        current = ref.AlternativeText
+        Err.Clear
+        On Error GoTo 0
+    End If
+
+    Lp_Rst_Desc_Text = current
+    Lp_Rst_Desc_Ok = False
+    ' BUSY WHILE 414 IS UP, so Done, Apply and a second Edit Description on 375 are ignored until
+    ' it closes - a second .Show of a form already showing raises 400. Cleared whatever happens.
+    Lp_Rst_Busy = True
+    On Error Resume Next
+    Lp_Pic_Description_Form.Show
+    Err.Clear
+    On Error GoTo 0
+    Lp_Rst_Busy = False
+    ' The form unloads itself on every way out; the answer is in the two Publics.
+
+    If Lp_Rst_Desc_Ok Then
+        If Len(Trim$(Lp_Rst_Desc_Text)) = 0 Then
+            ' An empty description is never given to the copies (Lp_Same_Pic_Alt_Needs_Copy).
+            Lp_Rst_NewAlt = ""
+            Set Lp_Rst_NewAltAt = Nothing
+            Lp_Rst_Say_Step "No description to give. Click the picture, or press Done."
+        Else
+            Lp_Rst_NewAlt = Trim$(Lp_Rst_Desc_Text)
+            Set Lp_Rst_NewAltAt = ref.Range.Duplicate
+            Lp_Rst_Say_Step "Description ready. Set the picture's size if you need to, then " _
+                          & "press Apply."
+        End If
+    End If
+
+    Sh_Focus_Document Lp_Rst_Doc
+End Sub  '***** end of Lp_Rst_Edit_Description *****
+
+' True when the text typed in Edit Description belongs to this picture: the same story, and the
+' held Range still covers exactly the picture. BOTH ENDS, because a picture deleted or cut leaves
+' the Range collapsed at its old start, and the next picture along slides into that start.
+'
+' Version: 1.0  Date: 11/5/2026
+Private Function Lp_Rst_New_Alt_Is_For(ByVal ref As InlineShape) As Boolean
+    If Lp_Rst_NewAltAt Is Nothing Then Exit Function
+    If Len(Lp_Rst_NewAlt) = 0 Then Exit Function
+    On Error Resume Next
+    Lp_Rst_New_Alt_Is_For = (Lp_Rst_NewAltAt.StoryType = ref.Range.StoryType _
+                             And Lp_Rst_NewAltAt.Start = ref.Range.Start _
+                             And Lp_Rst_NewAltAt.End = ref.Range.End)
+    Err.Clear
+    On Error GoTo 0
+End Function  '***** end of Lp_Rst_New_Alt_Is_For *****
+
+' The text typed in Edit Description for this picture, or "" when none was typed for it. Either
+' way it is used up: one Apply takes it, and an Apply on another picture drops it.
+'
+' Version: 1.0  Date: 11/5/2026
+Private Function Lp_Rst_Take_New_Alt(ByVal ref As InlineShape) As String
+    If Lp_Rst_New_Alt_Is_For(ref) Then Lp_Rst_Take_New_Alt = Lp_Rst_NewAlt
+    Lp_Rst_NewAlt = ""
+    Set Lp_Rst_NewAltAt = Nothing
+End Function  '***** end of Lp_Rst_Take_New_Alt *****
+
 ' What the Apply button runs. One picture, its copies inside the held range, one undo record.
 '
 ' Version: 1.0  Date: 9/22/2026
@@ -24882,6 +25165,14 @@ Public Sub Lp_Rst_Apply_Last_Size()
     Lp_Rst_Run True
 End Sub  '***** end of Lp_Rst_Apply_Last_Size *****
 
+' Version: 1.3  Date: 11/5/2026 - a description typed in Edit Description (414) for THIS picture
+'                               is given to it and to every copy (Lp_Rst_Take_New_Alt). The
+'                               copies are still found by the picture's own, old, description
+' Version: 1.2  Date: 11/5/2026 - the clicked picture's description is copied to every copy it
+'                               resizes (Jerry). He sets the new description BEFORE pressing
+'                               Apply, so the copies still carry the old one, or none, and the
+'                               description finds nothing: then the copies are found by the image
+'                               itself (Lp_Same_Pic_Find_By_Image)
 ' Version: 1.1  Date: 9/29/2026 - reads the new "precedes" box and passes it to Lp_Same_Pic_Apply
 ' Version: 1.0  Date: 9/22/2026
 Private Sub Lp_Rst_Run(ByVal useLastSize As Boolean)
@@ -24898,6 +25189,8 @@ Private Sub Lp_Rst_Run(ByVal useLastSize As Boolean)
     Dim su_Prev As Boolean, barUp As Boolean, recording As Boolean
     Dim errNum As Long, errText As String
     Dim msg As String
+    Dim altCopied As Long
+    Dim giveAlt As String, typed As Boolean
 
     If Not Lp_Rst_IsOn Then Exit Sub
 
@@ -25013,10 +25306,31 @@ Private Sub Lp_Rst_Run(ByVal useLastSize As Boolean)
     Set matches = Lp_Same_Pic_Find(Lp_Rst_Range.InlineShapes, ref, refAlt, refData, reader, _
                                    refStart, refStory)
 
+    ' NOTHING BY THE DESCRIPTION: most likely it was just changed on the clicked picture, which is
+    ' how Jerry passes a new description on (11/5/2026), and the copies still carry the old one or
+    ' none. So the copies are found by the image itself, and through them by the old description.
+    If byAlt And matches.count = 0 Then
+        Sh_Last_Activity = "Resize pictures in range: comparing the pictures themselves"
+        On Error Resume Next
+        Set reader = Documents.Add(Visible:=False)
+        Err.Clear
+        On Error GoTo eom
+        Set matches = Lp_Same_Pic_Find_By_Image(Lp_Rst_Range.InlineShapes, ref, refAlt, reader, _
+                                                refStart, refStory)
+    End If
+
     If Not reader Is Nothing Then
         reader.Close SaveChanges:=False
         Set reader = Nothing
     End If
+
+    ' THE DESCRIPTION GIVEN TO THE COPIES: the one typed in Edit Description for this picture, if
+    ' there is one, or else the picture's own. The copies were FOUND by the picture's own, refAlt,
+    ' which they still share - that is the point of typing it in the box (Jerry, 11/5/2026). Taken
+    ' only here, so a refusal (383) or an error before this leaves it waiting for the next Apply.
+    giveAlt = Lp_Rst_Take_New_Alt(ref)
+    typed = (Len(giveAlt) > 0)
+    If Not typed Then giveAlt = refAlt
 
     ' --- CHANGE, inside one undo record. One press of Apply, one Ctrl+Z.
     Sh_Last_Activity = "Resize pictures in range: resizing"
@@ -25027,6 +25341,15 @@ Private Sub Lp_Rst_Run(ByVal useLastSize As Boolean)
     recording = True
 
     Lp_Same_Pic_Apply matches, ref, refW, refH, alignMode, joinNext, joinPrev, True, useLastSize
+    altCopied = Lp_Same_Pic_Copy_Alt(matches, giveAlt)
+    If typed Then
+        ' The clicked picture too: it still has its old description, unlike a picture whose
+        ' description was changed in Word.
+        If Lp_Same_Pic_Alt_Needs_Copy(ref.AlternativeText, giveAlt) Then
+            ref.AlternativeText = giveAlt
+            altCopied = altCopied + 1
+        End If
+    End If
 
     objUndo.EndCustomRecord
     recording = False
@@ -25060,6 +25383,10 @@ Private Sub Lp_Rst_Run(ByVal useLastSize As Boolean)
     If joinNext Or joinPrev Then
         msg = msg & ", " & Format(Lp_Same_Pic_Joined, "#,##0") _
             & IIf(Lp_Same_Pic_Joined = 1, " paragraph mark replaced", " paragraph marks replaced")
+    End If
+    If altCopied > 0 Then
+        msg = msg & ", " & Format(altCopied, "#,##0") _
+            & IIf(altCopied = 1, " description copied", " descriptions copied")
     End If
     Lp_Rst_Say_Step msg & ". Click the next picture, or press Done."
 
@@ -25102,6 +25429,7 @@ End Sub  '***** end of Lp_Rst_Done *****
 ' taken apart. The form is hidden before it is unloaded, because this is reached from a button on
 ' the form being closed. The closing message comes LAST, because it is modal.
 '
+' Version: 1.2  Date: 11/5/2026 - drops a description typed in Edit Description (414)
 ' Version: 1.1  Date: 9/23/2026 - clears the 390 warning, and leaves the shared list of boxes LAST,
 '                               after the selection is let go, so the TOC box (354), if it is up,
 '                               does not say 389 about that.
@@ -25136,6 +25464,8 @@ Private Sub Lp_Rst_Finish(ByVal saySummary As Boolean)
     Lp_Rst_HasLast = False
     Lp_Rst_LastW = 0
     Lp_Rst_LastH = 0
+    Lp_Rst_NewAlt = ""
+    Set Lp_Rst_NewAltAt = Nothing
     Sh_Last_Activity = ""
     Application.ScreenRefresh
     If Lp_Rst_Doc_Is_Open(backTo) Then
@@ -25460,6 +25790,7 @@ End Sub  '***** end of Lp_Rst_KeyToDocument *****
 ' is down would create it. Each read is into a variable first: under On Error Resume Next, an
 ' If whose test raises goes on into its Then.
 '
+' Version: 1.1  Date: 11/5/2026 - Alt+E, Edit Description
 ' Version: 1.0  Date: 10/30/2026
 Public Sub Lp_Rst_AltKey(ByVal key As String)
     Dim live As Boolean
@@ -25482,6 +25813,8 @@ Public Sub Lp_Rst_AltKey(ByVal key As String)
             If live Then Lp_Rst_Apply_Last_Size
         Case "D"
             Lp_Rst_Done
+        Case "E"
+            Lp_Rst_Edit_Description
         Case "F", "P", "L", "C", "V"
             On Error Resume Next
             With Lp_Same_Pic_Range_Form

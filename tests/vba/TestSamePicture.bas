@@ -3,6 +3,7 @@ Attribute VB_Name = "TestSamePicture"
 '@uses Lp_Same_Pic_Mark_May_Go
 '@uses Lp_Same_Pic_Prev_Mark_May_Go
 '@uses Lp_Same_Pic_Alt_Matches
+'@uses Lp_Same_Pic_Alt_Needs_Copy
 '@uses Lp_Same_Pic_Ratio_Close
 '@uses Lp_Same_Pic_Size_Differs
 '@uses Lp_Same_Pic_Align_Value
@@ -23,6 +24,7 @@ Attribute VB_Name = "TestSamePicture"
 ' "precedes only" and "both" are the two decisions asked of one picture: each is answered on its
 ' own facts, so ticking both boxes takes both marks and ticking one takes only its own.
 '
+' Version: 1.2  Date: 11/5/2026 - when the clicked picture's description is copied to a copy
 ' Version: 1.1  Date: 9/29/2026 - the mark in front of the picture
 ' Version: 1.0  Date: 9/22/2026
 '
@@ -162,6 +164,24 @@ Public Function TestSamePicture_Suite() As TestSuite
         .NotOk Lp_Same_Pic_Alt_Matches("Lesson icon", "")
         .NotOk Lp_Same_Pic_Alt_Matches("", "")
         .NotOk Lp_Same_Pic_Alt_Matches("   ", "Lesson icon")
+    End With
+
+    ' --- is the clicked picture's description copied onto this copy? (Jerry, 11/5/2026)
+    With Suite.Test("a new description is copied over an old one, or onto none")
+        .IsOk Lp_Same_Pic_Alt_Needs_Copy("Bullet", "Round black bullet")
+        .IsOk Lp_Same_Pic_Alt_Needs_Copy("", "Round black bullet")
+        ' the description typed on the clicked picture is the one wanted, case and all
+        .IsOk Lp_Same_Pic_Alt_Needs_Copy("round black bullet", "Round black bullet")
+    End With
+
+    With Suite.Test("a copy that already says exactly that is left alone")
+        .NotOk Lp_Same_Pic_Alt_Needs_Copy("Round black bullet", "Round black bullet")
+    End With
+
+    With Suite.Test("no description on the clicked picture wipes nothing")
+        .NotOk Lp_Same_Pic_Alt_Needs_Copy("Bullet", "")
+        .NotOk Lp_Same_Pic_Alt_Needs_Copy("Bullet", "   ")
+        .NotOk Lp_Same_Pic_Alt_Needs_Copy("", "")
     End With
 
     With Suite.Test("two pictures of the same shape match, at any size")
