@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Dx_Prodnotes_Alt_Text_Menu_Form 
    Caption         =   "Prodnotes and Alt-Text (417)"
-   ClientHeight    =   6435
+   ClientHeight    =   5310
    ClientLeft      =   120
    ClientTop       =   465
    ClientWidth     =   5805
@@ -17,6 +17,11 @@ Attribute VB_Exposed = False
 ' Dx_Prodnotes_Alt_Text_Menu_Form - Prodnotes and Alt-Text (417), braille File Cleanup group
 ' Opened by Dx_Prodnotes_Alt_Text_Menu_Starter.
 '
+' Version: 1.2  Date: 11/6/2026 - Jerry's second layout, made in the VBA editor: a new
+'                                 Review/Edit/Delete Prodnotes button (ReviewProdnotes) at the
+'                                 top, with Image8 moved up beside it; the other buttons moved
+'                                 down; hover text for Delete and Resize corrected; form shorter.
+'                                 ReviewProdnotes has no Alt key and no Click handler yet.
 ' Version: 1.1  Date: 11/6/2026 - Jerry's layout, made in the VBA editor: Delete All Prodnotes
 '                                 (Alt+D), Convert All Prodnotes to TN Style (Alt+C), Resize
 '                                 Throughout Pictures in a Selected Range - Edit Alt-Text (Alt+T),
