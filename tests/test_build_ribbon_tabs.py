@@ -4,6 +4,7 @@ Jerry, 7/28/2026: "Even I want to hide the braille macro tab when I'm producing 
 and it is not unusual that I will rearrange the tabs." Tabs from the add-in's embedded
 customUI do not appear in Customize the Ribbon; tabs in the user's own Word.officeUI do.
 """
+import re
 import xml.etree.ElementTree as ET
 
 import pytest
@@ -155,3 +156,53 @@ def test_the_real_ribbon_still_carries_every_id_that_has_shipped(repo_root, run_
     assert (tmp_path / "installer/ribbon-button-ids.txt").read_text() == \
         (repo_root / "installer/ribbon-button-ids.txt").read_text(), \
         "the ribbon has button ids that are not yet recorded in the shipped-ids ledger"
+
+
+MENU_RIBBON = """<customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui">
+  <ribbon><tabs>
+      <tab id="tab_BRL" label="Braille Macros">
+        <group id="grp_Brl" label="Braille">
+          <button id="btn_Dx_One" label="One" imageMso="Cat"/>
+          <menu id="mnu_Dx_Notes" label="Notes" imageMso="Dog">
+            <button id="btn_Dx_Two" label="Two" imageMso="Cow"/>
+            <button id="btn_Dx_Three" label="Three" imageMso="Hen"/>
+          </menu>
+          <button id="btn_Dx_Four" label="Four" imageMso="Pig"/>
+        </group>
+      </tab>
+  </tabs></ribbon>
+</customUI>
+"""
+
+
+def test_a_menu_is_one_reference_and_its_buttons_are_not_laid_out_flat():
+    """Prodnotes and Alt-Text (Jerry, 11/6/2026): the transcriber's tab refers to the menu,
+    in its place in the group, and Word draws the menu's buttons from the add-in. Listing
+    them too would put them flat in the group."""
+    body, counts = mod.generate(MENU_RIBBON)
+    refs = re.findall(r'idQ="x1:([^"]+)"', body)
+    assert refs == ["btn_Dx_One", "mnu_Dx_Notes", "btn_Dx_Four"]
+    assert counts == [("Braille Macros", "vt_tab_Braille_Macros", 4)]
+
+
+def test_a_button_moved_into_a_menu_keeps_its_shipped_id(tmp_path, monkeypatch):
+    """Toolbars in the field name the prodnote buttons; moving them into the menu must not
+    read as a removal."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "installer").mkdir()
+    (tmp_path / "installer" / "ribbon-button-ids.txt").write_text(
+        "btn_Dx_One\nbtn_Dx_Two\nbtn_Dx_Three\nbtn_Dx_Four\n", encoding="utf-8")
+    mod.check_ids_are_stable(MENU_RIBBON)
+
+
+def test_the_real_braille_file_cleanup_group_holds_the_prodnotes_menu(repo_root):
+    xml = (repo_root / "src" / "ribbon" / "customUI14.xml").read_text(encoding="utf-8")
+    body, _ = mod.generate(xml)
+    group = re.search(r'<mso:group id="vt_grp_mso_c1_18AD7D7A".*?</mso:group>', body, re.S).group(0)
+    refs = re.findall(r'idQ="x1:([^"]+)"', group)
+    assert refs == ["btn_Dx_File_Fix_Sequence", "btn_Dx_Selected_File_CleanUp",
+                    "mnu_Dx_Prodnotes_And_Alt_Text"]
+    menu = re.search(r'<menu id="mnu_Dx_Prodnotes_And_Alt_Text".*?</menu>', xml, re.S).group(0)
+    assert re.findall(r'<button id="([^"]+)"', menu) == [
+        "btn_Sh_Delete_Prodnote_Paragraphs_x", "btn_Dx_Change_Prodnotes_To_Transcriber_Notes",
+        "btn_Lp_Resize_Pictures_In_Range", "btn_Lp_Locate_Picture"]

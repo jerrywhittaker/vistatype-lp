@@ -64,8 +64,13 @@ somewhere else on purpose:
   - opens dialog **Dx File Cleanup Sub Menu Form**: Fix Errors Button, Del Para Marks Button
 - [ ] **Selection Clean Up**  `Dx_Selected_File_CleanUp`  -- **RETURNS YOU**
   - opens dialog **Dx Selected Cleanup Form**: Okay
-- [ ] **Delete Prodnotes**  `Sh_Delete_Prodnote_Paragraphs`
-- [ ] **Prodnote to TN**  `Dx_Change_Prodnotes_To_Transcriber_Notes`  -- **RETURNS YOU**
+- [ ] **Prodnotes and Alt-Text** (menu, 11/6/2026) -- opens with four items
+  - [ ] **Delete Prodnotes**  `Sh_Delete_Prodnote_Paragraphs`
+  - [ ] **Prodnote to TN**  `Dx_Change_Prodnotes_To_Transcriber_Notes`  -- **RETURNS YOU**
+  - [ ] **Resize Throughout Pictures...**  `Lp_Resize_Pictures_In_Range`  -- the same as the LP
+        Background and Picture Tools (344) button
+  - [ ] **Locate the Picture in the Clipboard**  `Lp_Locate_Picture`  -- the same as the LP
+        Background and Picture Tools (344) button
 
 
 ### Reference Page Number Formatting

@@ -129,10 +129,18 @@ def generate(ribbon_xml):
             gimage = attr(ghead, "imageMso")
             img = f' imageMso="{gimage}"' if gimage else ""
             lines.append(f'        <mso:group id="{gid}" label="{glabel}"{img} autoScale="true">')
-            for b in re.finditer(r"<button\b[^>]*/>", gblock):
-                bid = attr(b.group(0), "id")
+            # A <menu> is ONE reference, to the menu; Word draws its buttons from the add-in.
+            # Listing its buttons here as well would lay them out flat in the group, beside the
+            # menu or instead of it (Prodnotes and Alt-Text, 11/6/2026). Its buttons still count,
+            # and check_ids_are_stable still tracks their ids.
+            for b in re.finditer(r"<menu\b[^>]*>.*?</menu>|<button\b[^>]*/>", gblock, re.S):
+                text = b.group(0)
+                bid = attr(text[: text.index(">") + 1], "id")
                 lines.append(f'          <mso:control idQ="x1:{bid}" visible="true"/>')
-                n_buttons += 1
+                if text.startswith("<menu"):
+                    n_buttons += len(re.findall(r"<button\b[^>]*/>", text))
+                else:
+                    n_buttons += 1
             for c in re.finditer(r"<control\b[^>]*/>", gblock):
                 cid = attr(c.group(0), "idMso")
                 if cid:
