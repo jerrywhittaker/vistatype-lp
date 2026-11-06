@@ -8,8 +8,9 @@
        this one, and Word never asks this add-in's callback about it. Measured by Jerry on
        3.0.363: "clicking the Braille Macros tab did nothing."
        DO NOT TRY IT AGAIN. Anything that has to happen when a transcriber reaches for the
-       braille tools belongs in Dx_Is_BANA_Template_Attached, which all fifteen braille buttons
-       run first. -->
+       braille tools belongs in Dx_Is_BANA_Template_Attached, which the braille buttons
+       run first (the Prodnotes and Alt-Text menu form, 417, does not: its macros check for
+       themselves, and three of the four work on any book). -->
   <ribbon>
     <tabs>
     <tab id="tab_Braille_Macros" label="Braille Macros" insertBeforeMso="TabInsert" getVisible="VtTabVisible">
