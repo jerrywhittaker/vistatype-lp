@@ -17,6 +17,10 @@ Attribute VB_Exposed = False
 ' Dx_Prodnotes_Alt_Text_Menu_Form - Prodnotes and Alt-Text (417), braille File Cleanup group
 ' Opened by Dx_Prodnotes_Alt_Text_Menu_Starter.
 '
+' Version: 1.3  Date: 11/6/2026 - Jerry's Alt keys, made in the VBA editor: Convert All Prodnotes
+'                                 to TN Style is Alt+A (was Alt+C, which Cancel also had), and
+'                                 Review/Edit/Delete Prodnotes is Alt+R. All six keys now differ.
+'                                 ReviewProdnotes still has no Click handler (Jerry is writing it).
 ' Version: 1.2  Date: 11/6/2026 - Jerry's second layout, made in the VBA editor: a new
 '                                 Review/Edit/Delete Prodnotes button (ReviewProdnotes) at the
 '                                 top, with Image8 moved up beside it; the other buttons moved

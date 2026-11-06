@@ -18,7 +18,10 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - BRL - 11/6/2026 - JERRY'S SECOND LAYOUT FOR 417, pulled into src/forms: a new
+' Notes:    - BRL - 11/6/2026 - JERRY'S ALT KEYS FOR 417, pulled into src/forms: Convert All Prodnotes
+'           - BRL - 11/6/2026 - to TN Style is Alt+A, no longer sharing Alt+C with Cancel, and
+'           - BRL - 11/6/2026 - Review/Edit/Delete Prodnotes is Alt+R. Its macro is still to come.
+'           - BRL - 11/6/2026 - JERRY'S SECOND LAYOUT FOR 417, pulled into src/forms: a new
 '           - BRL - 11/6/2026 - Review/Edit/Delete Prodnotes button at the top (no Alt key or
 '           - BRL - 11/6/2026 - Click handler yet), the rest moved down, hover text corrected.
 '           - BRL - 11/6/2026 - JERRY'S LAYOUT FOR 417 AND 344, made in the VBA editor and pulled
