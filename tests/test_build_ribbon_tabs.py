@@ -195,14 +195,12 @@ def test_a_button_moved_into_a_menu_keeps_its_shipped_id(tmp_path, monkeypatch):
     mod.check_ids_are_stable(MENU_RIBBON)
 
 
-def test_the_real_braille_file_cleanup_group_holds_the_prodnotes_menu(repo_root):
+def test_the_real_braille_file_cleanup_group_opens_the_prodnotes_menu_form(repo_root):
+    """Prodnotes and Alt-Text is a menu FORM (417), opened by one button, not a ribbon menu
+    (Jerry, 11/6/2026)."""
     xml = (repo_root / "src" / "ribbon" / "customUI14.xml").read_text(encoding="utf-8")
     body, _ = mod.generate(xml)
     group = re.search(r'<mso:group id="vt_grp_mso_c1_18AD7D7A".*?</mso:group>', body, re.S).group(0)
     refs = re.findall(r'idQ="x1:([^"]+)"', group)
     assert refs == ["btn_Dx_File_Fix_Sequence", "btn_Dx_Selected_File_CleanUp",
-                    "mnu_Dx_Prodnotes_And_Alt_Text"]
-    menu = re.search(r'<menu id="mnu_Dx_Prodnotes_And_Alt_Text".*?</menu>', xml, re.S).group(0)
-    assert re.findall(r'<button id="([^"]+)"', menu) == [
-        "btn_Sh_Delete_Prodnote_Paragraphs_x", "btn_Dx_Change_Prodnotes_To_Transcriber_Notes",
-        "btn_Lp_Resize_Pictures_In_Range", "btn_Lp_Locate_Picture"]
+                    "btn_Dx_Prodnotes_Alt_Text_Menu_Starter"]

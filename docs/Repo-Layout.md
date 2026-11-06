@@ -573,12 +573,12 @@ Three subtleties that make it actually work:
   `build_qat.py` makes the icons-only toolbar out of that tab, and the installer's default `Mine` mode
   would add the retired button to every transcriber's toolbar. `build_ribbon_tabs.py` skips the retired
   tab as it skips the toolbar one.
-- **A ribbon `<menu>` goes into the installer's tab file as ONE reference, to the menu**
-  (from 11/6/2026, the braille File Cleanup group's "Prodnotes and Alt-Text").
-  `build_ribbon_tabs.py` writes `<mso:control idQ="x1:mnu_...">` in the menu's place and leaves
-  its buttons to Word, which draws them from the add-in; listing them as well would lay them out
-  flat in the group. A button moved into a menu keeps its id, and the shipped-id ledger still
-  tracks it. Whether Word draws an add-in menu from such a reference is for the installer test.
+- **A ribbon `<menu>` would go into the installer's tab file as ONE reference, to the menu.**
+  None is in use: the braille "Prodnotes and Alt-Text" began as one on 11/6/2026 and became a
+  menu form (417) the same day. `build_ribbon_tabs.py` writes `<mso:control idQ="x1:mnu_...">`
+  in a menu's place and leaves its buttons to Word, which draws them from the add-in; listing
+  them as well would lay them out flat in the group. Whether Word draws an add-in menu from such
+  a reference has never been tried — test it with a real installer before relying on it.
 
 
 ## Environment / dependencies

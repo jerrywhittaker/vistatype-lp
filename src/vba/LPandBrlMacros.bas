@@ -18,7 +18,12 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Sh  - 11/5/2026 - LONG DIVISION AS A WORD EQUATION KEEPS ITS DIVIDEND (issue #50, Jerry):
+' Notes:    - BRL - 11/6/2026 - PRODNOTES AND ALT-TEXT (417), A NEW BRAILLE MENU (Jerry): one button
+'           - BRL - 11/6/2026 - in the braille File Cleanup group opens it (Dx_Prodnotes_Alt_Text_Menu_
+'           - BRL - 11/6/2026 - Starter). Delete Prodnotes and Prodnote to TN moved into it off the
+'           - BRL - 11/6/2026 - ribbon, joined by large print's Resize Throughout Pictures in a
+'           - BRL - 11/6/2026 - Selected Range and Locate the Picture in the Clipboard.
+'           - Sh  - 11/5/2026 - LONG DIVISION AS A WORD EQUATION KEEPS ITS DIVIDEND (issue #50, Jerry):
 '           - Sh  - 11/5/2026 - Sh_MathML_Longdiv_For_Word reshapes each longdiv into ")" and a
 '           - Sh  - 11/5/2026 - top-bar menclose, which MML2OMML.XSL carries; it dropped longdiv.
 '           - Sh  - 11/5/2026 - FEWER WORD EQUATIONS IN THE DAISY/NIMAS CONVERTER (Jerry): of Basic
@@ -22773,6 +22778,22 @@ Sub Lp_Keep_With_Next_Para()
         .KeepWithNext = wdToggle
     End With
     Sh_Keep_Cursor_In_View
+End Sub
+
+Sub Dx_Prodnotes_Alt_Text_Menu_Starter()
+'
+' Opens Prodnotes and Alt-Text (417), from the braille File Cleanup group.
+'
+' No template check here: each of the four macros on the menu checks what it needs itself, and
+' only Prodnote to TN needs the BANA template. Checking it here would stop Delete Prodnotes and
+' the two picture tools on a book that does not need it.
+'
+' Version: 1.0  Date: 11/6/2026 - new (Jerry)
+'
+    Application.Run MacroName:="Sh_Is_Doc_Open"
+    Unload Dx_Prodnotes_Alt_Text_Menu_Form
+    Dx_Prodnotes_Alt_Text_Menu_Form.Show
+    Unload Dx_Prodnotes_Alt_Text_Menu_Form
 End Sub
 
 Sub Lp_Remove_Space_After_Para()

@@ -19,17 +19,10 @@
       <group id="grp_mso_c1_18AD7D7A" label="File Cleanup" autoScale="true">
         <button id="btn_Dx_File_Fix_Sequence" label="Full File Cleanup" imageMso="FormatPainter" onAction="RibbonAction" tag="Dx_File_Fix_Sequence"/>
         <button id="btn_Dx_Selected_File_CleanUp" label="Selection Clean Up" imageMso="SelectRecord" onAction="RibbonAction" tag="Dx_Selected_File_CleanUp"/>
-        <!-- Prodnotes and Alt-Text (Jerry, 11/6/2026). The two prodnote buttons moved in here with
-             their ids unchanged - toolbars in the field name them. The two picture buttons are the
-             large-print Background and Picture Tools (344) items, as their own ids: a ribbon id
-             must be unique, so the large-print menu form keeps its buttons and these are copies.
-             The installer's tab file refers to this menu as ONE control (build_ribbon_tabs.py). -->
-        <menu id="mnu_Dx_Prodnotes_And_Alt_Text" label="Prodnotes and Alt-Text" imageMso="PictureInsertFromFile">
-          <button id="btn_Sh_Delete_Prodnote_Paragraphs_x" label="Delete Prodnotes" imageMso="Delete" onAction="RibbonAction" tag="Sh_Delete_Prodnote_Paragraphs"/>
-          <button id="btn_Dx_Change_Prodnotes_To_Transcriber_Notes" label="Prodnote to TN" imageMso="ReviewNewComment" onAction="RibbonAction" tag="Dx_Change_Prodnotes_To_Transcriber_Notes"/>
-          <button id="btn_Lp_Resize_Pictures_In_Range" label="Resize Throughout Pictures..." imageMso="ShapeHeight" onAction="RibbonAction" tag="Lp_Resize_Pictures_In_Range"/>
-          <button id="btn_Lp_Locate_Picture" label="Locate the Picture in the Clipboard" imageMso="FindDialog" onAction="RibbonAction" tag="Lp_Locate_Picture"/>
-        </menu>
+        <!-- Prodnotes and Alt-Text (417), Jerry 11/6/2026: one button opening a braille menu form.
+             Delete Prodnotes and Prodnote to TN were on this group until then; their ids are kept on
+             the retired tab below for toolbars that name them. -->
+        <button id="btn_Dx_Prodnotes_Alt_Text_Menu_Starter" label="Prodnotes and Alt-Text" imageMso="PictureInsertFromFile" onAction="RibbonAction" tag="Dx_Prodnotes_Alt_Text_Menu_Starter"/>
       </group>
       <group id="grp_mso_c6_19F8EF46" label="Reference Page Number Formatting" imageMso="WindowsCascade" autoScale="true">
         <button id="btn_Dx_AutoTag_Page_Numbers" label="AutoTag Ref Pages" imageMso="ViewGridlinesFrontPage" onAction="RibbonAction" tag="Dx_AutoTag_Page_Numbers"/>
@@ -129,10 +122,15 @@
          Compress Linear Math, 9/15/2026 (Jerry): it runs inside Fix Common File Errors and Selected
          Cleanup now, and its keyboard shortcut still works. The Braille Macros tab keeps its own
          button (btn_Dx_Compress_Linear_Math), 10/6/2026 (Jerry): no braille cleanup runs it, so that
-         button is the only way to compress math in a braille file. -->
+         button is the only way to compress math in a braille file.
+         Delete Prodnotes and Prodnote to TN on the Braille Macros tab, 11/6/2026 (Jerry): both are on
+         the Prodnotes and Alt-Text (417) menu form now. The large print tab keeps its own Delete
+         Prodnotes (btn_Sh_Delete_Prodnote_Paragraphs). -->
     <tab id="tab_VT_Retired_Buttons" label="VistaType LP Retired Buttons" visible="false">
       <group id="grp_vt_retired_buttons" label=" " autoScale="true">
           <button id="btn_Lp_Compress_Linear_Math" label="Compress Linear Math" imageMso="HorizontalSpacingDecrease" onAction="RibbonAction" tag="Lp_Compress_Linear_Math"/>
+          <button id="btn_Sh_Delete_Prodnote_Paragraphs_x" label="Delete Prodnotes" imageMso="Delete" onAction="RibbonAction" tag="Sh_Delete_Prodnote_Paragraphs"/>
+          <button id="btn_Dx_Change_Prodnotes_To_Transcriber_Notes" label="Prodnote to TN" imageMso="ReviewNewComment" onAction="RibbonAction" tag="Dx_Change_Prodnotes_To_Transcriber_Notes"/>
       </group>
     </tab>
     </tabs>

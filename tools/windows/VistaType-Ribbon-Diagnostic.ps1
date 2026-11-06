@@ -74,9 +74,9 @@ foreach ($pair in @(@('Roaming', $R), @('Local', $L))) {
         $tb = ([regex]::Matches($y, 'vt_tab_')).Count
         $d2 = ([regex]::Matches($y, 'Sh_Delete_Prodnote_Paragraphs')).Count
         $t2 = ([regex]::Matches($y, 'Dx_Change_Prodnotes_To_Transcriber_Notes')).Count
-        # From 11/6/2026 the braille prodnote buttons sit in the Prodnotes and Alt-Text menu, and
-        # the tab file names the menu, not them: on the braille tab they count 0, and menu=1 is right.
-        $m2 = ([regex]::Matches($y, 'mnu_Dx_Prodnotes_And_Alt_Text')).Count
+        # From 11/6/2026 the braille prodnote buttons sit in the Prodnotes and Alt-Text (417) menu form, and
+        # the tab file names its button, not them: on the braille tab they count 0, and menu=1 is right.
+        $m2 = ([regex]::Matches($y, 'btn_Dx_Prodnotes_Alt_Text_Menu_Starter')).Count
         $wt = (Get-Item $path).LastWriteTime
         W ("  {0,-8}: tabs={1} delete-prodnote={2} change-to-TN={3} prodnote-menu={4}  {5}" -f $name, $tb, $d2, $t2, $m2, $wt)
     } else {

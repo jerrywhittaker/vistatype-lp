@@ -21,7 +21,7 @@
         <mso:group id="vt_grp_mso_c1_18AD7D7A" label="File Cleanup" autoScale="true">
           <mso:control idQ="x1:btn_Dx_File_Fix_Sequence" visible="true"/>
           <mso:control idQ="x1:btn_Dx_Selected_File_CleanUp" visible="true"/>
-          <mso:control idQ="x1:mnu_Dx_Prodnotes_And_Alt_Text" visible="true"/>
+          <mso:control idQ="x1:btn_Dx_Prodnotes_Alt_Text_Menu_Starter" visible="true"/>
         </mso:group>
         <mso:group id="vt_grp_mso_c6_19F8EF46" label="Reference Page Number Formatting" imageMso="WindowsCascade" autoScale="true">
           <mso:control idQ="x1:btn_Dx_AutoTag_Page_Numbers" visible="true"/>

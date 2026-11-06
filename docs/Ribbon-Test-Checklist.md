@@ -64,13 +64,15 @@ somewhere else on purpose:
   - opens dialog **Dx File Cleanup Sub Menu Form**: Fix Errors Button, Del Para Marks Button
 - [ ] **Selection Clean Up**  `Dx_Selected_File_CleanUp`  -- **RETURNS YOU**
   - opens dialog **Dx Selected Cleanup Form**: Okay
-- [ ] **Prodnotes and Alt-Text** (menu, 11/6/2026) -- opens with four items
-  - [ ] **Delete Prodnotes**  `Sh_Delete_Prodnote_Paragraphs`
-  - [ ] **Prodnote to TN**  `Dx_Change_Prodnotes_To_Transcriber_Notes`  -- **RETURNS YOU**
-  - [ ] **Resize Throughout Pictures...**  `Lp_Resize_Pictures_In_Range`  -- the same as the LP
-        Background and Picture Tools (344) button
-  - [ ] **Locate the Picture in the Clipboard**  `Lp_Locate_Picture`  -- the same as the LP
-        Background and Picture Tools (344) button
+- [ ] **Prodnotes and Alt-Text**  `Dx_Prodnotes_Alt_Text_Menu_Starter`  (11/6/2026)
+  - opens dialog **Braille user form Prodnotes and Alt-Text (417)**
+    - [ ] Delete Prodnotes (Alt+D)  `Sh_Delete_Prodnote_Paragraphs`
+    - [ ] Prodnote to TN (Alt+T)  `Dx_Change_Prodnotes_To_Transcriber_Notes`  -- **RETURNS YOU**
+    - [ ] Resize Throughout Pictures in a Selected Range (Alt+R)  `Lp_Resize_Pictures_In_Range`
+          -- the same as on LP user form Background and Picture Tools (344)
+    - [ ] Locate the Picture in the Clipboard (Alt+L)  `Lp_Locate_Picture`  -- the same as on LP
+          user form Background and Picture Tools (344)
+    - [ ] Cancel (Alt+C), and the red X: nothing runs
 
 
 ### Reference Page Number Formatting
