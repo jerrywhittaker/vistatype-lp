@@ -158,6 +158,10 @@ src/keymap/     lp-template-keymap.xml — keyboard shortcuts, injected into Lar
 LPandBRL.dotm   the .dotm shell/base (tracked): project references + non-VBA parts; build base
 LargePrintTemplate.dotx   the attached large-print template (styles/page setup)
 Word.officeUI   legacy global ribbon (no longer shipped; kept for reference)
+tools/compare_mtef.py  read-only: a Python copy of Sh_MTEF_Walk run over a DAISY/NIMAS book's .xml -
+                how many equations it takes as MathType, why it refuses the rest, and their records
+                against MathType's own in a copy converted by MathType's Convert Equations (11/5/2026,
+                Basic Math). Keep it in step with the VBA; tests/test_mtef_helpers.py checks its tables.
 tools/windows/  Export-Vba.ps1 / Import-Vba.ps1 / New-UserForm.ps1 / Run-VbaTests.ps1 — run in
                 Word on the build box
                 (New-UserForm.ps1 creates a BRAND-NEW UserForm and exports a valid .frm/.frx

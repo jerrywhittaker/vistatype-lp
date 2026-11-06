@@ -11,7 +11,14 @@ target) and 355 more equations through MathType's own Convert Equations. The rea
 bytes are in tests/vba/TestMTEF.bas, which runs the VBA. These are checks on the source: every
 helper Private, every parameter ByVal (the rule from the 3.0.274 compile error), a Version line
 and a worked example in every header, no message boxes, and the VBA tests wired in.
+
+11/5/2026 (Jerry, Basic Math Pre-Algebra for Dummies: 503 of 1,861 equations fell back to Word
+equations): mspace, no-break spaces, plain-text mi runs, % and $, infinity and aleph, the Euclid
+fonts, borrowing marks (mmultiscripts with mprescripts) and long division (issue #50). The checks
+at the end hold the measured values in the source, and keep tools/compare_mtef.py - the Python
+copy of the walker that measures a whole book - in step with the VBA.
 """
+import ast
 import re
 
 from test_toc_never_deletes_a_line import module_text, procedures
@@ -24,6 +31,8 @@ HELPERS = ("Sh_MTEF_From_MathML", "Sh_MTEF_Not_Handled", "Sh_MTEF_Walk", "Sh_MTE
            "Sh_MTEF_Put_Fraction", "Sh_MTEF_Put_Root", "Sh_MTEF_Put_Enclose", "Sh_MTEF_Put_Fenced",
            "Sh_MTEF_Put_Accent", "Sh_MTEF_Put_Table", "Sh_MTEF_Symbol_Place",
            "Sh_MTEF_Extra_Place", "Sh_MTEF_Greek_Place", "Sh_MTEF_Put_Token",
+           "Sh_MTEF_Style_Index", "Sh_MTEF_Space_Codes", "Sh_MTEF_Put_Space",
+           "Sh_MTEF_Put_Prescripts", "Sh_MTEF_Euclid_Place",
            "Sh_MTEF_Preamble_Hex", "Sh_MTEF_Hex_Text", "Sh_MTEF_Text_Bytes", "Sh_MTEF_U16",
            "Sh_MTEF_U32", "Sh_MTEF_Dir_Entry", "Sh_MTEF_Ole_File", "Sh_Base64")
 
@@ -79,7 +88,7 @@ def test_every_helper_has_a_version_and_an_example(repo_root):
     """Like its neighbours, each header says its version and shows the helper in use."""
     for name in HELPERS:
         block = _header_comment(repo_root, name)
-        assert any(re.match(r"' Version: 1\.0  Date: 10/20/2026", l) for l in block), \
+        assert any(re.match(r"' Version: \d+\.\d+  Date: \d{1,2}/\d{1,2}/20\d\d", l) for l in block), \
             f"{name} has no Version line"
         examples = [l for l in block if l.startswith("'   ") and name in l]
         assert examples, f"{name} has no example line naming it in its header"
@@ -133,3 +142,106 @@ def test_the_vba_tests_are_wired_in(repo_root):
     assert vba.count("With Suite.Test(") >= 30
     runner = (repo_root / "tests" / "vba" / "VtRunTests.bas").read_bytes().decode("latin-1")
     assert "TestMTEF_Suite()" in runner
+
+
+# --- 11/5/2026: what Basic Math sent to Word equations ------------------------------------------
+
+def _code(repo_root, name):
+    return "\n".join(_procs(repo_root)[name])
+
+
+def _vba_space_codes(repo_root):
+    """Sh_MTEF_Space_Codes as {width: codes}."""
+    table = {}
+    for line in _procs(repo_root)["Sh_MTEF_Space_Codes"]:
+        m = re.match(r'\s*Case (.+?):?\s*(?:Sh_MTEF_Space_Codes = "(\w+)")?\s*$', line)
+        if m and m.group(1) != "Else":
+            widths = re.findall(r'"([^"]*)"', m.group(1).split(":")[0])
+            code = m.group(2) or None
+            table.update({w: code for w in widths})
+        m = re.match(r'\s*Sh_MTEF_Space_Codes = "(\w+)"', line)
+        if m:
+            for w, c in table.items():
+                if c is None:
+                    table[w] = m.group(1)
+    return table
+
+
+def _tool_table(repo_root, name):
+    tree = ast.parse((repo_root / "tools" / "compare_mtef.py").read_text(encoding="utf-8"))
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(getattr(t, "id", "") == name for t in node.targets):
+            return ast.literal_eval(node.value)
+    raise AssertionError(name + " is not in tools/compare_mtef.py")
+
+
+def test_mspace_widths_are_the_measured_ones(repo_root):
+    """Measured 11/5/2026 through MathType's own MathML import: Basic Math's two widths are EF03."""
+    vba = _vba_space_codes(repo_root)
+    assert vba["thickmathspace"] == "03" and vba["0.25em"] == "03"
+    assert vba["1em"] == "05" and vba["0.5em"] == "0403" and vba[""] == "01"
+    assert "3pt" not in vba, "a width in points depends on the font size - not measured"
+    tool = {w: "".join("%02X" % (c & 0xFF) for c in codes)
+            for w, codes in _tool_table(repo_root, "SPACES").items()}
+    assert vba == tool, "Sh_MTEF_Space_Codes and tools/compare_mtef.py SPACES differ"
+
+
+def test_mspace_is_written_and_not_refused(repo_root):
+    node = _code(repo_root, "Sh_MTEF_Put_Node")
+    assert '"mspace"' in node and "Sh_MTEF_Put_Space st, node, kids, size" in node
+    assert "Sh_MTEF_Put_Char st, 24, &HEF00& + " in _code(repo_root, "Sh_MTEF_Put_Space")
+
+
+def test_long_division_is_template_26(repo_root):
+    """Issue #50: as a Word equation the dividend is lost; here it is template 26, the dividend,
+    and an absent slot - measured through MathType's own MathML import."""
+    code = _code(repo_root, "Sh_MTEF_Put_Enclose")
+    block = code[code.index('Case "longdiv"'):]
+    block = block[:block.index("Exit Sub")]
+    assert "Sh_MTEF_Put_Template st, 26, 0, size" in block
+    assert "Sh_MTEF_Put_Line st, kids, 1, kids.count, size" in block
+    assert "Sh_MTEF_Put_Line st, Nothing, 0, 0, size" in block
+
+
+def test_borrowing_marks_are_template_29_variation_1(repo_root):
+    code = _code(repo_root, "Sh_MTEF_Put_Prescripts")
+    assert "Sh_MTEF_Put_Template st, 29, 1, size" in code
+    assert code.index("Sh_MTEF_Put_Template st, 29, 1") < code.index("Sh_MTEF_Put_Node st, kids(1), size"), \
+        "the base goes AFTER the template, as MathType wrote it"
+
+
+def test_font_style_records_are_numbered_in_order(repo_root):
+    """The old one-flag "styled" is gone: bold italic and the Euclid fonts share one numbering."""
+    for name in HELPERS:
+        assert not any('"styled"' in l for l in _procs(repo_root)[name]), name
+    assert 'st("styles") = ""' in _code(repo_root, "Sh_MTEF_Walk")
+    code = _code(repo_root, "Sh_MTEF_Style_Index")
+    assert "6 + euclids" in code and "5 + euclids" in code
+    char = _code(repo_root, "Sh_MTEF_Put_Char")
+    for key in ('"B"', '"E1"', '"E2"'):
+        assert "Sh_MTEF_Style_Index(st, %s)" % key in char
+
+
+def test_euclid_places_match_the_tool(repo_root):
+    vba = {}
+    for line in _procs(repo_root)["Sh_MTEF_Euclid_Place"]:
+        m = re.match(r"\s*Case &H([0-9A-F]+): Sh_MTEF_Euclid_Place = &H([0-9A-F]+)", line)
+        if m:
+            vba[int(m.group(1), 16)] = int(m.group(2), 16)
+    tool = {k: (0x100 if f == -11 else 0x200) + p for k, (f, p) in _tool_table(repo_root, "EUCLID_PLACE").items()}
+    assert vba == tool and len(vba) == 6
+
+
+def test_no_break_space_and_aleph(repo_root):
+    token = _code(repo_root, "Sh_MTEF_Put_Token")
+    assert "ElseIf code = &H20 Or code = &HA0 Then" in token          # mi: TEXT
+    assert "ElseIf code = &HA0 Or code = &H2019 Then" in token        # mo: FUNCTION
+    assert "Sh_MTEF_Symbol_Place(code) >= 0 And code <> &H2135" in token, "aleph is measured in mi only"
+    assert "Case &H2135: Sh_MTEF_Symbol_Place = &HC0" in _code(repo_root, "Sh_MTEF_Symbol_Place")
+
+
+def test_the_comparison_tool_is_read_only(repo_root):
+    """tools/compare_mtef.py measures; it must never write into the files it is given."""
+    text = (repo_root / "tools" / "compare_mtef.py").read_text(encoding="utf-8")
+    assert not re.search(r"open\([^)]*['\"][wa]b?['\"]", text)
+    assert ".write(" not in text and ".save(" not in text

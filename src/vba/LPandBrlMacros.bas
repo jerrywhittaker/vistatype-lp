@@ -18,7 +18,20 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Lp  - 11/5/2026 - RESIZE PICTURES IN A SELECTED RANGE (375) COPIES THE DESCRIPTION
+' Notes:    - Sh  - 11/5/2026 - FEWER WORD EQUATIONS IN THE DAISY/NIMAS CONVERTER (Jerry): of Basic
+'           - Sh  - 11/5/2026 - Math's 1,861 equations, 503 fell back to Word equations; the MathType
+'           - Sh  - 11/5/2026 - route now takes all 503. Sh_MTEF_Walk learned mspace (a MathType
+'           - Sh  - 11/5/2026 - space, so "22.82 feet" keeps its space), no-break spaces, plain-text
+'           - Sh  - 11/5/2026 - runs in mi, % and $, infinity and aleph, the Euclid characters
+'           - Sh  - 11/5/2026 - (N Z Q R C, asymptotic), borrowing marks (mmultiscripts with
+'           - Sh  - 11/5/2026 - mprescripts) and long division (menclose longdiv, issue #50: as a
+'           - Sh  - 11/5/2026 - Word equation it loses its dividend). Every new byte was measured
+'           - Sh  - 11/5/2026 - from MathType's own output (tools/compare_mtef.py).
+'           - BRL - 11/5/2026 - BRAILLE FULL FILE CLEANUP KEEPS THE PICTURES (Jerry): Duxbury ignores
+'           - BRL - 11/5/2026 - a picture but makes a transcriber's note from its alt text. The
+'           - BRL - 11/5/2026 - "Deleting images" step is gone; a picture smaller than the text is
+'           - BRL - 11/5/2026 - enlarged instead, by large print's Lp_Enlarge_Tiny_Pictures.
+'           - Lp  - 11/5/2026 - RESIZE PICTURES IN A SELECTED RANGE (375) COPIES THE DESCRIPTION
 '           - Lp  - 11/5/2026 - of the clicked picture to every copy it resizes (Jerry). A new
 '           - Lp  - 11/5/2026 - button, Edit Description (Alt+E), opens Picture Description (414)
 '           - Lp  - 11/5/2026 - to type it; Apply finds the copies by the old description and then
@@ -6382,6 +6395,11 @@ Public Sub Dx_Fix_Common_File_Errors_Run(ByVal quiet As Boolean)
 
 ' Dx_Fix_Common_File_Errors Macro
 '
+' Version: 3.4  Date: 11/5/2026  - KEEPS THE PICTURES (Jerry): the "Deleting images" step is gone,
+'                                  and pictures smaller than the text are enlarged to the Normal
+'                                  size, as in large print (Lp_Enlarge_Tiny_Pictures). Duxbury
+'                                  ignores the pictures but makes transcriber's notes from their
+'                                  alt text. Still 36 passes
 ' Version: 3.3  Date: 10/20/2026 - the MathML is no longer set aside and put back, and the bar's two
 '                                  steps for it are gone: braille gets Word equations (OMML) now,
 '                                  not MathML text, so there is nothing to protect (Jerry). The
@@ -6486,8 +6504,10 @@ Public Sub Dx_Fix_Common_File_Errors_Run(ByVal quiet As Boolean)
     Dx_Ffc_Step stepNo, "Fixing Abbyy FineReader text and headings"
     Application.Run MacroName:="Dx_Fix_Abbyy_FineReader_Text_and_Headers"
 
-    Dx_Ffc_Step stepNo, "Deleting images"
-    Application.Run MacroName:="Dx_Delete_Images"
+    ' "Deleting images" (Dx_Delete_Images) ran here until 11/5/2026. The pictures stay: Duxbury
+    ' ignores a picture but makes a transcriber's note from its alt text (Jerry). Remove Pictures in
+    ' Selection Clean Up (333) still deletes them on request. A tiny picture is enlarged near the
+    ' end instead - see "Enlarging pictures smaller than the text".
 
     Dx_Ffc_Step stepNo, "Turning white text back to automatic"
     Application.Run MacroName:="Sh_Replace_White_Text_With_Automatic"
@@ -6590,6 +6610,14 @@ Public Sub Dx_Fix_Common_File_Errors_Run(ByVal quiet As Boolean)
        
     Dx_Ffc_Step stepNo, "Marking incomplete equations"
     Application.Run MacroName:="Dx_Add_Qmark_To_Incomplete_Equations"
+
+    ' NO PICTURE SMALLER THAN THE TEXT, as in large print (Jerry, 11/5/2026): a picture whose
+    ' shorter side is under the Normal style's size is enlarged to it, keeping its shape, and
+    ' fitted inside the margins. The BANA template is attached before this runs, so Normal's size
+    ' is the book's. In-line pictures only; MathType objects and Word equations are not touched.
+    ' Takes the place of the "Deleting images" step, so the step count is unchanged.
+    Dx_Ffc_Step stepNo, "Enlarging pictures smaller than the text"
+    Lp_Enlarge_Tiny_Pictures ActiveDocument
 
     ' LAST of the content steps, and before the cursor goes home below - this one uses
     ' Selection.Find, which moves it. The cleanups above lose the red on the $pg tags, and this
@@ -24362,7 +24390,8 @@ End Function  '***** end of Lp_Fit_Factor *****
 ' it allows - a 468 by 2 rule line at 18 point wanted 4212 wide - and a refused Width with an
 ' accepted Height left a thick, stretched bar (found by review, 11/1/2026, before it reached anyone).
 '
-' Run by the LP template attach only, after the text is at its point size (Jerry: no button).
+' Run by the LP template attach, after the text is at its point size (Jerry: no button), and from
+' 11/5/2026 by braille Full File Cleanup, after the BANA template is attached (Jerry).
 ' Pictures only, by Lp_Same_Pic_Is_Picture - MathType objects, charts and Word equations are not
 ' pictures, and floating pictures are not in-line shapes. Equation PICTURES are, and are enlarged
 ' with the rest: every character in large print is at the size set.
@@ -36369,7 +36398,8 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     ' --- Step 4b: large print or braille? ---
     ' Box 325 asked "keep or omit images" until 10/18/2026. It asks large print or braille now
     ' (Jerry, issue #37): the answer decides what happens to the book's equations, and BOTH keep
-    ' the pictures - braille drops them later, elsewhere, so the conversion no longer offers to.
+    ' the pictures. Braille Full File Cleanup keeps them too from 11/5/2026 (Duxbury makes a
+    ' transcriber's note from the alt text), so the conversion no longer offers to drop them.
     Sh_GP_String_2 = ""
     DN_Keep_Or_Omit_Images_Form.Show
     If Sh_GP_String_2 <> "LP" And Sh_GP_String_2 <> "BRL" Then
@@ -38387,12 +38417,23 @@ End Function   '*** end of Sh_OMML_Package function ***
 ' so the converter can put that equation in another way. Accepted: math, mrow, mstyle and
 ' semantics (passed through), mi, mn, mo, mtext (the characters listed in Sh_MTEF_Put_Token),
 ' msup, msub, msubsup, mfrac (bevelled and no-line too), msqrt, mroot, mfenced with one
-' argument, menclose (box, top, bottom, left, right, the three strikes, radical), mover and
-' munder as accents (bar, hat, tilde, dot, arrows, primes as superscripts), mtable/mtr/mtd, and
-' brackets ( ) [ ] { } | | written as mo pairs. Refused: mspace, mpadded, mphantom, maction,
-' merror, ms, mmultiscripts, munderover, mlabeledtr, cells that span, mfenced with more than one
-' argument, menclose circle and roundedbox, and every character not listed - each of these came
-' out wrong, or not at all, through MathType's own conversion, or was never tried.
+' argument, menclose (box, top, bottom, left, right, the three strikes, radical, longdiv), mover
+' and munder as accents (bar, hat, tilde, dot, arrows, primes as superscripts), mtable/mtr/mtd,
+' brackets ( ) [ ] { } | | written as mo pairs, mspace (the widths in Sh_MTEF_Space_Codes), and
+' mmultiscripts with scripts before the base only (mprescripts). Refused: mpadded, mphantom,
+' maction, merror, ms, any other mmultiscripts, munderover, mlabeledtr, cells that span, mfenced
+' with more than one argument, menclose circle and roundedbox, and every character not listed -
+' each of these came out wrong, or not at all, through MathType's own conversion, or was never
+' tried.
+'
+' 11/5/2026 (Jerry): Basic Math Pre-Algebra for Dummies sent 503 of its 1,861 equations to Word
+' equations; all 503 are taken now. What was added came from MathType's own output: that book after
+' Convert Equations, and - for what that route loses (mspace, long division) or never meets (two
+' fonts in one equation) - MathType's own MathML import, measured on VistaBuild through a blank
+' MathType equation (MTSetEqnFromLangStr, as MathType's Word commands paste MathML). Two differences
+' from the Convert Equations route are on purpose: an mspace is kept as a MathType space (that route
+' drops it, so "22.82 feet" read "22.82feet"), and a long division keeps its dividend (as a Word
+' equation it is lost, issue #50). tools/compare_mtef.py repeats the comparison over a whole book.
 '
 ' Every helper is pure and every parameter is ByVal; the state of one equation travels in a
 ' Scripting.Dictionary (see Sh_MTEF_Walk). Tested in tests/vba/TestMTEF.bas.
@@ -38421,8 +38462,8 @@ Private Function Sh_MTEF_Not_Handled(ByVal mathml As String) As String
     ' Version: 1.0  Date: 10/20/2026
     '
     ' Why Sh_MTEF_From_MathML gives Empty for this equation - "" when it does not.
-    '   Sh_MTEF_Not_Handled("<m:math xmlns:m=""http://www.w3.org/1998/Math/MathML""><m:mspace/></m:math>")
-    '   ' -> "mspace is not handled"
+    '   Sh_MTEF_Not_Handled("<m:math xmlns:m=""http://www.w3.org/1998/Math/MathML""><m:mphantom/></m:math>")
+    '   ' -> "mphantom is not handled"
 
     Dim st As Object
     Set st = Sh_MTEF_Walk(mathml)
@@ -38435,6 +38476,8 @@ End Function   '*** end of Sh_MTEF_Not_Handled function ***
 
 Private Function Sh_MTEF_Walk(ByVal mathml As String) As Object
     '
+    ' Version: 1.1  Date: 11/5/2026 - "styled" became "styles": an equation can now carry the
+    '                                Euclid fonts as well as bold italic (Jerry, Basic Math)
     ' Version: 1.0  Date: 10/20/2026
     '
     ' Reads the MathML and writes the equation's records, without the preamble or the two ENDs.
@@ -38442,8 +38485,9 @@ Private Function Sh_MTEF_Walk(ByVal mathml As String) As Object
     '   "out"    - the records so far, one character per byte (ChrW(0) to ChrW(255))
     '   "size"   - the size in force: 10 FULL, 11 SUB, 12 SUB2. MathType writes a size record only
     '              when the size changes, so this is remembered from one record to the next
-    '   "styled" - True once the bold italic style record (08 01 03) has been written; MathType
-    '              writes it once per equation, before the first bold italic letter
+    '   "styles" - the font style records written so far, in order, each name followed by a space:
+    '              "B" bold italic Times New Roman (08 01 03), "E1" and "E2" Euclid Math One and
+    '              Two. MathType writes each once per equation, at its first use (Sh_MTEF_Style_Index)
     '   "why"    - "" while all is well; the first reason anything was refused
     ' Nothing only when the Dictionary itself cannot be made.
     '   Sh_MTEF_Walk("<m:math xmlns:m=""...MathML""><m:mn>1</m:mn></m:math>")("out")
@@ -38458,7 +38502,7 @@ Private Function Sh_MTEF_Walk(ByVal mathml As String) As Object
 
     st("out") = ""
     st("size") = 10
-    st("styled") = False
+    st("styles") = ""
     st("why") = ""
 
     Set doc = CreateObject("MSXML2.DOMDocument.6.0")
@@ -38610,7 +38654,7 @@ Private Sub Sh_MTEF_Fail(ByVal st As Object, ByVal why As String)
     ' Version: 1.0  Date: 10/20/2026
     '
     ' Records why the equation cannot be made; the first reason is the one kept.
-    '   Sh_MTEF_Fail st, "mspace is not handled"
+    '   Sh_MTEF_Fail st, "mphantom is not handled"
 
     If st("why") = "" Then st("why") = why
 End Sub   '*** end of Sh_MTEF_Fail sub ***
@@ -38643,26 +38687,31 @@ End Sub   '*** end of Sh_MTEF_Set_Size sub ***
 Private Sub Sh_MTEF_Put_Char(ByVal st As Object, ByVal typeface As Long, ByVal mtCode As Long, _
                              ByVal font8 As Long, ByVal size As Long, ByVal embell As Long)
     '
+    ' Version: 1.1  Date: 11/5/2026 - typefaces -11 and -12, the Euclid fonts, and every font style
+    '                                record through Sh_MTEF_Style_Index (Jerry, Basic Math)
     ' Version: 1.0  Date: 10/20/2026
     '
     ' A CHAR record: 02, options, typeface + 128, the MTCode (Unicode, low byte first), the
     ' character's place in its font when font8 is 0 or more (option 04), and an embellishment -
     ' a bar, hat, prime and so on - when embell is not 0 (option 01: 06 00 embell 00 follows).
-    ' Typefaces: -1 bold italic (through the style record, written once, BEFORE any size record),
-    ' 1 TEXT, 2 FUNCTION, 3 VARIABLE, 4 and 5 lower and upper case Greek, 6 SYMBOL, 7 VECTOR (bold),
+    ' Typefaces: -1 bold italic, -11 Euclid Math One, -12 Euclid Math Two (these three through
+    ' their font records, written once, BEFORE any size record - see Sh_MTEF_Style_Index), 1 TEXT,
+    ' 2 FUNCTION, 3 VARIABLE, 4 and 5 lower and upper case Greek, 6 SYMBOL, 7 VECTOR (bold),
     ' 8 NUMBER, 11 MT Extra, 22 EXPAND (a bracket of a template), 24 SPACE.
     '   Sh_MTEF_Put_Char st, 6, &H2212, &H2D, 10, 0   ' minus -> 02 04 86 12 22 2D
 
-    If typeface = -1 And Not st("styled") Then
-        Sh_MTEF_Add st, 8          ' FONT_STYLE_DEF: font 1 (Times New Roman), bold italic
-        Sh_MTEF_Add st, 1
-        Sh_MTEF_Add st, 3
-        st("styled") = True
-    End If
+    Dim tf As Long
+
+    Select Case typeface
+        Case -1: tf = -Sh_MTEF_Style_Index(st, "B")
+        Case -11: tf = -Sh_MTEF_Style_Index(st, "E1")
+        Case -12: tf = -Sh_MTEF_Style_Index(st, "E2")
+        Case Else: tf = typeface
+    End Select
     Sh_MTEF_Set_Size st, size
     Sh_MTEF_Add st, 2
     Sh_MTEF_Add st, IIf(font8 >= 0, 4, 0) Or IIf(embell <> 0, 1, 0)
-    Sh_MTEF_Add st, typeface + 128
+    Sh_MTEF_Add st, tf + 128
     Sh_MTEF_Add st, mtCode And &HFF&
     Sh_MTEF_Add st, (mtCode And &HFF00&) \ &H100&
     If font8 >= 0 Then Sh_MTEF_Add st, font8
@@ -38673,6 +38722,60 @@ Private Sub Sh_MTEF_Put_Char(ByVal st As Object, ByVal typeface As Long, ByVal m
         Sh_MTEF_Add st, 0
     End If
 End Sub   '*** end of Sh_MTEF_Put_Char sub ***
+
+Private Function Sh_MTEF_Style_Index(ByVal st As Object, ByVal key As String) As Long
+    '
+    ' Version: 1.0  Date: 11/5/2026 - for the Euclid characters of Basic Math (Jerry)
+    '
+    ' The number a character names its font by - 1 for the first font style record written in this
+    ' equation, 2 for the second, and so on (the CHAR's typeface byte is then 128 minus it) -
+    ' writing the record first when key has none yet:
+    '   "B"  bold italic Times New Roman: 08 01 03
+    '   "E1" Euclid Math One, "E2" Euclid Math Two: the encoding (13 "EuclidMath1" 00), the font
+    '        (11, its encoding's number, "Euclid Math One" 00) and its style record (08, the font's
+    '        number, 00 plain). The preamble's own encoding is number 5 and its fonts 1 to 4, so the
+    '        first Euclid encoding here is 6 and its font 5, the second 7 and 6.
+    ' MEASURED 11/5/2026 through MathType's own MathML import on VistaBuild: an equation with bold
+    ' italic and Euclid Math Two, in either order, and with both Euclid fonts - each record where
+    ' its font is first used, and numbered in the order written.
+    '   Sh_MTEF_Style_Index(st, "B")  ->  1, and 08 01 03 written, in an equation with neither yet
+
+    Dim parts() As String, i As Long, euclids As Long, s As String
+
+    parts = Split(Trim$(st("styles")), " ")
+    For i = 0 To UBound(parts)
+        If parts(i) = key Then
+            Sh_MTEF_Style_Index = i + 1
+            Exit Function
+        End If
+        If parts(i) <> "B" Then euclids = euclids + 1
+    Next i
+
+    If key = "B" Then
+        Sh_MTEF_Add st, 8
+        Sh_MTEF_Add st, 1
+        Sh_MTEF_Add st, 3
+    Else
+        s = "EuclidMath" & Right$(key, 1)
+        Sh_MTEF_Add st, &H13
+        For i = 1 To Len(s)
+            Sh_MTEF_Add st, AscW(Mid$(s, i, 1))
+        Next i
+        Sh_MTEF_Add st, 0
+        If key = "E1" Then s = "Euclid Math One" Else s = "Euclid Math Two"
+        Sh_MTEF_Add st, &H11
+        Sh_MTEF_Add st, 6 + euclids
+        For i = 1 To Len(s)
+            Sh_MTEF_Add st, AscW(Mid$(s, i, 1))
+        Next i
+        Sh_MTEF_Add st, 0
+        Sh_MTEF_Add st, 8
+        Sh_MTEF_Add st, 5 + euclids
+        Sh_MTEF_Add st, 0
+    End If
+    st("styles") = st("styles") & key & " "
+    Sh_MTEF_Style_Index = UBound(parts) + 2
+End Function   '*** end of Sh_MTEF_Style_Index function ***
 
 Private Sub Sh_MTEF_Put_Template(ByVal st As Object, ByVal selector As Long, ByVal variation As Long, _
                                  ByVal size As Long)
@@ -38780,12 +38883,14 @@ End Sub   '*** end of Sh_MTEF_Put_Row sub ***
 
 Private Sub Sh_MTEF_Put_Node(ByVal st As Object, ByVal node As Object, ByVal size As Long)
     '
+    ' Version: 1.2  Date: 11/5/2026 - mspace (Sh_MTEF_Put_Space) and mmultiscripts with
+    '                                mprescripts (Sh_MTEF_Put_Prescripts) (Jerry, Basic Math)
     ' Version: 1.1  Date: 10/20/2026 - the one-column-table rule is gone (Jerry, 10/20/2026)
     ' Version: 1.0  Date: 10/20/2026
     '
     ' One MathML element. mrow and mstyle are their contents (mstyle's attributes change nothing
-    ' in MathType's conversion either), semantics its first child. Every other element is a
-    ' template. Anything not listed is refused.
+    ' in MathType's conversion either), semantics its first child, mspace one or two MathType
+    ' spaces. Every other element is a template. Anything not listed is refused.
     '   Sh_MTEF_Put_Node st, <m:msqrt><m:mn>2</m:mn></m:msqrt>, 10
     '   ' -> 03 00 0A 00 00  01 00 [2] 00  0B 01 01  00
 
@@ -38804,7 +38909,7 @@ Private Sub Sh_MTEF_Put_Node(ByVal st As Object, ByVal node As Object, ByVal siz
             Sh_MTEF_Put_Token st, node, size, 0
             Exit Sub
         Case "mrow", "mstyle", "semantics", "msup", "msub", "msubsup", "mfrac", "msqrt", "mroot", _
-             "menclose", "mfenced", "mover", "munder", "mtable"
+             "menclose", "mfenced", "mover", "munder", "mtable", "mspace", "mmultiscripts"
         Case Else
             Sh_MTEF_Fail st, tag & " is not handled"
             Exit Sub
@@ -38862,8 +38967,109 @@ Private Sub Sh_MTEF_Put_Node(ByVal st As Object, ByVal node As Object, ByVal siz
             Sh_MTEF_Put_Accent st, node, kids, size
         Case "mtable"
             Sh_MTEF_Put_Table st, node, kids, size
+        Case "mspace"
+            Sh_MTEF_Put_Space st, node, kids, size
+        Case "mmultiscripts"
+            Sh_MTEF_Put_Prescripts st, node, kids, size
     End Select
 End Sub   '*** end of Sh_MTEF_Put_Node sub ***
+
+Private Function Sh_MTEF_Space_Codes(ByVal spaceWidth As String) As String
+    '
+    ' Version: 1.0  Date: 11/5/2026 - for the spaced units of Basic Math, "22.82 feet" (Jerry)
+    '
+    ' An mspace's width as MathType's own MathML import writes it: the low bytes, two hex digits
+    ' each, of one or two of its SPACE characters EF01 to EF07 - "" for a width not measured,
+    ' which refuses the equation. spaceWidth is the attribute as written, lower case; "" is none.
+    ' MEASURED 11/5/2026 on VistaBuild through MathType's own MathML import (a blank MathType
+    ' equation given the MathML): EF01 1-point, EF07 thin, EF03 thick, EF04 em-third, EF05 em,
+    ' EF06 two em. Basic Math uses thickmathspace (517 times) and 0.25em (302), both EF03.
+    ' A width in points or pixels depends on the font size, so it is not taken.
+    '   Sh_MTEF_Space_Codes("thickmathspace")  ->  "03"
+    '   Sh_MTEF_Space_Codes("0.5em")           ->  "0403"
+
+    Select Case spaceWidth
+        Case "", "veryverythinmathspace": Sh_MTEF_Space_Codes = "01"
+        Case "verythinmathspace", "thinmathspace", "0.1667em": Sh_MTEF_Space_Codes = "07"
+        Case "mediummathspace", "thickmathspace", "0.2222em", "0.25em", "0.2778em"
+            Sh_MTEF_Space_Codes = "03"
+        Case "verythickmathspace", "0.3333em": Sh_MTEF_Space_Codes = "04"
+        Case "veryverythickmathspace": Sh_MTEF_Space_Codes = "0407"
+        Case "0.5em": Sh_MTEF_Space_Codes = "0403"
+        Case "1em": Sh_MTEF_Space_Codes = "05"
+        Case "2em": Sh_MTEF_Space_Codes = "06"
+    End Select
+End Function   '*** end of Sh_MTEF_Space_Codes function ***
+
+Private Sub Sh_MTEF_Put_Space(ByVal st As Object, ByVal node As Object, ByVal kids As Collection, _
+                              ByVal size As Long)
+    '
+    ' Version: 1.0  Date: 11/5/2026 - Jerry, Basic Math: "22.82 feet" kept its space
+    '
+    ' mspace as one or two of MathType's own SPACE characters (Sh_MTEF_Space_Codes). MathType's
+    ' Convert Equations route drops every mspace - Word's MML2OMML.XSL leaves it out - so there
+    ' "22.82 feet" read "22.82feet"; here the space stays. A width not measured refuses the
+    ' equation.
+    '   Sh_MTEF_Put_Space st, <m:mspace width="thickmathspace"/>, kids, 10   ' -> 02 00 98 03 EF
+
+    Dim w As String, codes As String, i As Long
+
+    w = LCase$(Sh_MTEF_Collapse(node.getAttribute("width") & ""))
+    codes = Sh_MTEF_Space_Codes(w)
+    ' An mspace carrying linebreak is a line break, not a space (review, 11/5/2026): refused, as
+    ' every mspace was before. Basic Math has none.
+    If Len(node.getAttribute("linebreak") & "") > 0 Then codes = ""
+    If kids.count > 0 Or codes = "" Then
+        Sh_MTEF_Fail st, "mspace width=""" & w & """ is not handled"
+        Exit Sub
+    End If
+    For i = 1 To Len(codes) Step 2
+        Sh_MTEF_Put_Char st, 24, &HEF00& + CLng("&H" & Mid$(codes, i, 2)), -1, size, 0
+    Next i
+End Sub   '*** end of Sh_MTEF_Put_Space sub ***
+
+Private Sub Sh_MTEF_Put_Prescripts(ByVal st As Object, ByVal node As Object, ByVal kids As Collection, _
+                                   ByVal size As Long)
+    '
+    ' Version: 1.0  Date: 11/5/2026 - the borrowing marks of Basic Math's subtractions (Jerry)
+    '
+    ' mmultiscripts with scripts BEFORE the base only - base, mprescripts, then a subscript and
+    ' perhaps a superscript - as MathType's own conversion wrote all 7 in Basic Math: template 29
+    ' variation 1, the subscript slot then the superscript slot one size down (one left out, or
+    ' written <none/>, an empty slot 01 00 00), then the base after the template. Any other
+    ' mmultiscripts is refused.
+    '   Sh_MTEF_Put_Prescripts st, <m:mmultiscripts><m:mn>8</m:mn><m:mprescripts/><m:mn>1</m:mn>..., kids, 10
+    '   ' -> 03 00 1D 01 00  0B 01 00 [1] 00  01 00 00  00  0A [8]
+
+    Dim i As Long, ok As Boolean, scriptSize As Long
+
+    ok = (kids.count = 3 Or kids.count = 4)
+    If ok Then ok = (kids(2).baseName = "mprescripts")
+    If ok Then ok = (kids(1).baseName <> "mprescripts" And kids(1).baseName <> "none")
+    If ok Then
+        For i = 3 To kids.count
+            If kids(i).baseName = "mprescripts" Then ok = False
+        Next i
+    End If
+    If Not ok Then
+        Sh_MTEF_Fail st, "mmultiscripts other than base, mprescripts and one or two scripts is not handled"
+        Exit Sub
+    End If
+
+    scriptSize = Sh_MTEF_Script_Size(size)
+    Sh_MTEF_Put_Template st, 29, 1, size
+    For i = 3 To 4
+        If i > kids.count Then
+            Sh_MTEF_Put_Line st, New Collection, 1, 0, scriptSize
+        ElseIf kids(i).baseName = "none" Then
+            Sh_MTEF_Put_Line st, New Collection, 1, 0, scriptSize
+        Else
+            Sh_MTEF_Put_Line st, Sh_MTEF_One(kids(i)), 1, 1, scriptSize
+        End If
+    Next i
+    Sh_MTEF_Add st, 0
+    Sh_MTEF_Put_Node st, kids(1), size
+End Sub   '*** end of Sh_MTEF_Put_Prescripts sub ***
 
 Private Function Sh_MTEF_Script_Size(ByVal size As Long) As Long
     '
@@ -39068,14 +39274,21 @@ End Sub   '*** end of Sh_MTEF_Put_Root sub ***
 Private Sub Sh_MTEF_Put_Enclose(ByVal st As Object, ByVal node As Object, ByVal kids As Collection, _
                                 ByVal size As Long)
     '
+    ' Version: 1.1  Date: 11/5/2026 - longdiv, template 26 (Jerry, Basic Math; issue #50)
     ' Version: 1.0  Date: 10/20/2026
     '
     ' menclose, one notation only, as MathType's conversion makes it: box 37/30 (all four sides),
     ' top 13 (overbar), bottom 12 (underbar), left and right 4 with one bar, updiagonalstrike
     ' 36/2, downdiagonalstrike 36/4, horizontalstrike 36/1, radical a square root. circle and
-    ' roundedbox come out as a square box there, longdiv and actuarial not at all: refused.
+    ' roundedbox come out as a square box there, actuarial not at all: refused.
+    ' longdiv is MathType's long division, template 26 variation 0: the dividend, then an absent
+    ' slot (no quotient); the divisor is whatever comes before the menclose. MEASURED 11/5/2026
+    ' through MathType's own MathML import on VistaBuild - its Convert Equations route has nothing
+    ' to copy, because as a Word equation the dividend is lost (issue #50).
     '   Sh_MTEF_Put_Enclose st, <m:menclose notation="box">...</m:menclose>, kids, 10
     '   ' -> 03 00 25 1E 00  01 00 [...] 00  00
+    '   Sh_MTEF_Put_Enclose st, <m:menclose notation="longdiv"><m:mn>860</m:mn></m:menclose>, kids, 10
+    '   ' -> 03 00 1A 00 00  01 00 [860] 00  01 01  00
 
     Dim nt As String, sel As Long, variation As Long
 
@@ -39085,6 +39298,12 @@ Private Sub Sh_MTEF_Put_Enclose(ByVal st As Object, ByVal node As Object, ByVal 
             Sh_MTEF_Put_Template st, 10, 0, size
             Sh_MTEF_Put_Line st, kids, 1, kids.count, size
             Sh_MTEF_Put_Line st, Nothing, 0, 0, Sh_MTEF_Script_Size(size)
+            Sh_MTEF_Add st, 0
+            Exit Sub
+        Case "longdiv"
+            Sh_MTEF_Put_Template st, 26, 0, size
+            Sh_MTEF_Put_Line st, kids, 1, kids.count, size
+            Sh_MTEF_Put_Line st, Nothing, 0, 0, size
             Sh_MTEF_Add st, 0
             Exit Sub
         Case "box": sel = 37: variation = 30
@@ -39300,6 +39519,8 @@ End Sub   '*** end of Sh_MTEF_Put_Table sub ***
 
 Private Function Sh_MTEF_Symbol_Place(ByVal code As Long) As Long
     '
+    ' Version: 1.1  Date: 11/5/2026 - aleph, U+2135 on C0, as MathType wrote it in Basic Math's mi
+    '                                (Jerry); Sh_MTEF_Put_Token takes it in an mi only
     ' Version: 1.0  Date: 10/20/2026
     '
     ' An operator's place in the Symbol font, as MathType's conversion writes it (SYMBOL, typeface
@@ -39350,6 +39571,7 @@ Private Function Sh_MTEF_Symbol_Place(ByVal code As Long) As Long
         Case &H2033: Sh_MTEF_Symbol_Place = &HB2       ' double prime
         Case &H2205: Sh_MTEF_Symbol_Place = &HC6       ' empty set
         Case &H2044: Sh_MTEF_Symbol_Place = &HA4       ' fraction slash
+        Case &H2135: Sh_MTEF_Symbol_Place = &HC0       ' aleph
         Case Else: Sh_MTEF_Symbol_Place = -1
     End Select
 End Function   '*** end of Sh_MTEF_Symbol_Place function ***
@@ -39374,6 +39596,27 @@ Private Function Sh_MTEF_Extra_Place(ByVal code As Long) As Long
         Case Else: Sh_MTEF_Extra_Place = -1
     End Select
 End Function   '*** end of Sh_MTEF_Extra_Place function ***
+
+Private Function Sh_MTEF_Euclid_Place(ByVal code As Long) As Long
+    '
+    ' Version: 1.0  Date: 11/5/2026 - Basic Math's number sets and "asymptotic to" (Jerry)
+    '
+    ' A character MathType writes on one of the Euclid fonts: its place in the font, plus &H100
+    ' for Euclid Math One or &H200 for Euclid Math Two; -1 for any other character. Every one as
+    ' MathType's conversion wrote it in Basic Math (ENCODING_DEF, FONT_DEF and FONT_STYLE_DEF,
+    ' then the character - see Sh_MTEF_Style_Index).
+    '   Sh_MTEF_Euclid_Place(&H211D)  ->  &H252   (double-struck R, on Euclid Math Two's "R")
+
+    Select Case code
+        Case &H224D: Sh_MTEF_Euclid_Place = &H1A9      ' asymptotic to (Euclid Math One)
+        Case &H2115: Sh_MTEF_Euclid_Place = &H24E      ' natural numbers N (Euclid Math Two)
+        Case &H2124: Sh_MTEF_Euclid_Place = &H25A      ' integers Z
+        Case &H211A: Sh_MTEF_Euclid_Place = &H251      ' rational numbers Q
+        Case &H211D: Sh_MTEF_Euclid_Place = &H252      ' real numbers R
+        Case &H2102: Sh_MTEF_Euclid_Place = &H243      ' complex numbers C
+        Case Else: Sh_MTEF_Euclid_Place = -1
+    End Select
+End Function   '*** end of Sh_MTEF_Euclid_Place function ***
 
 Private Function Sh_MTEF_Greek_Place(ByVal code As Long) As Long
     '
@@ -39404,6 +39647,13 @@ End Function   '*** end of Sh_MTEF_Greek_Place function ***
 Private Sub Sh_MTEF_Put_Token(ByVal st As Object, ByVal node As Object, ByVal size As Long, _
                               ByVal embell As Long)
     '
+    ' Version: 1.2  Date: 11/5/2026 - what Basic Math sent to Word equations (Jerry): in mi the
+    '                                no-break space, a normal mi's digits, punctuation, = + and
+    '                                dashes and spaces, % and $, infinity and aleph, and the
+    '                                Euclid characters; in mn the ellipsis; in mo the no-break
+    '                                space, U+2019 and "asymptotic to". Each as MathType's own
+    '                                conversion wrote it there (tools/compare_mtef.py: 243 of the
+    '                                503 byte for byte, the rest differing only on purpose)
     ' Version: 1.1  Date: 10/20/2026 - letters directly in a cell of a one-column table are
     '                                written like every other letter, bold italic in this book
     '                                (Jerry, 10/20/2026). MathType's own conversion makes them
@@ -39415,14 +39665,22 @@ Private Sub Sh_MTEF_Put_Token(ByVal st As Object, ByVal node As Object, ByVal si
     ' with embell (see Sh_MTEF_Put_Char) on its one character. Empty: nothing at all, as there.
     '   mi     letters by mathvariant: bold-italic bold italic (the style record), italic VARIABLE,
     '          bold VECTOR, normal TEXT; none: VARIABLE for one letter, TEXT for more ("sin").
-    '          Greek on the Symbol font (TEXT when normal); digits NUMBER; a space a no-break
-    '          space; the tatweel (U+0640) Section D uses as a blank, VARIABLE - all four in the
-    '          target are, inside tables and out, so that is MathType's handling of the character
-    '   mn     digits NUMBER; "." "," FUNCTION; letters and a space TEXT; thin space SPACE; minus
+    '          Greek on the Symbol font (TEXT when normal); digits NUMBER (none, bold-italic and
+    '          normal); a space or no-break space a no-break space TEXT; the tatweel (U+0640)
+    '          Section D uses as a blank, VARIABLE - all four in the target are, inside tables
+    '          and out, so that is MathType's handling of the character. With no mathvariant:
+    '          % and $ FUNCTION, infinity and aleph on the Symbol font, N Z Q R C on Euclid Math
+    '          Two (Sh_MTEF_Euclid_Place). Normal: $ TEXT, , . : ; ? ! & { } FUNCTION, = + SYMBOL,
+    '          hyphen and en dash the minus, em and hair spaces EF05 and EF0A.
+    '          (A no-break space or a letter directly in a cell of a one-column table MathType's
+    '          conversion makes FUNCTION or VARIABLE; here it stays as the book has it, as above.)
+    '   mn     digits NUMBER; "." "," FUNCTION; letters and a space TEXT; thin space SPACE; minus;
+    '          the ellipsis on the Symbol font
     '   mo     SYMBOL and MT Extra characters on their fonts (Sh_MTEF_Symbol_Place,
-    '          Sh_MTEF_Extra_Place); hyphen and dashes as the minus; prime as "'" and U+2217 as "*"
-    '          in FUNCTION; the rest of the listed punctuation FUNCTION; letters only ("lim",
-    '          "mod") VARIABLE; the invisible U+2061 to U+2063 nothing
+    '          Sh_MTEF_Extra_Place; aleph is taken in mi only); hyphen and dashes as the minus;
+    '          prime as "'" and U+2217 as "*" in FUNCTION; the no-break space, U+2019 and the rest
+    '          of the listed punctuation FUNCTION; "asymptotic to" on Euclid Math One; letters only
+    '          ("lim", "mod") VARIABLE; the invisible U+2061 to U+2063 nothing
     '   mtext  TEXT: printable ASCII, U+00A1 to U+00FF, Greek letters, quotes, ellipsis, bullet,
     '          dashes, euro; a space or no-break space U+00A0; minus "-"; thin, em and hair spaces
     '          as MathType's own spaces EF02, EF05 and EF0A
@@ -39473,7 +39731,7 @@ Private Sub Sh_MTEF_Put_Token(ByVal st As Object, ByVal node As Object, ByVal si
         Select Case tag
             Case "mi"
                 If code >= &H30 And code <= &H39 Then
-                    If v = "" Or v = "bold-italic" Then tf = 8
+                    If v = "" Or v = "bold-italic" Or v = "normal" Then tf = 8
                 ElseIf isLetter Then
                     Select Case v
                         Case "bold-italic": tf = -1
@@ -39483,7 +39741,7 @@ Private Sub Sh_MTEF_Put_Token(ByVal st As Object, ByVal node As Object, ByVal si
                         Case Else
                             If Len(txt) = 1 Then tf = 3 Else tf = 1
                     End Select
-                ElseIf code = &H20 Then
+                ElseIf code = &H20 Or code = &HA0 Then
                     tf = 1: code = &HA0
                 ElseIf code = &H640 Then
                     tf = 3
@@ -39493,6 +39751,27 @@ Private Sub Sh_MTEF_Put_Token(ByVal st As Object, ByVal node As Object, ByVal si
                     ElseIf v <> "italic" Then
                         f8 = Sh_MTEF_Greek_Place(code)
                         If code >= &H391 And code <= &H3A9 Then tf = 5 Else tf = 4
+                    End If
+                ElseIf v = "" And (ch = "%" Or ch = "$") Then
+                    tf = 2
+                ElseIf v = "normal" And ch = "$" Then
+                    tf = 1
+                ElseIf v = "" And (code = &H221E Or code = &H2135) Then
+                    tf = 6: f8 = Sh_MTEF_Symbol_Place(code)
+                ElseIf v = "" And Sh_MTEF_Euclid_Place(code) >= 0 Then
+                    tf = -10 - Sh_MTEF_Euclid_Place(code) \ &H100
+                    f8 = Sh_MTEF_Euclid_Place(code) And &HFF&
+                ElseIf v = "normal" Then
+                    If InStr(1, ",.:;?!&{}", ch, vbBinaryCompare) > 0 Then
+                        tf = 2
+                    ElseIf code = &H3D Or code = &H2B Then
+                        tf = 6: f8 = code
+                    ElseIf code = &H2D Or code = &H2013 Then
+                        tf = 6: code = &H2212: f8 = &H2D
+                    ElseIf code = &H2003 Then
+                        tf = 24: code = &HEF05&
+                    ElseIf code = &H200A Then
+                        tf = 24: code = &HEF0A&
                     End If
                 End If
 
@@ -39507,6 +39786,8 @@ Private Sub Sh_MTEF_Put_Token(ByVal st As Object, ByVal node As Object, ByVal si
                     tf = 6: f8 = &H2D
                 ElseIf code = &H20 Then
                     tf = 1: code = &HA0
+                ElseIf code = &H2026 Then
+                    tf = 6: f8 = &HBC
                 ElseIf isLetter Then
                     tf = 1
                 End If
@@ -39516,7 +39797,7 @@ Private Sub Sh_MTEF_Put_Token(ByVal st As Object, ByVal node As Object, ByVal si
                     tf = 3
                 ElseIf code >= &H2061 And code <= &H2063 Then
                     tf = -3
-                ElseIf Sh_MTEF_Symbol_Place(code) >= 0 Then
+                ElseIf Sh_MTEF_Symbol_Place(code) >= 0 And code <> &H2135 Then
                     tf = 6: f8 = Sh_MTEF_Symbol_Place(code)
                 ElseIf Sh_MTEF_Extra_Place(code) >= 0 Then
                     tf = 11: f8 = Sh_MTEF_Extra_Place(code)
@@ -39526,6 +39807,10 @@ Private Sub Sh_MTEF_Put_Token(ByVal st As Object, ByVal node As Object, ByVal si
                     tf = 2: code = &H27
                 ElseIf code = &H2217 Then
                     tf = 2: code = &H2A
+                ElseIf code = &HA0 Or code = &H2019 Then
+                    tf = 2
+                ElseIf code = &H224D Then
+                    tf = -11: f8 = Sh_MTEF_Euclid_Place(code) And &HFF&
                 ElseIf InStr(1, ".,()[]{}|_/:~!%'*#&$@;?""\" & ChrW(&HB7) & ChrW(&H2022), ch, vbBinaryCompare) > 0 Then
                     tf = 2
                 End If

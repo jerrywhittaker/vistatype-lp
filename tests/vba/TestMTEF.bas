@@ -22,6 +22,11 @@ Attribute VB_Name = "TestMTEF"
 ' MathML put in as Word equations. Only the records after the 193-byte preamble are compared -
 ' the preamble is checked once.
 '
+' Version: 1.3  Date: 11/5/2026 - what Basic Math sent to Word equations (Jerry): no-break spaces,
+'                                mspace, normal mi text, % and $, infinity and aleph, the Euclid
+'                                fonts, borrowing marks and long division (issue #50). Expected
+'                                bytes from MathType: the book after its Convert Equations, and its
+'                                own MathML import where that route loses the thing or never meets it
 ' Version: 1.2  Date: 10/20/2026 - Step 3's pure pieces: the Flat-OPC package a MathType equation
 '                                goes in with, and the picture sizes read from a file's bytes
 ' Version: 1.1  Date: 10/20/2026 - letters in a one-column table stay bold italic (Jerry,
@@ -68,6 +73,210 @@ Private Function FromBase64(ByVal s As String) As Variant
     el.Text = s
     FromBase64 = el.nodeTypedValue
 End Function
+
+Private Sub BasicMathTests(ByVal Suite As TestSuite)
+    ' 11/5/2026: in subs of their own, so TestMTEF_Suite stays under VBA's size limit for one
+    ' procedure ("Procedure too large" is a compile error, and so a hang headlessly).
+    BasicMathTests1 Suite
+    BasicMathTests2 Suite
+End Sub
+
+Private Sub BasicMathTests1(ByVal Suite As TestSuite)
+    ' No-break spaces, mspace, normal mi text, % $, infinity, aleph, U+2019.
+    Dim x As String
+
+    ' --- 11/5/2026 (Jerry): what Basic Math Pre-Algebra for Dummies sent to Word equations. The
+    ' book equations below are as the book has them, ids left out; their bytes are MathType's own
+    ' after Convert Equations, COLOR records out. tools/compare_mtef.py makes the same comparison
+    ' over the whole book.
+    With Suite.Test("a no-break space is TEXT in an mi and FUNCTION in an mo (Basic Math)")
+        x = "<m:math " & MML & ">" & "<m:mrow><m:mo>&#215;</m:mo><m:mi mathvariant=""normal"">&#160;</m:mi><m:mn>0.01</m:mn>" & _
+            "</m:mrow>" & "</m:math>"
+        .IsEqual Body(Sh_MTEF_From_MathML(x)), "020486D700B4020081A00002008830000200822E00020088300002008831000000"
+        .IsEqual Sh_MTEF_Not_Handled(x), ""
+        x = "<m:math " & MML & ">" & "<m:mrow><m:mn>5</m:mn><m:mo>&#160;</m:mo><m:mo>&#215;</m:mo><m:mn>2</m:mn></m:mrow>" & "</m:math>"
+        .IsEqual Body(Sh_MTEF_From_MathML(x)), "0200883500020082A000020486D700B402008832000000"
+        .IsEqual Sh_MTEF_Not_Handled(x), ""
+    End With
+    With Suite.Test("an mspace is a MathType space: thick and 0.25em are EF03, 1em EF05, 0.5em two")
+        ' MathType's own MathML import, measured on VistaBuild 11/5/2026 (its Convert Equations
+        ' route drops every mspace, so there is nothing to copy from that).
+        x = "<m:math " & MML & ">" & "<m:mn>1</m:mn><m:mspace width=""thickmathspace""/><m:mn>2</m:mn>" & "</m:math>"
+        .IsEqual Body(Sh_MTEF_From_MathML(x)), "020088310002009803EF02008832000000"
+        .IsEqual Sh_MTEF_Not_Handled(x), ""
+        x = "<m:math " & MML & ">" & "<m:mn>1</m:mn><m:mspace width=""0.25em""/><m:mn>2</m:mn>" & "</m:math>"
+        .IsEqual Body(Sh_MTEF_From_MathML(x)), "020088310002009803EF02008832000000"
+        .IsEqual Sh_MTEF_Not_Handled(x), ""
+        x = "<m:math " & MML & ">" & "<m:mn>1</m:mn><m:mspace width=""1em""/><m:mn>2</m:mn>" & "</m:math>"
+        .IsEqual Body(Sh_MTEF_From_MathML(x)), "020088310002009805EF02008832000000"
+        .IsEqual Sh_MTEF_Not_Handled(x), ""
+        x = "<m:math " & MML & ">" & "<m:mn>1</m:mn><m:mspace width=""0.5em""/><m:mn>2</m:mn>" & "</m:math>"
+        .IsEqual Body(Sh_MTEF_From_MathML(x)), "020088310002009804EF02009803EF02008832000000"
+        .IsEqual Sh_MTEF_Not_Handled(x), ""
+    End With
+    With Suite.Test("22.82 feet keeps its space (Jerry, 11/5/2026)")
+        ' MathType's own MathML import; through Convert Equations it read 22.82feet.
+        x = "<m:math " & MML & ">" & "<m:mn>22.82</m:mn><m:mspace width=""thickmathspace""/><m:mi mathvariant=""normal"">feet<" & _
+            "/m:mi>" & "</m:math>"
+        .IsEqual Body(Sh_MTEF_From_MathML(x)), "020088320002008832000200822E000200883800020088320002009803EF020081660002008165000200" & _
+            "81650002008174000000"
+        .IsEqual Sh_MTEF_Not_Handled(x), ""
+    End With
+    With Suite.Test("a normal mi is typed as MathType does: letters TEXT, + and = SYMBOL, ? FUNCTION")
+        x = "<m:math " & MML & ">" & "<m:mrow><m:mi mathvariant=""normal"">Bobo&#160;+&#160;Nunu&#160;=&#160;?</m:mi></m:mro" & _
+            "w>" & "</m:math>"
+        .IsEqual Body(Sh_MTEF_From_MathML(x)), "02008142000200816F0002008162000200816F00020081A0000204862B002B020081A0000200814E0002" & _
+            "008175000200816E000200817500020081A0000204863D003D020081A0000200823F000000"
+        .IsEqual Sh_MTEF_Not_Handled(x), ""
+    End With
+    With Suite.Test("digits and commas in a normal mi, and an ellipsis in an mn (Basic Math)")
+        x = "<m:math " & MML & ">" & "<m:mrow><m:mi mathvariant=""normal"">1,&#160;10,&#160;100,&#160;1,000,&#160;10,000,&#1" & _
+            "60;100,000,&#160;1,000,000,&#160;</m:mi><m:mn>&#8230;</m:mn></m:mrow>" & "</m:math>"
+        .IsEqual Body(Sh_MTEF_From_MathML(x)), "02008831000200822C00020081A000020088310002008830000200822C00020081A00002008831000200" & _
+            "88300002008830000200822C00020081A00002008831000200822C000200883000020088300002008830" & _
+            "000200822C00020081A000020088310002008830000200822C0002008830000200883000020088300002" & _
+            "00822C00020081A0000200883100020088300002008830000200822C0002008830000200883000020088" & _
+            "30000200822C00020081A00002008831000200822C000200883000020088300002008830000200822C00" & _
+            "0200883000020088300002008830000200822C00020081A0000204862620BC0000"
+        .IsEqual Sh_MTEF_Not_Handled(x), ""
+    End With
+    With Suite.Test("an en dash in a normal mi is the minus")
+        x = "<m:math " & MML & ">" & "<m:mi mathvariant=""normal"">&#8211;</m:mi>" & "</m:math>"
+        .IsEqual Body(Sh_MTEF_From_MathML(x)), "02048612222D0000"
+        .IsEqual Sh_MTEF_Not_Handled(x), ""
+    End With
+    With Suite.Test("em spaces in a normal mi are MathType's em space EF05")
+        x = "<m:math " & MML & ">" & "<m:mrow><m:mtable><m:mtr><m:mtd><m:mrow><m:mn>34.8</m:mn><m:mi mathvariant=""normal"">" & _
+            "&#8195;</m:mi><m:mi mathvariant=""normal"">&#8195;</m:mi><m:mi mathvariant=""normal"">&#" & _
+            "8195;</m:mi><m:mi mathvariant=""normal"">&#8195;</m:mi><m:mi mathvariant=""normal"">&#81" & _
+            "95;</m:mi><m:mi mathvariant=""normal"">&#8195;</m:mi><m:mi mathvariant=""normal"">&#8195" & _
+            ";</m:mi><m:mi mathvariant=""normal"">&#8195;</m:mi></m:mrow></m:mtd><m:mtd><m:mrow><m:" & _
+            "mn>34.80</m:mn><m:mi mathvariant=""normal"">&#8195;</m:mi><m:mi mathvariant=""normal"">&" & _
+            "#8195;</m:mi><m:mi mathvariant=""normal"">&#8195;</m:mi><m:mi mathvariant=""normal"">&#8" & _
+            "195;</m:mi><m:mi mathvariant=""normal"">&#8195;</m:mi><m:mi mathvariant=""normal"">&#819" & _
+            "5;</m:mi><m:mi mathvariant=""normal"">&#8195;</m:mi><m:mi mathvariant=""normal"">&#8195;" & _
+            "</m:mi></m:mrow></m:mtd><m:mtd><m:mrow><m:mn>34.8000</m:mn></m:mrow></m:mtd></m:mtr>" & _
+            "</m:mtable></m:mrow>" & "</m:math>"
+        .IsEqual Body(Sh_MTEF_From_MathML(x)), "0500010101010300000100020088330002008834000200822E00020088380002009805EF02009805EF02" & _
+            "009805EF02009805EF02009805EF02009805EF02009805EF02009805EF00010002008833000200883400" & _
+            "0200822E000200883800020088300002009805EF02009805EF02009805EF02009805EF02009805EF0200" & _
+            "9805EF02009805EF02009805EF000100020088330002008834000200822E000200883800020088300002" & _
+            "00883000020088300000000000"
+        .IsEqual Sh_MTEF_Not_Handled(x), ""
+    End With
+    With Suite.Test("% and $ in an mi are FUNCTION")
+        x = "<m:math " & MML & ">" & "<m:mrow><m:mn>4</m:mn><m:mi>&#37;</m:mi><m:mo>=</m:mo><m:mn>0.04</m:mn></m:mrow>" & "</m:math>"
+        .IsEqual Body(Sh_MTEF_From_MathML(x)), "020088340002008225000204863D003D02008830000200822E00020088300002008834000000"
+        .IsEqual Sh_MTEF_Not_Handled(x), ""
+        x = "<m:math " & MML & ">" & "<m:mrow><m:mi>&#36;</m:mi><m:mfrac><m:mn>5</m:mn><m:mn>2</m:mn></m:mfrac></m:mrow>" & "</m:math>"
+        .IsEqual Body(Sh_MTEF_From_MathML(x)), "020082240003000B000001000200883500000100020088320000000000"
+        .IsEqual Sh_MTEF_Not_Handled(x), ""
+    End With
+    With Suite.Test("infinity and aleph in an mi are on the Symbol font")
+        x = "<m:math " & MML & ">" & "<m:mi>&#8734;</m:mi>" & "</m:math>"
+        .IsEqual Body(Sh_MTEF_From_MathML(x)), "0204861E22A50000"
+        .IsEqual Sh_MTEF_Not_Handled(x), ""
+        x = "<m:math " & MML & ">" & "<m:mi>&#8501;</m:mi>" & "</m:math>"
+        .IsEqual Body(Sh_MTEF_From_MathML(x)), "0204863521C00000"
+        .IsEqual Sh_MTEF_Not_Handled(x), ""
+    End With
+    With Suite.Test("U+2019 in an mo is FUNCTION")
+        x = "<m:math " & MML & ">" & "<m:mrow><m:mi mathvariant=""normal"">This&#160;year</m:mi><m:mo>&#8217;</m:mo><m:mi ma" & _
+            "thvariant=""normal"">s&#160;salary</m:mi><m:mo>=</m:mo><m:mi>&#36;</m:mi><m:mn>42</m:m" & _
+            "n><m:mo>,</m:mo><m:mn>000</m:mn></m:mrow>" & "</m:math>"
+        .IsEqual Body(Sh_MTEF_From_MathML(x)), "0200815400020081680002008169000200817300020081A0000200817900020081650002008161000200" & _
+            "81720002008219200200817300020081A000020081730002008161000200816C00020081610002008172" & _
+            "0002008179000204863D003D0200822400020088340002008832000200822C0002008830000200883000" & _
+            "02008830000000"
+        .IsEqual Sh_MTEF_Not_Handled(x), ""
+    End With
+End Sub
+
+Private Sub BasicMathTests2(ByVal Suite As TestSuite)
+    ' The Euclid fonts, borrowing marks, long division (issue #50), and what is still refused.
+    Dim x As String
+
+    With Suite.Test("asymptotic to is on Euclid Math One, N Z Q R C on Euclid Math Two")
+        ' Each brings its encoding, font and style records with it, as MathType wrote them.
+        x = "<m:math " & MML & ">" & "<m:mo>&#8781;</m:mo>" & "</m:math>"
+        .IsEqual Body(Sh_MTEF_From_MathML(x)), "134575636C69644D617468310011064575636C6964204D617468204F6E650008050002047F4D22A90000"
+        .IsEqual Sh_MTEF_Not_Handled(x), ""
+        x = "<m:math " & MML & ">" & "<m:mi>&#8469;</m:mi>" & "</m:math>"
+        .IsEqual Body(Sh_MTEF_From_MathML(x)), "134575636C69644D617468320011064575636C6964204D6174682054776F0008050002047F15214E0000"
+        .IsEqual Sh_MTEF_Not_Handled(x), ""
+        x = "<m:math " & MML & ">" & "<m:mi>&#8484;</m:mi>" & "</m:math>"
+        .IsEqual Body(Sh_MTEF_From_MathML(x)), "134575636C69644D617468320011064575636C6964204D6174682054776F0008050002047F24215A0000"
+        .IsEqual Sh_MTEF_Not_Handled(x), ""
+        x = "<m:math " & MML & ">" & "<m:mi>&#8474;</m:mi>" & "</m:math>"
+        .IsEqual Body(Sh_MTEF_From_MathML(x)), "134575636C69644D617468320011064575636C6964204D6174682054776F0008050002047F1A21510000"
+        .IsEqual Sh_MTEF_Not_Handled(x), ""
+        x = "<m:math " & MML & ">" & "<m:mi>&#8477;</m:mi>" & "</m:math>"
+        .IsEqual Body(Sh_MTEF_From_MathML(x)), "134575636C69644D617468320011064575636C6964204D6174682054776F0008050002047F1D21520000"
+        .IsEqual Sh_MTEF_Not_Handled(x), ""
+        x = "<m:math " & MML & ">" & "<m:mi>&#8450;</m:mi>" & "</m:math>"
+        .IsEqual Body(Sh_MTEF_From_MathML(x)), "134575636C69644D617468320011064575636C6964204D6174682054776F0008050002047F0221430000"
+        .IsEqual Sh_MTEF_Not_Handled(x), ""
+    End With
+    With Suite.Test("bold italic and the Euclid fonts are numbered in the order written")
+        ' MathType's own MathML import, measured on VistaBuild 11/5/2026: no equation in Basic Math
+        ' has both, so these come from MathType itself, not from that book.
+        x = "<m:math " & MML & ">" & "<m:mi mathvariant=""bold-italic"">x</m:mi><m:mo>&#x2208;</m:mo><m:mi>&#x211D;</m:mi>" & "</m:math>"
+        .IsEqual Body(Sh_MTEF_From_MathML(x)), "08010302007F78000204860822CE134575636C69644D617468320011064575636C6964204D6174682054" & _
+            "776F0008050002047E1D21520000"
+        .IsEqual Sh_MTEF_Not_Handled(x), ""
+        x = "<m:math " & MML & ">" & "<m:mi>&#x2115;</m:mi><m:mo>,</m:mo><m:mi mathvariant=""bold-italic"">x</m:mi>" & "</m:math>"
+        .IsEqual Body(Sh_MTEF_From_MathML(x)), "134575636C69644D617468320011064575636C6964204D6174682054776F0008050002047F15214E0200" & _
+            "822C0008010302007E78000000"
+        .IsEqual Sh_MTEF_Not_Handled(x), ""
+        x = "<m:math " & MML & ">" & "<m:mi mathvariant=""bold-italic"">x</m:mi><m:mo>&#x2208;</m:mo><m:mi>&#x2124;</m:mi><m" & _
+            ":mo>,</m:mo><m:mi mathvariant=""bold-italic"">y</m:mi>" & "</m:math>"
+        .IsEqual Body(Sh_MTEF_From_MathML(x)), "08010302007F78000204860822CE134575636C69644D617468320011064575636C6964204D6174682054" & _
+            "776F0008050002047E24215A0200822C0002007F79000000"
+        .IsEqual Sh_MTEF_Not_Handled(x), ""
+        x = "<m:math " & MML & ">" & "<m:mi>&#x211D;</m:mi><m:mo>&#x224D;</m:mo><m:mi>&#x2102;</m:mi>" & "</m:math>"
+        .IsEqual Body(Sh_MTEF_From_MathML(x)), "134575636C69644D617468320011064575636C6964204D6174682054776F0008050002047F1D21521345" & _
+            "75636C69644D617468310011074575636C6964204D617468204F6E650008060002047E4D22A902047F02" & _
+            "21430000"
+        .IsEqual Sh_MTEF_Not_Handled(x), ""
+    End With
+    With Suite.Test("borrowing marks: scripts before the base are template 29 variation 1")
+        ' The first as MathType's Convert Equations wrote the 7 in Basic Math (cut from its equation
+        ' 136 there); the other two from MathType's own MathML import.
+        x = "<m:math " & MML & ">" & "<m:mmultiscripts><m:mn>8</m:mn><m:mprescripts/><m:mn>1</m:mn></m:mmultiscripts>" & "</m:math>"
+        .IsEqual Body(Sh_MTEF_From_MathML(x)), "03001D01000B0100020088310000010000000A02008838000000"
+        .IsEqual Sh_MTEF_Not_Handled(x), ""
+        x = "<m:math " & MML & ">" & "<m:mmultiscripts><m:mn>8</m:mn><m:mprescripts/><m:none/><m:mn>1</m:mn></m:mmultiscri" & _
+            "pts>" & "</m:math>"
+        .IsEqual Body(Sh_MTEF_From_MathML(x)), "03001D01000B0100000100020088310000000A02008838000000"
+        .IsEqual Sh_MTEF_Not_Handled(x), ""
+        x = "<m:math " & MML & ">" & "<m:mmultiscripts><m:mn>8</m:mn><m:mprescripts/><m:mn>1</m:mn><m:mn>2</m:mn></m:mmult" & _
+            "iscripts>" & "</m:math>"
+        .IsEqual Body(Sh_MTEF_From_MathML(x)), "03001D01000B01000200883100000100020088320000000A02008838000000"
+        .IsEqual Sh_MTEF_Not_Handled(x), ""
+    End With
+    With Suite.Test("long division is template 26, and keeps its dividend (issue #50)")
+        ' MathType's own MathML import, measured on VistaBuild 11/5/2026. As a Word equation the
+        ' dividend is lost (issue #50), so Convert Equations had nothing to copy.
+        x = "<m:math " & MML & ">" & "<m:mrow><m:mn>5</m:mn><m:menclose notation=""longdiv""><m:mrow><m:mn>860</m:mn></m:mro" & _
+            "w></m:menclose></m:mrow>" & "</m:math>"
+        .IsEqual Body(Sh_MTEF_From_MathML(x)), "020088350003001A00000100020088380002008836000200883000000101000000"
+        .IsEqual Sh_MTEF_Not_Handled(x), ""
+        x = "<m:math " & MML & ">" & "<m:menclose notation=""longdiv""><m:mn>860</m:mn></m:menclose>" & "</m:math>"
+        .IsEqual Body(Sh_MTEF_From_MathML(x)), "03001A00000100020088380002008836000200883000000101000000"
+        .IsEqual Sh_MTEF_Not_Handled(x), ""
+    End With
+    With Suite.Test("what is still refused: other mspace widths and mmultiscripts, aleph in an mo")
+        x = "<m:math " & MML & "><m:mn>1</m:mn><m:mspace width=""3pt""/><m:mn>2</m:mn></m:math>"
+        .IsOk IsEmpty(Sh_MTEF_From_MathML(x))
+        .IsEqual Sh_MTEF_Not_Handled(x), "mspace width=""3pt"" is not handled"
+        x = "<m:math " & MML & "><m:mmultiscripts><m:mi>x</m:mi><m:mn>1</m:mn><m:none/></m:mmultiscripts></m:math>"
+        .IsEqual Sh_MTEF_Not_Handled(x), "mmultiscripts other than base, mprescripts and one or two scripts is not handled"
+        x = "<m:math " & MML & "><m:mo>&#x2135;</m:mo></m:math>"
+        .IsEqual Sh_MTEF_Not_Handled(x), "the character U+2135 in mo is not handled"
+        x = "<m:math " & MML & "><m:mi mathvariant=""normal"">a&#x2009;b</m:mi></m:math>"
+        .IsEqual Sh_MTEF_Not_Handled(x), "the character U+2009 in mi (normal) is not handled"
+    End With
+End Sub
 
 Public Function TestMTEF_Suite() As TestSuite
     Dim Suite As New TestSuite
@@ -421,11 +630,13 @@ Public Function TestMTEF_Suite() As TestSuite
         .IsEqual VarType(Sh_MathType_Is_Installed()), vbBoolean
     End With
 
+    BasicMathTests Suite
+
     ' --- What is refused gives Empty, and says why.
     With Suite.Test("an element not handled gives Empty and is named")
-        x = "<m:math " & MML & "><m:mi mathvariant=""bold-italic"">x</m:mi><m:mspace width=""1em""/></m:math>"
+        x = "<m:math " & MML & "><m:mi mathvariant=""bold-italic"">x</m:mi><m:mphantom><m:mi>y</m:mi></m:mphantom></m:math>"
         .IsOk IsEmpty(Sh_MTEF_From_MathML(x))
-        .IsEqual Sh_MTEF_Not_Handled(x), "mspace is not handled"
+        .IsEqual Sh_MTEF_Not_Handled(x), "mphantom is not handled"
     End With
 
     With Suite.Test("a character not handled gives Empty and is named")

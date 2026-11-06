@@ -72,7 +72,7 @@ Public Function TestModelessBoxes_Suite() As TestSuite
     ' are on each form is held by tests/test_box_alt_keys_in_book.py; this is the function itself.
     With Suite.Test("357 and 375 bind their own Alt keys")
         .IsEqual Sh_Box_AltKeys("fil"), "1234567890FD"
-        .IsEqual Sh_Box_AltKeys("rst"), "AUDFPLCV"
+        .IsEqual Sh_Box_AltKeys("rst"), "AUDEFPLCV"
     End With
 
     With Suite.Test("the TOC box, 348, the $pg menus and 402 bind their own Alt keys")

@@ -18,9 +18,10 @@ Attribute VB_Exposed = False
 ' DN_Keep_Or_Omit_Images_Form  -  "Large Print or Braille (325)"
 '
 ' Version: 2.0  Date: 10/18/2026 - asks LARGE PRINT OR BRAILLE instead of keep or omit images
-'                                (Jerry, 10/18/2026, issue #37). Both answers keep the pictures;
-'                                braille drops them later, elsewhere, so the conversion no longer
-'                                offers to. The answer decides what happens to a book's MathML
+'                                (Jerry, 10/18/2026, issue #37). Both answers keep the pictures,
+'                                and from 11/5/2026 braille Full File Cleanup keeps them too
+'                                (Duxbury makes a transcriber's note from the alt text), so the
+'                                conversion no longer offers to drop them. The answer decides what happens to a book's MathML
 '                                equations. The form keeps its name so nothing that refers to it
 '                                breaks; the option buttons are LargePrint and Braille now.
 ' Version: 1.1  Date: 10/12/2026 - the red X did nothing: QueryClose set Cancel = True,
