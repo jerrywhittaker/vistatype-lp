@@ -49,6 +49,7 @@ Public Function Sh_Dispatch(ByVal macroName As String) As Boolean
         Case "Dx_Format_Tagged_Page_Numbers": Dx_Format_Tagged_Page_Numbers
         Case "Dx_Import_Exported_Selection_File": Dx_Import_Exported_Selection_File
         Case "Dx_Manual_Tag_with_Dollar_pg": Dx_Manual_Tag_with_Dollar_pg
+        Case "Dx_Prodnotes_Alt_Text_Menu_Starter": Dx_Prodnotes_Alt_Text_Menu_Starter
         Case "Dx_Ref_Pg_Number_Sequence_Menu": Dx_Ref_Pg_Number_Sequence_Menu
         Case "Dx_Selected_File_CleanUp": Dx_Selected_File_CleanUp
         Case "Dx_Spelling_List": Dx_Spelling_List
@@ -66,10 +67,8 @@ Public Function Sh_Dispatch(ByVal macroName As String) As Boolean
         Case "Lp_Horz_List_To_Vertical": Lp_Horz_List_To_Vertical
         Case "Lp_Import_Exported_Selection_File": Lp_Import_Exported_Selection_File
         Case "Lp_Keep_With_Next_Para": Lp_Keep_With_Next_Para
-        Case "Lp_Locate_Picture": Lp_Locate_Picture
         Case "Lp_Manual_Tag_with_Dollar_pg": Lp_Manual_Tag_with_Dollar_pg
         Case "Lp_Picture_Tools_Menu_Starter": Lp_Picture_Tools_Menu_Starter
-        Case "Lp_Resize_Pictures_In_Range": Lp_Resize_Pictures_In_Range
         Case "Lp_Selected_File_CleanUp": Lp_Selected_File_CleanUp
         Case "Lp_Table_Tools": Lp_Table_Tools
         Case "Lp_Toggle_Space_After_Current_Para": Lp_Toggle_Space_After_Current_Para
