@@ -420,7 +420,8 @@ def test_brackets_are_wrapped_before_mml2omml(repo_root):
     eq = _body(repo_root, "Sh_MathML_Put_Equation")
     loads = [l for l in eq if ".loadXML(" in l]
     assert loads, "Sh_MathML_Put_Equation loads no MathML"
-    assert all("loadXML(Sh_MathML_Wrap_Fences(mathml))" in l for l in loads), (
+    # From 11/5/2026 the wrapped MathML goes through Sh_MathML_Longdiv_For_Word too (issue #50).
+    assert all("Sh_MathML_Wrap_Fences(mathml))" in l for l in loads), (
         "Sh_MathML_Put_Equation loads the MathML without Sh_MathML_Wrap_Fences:\n" + "\n".join(loads))
     assert not any(re.search(r"\.load\(", l) for l in eq)
 

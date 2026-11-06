@@ -15,6 +15,8 @@ Attribute VB_Name = "TestMathML"
 '@uses Sh_MathML_Placeholder_Positions
 '@uses Sh_MathML_Wrap_Fences
 '@uses Sh_MathML_Wrap_Fences_In
+'@uses Sh_MathML_Longdiv_For_Word
+'@uses Sh_MathML_Namespace
 '
 ' The string helpers behind the DAISY/NIMAS converter's equations (issue #37): finding a book's
 ' MathML and its prefix, parking each equation as a placeholder, the picture path from altimg,
@@ -25,6 +27,8 @@ Attribute VB_Name = "TestMathML"
 ' From the review of 10/18/2026: start tags read with their quoted values (a ">" in alttext), and
 ' the altimg unescaped as XML and as a URL.
 '
+' Version: 1.5  Date: 11/5/2026  - long division as a Word equation keeps its dividend (issue #50):
+'                                reshaped for Word's own stylesheet, which is run on it
 ' Version: 1.4  Date: 10/20/2026 - brackets MML2OMML.XSL used to split, (-5) into "(|5)" (issue #38):
 '                                the MathML is wrapped, and Word's own stylesheet is run on it
 ' Version: 1.3  Date: 10/20/2026 - the braille MathML text tests and the braille cleanup park
@@ -84,6 +88,23 @@ Private Function Omml_Parts(ByVal mathml As String) As String
     Exit Function
 Failed:
     Omml_Parts = "ERROR"
+End Function
+
+Private Function Omml_Of(ByVal mathml As String) As String
+    ' Word's own MML2OMML.XSL run on mathml after the two reshapings Sh_MathML_Put_Equation does,
+    ' the OMML as text. "ERROR" when the stylesheet or the MathML cannot be read.
+    Dim src As Object, xsl As Object
+    On Error GoTo Failed
+    Set xsl = CreateObject("MSXML2.DOMDocument.6.0")
+    xsl.async = False
+    If Not xsl.Load(Application.Path & "\MML2OMML.XSL") Then GoTo Failed
+    Set src = CreateObject("MSXML2.DOMDocument.6.0")
+    src.async = False
+    If Not src.loadXML(Sh_MathML_Longdiv_For_Word(Sh_MathML_Wrap_Fences(mathml))) Then GoTo Failed
+    Omml_Of = src.transformNode(xsl)
+    Exit Function
+Failed:
+    Omml_Of = "ERROR"
 End Function
 
 Public Function TestMathML_Suite() As TestSuite
@@ -286,6 +307,31 @@ Public Function TestMathML_Suite() As TestSuite
     With Suite.Test("no placeholders asked for, an empty list")
         f = Sh_MathML_Placeholder_Positions("VTEQ000001", 0)
         .IsEqual UBound(f), -1
+    End With
+
+    ' --- Issue #50: long division as a Word equation lost its dividend.
+    Dim ld As String, ldOmml As String
+    ld = Eq("<m:mn>5</m:mn><m:menclose notation=""longdiv""><m:mn>2</m:mn></m:menclose>")
+
+    With Suite.Test("long division: ')' and a top-bar menclose in place of longdiv")
+        .IsEqual Sh_MathML_Longdiv_For_Word(ld), _
+            Eq("<m:mn>5</m:mn><m:mrow>" & Mo(")") & "<m:menclose notation=""top""><m:mn>2</m:mn></m:menclose></m:mrow>")
+    End With
+
+    With Suite.Test("long division: Word's own stylesheet keeps the dividend, under a top bar")
+        ldOmml = Omml_Of(ld)
+        .IsOk ldOmml <> "ERROR", "MML2OMML.XSL ran"
+        .IsOk InStr(ldOmml, ">2<") > 0, "the dividend 2 is in the Word equation"
+        .IsOk InStr(ldOmml, ">)<") > 0, "the ')' is in the Word equation"
+        .IsOk InStr(ldOmml, "borderBox") > 0, "the dividend has its top bar"
+    End With
+
+    With Suite.Test("long division: MathML with none, or another menclose, comes back as it came")
+        x = Eq("<m:mn>5</m:mn>" & Mo("+") & "<m:mn>2</m:mn>")
+        .IsEqual Sh_MathML_Longdiv_For_Word(x), x
+        x = Eq("<m:menclose notation=""box""><m:mn>2</m:mn></m:menclose>")
+        .IsEqual Sh_MathML_Longdiv_For_Word(x), x
+        .IsEqual Sh_MathML_Longdiv_For_Word("<m:math>not closed"), "<m:math>not closed"
     End With
 
     ' --- Issue #38: brackets Word's MML2OMML.XSL used to split at the one operator inside.

@@ -18,7 +18,10 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Sh  - 11/5/2026 - FEWER WORD EQUATIONS IN THE DAISY/NIMAS CONVERTER (Jerry): of Basic
+' Notes:    - Sh  - 11/5/2026 - LONG DIVISION AS A WORD EQUATION KEEPS ITS DIVIDEND (issue #50, Jerry):
+'           - Sh  - 11/5/2026 - Sh_MathML_Longdiv_For_Word reshapes each longdiv into ")" and a
+'           - Sh  - 11/5/2026 - top-bar menclose, which MML2OMML.XSL carries; it dropped longdiv.
+'           - Sh  - 11/5/2026 - FEWER WORD EQUATIONS IN THE DAISY/NIMAS CONVERTER (Jerry): of Basic
 '           - Sh  - 11/5/2026 - Math's 1,861 equations, 503 fell back to Word equations; the MathType
 '           - Sh  - 11/5/2026 - route now takes all 503. Sh_MTEF_Walk learned mspace (a MathType
 '           - Sh  - 11/5/2026 - space, so "22.82 feet" keeps its space), no-break spaces, plain-text
@@ -38209,6 +38212,77 @@ Private Function Sh_MathML_With_Namespace(ByVal fragment As String, ByVal prefix
                                Mid$(fragment, Len(tagName) + 1)
 End Function   '*** end of Sh_MathML_With_Namespace function ***
 
+Private Function Sh_MathML_Longdiv_For_Word(ByVal mathml As String) As String
+    '
+    ' Version: 1.0  Date: 11/5/2026 - issue #50 (Jerry: "fix #50 for the Word equations choice too")
+    '
+    ' Word's MML2OMML.XSL writes NOTHING for <menclose notation="longdiv"> (its MEncloseMSqrt
+    ' template has an empty branch for longdiv and actuarial), so a long division that went in as
+    ' a Word equation lost its dividend: 5 with 2 under the division bracket came out as "5".
+    ' Basic Math Pre-Algebra for Dummies has 26.
+    '
+    ' The cure: each longdiv becomes an mrow of ")" and the same menclose with notation "top",
+    ' which the stylesheet does carry - a border with only its top shown, the bar over the
+    ' dividend:
+    '     <m:menclose notation="longdiv">2</m:menclose>
+    '  -> <m:mrow><m:mo>)</m:mo><m:menclose notation="top">2</m:menclose></m:mrow>
+    ' so Word shows 5)2 with the bar over the 2, as long division is typed. The divisor already
+    ' stands before the menclose in the MathML. Measured with Word's own MML2OMML.XSL, 11/5/2026:
+    ' the dividend, one number or a stacked mtable, comes through inside m:borderBox.
+    '
+    ' Only the copy handed to MML2OMML.XSL is changed, never the book, and the MathType route
+    ' does not come here (it writes MathType's own long division template). MathML with no
+    ' longdiv, or that MSXML cannot read, comes back exactly as it came.
+    '   Sh_MathML_Longdiv_For_Word("<m:math ...><m:mn>5</m:mn><m:menclose notation=""longdiv""><m:mn>2</m:mn></m:menclose></m:math>")
+    '   ' -> "<m:math ...><m:mn>5</m:mn><m:mrow><m:mo>)</m:mo><m:menclose notation=""top""><m:mn>2</m:mn></m:menclose></m:mrow></m:math>"
+
+    Dim doc As Object, encl As Object, row As Object, mo As Object
+    Dim found As Collection
+    Dim ns As String, pfx As String
+    Dim i As Long
+
+    On Error GoTo Unchanged
+    Sh_MathML_Longdiv_For_Word = mathml
+    If InStr(1, mathml, "longdiv", vbTextCompare) = 0 Then Exit Function
+
+    Set doc = CreateObject("MSXML2.DOMDocument.6.0")
+    doc.async = False
+    doc.validateOnParse = False
+    doc.resolveExternals = False
+    If Not doc.loadXML(mathml) Then Exit Function
+    If doc.parseError.errorCode <> 0 Then Exit Function
+
+    ns = Sh_MathML_Namespace()
+    doc.setProperty "SelectionNamespaces", "xmlns:vtm='" & ns & "'"
+
+    ' Listed first, then changed: the changes move the nodes the search walks.
+    Set found = New Collection
+    For Each encl In doc.selectNodes("//vtm:menclose")
+        If LCase$(Trim$(encl.getAttribute("notation") & "")) = "longdiv" Then found.Add encl
+    Next encl
+    If found.count = 0 Then Exit Function
+
+    For i = 1 To found.count
+        Set encl = found(i)
+        pfx = encl.prefix & ""
+        If Len(pfx) > 0 Then pfx = pfx & ":"
+        Set row = doc.createNode(1, pfx & "mrow", ns)
+        Set mo = doc.createNode(1, pfx & "mo", ns)
+        mo.Text = ")"
+        encl.parentNode.replaceChild row, encl
+        row.appendChild mo
+        row.appendChild encl
+        encl.setAttribute "notation", "top"
+    Next i
+
+    Sh_MathML_Longdiv_For_Word = doc.documentElement.xml
+    Exit Function
+
+Unchanged:
+    Err.Clear
+    Sh_MathML_Longdiv_For_Word = mathml
+End Function   '*** end of Sh_MathML_Longdiv_For_Word function ***
+
 Private Function Sh_MathML_Wrap_Fences(ByVal mathml As String) As String
     '
     ' Version: 1.0  Date: 10/20/2026
@@ -40347,6 +40421,9 @@ End Function   '*** end of Sh_Find_Text_Forward function ***
 Private Function Sh_MathML_Put_Equation(ByVal r As Range, ByVal xslt As Object, ByVal xsl As Object, _
                                         ByVal mathml As String) As Boolean
     '
+    ' Version: 1.3  Date: 11/5/2026  - long division keeps its dividend: the MathML goes through
+    '                                Sh_MathML_Longdiv_For_Word too, after Sh_MathML_Wrap_Fences
+    '                                (issue #50, Jerry)
     ' Version: 1.2  Date: 10/20/2026 - the MathML goes through Sh_MathML_Wrap_Fences first, so
     '                                MML2OMML.XSL no longer splits (-5) into "(|5)" or (P+b)
     '                                into a bracket of two parts (issue #38)
@@ -40372,7 +40449,7 @@ Private Function Sh_MathML_Put_Equation(ByVal r As Range, ByVal xslt As Object, 
     src.async = False
     src.validateOnParse = False
     src.resolveExternals = False
-    If Not src.loadXML(Sh_MathML_Wrap_Fences(mathml)) Then Exit Function
+    If Not src.loadXML(Sh_MathML_Longdiv_For_Word(Sh_MathML_Wrap_Fences(mathml))) Then Exit Function
     If src.parseError.errorCode <> 0 Then Exit Function
 
     If Not xslt Is Nothing Then
