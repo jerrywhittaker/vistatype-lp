@@ -1,10 +1,10 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Dx_Prodnotes_Alt_Text_Menu_Form 
    Caption         =   "Prodnotes and Alt-Text (417)"
-   ClientHeight    =   3660
+   ClientHeight    =   6435
    ClientLeft      =   120
    ClientTop       =   465
-   ClientWidth     =   5880
+   ClientWidth     =   5805
    OleObjectBlob   =   "Dx_Prodnotes_Alt_Text_Menu_Form.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
@@ -17,6 +17,11 @@ Attribute VB_Exposed = False
 ' Dx_Prodnotes_Alt_Text_Menu_Form - Prodnotes and Alt-Text (417), braille File Cleanup group
 ' Opened by Dx_Prodnotes_Alt_Text_Menu_Starter.
 '
+' Version: 1.1  Date: 11/6/2026 - Jerry's layout, made in the VBA editor: Delete All Prodnotes
+'                                 (Alt+D), Convert All Prodnotes to TN Style (Alt+C), Resize
+'                                 Throughout Pictures in a Selected Range - Edit Alt-Text (Alt+T),
+'                                 Locate the Picture in the Clipboard (Alt+L), Cancel (Alt+C) full
+'                                 width at the bottom; an icon beside each button; the form taller.
 ' Version: 1.0  Date: 11/6/2026 - new (Jerry). Delete Prodnotes and Prodnote to TN moved here off
 '                                 the braille ribbon; Resize Throughout Pictures in a Selected
 '                                 Range and Locate the Picture in the Clipboard are the same

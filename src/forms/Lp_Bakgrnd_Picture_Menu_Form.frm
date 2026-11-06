@@ -16,6 +16,9 @@ Attribute VB_Exposed = False
 
 
 ' Lp_Bakgrnd_Picture_Menu_Form
+' Version: 2.1  Date: 11/6/2026 - Resize Throughout's caption now reads "Resize Throughout
+'                                 Pictures in a Selected Range - Edit Alt-Text" (Jerry, in the
+'                                 VBA editor), as on Prodnotes and Alt-Text (417).
 ' Version: 2.0  Date: 11/1/2026 - LocatePictureButton, Locate the Picture on the Clipboard (Alt+L),
 '                                 below Resize Throughout; Exit moved down and the form made 30
 '                                 points taller to make room (Jerry).

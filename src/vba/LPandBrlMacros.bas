@@ -18,7 +18,11 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - BRL - 11/6/2026 - PRODNOTES AND ALT-TEXT (417), A NEW BRAILLE MENU (Jerry): one button
+' Notes:    - BRL - 11/6/2026 - JERRY'S LAYOUT FOR 417 AND 344, made in the VBA editor and pulled
+'           - BRL - 11/6/2026 - into src/forms: 417's buttons renamed (Delete All Prodnotes, Convert
+'           - BRL - 11/6/2026 - All Prodnotes to TN Style, Resize ... - Edit Alt-Text), icons beside
+'           - BRL - 11/6/2026 - them, Cancel full width; 344's Resize Throughout caption to match.
+'           - BRL - 11/6/2026 - PRODNOTES AND ALT-TEXT (417), A NEW BRAILLE MENU (Jerry): one button
 '           - BRL - 11/6/2026 - in the braille File Cleanup group opens it (Dx_Prodnotes_Alt_Text_Menu_
 '           - BRL - 11/6/2026 - Starter). Delete Prodnotes and Prodnote to TN moved into it off the
 '           - BRL - 11/6/2026 - ribbon, joined by large print's Resize Throughout Pictures in a
