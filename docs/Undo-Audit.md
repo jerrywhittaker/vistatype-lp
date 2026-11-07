@@ -240,6 +240,13 @@ record held open across it would swallow her own typing and her own hand resize 
 picture. Each Apply opens and closes its own record; dialog 381 says how many presses it will
 take to put a whole session back, rather than promising one.
 
+**Review Prodnotes (418), 11/7/2026: one press of Ctrl+Z per Delete This Prodnote or Convert
+This to TN Style.** The same reason as 375: the box stays open while the transcriber edits the
+prodnotes in the book, so each press opens and closes its own record ("Delete Prodnote",
+"Convert Prodnote to TN Style") in `Dx_Rvp_Delete` and `Dx_Rvp_Convert`. Inside, every paragraph
+is deleted or restyled through a Range, never a `wdReplaceAll`. Next, Previous and Done change
+nothing. Counted by reading, not measured in Word.
+
 **Tried and rejected, 9/21/2026: an `UndoClear` at the start of `Lp_Resize_Same_Picture_Throughout`
 (that macro was retired on 9/22/2026; the rule holds for the range loop that replaced it).**
 It stopped a third Ctrl+Z from going on into earlier edits, but it also wiped the transcriber's

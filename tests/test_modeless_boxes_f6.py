@@ -25,6 +25,9 @@ BOXES = {
                                   "Spaced_List", "TabbedList"],
     # Locate This Picture (404), 11/1/2026.
     "Lp_Locate_Picture_Form": ["NextButton", "PrevButton", "DoneButton"],
+    # Review Prodnotes (418), 11/7/2026.
+    "Dx_Review_Prodnotes_Form": ["NextButton", "PrevButton", "DeleteButton", "ConvertButton",
+                                 "DoneButton"],
     # Stays open only when shown through Sh_Ask_Modeless (box 402, 10/28/2026).
     "Sh_Message_Form": ["Msg_Text", "Okay_Button", "Cancel_Button"],
 }
@@ -51,6 +54,7 @@ def test_one_shared_f6_for_every_box(repo_root):
     toggle = "\n".join(sprocs["Sh_Box_ToggleFocus"])
     for who, sub in (("pg", "Sh_PgVal_ToggleFocus"), ("tocb", "Lp_Tocb_ToggleFocus"),
                      ("rst", "Lp_Rst_ToggleFocus"), ("locp", "Lp_Locp_ToggleFocus"),
+                     ("rvp", "Dx_Rvp_ToggleFocus"),
                      ("fil", "Lp_Fil_ToggleFocus"),
                      ("hv", "Lp_Hvb_ToggleFocus"), ("msg", "Sh_Ask_Modeless_ToggleFocus")):
         assert f'Case "{who}"' in toggle and sub in toggle, f"F6 cannot reach the {who} box"
@@ -66,7 +70,7 @@ def test_one_shared_f6_for_every_box(repo_root):
         f"a key bound somewhere other than Sh_Box_BindKeys: {adds}")
 
     procs = procedures(macros)
-    for box, who in (("Lp_Tocb", "tocb"), ("Lp_Rst", "rst"), ("Lp_Locp", "locp")):
+    for box, who in (("Lp_Tocb", "tocb"), ("Lp_Rst", "rst"), ("Lp_Locp", "locp"), ("Dx_Rvp", "rvp")):
         assert any(f'Sh_Box_Opened "{who}"' in c for c in procs[f"{box}_BindKeys"])
         assert any(f'Sh_Box_Closed "{who}"' in c for c in procs[f"{box}_UnbindKeys"])
     assert any('Sh_Box_Opened "pg"' in c for c in sprocs["Sh_PgVal_BindKeys"])
@@ -82,7 +86,7 @@ def test_each_box_joins_before_it_selects_and_leaves_after(repo_root):
     sel = next(n for n, c in enumerate(start) if re.search(r"^\s*Lp_Tocb_Select\s*$", c))
     assert join < sel
     for fin, leave in (("Lp_Tocb_Finish", "Lp_Tocb_UnbindKeys"), ("Lp_Rst_Finish", "Lp_Rst_UnbindKeys"),
-                       ("Lp_Locp_Finish", "Lp_Locp_UnbindKeys")):
+                       ("Lp_Locp_Finish", "Lp_Locp_UnbindKeys"), ("Dx_Rvp_Finish", "Dx_Rvp_UnbindKeys")):
         body = procs[fin]
         at = next(n for n, c in enumerate(body) if re.search(rf"^\s*{leave}\s*$", c))
         focus = max(n for n, c in enumerate(body) if "Sh_Focus_Document" in c)

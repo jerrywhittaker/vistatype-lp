@@ -788,7 +788,7 @@ Public Sub Sh_Box_Closed(ByVal who As String)
     End If
 End Sub  '***** end of Sh_Box_Closed *****
 
-' Which box has F6 and watches the cursor: "pg", "tocb", "rst", "locp", "fil", "hv", "msg" (a question
+' Which box has F6 and watches the cursor: "pg", "tocb", "rst", "locp", "rvp", "fil", "hv", "msg" (a question
 ' that stays open, Sh_Ask_Modeless - it holds no range, so it watches nothing), or "" when none is up.
 '
 ' Version: 1.0  Date: 9/23/2026
@@ -801,6 +801,7 @@ End Function  '***** end of Sh_Box_On_Top *****
 ' leaves the list, and one press goes by with nothing done. With nothing on the list at all - after
 ' an End, which wipes the list but not the binding - the key goes back to Word.
 '
+' Version: 1.3  Date: 11/7/2026 - "rvp", Review Prodnotes (418)
 ' Version: 1.2  Date: 11/1/2026 - "locp", Locate This Picture (404)
 ' Version: 1.1  Date: 10/28/2026 - "msg", the question that stays open (Sh_Ask_Modeless, box 402)
 ' Version: 1.0  Date: 9/23/2026
@@ -815,6 +816,8 @@ Public Sub Sh_Box_ToggleFocus()
             Lp_Rst_ToggleFocus
         Case "locp"
             Lp_Locp_ToggleFocus
+        Case "rvp"
+            Dx_Rvp_ToggleFocus
         Case "fil"
             Lp_Fil_ToggleFocus
         Case "hv"
@@ -935,14 +938,15 @@ End Sub  '***** end of Sh_Box_Clear_AltKeys *****
 ' up, the keys listed here are bound in Word too, each to Sh_Box_Alt_<key>, and pressing one in
 ' the book does what pressing it on the box does. Word's own use of those keys - Alt+F for the
 ' File tab, Alt+P for Layout, Alt+R for Review, Alt+S for References, Alt+W for View, Alt+L for
-' Developer, Alt+N for Insert (Locate This Picture, 404), Alt+1 to Alt+0 for the Quick Access
-' Toolbar - is not available while the box is up.
+' Developer, Alt+N for Insert (Locate This Picture, 404, and Review Prodnotes, 418), Alt+1 to
+' Alt+0 for the Quick Access Toolbar - is not available while the box is up.
 ' Jerry accepted that for 357 and 375, 10/30/2026, and asked for the other boxes the same day.
 '
 ' Each letter is the button's Accelerator, as the .frx sets it or as the form's
 ' UserForm_Initialize changes it; tests/test_box_alt_keys_in_book.py holds the two together.
 ' who is the name on the list of boxes, except the $pg menus: see Sh_Box_AltName.
 '
+' Version: 1.5  Date: 11/7/2026 - Review Prodnotes (418)
 ' Version: 1.4  Date: 11/5/2026 - Edit Description (E) on 375
 ' Version: 1.3  Date: 11/1/2026 - Locate This Picture (404)
 ' Version: 1.2  Date: 10/30/2026 - the TOC box's Clean and format the TOC is C, not F
@@ -962,6 +966,9 @@ Public Function Sh_Box_AltKeys(ByVal who As String) As String
         Case "locp"
             ' 404: Next, Previous, Done
             Sh_Box_AltKeys = "NPD"
+        Case "rvp"
+            ' 418: Next, Previous, Delete This Prodnote, Convert This to TN Style, Done (O)
+            Sh_Box_AltKeys = "NPDTO"
         Case "tocb"
             ' 354: the three jobs (Clean and format the TOC, Add Color Bars, Remove Color Bars),
             ' Okay, and Done - the Cancel button. UserForm_Initialize makes Cancel's letter D and
@@ -1011,6 +1018,7 @@ End Function  '***** end of Sh_Box_AltName *****
 ' Lp_Hvb_Okay) report as they always have. The two safety nets below, Sh_Box_UnbindKeys and
 ' Sh_Box_BindKeys, guard themselves.
 '
+' Version: 1.4  Date: 11/7/2026 - Review Prodnotes (418)
 ' Version: 1.3  Date: 11/1/2026 - Locate This Picture (404)
 ' Version: 1.2  Date: 10/30/2026 - errors in the box's macro are no longer swallowed
 ' Version: 1.1  Date: 10/30/2026 - the TOC box, Horizontal List to Vertical, the $pg menus and 402
@@ -1023,6 +1031,8 @@ Public Sub Sh_Box_AltKey(ByVal key As String)
             Lp_Rst_AltKey key
         Case "locp"
             Lp_Locp_AltKey key
+        Case "rvp"
+            Dx_Rvp_AltKey key
         Case "tocb"
             Lp_Tocb_AltKey key
         Case "hv"

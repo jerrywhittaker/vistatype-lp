@@ -51,9 +51,12 @@ End Sub
 ' The TOC box (354) and Resize Pictures in a Selected Range (375) watch the cursor through here
 ' too, from 9/23/2026 - see Lp_Tocb_Watch_Cursor and Lp_Rst_Watch_Cursor. Each returns on its first
 ' test while its box is down. Locate This Picture (404) too, from 11/1/2026 - Lp_Locp_Watch_Cursor.
+' And Review Prodnotes (418), from 11/7/2026 - Dx_Rvp_Watch_Cursor, which has the box follow the
+' prodnote the cursor is put in.
 Private Sub App_WindowSelectionChange(ByVal Sel As Selection)
     Sh_HandleDocumentActivated
     Lp_Tocb_Watch_Cursor Sel
     Lp_Rst_Watch_Cursor Sel
     Lp_Locp_Watch_Cursor Sel
+    Dx_Rvp_Watch_Cursor Sel
 End Sub

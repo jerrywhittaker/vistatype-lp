@@ -17,6 +17,9 @@ Attribute VB_Exposed = False
 ' Dx_Prodnotes_Alt_Text_Menu_Form - Prodnotes and Alt-Text (417), braille File Cleanup group
 ' Opened by Dx_Prodnotes_Alt_Text_Menu_Starter.
 '
+' Version: 1.4  Date: 11/7/2026 - Review/Edit/Delete Prodnotes runs Dx_Review_Prodnotes, which
+'                                 opens Review Prodnotes (418). Code only; Jerry's layout is
+'                                 untouched.
 ' Version: 1.3  Date: 11/6/2026 - Jerry's Alt keys, made in the VBA editor: Convert All Prodnotes
 '                                 to TN Style is Alt+A (was Alt+C, which Cancel also had), and
 '                                 Review/Edit/Delete Prodnotes is Alt+R. All six keys now differ.
@@ -44,13 +47,19 @@ Attribute VB_Exposed = False
 ' that all four start alike, with nothing of this menu still on screen.
 '
 ' The menu checks no template: each macro checks what it needs itself. Prodnote to TN asks for
-' the BANA template (394); Delete Prodnotes and the two picture tools work on any book.
+' the BANA template (394); Delete Prodnotes and the two picture tools work on any book. Review
+' Prodnotes works on any book too, and asks for the BANA template only when Convert This to TN
+' Style is pressed.
 
 Private Sub Run_After_Menu(ByVal macroName As String)
     Dx_Prodnotes_Alt_Text_Menu_Form.Hide
     Sh_BridgeTargetMacro = macroName
     Application.OnTime Now, "Sh_StartSpinnerBridge"
     Unload Me
+End Sub
+
+Private Sub ReviewProdnotes_Click()
+    Run_After_Menu "Dx_Review_Prodnotes"
 End Sub
 
 Private Sub DeleteProdnotesButton_Click()

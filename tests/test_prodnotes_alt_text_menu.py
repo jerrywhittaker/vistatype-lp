@@ -27,7 +27,8 @@ def tab(xml, tab_id):
 
 def test_each_button_runs_its_macro_through_the_bridge(repo_root):
     code = form_code(repo_root)
-    for button, macro in [("DeleteProdnotesButton", "Sh_Delete_Prodnote_Paragraphs"),
+    for button, macro in [("ReviewProdnotes", "Dx_Review_Prodnotes"),
+                          ("DeleteProdnotesButton", "Sh_Delete_Prodnote_Paragraphs"),
                           ("ProdnoteToTNButton", "Dx_Change_Prodnotes_To_Transcriber_Notes"),
                           ("SamePictureRangeButton", "Lp_Resize_Pictures_In_Range"),
                           ("LocatePictureButton", "Lp_Locate_Picture")]:

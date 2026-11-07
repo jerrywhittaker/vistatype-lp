@@ -74,6 +74,10 @@ Public Sub VtRunAllTests()
     Set Suite = TestLocatePicture_Suite()
     Reporter.ListenTo Suite
 
+    Reporter.Trace "building Review Prodnotes goes through the prodnotes one at a time"
+    Set Suite = TestReviewProdnotes_Suite()
+    Reporter.ListenTo Suite
+
     Reporter.Trace "building Boxes that stay open share F6"
     Set Suite = TestModelessBoxes_Suite()
     Reporter.ListenTo Suite

@@ -446,7 +446,9 @@ tests/vba/      the VBA unit tests - `make vba-test`. They do NOT reference the 
                 from its own window inside the VBA editor.
                 ONLY PURE HELPERS belong here. Anything that reaches a Document, a UserForm or a
                 MsgBox hangs an invisible Word; the table of what cannot be tested this way, all
-                of it measured, is in tests/vba/README.md.
+                of it measured, is in tests/vba/README.md. The one measured exception is a hidden
+                scratch book the test makes itself and reaches only through Ranges
+                (TestReviewProdnotes.bas, 11/7/2026) - no Selection, no table, no template.
 assets/fonts/vistatypelp-sans/   the bundled typeface, VistaTypeLP Sans — four tracked .ttf faces
                 plus the THREE OFL texts it needs (Noto Sans, Noto Sans Math, Noto Sans Symbols).
                 Built by `make fonts` from the current Noto releases; the built faces are what

@@ -29,6 +29,10 @@ Private Sub UserForm_Initialize()
 ' The text lives here rather than in the form's binary layout file so that it can be read and
 ' edited as text, in the VBE or in src/forms.
 '
+' Version: 1.4  Date: 11/7/2026 - the braille paragraph sent the reader to Prodnote to TN and
+'                                Delete Prodnotes in the File Cleanup group, which moved onto
+'                                Prodnotes and Alt-Text (417) on 11/6/2026. It names that button and
+'                                its Review/Edit/Delete Prodnotes now, in about the same length
 ' Version: 1.3  Date: 10/28/2026 - the note's last lines were hidden below the box (Jerry, 3.0.619,
 '                                "the text is being cut off at the bottom by the button"): measured
 '                                on the build box, the box is 254.4 points high, about 20 lines of
@@ -68,10 +72,10 @@ Private Sub UserForm_Initialize()
     
     m = m & vbCrLf & vbCrLf _
       & "When the desired output is braille, descriptions of visual elements can provide " _
-      & "readers with information not found in the text of the book. Edit or delete selected prodnotes as needed. " _
-      & "The remaining prodnotes in the file may be converted to the ""Transcriber Note"" style " _
-      & "by using the ""Prodnote to TN"" macro in the ""File Cleanup"" group on the ""Braille Macros"" tab ribbon. " _
-      & "Prodnotes that are not wanted can be deleted with the ""Delete Prodnotes"" macro in the same group."
+      & "readers with information not found in the text of the book. Use the ""Prodnotes and Alt-Text"" " _
+      & "button in the ""File Cleanup"" group on the ""Braille Macros"" tab ribbon. Its ""Review/Edit/Delete " _
+      & "Prodnotes"" button goes through the prodnotes one at a time, to edit, delete, or convert each to the " _
+      & """Transcriber Note"" style; its other buttons delete or convert all of them at once."
       
     Info_Text.Text = m
 

@@ -45,6 +45,14 @@ are roughly 36 of those in `LPandBrlMacros`. Everything else is still a job for 
 `Sh_Log_Newest_First` on it. File reads and writes do not hang; it never goes near the real log,
 and it deletes the scratch file when it is done.
 
+**`TestReviewProdnotes.bas`** (Review Prodnotes, 418, 11/7/2026) does reach a document, and it
+does not hang: measured on the build box 11/7/2026, a scratch book made with
+`Documents.Add(Visible:=False)` inside the test, with its own Prodnote and TranscriberNote styles,
+could have its paragraphs read, deleted and restyled through Ranges. What it never touches is the
+`Selection`, a table (`Tables.Add` still hangs), or a template. It closes the book unsaved and
+catches every error as a failure. The same run found a real fault before it shipped: deleting a
+Range that holds the book's last paragraph mark raises 4608.
+
 **One more exception, and it is careful: `TestAutoCorrectTables.bas`** runs `Sh_AutoCorrect_Switch`
 against Word's real AutoCorrect list and the real list files (issue #21). Word's list belongs to
 the application, not a document, so it does not hang. It backs up the three

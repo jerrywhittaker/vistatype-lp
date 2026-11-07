@@ -18,7 +18,14 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - BRL - 11/6/2026 - JERRY'S ALT KEYS FOR 417, pulled into src/forms: Convert All Prodnotes
+' Notes:    - BRL - 11/7/2026 - REVIEW/EDIT/DELETE PRODNOTES (Jerry): the button on Prodnotes and
+'           - BRL - 11/7/2026 - Alt-Text (417) opens Review Prodnotes (418), a box that stays open
+'           - BRL - 11/7/2026 - and steps through the prodnotes one at a time (Dx_Review_Prodnotes,
+'           - BRL - 11/7/2026 - Dx_Rvp_*). One prodnote is a run of Prodnote paragraphs in a row.
+'           - BRL - 11/7/2026 - Next, Previous, Delete This Prodnote, Convert This to TN Style (BANA
+'           - BRL - 11/7/2026 - template, 394) and Done; editing is in the book, through F6. Each
+'           - BRL - 11/7/2026 - Delete or Convert is one Ctrl+Z. Note 361 points at 417 now.
+'           - BRL - 11/6/2026 - JERRY'S ALT KEYS FOR 417, pulled into src/forms: Convert All Prodnotes
 '           - BRL - 11/6/2026 - to TN Style is Alt+A, no longer sharing Alt+C with Cancel, and
 '           - BRL - 11/6/2026 - Review/Edit/Delete Prodnotes is Alt+R. Its macro is still to come.
 '           - BRL - 11/6/2026 - JERRY'S SECOND LAYOUT FOR 417, pulled into src/forms: a new
@@ -3267,6 +3274,27 @@ Private Lp_Locp_Whole As Boolean      ' looking in the whole book, so there is n
 ' The box's window title, for F6 - it must be the form's WHOLE caption, and
 ' tests/test_form_caption_constants_match.py holds the two together.
 Private Const LP_LOCP_TITLE As String = "Locate This Picture (404)"
+
+' REVIEW PRODNOTES (418), which stays open - Jerry, 11/7/2026. One prodnote is a run of Prodnote
+' paragraphs that follow each other, and each is held as ONE LIVE Range, from the start of its
+' first paragraph to the end of its last, as 404 holds each copy: an edit the transcriber makes in
+' the book between presses stays with its prodnote, and one deleted by hand collapses to nothing,
+' which is how Next and Previous know to step over it.
+Private Dx_Rvp_Doc As Document        ' the book the prodnotes were found in
+Private Dx_Rvp_IsOn As Boolean        ' the box is up. NEVER ask the form's .Visible - that creates it
+Private Dx_Rvp_Busy As Boolean        ' a press is moving the selection or changing the book
+Private Dx_Rvp_Hits As Collection     ' a Range for each prodnote, in the order of the book
+Private Dx_Rvp_At As Long             ' the prodnote on screen, counted from 1
+Private Dx_Rvp_IsLP As Boolean        ' a large print book: the titles say VistaType LP
+Private Dx_Rvp_Deleted As Long        ' prodnotes deleted in this run
+Private Dx_Rvp_Converted As Long      ' prodnotes converted to TranscriberNote in this run
+Private Dx_Rvp_SelStart As Long       ' where the box last selected a prodnote; -1 when not
+Private Dx_Rvp_SelEnd As Long
+
+' The box's window title, for F6 - it must be the form's WHOLE caption, and
+' tests/test_form_caption_constants_match.py holds the two together.
+Private Const DX_RVP_TITLE As String = "Review Prodnotes (418)"
+Private Const DX_RVP_STYLE As String = "Prodnote"
 
 ' TABLE AND TOC TOOLS - THE TOC BOX (354), which stays open - Jerry, 9/22/2026. The same idea as
 ' 375 above: the TOC range is taken once into a LIVE Range and held until Done, so the transcriber
@@ -23859,6 +23887,711 @@ Sub Dx_Change_Prodnotes_To_Transcriber_Notes()
            vbInformation, "Braille Macros (282)"
 
 End Sub   '*** end of Dx_Change_Prodnotes_To_Transcriber_Notes macro ***
+
+' ============================================================================================
+' REVIEW PRODNOTES - Jerry, 11/7/2026. The Review/Edit/Delete Prodnotes button on Prodnotes and
+' Alt-Text (417). Delete All Prodnotes and Convert All Prodnotes to TN Style work on every prodnote
+' at once; this goes through them ONE AT A TIME, so each can be kept, edited, deleted or converted.
+'
+' The box, Review Prodnotes (418), stays open beside the book, modeled on Locate This Picture (404):
+' "Prodnote 3 of 41", the prodnote selected in the book and scrolled into view - its picture is
+' usually just above it - and Next, Previous, Delete This Prodnote, Convert This to TN Style and
+' Done. EDITING IS IN THE BOOK, not in the box: F6 puts the keyboard in the book, the transcriber
+' types the change with the whole of Word to hand, and F6 goes back to the box.
+'
+' A prodnote is what the DAISY/NIMAS converter makes of a <prodnote>: paragraphs in the Prodnote
+' style. One prodnote can be SEVERAL paragraphs in a row - DAISY puts each inner <p> in its own -
+' so the paragraphs are grouped into runs as Sh_Strip_Prodnote_Enclosing_Quotes groups them. A run
+' does not cross into or out of a table, nor from one table cell to the next.
+'
+' ONE Ctrl+Z FOR EACH DELETE OR CONVERT. The box stays open while the transcriber works, so a
+' record held open across it would swallow the transcriber's own typing. Each press opens and
+' closes its own record, as Resize Pictures in a Selected Range (375) does. Inside the record the
+' paragraphs are deleted or restyled one Range at a time - NEVER a Replace All, which crashes Word
+' inside an undo record (docs/Undo-Audit.md).
+' ============================================================================================
+
+' Prodnotes and Alt-Text (417) - Review/Edit/Delete Prodnotes
+'
+' Works on any book, large print or braille. Only Convert This to TN Style needs the BANA
+' template, and it asks for it as Convert All Prodnotes to TN Style does (394).
+'
+' Author: Jerry Whittaker - jerry@vistatypelp.org
+'
+' Version: 1.0  Date: 11/7/2026
+Public Sub Dx_Review_Prodnotes()
+    Dim book As Document
+    Dim hits As Collection
+    Dim isLP As Boolean
+    Dim first As Long
+    Dim errNum As Long, errText As String
+
+    Application.Run MacroName:="Sh_Is_Doc_Open"
+
+    ' Already up. On the same book the box is brought back where it was, and the count of what was
+    ' deleted and converted is kept; on another book the old run is ended and this one looked at.
+    If Dx_Rvp_IsOn Then
+        If Dx_Rvp_Busy Then Exit Sub
+        If ActiveDocument Is Dx_Rvp_Doc Then
+            Dx_Rvp_Move True, True
+            Exit Sub
+        End If
+        Dx_Rvp_Finish
+    End If
+
+    Set book = ActiveDocument
+    isLP = (Lp_Is_The_Attached_Template_LP = True)
+
+    On Error GoTo eom
+    Sh_Last_Activity = "Review prodnotes: finding the prodnotes"
+    If Sh_Document_Has_Prodnotes(book) Then
+        Set hits = Dx_Rvp_Collect(book)
+    Else
+        Set hits = New Collection
+    End If
+    ' The first prodnote at or after the cursor, so closing the box and opening it again carries on
+    ' where the transcriber was; from the top of the book that is the first one.
+    first = Dx_Rvp_First_From(hits, Selection.Start)
+    Sh_Last_Activity = ""
+    On Error GoTo 0
+
+    If hits.count = 0 Then
+        Sh_Say "No prodnotes found." & vbCr & vbCr _
+             & "Prodnotes are paragraphs in the Prodnote style. The DAISY/NIMAS converter gives " _
+             & "that style to the producer's notes in a book, which often describe a picture.", _
+               IIf(isLP, "VistaType LP (419)", "Braille Macros (419)")
+        Exit Sub
+    End If
+
+    Set Dx_Rvp_Hits = hits
+    Set Dx_Rvp_Doc = book
+    Dx_Rvp_IsLP = isLP
+    Dx_Rvp_At = 0
+    Dx_Rvp_Deleted = 0
+    Dx_Rvp_Converted = 0
+    Dx_Rvp_SelStart = -1
+    Dx_Rvp_SelEnd = -1
+    Dx_Rvp_Busy = False
+
+    ' The flag goes up BEFORE the box does, and the box joins the list of boxes before it first
+    ' moves the selection - see Lp_Rst_Finish for why the order matters.
+    Dx_Rvp_IsOn = True
+    Dx_Rvp_BindKeys
+    Dx_Review_Prodnotes_Form.Show vbModeless
+
+    Dx_Rvp_Busy = True
+    Sh_Focus_Document Dx_Rvp_Doc
+    Dx_Rvp_Go first
+    Dx_Rvp_Busy = False
+    Sh_Focus_Document Dx_Rvp_Doc
+    Exit Sub
+
+eom:
+    errNum = Err.Number
+    errText = Err.Description
+    On Error Resume Next
+    Sh_Last_Activity = ""
+    Err.Clear
+    On Error GoTo 0
+    Sh_Report_Error "Dx_Review_Prodnotes", errNum, errText
+End Sub  '***** end of Dx_Review_Prodnotes *****
+
+' Every prodnote in the book, in order: one Range for each run of Prodnote paragraphs in a row.
+' Document.Paragraphs walks the body and the table cells in the order of the book, so paragraphs
+' next to each other here are next to each other on the page. An EMPTY Prodnote paragraph - a mark
+' and nothing else - is not a prodnote to read, and it ends a run; that also keeps a table's
+' end-of-row mark out of the list.
+'
+' Version: 1.0  Date: 11/7/2026
+Private Function Dx_Rvp_Collect(ByVal doc As Document) As Collection
+    Dim hits As Collection
+    Dim para As Paragraph
+    Dim cur As Range
+    Dim t As String
+    Dim isProd As Boolean, inTable As Boolean
+    Dim prevProd As Boolean, prevEndsCell As Boolean, prevInTable As Boolean
+
+    Set hits = New Collection
+    For Each para In doc.Paragraphs
+        isProd = (StrComp(para.Style.NameLocal, DX_RVP_STYLE, vbTextCompare) = 0)
+        If isProd Then
+            t = para.Range.Text
+            If Len(Dx_Rvp_Bare(t)) = 0 Then isProd = False
+        End If
+        If isProd Then
+            inTable = para.Range.Information(wdWithInTable)
+            If Dx_Rvp_Joins(prevProd, prevEndsCell, prevInTable, inTable) Then
+                cur.End = para.Range.End
+            Else
+                Set cur = para.Range.Duplicate
+                hits.Add cur
+            End If
+            prevEndsCell = (Right$(t, 1) = Chr$(7))
+            prevInTable = inTable
+        End If
+        prevProd = isProd
+    Next para
+    Set Dx_Rvp_Collect = hits
+End Function  '***** end of Dx_Rvp_Collect *****
+
+' True when a Prodnote paragraph belongs to the prodnote before it: the paragraph just before was a
+' Prodnote paragraph too, it did not end a table cell, and both are in a table or both are not.
+' Booleans in, so tests/vba/TestReviewProdnotes.bas can check it headlessly.
+'
+' Version: 1.0  Date: 11/7/2026
+Private Function Dx_Rvp_Joins(ByVal prevProd As Boolean, ByVal prevEndsCell As Boolean, _
+                              ByVal prevInTable As Boolean, ByVal inTable As Boolean) As Boolean
+    If Not prevProd Then Exit Function
+    If prevEndsCell Then Exit Function
+    Dx_Rvp_Joins = (prevInTable = inTable)
+End Function  '***** end of Dx_Rvp_Joins *****
+
+' A paragraph's text with its paragraph mark, any end-of-cell mark and the spaces round it taken
+' off - "" for an empty paragraph. Text in and out, for the test.
+'
+' Version: 1.0  Date: 11/7/2026
+Private Function Dx_Rvp_Bare(ByVal t As String) As String
+    t = Replace(t, vbCr, "")
+    t = Replace(t, Chr$(7), "")
+    Dx_Rvp_Bare = Trim$(t)
+End Function  '***** end of Dx_Rvp_Bare *****
+
+' The first prodnote that ends after a place in the book, or the first in the book when the place
+' is after the last one. 0 when there are none.
+'
+' Version: 1.0  Date: 11/7/2026
+Private Function Dx_Rvp_First_From(ByVal hits As Collection, ByVal pos As Long) As Long
+    Dim i As Long
+
+    If hits.count = 0 Then Exit Function
+    For i = 1 To hits.count
+        If hits(i).End > pos Then
+            Dx_Rvp_First_From = i
+            Exit Function
+        End If
+    Next i
+    Dx_Rvp_First_From = 1
+End Function  '***** end of Dx_Rvp_First_From *****
+
+' Which prodnote Next or Previous goes to, from the one on screen: round to the first after the
+' last, and to the last before the first. The same rule as 404 (Lp_Locp_Step). Numbers in and
+' out, for the test.
+'
+' Version: 1.0  Date: 11/7/2026
+Private Function Dx_Rvp_Step(ByVal cur As Long, ByVal total As Long, ByVal forward As Boolean) As Long
+    Dx_Rvp_Step = Lp_Locp_Step(cur, total, forward)
+End Function  '***** end of Dx_Rvp_Step *****
+
+' The line at the top of the box: "Prodnote 3 of 41". Numbers in, for the test.
+'
+' Version: 1.0  Date: 11/7/2026
+Private Function Dx_Rvp_Label(ByVal n As Long, ByVal total As Long) As String
+    Dx_Rvp_Label = "Prodnote " & Format(n, "#,##0") & " of " & Format(total, "#,##0")
+End Function  '***** end of Dx_Rvp_Label *****
+
+' The second line on the box, and the count in the Done message. Numbers in, for the test.
+'
+' Version: 1.0  Date: 11/7/2026
+Private Function Dx_Rvp_Tally(ByVal deleted As Long, ByVal converted As Long) As String
+    Dx_Rvp_Tally = "Deleted: " & Format(deleted, "#,##0") _
+                 & "     Converted to TN Style: " & Format(converted, "#,##0")
+End Function  '***** end of Dx_Rvp_Tally *****
+
+' True when a prodnote is still a prodnote where it was: one deleted since collapses its Range to
+' nothing, and one converted, or restyled by hand, is no longer in the Prodnote style. Guarded:
+' never raises.
+'
+' Version: 1.0  Date: 11/7/2026
+Private Function Dx_Rvp_Live(ByVal r As Range) As Boolean
+    On Error Resume Next
+    If r Is Nothing Then Exit Function
+    If r.End <= r.Start Then Exit Function
+    Dx_Rvp_Live = (StrComp(r.Paragraphs(1).Style.NameLocal, DX_RVP_STYLE, vbTextCompare) = 0)
+    If Err.Number <> 0 Then Dx_Rvp_Live = False
+    Err.Clear
+End Function  '***** end of Dx_Rvp_Live *****
+
+' The live prodnote Next or Previous lands on, stepping over any deleted or converted since the
+' list was made: from cur, or cur itself when stayIfLive and it is still live. 0 when none is left.
+'
+' Version: 1.0  Date: 11/7/2026
+Private Function Dx_Rvp_Find_Live(ByVal cur As Long, ByVal forward As Boolean, _
+                                  ByVal stayIfLive As Boolean) As Long
+    Dim n As Long, tries As Long, total As Long
+
+    total = Dx_Rvp_Hits.count
+    If stayIfLive And cur >= 1 And cur <= total Then
+        If Dx_Rvp_Live(Dx_Rvp_Hits(cur)) Then
+            Dx_Rvp_Find_Live = cur
+            Exit Function
+        End If
+    End If
+    n = cur
+    Do While tries < total
+        n = Dx_Rvp_Step(n, total, forward)
+        tries = tries + 1
+        If Dx_Rvp_Live(Dx_Rvp_Hits(n)) Then
+            Dx_Rvp_Find_Live = n
+            Exit Function
+        End If
+    Loop
+End Function  '***** end of Dx_Rvp_Find_Live *****
+
+' Selects prodnote n, brings it into view, and says which it is on the box. The paragraph mark at
+' its end is left out of the selection, so text typed over it stays a paragraph of its own in its
+' own style. The caller holds Dx_Rvp_Busy, so the cursor watch says nothing about the move.
+'
+' Version: 1.0  Date: 11/7/2026
+Private Sub Dx_Rvp_Go(ByVal n As Long)
+    Dim r As Range
+
+    Dx_Rvp_At = n
+    On Error Resume Next
+    Set r = Dx_Rvp_Hits(n).Duplicate
+    r.MoveEndWhile Cset:=vbCr & Chr$(7), count:=wdBackward
+    r.Select
+    Dx_Rvp_SelStart = Selection.Start
+    Dx_Rvp_SelEnd = Selection.End
+    ActiveWindow.ScrollIntoView r, True
+    Dx_Rvp_Show_Count
+    Err.Clear
+    On Error GoTo 0
+End Sub  '***** end of Dx_Rvp_Go *****
+
+' The two lines at the top of the box. Only while the box is up - touching the form creates it.
+'
+' Version: 1.0  Date: 11/7/2026
+Private Sub Dx_Rvp_Show_Count()
+    If Not Dx_Rvp_IsOn Then Exit Sub
+    On Error Resume Next
+    Dx_Review_Prodnotes_Form.StepText.Caption = Dx_Rvp_Label(Dx_Rvp_At, Dx_Rvp_Hits.count)
+    Dx_Review_Prodnotes_Form.TallyText.Caption = Dx_Rvp_Tally(Dx_Rvp_Deleted, Dx_Rvp_Converted)
+    Dx_Review_Prodnotes_Form.Repaint
+    Err.Clear
+End Sub  '***** end of Dx_Rvp_Show_Count *****
+
+' What the Next button runs.
+'
+' Version: 1.0  Date: 11/7/2026
+Public Sub Dx_Rvp_Next()
+    Dx_Rvp_Move True, False
+End Sub  '***** end of Dx_Rvp_Next *****
+
+' What the Previous button runs.
+'
+' Version: 1.0  Date: 11/7/2026
+Public Sub Dx_Rvp_Previous()
+    Dx_Rvp_Move False, False
+End Sub  '***** end of Dx_Rvp_Previous *****
+
+' Steps to the next or the previous live prodnote - or, with stayIfLive, shows the one on screen
+' again if it is still there. When none is left, says so and closes the box.
+'
+' Version: 1.0  Date: 11/7/2026
+Private Sub Dx_Rvp_Move(ByVal forward As Boolean, ByVal stayIfLive As Boolean)
+    Dim n As Long
+
+    If Not Dx_Rvp_IsOn Then Exit Sub
+    If Dx_Rvp_Busy Then Exit Sub
+    ' A press here makes this the box being worked in - the newest, with F6 and the Alt keys.
+    Dx_Rvp_BindKeys
+    If Not Dx_Rvp_Ready() Then Exit Sub
+
+    n = Dx_Rvp_Find_Live(Dx_Rvp_At, forward, stayIfLive)
+    If n = 0 Then
+        Dx_Rvp_None_Left
+        Exit Sub
+    End If
+    Dx_Rvp_Busy = True
+    Sh_Focus_Document Dx_Rvp_Doc
+    Dx_Rvp_Go n
+    Dx_Rvp_Busy = False
+    Sh_Focus_Document Dx_Rvp_Doc
+End Sub  '***** end of Dx_Rvp_Move *****
+
+' What the Delete This Prodnote button runs: every paragraph of the prodnote on screen goes, in
+' one undo record, and the box moves on to the next prodnote.
+'
+' Version: 1.0  Date: 11/7/2026
+Public Sub Dx_Rvp_Delete()
+    Dim objUndo As UndoRecord
+    Dim recording As Boolean
+    Dim errNum As Long, errText As String
+
+    If Not Dx_Rvp_IsOn Then Exit Sub
+    If Dx_Rvp_Busy Then Exit Sub
+    Dx_Rvp_BindKeys
+    If Not Dx_Rvp_Ready() Then Exit Sub
+    ' The one on screen was deleted or restyled by hand since it was shown: nothing to delete, so
+    ' the box just moves on.
+    If Dx_Rvp_Find_Live(Dx_Rvp_At, True, True) <> Dx_Rvp_At Then
+        Dx_Rvp_Move True, True
+        Exit Sub
+    End If
+
+    Dx_Rvp_Busy = True
+    Sh_Focus_Document Dx_Rvp_Doc
+    On Error GoTo eom
+    Sh_Last_Activity = "Review prodnotes: deleting a prodnote"
+    Set objUndo = Application.UndoRecord
+    objUndo.StartCustomRecord "Delete Prodnote"
+    recording = True
+    Dx_Rvp_Delete_Run Dx_Rvp_Hits(Dx_Rvp_At)
+    objUndo.EndCustomRecord
+    recording = False
+    Sh_Last_Activity = ""
+    On Error GoTo 0
+
+    Dx_Rvp_Deleted = Dx_Rvp_Deleted + 1
+    Dx_Rvp_SelStart = -1
+    Dx_Rvp_Busy = False
+    Dx_Rvp_Move True, False
+    Exit Sub
+
+eom:
+    ' The box is left standing: the transcriber can press again, or Done.
+    errNum = Err.Number
+    errText = Err.Description
+    On Error Resume Next
+    If recording Then objUndo.EndCustomRecord
+    Sh_Last_Activity = ""
+    Dx_Rvp_Busy = False
+    Err.Clear
+    On Error GoTo 0
+    Sh_Report_Error "Dx_Rvp_Delete", errNum, errText
+End Sub  '***** end of Dx_Rvp_Delete *****
+
+' Deletes one prodnote, all its paragraphs. A prodnote that ends a table cell, or the book, keeps
+' its last paragraph mark - Word will not delete an end-of-cell mark or the book's last one, and a
+' Range that holds the book's last mark raises 4608 on Delete (measured on vistabuild 11/7/2026) -
+' so that mark is left out of the Range first, and the empty paragraph it leaves is set back to
+' Normal, as Sh_Delete_Prodnote_Paragraphs does, so no empty Prodnote paragraph is left behind.
+' The Range passed in is the one in the list: it collapses with the delete, which is what marks the
+' prodnote as gone.
+'
+' Version: 1.0  Date: 11/7/2026
+Private Sub Dx_Rvp_Delete_Run(ByVal r As Range)
+    Dim doc As Document
+    Dim at As Long
+    Dim rest As Range
+
+    Set doc = r.Document
+    If r.End >= r.StoryLength Then
+        r.MoveEnd wdCharacter, -1
+    ElseIf Right$(r.Text, 1) = Chr$(7) Then
+        r.MoveEnd wdCharacter, -1
+    End If
+    at = r.Start
+    r.Delete
+    Set rest = doc.Range(at, at)
+    If rest.Paragraphs.count > 0 Then
+        With rest.Paragraphs(1)
+            If StrComp(.Style.NameLocal, DX_RVP_STYLE, vbTextCompare) = 0 Then
+                If Len(Dx_Rvp_Bare(.Range.Text)) = 0 Then .Style = doc.Styles(wdStyleNormal)
+            End If
+        End With
+    End If
+End Sub  '***** end of Dx_Rvp_Delete_Run *****
+
+' What the Convert This to TN Style button runs: the prodnote on screen is given the
+' TranscriberNote style, in one undo record, and the box moves on to the next prodnote. Needs the
+' BANA template - the same test and message as Convert All Prodnotes to TN Style.
+'
+' Version: 1.0  Date: 11/7/2026
+Public Sub Dx_Rvp_Convert()
+    Dim tmplName As String
+    Dim stTrans As Style
+    Dim objUndo As UndoRecord
+    Dim recording As Boolean
+    Dim errNum As Long, errText As String
+
+    If Not Dx_Rvp_IsOn Then Exit Sub
+    If Dx_Rvp_Busy Then Exit Sub
+    Dx_Rvp_BindKeys
+    If Not Dx_Rvp_Ready() Then Exit Sub
+
+    On Error Resume Next
+    tmplName = Dx_Rvp_Doc.AttachedTemplate.Name
+    Set stTrans = Dx_Rvp_Doc.Styles("TranscriberNote")
+    Err.Clear
+    On Error GoTo 0
+    If StrComp(Left$(tmplName, Len("BANA Braille")), "BANA Braille", vbTextCompare) <> 0 Then
+        Sh_Say "The BANA template is not attached.", "Braille Macros (394)"
+        Sh_Focus_Document Dx_Rvp_Doc
+        Exit Sub
+    End If
+    If stTrans Is Nothing Then
+        Sh_Say "This book has no TranscriberNote style, so the prodnote cannot be converted." _
+             & vbCr & vbCr & "Attach a BANA Braille template that has the TranscriberNote " _
+             & "style, then press Convert This to TN Style again.", "Braille Macros (423)"
+        Sh_Focus_Document Dx_Rvp_Doc
+        Exit Sub
+    End If
+
+    If Dx_Rvp_Find_Live(Dx_Rvp_At, True, True) <> Dx_Rvp_At Then
+        Dx_Rvp_Move True, True
+        Exit Sub
+    End If
+
+    Dx_Rvp_Busy = True
+    Sh_Focus_Document Dx_Rvp_Doc
+    On Error GoTo eom
+    Sh_Last_Activity = "Review prodnotes: converting a prodnote to TN style"
+    Set objUndo = Application.UndoRecord
+    objUndo.StartCustomRecord "Convert Prodnote to TN Style"
+    recording = True
+    Dx_Rvp_Restyle_Run Dx_Rvp_Hits(Dx_Rvp_At), stTrans
+    objUndo.EndCustomRecord
+    recording = False
+    Sh_Last_Activity = ""
+    On Error GoTo 0
+
+    Dx_Rvp_Converted = Dx_Rvp_Converted + 1
+    Dx_Rvp_SelStart = -1
+    Dx_Rvp_Busy = False
+    Dx_Rvp_Move True, False
+    Exit Sub
+
+eom:
+    errNum = Err.Number
+    errText = Err.Description
+    On Error Resume Next
+    If recording Then objUndo.EndCustomRecord
+    Sh_Last_Activity = ""
+    Dx_Rvp_Busy = False
+    Err.Clear
+    On Error GoTo 0
+    Sh_Report_Error "Dx_Rvp_Convert", errNum, errText
+End Sub  '***** end of Dx_Rvp_Convert *****
+
+' Gives every paragraph of one prodnote another style, one paragraph at a time - never a Replace
+' All, which crashes Word inside the undo record Dx_Rvp_Convert holds open.
+'
+' Version: 1.0  Date: 11/7/2026
+Private Sub Dx_Rvp_Restyle_Run(ByVal r As Range, ByVal st As Style)
+    Dim para As Paragraph
+
+    For Each para In r.Paragraphs
+        para.Style = st
+    Next para
+End Sub  '***** end of Dx_Rvp_Restyle_Run *****
+
+' What the Done message and the none-left message say about the run.
+'
+' Version: 1.0  Date: 11/7/2026
+Private Function Dx_Rvp_Summary(ByVal deleted As Long, ByVal converted As Long) As String
+    Dim s As String
+
+    s = "Prodnotes deleted: " & Format(deleted, "#,##0") & vbCr _
+      & "Prodnotes converted to TN Style: " & Format(converted, "#,##0")
+    If deleted + converted > 0 Then
+        s = s & vbCr & vbCr & "Each delete or convert can be undone with one press of Ctrl+Z."
+    End If
+    Dx_Rvp_Summary = s
+End Function  '***** end of Dx_Rvp_Summary *****
+
+' Every prodnote found at the start has been deleted, converted or taken out by hand: says so,
+' with the count, and closes the box.
+'
+' Version: 1.0  Date: 11/7/2026
+Private Sub Dx_Rvp_None_Left()
+    Dim msg As String, title As String
+
+    msg = "There are no prodnotes left to review." & vbCr & vbCr _
+        & Dx_Rvp_Summary(Dx_Rvp_Deleted, Dx_Rvp_Converted)
+    title = IIf(Dx_Rvp_IsLP, "VistaType LP (420)", "Braille Macros (420)")
+    Dx_Rvp_Finish
+    Sh_Say msg, title
+End Sub  '***** end of Dx_Rvp_None_Left *****
+
+' True when the book is still open. When it has been closed, says so and ends the run - the box
+' would otherwise sit there pointing at nothing. Another book in front is not a reason to end: the
+' step puts the user back in this one.
+'
+' Version: 1.0  Date: 11/7/2026
+Private Function Dx_Rvp_Ready() As Boolean
+    If Lp_Rst_Doc_Is_Open(Dx_Rvp_Doc) Then
+        Dx_Rvp_Ready = True
+        Exit Function
+    End If
+    Sh_Say "The book this was working in has been closed." & vbCr & vbCr _
+         & "Open the book and choose Review/Edit/Delete Prodnotes again.", _
+           IIf(Dx_Rvp_IsLP, "VistaType LP (422)", "Braille Macros (422)")
+    Dx_Rvp_Finish
+End Function  '***** end of Dx_Rvp_Ready *****
+
+' What the Done button runs, and what the title bar's X runs through UserForm_QueryClose: closes
+' the box and says how many prodnotes were deleted and converted.
+'
+' Version: 1.0  Date: 11/7/2026
+Public Sub Dx_Rvp_Done()
+    Dim msg As String, title As String
+
+    If Dx_Rvp_Busy Then Exit Sub
+    msg = "Review Prodnotes is finished." & vbCr & vbCr _
+        & Dx_Rvp_Summary(Dx_Rvp_Deleted, Dx_Rvp_Converted)
+    title = IIf(Dx_Rvp_IsLP, "VistaType LP (421)", "Braille Macros (421)")
+    Dx_Rvp_Finish
+    Sh_Say msg, title
+End Sub  '***** end of Dx_Rvp_Done *****
+
+' The one way out, in the order Lp_Rst_Finish sets out: the flag down first, the box hidden before
+' it is unloaded, the prodnote let go, and the list of boxes left LAST.
+'
+' Version: 1.0  Date: 11/7/2026
+Private Sub Dx_Rvp_Finish()
+    Dim backTo As Document
+    Dim selStartWas As Long, selEndWas As Long
+
+    Set backTo = Dx_Rvp_Doc
+    selStartWas = Dx_Rvp_SelStart
+    selEndWas = Dx_Rvp_SelEnd
+    On Error Resume Next
+    Dx_Rvp_IsOn = False
+    Dx_Rvp_Busy = False
+    Dx_Review_Prodnotes_Form.Hide
+    Unload Dx_Review_Prodnotes_Form
+    Set Dx_Rvp_Hits = Nothing
+    Set Dx_Rvp_Doc = Nothing
+    Dx_Rvp_At = 0
+    Dx_Rvp_Deleted = 0
+    Dx_Rvp_Converted = 0
+    Dx_Rvp_SelStart = -1
+    Dx_Rvp_SelEnd = -1
+    If Lp_Rst_Doc_Is_Open(backTo) Then
+        ' The book is brought forward FIRST, so the selection let go is the book's. Only the
+        ' prodnote the box selected is let go - the cursor is left at its start, so the next
+        ' keystroke does not type over it; a selection the transcriber made is left alone.
+        Sh_Focus_Document backTo
+        If Selection.Start = selStartWas And Selection.End = selEndWas Then
+            Selection.Collapse wdCollapseStart
+        End If
+    End If
+    Dx_Rvp_UnbindKeys
+    Err.Clear
+    On Error GoTo 0
+End Sub  '***** end of Dx_Rvp_Finish *****
+
+' Word's selection event runs this on every cursor movement (VtEvents); the first test is one
+' Boolean while the box is down. The box holds no range of the book to leave - it works on the
+' whole book - so there is no out-of-range message. What it does instead: when the transcriber
+' clicks into ANOTHER prodnote in the book, the box follows, so Delete and Convert act on the
+' prodnote the cursor is in, and Next goes on from there.
+'
+' Version: 1.0  Date: 11/7/2026
+Public Sub Dx_Rvp_Watch_Cursor(ByVal Sel As Selection)
+    Dim i As Long, n As Long, total As Long, pos As Long
+
+    If Not Dx_Rvp_IsOn Then Exit Sub
+    If Dx_Rvp_Busy Or Lp_Rst_Busy Or Lp_Tocb_Busy Or Lp_Locp_Busy Then Exit Sub
+    ' ONLY THE NEWEST BOX WATCHES - see Sh_Box_Opened.
+    If Sh_Box_On_Top() <> "rvp" Then Exit Sub
+
+    On Error Resume Next
+    If Not (Sel.Document Is Dx_Rvp_Doc) Then Exit Sub
+    If Err.Number <> 0 Then Exit Sub
+    If Sel.StoryType <> wdMainTextStory Then Exit Sub
+    pos = Sel.Start
+    If Err.Number <> 0 Then Exit Sub
+    ' The one on screen first: typing inside it, the usual case, costs one test.
+    If Dx_Rvp_Holds(Dx_Rvp_At, pos) Then Exit Sub
+    total = Dx_Rvp_Hits.count
+    For i = 1 To total
+        If i <> Dx_Rvp_At Then
+            If Dx_Rvp_Holds(i, pos) Then
+                n = i
+                Exit For
+            End If
+        End If
+    Next i
+    If n = 0 Then Exit Sub
+    Dx_Rvp_At = n
+    Dx_Rvp_SelStart = -1
+    Dx_Rvp_Show_Count
+    Err.Clear
+End Sub  '***** end of Dx_Rvp_Watch_Cursor *****
+
+' True when a place in the book is inside prodnote n and that prodnote is still live. Guarded:
+' never raises.
+'
+' Version: 1.0  Date: 11/7/2026
+Private Function Dx_Rvp_Holds(ByVal n As Long, ByVal pos As Long) As Boolean
+    Dim r As Range
+
+    On Error Resume Next
+    If n < 1 Or n > Dx_Rvp_Hits.count Then Exit Function
+    Set r = Dx_Rvp_Hits(n)
+    If pos < r.Start Or pos >= r.End Then Exit Function
+    Dx_Rvp_Holds = Dx_Rvp_Live(r)
+    If Err.Number <> 0 Then Dx_Rvp_Holds = False
+    Err.Clear
+End Function  '***** end of Dx_Rvp_Holds *****
+
+' F6, Shift+F6 and the box's Alt keys: joining the shared list gives them to this box while it is
+' the newest (Sh_Box_Opened, ShNonModalMessage).
+'
+' Version: 1.0  Date: 11/7/2026
+Private Sub Dx_Rvp_BindKeys()
+    Sh_Box_Opened "rvp"
+End Sub  '***** end of Dx_Rvp_BindKeys *****
+
+' Version: 1.0  Date: 11/7/2026
+Private Sub Dx_Rvp_UnbindKeys()
+    Sh_Box_Closed "rvp"
+End Sub  '***** end of Dx_Rvp_UnbindKeys *****
+
+' What F6 runs while the box is up. The safety net, as for 404: fired with the box down, it leaves
+' the list.
+'
+' Version: 1.0  Date: 11/7/2026
+Public Sub Dx_Rvp_ToggleFocus()
+    On Error Resume Next
+    If Not Dx_Rvp_IsOn Then
+        Dx_Rvp_UnbindKeys
+        Exit Sub
+    End If
+    Sh_Focus_Modeless_Form DX_RVP_TITLE
+    Err.Clear
+End Sub  '***** end of Dx_Rvp_ToggleFocus *****
+
+' The other half, called from every button's KeyDown on the box: the keyboard goes to the book,
+' where the selected prodnote can be edited.
+'
+' Version: 1.0  Date: 11/7/2026
+Public Sub Dx_Rvp_KeyToDocument()
+    On Error Resume Next
+    If Lp_Rst_Doc_Is_Open(Dx_Rvp_Doc) Then
+        Sh_Focus_Document Dx_Rvp_Doc
+    Else
+        Dx_Rvp_Ready
+    End If
+    Err.Clear
+End Sub  '***** end of Dx_Rvp_KeyToDocument *****
+
+' The box's Alt keys from the book (Sh_Box_AltKeys): Next, Previous, Delete This Prodnote, Convert
+' This to TN Style, Done - what each button does.
+'
+' Version: 1.0  Date: 11/7/2026
+Public Sub Dx_Rvp_AltKey(ByVal key As String)
+    ' The safety net, as for F6: fired with no box up, it leaves the shared list.
+    If Not Dx_Rvp_IsOn Then
+        Dx_Rvp_UnbindKeys
+        Exit Sub
+    End If
+
+    Select Case UCase$(key)
+        Case "N"
+            Dx_Rvp_Next
+        Case "P"
+            Dx_Rvp_Previous
+        Case "D"
+            Dx_Rvp_Delete
+        Case "T"
+            Dx_Rvp_Convert
+        Case "O"
+            Dx_Rvp_Done
+    End Select
+End Sub  '***** end of Dx_Rvp_AltKey *****
 
 Sub Lp_RemoveHeadAndFoot()
 
