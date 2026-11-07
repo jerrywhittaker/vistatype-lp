@@ -8,6 +8,7 @@ Attribute VB_Name = "TestReviewProdnotes"
 '@uses Dx_Rvp_Live
 '@uses Dx_Rvp_Delete_Run
 '@uses Dx_Rvp_Restyle_Run
+'@uses Dx_Rvp_Is_BANA_Name
 '
 ' Review Prodnotes (418), Jerry, 11/7/2026: which prodnote Next and Previous go to, the lines the
 ' box shows, and the rule that groups Prodnote paragraphs into one prodnote - and then, in a hidden
@@ -20,6 +21,7 @@ Attribute VB_Name = "TestReviewProdnotes"
 ' no template is attached, and it is closed unsaved whatever happens. Every error is caught and
 ' reported as a failure, because an unhandled one is a modal dialog in an invisible Word.
 '
+' Version: 1.1  Date: 11/7/2026 - which template names count as BANA, for Print Layout and Convert
 ' Version: 1.0  Date: 11/7/2026
 '
 Option Explicit
@@ -58,6 +60,14 @@ Public Function TestReviewProdnotes_Suite() As TestSuite
         .IsEqual Dx_Rvp_Bare("  " & vbCr), ""
         .IsEqual Dx_Rvp_Bare(vbCr & Chr$(7)), ""
         .IsEqual Dx_Rvp_Bare(" A picture of a cat." & vbCr), "A picture of a cat."
+    End With
+
+    With Suite.Test("a template counts as BANA when its name begins BANA Braille")
+        .IsEqual Dx_Rvp_Is_BANA_Name("BANA Braille 2024.dotx"), True
+        .IsEqual Dx_Rvp_Is_BANA_Name("bana braille 2017.dot"), True
+        .IsEqual Dx_Rvp_Is_BANA_Name("LargePrintTemplate.dotx"), False
+        .IsEqual Dx_Rvp_Is_BANA_Name("Normal.dotm"), False
+        .IsEqual Dx_Rvp_Is_BANA_Name(""), False
     End With
 
     TestReviewProdnotes_In_A_Book Suite.Test("in a scratch book: three prodnotes, then Delete and Convert")

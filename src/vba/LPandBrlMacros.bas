@@ -18,7 +18,11 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - BRL - 11/7/2026 - REVIEW/EDIT/DELETE PRODNOTES (Jerry): the button on Prodnotes and
+' Notes:    - BRL - 11/7/2026 - REVIEW PRODNOTES PUTS A BANA BOOK IN PRINT LAYOUT (Jerry): when the
+'           - BRL - 11/7/2026 - box opens or is brought back, a book with a BANA template attached
+'           - BRL - 11/7/2026 - is switched to Print Layout (Dx_Rvp_Print_Layout); other books keep
+'           - BRL - 11/7/2026 - their view.
+'           - BRL - 11/7/2026 - REVIEW/EDIT/DELETE PRODNOTES (Jerry): the button on Prodnotes and
 '           - BRL - 11/7/2026 - Alt-Text (417) opens Review Prodnotes (418), a box that stays open
 '           - BRL - 11/7/2026 - and steps through the prodnotes one at a time (Dx_Review_Prodnotes,
 '           - BRL - 11/7/2026 - Dx_Rvp_*). One prodnote is a run of Prodnote paragraphs in a row.
@@ -23918,6 +23922,9 @@ End Sub   '*** end of Dx_Change_Prodnotes_To_Transcriber_Notes macro ***
 '
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
+' Version: 1.1  Date: 11/7/2026 - a book with a BANA template attached is put in Print Layout
+'                                when the box opens or is brought back (Jerry), so the transcriber
+'                                sees the prodnote beside its picture as it will print
 ' Version: 1.0  Date: 11/7/2026
 Public Sub Dx_Review_Prodnotes()
     Dim book As Document
@@ -23933,6 +23940,7 @@ Public Sub Dx_Review_Prodnotes()
     If Dx_Rvp_IsOn Then
         If Dx_Rvp_Busy Then Exit Sub
         If ActiveDocument Is Dx_Rvp_Doc Then
+            Dx_Rvp_Print_Layout Dx_Rvp_Doc
             Dx_Rvp_Move True, True
             Exit Sub
         End If
@@ -23975,6 +23983,8 @@ Public Sub Dx_Review_Prodnotes()
 
     ' The flag goes up BEFORE the box does, and the box joins the list of boxes before it first
     ' moves the selection - see Lp_Rst_Finish for why the order matters.
+    Dx_Rvp_Print_Layout book
+
     Dx_Rvp_IsOn = True
     Dx_Rvp_BindKeys
     Dx_Review_Prodnotes_Form.Show vbModeless
@@ -23995,6 +24005,31 @@ eom:
     On Error GoTo 0
     Sh_Report_Error "Dx_Review_Prodnotes", errNum, errText
 End Sub  '***** end of Dx_Review_Prodnotes *****
+
+' True when the attached template's name begins with "BANA Braille" - the same test Convert All
+' Prodnotes to TN Style makes. The ".dot"/".dotx" ending does not affect a begins-with test.
+'
+' Version: 1.0  Date: 11/7/2026
+Private Function Dx_Rvp_Is_BANA_Name(ByVal tmplName As String) As Boolean
+    Dx_Rvp_Is_BANA_Name = (StrComp(Left$(tmplName, Len("BANA Braille")), "BANA Braille", vbTextCompare) = 0)
+End Function
+
+' A book with a BANA template attached is put in Print Layout (Jerry, 11/7/2026); any other book is
+' left in the view it is in. The braille configuration may have it in Draft, which does not show
+' the pictures the prodnotes describe.
+'
+' Version: 1.0  Date: 11/7/2026
+Private Sub Dx_Rvp_Print_Layout(ByVal doc As Document)
+    Dim tmplName As String
+
+    On Error Resume Next
+    tmplName = doc.AttachedTemplate.Name
+    If Dx_Rvp_Is_BANA_Name(tmplName) Then
+        If doc.ActiveWindow.View.Type <> wdPrintView Then doc.ActiveWindow.View.Type = wdPrintView
+    End If
+    Err.Clear
+    On Error GoTo 0
+End Sub
 
 ' Every prodnote in the book, in order: one Range for each run of Prodnote paragraphs in a row.
 ' Document.Paragraphs walks the body and the table cells in the order of the book, so paragraphs
@@ -24315,7 +24350,7 @@ Public Sub Dx_Rvp_Convert()
     Set stTrans = Dx_Rvp_Doc.Styles("TranscriberNote")
     Err.Clear
     On Error GoTo 0
-    If StrComp(Left$(tmplName, Len("BANA Braille")), "BANA Braille", vbTextCompare) <> 0 Then
+    If Not Dx_Rvp_Is_BANA_Name(tmplName) Then
         Sh_Say "The BANA template is not attached.", "Braille Macros (394)"
         Sh_Focus_Document Dx_Rvp_Doc
         Exit Sub

@@ -62,7 +62,20 @@ def test_convert_asks_for_the_bana_template_first(repo_root):
     say = 'Sh_Say "The BANA template is not attached.", "Braille Macros (394)"'
     assert say in body
     assert text.index(say) < text.index("StartCustomRecord")
-    assert '"BANA Braille"' in text and "Dx_Rvp_Doc.AttachedTemplate.Name" in text
+    assert "Dx_Rvp_Is_BANA_Name(tmplName)" in text and "Dx_Rvp_Doc.AttachedTemplate.Name" in text
+
+
+def test_a_bana_book_is_put_in_print_layout(repo_root):
+    """Jerry, 11/7/2026: with a BANA template attached, the box shows the book in Print Layout -
+    when it opens, and when the button brings it back. Other books keep their view."""
+    code = _rvp_code(repo_root)
+    start = "\n".join(code[START])
+    assert start.count("Dx_Rvp_Print_Layout") == 2, "both the opening and the bring-back"
+    assert start.index("Dx_Rvp_Print_Layout book") < start.index("Dx_Review_Prodnotes_Form.Show vbModeless")
+    layout = "\n".join(code["Dx_Rvp_Print_Layout"])
+    assert "Dx_Rvp_Is_BANA_Name(tmplName)" in layout
+    assert "View.Type = wdPrintView" in layout
+    assert '"BANA Braille"' in "\n".join(code["Dx_Rvp_Is_BANA_Name"])
 
 
 def test_a_prodnote_is_a_run_of_paragraphs(repo_root):
