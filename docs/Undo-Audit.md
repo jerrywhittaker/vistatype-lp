@@ -252,7 +252,9 @@ Prodnote, Convert This to a Box Red Style or Convert This to a Box Blue Style.**
 engine; the two box converts are `Lp_Rvp_Box_Convert`, one record each ("Convert Prodnote to Box
 Red", "Convert Prodnote to Box Blue"), paragraph by paragraph through `Dx_Rvp_Restyle_Run`.
 `tests/vba/TestReviewProdnotes.bas` puts a Box Blue convert made inside such a record back with
-one `Document.Undo 1` in a hidden scratch book; not measured in the real box.
+one `Document.Undo 1` in a hidden scratch book; not measured in the real box. From 11/8/2026 each convert, and
+Convert All Prodnotes (427), also puts the bold Box Red or Box Blue prefix in, inside the same
+record (`Lp_Rvp_Insert_Prefix`); the same test file takes prefix and style back with one undo.
 
 **Convert All Prodnotes to red or blue box styles (425 → 427; captioned Convert All Prodnotes to LP Style until later on 11/8/2026), 11/8/2026: one press of Ctrl+Z for the whole
 book.** `Lp_Cap_Convert_All` opens ONE record ("Convert All Prodnotes to Box Red" or "... Box

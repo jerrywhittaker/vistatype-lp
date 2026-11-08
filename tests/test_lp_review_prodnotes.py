@@ -15,6 +15,13 @@ point Tahoma, Okay, or an Alt key.
 
 Lp_Rvp_Tally and Lp_Rvp_Summary, and a Box Red / Box Blue restyle in a scratch book, are tested in
 VBA (tests/vba/TestReviewProdnotes.bas).
+
+THE PREFIXES, Jerry 11/8/2026: a converted prodnote starts with a bold word and a space that is not
+bold - "Description:" on Box Red, "Note:" on Box Blue - which the transcriber can change or empty
+on 426 and on Convert All Prodnotes (427). Silent if wrong: bold put in before the restyle can be
+taken off by it; a prefix outside the undo record is a second Ctrl+Z; an emptied box stored as ""
+is not stored at all and comes back as the default. The bold, the plain space, the undo and the
+read-back are measured in VBA.
 """
 import re
 
@@ -185,3 +192,81 @@ def test_every_helper_takes_its_arguments_byval(repo_root):
             continue
         for arg in args.group(1).split(","):
             assert arg.strip().startswith("ByVal "), f"{name}: {arg.strip()} is not ByVal"
+
+
+# --- the Box Red and Box Blue prefixes, 11/8/2026
+
+
+def test_the_prefix_goes_in_after_the_restyle_inside_the_record(repo_root):
+    body = "\n".join(_lp_code(repo_root)["Lp_Rvp_Box_Convert"])
+    work = body.index("Dx_Rvp_Restyle_Run Dx_Rvp_Hits(Dx_Rvp_At), st")
+    prefix = body.index("Lp_Rvp_Insert_Prefix Dx_Rvp_Hits(Dx_Rvp_At), styleName")
+    assert work < prefix < body.index("objUndo.EndCustomRecord")
+
+
+def test_the_prefix_is_bold_and_the_space_after_it_is_not(repo_root):
+    body = _body(_lp_code(repo_root)["Lp_Rvp_Insert_Prefix"])
+    want = ["prefix = Lp_Rvp_Prefix_Get(styleName)", 'If prefix = "" Then Exit Sub',
+            "Set head = r.Duplicate", "head.Collapse wdCollapseStart", "head.InsertAfter prefix",
+            "head.Font.Reset", "head.Font.Bold = True", "head.Collapse wdCollapseEnd",
+            'head.InsertAfter " "', "head.Font.Reset", "head.Font.Bold = False"]
+    assert [c for c in body if c in want] == want, body
+    # the style's own font, not the first character's: a prodnote starting in italic or at a
+    # stray size must not give an italic or wrong-sized prefix (braille-lp-review, 11/8/2026)
+    assert "Paragraphs" not in "\n".join(body), "the prefix goes once, at the start of the prodnote"
+
+
+def test_an_emptied_prefix_is_kept_empty(repo_root):
+    """Sh_Setting_Write will not store "", and Sh_Setting_Read gives the default for an empty key."""
+    macros = module_text(repo_root)
+    for line in ('Private Const LP_RVP_PREFIX_NONE As String = "(none)"',
+                 'Private Const LP_RVP_RED_PREFIX_KEY As String = "BoxRedPrefix"',
+                 'Private Const LP_RVP_BLUE_PREFIX_KEY As String = "BoxBluePrefix"',
+                 'Private Const LP_RVP_RED_PREFIX As String = "Description:"',
+                 'Private Const LP_RVP_BLUE_PREFIX As String = "Note:"',
+                 'Private Const VT_STORE_MINE As String = "TranscriberSettings"'):
+        assert line in macros, line
+    code = _lp_code(repo_root)
+    put = _body(code["Lp_Rvp_Prefix_Set"])
+    assert put.index('If txt = "" Then txt = LP_RVP_PREFIX_NONE') < put.index(
+        "Sh_Setting_Write VT_STORE_MINE, LP_RVP_RED_PREFIX_KEY, txt")
+    assert "Sh_Setting_Write VT_STORE_MINE, LP_RVP_BLUE_PREFIX_KEY, txt" in put
+    get = _body(code["Lp_Rvp_Prefix_Get"])
+    assert "held = Sh_Setting_Read(VT_STORE_MINE, LP_RVP_RED_PREFIX_KEY, LP_RVP_RED_PREFIX)" in get
+    assert "held = Sh_Setting_Read(VT_STORE_MINE, LP_RVP_BLUE_PREFIX_KEY, LP_RVP_BLUE_PREFIX)" in get
+    assert 'If held = LP_RVP_PREFIX_NONE Then held = ""' in get
+
+
+def prefix_boxes_on_the_form(repo_root, form):
+    """Both forms, 426 and 427: the four controls, their words and letters, the saved values in,
+    and every change written back - but not the values Initialize itself puts in."""
+    from test_form_handlers_match_controls import control_names
+    names = set(control_names(repo_root / "src" / "forms" / f"{form}.frx"))
+    assert {"BoxRedPrefixLabel", "BoxRedPrefixText", "BoxBluePrefixLabel", "BoxBluePrefixText"} <= names
+    code = "\n".join(form_code(repo_root, form))
+    init = re.search(r"Sub UserForm_Initialize\(\)(.*?)End Sub", code, re.S).group(1)
+    for line in ('BoxRedPrefixLabel.Caption = "Box Red Prefix"', 'BoxRedPrefixLabel.Accelerator = "E"',
+                 'BoxBluePrefixLabel.Caption = "Box Blue Prefix"', 'BoxBluePrefixLabel.Accelerator = "L"'):
+        assert line in init, f"{form}: {line}"
+    fill = init.index("filling = True")
+    red = init.index('BoxRedPrefixText.Text = Lp_Rvp_Prefix_Get("Box Red")')
+    blue = init.index('BoxBluePrefixText.Text = Lp_Rvp_Prefix_Get("Box Blue")')
+    assert fill < red < blue < init.index("filling = False"), form
+    assert "Private filling As Boolean" in code
+    for box, style in (("BoxRedPrefixText", "Box Red"), ("BoxBluePrefixText", "Box Blue")):
+        m = re.search(rf"Sub {box}_Change\(\)(.*?)End Sub", code, re.S)
+        assert m and f'If Not filling Then Lp_Rvp_Prefix_Set "{style}", {box}.Text' in m.group(1), (form, box)
+    from test_box_alt_keys_in_book import form_accelerators
+    letters = [letter for _, letter in form_accelerators(repo_root, form).values()]
+    assert len(letters) == len(set(letters)), f"{form}: two controls share a letter: {letters}"
+
+
+def test_426_has_the_prefix_boxes(repo_root):
+    prefix_boxes_on_the_form(repo_root, FORM)
+
+
+def test_the_prefix_keys_from_the_book_go_into_the_box(repo_root):
+    body = _body(_lp_code(repo_root)["Lp_Rvp_Prefix_Focus"])
+    assert body[1] == "On Error Resume Next"
+    assert body.index("Sh_Focus_Modeless_Form LP_RVP_TITLE") < body.index("box.SetFocus")
+    assert "box.SelLength = Len(box.Text)" in body, "typing replaces the prefix, as Tab into it does"

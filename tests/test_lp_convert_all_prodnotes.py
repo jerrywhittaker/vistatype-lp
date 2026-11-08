@@ -26,7 +26,7 @@ MENU = "Lp_Prodnotes_Menu_Form"
 def _code(repo_root):
     procs = procedures(module_text(repo_root))
     names = [n for n in procs if n == START or n.startswith("Lp_Cap_")]
-    assert START in names and len(names) == 3, names
+    assert START in names and len(names) == 4, names
     return {n: [strip_comment(c) for c in procs[n]] for n in names}
 
 
@@ -107,6 +107,9 @@ def test_the_form_controls_and_alt_keys(repo_root):
     from test_form_handlers_match_controls import control_names
     names = set(control_names(repo_root / "src" / "forms" / f"{FORM}.frx"))
     assert {"QuestionLabel", "BoxRedOption", "BoxBlueOption", "OkayButton", "CancelButton"} <= names
+    # Box Red Prefix and Box Blue Prefix, 11/8/2026, shared with 426
+    from test_lp_review_prodnotes import prefix_boxes_on_the_form
+    prefix_boxes_on_the_form(repo_root, FORM)
 
 
 def test_every_restyle_is_inside_one_undo_record(repo_root):
@@ -115,8 +118,10 @@ def test_every_restyle_is_inside_one_undo_record(repo_root):
     start = body.index('objUndo.StartCustomRecord "Convert All Prodnotes to " & st.NameLocal')
     loop = body.index("For i = 1 To hits.count")
     work = body.index("Dx_Rvp_Restyle_Run hits(i), st")
+    prefix = body.index("Lp_Rvp_Insert_Prefix hits(i), boxName")
+    assert body.index('boxName = Split(st.NameLocal, ",")(0)') < loop, "an alias would match no box"
     end = body.index("objUndo.EndCustomRecord")
-    assert start < loop < work < end
+    assert start < loop < work < prefix < body.index("Next i") < end
     assert body.count("StartCustomRecord") == 1
     eom = body[body.index("eom:"):]
     assert "If recording Then objUndo.EndCustomRecord" in eom and "Err.Raise errNum" in eom
@@ -159,3 +164,24 @@ def test_every_helper_takes_its_arguments_byval(repo_root):
             continue
         for arg in args.group(1).split(","):
             assert arg.strip().startswith("ByVal "), f"{name}: {arg.strip()} is not ByVal"
+
+
+def test_the_cursor_comes_back_to_the_same_text_after_the_prefixes(repo_root):
+    """vba-review, 11/8/2026: the saved spot is a character count, and every prefix put in before it
+    would otherwise bring the transcriber back that many characters early."""
+    body = _body(_code(repo_root)[START])
+    shift = body.index("shift = Lp_Cap_Prefix_Shift(hits, Sh_Start_Pos, Len(Lp_Rvp_Prefix_Get(styleName)))")
+    conv = body.index("n = Lp_Cap_Convert_All(hits, st)")
+    assert body.index("Set hits = Dx_Rvp_Collect(book)") < shift < conv, "counted before the text moves"
+    assert body[conv + 1] == "If shift > 0 Then Sh_Set_Return_Position Sh_Start_Pos + shift"
+    assert conv + 1 < body.index("Sh_Return_User_To_Start_Position")
+
+
+def test_426_behind_is_shown_the_new_prefixes(repo_root):
+    body = _body(_code(repo_root)[START])
+    show = body.index(f"{FORM}.Show")
+    assert body[show + 3] == "If Dx_Rvp_IsOn And Dx_Rvp_ForLP Then Lp_Rvp_Prefix_Refresh"
+    ref = "\n".join(procedures(module_text(repo_root))["Lp_Rvp_Prefix_Refresh"])
+    assert "On Error Resume Next" in ref
+    assert "Lp_Review_Prodnotes_Form.BoxRedPrefixText.Text = Lp_Rvp_Prefix_Get(LP_RVP_RED)" in ref
+    assert "Lp_Review_Prodnotes_Form.BoxBluePrefixText.Text = Lp_Rvp_Prefix_Get(LP_RVP_BLUE)" in ref

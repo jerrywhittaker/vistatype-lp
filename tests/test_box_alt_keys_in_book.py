@@ -163,7 +163,10 @@ def form_accelerators(repo_root, form):
     code = "\n".join(form_code(repo_root, form))
     init = re.search(r"Sub UserForm_Initialize\(\)(.*?)End Sub", code, re.S)
     for ctl, letter in re.findall(r'(\w+)\.Accelerator = "(\w)"', init.group(1) if init else ""):
-        kind = found.get(ctl, ("CommandButton", ""))[0]
+        # a label's letter is set here only (the .frx parser reads pressable controls): 426's
+        # Box Red Prefix and Box Blue Prefix, 11/8/2026
+        default = "Label" if ctl.endswith("Label") else "CommandButton"
+        kind = found.get(ctl, (default, ""))[0]
         found[ctl] = (kind, letter)
     return {ctl: (kind, letter.upper()) for ctl, (kind, letter) in found.items()}
 
@@ -272,7 +275,7 @@ def test_the_letters_jerry_was_given(repo_root):
     assert toc["CancelButton"][1] == "D"
     assert toc["FormatTheTOCButton"] == ("OptionButton", "C")
     for name, keys in (("tocb", "CAROD"), ("hv", "ODSALT"), ("pg2", "LDW"), ("pg4", "RDW"),
-                       ("msg", "OC")):
+                       ("msg", "OC"), ("lrvp", "NPDRBOEL")):
         assert set(alt_keys(repo_root, name)) == set(keys), name
 
 
@@ -367,6 +370,17 @@ def test_each_key_does_what_its_control_does(repo_root):
                     f"{sub}: Alt+{letter} does not tick or clear {ctl}")
             elif kind == "OptionButton":
                 assert f".{ctl}.Value = True" in body, f"{sub}: Alt+{letter} does not choose {ctl}"
+            elif kind == "Label":
+                # a label's key goes to the control it names - <Name>Label to <Name>Text - and from
+                # the book, the keyboard has to go into the box first
+                partner = ctl[:-len("Label")] + "Text"
+                inst = INSTANCE.get(form, form)
+                m = re.search(rf"^\s*(\w+) {inst}\.{partner}\s*$", body, re.M)
+                assert m, f"{sub}: Alt+{letter} does not go to {partner}, as {ctl}'s key does"
+                focus = "\n".join(macros[m.group(1)])
+                assert "Sh_Focus_Modeless_Form" in focus and "box.SetFocus" in focus, (
+                    f"{m.group(1)} does not take the keyboard into the box")
+                assert focus.index("Sh_Focus_Modeless_Form") < focus.index("box.SetFocus")
 
 
 def test_use_last_size_does_nothing_until_it_is_live(repo_root):

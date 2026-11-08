@@ -18,7 +18,14 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Sh  - 11/8/2026 - PRODNOTE STYLE LEFT A BLANK IN THE STYLE GALLERY when it was deleted
+' Notes:    - LP  - 11/8/2026 - BOX RED AND BOX BLUE PREFIXES (Jerry): a prodnote converted to a box
+'           - LP  - 11/8/2026 - style now starts with a bold word and a space that is not bold -
+'           - LP  - 11/8/2026 - "Description:" on Box Red, "Note:" on Box Blue - from Review
+'           - LP  - 11/8/2026 - Prodnotes (426) and from Convert All Prodnotes (427). Both boxes show
+'           - LP  - 11/8/2026 - and edit the two words (Box Red Prefix, Alt+E; Box Blue Prefix, Alt+L),
+'           - LP  - 11/8/2026 - kept in VistaType.ini; an empty box adds nothing. Inside the convert's
+'           - LP  - 11/8/2026 - one undo record, so one Ctrl+Z still puts the prodnote back.
+'           - Sh  - 11/8/2026 - PRODNOTE STYLE LEFT A BLANK IN THE STYLE GALLERY when it was deleted
 '           - Sh  - 11/8/2026 - (Jerry); clicking the blank brought back a black Prodnote. Sh_Set_Prodnote_
 '           - Sh  - 11/8/2026 - Style_Visibility now sets QuickStyle = False before the Delete. A TEST.
 '           - BRL - 11/8/2026 - REVIEW PRODNOTES DONE CLEARS THE STYLE (Jerry): Done, the red X and
@@ -3342,6 +3349,15 @@ Private Const LP_RVP_TITLE As String = "Review Prodnotes (426)"
 ' weight of the ones in use from the base font size).
 Private Const LP_RVP_RED As String = "Box Red"
 Private Const LP_RVP_BLUE As String = "Box Blue"
+' The bold word a prodnote converted to Box Red or Box Blue starts with (Lp_Rvp_Insert_Prefix) -
+' Jerry, 11/8/2026. Kept in VistaType.ini under TranscriberSettings, so 426 and 427 show the same
+' two words. Sh_Setting_Write will not store "" and Sh_Setting_Read gives the default back for an
+' empty key, so a prefix box the transcriber empties is stored as LP_RVP_PREFIX_NONE.
+Private Const LP_RVP_PREFIX_NONE As String = "(none)"
+Private Const LP_RVP_RED_PREFIX_KEY As String = "BoxRedPrefix"
+Private Const LP_RVP_BLUE_PREFIX_KEY As String = "BoxBluePrefix"
+Private Const LP_RVP_RED_PREFIX As String = "Description:"
+Private Const LP_RVP_BLUE_PREFIX As String = "Note:"
 ' CONVERT ALL PRODNOTES TO LP STYLE - Jerry, 11/8/2026. What Convert All Prodnotes (427) answers:
 ' LP_RVP_RED or LP_RVP_BLUE on Okay, "" on Cancel and on the red X.
 Public Lp_Cap_Style As String
@@ -24830,6 +24846,10 @@ End Sub  '***** end of Lp_Rvp_Box_Blue *****
 ' Replace All, which crashes Word inside the undo record. No check for a missing style: the box
 ' opens only with the LP template attached, and that brings Box Red and Box Blue (Jerry, 11/7/2026).
 '
+' The style's bold prefix (Lp_Rvp_Insert_Prefix) goes in after the restyle and inside the same
+' record, so one Ctrl+Z still takes the whole convert back.
+'
+' Version: 1.1  Date: 11/8/2026 - the prodnote starts with the bold Box Red or Box Blue prefix
 ' Version: 1.0  Date: 11/7/2026
 Private Sub Lp_Rvp_Box_Convert(ByVal styleName As String)
     Dim st As Style
@@ -24859,6 +24879,7 @@ Private Sub Lp_Rvp_Box_Convert(ByVal styleName As String)
     objUndo.StartCustomRecord "Convert Prodnote to " & styleName
     recording = True
     Dx_Rvp_Restyle_Run Dx_Rvp_Hits(Dx_Rvp_At), st
+    Lp_Rvp_Insert_Prefix Dx_Rvp_Hits(Dx_Rvp_At), styleName
     objUndo.EndCustomRecord
     recording = False
     Sh_Last_Activity = ""
@@ -24886,6 +24907,84 @@ eom:
     On Error GoTo 0
     Sh_Report_Error "Lp_Rvp_Box_Convert", errNum, errText
 End Sub  '***** end of Lp_Rvp_Box_Convert *****
+
+' The prefix a prodnote converted to a box style starts with, "" for none - Jerry, 11/8/2026. Box
+' Red is "Description:" and Box Blue "Note:" until the transcriber changes them on 426 or 427.
+' Read from VistaType.ini every time, so the two boxes always agree. "" for any other style.
+' Style name in, for the test.
+'
+' Version: 1.0  Date: 11/8/2026
+Public Function Lp_Rvp_Prefix_Get(ByVal styleName As String) As String
+    Dim held As String
+
+    Select Case styleName
+        Case LP_RVP_RED
+            held = Sh_Setting_Read(VT_STORE_MINE, LP_RVP_RED_PREFIX_KEY, LP_RVP_RED_PREFIX)
+        Case LP_RVP_BLUE
+            held = Sh_Setting_Read(VT_STORE_MINE, LP_RVP_BLUE_PREFIX_KEY, LP_RVP_BLUE_PREFIX)
+        Case Else
+            Exit Function
+    End Select
+    If held = LP_RVP_PREFIX_NONE Then held = ""
+    Lp_Rvp_Prefix_Get = Trim$(held)
+End Function  '***** end of Lp_Rvp_Prefix_Get *****
+
+' Stores what the transcriber typed in a prefix box. Called from each prefix box's Change on 426
+' and 427, so the file always holds what is on screen - 426 stays open while Box Red and Box Blue
+' run. An emptied box is stored as LP_RVP_PREFIX_NONE: Sh_Setting_Write will not store "", and an
+' empty key would read back as the default.
+'
+' Version: 1.0  Date: 11/8/2026
+Public Sub Lp_Rvp_Prefix_Set(ByVal styleName As String, ByVal txt As String)
+    txt = Trim$(txt)
+    If txt = "" Then txt = LP_RVP_PREFIX_NONE
+    Select Case styleName
+        Case LP_RVP_RED
+            Sh_Setting_Write VT_STORE_MINE, LP_RVP_RED_PREFIX_KEY, txt
+        Case LP_RVP_BLUE
+            Sh_Setting_Write VT_STORE_MINE, LP_RVP_BLUE_PREFIX_KEY, txt
+    End Select
+End Sub  '***** end of Lp_Rvp_Prefix_Set *****
+
+' Puts the saved prefixes into 426's two boxes, for Convert All Prodnotes (427) run while 426 is
+' open behind it. Each box's Change then writes back the same word, which changes nothing. Only
+' called with 426 up: touching the form while it is down would load it.
+'
+' Version: 1.0  Date: 11/8/2026
+Private Sub Lp_Rvp_Prefix_Refresh()
+    On Error Resume Next
+    Lp_Review_Prodnotes_Form.BoxRedPrefixText.Text = Lp_Rvp_Prefix_Get(LP_RVP_RED)
+    Lp_Review_Prodnotes_Form.BoxBluePrefixText.Text = Lp_Rvp_Prefix_Get(LP_RVP_BLUE)
+    Err.Clear
+End Sub  '***** end of Lp_Rvp_Prefix_Refresh *****
+
+' Puts the style's prefix in bold at the start of a prodnote's first paragraph, then one space that
+' is NOT bold, so the prodnote's own text is left as it was. Nothing when the prefix is empty. Run
+' after the restyle: the paragraph style applied after it could take the bold off. Written as
+' Lp_Table_Note_At_Top writes its bold "Note": InsertAfter on a collapsed Range widens the Range
+' over just the new text, and the bold is set on that. Font.Reset first, on the prefix and on the
+' space: new text copies the first character of the prodnote, and an italic, colored or
+' differently sized one would otherwise give an italic, colored or wrong-sized prefix - so both
+' are set outright to the box style's own font, the size every character must be.
+'
+' Version: 1.0  Date: 11/8/2026
+Private Sub Lp_Rvp_Insert_Prefix(ByVal r As Range, ByVal styleName As String)
+    Dim prefix As String
+    Dim head As Range
+
+    prefix = Lp_Rvp_Prefix_Get(styleName)
+    If prefix = "" Then Exit Sub
+
+    Set head = r.Duplicate
+    head.Collapse wdCollapseStart
+    head.InsertAfter prefix              ' head now covers the prefix
+    head.Font.Reset
+    head.Font.Bold = True
+    head.Collapse wdCollapseEnd
+    head.InsertAfter " "                 ' head now covers the space
+    head.Font.Reset
+    head.Font.Bold = False
+End Sub  '***** end of Lp_Rvp_Insert_Prefix *****
 
 ' The second line on the large print box. Numbers in, for the test.
 '
@@ -24939,8 +25038,10 @@ End Sub  '***** end of Lp_Rvp_ToggleFocus *****
 
 ' The large print box's Alt keys from the book (Sh_Box_AltKeys): Next, Previous, Delete This
 ' Prodnote, Convert This to a Box Red Style, Convert This to a Box Blue Style, Done - what each
-' button does.
+' button does. And Box Red Prefix (E) and Box Blue Prefix (L): the keyboard goes into the box, to
+' that label's text box, as the label's own key does while the box has the keyboard.
 '
+' Version: 1.1  Date: 11/8/2026 - Alt+E and Alt+L, the two prefix boxes
 ' Version: 1.0  Date: 11/7/2026
 Public Sub Lp_Rvp_AltKey(ByVal key As String)
     ' The safety net, as for F6: fired with no box up, or the braille one, it leaves the list.
@@ -24962,8 +25063,26 @@ Public Sub Lp_Rvp_AltKey(ByVal key As String)
             Lp_Rvp_Box_Blue
         Case "O"
             Dx_Rvp_Done
+        Case "E"
+            Lp_Rvp_Prefix_Focus Lp_Review_Prodnotes_Form.BoxRedPrefixText
+        Case "L"
+            Lp_Rvp_Prefix_Focus Lp_Review_Prodnotes_Form.BoxBluePrefixText
     End Select
 End Sub  '***** end of Lp_Rvp_AltKey *****
+
+' Alt+E and Alt+L from the book (Lp_Rvp_AltKey): the keyboard goes into the box, to that prefix's
+' text box with its text selected, so typing replaces it - as the label's own key does on the box.
+' Guarded as the box's F6 is: a focus move that fails does nothing.
+'
+' Version: 1.0  Date: 11/8/2026
+Private Sub Lp_Rvp_Prefix_Focus(ByVal box As Object)
+    On Error Resume Next
+    Sh_Focus_Modeless_Form LP_RVP_TITLE
+    box.SetFocus
+    box.SelStart = 0
+    box.SelLength = Len(box.Text)
+    Err.Clear
+End Sub  '***** end of Lp_Rvp_Prefix_Focus *****
 ' ============================================================================================
 ' CONVERT ALL PRODNOTES TO LP STYLE - Jerry, 11/8/2026. The Convert All Prodnotes to LP Style
 ' button on Prodnote Review (425). The large print counterpart of the braille Convert All
@@ -24985,13 +25104,19 @@ End Sub  '***** end of Lp_Rvp_AltKey *****
 '
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
+' THE PREFIXES (11/8/2026): each prodnote gains its bold prefix and a space (Lp_Cap_Convert_All), so
+' the cursor's saved spot - a character count - is moved on by the prefixes put in before it
+' (Lp_Cap_Prefix_Shift). And 426, if it is open behind, is shown the prefixes as 427 left them.
+'
+' Version: 1.1  Date: 11/8/2026 - the prefixes: the cursor comes back to the same text, and 426 is
+'                                shown the prefixes as 427 left them
 ' Version: 1.0  Date: 11/8/2026
 Public Sub Lp_Convert_All_Prodnotes_To_Box()
     Dim book As Document
     Dim hits As Collection
     Dim st As Style
     Dim styleName As String
-    Dim n As Long
+    Dim n As Long, shift As Long
     Dim su_Prev As Boolean
     Dim errNum As Long, errText As String
 
@@ -25012,6 +25137,9 @@ Public Sub Lp_Convert_All_Prodnotes_To_Box()
     Lp_Prodnote_Box_Style_Form.Show
     styleName = Lp_Cap_Style
     Lp_Cap_Style = ""
+    ' 426 open behind: show it the prefixes as 427 left them, or its next keystroke would write the
+    ' old word back over them. On Cancel too - 427 saves them as they are typed.
+    If Dx_Rvp_IsOn And Dx_Rvp_ForLP Then Lp_Rvp_Prefix_Refresh
     If styleName <> LP_RVP_RED And styleName <> LP_RVP_BLUE Then Exit Sub
 
     Sh_Save_User_Position   ' after the question, so an early Exit Sub above leaves nothing pending
@@ -25023,11 +25151,13 @@ Public Sub Lp_Convert_All_Prodnotes_To_Box()
     Sh_Last_Activity = "Convert all prodnotes: finding the prodnotes"
     Set hits = Dx_Rvp_Collect(book)
     Set st = book.Styles(styleName)
+    shift = Lp_Cap_Prefix_Shift(hits, Sh_Start_Pos, Len(Lp_Rvp_Prefix_Get(styleName)))
 
     Sh_Progress_Say 50, "Converting the prodnotes to " & styleName & " Style"
     Sh_Last_Activity = "Convert all prodnotes: converting to " & styleName
     Application.ScreenUpdating = False
     n = Lp_Cap_Convert_All(hits, st)
+    If shift > 0 Then Sh_Set_Return_Position Sh_Start_Pos + shift
     Application.ScreenUpdating = su_Prev
     Sh_Last_Activity = ""
     Sh_Progress_Close
@@ -25054,21 +25184,29 @@ End Sub  '***** end of Lp_Convert_All_Prodnotes_To_Box *****
 ' Gives every prodnote in the list a style, inside ONE undo record, so one Ctrl+Z puts them all
 ' back; returns how many prodnotes. Paragraph by paragraph (Dx_Rvp_Restyle_Run), never a Replace
 ' All. On an error the record is closed and the error handed to the caller.
+' Each prodnote then starts with its style's bold prefix (Lp_Rvp_Insert_Prefix), in the same record.
 ' tests/vba/TestReviewProdnotes.bas runs it on a scratch book.
 '
+' The prefix is found by the style's name with any alias cut off: NameLocal gives "Box Red,BR" for
+' a style with an alias, which matches neither box.
+'
+' Version: 1.1  Date: 11/8/2026 - the bold Box Red or Box Blue prefix on each prodnote
 ' Version: 1.0  Date: 11/8/2026
 Private Function Lp_Cap_Convert_All(ByVal hits As Collection, ByVal st As Style) As Long
     Dim objUndo As UndoRecord
     Dim recording As Boolean
     Dim i As Long
+    Dim boxName As String
     Dim errNum As Long, errText As String
 
     On Error GoTo eom
+    boxName = Split(st.NameLocal, ",")(0)
     Set objUndo = Application.UndoRecord
     objUndo.StartCustomRecord "Convert All Prodnotes to " & st.NameLocal
     recording = True
     For i = 1 To hits.count
         Dx_Rvp_Restyle_Run hits(i), st
+        Lp_Rvp_Insert_Prefix hits(i), boxName
     Next i
     objUndo.EndCustomRecord
     recording = False
@@ -25084,6 +25222,22 @@ eom:
     On Error GoTo 0
     Err.Raise errNum, "Lp_Cap_Convert_All", errText
 End Function  '***** end of Lp_Cap_Convert_All *****
+
+' How far the cursor's saved spot moves when every prodnote gains a prefix and a space: one prefix
+' for each prodnote starting at or before it. Nothing for an empty prefix. The prodnotes, the spot
+' and the prefix's length in, for the test.
+'
+' Version: 1.0  Date: 11/8/2026
+Private Function Lp_Cap_Prefix_Shift(ByVal hits As Collection, ByVal pos As Long, _
+                                     ByVal prefixLen As Long) As Long
+    Dim i As Long, n As Long
+
+    If prefixLen = 0 Then Exit Function
+    For i = 1 To hits.count
+        If hits(i).Start <= pos Then n = n + 1
+    Next i
+    Lp_Cap_Prefix_Shift = n * (prefixLen + 1)
+End Function  '***** end of Lp_Cap_Prefix_Shift *****
 
 ' What 428 says when the prodnotes are converted. Number and name in, for the test.
 '

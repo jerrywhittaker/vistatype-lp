@@ -15,6 +15,11 @@ Attribute VB_Name = "TestReviewProdnotes"
 '@uses Lp_Cap_Summary
 '@uses Dx_Rvp_None_Found_Text
 '@uses Dx_Rvp_Style_Can_Go
+'@uses Lp_Rvp_Prefix_Get
+'@uses Lp_Rvp_Prefix_Set
+'@uses Lp_Rvp_Insert_Prefix
+'@uses Sh_Settings_File
+'@uses Lp_Cap_Prefix_Shift
 '
 ' Review Prodnotes (418), Jerry, 11/7/2026: which prodnote Next and Previous go to, the lines the
 ' box shows, and the rule that groups Prodnote paragraphs into one prodnote - and then, in a hidden
@@ -38,6 +43,13 @@ Attribute VB_Name = "TestReviewProdnotes"
 ' Done with no prodnotes left, 11/8/2026: in a fourth scratch book, the Prodnote style may go only
 ' once no paragraph uses it and while the book is open; and what one Ctrl+Z does after it is deleted.
 '
+' The Box Red and Box Blue prefixes, 11/8/2026: an emptied prefix saved and read back as empty, not
+' as the default; and in a fifth scratch book, the bold prefix and the plain space after it on Box
+' Red and on Box Blue, nothing for an empty prefix, and one Ctrl+Z taking prefix and style back -
+' for one prodnote and for Convert All. The store is the one a Word started over SSH reads, the
+' system profile's (README.md); the two values found in it are put back, whatever happens.
+'
+' Version: 1.5  Date: 11/8/2026 - the prefixes: Lp_Rvp_Prefix_Get, Lp_Rvp_Prefix_Set, Lp_Rvp_Insert_Prefix
 ' Version: 1.4  Date: 11/8/2026 - Done drops the unused Prodnote style: Dx_Rvp_Style_Can_Go
 ' Version: 1.3  Date: 11/8/2026 - Convert All Prodnotes to LP Style: Lp_Cap_Convert_All, Lp_Cap_Summary
 ' Version: 1.2  Date: 11/7/2026 - the large print box (426): Box Red and Box Blue
@@ -116,6 +128,8 @@ Public Function TestReviewProdnotes_Suite() As TestSuite
     TestReviewProdnotes_Convert_All Suite.Test("in a scratch book: every prodnote to Box Red, then Box Blue, one undo each")
 
     TestReviewProdnotes_Style_Can_Go Suite.Test("in a scratch book: the Prodnote style goes only when no prodnote is left")
+
+    TestReviewProdnotes_Prefixes Suite.Test("the Box Red and Box Blue prefixes: saved, read back, bold, and undone in one")
 
     Set TestReviewProdnotes_Suite = Suite
 End Function
@@ -363,5 +377,144 @@ Failed:
     T.Fail "VBA error " & Err.Number & " while " & stage & " - " & Err.Description
     On Error Resume Next
     If Not d Is Nothing Then d.Close SaveChanges:=False
+    Err.Clear
+End Sub
+
+' The prefixes. The book: Some text. / Prodnote A, two paragraphs / Middle. / Prodnote B / The end.
+' Its own Prodnote, Box Red and Box Blue styles, so no template is attached.
+Private Sub TestReviewProdnotes_Prefixes(ByVal T As TestCase)
+    Const SECT As String = "TranscriberSettings"
+    Dim d As Document
+    Dim stProd As Style, stRed As Style, stBlue As Style
+    Dim hits As Collection
+    Dim objUndo As UndoRecord
+    Dim p As Range
+    Dim store As String, heldRed As String, heldBlue As String
+    Dim saved As Boolean
+    Dim stage As String
+
+    On Error GoTo Failed
+    stage = "reading the store"
+    store = Sh_Settings_File()
+    T.IsEqual (store <> ""), True, "there is a VistaType.ini to keep the prefixes in"
+    If store = "" Then Exit Sub
+    heldRed = System.PrivateProfileString(store, SECT, "BoxRedPrefix")
+    heldBlue = System.PrivateProfileString(store, SECT, "BoxBluePrefix")
+    saved = True
+
+    stage = "saving and reading back"
+    Lp_Rvp_Prefix_Set "Box Red", ""
+    T.IsEqual System.PrivateProfileString(store, SECT, "BoxRedPrefix"), "(none)", "an emptied prefix is stored as (none)"
+    T.IsEqual Lp_Rvp_Prefix_Get("Box Red"), "", "and comes back empty, not as the default"
+    Lp_Rvp_Prefix_Set "Box Red", "  Picture:  "
+    T.IsEqual Lp_Rvp_Prefix_Get("Box Red"), "Picture:", "a typed prefix comes back, spaces off"
+    System.PrivateProfileString(store, SECT, "BoxRedPrefix") = ""
+    System.PrivateProfileString(store, SECT, "BoxBluePrefix") = ""
+    T.IsEqual Lp_Rvp_Prefix_Get("Box Red"), "Description:", "with nothing saved, Box Red is Description:"
+    T.IsEqual Lp_Rvp_Prefix_Get("Box Blue"), "Note:", "with nothing saved, Box Blue is Note:"
+    T.IsEqual Lp_Rvp_Prefix_Get("Prodnote"), "", "no prefix for any other style"
+
+    stage = "making the scratch book"
+    Set d = Documents.Add(Visible:=False)
+    Set stProd = d.Styles.Add("Prodnote", wdStyleTypeParagraph)
+    Set stRed = d.Styles.Add("Box Red", wdStyleTypeParagraph)
+    Set stBlue = d.Styles.Add("Box Blue", wdStyleTypeParagraph)
+    d.Content.Text = "Some text." & vbCr & "A cat on a mat." & vbCr & "It is gray." & vbCr _
+                   & "Middle." & vbCr & "A dog." & vbCr & "The end."
+    d.Paragraphs(2).Style = stProd
+    d.Paragraphs(3).Style = stProd
+    d.Paragraphs(5).Style = stProd
+    Lp_Rvp_Prefix_Set "Box Red", "Description:"
+    Lp_Rvp_Prefix_Set "Box Blue", "Note:"
+    Set hits = Dx_Rvp_Collect(d)
+    T.IsEqual hits.Count, 2, "two prodnotes"
+
+    stage = "converting A to Box Red, as Convert This to a Box Red Style does"
+    Set objUndo = Application.UndoRecord
+    objUndo.StartCustomRecord "Convert Prodnote to Box Red"
+    Dx_Rvp_Restyle_Run hits(1), stRed
+    Lp_Rvp_Insert_Prefix hits(1), "Box Red"
+    objUndo.EndCustomRecord
+    Set p = d.Paragraphs(2).Range
+    T.IsEqual p.Text, "Description: A cat on a mat." & vbCr, "A starts with Description: and a space"
+    T.IsEqual p.Style.NameLocal, "Box Red", "A is Box Red"
+    T.IsEqual (d.Range(p.Start, p.Start + 12).Bold = True), True, "Description: is bold"
+    T.IsEqual (d.Range(p.Start + 12, p.Start + 13).Bold = False), True, "the space after it is not bold"
+    T.IsEqual (d.Range(p.Start + 13, p.End - 1).Bold = False), True, "nor is the prodnote's own text"
+    T.IsEqual d.Paragraphs(3).Range.Text, "It is gray." & vbCr, "A's second paragraph has no prefix"
+    T.IsEqual d.Paragraphs(3).Style.NameLocal, "Box Red", "and is Box Red"
+
+    stage = "one Ctrl+Z after Box Red"
+    d.Undo 1
+    T.IsEqual d.Paragraphs(2).Range.Text, "A cat on a mat." & vbCr, "one undo takes the prefix out"
+    T.IsEqual d.Paragraphs(2).Style.NameLocal, "Prodnote", "and puts A back to Prodnote"
+    T.IsEqual d.Paragraphs(3).Style.NameLocal, "Prodnote", "both of A's paragraphs"
+
+    stage = "converting B to Box Blue"
+    objUndo.StartCustomRecord "Convert Prodnote to Box Blue"
+    Dx_Rvp_Restyle_Run hits(2), stBlue
+    Lp_Rvp_Insert_Prefix hits(2), "Box Blue"
+    objUndo.EndCustomRecord
+    Set p = d.Paragraphs(5).Range
+    T.IsEqual p.Text, "Note: A dog." & vbCr, "B starts with Note: and a space"
+    T.IsEqual p.Style.NameLocal, "Box Blue", "B is Box Blue"
+    T.IsEqual (d.Range(p.Start, p.Start + 5).Bold = True), True, "Note: is bold"
+    T.IsEqual (d.Range(p.Start + 5, p.End - 1).Bold = False), True, "the space and the text are not"
+    d.Undo 1
+    T.IsEqual d.Paragraphs(5).Range.Text, "A dog." & vbCr, "one undo takes B's prefix out"
+
+    stage = "an empty prefix"
+    Lp_Rvp_Prefix_Set "Box Blue", ""
+    objUndo.StartCustomRecord "Convert Prodnote to Box Blue"
+    Dx_Rvp_Restyle_Run hits(2), stBlue
+    Lp_Rvp_Insert_Prefix hits(2), "Box Blue"
+    objUndo.EndCustomRecord
+    T.IsEqual d.Paragraphs(5).Range.Text, "A dog." & vbCr, "an empty prefix puts nothing in"
+    T.IsEqual d.Paragraphs(5).Style.NameLocal, "Box Blue", "and B is still Box Blue"
+    d.Undo 1
+    T.IsEqual d.Paragraphs(5).Style.NameLocal, "Prodnote", "one undo puts B back"
+
+    stage = "Convert All to Box Red, with the prefix"
+    ' B's first word italic and at 30 point, as a pasted or imported title can be: the prefix must
+    ' take the box style's font, not the first character's
+    With d.Range(d.Paragraphs(5).Range.Start, d.Paragraphs(5).Range.Start + 1).Font
+        .Italic = True
+        .Size = 30
+    End With
+    Set hits = Dx_Rvp_Collect(d)
+    T.IsEqual Lp_Cap_Prefix_Shift(hits, 0, 12), 0, "a cursor before every prodnote does not move"
+    T.IsEqual Lp_Cap_Prefix_Shift(hits, hits(1).Start, 12), 13, "one at the start of A moves past A's prefix"
+    T.IsEqual Lp_Cap_Prefix_Shift(hits, d.Content.End - 1, 12), 26, "one at the end moves past both"
+    T.IsEqual Lp_Cap_Prefix_Shift(hits, d.Content.End - 1, 0), 0, "an empty prefix moves nothing"
+    T.IsEqual Lp_Cap_Convert_All(hits, stRed), 2, "two prodnotes converted"
+    T.IsEqual d.Paragraphs(2).Range.Text, "Description: A cat on a mat." & vbCr, "A has the prefix"
+    T.IsEqual d.Paragraphs(3).Range.Text, "It is gray." & vbCr, "only on its first paragraph"
+    T.IsEqual d.Paragraphs(5).Range.Text, "Description: A dog." & vbCr, "B has the prefix"
+    Set p = d.Paragraphs(5).Range
+    T.IsEqual (d.Range(p.Start, p.Start + 12).Bold = True), True, "bold"
+    T.IsEqual (d.Range(p.Start + 12, p.End - 1).Bold = False), True, "and the rest not"
+    T.IsEqual (d.Range(p.Start, p.Start + 13).Italic = False), True, "an italic first word gives no italic prefix"
+    T.IsEqual d.Range(p.Start, p.Start + 13).Font.Size, stRed.Font.Size, "the prefix and space are the box style's size"
+    T.IsEqual d.Range(p.Start + 13, p.Start + 14).Font.Size, 30, "and the prodnote's own text keeps its own"
+    d.Undo 1
+    T.IsEqual d.Paragraphs(2).Range.Text, "A cat on a mat." & vbCr, "one undo takes every prefix out"
+    T.IsEqual d.Paragraphs(5).Range.Text, "A dog." & vbCr, "B's too"
+    T.IsEqual TestRvp_Prodnote_Count(d), 3, "and every Prodnote paragraph is back"
+
+    d.Close SaveChanges:=False
+    Set d = Nothing
+    System.PrivateProfileString(store, SECT, "BoxRedPrefix") = heldRed
+    System.PrivateProfileString(store, SECT, "BoxBluePrefix") = heldBlue
+    Exit Sub
+
+Failed:
+    T.Fail "VBA error " & Err.Number & " while " & stage & " - " & Err.Description
+    On Error Resume Next
+    If Not objUndo Is Nothing Then objUndo.EndCustomRecord
+    If Not d Is Nothing Then d.Close SaveChanges:=False
+    If saved Then
+        System.PrivateProfileString(store, SECT, "BoxRedPrefix") = heldRed
+        System.PrivateProfileString(store, SECT, "BoxBluePrefix") = heldBlue
+    End If
     Err.Clear
 End Sub

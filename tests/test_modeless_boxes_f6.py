@@ -30,7 +30,9 @@ BOXES = {
                                  "DoneButton"],
     # The large print Review Prodnotes (426), 11/7/2026.
     "Lp_Review_Prodnotes_Form": ["NextButton", "PrevButton", "DeleteButton", "BoxRedButton",
-                                 "BoxBlueButton", "DoneButton"],
+                                 "BoxBlueButton", "DoneButton",
+                                 # the two prefix boxes, 11/8/2026
+                                 "BoxRedPrefixText", "BoxBluePrefixText"],
     # Stays open only when shown through Sh_Ask_Modeless (box 402, 10/28/2026).
     "Sh_Message_Form": ["Msg_Text", "Okay_Button", "Cancel_Button"],
 }

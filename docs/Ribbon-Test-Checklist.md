@@ -168,8 +168,13 @@ somewhere else on purpose:
     - same icon as the braille **Prodnotes and Alt-Text** button
     - opens dialog **LP user form Prodnote Review (425)**, buttons top to bottom (11/8/2026):
         - [ ] Review/Edit/Delete Prodnotes (Alt+R) - opens **LP user form Review Prodnotes (426)**
+            - [ ] Box Red Prefix (Alt+E) shows "Description:", Box Blue Prefix (Alt+L) shows "Note:"
+                  (11/8/2026); Alt+E and Alt+L work from the book too, and F6 leaves either box
+            - [ ] a converted prodnote starts with the prefix in bold, then a space that is not bold;
+                  an emptied prefix adds nothing; one Ctrl+Z takes prefix and style back
         - [ ] Convert All Prodnotes to red or blue box styles (Alt+A, two lines, clear of its icon) -
               opens **LP user form Convert All Prodnotes (427)**
+            - [ ] the same two prefix boxes (Alt+E, Alt+L), showing what was typed on 426
         - [ ] Delete All Prodnotes (Alt+D) - asks **LP message VistaType LP (229)**, Yes/No, then deletes
               every prodnote, table cells too, and says how many on **LP message VistaType LP (230)**
         - [ ] Cancel (Alt+C)

@@ -949,6 +949,7 @@ End Sub  '***** end of Sh_Box_Clear_AltKeys *****
 ' UserForm_Initialize changes it; tests/test_box_alt_keys_in_book.py holds the two together.
 ' who is the name on the list of boxes, except the $pg menus: see Sh_Box_AltName.
 '
+' Version: 1.7  Date: 11/8/2026 - Box Red Prefix (E) and Box Blue Prefix (L) on 426
 ' Version: 1.6  Date: 11/7/2026 - the large print Review Prodnotes (426)
 ' Version: 1.5  Date: 11/7/2026 - Review Prodnotes (418)
 ' Version: 1.4  Date: 11/5/2026 - Edit Description (E) on 375
@@ -975,8 +976,9 @@ Public Function Sh_Box_AltKeys(ByVal who As String) As String
             Sh_Box_AltKeys = "NPDTO"
         Case "lrvp"
             ' 426: Next, Previous, Delete This Prodnote, Convert This to a Box Red Style (R, Word's
-            ' Review tab), Convert This to a Box Blue Style (B), Done (O)
-            Sh_Box_AltKeys = "NPDRBO"
+            ' Review tab), Convert This to a Box Blue Style (B), Done (O), and the labels Box Red
+            ' Prefix (E) and Box Blue Prefix (L, Word's Developer tab), which go to their text boxes
+            Sh_Box_AltKeys = "NPDRBOEL"
         Case "tocb"
             ' 354: the three jobs (Clean and format the TOC, Add Color Bars, Remove Color Bars),
             ' Okay, and Done - the Cancel button. UserForm_Initialize makes Cancel's letter D and
