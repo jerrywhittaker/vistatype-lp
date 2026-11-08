@@ -14,6 +14,7 @@ Attribute VB_Name = "TestReviewProdnotes"
 '@uses Lp_Cap_Convert_All
 '@uses Lp_Cap_Summary
 '@uses Dx_Rvp_None_Found_Text
+'@uses Dx_Rvp_Style_Can_Go
 '
 ' Review Prodnotes (418), Jerry, 11/7/2026: which prodnote Next and Previous go to, the lines the
 ' box shows, and the rule that groups Prodnote paragraphs into one prodnote - and then, in a hidden
@@ -34,6 +35,10 @@ Attribute VB_Name = "TestReviewProdnotes"
 ' every prodnote - one of them two paragraphs long - given Box Red, then Box Blue, each in ONE undo
 ' record, with one Ctrl+Z putting every prodnote back to Prodnote.
 '
+' Done with no prodnotes left, 11/8/2026: in a fourth scratch book, the Prodnote style may go only
+' once no paragraph uses it and while the book is open; and what one Ctrl+Z does after it is deleted.
+'
+' Version: 1.4  Date: 11/8/2026 - Done drops the unused Prodnote style: Dx_Rvp_Style_Can_Go
 ' Version: 1.3  Date: 11/8/2026 - Convert All Prodnotes to LP Style: Lp_Cap_Convert_All, Lp_Cap_Summary
 ' Version: 1.2  Date: 11/7/2026 - the large print box (426): Box Red and Box Blue
 ' Version: 1.1  Date: 11/7/2026 - which template names count as BANA, for Print Layout and Convert
@@ -109,6 +114,8 @@ Public Function TestReviewProdnotes_Suite() As TestSuite
     End With
 
     TestReviewProdnotes_Convert_All Suite.Test("in a scratch book: every prodnote to Box Red, then Box Blue, one undo each")
+
+    TestReviewProdnotes_Style_Can_Go Suite.Test("in a scratch book: the Prodnote style goes only when no prodnote is left")
 
     Set TestReviewProdnotes_Suite = Suite
 End Function
@@ -306,3 +313,55 @@ Private Function TestRvp_Prodnote_Count(ByVal d As Document) As Long
         If para.Style.NameLocal = "Prodnote" Then TestRvp_Prodnote_Count = TestRvp_Prodnote_Count + 1
     Next para
 End Function
+
+' The book: Some text. / Prodnote A / The end. Its own Prodnote style, so no template is attached.
+' Measures, too, whether one Document.Undo after the style is deleted brings it back - what one
+' press of Ctrl+Z after Done would do.
+Private Sub TestReviewProdnotes_Style_Can_Go(ByVal T As TestCase)
+    Dim d As Document
+    Dim stProd As Style, back As Style
+    Dim held As Document
+    Dim stage As String
+
+    On Error GoTo Failed
+    stage = "making the scratch book"
+    Set d = Documents.Add(Visible:=False)
+    Set stProd = d.Styles.Add("Prodnote", wdStyleTypeParagraph)
+    d.Content.Text = "Some text." & vbCr & "Prodnote A" & vbCr & "The end."
+    d.Paragraphs(2).Style = stProd
+
+    stage = "asking with a prodnote left"
+    T.IsEqual Dx_Rvp_Style_Can_Go(d), False, "a prodnote is left, so the style stays"
+
+    stage = "asking with none left"
+    d.Paragraphs(2).Style = d.Styles(wdStyleNormal)
+    T.IsEqual Dx_Rvp_Style_Can_Go(d), True, "no prodnote left, so the style can go"
+    T.IsEqual Dx_Rvp_Style_Can_Go(Nothing), False, "no book, nothing to do"
+
+    stage = "deleting the style, then one undo"
+    d.UndoClear
+    d.Styles("Prodnote").Delete
+    On Error Resume Next
+    Set back = d.Styles("Prodnote")
+    On Error GoTo Failed
+    T.IsEqual (back Is Nothing), True, "the style is gone from the book"
+    d.Undo 1
+    Set back = Nothing
+    On Error Resume Next
+    Set back = d.Styles("Prodnote")
+    On Error GoTo Failed
+    T.IsEqual (back Is Nothing), False, "one Ctrl+Z after the delete brings the style back"
+
+    stage = "closing the book"
+    Set held = d
+    d.Close SaveChanges:=False
+    Set d = Nothing
+    T.IsEqual Dx_Rvp_Style_Can_Go(held), False, "a closed book is left alone"
+    Exit Sub
+
+Failed:
+    T.Fail "VBA error " & Err.Number & " while " & stage & " - " & Err.Description
+    On Error Resume Next
+    If Not d Is Nothing Then d.Close SaveChanges:=False
+    Err.Clear
+End Sub

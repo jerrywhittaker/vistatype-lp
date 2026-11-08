@@ -157,3 +157,31 @@ def test_every_helper_takes_its_arguments_byval(repo_root):
             continue
         for arg in args.group(1).split(","):
             assert arg.strip().startswith("ByVal "), f"{name}: {arg.strip()} is not ByVal"
+
+
+def test_done_and_none_left_drop_the_prodnote_style_when_none_is_left(repo_root):
+    """Jerry, 11/8/2026: when the user selects Done and there are no more prodnotes left in the
+    book, the Prodnote style disappears from the Styles pane. Done (the button, Alt+O and the red
+    X through QueryClose) and the none-left end (420), on both boxes, 418 and 426: the box closed
+    first, so every undo record it opened is closed, then the style dropped, then the message."""
+    code = _rvp_code(repo_root)
+    for sub in ("Dx_Rvp_Done", "Dx_Rvp_None_Left"):
+        body = [c.strip() for c in code[sub] if c.strip()]
+        assert "Set book = Dx_Rvp_Doc" in body, sub
+        grab, finish = body.index("Set book = Dx_Rvp_Doc"), body.index("Dx_Rvp_Finish")
+        drop = body.index("Dx_Rvp_Drop_Unused_Style book")
+        say = next(i for i, c in enumerate(body) if c.startswith("Sh_Say "))
+        assert grab < finish < drop < say, sub
+    drop = [c.strip() for c in code["Dx_Rvp_Drop_Unused_Style"] if c.strip()]
+    assert "If Not Dx_Rvp_Style_Can_Go(book) Then Exit Sub" in drop
+    assert drop.index("If Not Dx_Rvp_Style_Can_Go(book) Then Exit Sub") \
+        < drop.index("If inFront Then Sh_Set_Prodnote_Style_Visibility")
+    assert "inFront = (ActiveDocument Is book)" in drop
+    can = [c.strip() for c in code["Dx_Rvp_Style_Can_Go"] if c.strip()]
+    assert "If Not Lp_Rst_Doc_Is_Open(book) Then Exit Function" in can   # a closed book is skipped
+    assert "Dx_Rvp_Style_Can_Go = Not Sh_Document_Has_Prodnotes(book)" in can
+    # A book closed during the run ends through Dx_Rvp_Ready (422) and is not touched.
+    assert not any("Dx_Rvp_Drop_Unused_Style" in c for c in code["Dx_Rvp_Ready"])
+    # Convert All Prodnotes (427) is left as Jerry accepted it.
+    procs = procedures(module_text(repo_root))
+    assert not any("Dx_Rvp_Drop_Unused_Style" in c for c in procs["Lp_Convert_All_Prodnotes_To_Box"])

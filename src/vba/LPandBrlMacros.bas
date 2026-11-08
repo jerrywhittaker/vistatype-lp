@@ -18,7 +18,11 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - LP  - 11/8/2026 - PRODNOTE REVIEW (425) FINISHED (Jerry): Convert All Prodnotes, now
+' Notes:    - BRL - 11/8/2026 - REVIEW PRODNOTES DONE CLEARS THE STYLE (Jerry): Done, the red X and
+'           - BRL - 11/8/2026 - the none-left end (420) on both Review Prodnotes boxes (418 and 426)
+'           - BRL - 11/8/2026 - delete the Prodnote style from the book when no prodnote is left
+'           - BRL - 11/8/2026 - (Dx_Rvp_Drop_Unused_Style), so it goes from the Styles pane.
+'           - LP  - 11/8/2026 - PRODNOTE REVIEW (425) FINISHED (Jerry): Convert All Prodnotes, now
 '           - LP  - 11/8/2026 - captioned Convert All Prodnotes to red or blue box styles, sits above Delete
 '           - LP  - 11/8/2026 - All Prodnotes (the two swapped, icons and Tab order with them). Delete All Prodnotes runs
 '           - LP  - 11/8/2026 - Sh_Delete_Prodnote_Paragraphs, which asks Yes/No (229) before deleting.
@@ -24524,14 +24528,19 @@ End Function  '***** end of Dx_Rvp_Summary *****
 ' Every prodnote found at the start has been deleted, converted or taken out by hand: says so,
 ' with the count, and closes the box.
 '
+' Version: 1.2  Date: 11/8/2026 - Jerry: with no prodnotes left, the Prodnote style goes from the
+'                                Styles pane (Dx_Rvp_Drop_Unused_Style), before message 420
 ' Version: 1.1  Date: 11/7/2026 - the large print box's count (Dx_Rvp_Run_Summary)
 ' Version: 1.0  Date: 11/7/2026
 Private Sub Dx_Rvp_None_Left()
     Dim msg As String, title As String
+    Dim book As Document
 
     msg = "There are no prodnotes left to review." & vbCr & vbCr & Dx_Rvp_Run_Summary()
     title = IIf(Dx_Rvp_IsLP, "VistaType LP (420)", "Braille Macros (420)")
+    Set book = Dx_Rvp_Doc
     Dx_Rvp_Finish
+    Dx_Rvp_Drop_Unused_Style book
     Sh_Say msg, title
 End Sub  '***** end of Dx_Rvp_None_Left *****
 
@@ -24554,17 +24563,51 @@ End Function  '***** end of Dx_Rvp_Ready *****
 ' What the Done button runs, on either box, and what the title bar's X runs through
 ' UserForm_QueryClose: closes the box and says how many prodnotes were deleted and converted.
 '
+' Version: 1.2  Date: 11/8/2026 - Jerry: with no prodnotes left in the book, the Prodnote style
+'                                goes from the Styles pane (Dx_Rvp_Drop_Unused_Style), before
+'                                message 421
 ' Version: 1.1  Date: 11/7/2026 - the large print box's count (Dx_Rvp_Run_Summary)
 ' Version: 1.0  Date: 11/7/2026
 Public Sub Dx_Rvp_Done()
     Dim msg As String, title As String
+    Dim book As Document
 
     If Dx_Rvp_Busy Then Exit Sub
     msg = "Review Prodnotes is finished." & vbCr & vbCr & Dx_Rvp_Run_Summary()
     title = IIf(Dx_Rvp_IsLP, "VistaType LP (421)", "Braille Macros (421)")
+    Set book = Dx_Rvp_Doc
     Dx_Rvp_Finish
+    Dx_Rvp_Drop_Unused_Style book
     Sh_Say msg, title
 End Sub  '***** end of Dx_Rvp_Done *****
+
+' True when the Prodnote style can go from the book's Styles pane at the end of a review: the book
+' is still open and no paragraph in it, body or table, is styled Prodnote any more. Takes the book,
+' not ActiveDocument, so it can be tested on a hidden scratch book.
+'
+' Version: 1.0  Date: 11/8/2026 - Jerry
+Private Function Dx_Rvp_Style_Can_Go(ByVal book As Document) As Boolean
+    If Not Lp_Rst_Doc_Is_Open(book) Then Exit Function
+    Dx_Rvp_Style_Can_Go = Not Sh_Document_Has_Prodnotes(book)
+End Function  '***** end of Dx_Rvp_Style_Can_Go *****
+
+' Jerry, 11/8/2026: when the review ends with no prodnotes left in the book, the Prodnote style
+' disappears from the Styles pane. Runs after Dx_Rvp_Finish, so every undo record the box opened
+' is closed and the book is the one on screen; Sh_Set_Prodnote_Style_Visibility works on
+' ActiveDocument and deletes the unused style. A book that has been closed, or is not the one in
+' front, is left alone, and so is a book that still has prodnotes.
+'
+' Version: 1.0  Date: 11/8/2026 - Jerry
+Private Sub Dx_Rvp_Drop_Unused_Style(ByVal book As Document)
+    Dim inFront As Boolean
+
+    If Not Dx_Rvp_Style_Can_Go(book) Then Exit Sub
+    On Error Resume Next
+    inFront = (ActiveDocument Is book)
+    Err.Clear
+    On Error GoTo 0
+    If inFront Then Sh_Set_Prodnote_Style_Visibility
+End Sub  '***** end of Dx_Rvp_Drop_Unused_Style *****
 
 ' The one way out, in the order Lp_Rst_Finish sets out: the flag down first, the box hidden before
 ' it is unloaded, the prodnote let go, and the list of boxes left LAST.
