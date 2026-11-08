@@ -24,7 +24,10 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - LP  - 11/8/2026 - Prodnotes (426) and from Convert All Prodnotes (427). Both boxes show
 '           - LP  - 11/8/2026 - and edit the two words (Box Red Prefix, Alt+E; Box Blue Prefix, Alt+L),
 '           - LP  - 11/8/2026 - kept in VistaType.ini; an empty box adds nothing. Inside the convert's
-'           - LP  - 11/8/2026 - one undo record, so one Ctrl+Z still puts the prodnote back.
+'           - LP  - 11/8/2026 - one undo record, so one Ctrl+Z still puts the prodnote back. A label
+'           - LP  - 11/8/2026 - the publisher put at the start ("Image description:" and the like) is
+'           - LP  - 11/8/2026 - taken out and replaced by the prefix, so every box reads the same
+'           - LP  - 11/8/2026 - (Jerry); spaces at the start go too. An empty prefix leaves both alone.
 '           - Sh  - 11/8/2026 - PRODNOTE STYLE LEFT A BLANK IN THE STYLE GALLERY when it was deleted
 '           - Sh  - 11/8/2026 - (Jerry); clicking the blank brought back a black Prodnote. Sh_Set_Prodnote_
 '           - Sh  - 11/8/2026 - Style_Visibility now sets QuickStyle = False before the Delete. A TEST.
@@ -24967,16 +24970,30 @@ End Sub  '***** end of Lp_Rvp_Prefix_Refresh *****
 ' differently sized one would otherwise give an italic, colored or wrong-sized prefix - so both
 ' are set outright to the box style's own font, the size every character must be.
 '
+' A LABEL THE PUBLISHER PUT IN IS REPLACED (Jerry, 11/8/2026): a prodnote that already starts
+' "Image description:" or the like would read "Description: Image description: ...", and the
+' reader would meet a different label in every book. So that label, and any spaces at the start,
+' are taken out first (Lp_Rvp_Lead_Length). Through Range.Text = "", not Delete, so Word's smart
+' cut cannot take a space from the text after it. Left alone when the prefix is empty.
+'
+' Version: 1.1  Date: 11/8/2026 - the publisher's own label and leading spaces are replaced
 ' Version: 1.0  Date: 11/8/2026
 Private Sub Lp_Rvp_Insert_Prefix(ByVal r As Range, ByVal styleName As String)
     Dim prefix As String
     Dim head As Range
+    Dim lead As Long
 
     prefix = Lp_Rvp_Prefix_Get(styleName)
     If prefix = "" Then Exit Sub
 
-    Set head = r.Duplicate
+    ' The label is measured and taken from the same place: the start of the first paragraph
+    Set head = r.Paragraphs(1).Range
+    lead = Lp_Rvp_Lead_Length(head.Text)
     head.Collapse wdCollapseStart
+    If lead > 0 Then
+        head.End = head.Start + lead
+        head.Text = ""                    ' the publisher's label and leading spaces; head is left collapsed
+    End If
     head.InsertAfter prefix              ' head now covers the prefix
     head.Font.Reset
     head.Font.Bold = True
@@ -24985,6 +25002,58 @@ Private Sub Lp_Rvp_Insert_Prefix(ByVal r As Range, ByVal styleName As String)
     head.Font.Reset
     head.Font.Bold = False
 End Sub  '***** end of Lp_Rvp_Insert_Prefix *****
+
+' How many characters at the start of a prodnote's first paragraph the prefix replaces: any
+' spaces, and a label the publisher put there - a known label word, up to the colon and the spaces
+' after it (Lp_Rvp_Is_Publisher_Label). Text that only happens to have a colon, "Chapter 1: ...",
+' is not a label and stays. Text in, for the test.
+'
+' Version: 1.0  Date: 11/8/2026
+Private Function Lp_Rvp_Lead_Length(ByVal t As String) As Long
+    Dim i As Long, n As Long, colon As Long
+
+    n = Len(t)
+    i = 1
+    Do While i <= n
+        If Not Lp_Rvp_Is_Space(Mid$(t, i, 1)) Then Exit Do
+        i = i + 1
+    Loop
+    colon = InStr(i, t, ":")
+    If colon > i Then
+        If Lp_Rvp_Is_Publisher_Label(Mid$(t, i, colon - i)) Then
+            i = colon + 1
+            Do While i <= n
+                If Not Lp_Rvp_Is_Space(Mid$(t, i, 1)) Then Exit Do
+                i = i + 1
+            Loop
+        End If
+    End If
+    Lp_Rvp_Lead_Length = i - 1
+End Function  '***** end of Lp_Rvp_Lead_Length *****
+
+' A space, a tab or a nonbreaking space - what can stand at the start of a prodnote unseen.
+'
+' Version: 1.0  Date: 11/8/2026
+Private Function Lp_Rvp_Is_Space(ByVal ch As String) As Boolean
+    Lp_Rvp_Is_Space = (ch = " " Or ch = vbTab Or ch = ChrW(160))
+End Function  '***** end of Lp_Rvp_Is_Space *****
+
+' True for the words publishers put in front of an image description or a producer's note, in any
+' case, with a curly or a straight apostrophe. A list, not "anything before a colon", so the
+' prodnote's own words are never taken.
+'
+' Version: 1.0  Date: 11/8/2026
+Private Function Lp_Rvp_Is_Publisher_Label(ByVal lbl As String) As Boolean
+    lbl = LCase$(Trim$(Replace(lbl, ChrW(8217), "'")))
+    Select Case lbl
+        Case "description", "image description", "image", "picture", "picture description", _
+             "photo", "photo description", "photograph", "photograph description", _
+             "illustration", "illustration description", "figure description", _
+             "graphic description", "alt text", "alternative text", "note", "prodnote", _
+             "producer's note", "producer note"
+            Lp_Rvp_Is_Publisher_Label = True
+    End Select
+End Function  '***** end of Lp_Rvp_Is_Publisher_Label *****
 
 ' The second line on the large print box. Numbers in, for the test.
 '
@@ -25224,9 +25293,11 @@ eom:
 End Function  '***** end of Lp_Cap_Convert_All *****
 
 ' How far the cursor's saved spot moves when every prodnote gains a prefix and a space: one prefix
-' for each prodnote starting at or before it. Nothing for an empty prefix. The prodnotes, the spot
-' and the prefix's length in, for the test.
+' for each prodnote starting at or before it, less the publisher's label and leading spaces each
+' one loses (Lp_Rvp_Lead_Length). Nothing for an empty prefix. The prodnotes, the spot and the
+' prefix's length in, for the test.
 '
+' Version: 1.1  Date: 11/8/2026 - less the publisher's label each prodnote loses
 ' Version: 1.0  Date: 11/8/2026
 Private Function Lp_Cap_Prefix_Shift(ByVal hits As Collection, ByVal pos As Long, _
                                      ByVal prefixLen As Long) As Long
@@ -25234,9 +25305,11 @@ Private Function Lp_Cap_Prefix_Shift(ByVal hits As Collection, ByVal pos As Long
 
     If prefixLen = 0 Then Exit Function
     For i = 1 To hits.count
-        If hits(i).Start <= pos Then n = n + 1
+        If hits(i).Start <= pos Then
+            n = n + prefixLen + 1 - Lp_Rvp_Lead_Length(hits(i).Paragraphs(1).Range.Text)
+        End If
     Next i
-    Lp_Cap_Prefix_Shift = n * (prefixLen + 1)
+    Lp_Cap_Prefix_Shift = n
 End Function  '***** end of Lp_Cap_Prefix_Shift *****
 
 ' What 428 says when the prodnotes are converted. Number and name in, for the test.

@@ -20,6 +20,7 @@ Attribute VB_Name = "TestReviewProdnotes"
 '@uses Lp_Rvp_Insert_Prefix
 '@uses Sh_Settings_File
 '@uses Lp_Cap_Prefix_Shift
+'@uses Lp_Rvp_Lead_Length
 '
 ' Review Prodnotes (418), Jerry, 11/7/2026: which prodnote Next and Previous go to, the lines the
 ' box shows, and the rule that groups Prodnote paragraphs into one prodnote - and then, in a hidden
@@ -128,6 +129,18 @@ Public Function TestReviewProdnotes_Suite() As TestSuite
     TestReviewProdnotes_Convert_All Suite.Test("in a scratch book: every prodnote to Box Red, then Box Blue, one undo each")
 
     TestReviewProdnotes_Style_Can_Go Suite.Test("in a scratch book: the Prodnote style goes only when no prodnote is left")
+
+    With Suite.Test("a label the publisher put at the start is found, and the prodnote's own words are not")
+        .IsEqual Lp_Rvp_Lead_Length("Image description: A cat." & vbCr), 19
+        .IsEqual Lp_Rvp_Lead_Length("IMAGE DESCRIPTION:A cat." & vbCr), 18
+        .IsEqual Lp_Rvp_Lead_Length("  Description:   A cat." & vbCr), 17
+        .IsEqual Lp_Rvp_Lead_Length("Producer" & ChrW(8217) & "s note: A cat." & vbCr), 17
+        .IsEqual Lp_Rvp_Lead_Length("Image description:" & vbCr), 18
+        .IsEqual Lp_Rvp_Lead_Length("  A cat." & vbCr), 2
+        .IsEqual Lp_Rvp_Lead_Length("Chapter 1: A cat." & vbCr), 0
+        .IsEqual Lp_Rvp_Lead_Length("A cat: sitting." & vbCr), 0
+        .IsEqual Lp_Rvp_Lead_Length("A cat." & vbCr), 0
+    End With
 
     TestReviewProdnotes_Prefixes Suite.Test("the Box Red and Box Blue prefixes: saved, read back, bold, and undone in one")
 
@@ -462,6 +475,26 @@ Private Sub TestReviewProdnotes_Prefixes(ByVal T As TestCase)
     T.IsEqual (d.Range(p.Start + 5, p.End - 1).Bold = False), True, "the space and the text are not"
     d.Undo 1
     T.IsEqual d.Paragraphs(5).Range.Text, "A dog." & vbCr, "one undo takes B's prefix out"
+
+    stage = "a label the publisher put in, replaced"
+    d.Paragraphs(5).Range.InsertBefore "Image description:  "
+    Set hits = Dx_Rvp_Collect(d)
+    objUndo.StartCustomRecord "Convert Prodnote to Box Blue"
+    Dx_Rvp_Restyle_Run hits(2), stBlue
+    Lp_Rvp_Insert_Prefix hits(2), "Box Blue"
+    objUndo.EndCustomRecord
+    T.IsEqual d.Paragraphs(5).Range.Text, "Note: A dog." & vbCr, "Image description: is replaced by Note:"
+    Set p = d.Paragraphs(5).Range
+    T.IsEqual (d.Range(p.Start, p.Start + 5).Bold = True), True, "Note: is bold"
+    T.IsEqual (d.Range(p.Start + 5, p.End - 1).Bold = False), True, "and the rest not"
+    d.Undo 1
+    T.IsEqual d.Paragraphs(5).Range.Text, "Image description:  A dog." & vbCr, "one undo brings the publisher's label back"
+    T.IsEqual d.Paragraphs(5).Style.NameLocal, "Prodnote", "and the Prodnote style"
+    Set hits = Dx_Rvp_Collect(d)
+    T.IsEqual Lp_Cap_Prefix_Shift(hits, d.Content.End - 1, 5), 6 + 6 - 20, "the cursor shift takes off the label that goes"
+    d.Undo 1
+    T.IsEqual d.Paragraphs(5).Range.Text, "A dog." & vbCr, "and the label is gone again"
+    Set hits = Dx_Rvp_Collect(d)
 
     stage = "an empty prefix"
     Lp_Rvp_Prefix_Set "Box Blue", ""

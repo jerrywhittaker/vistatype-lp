@@ -207,13 +207,16 @@ def test_the_prefix_goes_in_after_the_restyle_inside_the_record(repo_root):
 def test_the_prefix_is_bold_and_the_space_after_it_is_not(repo_root):
     body = _body(_lp_code(repo_root)["Lp_Rvp_Insert_Prefix"])
     want = ["prefix = Lp_Rvp_Prefix_Get(styleName)", 'If prefix = "" Then Exit Sub',
-            "Set head = r.Duplicate", "head.Collapse wdCollapseStart", "head.InsertAfter prefix",
+            "Set head = r.Paragraphs(1).Range", "lead = Lp_Rvp_Lead_Length(head.Text)",
+            "head.Collapse wdCollapseStart", "If lead > 0 Then",
+            "head.End = head.Start + lead", 'head.Text = ""', "head.InsertAfter prefix",
             "head.Font.Reset", "head.Font.Bold = True", "head.Collapse wdCollapseEnd",
             'head.InsertAfter " "', "head.Font.Reset", "head.Font.Bold = False"]
     assert [c for c in body if c in want] == want, body
     # the style's own font, not the first character's: a prodnote starting in italic or at a
     # stray size must not give an italic or wrong-sized prefix (braille-lp-review, 11/8/2026)
-    assert "Paragraphs" not in "\n".join(body), "the prefix goes once, at the start of the prodnote"
+    assert "For Each" not in "\n".join(body), "the prefix goes once, at the start of the prodnote"
+    assert ".Delete" not in "\n".join(body), "Delete brings Word's smart cut, which can take a space"
 
 
 def test_an_emptied_prefix_is_kept_empty(repo_root):
@@ -270,3 +273,12 @@ def test_the_prefix_keys_from_the_book_go_into_the_box(repo_root):
     assert body[1] == "On Error Resume Next"
     assert body.index("Sh_Focus_Modeless_Form LP_RVP_TITLE") < body.index("box.SetFocus")
     assert "box.SelLength = Len(box.Text)" in body, "typing replaces the prefix, as Tab into it does"
+
+
+def test_only_a_known_label_word_is_taken_from_the_prodnote(repo_root):
+    """Jerry, 11/8/2026: the publisher's own label goes, so every box reads the same - but only a
+    known label word. "Anything before a colon" would take the prodnote's own words."""
+    body = "\n".join(_lp_code(repo_root)["Lp_Rvp_Is_Publisher_Label"])
+    for word in ('"image description"', '"description"', '"note"', '"producer\'s note"'):
+        assert word in body, word
+    assert "ChrW(8217)" in body and "LCase$" in body
