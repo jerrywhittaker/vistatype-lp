@@ -9,6 +9,8 @@ Attribute VB_Name = "TestReviewProdnotes"
 '@uses Dx_Rvp_Delete_Run
 '@uses Dx_Rvp_Restyle_Run
 '@uses Dx_Rvp_Is_BANA_Name
+'@uses Lp_Rvp_Tally
+'@uses Lp_Rvp_Summary
 '
 ' Review Prodnotes (418), Jerry, 11/7/2026: which prodnote Next and Previous go to, the lines the
 ' box shows, and the rule that groups Prodnote paragraphs into one prodnote - and then, in a hidden
@@ -21,6 +23,11 @@ Attribute VB_Name = "TestReviewProdnotes"
 ' no template is attached, and it is closed unsaved whatever happens. Every error is caught and
 ' reported as a failure, because an unhandled one is a modal dialog in an invisible Word.
 '
+' The large print Review Prodnotes (426), the same day: its tally and Done lines, and in a second
+' scratch book, a two-paragraph prodnote converted to Box Red and another to Box Blue - with one
+' Ctrl+Z (Document.Undo 1) putting a convert made inside an undo record back, as one press.
+'
+' Version: 1.2  Date: 11/7/2026 - the large print box (426): Box Red and Box Blue
 ' Version: 1.1  Date: 11/7/2026 - which template names count as BANA, for Print Layout and Convert
 ' Version: 1.0  Date: 11/7/2026
 '
@@ -71,6 +78,18 @@ Public Function TestReviewProdnotes_Suite() As TestSuite
     End With
 
     TestReviewProdnotes_In_A_Book Suite.Test("in a scratch book: three prodnotes, then Delete and Convert")
+
+    With Suite.Test("the large print box says what went to Box Red and Box Blue")
+        .IsEqual Lp_Rvp_Tally(2, 1, 3), "Deleted: 2     Box Red: 1     Box Blue: 3"
+        .IsEqual Lp_Rvp_Tally(0, 1200, 0), "Deleted: 0     Box Red: 1,200     Box Blue: 0"
+        .IsEqual Lp_Rvp_Summary(0, 0, 0), "Prodnotes deleted: 0" & vbCr _
+               & "Prodnotes converted to Box Red: 0" & vbCr & "Prodnotes converted to Box Blue: 0"
+        .IsEqual Lp_Rvp_Summary(1, 0, 2), "Prodnotes deleted: 1" & vbCr _
+               & "Prodnotes converted to Box Red: 0" & vbCr & "Prodnotes converted to Box Blue: 2" _
+               & vbCr & vbCr & "Each delete or convert can be undone with one press of Ctrl+Z."
+    End With
+
+    TestReviewProdnotes_Box_Styles Suite.Test("in a scratch book: one prodnote to Box Red, one to Box Blue")
 
     Set TestReviewProdnotes_Suite = Suite
 End Function
@@ -133,6 +152,66 @@ Private Sub TestReviewProdnotes_In_A_Book(ByVal T As TestCase)
 Failed:
     T.Fail "VBA error " & Err.Number & " while " & stage & " - " & Err.Description
     On Error Resume Next
+    If Not d Is Nothing Then d.Close SaveChanges:=False
+    Err.Clear
+End Sub
+
+' The book: Some text. / Prodnote A, two paragraphs / Middle text. / Prodnote B / The end.
+' Its own Prodnote, Box Red and Box Blue styles, so no template is attached.
+Private Sub TestReviewProdnotes_Box_Styles(ByVal T As TestCase)
+    Dim d As Document
+    Dim stProd As Style, stRed As Style, stBlue As Style
+    Dim hits As Collection
+    Dim objUndo As UndoRecord
+    Dim stage As String
+
+    On Error GoTo Failed
+    stage = "making the scratch book"
+    Set d = Documents.Add(Visible:=False)
+    Set stProd = d.Styles.Add("Prodnote", wdStyleTypeParagraph)
+    Set stRed = d.Styles.Add("Box Red", wdStyleTypeParagraph)
+    Set stBlue = d.Styles.Add("Box Blue", wdStyleTypeParagraph)
+    d.Content.Text = "Some text." & vbCr & "Prodnote A, first part" & vbCr _
+                   & "Prodnote A, second part" & vbCr & "Middle text." & vbCr & "Prodnote B" _
+                   & vbCr & "The end."
+    d.Paragraphs(2).Style = stProd
+    d.Paragraphs(3).Style = stProd
+    d.Paragraphs(5).Style = stProd
+
+    stage = "finding the prodnotes"
+    Set hits = Dx_Rvp_Collect(d)
+    T.IsEqual hits.Count, 2, "two prodnotes"
+
+    stage = "converting A to Box Red"
+    Dx_Rvp_Restyle_Run hits(1), stRed
+    T.IsEqual d.Paragraphs(2).Style.NameLocal, "Box Red", "A's first paragraph is Box Red"
+    T.IsEqual d.Paragraphs(3).Style.NameLocal, "Box Red", "A's second paragraph is Box Red"
+    T.IsEqual d.Paragraphs(3).Range.Text, "Prodnote A, second part" & vbCr, "A's text is kept"
+    T.IsEqual Dx_Rvp_Live(hits(1)), False, "A is not a prodnote any more"
+    T.IsEqual d.Paragraphs(4).Style.NameLocal, d.Styles(wdStyleNormal).NameLocal, _
+              "the text after A is untouched"
+
+    stage = "converting B to Box Blue, inside an undo record"
+    Set objUndo = Application.UndoRecord
+    objUndo.StartCustomRecord "Convert Prodnote to Box Blue"
+    Dx_Rvp_Restyle_Run hits(2), stBlue
+    objUndo.EndCustomRecord
+    T.IsEqual d.Paragraphs(5).Style.NameLocal, "Box Blue", "B is Box Blue"
+    T.IsEqual d.Paragraphs(6).Style.NameLocal, d.Styles(wdStyleNormal).NameLocal, _
+              "the last paragraph is untouched"
+
+    stage = "one Ctrl+Z"
+    d.Undo 1
+    T.IsEqual d.Paragraphs(5).Style.NameLocal, "Prodnote", "one undo puts B back to Prodnote"
+    T.IsEqual d.Paragraphs(2).Style.NameLocal, "Box Red", "and leaves A as it was"
+
+    d.Close SaveChanges:=False
+    Exit Sub
+
+Failed:
+    T.Fail "VBA error " & Err.Number & " while " & stage & " - " & Err.Description
+    On Error Resume Next
+    If Not objUndo Is Nothing Then objUndo.EndCustomRecord
     If Not d Is Nothing Then d.Close SaveChanges:=False
     Err.Clear
 End Sub

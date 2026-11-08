@@ -247,6 +247,13 @@ prodnotes in the book, so each press opens and closes its own record ("Delete Pr
 is deleted or restyled through a Range, never a `wdReplaceAll`. Next, Previous and Done change
 nothing. Counted by reading, not measured in Word.
 
+**The large print Review Prodnotes (426), 11/7/2026: the same, one press of Ctrl+Z per Delete This
+Prodnote, Convert This to a Box Red Style or Convert This to a Box Blue Style.** It runs on 418's
+engine; the two box converts are `Lp_Rvp_Box_Convert`, one record each ("Convert Prodnote to Box
+Red", "Convert Prodnote to Box Blue"), paragraph by paragraph through `Dx_Rvp_Restyle_Run`.
+`tests/vba/TestReviewProdnotes.bas` puts a Box Blue convert made inside such a record back with
+one `Document.Undo 1` in a hidden scratch book; not measured in the real box.
+
 **Tried and rejected, 9/21/2026: an `UndoClear` at the start of `Lp_Resize_Same_Picture_Throughout`
 (that macro was retired on 9/22/2026; the rule holds for the range loop that replaced it).**
 It stopped a third Ctrl+Z from going on into earlier edits, but it also wiped the transcriber's

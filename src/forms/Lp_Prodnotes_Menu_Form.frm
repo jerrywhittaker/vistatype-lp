@@ -14,12 +14,21 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 ' Lp_Prodnotes__Menu_Form - Prodnotes Review (425), VistaType LP File Cleanup group
+'
+' Version: 1.1  Date: 11/7/2026 - Review/Edit/Delete Prodnotes (CommandButton4) opens the large
+'                                print Review Prodnotes (426), Lp_Review_Prodnotes; Run_After_Menu
+'                                hides this form, not Prodnotes and Alt-Text (417)
+' Version: 1.0  Date: 11/7/2026 - Jerry
 
 Private Sub Run_After_Menu(ByVal macroName As String)
-    Dx_Prodnotes_Alt_Text_Menu_Form.Hide
+    Me.Hide
     Sh_BridgeTargetMacro = macroName
     Application.OnTime Now, "Sh_StartSpinnerBridge"
     Unload Me
+End Sub
+
+Private Sub CommandButton4_Click()
+    Run_After_Menu "Lp_Review_Prodnotes"
 End Sub
 
 Private Sub ReviewProdnotes_Click()

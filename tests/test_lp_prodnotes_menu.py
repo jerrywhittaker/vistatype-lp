@@ -4,8 +4,9 @@ One button in the VistaType LP File Cleanup group opens it, in the place where D
 was, with the same icon as the braille Prodnotes and Alt-Text (417) button. Delete Prodnotes
 keeps its id on the hidden retired tab, so a toolbar that names it still draws a working button.
 
-Jerry made the form himself in the VBA editor; what its buttons do is still to come, so only
-the form's caption and the way it is opened are checked here.
+Jerry made the form himself in the VBA editor. Its Review/Edit/Delete Prodnotes button opens the
+large print Review Prodnotes (426), 11/7/2026 (tests/test_lp_review_prodnotes.py); what its other
+buttons do is still to come.
 """
 import re
 
@@ -31,6 +32,18 @@ def test_the_form_is_in_src_with_its_number(repo_root):
     code = (repo_root / "src" / "forms" / f"{FORM}.frm").read_bytes().decode("latin-1")
     assert 'Caption         =   "Prodnote Review (425)"' in code
     assert (repo_root / "src" / "forms" / f"{FORM}.frx").exists()
+
+
+def test_review_edit_delete_prodnotes_opens_the_large_print_box(repo_root):
+    """Jerry, 11/7/2026: CommandButton4, Review/Edit/Delete Prodnotes, opens Review Prodnotes (426)
+    through the bridge, and the bridge hides THIS form - it hid 417, copied from that form."""
+    code = (repo_root / "src" / "forms" / f"{FORM}.frm").read_bytes().decode("latin-1")
+    handler = re.search(r"Private Sub CommandButton4_Click\(\)\r\n(.*?)End Sub", code, re.S)
+    assert handler and 'Run_After_Menu "Lp_Review_Prodnotes"' in handler.group(1)
+    bridge = re.search(r"Private Sub Run_After_Menu\(ByVal macroName As String\)\r\n(.*?)End Sub",
+                       code, re.S).group(1)
+    assert "Me.Hide" in bridge and "Dx_Prodnotes_Alt_Text_Menu_Form" not in bridge
+    assert bridge.index("Me.Hide") < bridge.index('Application.OnTime Now, "Sh_StartSpinnerBridge"')
 
 
 def test_the_starter_opens_the_form_modal_after_the_open_book_check(repo_root):

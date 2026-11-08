@@ -28,6 +28,9 @@ BOXES = {
     # Review Prodnotes (418), 11/7/2026.
     "Dx_Review_Prodnotes_Form": ["NextButton", "PrevButton", "DeleteButton", "ConvertButton",
                                  "DoneButton"],
+    # The large print Review Prodnotes (426), 11/7/2026.
+    "Lp_Review_Prodnotes_Form": ["NextButton", "PrevButton", "DeleteButton", "BoxRedButton",
+                                 "BoxBlueButton", "DoneButton"],
     # Stays open only when shown through Sh_Ask_Modeless (box 402, 10/28/2026).
     "Sh_Message_Form": ["Msg_Text", "Okay_Button", "Cancel_Button"],
 }
@@ -54,7 +57,7 @@ def test_one_shared_f6_for_every_box(repo_root):
     toggle = "\n".join(sprocs["Sh_Box_ToggleFocus"])
     for who, sub in (("pg", "Sh_PgVal_ToggleFocus"), ("tocb", "Lp_Tocb_ToggleFocus"),
                      ("rst", "Lp_Rst_ToggleFocus"), ("locp", "Lp_Locp_ToggleFocus"),
-                     ("rvp", "Dx_Rvp_ToggleFocus"),
+                     ("rvp", "Dx_Rvp_ToggleFocus"), ("lrvp", "Lp_Rvp_ToggleFocus"),
                      ("fil", "Lp_Fil_ToggleFocus"),
                      ("hv", "Lp_Hvb_ToggleFocus"), ("msg", "Sh_Ask_Modeless_ToggleFocus")):
         assert f'Case "{who}"' in toggle and sub in toggle, f"F6 cannot reach the {who} box"
@@ -73,6 +76,9 @@ def test_one_shared_f6_for_every_box(repo_root):
     for box, who in (("Lp_Tocb", "tocb"), ("Lp_Rst", "rst"), ("Lp_Locp", "locp"), ("Dx_Rvp", "rvp")):
         assert any(f'Sh_Box_Opened "{who}"' in c for c in procs[f"{box}_BindKeys"])
         assert any(f'Sh_Box_Closed "{who}"' in c for c in procs[f"{box}_UnbindKeys"])
+    # 418 and 426 share one engine, and join and leave under the name of the box that is up
+    assert any('Sh_Box_Opened "lrvp"' in c for c in procs["Dx_Rvp_BindKeys"])
+    assert any('Sh_Box_Closed "lrvp"' in c for c in procs["Dx_Rvp_UnbindKeys"])
     assert any('Sh_Box_Opened "pg"' in c for c in sprocs["Sh_PgVal_BindKeys"])
     assert any('Sh_Box_Closed "pg"' in c for c in sprocs["Sh_PgVal_UnbindKeys"])
 

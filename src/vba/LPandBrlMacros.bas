@@ -18,7 +18,15 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - LP  - 11/7/2026 - PRODNOTE REVIEW (425) ON THE VISTATYPE LP RIBBON (Jerry): the File
+' Notes:    - LP  - 11/7/2026 - REVIEW PRODNOTES (426), THE LARGE PRINT BOX (Jerry): Review/Edit/
+'           - LP  - 11/7/2026 - Delete Prodnotes on Prodnote Review (425) opens a box like 418
+'           - LP  - 11/7/2026 - (Lp_Review_Prodnotes): Next, Previous, Delete This Prodnote, Convert
+'           - LP  - 11/7/2026 - This to a Box Red Style, Convert This to a Box Blue Style, Done; no
+'           - LP  - 11/7/2026 - TN button. Needs the large print template (135, as Sh_Say), before
+'           - LP  - 11/7/2026 - the box opens. Each convert is one Ctrl+Z; a book without the style
+'           - LP  - 11/7/2026 - is told so (427). 418's engine (Dx_Rvp_*) runs both boxes, one run
+'           - LP  - 11/7/2026 - at a time; 425's Run_After_Menu hides 425, not 417.
+'           - LP  - 11/7/2026 - PRODNOTE REVIEW (425) ON THE VISTATYPE LP RIBBON (Jerry): the File
 '           - LP  - 11/7/2026 - Cleanup group's Delete Prodnotes button is replaced by Prodnote
 '           - LP  - 11/7/2026 - Review, which opens the form (Lp_Prodnotes_Menu_Starter). The old
 '           - LP  - 11/7/2026 - button's id moves to the hidden retired tab for toolbars that name it.
@@ -3300,11 +3308,23 @@ Private Dx_Rvp_Deleted As Long        ' prodnotes deleted in this run
 Private Dx_Rvp_Converted As Long      ' prodnotes converted to TranscriberNote in this run
 Private Dx_Rvp_SelStart As Long       ' where the box last selected a prodnote; -1 when not
 Private Dx_Rvp_SelEnd As Long
+' THE LARGE PRINT BOX, Review Prodnotes (426) - Jerry, 11/7/2026. The same engine runs it: one run
+' at a time, of one box or the other. Set on every opening and NOT cleared by Dx_Rvp_Finish, so
+' the list of boxes is left under the name the box joined it with.
+Private Dx_Rvp_ForLP As Boolean       ' the box up is 426, not 418
+Private Dx_Rvp_Red As Long            ' prodnotes converted to Box Red in this run (426)
+Private Dx_Rvp_Blue As Long           ' prodnotes converted to Box Blue in this run (426)
 
 ' The box's window title, for F6 - it must be the form's WHOLE caption, and
 ' tests/test_form_caption_constants_match.py holds the two together.
 Private Const DX_RVP_TITLE As String = "Review Prodnotes (418)"
 Private Const DX_RVP_STYLE As String = "Prodnote"
+Private Const LP_RVP_TITLE As String = "Review Prodnotes (426)"
+' The two box styles 426 converts to, by their names in LargePrintTemplate.dotx: paragraph styles
+' with a border on all four sides (2.25 pt as the template ships; Lp_Normalize_Styles sets the
+' weight of the ones in use from the base font size).
+Private Const LP_RVP_RED As String = "Box Red"
+Private Const LP_RVP_BLUE As String = "Box Blue"
 
 ' TABLE AND TOC TOOLS - THE TOC BOX (354), which stays open - Jerry, 9/22/2026. The same idea as
 ' 375 above: the TOC range is taken once into a LIVE Range and held until Done, so the transcriber
@@ -23943,24 +23963,53 @@ End Sub   '*** end of Dx_Change_Prodnotes_To_Transcriber_Notes macro ***
 '
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
+' Version: 1.2  Date: 11/7/2026 - the opening is Dx_Rvp_Open, shared with the large print box
+'                                (Lp_Review_Prodnotes, 426); what the braille box does is unchanged
 ' Version: 1.1  Date: 11/7/2026 - a book with a BANA template attached is put in Print Layout
 '                                when the box opens or is brought back (Jerry), so the transcriber
 '                                sees the prodnote beside its picture as it will print
 ' Version: 1.0  Date: 11/7/2026
 Public Sub Dx_Review_Prodnotes()
+    Application.Run MacroName:="Sh_Is_Doc_Open"
+    Dx_Rvp_Open False
+End Sub  '***** end of Dx_Review_Prodnotes *****
+
+' Prodnote Review (425) - Review/Edit/Delete Prodnotes. The large print box, Review Prodnotes
+' (426) - Jerry, 11/7/2026: as 418, with Convert This to a Box Red Style and Convert This to a Box
+' Blue Style in place of Convert This to TN Style. It needs the large print template, and says so
+' with the message the other large print buttons give, before the box opens. That message is
+' Sh_Say here, not Lp_Is_Lp_Template_Attached's MsgBox, because that sub ends with End, which would
+' take down every box that stays open.
+'
+' Author: Jerry Whittaker - jerry@vistatypelp.org
+'
+' Version: 1.0  Date: 11/7/2026
+Public Sub Lp_Review_Prodnotes()
+    Application.Run MacroName:="Sh_Is_Doc_Open"
+    If Not Lp_Is_The_Attached_Template_LP Then
+        Sh_Say "VistaType large print template is not attached", "VistaType LP (135)"
+        Exit Sub
+    End If
+    Dx_Rvp_Open True
+End Sub  '***** end of Lp_Review_Prodnotes *****
+
+' Opens the box - Review Prodnotes (418), or with forLP the large print one (426) - on the book in
+' front, or brings it back. One run at a time: opening the other box ends the run in this one.
+'
+' Version: 1.0  Date: 11/7/2026 - the body of Dx_Review_Prodnotes 1.1, with forLP for 426
+Private Sub Dx_Rvp_Open(ByVal forLP As Boolean)
     Dim book As Document
     Dim hits As Collection
     Dim isLP As Boolean
     Dim first As Long
     Dim errNum As Long, errText As String
 
-    Application.Run MacroName:="Sh_Is_Doc_Open"
-
     ' Already up. On the same book the box is brought back where it was, and the count of what was
-    ' deleted and converted is kept; on another book the old run is ended and this one looked at.
+    ' deleted and converted is kept; on another book, or from the other box's button, the old run
+    ' is ended and this one looked at.
     If Dx_Rvp_IsOn Then
         If Dx_Rvp_Busy Then Exit Sub
-        If ActiveDocument Is Dx_Rvp_Doc Then
+        If ActiveDocument Is Dx_Rvp_Doc And Dx_Rvp_ForLP = forLP Then
             Dx_Rvp_Print_Layout Dx_Rvp_Doc
             Dx_Rvp_Move True, True
             Exit Sub
@@ -23998,6 +24047,9 @@ Public Sub Dx_Review_Prodnotes()
     Dx_Rvp_At = 0
     Dx_Rvp_Deleted = 0
     Dx_Rvp_Converted = 0
+    Dx_Rvp_Red = 0
+    Dx_Rvp_Blue = 0
+    Dx_Rvp_ForLP = forLP
     Dx_Rvp_SelStart = -1
     Dx_Rvp_SelEnd = -1
     Dx_Rvp_Busy = False
@@ -24008,7 +24060,11 @@ Public Sub Dx_Review_Prodnotes()
 
     Dx_Rvp_IsOn = True
     Dx_Rvp_BindKeys
-    Dx_Review_Prodnotes_Form.Show vbModeless
+    If Dx_Rvp_ForLP Then
+        Lp_Review_Prodnotes_Form.Show vbModeless
+    Else
+        Dx_Review_Prodnotes_Form.Show vbModeless
+    End If
 
     Dx_Rvp_Busy = True
     Sh_Focus_Document Dx_Rvp_Doc
@@ -24024,8 +24080,8 @@ eom:
     Sh_Last_Activity = ""
     Err.Clear
     On Error GoTo 0
-    Sh_Report_Error "Dx_Review_Prodnotes", errNum, errText
-End Sub  '***** end of Dx_Review_Prodnotes *****
+    Sh_Report_Error IIf(forLP, "Lp_Review_Prodnotes", "Dx_Review_Prodnotes"), errNum, errText
+End Sub  '***** end of Dx_Rvp_Open *****
 
 ' True when the attached template's name begins with "BANA Braille" - the same test Convert All
 ' Prodnotes to TN Style makes. The ".dot"/".dotx" ending does not affect a begins-with test.
@@ -24216,13 +24272,20 @@ End Sub  '***** end of Dx_Rvp_Go *****
 
 ' The two lines at the top of the box. Only while the box is up - touching the form creates it.
 '
+' Version: 1.1  Date: 11/7/2026 - the large print box (426) says what went to Box Red and Box Blue
 ' Version: 1.0  Date: 11/7/2026
 Private Sub Dx_Rvp_Show_Count()
     If Not Dx_Rvp_IsOn Then Exit Sub
     On Error Resume Next
-    Dx_Review_Prodnotes_Form.StepText.Caption = Dx_Rvp_Label(Dx_Rvp_At, Dx_Rvp_Hits.count)
-    Dx_Review_Prodnotes_Form.TallyText.Caption = Dx_Rvp_Tally(Dx_Rvp_Deleted, Dx_Rvp_Converted)
-    Dx_Review_Prodnotes_Form.Repaint
+    If Dx_Rvp_ForLP Then
+        Lp_Review_Prodnotes_Form.StepText.Caption = Dx_Rvp_Label(Dx_Rvp_At, Dx_Rvp_Hits.count)
+        Lp_Review_Prodnotes_Form.TallyText.Caption = Lp_Rvp_Tally(Dx_Rvp_Deleted, Dx_Rvp_Red, Dx_Rvp_Blue)
+        Lp_Review_Prodnotes_Form.Repaint
+    Else
+        Dx_Review_Prodnotes_Form.StepText.Caption = Dx_Rvp_Label(Dx_Rvp_At, Dx_Rvp_Hits.count)
+        Dx_Review_Prodnotes_Form.TallyText.Caption = Dx_Rvp_Tally(Dx_Rvp_Deleted, Dx_Rvp_Converted)
+        Dx_Review_Prodnotes_Form.Repaint
+    End If
     Err.Clear
 End Sub  '***** end of Dx_Rvp_Show_Count *****
 
@@ -24449,12 +24512,12 @@ End Function  '***** end of Dx_Rvp_Summary *****
 ' Every prodnote found at the start has been deleted, converted or taken out by hand: says so,
 ' with the count, and closes the box.
 '
+' Version: 1.1  Date: 11/7/2026 - the large print box's count (Dx_Rvp_Run_Summary)
 ' Version: 1.0  Date: 11/7/2026
 Private Sub Dx_Rvp_None_Left()
     Dim msg As String, title As String
 
-    msg = "There are no prodnotes left to review." & vbCr & vbCr _
-        & Dx_Rvp_Summary(Dx_Rvp_Deleted, Dx_Rvp_Converted)
+    msg = "There are no prodnotes left to review." & vbCr & vbCr & Dx_Rvp_Run_Summary()
     title = IIf(Dx_Rvp_IsLP, "VistaType LP (420)", "Braille Macros (420)")
     Dx_Rvp_Finish
     Sh_Say msg, title
@@ -24476,16 +24539,16 @@ Private Function Dx_Rvp_Ready() As Boolean
     Dx_Rvp_Finish
 End Function  '***** end of Dx_Rvp_Ready *****
 
-' What the Done button runs, and what the title bar's X runs through UserForm_QueryClose: closes
-' the box and says how many prodnotes were deleted and converted.
+' What the Done button runs, on either box, and what the title bar's X runs through
+' UserForm_QueryClose: closes the box and says how many prodnotes were deleted and converted.
 '
+' Version: 1.1  Date: 11/7/2026 - the large print box's count (Dx_Rvp_Run_Summary)
 ' Version: 1.0  Date: 11/7/2026
 Public Sub Dx_Rvp_Done()
     Dim msg As String, title As String
 
     If Dx_Rvp_Busy Then Exit Sub
-    msg = "Review Prodnotes is finished." & vbCr & vbCr _
-        & Dx_Rvp_Summary(Dx_Rvp_Deleted, Dx_Rvp_Converted)
+    msg = "Review Prodnotes is finished." & vbCr & vbCr & Dx_Rvp_Run_Summary()
     title = IIf(Dx_Rvp_IsLP, "VistaType LP (421)", "Braille Macros (421)")
     Dx_Rvp_Finish
     Sh_Say msg, title
@@ -24494,6 +24557,7 @@ End Sub  '***** end of Dx_Rvp_Done *****
 ' The one way out, in the order Lp_Rst_Finish sets out: the flag down first, the box hidden before
 ' it is unloaded, the prodnote let go, and the list of boxes left LAST.
 '
+' Version: 1.1  Date: 11/7/2026 - closes whichever box is up, 418 or 426
 ' Version: 1.0  Date: 11/7/2026
 Private Sub Dx_Rvp_Finish()
     Dim backTo As Document
@@ -24505,13 +24569,20 @@ Private Sub Dx_Rvp_Finish()
     On Error Resume Next
     Dx_Rvp_IsOn = False
     Dx_Rvp_Busy = False
-    Dx_Review_Prodnotes_Form.Hide
-    Unload Dx_Review_Prodnotes_Form
+    If Dx_Rvp_ForLP Then
+        Lp_Review_Prodnotes_Form.Hide
+        Unload Lp_Review_Prodnotes_Form
+    Else
+        Dx_Review_Prodnotes_Form.Hide
+        Unload Dx_Review_Prodnotes_Form
+    End If
     Set Dx_Rvp_Hits = Nothing
     Set Dx_Rvp_Doc = Nothing
     Dx_Rvp_At = 0
     Dx_Rvp_Deleted = 0
     Dx_Rvp_Converted = 0
+    Dx_Rvp_Red = 0
+    Dx_Rvp_Blue = 0
     Dx_Rvp_SelStart = -1
     Dx_Rvp_SelEnd = -1
     If Lp_Rst_Doc_Is_Open(backTo) Then
@@ -24534,6 +24605,7 @@ End Sub  '***** end of Dx_Rvp_Finish *****
 ' clicks into ANOTHER prodnote in the book, the box follows, so Delete and Convert act on the
 ' prodnote the cursor is in, and Next goes on from there.
 '
+' Version: 1.1  Date: 11/7/2026 - watches for whichever box is up, 418 or 426 (Dx_Rvp_Who)
 ' Version: 1.0  Date: 11/7/2026
 Public Sub Dx_Rvp_Watch_Cursor(ByVal Sel As Selection)
     Dim i As Long, n As Long, total As Long, pos As Long
@@ -24541,7 +24613,7 @@ Public Sub Dx_Rvp_Watch_Cursor(ByVal Sel As Selection)
     If Not Dx_Rvp_IsOn Then Exit Sub
     If Dx_Rvp_Busy Or Lp_Rst_Busy Or Lp_Tocb_Busy Or Lp_Locp_Busy Then Exit Sub
     ' ONLY THE NEWEST BOX WATCHES - see Sh_Box_Opened.
-    If Sh_Box_On_Top() <> "rvp" Then Exit Sub
+    If Sh_Box_On_Top() <> Dx_Rvp_Who() Then Exit Sub
 
     On Error Resume Next
     If Not (Sel.Document Is Dx_Rvp_Doc) Then Exit Sub
@@ -24583,27 +24655,49 @@ Private Function Dx_Rvp_Holds(ByVal n As Long, ByVal pos As Long) As Boolean
     Err.Clear
 End Function  '***** end of Dx_Rvp_Holds *****
 
+' The name the box up is on the shared list of boxes under: "rvp" for 418, "lrvp" for 426.
+'
+' Version: 1.0  Date: 11/7/2026
+Private Function Dx_Rvp_Who() As String
+    If Dx_Rvp_ForLP Then
+        Dx_Rvp_Who = "lrvp"
+    Else
+        Dx_Rvp_Who = "rvp"
+    End If
+End Function  '***** end of Dx_Rvp_Who *****
+
 ' F6, Shift+F6 and the box's Alt keys: joining the shared list gives them to this box while it is
 ' the newest (Sh_Box_Opened, ShNonModalMessage).
 '
+' Version: 1.1  Date: 11/7/2026 - the large print box (426) joins as "lrvp"
 ' Version: 1.0  Date: 11/7/2026
 Private Sub Dx_Rvp_BindKeys()
-    Sh_Box_Opened "rvp"
+    If Dx_Rvp_ForLP Then
+        Sh_Box_Opened "lrvp"
+    Else
+        Sh_Box_Opened "rvp"
+    End If
 End Sub  '***** end of Dx_Rvp_BindKeys *****
 
+' Version: 1.1  Date: 11/7/2026 - the large print box (426) leaves as "lrvp"
 ' Version: 1.0  Date: 11/7/2026
 Private Sub Dx_Rvp_UnbindKeys()
-    Sh_Box_Closed "rvp"
+    If Dx_Rvp_ForLP Then
+        Sh_Box_Closed "lrvp"
+    Else
+        Sh_Box_Closed "rvp"
+    End If
 End Sub  '***** end of Dx_Rvp_UnbindKeys *****
 
-' What F6 runs while the box is up. The safety net, as for 404: fired with the box down, it leaves
-' the list.
+' What F6 runs while the box is up. The safety net, as for 404: fired with the box down - or with
+' the large print box up instead - it leaves the list under "rvp".
 '
+' Version: 1.1  Date: 11/7/2026 - the safety net leaves "rvp" itself, as 426 shares the engine
 ' Version: 1.0  Date: 11/7/2026
 Public Sub Dx_Rvp_ToggleFocus()
     On Error Resume Next
-    If Not Dx_Rvp_IsOn Then
-        Dx_Rvp_UnbindKeys
+    If Not Dx_Rvp_IsOn Or Dx_Rvp_ForLP Then
+        Sh_Box_Closed "rvp"
         Exit Sub
     End If
     Sh_Focus_Modeless_Form DX_RVP_TITLE
@@ -24627,11 +24721,12 @@ End Sub  '***** end of Dx_Rvp_KeyToDocument *****
 ' The box's Alt keys from the book (Sh_Box_AltKeys): Next, Previous, Delete This Prodnote, Convert
 ' This to TN Style, Done - what each button does.
 '
+' Version: 1.1  Date: 11/7/2026 - the safety net leaves "rvp" itself, as 426 shares the engine
 ' Version: 1.0  Date: 11/7/2026
 Public Sub Dx_Rvp_AltKey(ByVal key As String)
-    ' The safety net, as for F6: fired with no box up, it leaves the shared list.
-    If Not Dx_Rvp_IsOn Then
-        Dx_Rvp_UnbindKeys
+    ' The safety net, as for F6: fired with no box up, or the large print one, it leaves the list.
+    If Not Dx_Rvp_IsOn Or Dx_Rvp_ForLP Then
+        Sh_Box_Closed "rvp"
         Exit Sub
     End If
 
@@ -24648,6 +24743,172 @@ Public Sub Dx_Rvp_AltKey(ByVal key As String)
             Dx_Rvp_Done
     End Select
 End Sub  '***** end of Dx_Rvp_AltKey *****
+
+' What Convert This to a Box Red Style runs, on the large print box (426).
+'
+' Version: 1.0  Date: 11/7/2026
+Public Sub Lp_Rvp_Box_Red()
+    Lp_Rvp_Box_Convert LP_RVP_RED
+End Sub  '***** end of Lp_Rvp_Box_Red *****
+
+' What Convert This to a Box Blue Style runs, on the large print box (426).
+'
+' Version: 1.0  Date: 11/7/2026
+Public Sub Lp_Rvp_Box_Blue()
+    Lp_Rvp_Box_Convert LP_RVP_BLUE
+End Sub  '***** end of Lp_Rvp_Box_Blue *****
+
+' Gives the prodnote on screen a box style, Box Red or Box Blue, in one undo record, and moves on to
+' the next prodnote - as Convert This to TN Style does on 418. Applied as Table Note at Top applies
+' Box Blue (Lp_Table_Note_At_Top): the paragraph style and nothing else, so the border is the
+' style's own. Every paragraph of the prodnote, one at a time (Dx_Rvp_Restyle_Run) - never a
+' Replace All, which crashes Word inside the undo record. A book without the style is told so (427).
+'
+' Version: 1.0  Date: 11/7/2026
+Private Sub Lp_Rvp_Box_Convert(ByVal styleName As String)
+    Dim st As Style
+    Dim objUndo As UndoRecord
+    Dim recording As Boolean
+    Dim errNum As Long, errText As String
+
+    If Not Dx_Rvp_IsOn Then Exit Sub
+    If Not Dx_Rvp_ForLP Then Exit Sub
+    If Dx_Rvp_Busy Then Exit Sub
+    Dx_Rvp_BindKeys
+    If Not Dx_Rvp_Ready() Then Exit Sub
+
+    On Error Resume Next
+    Set st = Dx_Rvp_Doc.Styles(styleName)
+    Err.Clear
+    On Error GoTo 0
+    If st Is Nothing Then
+        Sh_Say "This book has no " & styleName & " style, so the prodnote cannot be converted." _
+             & vbCr & vbCr & "The Box styles come with the VistaType LP large print template.", _
+               "VistaType LP (427)"
+        Sh_Focus_Document Dx_Rvp_Doc
+        Exit Sub
+    End If
+
+    ' The one on screen was deleted or restyled by hand since it was shown: nothing to convert, so
+    ' the box just moves on.
+    If Dx_Rvp_Find_Live(Dx_Rvp_At, True, True) <> Dx_Rvp_At Then
+        Dx_Rvp_Move True, True
+        Exit Sub
+    End If
+
+    Dx_Rvp_Busy = True
+    Sh_Focus_Document Dx_Rvp_Doc
+    On Error GoTo eom
+    Sh_Last_Activity = "Review prodnotes: converting a prodnote to " & styleName
+    Set objUndo = Application.UndoRecord
+    objUndo.StartCustomRecord "Convert Prodnote to " & styleName
+    recording = True
+    Dx_Rvp_Restyle_Run Dx_Rvp_Hits(Dx_Rvp_At), st
+    objUndo.EndCustomRecord
+    recording = False
+    Sh_Last_Activity = ""
+    On Error GoTo 0
+
+    If styleName = LP_RVP_RED Then
+        Dx_Rvp_Red = Dx_Rvp_Red + 1
+    Else
+        Dx_Rvp_Blue = Dx_Rvp_Blue + 1
+    End If
+    Dx_Rvp_SelStart = -1
+    Dx_Rvp_Busy = False
+    Dx_Rvp_Move True, False
+    Exit Sub
+
+eom:
+    ' The box is left standing: the transcriber can press again, or Done.
+    errNum = Err.Number
+    errText = Err.Description
+    On Error Resume Next
+    If recording Then objUndo.EndCustomRecord
+    Sh_Last_Activity = ""
+    Dx_Rvp_Busy = False
+    Err.Clear
+    On Error GoTo 0
+    Sh_Report_Error "Lp_Rvp_Box_Convert", errNum, errText
+End Sub  '***** end of Lp_Rvp_Box_Convert *****
+
+' The second line on the large print box. Numbers in, for the test.
+'
+' Version: 1.0  Date: 11/7/2026
+Private Function Lp_Rvp_Tally(ByVal deleted As Long, ByVal red As Long, ByVal blue As Long) As String
+    Lp_Rvp_Tally = "Deleted: " & Format(deleted, "#,##0") _
+                 & "     Box Red: " & Format(red, "#,##0") _
+                 & "     Box Blue: " & Format(blue, "#,##0")
+End Function  '***** end of Lp_Rvp_Tally *****
+
+' What the large print box's Done message and none-left message say about the run. Numbers in,
+' for the test.
+'
+' Version: 1.0  Date: 11/7/2026
+Private Function Lp_Rvp_Summary(ByVal deleted As Long, ByVal red As Long, ByVal blue As Long) As String
+    Dim s As String
+
+    s = "Prodnotes deleted: " & Format(deleted, "#,##0") & vbCr _
+      & "Prodnotes converted to Box Red: " & Format(red, "#,##0") & vbCr _
+      & "Prodnotes converted to Box Blue: " & Format(blue, "#,##0")
+    If deleted + red + blue > 0 Then
+        s = s & vbCr & vbCr & "Each delete or convert can be undone with one press of Ctrl+Z."
+    End If
+    Lp_Rvp_Summary = s
+End Function  '***** end of Lp_Rvp_Summary *****
+
+' The count for the Done and none-left messages, for whichever box is up.
+'
+' Version: 1.0  Date: 11/7/2026
+Private Function Dx_Rvp_Run_Summary() As String
+    If Dx_Rvp_ForLP Then
+        Dx_Rvp_Run_Summary = Lp_Rvp_Summary(Dx_Rvp_Deleted, Dx_Rvp_Red, Dx_Rvp_Blue)
+    Else
+        Dx_Rvp_Run_Summary = Dx_Rvp_Summary(Dx_Rvp_Deleted, Dx_Rvp_Converted)
+    End If
+End Function  '***** end of Dx_Rvp_Run_Summary *****
+
+' What F6 runs while the large print box (426) is up. The safety net, as for 418: fired with the
+' box down, or the braille one up instead, it leaves the list under "lrvp".
+'
+' Version: 1.0  Date: 11/7/2026
+Public Sub Lp_Rvp_ToggleFocus()
+    On Error Resume Next
+    If Not Dx_Rvp_IsOn Or Not Dx_Rvp_ForLP Then
+        Sh_Box_Closed "lrvp"
+        Exit Sub
+    End If
+    Sh_Focus_Modeless_Form LP_RVP_TITLE
+    Err.Clear
+End Sub  '***** end of Lp_Rvp_ToggleFocus *****
+
+' The large print box's Alt keys from the book (Sh_Box_AltKeys): Next, Previous, Delete This
+' Prodnote, Convert This to a Box Red Style, Convert This to a Box Blue Style, Done - what each
+' button does.
+'
+' Version: 1.0  Date: 11/7/2026
+Public Sub Lp_Rvp_AltKey(ByVal key As String)
+    ' The safety net, as for F6: fired with no box up, or the braille one, it leaves the list.
+    If Not Dx_Rvp_IsOn Or Not Dx_Rvp_ForLP Then
+        Sh_Box_Closed "lrvp"
+        Exit Sub
+    End If
+
+    Select Case UCase$(key)
+        Case "N"
+            Dx_Rvp_Next
+        Case "P"
+            Dx_Rvp_Previous
+        Case "D"
+            Dx_Rvp_Delete
+        Case "R"
+            Lp_Rvp_Box_Red
+        Case "B"
+            Lp_Rvp_Box_Blue
+        Case "O"
+            Dx_Rvp_Done
+    End Select
+End Sub  '***** end of Lp_Rvp_AltKey *****
 
 Sub Lp_RemoveHeadAndFoot()
 

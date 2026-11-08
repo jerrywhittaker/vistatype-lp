@@ -51,7 +51,8 @@ does not hang: measured on the build box 11/7/2026, a scratch book made with
 could have its paragraphs read, deleted and restyled through Ranges. What it never touches is the
 `Selection`, a table (`Tables.Add` still hangs), or a template. It closes the book unsaved and
 catches every error as a failure. The same run found a real fault before it shipped: deleting a
-Range that holds the book's last paragraph mark raises 4608.
+Range that holds the book's last paragraph mark raises 4608. Since 11/7/2026 it also covers the
+large print box (426): a second scratch book with its own Box Red and Box Blue styles.
 
 **One more exception, and it is careful: `TestAutoCorrectTables.bas`** runs `Sh_AutoCorrect_Switch`
 against Word's real AutoCorrect list and the real list files (issue #21). Word's list belongs to

@@ -22,6 +22,9 @@ CAPTION_OR_TITLE_CONST = re.compile(r"^(Caption\s*=|((Private|Public)\s+)?Const\
 # Same dialog on two different lines, on purpose.
 SAME_DIALOG = {
     "240": "Sh_Report_Error: the same report, asked when there is a log folder to open, said when not",
+    "135": "the large print template is not attached, in the same words: a MsgBox in "
+           "Lp_Is_Lp_Template_Attached, and Sh_Say in Lp_Review_Prodnotes (11/7/2026), whose box stays "
+           "open and so cannot use that sub - it ends with End",
 }
 
 

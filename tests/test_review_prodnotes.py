@@ -20,7 +20,9 @@ import re
 from test_toc_box_stays_open import form_code
 from test_toc_never_deletes_a_line import module_text, procedures, strip_comment
 
-START = "Dx_Review_Prodnotes"
+# The opening, shared since 11/7/2026 with the large print box (426, tests/test_lp_review_prodnotes.py):
+# Dx_Review_Prodnotes is the braille button's macro and calls Dx_Rvp_Open False.
+START = "Dx_Rvp_Open"
 FORM = "Dx_Review_Prodnotes_Form"
 
 
@@ -29,6 +31,16 @@ def _rvp_code(repo_root):
     names = [n for n in procs if n == START or n.startswith("Dx_Rvp_")]
     assert START in names and len(names) > 20, names
     return {n: [strip_comment(c) for c in procs[n]] for n in names}
+
+
+def test_the_braille_button_opens_the_braille_box(repo_root):
+    body = [strip_comment(c).strip() for c in procedures(module_text(repo_root))["Dx_Review_Prodnotes"]]
+    body = [c for c in body if c]
+    assert body[1:-1] == ['Application.Run MacroName:="Sh_Is_Doc_Open"', "Dx_Rvp_Open False"], body
+    start = "\n".join(_rvp_code(repo_root)[START])
+    assert re.search(r"If Dx_Rvp_ForLP Then\s*\n\s*Lp_Review_Prodnotes_Form\.Show vbModeless\s*\n"
+                     r"\s*Else\s*\n\s*Dx_Review_Prodnotes_Form\.Show vbModeless", start)
+    assert start.index("Dx_Rvp_ForLP = forLP") < start.index("Dx_Rvp_BindKeys")
 
 
 def test_no_replace_all_anywhere_in_the_box(repo_root):
@@ -128,7 +140,9 @@ def test_the_cursor_watch_is_hooked_and_cheap_while_down(repo_root):
     watch = [c.strip() for c in _rvp_code(repo_root)["Dx_Rvp_Watch_Cursor"] if c.strip()]
     assert watch[1] == "Dim i As Long, n As Long, total As Long, pos As Long"
     assert watch[2] == "If Not Dx_Rvp_IsOn Then Exit Sub", "the first test must be one Boolean"
-    assert any('Sh_Box_On_Top() <> "rvp"' in c for c in watch)
+    assert any("Sh_Box_On_Top() <> Dx_Rvp_Who()" in c for c in watch)
+    who = "\n".join(_rvp_code(repo_root)["Dx_Rvp_Who"])
+    assert re.search(r'If Dx_Rvp_ForLP Then\s*\n\s*Dx_Rvp_Who = "lrvp"\s*\n\s*Else\s*\n\s*Dx_Rvp_Who = "rvp"', who)
 
 
 def test_every_helper_takes_its_arguments_byval(repo_root):
