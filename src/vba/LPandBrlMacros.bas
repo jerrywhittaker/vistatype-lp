@@ -18,7 +18,12 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - LP  - 11/8/2026 - BOX RED AND BOX BLUE PREFIXES (Jerry): a prodnote converted to a box
+' Notes:    - LP  - 11/8/2026 - TINY PICTURES NO LONGER GROW ON EVERY ATTACH (Jerry): a picture
+'           - LP  - 11/8/2026 - just under the Normal size had its short side rounded down to 17.99,
+'           - LP  - 11/8/2026 - which Word reads as 17.95, so each attach enlarged it again and its
+'           - LP  - 11/8/2026 - long side crept. Lp_Enlarge_Plan now sets the short side to the
+'           - LP  - 11/8/2026 - Normal size exactly; it reads back exactly and is left alone after. A TEST.
+'           - LP  - 11/8/2026 - BOX RED AND BOX BLUE PREFIXES (Jerry): a prodnote converted to a box
 '           - LP  - 11/8/2026 - style now starts with a bold word and a space that is not bold -
 '           - LP  - 11/8/2026 - "Description:" on Box Red, "Note:" on Box Blue - from Review
 '           - LP  - 11/8/2026 - Prodnotes (426) and from Convert All Prodnotes (427). Both boxes show
@@ -25970,12 +25975,22 @@ End Sub  '***** end of Lp_Enlarge_Tiny_Pictures *****
 ' is to be enlarged. The room comes in when every section has the same; otherwise it is asked here,
 ' which is safe because nothing has been resized yet.
 '
+' THE SHORT SIDE IS SET TO THE NORMAL SIZE EXACTLY (11/8/2026). Word reports a picture's size cut
+' down to whole twips, 1/20 point - measured on a copy of Jerry's A.docx: a picture stored as
+' 17.99 x 29.36 reads 17.95 x 29.35. Both sides were rounded DOWN to 0.01 point, so the short side
+' came out 17.99 again, read as 17.95 again, and the picture was still "too small": its long side
+' grew 0.05 point on every attach (29.43, 29.48, 29.53 ...), and Jerry saw it as ten pictures that
+' changed between two attaches of the same book. Set to the Normal size, which is always a whole
+' twip, it reads back exactly, and the next attach leaves it alone. The long side is rounded to the
+' nearest 0.01. A picture the margins shrink is rounded down as before, to stay inside them.
+'
+' Version: 1.1  Date: 11/8/2026 - the short side set to the Normal size, not rounded down under it
 ' Version: 1.0  Date: 11/2/2026 - the reading half of what Lp_Enlarge_One_Picture did
 Private Function Lp_Enlarge_Plan(ByVal s As InlineShape, ByVal minPts As Single, _
                                  ByVal sameRoom As Boolean, ByVal availW As Single, _
                                  ByVal availH As Single, ByRef w As Single, ByRef h As Single, _
                                  ByRef newW As Single, ByRef newH As Single) As Boolean
-    Dim f As Single
+    Dim f As Single, fit As Single
 
     On Error GoTo Done
     w = s.Width
@@ -25983,10 +25998,20 @@ Private Function Lp_Enlarge_Plan(ByVal s As InlineShape, ByVal minPts As Single,
     f = Lp_Min_Pic_Factor(w, h, minPts)
     If f <= 1 Then Exit Function
     If Not sameRoom Then Lp_Pic_Room s, availW, availH
-    f = f * Lp_Fit_Factor(w * f, h * f, availW, availH)
+    fit = Lp_Fit_Factor(w * f, h * f, availW, availH)
+    f = f * fit
     If f <= 1 Then Exit Function
-    newW = Int(w * f * 100) / 100
-    newH = Int(h * f * 100) / 100
+    If fit < 1 Then
+        ' The margins win: rounded down, so it stays inside them.
+        newW = Int(w * f * 100) / 100
+        newH = Int(h * f * 100) / 100
+    ElseIf w <= h Then
+        newW = minPts
+        newH = Round(h * f, 2)
+    Else
+        newW = Round(w * f, 2)
+        newH = minPts
+    End If
     Lp_Enlarge_Plan = True
 Done:
 End Function  '***** end of Lp_Enlarge_Plan *****
