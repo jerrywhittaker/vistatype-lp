@@ -18,7 +18,9 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - BRL - 11/7/2026 - REVIEW PRODNOTES PUTS A BANA BOOK IN PRINT LAYOUT (Jerry): when the
+' Notes:    - LP  - 11/7/2026 - JERRY'S NEW FORM, PRODNOTE REVIEW (425), Lp_Prodnotes_Menu_Form,
+'           - LP  - 11/7/2026 - made in the VBA editor and pulled into src/forms as he made it.
+'           - BRL - 11/7/2026 - REVIEW PRODNOTES PUTS A BANA BOOK IN PRINT LAYOUT (Jerry): when the
 '           - BRL - 11/7/2026 - box opens or is brought back, a book with a BANA template attached
 '           - BRL - 11/7/2026 - is switched to Print Layout (Dx_Rvp_Print_Layout); other books keep
 '           - BRL - 11/7/2026 - their view.
