@@ -18,7 +18,11 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - LP  - 11/8/2026 - CONVERT ALL PRODNOTES TO LP STYLE (Jerry): the button on Prodnote
+' Notes:    - LP  - 11/8/2026 - PRODNOTE REVIEW (425) FINISHED (Jerry): Convert All Prodnotes, now
+'           - LP  - 11/8/2026 - captioned Convert All Prodnotes to red or blue box styles, sits above Delete
+'           - LP  - 11/8/2026 - All Prodnotes (the two swapped, icons and Tab order with them). Delete All Prodnotes runs
+'           - LP  - 11/8/2026 - Sh_Delete_Prodnote_Paragraphs, which asks Yes/No (229) before deleting.
+'           - LP  - 11/8/2026 - CONVERT ALL PRODNOTES TO LP STYLE (Jerry): the button on Prodnote
 '           - LP  - 11/8/2026 - Review (425) asks "To which style should all prodnotes be
 '           - LP  - 11/8/2026 - converted?" on Convert All Prodnotes (427), Box Red Style or Box Blue
 '           - LP  - 11/8/2026 - Style, and gives every prodnote that style (Lp_Convert_All_Prodnotes_

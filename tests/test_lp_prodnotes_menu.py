@@ -93,3 +93,118 @@ def test_the_starter_goes_through_the_dispatch_and_the_installer_tab_file(repo_r
     assert f'idQ="x1:{OLD_ID}"' not in tabs
     ids = (repo_root / "installer" / "ribbon-button-ids.txt").read_text(encoding="utf-8").split()
     assert NEW_ID in ids and OLD_ID in ids
+
+
+# --- Jerry, 11/8/2026: Delete All Prodnotes and Convert All Prodnotes swap places, Convert All
+# --- gets new words, and Delete All deletes after a Yes/No. The layout lives only in the .frx,
+# --- so the positions are read from its site records, the same walk as
+# --- test_form_handlers_match_controls.py, carried on into each site's position and tab index.
+
+NEW_CAPTION = "Convert All Prodnotes to red or blue box styles"
+
+
+def _frm(repo_root):
+    return (repo_root / "src" / "forms" / f"{FORM}.frm").read_bytes().decode("latin-1")
+
+
+def _sites(repo_root):
+    """{control name: (left, top, tab index)} from the form's `f` stream. Positions are in
+    HIMETRIC, as stored; a tab index the designer did not save (an Image) is None."""
+    import struct
+    import pytest
+    olefile = pytest.importorskip("olefile")
+    from test_form_handlers_match_controls import OLE_MAGIC, Reader, control_names_in_f_stream
+
+    data = (repo_root / "src" / "forms" / f"{FORM}.frx").read_bytes()
+    ole = olefile.OleFileIO(data[data.find(OLE_MAGIC):])
+    try:
+        f = ole.openstream("f").read()
+    finally:
+        ole.close()
+    names = control_names_in_f_stream(f)            # proves the walk agrees with that test
+    out = {}
+    # Each site record starts with version 0x0000 then cbSite; find them by name instead of
+    # re-walking the header, then read that one site's DataBlock and ExtraDataBlock.
+    for name in names:
+        tail = name.encode("latin-1")
+        hit = None
+        for i in range(len(f)):
+            if f[i:i + 2] != b"\x00\x00":
+                continue
+            r = Reader(f[i:])
+            try:
+                r.take(2)
+                cb = r.u16()
+                mask = r.u32()
+                base = r.pos
+                vals = {}
+                for bit, size in ((0, 4), (1, 4), (2, 4), (3, 4), (4, 4), (5, 4),
+                                  (6, 2), (7, 2), (9, 2), (11, 4), (12, 4), (13, 4), (14, 4)):
+                    if mask & (1 << bit):
+                        r.align(base, size)
+                        vals[bit] = r.u32() if size == 4 else r.u16()
+                r.align(base, 4)
+                if vals.get(0, 0) & 0x7FFFFFFF != len(tail) or r.take(len(tail)) != tail:
+                    continue
+                r.align(base, 4)
+                if 1 in vals:                       # Tag
+                    r.take(vals[1] & 0x7FFFFFFF)
+                    r.align(base, 4)
+                if not mask & (1 << 8):
+                    continue
+                left, top = struct.unpack("<ii", r.take(8))
+                if r.pos > 4 + cb:
+                    continue
+                hit = (left, top, vals.get(6))
+                break
+            except ValueError:
+                continue
+        assert hit, f"no site record found for {name}"
+        out[name] = hit
+    return out
+
+
+def test_convert_all_is_above_delete_all_with_their_icons(repo_root):
+    """Jerry, 11/8/2026: switch the positions of Delete All Prodnotes and Convert All Prodnotes.
+    Convert All (CommandButton2) is now second, Delete All (CommandButton1) third, and each
+    icon moved with its button: Image12 is Convert All's picture, Image13 Delete All's."""
+    s = _sites(repo_root)
+    review, convert, delete = s["CommandButton4"], s["CommandButton2"], s["CommandButton1"]
+    assert review[1] < convert[1] < delete[1]
+    assert review[0] == convert[0] == delete[0]
+    assert s["Image12"][:2] == convert[:2]
+    assert s["Image13"][:2] == delete[:2]
+    # Tab order follows the screen between the two.
+    assert convert[2] < delete[2]
+
+
+def test_the_old_buttons_from_417_are_still_covered(repo_root):
+    """The buttons copied from 417 sit exactly under the new ones. The swap trades the new
+    buttons between two spots that are both covered, so neither old one shows."""
+    s = _sites(repo_root)
+    new_spots = {s[n][:2] for n in ("CommandButton4", "CommandButton1", "CommandButton2")}
+    for old in ("ReviewProdnotes", "DeleteProdnotesButton", "ProdnoteToTNButton"):
+        assert s[old][:2] in new_spots, old
+
+
+def test_convert_all_has_jerrys_new_words(repo_root):
+    """On two lines, broken after "to", so the words clear the icon over the button's left end:
+    on one line, centered in Tahoma 11.25, they start under it (measured 233 points of 270)."""
+    frx = (repo_root / "src" / "forms" / f"{FORM}.frx").read_bytes()
+    assert b"Convert All Prodnotes to\r\nred or blue box styles" in frx
+    assert (NEW_CAPTION + " Button").encode() in frx               # the hover text
+    assert b"Convert All Prodnotes to LP Style" not in frx
+
+
+def test_delete_all_prodnotes_deletes_after_a_yes_no(repo_root):
+    """Jerry, 11/8/2026: Delete All Prodnotes (CommandButton1) deletes every prodnote after a
+    confirmation. Sh_Delete_Prodnote_Paragraphs asks Yes/No (229) before it deletes anything."""
+    code = _frm(repo_root)
+    handler = re.search(r"Private Sub CommandButton1_Click\(\)\r\n(.*?)End Sub", code, re.S)
+    assert handler and handler.group(1).strip() == 'Run_After_Menu "Sh_Delete_Prodnote_Paragraphs"'
+    macros = (repo_root / "src" / "vba" / "LPandBrlMacros.bas").read_bytes().decode("latin-1")
+    body = re.search(r"^Sub Sh_Delete_Prodnote_Paragraphs\(\)\r\n(.*?)^End Sub", macros,
+                     re.S | re.M).group(1)
+    ask = body.index('vbYesNo + vbQuestion, IIf(isLP, "VistaType LP (229)"')
+    assert ask < body.index("marked(i).Delete")
+    assert "<> vbYes Then" in body[ask:ask + 120]

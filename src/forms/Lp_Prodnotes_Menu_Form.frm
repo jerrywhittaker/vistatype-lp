@@ -15,6 +15,11 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 ' Lp_Prodnotes__Menu_Form - Prodnotes Review (425), VistaType LP File Cleanup group
 '
+' Version: 1.3  Date: 11/8/2026 - Jerry: Convert All Prodnotes (CommandButton2) and Delete All
+'                                Prodnotes (CommandButton1) swap places, Convert All above; its
+'                                caption is now Convert All Prodnotes to red or blue box styles, on
+'                                two lines to clear its icon. Delete All Prodnotes runs
+'                                Sh_Delete_Prodnote_Paragraphs, which asks Yes/No (229) first
 ' Version: 1.2  Date: 11/8/2026 - Convert All Prodnotes to LP Style (CommandButton2) runs
 '                                Lp_Convert_All_Prodnotes_To_Box, which asks Box Red Style or Box
 '                                Blue Style on Convert All Prodnotes (427)
@@ -28,6 +33,10 @@ Private Sub Run_After_Menu(ByVal macroName As String)
     Sh_BridgeTargetMacro = macroName
     Application.OnTime Now, "Sh_StartSpinnerBridge"
     Unload Me
+End Sub
+
+Private Sub CommandButton1_Click()
+    Run_After_Menu "Sh_Delete_Prodnote_Paragraphs"
 End Sub
 
 Private Sub CommandButton2_Click()

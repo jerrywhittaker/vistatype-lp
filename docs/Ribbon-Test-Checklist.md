@@ -166,7 +166,13 @@ somewhere else on purpose:
 - [ ] **Prodnote Review** &nbsp;`Lp_Prodnotes_Menu_Starter`  (11/7/2026; replaces Delete Prodnotes,
       whose id is on the hidden retired tab)
     - same icon as the braille **Prodnotes and Alt-Text** button
-    - opens dialog **LP user form Prodnote Review (425)** -- what its buttons do is still to come
+    - opens dialog **LP user form Prodnote Review (425)**, buttons top to bottom (11/8/2026):
+        - [ ] Review/Edit/Delete Prodnotes (Alt+R) - opens **LP user form Review Prodnotes (426)**
+        - [ ] Convert All Prodnotes to red or blue box styles (Alt+A, two lines, clear of its icon) -
+              opens **LP user form Convert All Prodnotes (427)**
+        - [ ] Delete All Prodnotes (Alt+D) - asks **LP message VistaType LP (229)**, Yes/No, then deletes
+              every prodnote, table cells too, and says how many on **LP message VistaType LP (230)**
+        - [ ] Cancel (Alt+C)
 
 
 ### Reference Page Numbers

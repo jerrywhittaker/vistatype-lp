@@ -254,7 +254,7 @@ Red", "Convert Prodnote to Box Blue"), paragraph by paragraph through `Dx_Rvp_Re
 `tests/vba/TestReviewProdnotes.bas` puts a Box Blue convert made inside such a record back with
 one `Document.Undo 1` in a hidden scratch book; not measured in the real box.
 
-**Convert All Prodnotes to LP Style (425 → 427), 11/8/2026: one press of Ctrl+Z for the whole
+**Convert All Prodnotes to red or blue box styles (425 → 427; captioned Convert All Prodnotes to LP Style until later on 11/8/2026), 11/8/2026: one press of Ctrl+Z for the whole
 book.** `Lp_Cap_Convert_All` opens ONE record ("Convert All Prodnotes to Box Red" or "... Box
 Blue") and restyles every paragraph of every prodnote inside it through `Dx_Rvp_Restyle_Run` —
 not the braille Convert All's `wdReplaceAll`, which would crash Word inside a record. It does
