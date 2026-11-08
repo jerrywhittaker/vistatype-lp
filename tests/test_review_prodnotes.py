@@ -185,3 +185,12 @@ def test_done_and_none_left_drop_the_prodnote_style_when_none_is_left(repo_root)
     # Convert All Prodnotes (427) is left as Jerry accepted it.
     procs = procedures(module_text(repo_root))
     assert not any("Dx_Rvp_Drop_Unused_Style" in c for c in procs["Lp_Convert_All_Prodnotes_To_Box"])
+
+
+def test_unused_prodnote_style_leaves_the_gallery_before_it_is_deleted(repo_root):
+    """Jerry, 11/8/2026: deleting the unused Prodnote style left a blank thumbnail in the Home tab's
+    style gallery, and clicking it brought back a black Prodnote. The style is taken out of the
+    gallery first. (Whether that cures the blank is tested in Word, not here.)"""
+    procs = procedures(module_text(repo_root))
+    body = "\n".join(strip_comment(c) for c in procs["Sh_Set_Prodnote_Style_Visibility"])
+    assert body.index("st.QuickStyle = False") < body.index("st.Delete")

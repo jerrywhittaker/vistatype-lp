@@ -18,7 +18,10 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - BRL - 11/8/2026 - REVIEW PRODNOTES DONE CLEARS THE STYLE (Jerry): Done, the red X and
+' Notes:    - Sh  - 11/8/2026 - PRODNOTE STYLE LEFT A BLANK IN THE STYLE GALLERY when it was deleted
+'           - Sh  - 11/8/2026 - (Jerry); clicking the blank brought back a black Prodnote. Sh_Set_Prodnote_
+'           - Sh  - 11/8/2026 - Style_Visibility now sets QuickStyle = False before the Delete. A TEST.
+'           - BRL - 11/8/2026 - REVIEW PRODNOTES DONE CLEARS THE STYLE (Jerry): Done, the red X and
 '           - BRL - 11/8/2026 - the none-left end (420) on both Review Prodnotes boxes (418 and 426)
 '           - BRL - 11/8/2026 - delete the Prodnote style from the book when no prodnote is left
 '           - BRL - 11/8/2026 - (Dx_Rvp_Drop_Unused_Style), so it goes from the Styles pane.
@@ -23688,6 +23691,12 @@ Sub Sh_Set_Prodnote_Style_Visibility()
 ' Usage is tested with a style Find (fast; this also runs on every document open) rather than a
 ' VBA paragraph loop.
 '
+' Version: 2.3  Date: 11/8/2026 - an unused style is taken out of the Quick Style gallery BEFORE it is
+'                                 deleted (Jerry). Deleting a gallery style left a BLANK thumbnail on the
+'                                 Home tab, and clicking the blank made Word create a new, black Prodnote.
+'                                 Whether taking it out of the gallery first stops the blank is being
+'                                 TESTED in 3.0.665 - not known yet (toggling QuickStyle did not repaint
+'                                 the gallery on 8/20/2026, but that was adding styles, not removing one)
 ' Version: 2.2  Date: 7/24/2026 - normalize a used style to Priority 1 (was 2)
 ' Version: 2.1  Date: 7/24/2026 - a used style is normalized to Priority 2 with semiHidden cleared, so files saved by earlier builds stop showing Prodnote at high priority / marked hide-until-used
 ' Version: 2.0  Date: 7/24/2026 - renamed Lp_ -> Sh_ (shared). Deletes the unused style instead of only setting semiHidden, so removal works for any attached template / pane filter, not just Recommended
@@ -23715,6 +23724,7 @@ Sub Sh_Set_Prodnote_Style_Visibility()
         st.Priority = 1
         st.Visibility = False
     Else
+        st.QuickStyle = False               ' out of the Home tab gallery first (11/8/2026, being tested)
         st.Delete                           ' unused -> remove it from the pane entirely
     End If
     Err.Clear
