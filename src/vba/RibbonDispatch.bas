@@ -69,6 +69,7 @@ Public Function Sh_Dispatch(ByVal macroName As String) As Boolean
         Case "Lp_Keep_With_Next_Para": Lp_Keep_With_Next_Para
         Case "Lp_Manual_Tag_with_Dollar_pg": Lp_Manual_Tag_with_Dollar_pg
         Case "Lp_Picture_Tools_Menu_Starter": Lp_Picture_Tools_Menu_Starter
+        Case "Lp_Prodnotes_Menu_Starter": Lp_Prodnotes_Menu_Starter
         Case "Lp_Selected_File_CleanUp": Lp_Selected_File_CleanUp
         Case "Lp_Table_Tools": Lp_Table_Tools
         Case "Lp_Toggle_Space_After_Current_Para": Lp_Toggle_Space_After_Current_Para

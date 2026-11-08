@@ -163,7 +163,10 @@ somewhere else on purpose:
     - dialog **Lp Selected Cleanup Form**
         - [ ] Okay Button
         - [ ] Compress Linear Math - "Compress the spacing in text math equations*" (9/15/2026: moved here off the ribbon; also runs in Fix Common File Errors)
-- [ ] **Delete Prodnotes** &nbsp;`Sh_Delete_Prodnote_Paragraphs`
+- [ ] **Prodnote Review** &nbsp;`Lp_Prodnotes_Menu_Starter`  (11/7/2026; replaces Delete Prodnotes,
+      whose id is on the hidden retired tab)
+    - same icon as the braille **Prodnotes and Alt-Text** button
+    - opens dialog **LP user form Prodnote Review (425)** -- what its buttons do is still to come
 
 
 ### Reference Page Numbers

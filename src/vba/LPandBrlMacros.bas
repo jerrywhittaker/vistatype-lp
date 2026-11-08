@@ -18,7 +18,11 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - LP  - 11/7/2026 - JERRY'S NEW FORM, PRODNOTE REVIEW (425), Lp_Prodnotes_Menu_Form,
+' Notes:    - LP  - 11/7/2026 - PRODNOTE REVIEW (425) ON THE VISTATYPE LP RIBBON (Jerry): the File
+'           - LP  - 11/7/2026 - Cleanup group's Delete Prodnotes button is replaced by Prodnote
+'           - LP  - 11/7/2026 - Review, which opens the form (Lp_Prodnotes_Menu_Starter). The old
+'           - LP  - 11/7/2026 - button's id moves to the hidden retired tab for toolbars that name it.
+'           - LP  - 11/7/2026 - JERRY'S NEW FORM, PRODNOTE REVIEW (425), Lp_Prodnotes_Menu_Form,
 '           - LP  - 11/7/2026 - made in the VBA editor and pulled into src/forms as he made it.
 '           - BRL - 11/7/2026 - REVIEW PRODNOTES PUTS A BANA BOOK IN PRINT LAYOUT (Jerry): when the
 '           - BRL - 11/7/2026 - box opens or is brought back, a book with a BANA template attached
@@ -22838,6 +22842,21 @@ Sub Dx_Prodnotes_Alt_Text_Menu_Starter()
     Unload Dx_Prodnotes_Alt_Text_Menu_Form
     Dx_Prodnotes_Alt_Text_Menu_Form.Show
     Unload Dx_Prodnotes_Alt_Text_Menu_Form
+End Sub
+
+Sub Lp_Prodnotes_Menu_Starter()
+'
+' Opens Prodnote Review (425), from the VistaType LP File Cleanup group.
+'
+' The large print twin of Dx_Prodnotes_Alt_Text_Menu_Starter. No template check: this is large
+' print, and each macro on the form checks what it needs itself.
+'
+' Version: 1.0  Date: 11/7/2026 - new (Jerry)
+'
+    Application.Run MacroName:="Sh_Is_Doc_Open"
+    Unload Lp_Prodnotes_Menu_Form
+    Lp_Prodnotes_Menu_Form.Show
+    Unload Lp_Prodnotes_Menu_Form
 End Sub
 
 Sub Lp_Remove_Space_After_Para()

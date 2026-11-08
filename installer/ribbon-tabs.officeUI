@@ -59,7 +59,7 @@
         <mso:group id="vt_grp_mso_c1_1C1CE543" label="File Cleanup" autoScale="true">
           <mso:control idQ="x1:btn_Lp_File_Fix_Sequence" visible="true"/>
           <mso:control idQ="x1:btn_Lp_Selected_File_CleanUp" visible="true"/>
-          <mso:control idQ="x1:btn_Sh_Delete_Prodnote_Paragraphs" visible="true"/>
+          <mso:control idQ="x1:btn_Lp_Prodnotes_Menu_Starter" visible="true"/>
         </mso:group>
         <mso:group id="vt_grp_mso_c1_1F535F05" label="Reference Page Numbers" autoScale="true">
           <mso:control idQ="x1:btn_Lp_AutoTag_Page_Numbers" visible="true"/>

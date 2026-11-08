@@ -77,8 +77,11 @@ foreach ($pair in @(@('Roaming', $R), @('Local', $L))) {
         # From 11/6/2026 the braille prodnote buttons sit in the Prodnotes and Alt-Text (417) menu form, and
         # the tab file names its button, not them: on the braille tab they count 0, and menu=1 is right.
         $m2 = ([regex]::Matches($y, 'btn_Dx_Prodnotes_Alt_Text_Menu_Starter')).Count
+        # From 11/7/2026 the VistaType LP tab's Delete Prodnotes is replaced by Prodnote Review (425):
+        # on a fresh install delete-prodnote=0 is right, and lp-review=1.
+        $p2 = ([regex]::Matches($y, 'btn_Lp_Prodnotes_Menu_Starter')).Count
         $wt = (Get-Item $path).LastWriteTime
-        W ("  {0,-8}: tabs={1} delete-prodnote={2} change-to-TN={3} prodnote-menu={4}  {5}" -f $name, $tb, $d2, $t2, $m2, $wt)
+        W ("  {0,-8}: tabs={1} delete-prodnote={2} change-to-TN={3} prodnote-menu={4} lp-review={5}  {6}" -f $name, $tb, $d2, $t2, $m2, $p2, $wt)
     } else {
         W ("  {0,-8}: no file" -f $name)
     }
