@@ -23,8 +23,8 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - LP  - 11/7/2026 - (Lp_Review_Prodnotes): Next, Previous, Delete This Prodnote, Convert
 '           - LP  - 11/7/2026 - This to a Box Red Style, Convert This to a Box Blue Style, Done; no
 '           - LP  - 11/7/2026 - TN button. Needs the large print template (135, as Sh_Say), before
-'           - LP  - 11/7/2026 - the box opens. Each convert is one Ctrl+Z; a book without the style
-'           - LP  - 11/7/2026 - is told so (427). 418's engine (Dx_Rvp_*) runs both boxes, one run
+'           - LP  - 11/7/2026 - the box opens. Each convert is one Ctrl+Z; the LP template brings
+'           - LP  - 11/7/2026 - both Box styles, so there is no missing-style check (Jerry). 418's engine (Dx_Rvp_*) runs both boxes, one run
 '           - LP  - 11/7/2026 - at a time; 425's Run_After_Menu hides 425, not 417.
 '           - LP  - 11/7/2026 - PRODNOTE REVIEW (425) ON THE VISTATYPE LP RIBBON (Jerry): the File
 '           - LP  - 11/7/2026 - Cleanup group's Delete Prodnotes button is replaced by Prodnote
@@ -24762,7 +24762,8 @@ End Sub  '***** end of Lp_Rvp_Box_Blue *****
 ' the next prodnote - as Convert This to TN Style does on 418. Applied as Table Note at Top applies
 ' Box Blue (Lp_Table_Note_At_Top): the paragraph style and nothing else, so the border is the
 ' style's own. Every paragraph of the prodnote, one at a time (Dx_Rvp_Restyle_Run) - never a
-' Replace All, which crashes Word inside the undo record. A book without the style is told so (427).
+' Replace All, which crashes Word inside the undo record. No check for a missing style: the box
+' opens only with the LP template attached, and that brings Box Red and Box Blue (Jerry, 11/7/2026).
 '
 ' Version: 1.0  Date: 11/7/2026
 Private Sub Lp_Rvp_Box_Convert(ByVal styleName As String)
@@ -24777,18 +24778,6 @@ Private Sub Lp_Rvp_Box_Convert(ByVal styleName As String)
     Dx_Rvp_BindKeys
     If Not Dx_Rvp_Ready() Then Exit Sub
 
-    On Error Resume Next
-    Set st = Dx_Rvp_Doc.Styles(styleName)
-    Err.Clear
-    On Error GoTo 0
-    If st Is Nothing Then
-        Sh_Say "This book has no " & styleName & " style, so the prodnote cannot be converted." _
-             & vbCr & vbCr & "The Box styles come with the VistaType LP large print template.", _
-               "VistaType LP (427)"
-        Sh_Focus_Document Dx_Rvp_Doc
-        Exit Sub
-    End If
-
     ' The one on screen was deleted or restyled by hand since it was shown: nothing to convert, so
     ' the box just moves on.
     If Dx_Rvp_Find_Live(Dx_Rvp_At, True, True) <> Dx_Rvp_At Then
@@ -24800,6 +24789,7 @@ Private Sub Lp_Rvp_Box_Convert(ByVal styleName As String)
     Sh_Focus_Document Dx_Rvp_Doc
     On Error GoTo eom
     Sh_Last_Activity = "Review prodnotes: converting a prodnote to " & styleName
+    Set st = Dx_Rvp_Doc.Styles(styleName)
     Set objUndo = Application.UndoRecord
     objUndo.StartCustomRecord "Convert Prodnote to " & styleName
     recording = True

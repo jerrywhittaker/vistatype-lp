@@ -92,7 +92,7 @@ def test_the_two_buttons_restyle_to_box_red_and_box_blue(repo_root):
 
 
 def test_the_box_styles_are_in_the_lp_template(repo_root):
-    """The names must be the template's own, character for character, or every press says 427."""
+    """The names must be the template's own, character for character, or every press is an error report - there is no missing-style check."""
     import zipfile
     with zipfile.ZipFile(repo_root / "LargePrintTemplate.dotx") as z:
         styles = z.read("word/styles.xml").decode("utf-8")
@@ -101,11 +101,11 @@ def test_the_box_styles_are_in_the_lp_template(repo_root):
         assert m and m.group(1) == "paragraph", f"{name} is not a paragraph style in the template"
 
 
-def test_a_book_without_the_style_is_told_so(repo_root):
-    body = [c.strip() for c in _lp_code(repo_root)["Lp_Rvp_Box_Convert"]]
-    text = "\n".join(body)
-    assert '"VistaType LP (427)"' in text
-    assert text.index("If st Is Nothing Then") < text.index('"VistaType LP (427)"') < text.index("StartCustomRecord")
+def test_no_missing_style_check(repo_root):
+    """Jerry, 11/7/2026: the LP template is required, and it brings both Box styles."""
+    text = "\n".join(c.strip() for c in _lp_code(repo_root)["Lp_Rvp_Box_Convert"])
+    assert "(427)" not in text and "If st Is Nothing" not in text
+    assert text.index("On Error GoTo eom") < text.index("Set st = Dx_Rvp_Doc.Styles(styleName)")
 
 
 def test_only_the_large_print_box_converts_to_a_box(repo_root):
@@ -138,7 +138,7 @@ def test_every_message_is_numbered_and_goes_through_sh_say(repo_root):
     everything = "\n".join("\n".join(v) for v in _lp_code(repo_root).values())
     assert "MsgBox" not in everything
     says = re.findall(r"Sh_Say\b", everything)
-    assert len(says) == 2, says   # 135 and 427
+    assert len(says) == 1, says   # 135
     # Done and none-left are 418's 421 and 420, titled VistaType LP for a large print book
     procs = procedures(module_text(repo_root))
     for sub, n in (("Dx_Rvp_Done", 421), ("Dx_Rvp_None_Left", 420)):
