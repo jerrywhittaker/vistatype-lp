@@ -18,7 +18,13 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - LP  - 11/7/2026 - REVIEW PRODNOTES (426), THE LARGE PRINT BOX (Jerry): Review/Edit/
+' Notes:    - LP  - 11/8/2026 - CONVERT ALL PRODNOTES TO LP STYLE (Jerry): the button on Prodnote
+'           - LP  - 11/8/2026 - Review (425) asks "To which style should all prodnotes be
+'           - LP  - 11/8/2026 - converted?" on Convert All Prodnotes (427), Box Red Style or Box Blue
+'           - LP  - 11/8/2026 - Style, and gives every prodnote that style (Lp_Convert_All_Prodnotes_
+'           - LP  - 11/8/2026 - To_Box). Needs the large print template (135); no prodnotes says 419;
+'           - LP  - 11/8/2026 - done says how many (428). One Ctrl+Z puts them all back.
+'           - LP  - 11/7/2026 - REVIEW PRODNOTES (426), THE LARGE PRINT BOX (Jerry): Review/Edit/
 '           - LP  - 11/7/2026 - Delete Prodnotes on Prodnote Review (425) opens a box like 418
 '           - LP  - 11/7/2026 - (Lp_Review_Prodnotes): Next, Previous, Delete This Prodnote, Convert
 '           - LP  - 11/7/2026 - This to a Box Red Style, Convert This to a Box Blue Style, Done; no
@@ -3325,6 +3331,9 @@ Private Const LP_RVP_TITLE As String = "Review Prodnotes (426)"
 ' weight of the ones in use from the base font size).
 Private Const LP_RVP_RED As String = "Box Red"
 Private Const LP_RVP_BLUE As String = "Box Blue"
+' CONVERT ALL PRODNOTES TO LP STYLE - Jerry, 11/8/2026. What Convert All Prodnotes (427) answers:
+' LP_RVP_RED or LP_RVP_BLUE on Okay, "" on Cancel and on the red X.
+Public Lp_Cap_Style As String
 
 ' TABLE AND TOC TOOLS - THE TOC BOX (354), which stays open - Jerry, 9/22/2026. The same idea as
 ' 375 above: the TOC range is taken once into a LIVE Range and held until Done, so the transcriber
@@ -23996,6 +24005,8 @@ End Sub  '***** end of Lp_Review_Prodnotes *****
 ' Opens the box - Review Prodnotes (418), or with forLP the large print one (426) - on the book in
 ' front, or brings it back. One run at a time: opening the other box ends the run in this one.
 '
+' Version: 1.1  Date: 11/8/2026 - the words of 419 are Dx_Rvp_None_Found_Text, shared with Convert
+'                                All Prodnotes to LP Style (Lp_Convert_All_Prodnotes_To_Box)
 ' Version: 1.0  Date: 11/7/2026 - the body of Dx_Review_Prodnotes 1.1, with forLP for 426
 Private Sub Dx_Rvp_Open(ByVal forLP As Boolean)
     Dim book As Document
@@ -24034,10 +24045,7 @@ Private Sub Dx_Rvp_Open(ByVal forLP As Boolean)
     On Error GoTo 0
 
     If hits.count = 0 Then
-        Sh_Say "No prodnotes found." & vbCr & vbCr _
-             & "Prodnotes are paragraphs in the Prodnote style. The DAISY/NIMAS converter gives " _
-             & "that style to the producer's notes in a book, which often describe a picture.", _
-               IIf(isLP, "VistaType LP (419)", "Braille Macros (419)")
+        Sh_Say Dx_Rvp_None_Found_Text(), IIf(isLP, "VistaType LP (419)", "Braille Macros (419)")
         Exit Sub
     End If
 
@@ -24899,6 +24907,150 @@ Public Sub Lp_Rvp_AltKey(ByVal key As String)
             Dx_Rvp_Done
     End Select
 End Sub  '***** end of Lp_Rvp_AltKey *****
+' ============================================================================================
+' CONVERT ALL PRODNOTES TO LP STYLE - Jerry, 11/8/2026. The Convert All Prodnotes to LP Style
+' button on Prodnote Review (425). The large print counterpart of the braille Convert All
+' Prodnotes to TN Style (Dx_Change_Prodnotes_To_Transcriber_Notes): every prodnote in the book at
+' once, to the box style Convert All Prodnotes (427) asks for - Box Red Style or Box Blue Style.
+' One prodnote at a time, one at a time on screen, is Review Prodnotes (426).
+'
+' Needs the large print template, and says so with 135 before anything else, as 426 does. No check
+' for a missing style: the LP template brings Box Red and Box Blue (Jerry, 11/7/2026).
+'
+' ONE Ctrl+Z PUTS EVERY PRODNOTE BACK. The paragraphs are restyled one at a time inside ONE undo
+' record - never a Replace All, which crashes Word inside an undo record (docs/Undo-Audit.md), and
+' which is why this does not copy the braille Convert All's.
+'
+' Not run here: Sh_Set_Prodnote_Style_Visibility, which the braille Convert All runs to take the
+' now-unused Prodnote style out of the Styles pane. Deleting the style would be a second step on
+' the undo list, after the record, so one Ctrl+Z would no longer put the prodnotes back; and the
+' book-open handler and the template attach already run it.
+'
+' Author: Jerry Whittaker - jerry@vistatypelp.org
+'
+' Version: 1.0  Date: 11/8/2026
+Public Sub Lp_Convert_All_Prodnotes_To_Box()
+    Dim book As Document
+    Dim hits As Collection
+    Dim st As Style
+    Dim styleName As String
+    Dim n As Long
+    Dim su_Prev As Boolean
+    Dim errNum As Long, errText As String
+
+    Application.Run MacroName:="Sh_Is_Doc_Open"
+    If Not Lp_Is_The_Attached_Template_LP Then
+        Sh_Say "VistaType large print template is not attached", "VistaType LP (135)"
+        Exit Sub
+    End If
+
+    Set book = ActiveDocument
+    If Not Sh_Document_Has_Prodnotes(book) Then
+        Sh_Say Dx_Rvp_None_Found_Text(), "VistaType LP (419)"
+        Exit Sub
+    End If
+
+    ' The question. Cancel and the red X leave no answer, and nothing changes.
+    Lp_Cap_Style = ""
+    Lp_Prodnote_Box_Style_Form.Show
+    styleName = Lp_Cap_Style
+    Lp_Cap_Style = ""
+    If styleName <> LP_RVP_RED And styleName <> LP_RVP_BLUE Then Exit Sub
+
+    Sh_Save_User_Position   ' after the question, so an early Exit Sub above leaves nothing pending
+    su_Prev = Application.ScreenUpdating
+
+    On Error GoTo eom
+    Sh_Progress_Open "Convert All Prodnotes"
+    Sh_Progress_Say 10, "Finding the prodnotes"
+    Sh_Last_Activity = "Convert all prodnotes: finding the prodnotes"
+    Set hits = Dx_Rvp_Collect(book)
+    Set st = book.Styles(styleName)
+
+    Sh_Progress_Say 50, "Converting the prodnotes to " & styleName & " Style"
+    Sh_Last_Activity = "Convert all prodnotes: converting to " & styleName
+    Application.ScreenUpdating = False
+    n = Lp_Cap_Convert_All(hits, st)
+    Application.ScreenUpdating = su_Prev
+    Sh_Last_Activity = ""
+    Sh_Progress_Close
+    On Error GoTo 0
+
+    Sh_Return_User_To_Start_Position
+    Sh_Say Lp_Cap_Summary(n, styleName), "VistaType LP (428)"
+    Exit Sub
+
+eom:
+    ' Copied first: Sh_Progress_Close clears Err.
+    errNum = Err.Number
+    errText = Err.Description
+    On Error Resume Next
+    Application.ScreenUpdating = su_Prev
+    Sh_Last_Activity = ""
+    Sh_Progress_Close
+    Sh_Return_User_To_Start_Position
+    Err.Clear
+    On Error GoTo 0
+    Sh_Report_Error "Lp_Convert_All_Prodnotes_To_Box", errNum, errText
+End Sub  '***** end of Lp_Convert_All_Prodnotes_To_Box *****
+
+' Gives every prodnote in the list a style, inside ONE undo record, so one Ctrl+Z puts them all
+' back; returns how many prodnotes. Paragraph by paragraph (Dx_Rvp_Restyle_Run), never a Replace
+' All. On an error the record is closed and the error handed to the caller.
+' tests/vba/TestReviewProdnotes.bas runs it on a scratch book.
+'
+' Version: 1.0  Date: 11/8/2026
+Private Function Lp_Cap_Convert_All(ByVal hits As Collection, ByVal st As Style) As Long
+    Dim objUndo As UndoRecord
+    Dim recording As Boolean
+    Dim i As Long
+    Dim errNum As Long, errText As String
+
+    On Error GoTo eom
+    Set objUndo = Application.UndoRecord
+    objUndo.StartCustomRecord "Convert All Prodnotes to " & st.NameLocal
+    recording = True
+    For i = 1 To hits.count
+        Dx_Rvp_Restyle_Run hits(i), st
+    Next i
+    objUndo.EndCustomRecord
+    recording = False
+    Lp_Cap_Convert_All = hits.count
+    Exit Function
+
+eom:
+    errNum = Err.Number
+    errText = Err.Description
+    On Error Resume Next
+    If recording Then objUndo.EndCustomRecord
+    Err.Clear
+    On Error GoTo 0
+    Err.Raise errNum, "Lp_Cap_Convert_All", errText
+End Function  '***** end of Lp_Cap_Convert_All *****
+
+' What 428 says when the prodnotes are converted. Number and name in, for the test.
+'
+' Version: 1.0  Date: 11/8/2026
+Private Function Lp_Cap_Summary(ByVal n As Long, ByVal styleName As String) As String
+    Dim s As String
+
+    If n = 1 Then
+        s = "1 prodnote converted to " & styleName & " Style."
+    Else
+        s = Format(n, "#,##0") & " prodnotes converted to " & styleName & " Style."
+    End If
+    If n > 0 Then s = s & vbCr & vbCr & "One press of Ctrl+Z puts them back."
+    Lp_Cap_Summary = s
+End Function  '***** end of Lp_Cap_Summary *****
+
+' The words of 419, for Review Prodnotes (418 and 426) and Convert All Prodnotes to LP Style.
+'
+' Version: 1.0  Date: 11/8/2026
+Private Function Dx_Rvp_None_Found_Text() As String
+    Dx_Rvp_None_Found_Text = "No prodnotes found." & vbCr & vbCr _
+        & "Prodnotes are paragraphs in the Prodnote style. The DAISY/NIMAS converter gives " _
+        & "that style to the producer's notes in a book, which often describe a picture."
+End Function  '***** end of Dx_Rvp_None_Found_Text *****
 
 Sub Lp_RemoveHeadAndFoot()
 

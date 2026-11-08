@@ -30,6 +30,7 @@ X_CLEARS_THE_ANSWER = {
     "DN_Keep_Or_Omit_Images_Form": "Sh_GP_String_2",
     "DN_Equations_Form": "Sh_GP_String_3",
     "Dx_UEB_EBAE_Fill_In_YN_Form": None,
+    "Lp_Prodnote_Box_Style_Form": "Lp_Cap_Style",   # 427, 11/8/2026
 }
 
 

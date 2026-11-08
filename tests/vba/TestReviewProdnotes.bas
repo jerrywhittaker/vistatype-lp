@@ -11,6 +11,9 @@ Attribute VB_Name = "TestReviewProdnotes"
 '@uses Dx_Rvp_Is_BANA_Name
 '@uses Lp_Rvp_Tally
 '@uses Lp_Rvp_Summary
+'@uses Lp_Cap_Convert_All
+'@uses Lp_Cap_Summary
+'@uses Dx_Rvp_None_Found_Text
 '
 ' Review Prodnotes (418), Jerry, 11/7/2026: which prodnote Next and Previous go to, the lines the
 ' box shows, and the rule that groups Prodnote paragraphs into one prodnote - and then, in a hidden
@@ -27,6 +30,11 @@ Attribute VB_Name = "TestReviewProdnotes"
 ' scratch book, a two-paragraph prodnote converted to Box Red and another to Box Blue - with one
 ' Ctrl+Z (Document.Undo 1) putting a convert made inside an undo record back, as one press.
 '
+' Convert All Prodnotes to LP Style, 11/8/2026: what message 428 says, and in a third scratch book,
+' every prodnote - one of them two paragraphs long - given Box Red, then Box Blue, each in ONE undo
+' record, with one Ctrl+Z putting every prodnote back to Prodnote.
+'
+' Version: 1.3  Date: 11/8/2026 - Convert All Prodnotes to LP Style: Lp_Cap_Convert_All, Lp_Cap_Summary
 ' Version: 1.2  Date: 11/7/2026 - the large print box (426): Box Red and Box Blue
 ' Version: 1.1  Date: 11/7/2026 - which template names count as BANA, for Print Layout and Convert
 ' Version: 1.0  Date: 11/7/2026
@@ -90,6 +98,17 @@ Public Function TestReviewProdnotes_Suite() As TestSuite
     End With
 
     TestReviewProdnotes_Box_Styles Suite.Test("in a scratch book: one prodnote to Box Red, one to Box Blue")
+
+    With Suite.Test("Convert All Prodnotes to LP Style says how many, and that one Ctrl+Z undoes it")
+        .IsEqual Lp_Cap_Summary(1, "Box Red"), "1 prodnote converted to Box Red Style." _
+               & vbCr & vbCr & "One press of Ctrl+Z puts them back."
+        .IsEqual Lp_Cap_Summary(1200, "Box Blue"), "1,200 prodnotes converted to Box Blue Style." _
+               & vbCr & vbCr & "One press of Ctrl+Z puts them back."
+        .IsEqual Lp_Cap_Summary(0, "Box Red"), "0 prodnotes converted to Box Red Style."
+        .IsEqual Left$(Dx_Rvp_None_Found_Text(), 19), "No prodnotes found."
+    End With
+
+    TestReviewProdnotes_Convert_All Suite.Test("in a scratch book: every prodnote to Box Red, then Box Blue, one undo each")
 
     Set TestReviewProdnotes_Suite = Suite
 End Function
@@ -215,3 +234,75 @@ Failed:
     If Not d Is Nothing Then d.Close SaveChanges:=False
     Err.Clear
 End Sub
+
+' The book: Some text. / Prodnote A, two paragraphs / Middle text. / Prodnote B / The end. /
+' Prodnote C, the last paragraph. Its own Prodnote, Box Red and Box Blue styles, so no template.
+Private Sub TestReviewProdnotes_Convert_All(ByVal T As TestCase)
+    Dim d As Document
+    Dim stProd As Style, stRed As Style, stBlue As Style
+    Dim hits As Collection
+    Dim n As Long
+    Dim stage As String
+
+    On Error GoTo Failed
+    stage = "making the scratch book"
+    Set d = Documents.Add(Visible:=False)
+    Set stProd = d.Styles.Add("Prodnote", wdStyleTypeParagraph)
+    Set stRed = d.Styles.Add("Box Red", wdStyleTypeParagraph)
+    Set stBlue = d.Styles.Add("Box Blue", wdStyleTypeParagraph)
+    d.Content.Text = "Some text." & vbCr & "Prodnote A, first part" & vbCr _
+                   & "Prodnote A, second part" & vbCr & "Middle text." & vbCr & "Prodnote B" _
+                   & vbCr & "The end." & vbCr & "Prodnote C"
+    d.Paragraphs(2).Style = stProd
+    d.Paragraphs(3).Style = stProd
+    d.Paragraphs(5).Style = stProd
+    d.Paragraphs(7).Style = stProd
+
+    stage = "converting every prodnote to Box Red"
+    Set hits = Dx_Rvp_Collect(d)
+    n = Lp_Cap_Convert_All(hits, stRed)
+    T.IsEqual n, 3, "three prodnotes converted"
+    T.IsEqual d.Paragraphs(2).Style.NameLocal, "Box Red", "A's first paragraph is Box Red"
+    T.IsEqual d.Paragraphs(3).Style.NameLocal, "Box Red", "A's second paragraph is Box Red"
+    T.IsEqual d.Paragraphs(5).Style.NameLocal, "Box Red", "B is Box Red"
+    T.IsEqual d.Paragraphs(7).Style.NameLocal, "Box Red", "C, the last paragraph, is Box Red"
+    T.IsEqual d.Paragraphs(4).Style.NameLocal, d.Styles(wdStyleNormal).NameLocal, _
+              "the text between is untouched"
+    T.IsEqual d.Paragraphs(3).Range.Text, "Prodnote A, second part" & vbCr, "the text is kept"
+
+    stage = "one Ctrl+Z after Box Red"
+    d.Undo 1
+    T.IsEqual d.Paragraphs(2).Style.NameLocal, "Prodnote", "one undo puts A's first paragraph back"
+    T.IsEqual d.Paragraphs(3).Style.NameLocal, "Prodnote", "and A's second"
+    T.IsEqual d.Paragraphs(5).Style.NameLocal, "Prodnote", "and B"
+    T.IsEqual d.Paragraphs(7).Style.NameLocal, "Prodnote", "and C"
+
+    stage = "converting every prodnote to Box Blue"
+    Set hits = Dx_Rvp_Collect(d)
+    n = Lp_Cap_Convert_All(hits, stBlue)
+    T.IsEqual n, 3, "three prodnotes converted again"
+    T.IsEqual d.Paragraphs(3).Style.NameLocal, "Box Blue", "A's second paragraph is Box Blue"
+    T.IsEqual d.Paragraphs(7).Style.NameLocal, "Box Blue", "C is Box Blue"
+    T.IsEqual TestRvp_Prodnote_Count(d), 0, "no Prodnote paragraph is left"
+
+    stage = "one Ctrl+Z after Box Blue"
+    d.Undo 1
+    T.IsEqual TestRvp_Prodnote_Count(d), 4, "one undo puts all four Prodnote paragraphs back"
+
+    d.Close SaveChanges:=False
+    Exit Sub
+
+Failed:
+    T.Fail "VBA error " & Err.Number & " while " & stage & " - " & Err.Description
+    On Error Resume Next
+    If Not d Is Nothing Then d.Close SaveChanges:=False
+    Err.Clear
+End Sub
+
+' How many paragraphs of a book are in the Prodnote style - for the test above.
+Private Function TestRvp_Prodnote_Count(ByVal d As Document) As Long
+    Dim para As Paragraph
+    For Each para In d.Paragraphs
+        If para.Style.NameLocal = "Prodnote" Then TestRvp_Prodnote_Count = TestRvp_Prodnote_Count + 1
+    Next para
+End Function

@@ -254,6 +254,15 @@ Red", "Convert Prodnote to Box Blue"), paragraph by paragraph through `Dx_Rvp_Re
 `tests/vba/TestReviewProdnotes.bas` puts a Box Blue convert made inside such a record back with
 one `Document.Undo 1` in a hidden scratch book; not measured in the real box.
 
+**Convert All Prodnotes to LP Style (425 → 427), 11/8/2026: one press of Ctrl+Z for the whole
+book.** `Lp_Cap_Convert_All` opens ONE record ("Convert All Prodnotes to Box Red" or "... Box
+Blue") and restyles every paragraph of every prodnote inside it through `Dx_Rvp_Restyle_Run` —
+not the braille Convert All's `wdReplaceAll`, which would crash Word inside a record. It does
+not run `Sh_Set_Prodnote_Style_Visibility` afterwards, because deleting the now-unused Prodnote
+style would be a second entry on the undo list. `tests/vba/TestReviewProdnotes.bas` converts
+four Prodnote paragraphs (three prodnotes, one of them two paragraphs long) and puts them all
+back with one `Document.Undo 1` in a hidden scratch book; not measured on a real book.
+
 **Tried and rejected, 9/21/2026: an `UndoClear` at the start of `Lp_Resize_Same_Picture_Throughout`
 (that macro was retired on 9/22/2026; the rule holds for the range loop that replaced it).**
 It stopped a third Ctrl+Z from going on into earlier edits, but it also wiped the transcriber's

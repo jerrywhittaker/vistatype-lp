@@ -15,6 +15,9 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 ' Lp_Prodnotes__Menu_Form - Prodnotes Review (425), VistaType LP File Cleanup group
 '
+' Version: 1.2  Date: 11/8/2026 - Convert All Prodnotes to LP Style (CommandButton2) runs
+'                                Lp_Convert_All_Prodnotes_To_Box, which asks Box Red Style or Box
+'                                Blue Style on Convert All Prodnotes (427)
 ' Version: 1.1  Date: 11/7/2026 - Review/Edit/Delete Prodnotes (CommandButton4) opens the large
 '                                print Review Prodnotes (426), Lp_Review_Prodnotes; Run_After_Menu
 '                                hides this form, not Prodnotes and Alt-Text (417)
@@ -25,6 +28,10 @@ Private Sub Run_After_Menu(ByVal macroName As String)
     Sh_BridgeTargetMacro = macroName
     Application.OnTime Now, "Sh_StartSpinnerBridge"
     Unload Me
+End Sub
+
+Private Sub CommandButton2_Click()
+    Run_After_Menu "Lp_Convert_All_Prodnotes_To_Box"
 End Sub
 
 Private Sub CommandButton4_Click()

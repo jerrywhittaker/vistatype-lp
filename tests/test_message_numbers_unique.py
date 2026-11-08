@@ -25,6 +25,7 @@ SAME_DIALOG = {
     "135": "the large print template is not attached, in the same words: a MsgBox in "
            "Lp_Is_Lp_Template_Attached, and Sh_Say in Lp_Review_Prodnotes (11/7/2026), whose box stays "
            "open and so cannot use that sub - it ends with End",
+    "419": "no prodnotes found, in the same words (Dx_Rvp_None_Found_Text): titled for either product by Review Prodnotes (418/426), and VistaType LP only by Convert All Prodnotes to LP Style (11/8/2026)",
 }
 
 

@@ -5,8 +5,9 @@ was, with the same icon as the braille Prodnotes and Alt-Text (417) button. Dele
 keeps its id on the hidden retired tab, so a toolbar that names it still draws a working button.
 
 Jerry made the form himself in the VBA editor. Its Review/Edit/Delete Prodnotes button opens the
-large print Review Prodnotes (426), 11/7/2026 (tests/test_lp_review_prodnotes.py); what its other
-buttons do is still to come.
+large print Review Prodnotes (426), 11/7/2026 (tests/test_lp_review_prodnotes.py), and its Convert
+All Prodnotes to LP Style button asks Box Red Style or Box Blue Style on Convert All Prodnotes (427),
+11/8/2026 (tests/test_lp_convert_all_prodnotes.py).
 """
 import re
 
