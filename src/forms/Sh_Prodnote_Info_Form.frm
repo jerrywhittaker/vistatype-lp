@@ -29,6 +29,8 @@ Private Sub UserForm_Initialize()
 ' The text lives here rather than in the form's binary layout file so that it can be read and
 ' edited as text, in the VBE or in src/forms.
 '
+' Version: 1.5  Date: 11/11/2026 - note replaced with Jerry's new text: one paragraph each for
+'                                large print (Prodnote Review) and braille (Prodnotes and Alt-Text)
 ' Version: 1.4  Date: 11/7/2026 - the braille paragraph sent the reader to Prodnote to TN and
 '                                Delete Prodnotes in the File Cleanup group, which moved onto
 '                                Prodnotes and Alt-Text (417) on 11/6/2026. It names that button and
@@ -52,31 +54,33 @@ Private Sub UserForm_Initialize()
 '
     Dim m As String
 
-    m = "This Word document, created from a DAISY or NIMAS file, contains one or more " _
-      & "prodnotes (production notes). These prodnotes are formatted with a Prodnote " _
-      & "style and are displayed in red text within the document. Prodnotes are not part " _
-      & "of the publisher's printed version of the book but are added during the " _
-      & "production of the DAISY or NIMAS file. Prodnotes can be used to insert printed " _
-      & "text into the document to improve accessibility and are often descriptions of visual " _
-      & "elements such as complex pictures or mathematical charts and graphs."
+    m = "This Word document contains one or more production notes. The prodnotes are formatted " _
+      & "with a Prodnote style and are displayed in red text within the document. Prodnotes are " _
+      & "not part of the publisher's printed version of the book but are added during the " _
+      & "production of the DAISY or NIMAS file. Prodnotes can be used to insert text into the " _
+      & "document to improve accessibility and are often descriptions of visual elements such " _
+      & "as complex pictures or mathematical charts and graphs."
 
     m = m & vbCrLf & vbCrLf _
-      & "The prodnotes should be viewed for their usefulness. Prodnotes " _
-      & "that are not useful can be deleted manually, leaving only the useful ones, or all " _
-      & "prodnotes can be deleted from the document."
+      & "The prodnote content can be viewed for its usefulness and modified or deleted depending " _
+      & "on whether the document is for large print or braille. When the desired output is large " _
+      & "print, prodnotes may have value only when the goal is to produce an accessible PDF or web " _
+      & "page. When the desired output is braille, prodnotes may provide descriptions of visual " _
+      & "elements or details of mathematical equations, providing readers with information not " _
+      & "found in the text of the book."
 
     m = m & vbCrLf & vbCrLf _
-      & "When the desired output is large print, prodnotes may only have value if the goal is to produce an " _
-      & "accessible PDF or web page. If not needed, the prodnotes should be deleted from the document by running the ""Delete Prodnotes"" " _
-      & "macro from the ""File Cleanup"" group on the ""VistaType LP"" tab ribbon."
-    
+      & "FOR LARGE PRINT, the prodnote tools can be accessed by selecting the ""Prodnote Review"" " _
+      & "icon in the ""File Cleanup"" group on the VistaType LP tab ribbon. The tools provide the " _
+      & "ability to review, edit, and delete prodnotes or to convert each or all prodnotes into " _
+      & "Box Red or Box Blue styles."
+
     m = m & vbCrLf & vbCrLf _
-      & "When the desired output is braille, descriptions of visual elements can provide " _
-      & "readers with information not found in the text of the book. Use the ""Prodnotes and Alt-Text"" " _
-      & "button in the ""File Cleanup"" group on the ""Braille Macros"" tab ribbon. Its ""Review/Edit/Delete " _
-      & "Prodnotes"" button goes through the prodnotes one at a time, to edit, delete, or convert each to the " _
-      & """Transcriber Note"" style; its other buttons delete or convert all of them at once."
-      
+      & "FOR BRAILLE, the prodnote tools can be accessed by selecting the ""Prodnotes and Alt-Text"" " _
+      & "icon in the ""File Cleanup"" group on the ""Braille Macros"" tab ribbon. The tools provide " _
+      & "the ability to review, edit, and delete prodnotes or to convert prodnotes to a transcriber " _
+      & "note (TN)."
+
     Info_Text.Text = m
 
     ' Put the caret at the start rather than the end, so a note long enough to scroll opens

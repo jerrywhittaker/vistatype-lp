@@ -18,7 +18,10 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - LP  - 11/8/2026 - TINY PICTURES NO LONGER GROW ON EVERY ATTACH (Jerry): a picture
+' Notes:    - Sh  - 11/11/2026 - PRODNOTES IN THIS DOCUMENT (361) REWORDED (Jerry): the note's
+'           - Sh  - 11/11/2026 - text replaced with his; it sends large print to Prodnote Review
+'           - Sh  - 11/11/2026 - and braille to Prodnotes and Alt-Text.
+'           - LP  - 11/8/2026 - TINY PICTURES NO LONGER GROW ON EVERY ATTACH (Jerry): a picture
 '           - LP  - 11/8/2026 - just under the Normal size had its short side rounded down to 17.99,
 '           - LP  - 11/8/2026 - which Word reads as 17.95, so each attach enlarged it again and its
 '           - LP  - 11/8/2026 - long side crept. Lp_Enlarge_Plan now sets the short side to the
