@@ -122,6 +122,10 @@ Public Sub VtRunAllTests()
     Set Suite = TestHyperlinksToText_Suite()
     Reporter.ListenTo Suite
 
+    Reporter.Trace "building Word equations, superscripts and subscripts at the book's size"
+    Set Suite = TestEquationSize_Suite()
+    Reporter.ListenTo Suite
+
     Reporter.Finish
     Exit Sub
 

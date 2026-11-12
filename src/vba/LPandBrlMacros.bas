@@ -18,7 +18,13 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - BRL - 11/12/2026 - A WEB LINK ON A PICTURE NO LONGER STOPS BRAILLE FULL FILE CLEANUP
+' Notes:    - LP  - 11/12/2026 - EQUATIONS, SUPERSCRIPTS AND SUBSCRIPTS AT THE BOOK'S SIZE (Jerry): the LP
+'           - LP  - 11/12/2026 - attach sets every Word equation so its characters print as tall as the
+'           - LP  - 11/12/2026 - text (Cambria Math is 90% at the same size), its exponents, subscripts
+'           - LP  - 11/12/2026 - and limits at full size, its fractions within a line of text written
+'           - LP  - 11/12/2026 - across (3/4), and plain superscripts and subscripts at full size.
+'           - LP  - 11/12/2026 - Lp_Size_Equations; measured 99% at 18, 24, 36 pt. A TEST.
+'           - BRL - 11/12/2026 - A WEB LINK ON A PICTURE NO LONGER STOPS BRAILLE FULL FILE CLEANUP
 '           - BRL - 11/12/2026 - with 4680 (issue #54, Jerry): its address is written as text on a line
 '           - BRL - 11/12/2026 - of its own after the picture's paragraph. A TEST.
 '           - DN  - 11/12/2026 - EQUATIONS (398): "PICTURES OF THE EQUATIONS" NO LONGER GRAYED OUT
@@ -22171,6 +22177,9 @@ Sub Lp_Attach_The_Template()
 
     ' Attaches the LP template with style changes
     '
+    ' Version: 5.0  Date: 11/12/2026 - after the pictures, every Word equation and every superscript
+    '                               and subscript is enlarged so its characters PRINT at the book's
+    '                               size (Lp_Size_Equations, Jerry). Large print only
     ' Version: 4.9  Date: 11/1/2026 - after the style sizes are restored, every picture smaller than
     '                               the Normal style's font size is enlarged to it, keeping its
     '                               shape and inside the margins (Lp_Enlarge_Tiny_Pictures, Jerry).
@@ -22624,6 +22633,14 @@ DoEvents
     ' Must stay AFTER Lp_Normalize_Styles and Lp_Restore_Style_Sizes: the Normal style's size,
     ' which is the minimum, is only final here. Every attach, so a new point size is caught.
     Lp_Enlarge_Tiny_Pictures ActiveDocument
+
+    ' Word equations, superscripts and subscripts drawn at the book's size (Jerry, 11/12/2026).
+    ' Must stay AFTER Sh_Set_Whole_Document_Font, Lp_Normalize_Styles and Lp_Restore_Style_Sizes:
+    ' each of them lays one size over every character, equations included, and would undo this.
+    ' Every attach, from the Normal style's size, so a re-attach does not enlarge them again.
+    Sh_Progress_Say 90, "Enlarging equations, superscripts and subscripts"
+    DoEvents
+    Lp_Size_Equations ActiveDocument, ActiveDocument.Styles(wdStyleNormal).Font.Size
 
     ' MOVED HERE FROM THE TOP OF THE ATTACH, 9/6/2026, after Jerry reported: "i re-attached the
     ' LP template for screen and word crashed in the normalize styles routine".
@@ -26081,6 +26098,160 @@ Private Sub Lp_Enlarge_Tiny_Pictures(ByVal Doc As Document)
         Lp_Enlarge_One_Picture pics(k), oldW(k), oldH(k), newW(k), newH(k)
     Next k
 End Sub  '***** end of Lp_Enlarge_Tiny_Pictures *****
+
+'---------------------------------------------------------------------------------------------------
+' Lp_Size_Equations - every character of every Word equation, and every superscript and subscript,
+' PRINTS at the book's size (Jerry, 11/12/2026). Large print only: called from the LP attach alone.
+'
+' Version: 1.0  Date: 11/12/2026 - new
+'
+' THE CARDINAL RULE: every character in a large print book is drawn at the size the transcriber set.
+' Measured on Basic Math & Pre-Algebra For Dummies at 24 pt (ink height of the digits, in a PDF):
+'   - Cambria Math draws its digits 90% as tall as VistaTypeLP Sans at the same point size, so
+'     each equation is set 18.12 / 16.44 larger (24 -> 26.5). An equation whose letters are in the
+'     book's own face (Sh_Set_Whole_Document_Font can do that) is set at the base size.
+'   - Exponents, subscripts, limits and in-line fraction parts are drawn at 73% of the equation's
+'     size, a ratio built into Cambria Math that Word has no setting for; a script inside a script
+'     at 60%. They are given main/0.73 and main/0.60, which print at the equation's size.
+'   - Fractions in an equation within a line of text are written across, 3/4, at full size
+'     (Jerry's choice, 11/12/2026: a stacked one at full size opens its line by two thirds).
+'     Fractions in an equation on its own line stay stacked, at full size.
+'   - Word superscript and subscript formatting outside equations ("10" with a raised "5") is
+'     drawn at about 62%, and is set at base/0.62.
+' All measured 99% of a body digit at 18, 24 and 36 pt on vistabuild, 11/12/2026.
+'
+' A SIZE SET ON PART OF AN EQUATION THROUGH THE OBJECT MODEL GOES TO THE WHOLE EQUATION (measured:
+' ScrSup.Sup.Range.Font.Size = 36.5 made all of it 36.5). So the scripts' sizes and the fraction
+' type are written into the equation's own XML (Lp_Eq_Xml_Resize) and put back with InsertXML,
+' which keeps them through a save and reopen and a Linearize/BuildUp.
+'
+' Always from baseSize, never from what is there, so a second attach sets the same sizes again.
+Private Sub Lp_Size_Equations(ByVal doc As Document, ByVal baseSize As Single)
+    Dim i As Long, om As OMath, r As Range
+    Dim mainSize As Single, xml As String, newXml As String
+    Dim sz As Single
+
+    If baseSize <= 0 Then Exit Sub
+
+    For i = doc.OMaths.count To 1 Step -1
+        Set om = doc.OMaths(i)
+        If om.Range.Font.Name = "Cambria Math" Then
+            mainSize = Round(baseSize * 18.12 / 16.44 * 2) / 2
+        Else
+            mainSize = baseSize
+        End If
+        Set r = om.Range
+        r.Font.Size = mainSize
+        xml = r.WordOpenXML
+        newXml = Lp_Eq_Xml_Resize(xml, mainSize, (om.Type = wdOMathInline))
+        If newXml <> xml Then r.InsertXML newXml
+    Next i
+
+    ' Superscript and subscript formatting outside the equations.
+    sz = Round(baseSize / 0.62 * 2) / 2
+    Lp_Size_Raised_Lowered doc, True, sz
+    Lp_Size_Raised_Lowered doc, False, sz
+End Sub   '*** end of Lp_Size_Equations ***
+
+' Every run with superscript (or subscript) formatting in the main text set to sz.
+Private Sub Lp_Size_Raised_Lowered(ByVal doc As Document, ByVal raised As Boolean, ByVal sz As Single)
+    Dim r As Range
+    Set r = doc.Content
+    With r.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
+        .Text = ""
+        .Replacement.Text = ""
+        .Format = True
+        .Forward = True
+        .Wrap = wdFindStop
+        .MatchWildcards = False
+        If raised Then .Font.Superscript = True Else .Font.Subscript = True
+        .Replacement.Font.Size = sz
+        .Execute Replace:=wdReplaceAll
+        .ClearFormatting
+        .Replacement.ClearFormatting
+    End With
+End Sub   '*** end of Lp_Size_Raised_Lowered ***
+
+'---------------------------------------------------------------------------------------------------
+' Lp_Eq_Xml_Resize - one equation's XML with its scripts sized and, for an equation within a line of
+' text, its fractions written across. A string in, a string out (tested in TestEquationSize).
+'
+' Version: 1.0  Date: 11/12/2026 - new (Lp_Size_Equations)
+'
+' Inside <m:sup>, <m:sub> and <m:lim> a run's size (<w:sz>, <w:szCs>) becomes mainSize/0.73; one
+' level deeper, or inside a radical's index <m:deg>, mainSize/0.60. Every <m:f> of an in-line
+' equation gets <m:type m:val="lin"/>. Nothing outside those elements is touched - the package's
+' styles part has <w:sz> too, and none of it is inside an <m:sup>.
+Private Function Lp_Eq_Xml_Resize(ByVal xml As String, ByVal mainSize As Single, _
+                                  ByVal inlineEq As Boolean) As String
+    Dim out As String, p As Long, q As Long, gt As Long
+    Dim tag As String, nm As String, k As Long
+    Dim depth As Long, stack(1 To 64) As Long, sp As Long
+    Dim v1 As String, v2 As String, vNow As String
+    Dim a As Long, z As Long, fEnd As Long, fPr As String
+
+    v1 = CStr(CLng(Round(mainSize / 0.73 * 2)))
+    v2 = CStr(CLng(Round(mainSize / 0.6 * 2)))
+    p = 1
+    Do
+        q = InStr(p, xml, "<")
+        If q = 0 Then Exit Do
+        gt = InStr(q, xml, ">")
+        If gt = 0 Then Exit Do
+        tag = Mid$(xml, q, gt - q + 1)
+        nm = Mid$(tag, 2, Len(tag) - 2)
+        k = InStr(1, nm, " ")
+        If k > 0 Then nm = Left$(nm, k - 1)
+        If Right$(nm, 1) = "/" Then nm = Left$(nm, Len(nm) - 1)
+
+        Select Case nm
+            Case "m:sup", "m:sub", "m:lim", "m:deg"
+                If Right$(tag, 2) <> "/>" And sp < 64 Then
+                    sp = sp + 1
+                    If nm = "m:deg" Then stack(sp) = 2 Else stack(sp) = 1
+                    depth = depth + stack(sp)
+                End If
+            Case "/m:sup", "/m:sub", "/m:lim", "/m:deg"
+                If sp > 0 Then
+                    depth = depth - stack(sp)
+                    sp = sp - 1
+                End If
+            Case "w:sz", "w:szCs"
+                If depth > 0 Then
+                    If depth = 1 Then vNow = v1 Else vNow = v2
+                    a = InStr(1, tag, "w:val=""")
+                    If a > 0 Then
+                        z = InStr(a + 7, tag, """")
+                        If z > 0 Then tag = Left$(tag, a + 6) & vNow & Mid$(tag, z)
+                    End If
+                End If
+            Case "m:f"
+                If inlineEq And Right$(tag, 2) <> "/>" Then
+                    fEnd = 0
+                    If Mid$(xml, gt + 1, 7) = "<m:fPr>" Then fEnd = InStr(gt + 1, xml, "</m:fPr>")
+                    If fEnd > 0 Then
+                        ' an <m:fPr> of its own: any <m:type .../> in it gives way to "lin"
+                        fPr = Mid$(xml, gt + 8, fEnd - gt - 8)
+                        a = InStr(1, fPr, "<m:type ")
+                        If a > 0 Then
+                            z = InStr(a, fPr, "/>")
+                            If z > 0 Then fPr = Left$(fPr, a - 1) & Mid$(fPr, z + 2)
+                        End If
+                        out = out & Mid$(xml, p, q - p) & tag & "<m:fPr><m:type m:val=""lin""/>" & fPr & "</m:fPr>"
+                        p = fEnd + 8
+                        GoTo NextTag
+                    End If
+                    tag = tag & "<m:fPr><m:type m:val=""lin""/></m:fPr>"
+                End If
+        End Select
+        out = out & Mid$(xml, p, q - p) & tag
+        p = gt + 1
+NextTag:
+    Loop
+    Lp_Eq_Xml_Resize = out & Mid$(xml, p)
+End Function   '*** end of Lp_Eq_Xml_Resize ***
 
 ' Reads one picture and works out its new size, without changing it: True, with the sizes, when it
 ' is to be enlarged. The room comes in when every section has the same; otherwise it is asked here,
