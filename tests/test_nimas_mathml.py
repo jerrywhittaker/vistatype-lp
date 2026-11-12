@@ -92,14 +92,12 @@ def test_math_question_only_with_mathml_for_both_outputs(repo_root):
     assert sum("DN_Equations_Form.Show" in l for l in lines) == 1
 
 
-def test_braille_grays_out_the_pictures(repo_root):
-    """Jerry, 10/22/2026: on a braille conversion 398 has "Pictures of the equations" grayed out,
-    and a grayed-out choice can never be the answer."""
+def test_braille_offers_the_pictures(repo_root):
+    """Jerry, 11/12/2026: on a braille conversion 398 offers "Pictures of the equations" too -
+    it is no longer grayed out (it was from 10/22/2026)."""
     code = "\n".join(form_code(repo_root, "DN_Equations_Form"))
-    init = code[code.index("Private Sub UserForm_Initialize()"):]
-    assert re.search(r'If Sh_GP_String_2 = "BRL" Then EquationPictures\.Enabled = False', init)
-    assert re.search(r'If EquationPictures\.Value = True And EquationPictures\.Enabled Then\s+'
-                     r'Sh_GP_String_3 = "PICTURE"', code)
+    assert "EquationPictures.Enabled" not in code, "398 still grays out the pictures"
+    assert re.search(r'If EquationPictures\.Value = True Then\s+Sh_GP_String_3 = "PICTURE"', code)
     lines = _converter(repo_root)
     assert 'mathMode = "BRL"' not in "\n".join(lines), "braille still gets the MathML as text"
 

@@ -17,6 +17,8 @@ Attribute VB_Exposed = False
 '
 ' DN_Equations_Form  -  "Equations (398)"
 '
+' Version: 1.4  Date: 11/12/2026 - "Pictures of the equations" is no longer grayed out for
+'                                braille; all three choices are offered for both (Jerry)
 ' Version: 1.3  Date: 10/22/2026 - "MathType equations" is always offered (Jerry). Chosen on a
 '                                machine without MathType, Okay asks VistaType LP (400) whether to
 '                                go on, since the equations could not be edited or corrected there;
@@ -38,8 +40,8 @@ Attribute VB_Exposed = False
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
 ' Asked by Sh_Convert_XML_File_To_Word_Document for a large print or braille conversion, and only
-' when the book's XML carries MathML equations. Braille cannot have the pictures, so that choice
-' is grayed out when 325 was answered braille (Sh_GP_String_2 = "BRL"). A NIMAS book names a
+' when the book's XML carries MathML equations. All three choices are offered for large print
+' and braille alike (Jerry, 11/12/2026). A NIMAS book names a
 ' picture of each equation in the altimg attribute (the "EQ" files); Word's HTML importer drops
 ' the MathML and the picture with it. The transcriber chooses which goes in: Word equations, made from the MathML by Word's own
 ' MML2OMML.XSL; MathType equations, made from the MathML by VistaType LP and drawn by MathType;
@@ -50,7 +52,7 @@ Attribute VB_Exposed = False
 ' canceled, and the caller stops before anything is done to the book.
 
 Private Sub CmdOkay_Click()
-    If EquationPictures.Value = True And EquationPictures.Enabled Then
+    If EquationPictures.Value = True Then
         Sh_GP_String_3 = "PICTURE"
     ElseIf MathTypeEquations.Value = True Then
         'Without MathType the equations still go in, but nobody can open one to correct it.
@@ -106,9 +108,6 @@ Private Sub UserForm_Initialize()
     MathTypeEquations.Value = True
     MathTypeEquations.Font.Name = WordEquations.Font.Name
     MathTypeEquations.Font.Size = WordEquations.Font.Size
-
-    'Braille (325): the pictures are no use to a braille reader, so that choice is grayed out.
-    If Sh_GP_String_2 = "BRL" Then EquationPictures.Enabled = False
 
     'Center UserForm within the Word application window
     Me.StartUpPosition = 0

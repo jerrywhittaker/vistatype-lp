@@ -18,7 +18,9 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Sh  - 11/11/2026 - PRODNOTES IN THIS DOCUMENT (361) REWORDED (Jerry): the note's
+' Notes:    - DN  - 11/12/2026 - EQUATIONS (398): "PICTURES OF THE EQUATIONS" NO LONGER GRAYED OUT
+'           - DN  - 11/12/2026 - for braille (Jerry); all three choices are offered for both.
+'           - Sh  - 11/11/2026 - PRODNOTES IN THIS DOCUMENT (361) REWORDED (Jerry): the note's
 '           - Sh  - 11/11/2026 - text replaced with his; it sends large print to Prodnote Review
 '           - Sh  - 11/11/2026 - and braille to Prodnotes and Alt-Text.
 '           - LP  - 11/8/2026 - TINY PICTURES NO LONGER GROW ON EVERY ATTACH (Jerry): a picture
@@ -37835,6 +37837,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
 '
 ' Automatically converts an .xml (NIMAS or DAISY) file into a Word Document with reference pages tagged with $pg
 '
+' Version: 3.6  Date: 11/12/2026 - Equations (398) no longer grays out "Pictures of the equations" for braille; a braille book can take the EQ pictures as large print can (Jerry)
 ' Version: 3.5  Date: 11/1/2026 - NO MESSAGE 293 WITH NO DOCUMENT OPEN (Jerry): the conversion opens a book from a folder, so it no longer needs one open and no longer stops with "Cannot continue... no document is open." With none open it adds a blank document first, as Word shows at startup, because the window setup in Step 1 and the progress bar (373) both need a document to stand on
 ' Version: 3.4  Date: 10/28/2026 - ERROR 5825 WHILE PUTTING IN THE EQUATIONS (issue #47, Jerry): the converted book had been closed partway through, and ConvertFailed's own finalDoc.Activate then raised 5825 INSIDE the handler, where On Error Resume Next does not catch it; it escaped to RibbonAction, was logged as DN_Menu_Starter, and the first error was lost. ConvertFailed now runs On Error GoTo -1 straight after taking its copy of the error, so it finishes and reports under its own name; and when the converted book is gone, box 403 says so instead of asking for an error report
 ' Version: 3.3  Date: 10/28/2026 - ONE-ROW TABLES OF TYPED EQUATIONS TAKEN APART TOO (issue #43, Jerry): Sh_MathML_Untable now also takes apart a one-row table in which every cell that is not empty holds an equation, a math element or typed text with an equals sign - Basic Math's "25% = 0.25" and "A = (2, 3)" rows. A table of more rows, or with a cell of plain words, stays a table
@@ -37975,8 +37978,8 @@ Sub Sh_Convert_XML_File_To_Word_Document()
 
     If mathPrefix <> "#" Then
         ' The transcriber chooses Word equations, MathType equations or the EQ pictures. Asked
-        ' only when the book has MathML, for braille as well as large print (Jerry, 10/22/2026);
-        ' braille has the pictures grayed out, since 398 reads Sh_GP_String_2. MathType chosen
+        ' only when the book has MathML, for braille as well as large print (Jerry, 10/22/2026),
+        ' with all three choices for both (Jerry, 11/12/2026). MathType chosen
         ' without MathType installed is asked about on 398 itself (400). Braille went in as Word
         ' equations unasked from 10/20/2026, and as MathML text from 10/18/2026.
         Sh_GP_String_3 = ""
@@ -38266,7 +38269,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     ' walked again; and after the prodnote quotes, the Prodnote color and the red $pg, all of
     ' which work on the text and none of which should meet a Word equation - the quote pass
     ' deletes single characters by position. Before the font and the repaginate, which must still
-    ' follow. Large print: Word, MathType or the EQ pictures. Braille: Word or MathType (398).
+    ' follow. Large print: Word, MathType or the EQ pictures. Braille: the same three (398).
     If mathMode = "MATHTYPE" Then
         ' MathType equations go in with their EQ pictures showing, and MathType then draws every
         ' one (Format Equations) on its own stretch of the bar - AFTER the book is saved, at
@@ -42199,7 +42202,7 @@ Private Function Sh_MathML_Put_In(ByVal targetDoc As Document, ByVal fragments A
     ' Puts every parked equation back, walking FORWARD through the book from placeholder 1, each
     ' search starting where the last insertion ended. mode is "OMML" (Word equations),
     ' "MATHTYPE" (MathType equations, drawn afterwards by Sh_MathType_Format_Equations) or
-    ' "PICTURE" (the altimg pictures); braille comes as "OMML" or "MATHTYPE". Moves the bar from pctFrom to
+    ' "PICTURE" (the altimg pictures); braille the same. Moves the bar from pctFrom to
     ' pctTo.
     '
     ' Answers "" when every equation went in as asked; otherwise a sentence for the closing
