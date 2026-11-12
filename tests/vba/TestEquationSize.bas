@@ -11,6 +11,8 @@ Attribute VB_Name = "TestEquationSize"
 ' and a second run changing nothing. Visible:=False, no Selection, closed unsaved, every error a
 ' failure (README.md).
 '
+' Version: 1.1  Date: 11/12/2026 - two equations in one paragraph, both with exponents (the pass now
+'                                 reads the book's XML once and cuts each equation out of it)
 ' Version: 1.0  Date: 11/12/2026
 '
 Option Explicit
@@ -61,7 +63,7 @@ Public Function TestEquationSize_Suite() As TestSuite
     Set TestEquationSize_Suite = Suite
 End Function
 
-' The book: "Take [3/4] of the cake." / [2^3+10^5] / "10" + raised "5".
+' The book: "Take [3/4] of the cake." / [2^3+10^5] / "10" + raised "5" / "[x^2] and [y^3]".
 Private Sub TestEquationSize_In_A_Book(ByVal T As TestCase)
     Dim d As Document, r As Range
     Dim stage As String, txt As String, pc As Long, pass As Long
@@ -70,7 +72,7 @@ Private Sub TestEquationSize_In_A_Book(ByVal T As TestCase)
     stage = "making the scratch book"
     Set d = Documents.Add(Visible:=False)
     d.Styles(wdStyleNormal).Font.Size = 24
-    d.Content.Text = "Take 3/4 of the cake." & vbCr & "2^3+10^5" & vbCr & "105"
+    d.Content.Text = "Take 3/4 of the cake." & vbCr & "2^3+10^5" & vbCr & "105" & vbCr & "x^2 and y^3"
     d.Content.Font.Size = 24
 
     Set r = d.Paragraphs(1).Range
@@ -84,14 +86,26 @@ Private Sub TestEquationSize_In_A_Book(ByVal T As TestCase)
     Set r = d.Paragraphs(3).Range
     r.SetRange r.Start + 2, r.Start + 3
     r.Font.Superscript = True
-    T.IsEqual d.OMaths.Count, 2, "the scratch book has 2 equations"
+    Set r = d.Paragraphs(4).Range
+    r.SetRange r.Start + 8, r.Start + 11
+    r.OMaths.Add r
+    d.OMaths(3).BuildUp
+    Set r = d.Paragraphs(4).Range
+    r.SetRange r.Start, r.Start + 3
+    r.OMaths.Add r
+    d.OMaths(3).BuildUp
+    T.IsEqual d.OMaths.Count, 4, "the scratch book has 4 equations"
     T.IsEqual d.OMaths(1).Type, wdOMathInline, "the fraction is in a line of text"
     pc = d.Paragraphs.Count
 
     For pass = 1 To 2
         stage = "sizing, pass " & pass
         Lp_Size_Equations d, 24
-        T.IsEqual d.OMaths.Count, 2, "pass " & pass & ": still 2 equations"
+        T.IsEqual d.OMaths.Count, 4, "pass " & pass & ": still 4 equations"
+        T.IsEqual d.OMaths(3).Functions(1).ScrSup.Sup.Range.Font.Size, 36.5, "pass " & pass & ": x's exponent at 36.5"
+        T.IsEqual d.OMaths(4).Functions(1).ScrSup.Sup.Range.Font.Size, 36.5, "pass " & pass & ": y's exponent at 36.5"
+        T.IsEqual d.OMaths(3).Range.Paragraphs(1).Range.Start, d.OMaths(4).Range.Paragraphs(1).Range.Start, _
+                  "pass " & pass & ": x^2 and y^3 still share their paragraph"
         T.IsEqual d.Paragraphs.Count, pc, "pass " & pass & ": no paragraph added or lost"
         T.IsEqual d.OMaths(1).Functions(1).Type, wdOMathFunctionFrac, "pass " & pass & ": the fraction is still a fraction"
         T.IsEqual d.OMaths(1).Functions(1).Frac.Type, wdOMathFracLin, "pass " & pass & ": written across"

@@ -26103,6 +26103,8 @@ End Sub  '***** end of Lp_Enlarge_Tiny_Pictures *****
 ' Lp_Size_Equations - every character of every Word equation, and every superscript and subscript,
 ' PRINTS at the book's size (Jerry, 11/12/2026). Large print only: called from the LP attach alone.
 '
+' Version: 1.1  Date: 11/12/2026 - the book's XML read once, not each equation's: 21+ minutes, and
+'                                 equations lost, became seconds and none lost (SPEED, below)
 ' Version: 1.0  Date: 11/12/2026 - new
 '
 ' THE CARDINAL RULE: every character in a large print book is drawn at the size the transcriber set.
@@ -26126,26 +26128,73 @@ End Sub  '***** end of Lp_Enlarge_Tiny_Pictures *****
 ' which keeps them through a save and reopen and a Linearize/BuildUp.
 '
 ' Always from baseSize, never from what is there, so a second attach sets the same sizes again.
+'
+' SPEED, measured on the 1,861-equation Basic Math book 11/12/2026. Version 1.0 asked each equation
+' for its own WordOpenXML: Word returns the whole book's package every time - about 30 MB, 1 to 2.5
+' s each - and putting that package back LOST 17 equations and added 33 paragraphs in the first 100.
+' So the book's XML is read ONCE (doc.Content.WordOpenXML, 2.75 s), each <m:oMath> is cut out of it
+' in order, and only an equation whose XML changes goes back, alone, in Sh_OMML_Package (0.1 s each;
+' 50 in a row, display ones and two to a paragraph among them, went back with no equation, paragraph
+' or character gained or lost). If the count of <m:oMath> found is not the count of equations, the
+' XML step is not done at all, rather than risk putting one equation's XML in another's place.
+' doc.OMaths(i) by index throughout: For Each over OMaths took 27 minutes on that book.
 Private Sub Lp_Size_Equations(ByVal doc As Document, ByVal baseSize As Single)
-    Dim i As Long, om As OMath, r As Range
-    Dim mainSize As Single, xml As String, newXml As String
+    Dim n As Long, i As Long, rngs() As Range, mains() As Single, inl() As Boolean
+    Dim allXml As String, els() As String, found As Long
+    Dim p As Long, a As Long, z As Long, newEl As String
     Dim sz As Single
 
     If baseSize <= 0 Then Exit Sub
+    n = doc.OMaths.count
 
-    For i = doc.OMaths.count To 1 Step -1
-        Set om = doc.OMaths(i)
-        If om.Range.Font.Name = "Cambria Math" Then
-            mainSize = Round(baseSize * 18.12 / 16.44 * 2) / 2
-        Else
-            mainSize = baseSize
+    If n > 0 Then
+        ReDim rngs(1 To n)
+        ReDim mains(1 To n)
+        ReDim inl(1 To n)
+        For i = 1 To n
+            Set rngs(i) = doc.OMaths(i).Range.Duplicate
+            inl(i) = (doc.OMaths(i).Type = wdOMathInline)
+            If rngs(i).Font.Name = "Cambria Math" Then
+                mains(i) = Round(baseSize * 18.12 / 16.44 * 2) / 2
+            Else
+                mains(i) = baseSize
+            End If
+            rngs(i).Font.Size = mains(i)
+        Next i
+
+        ' The scripts and the in-line fractions, through the XML.
+        allXml = doc.Content.WordOpenXML
+        ReDim els(1 To n)
+        p = 1
+        Do
+            a = InStr(p, allXml, "<m:oMath")
+            If a = 0 Then Exit Do
+            z = a + 8
+            If Mid$(allXml, z, 1) = ">" Or Mid$(allXml, z, 1) = " " Then
+                z = InStr(a, allXml, "</m:oMath>")
+                If z = 0 Then Exit Do
+                found = found + 1
+                If found > n Then Exit Do
+                els(found) = Mid$(allXml, a, z + 10 - a)
+                p = z + 10
+            Else
+                p = z                                   ' <m:oMathPara> and its properties
+            End If
+        Loop
+        allXml = vbNullString
+
+        If found = n Then
+            For i = n To 1 Step -1
+                newEl = Lp_Eq_Xml_Resize(els(i), mains(i), inl(i))
+                If newEl <> els(i) Then
+                    ' One Word will not take back keeps its main-line size and the attach goes on.
+                    On Error Resume Next
+                    rngs(i).InsertXML Sh_OMML_Package(newEl)
+                    On Error GoTo 0
+                End If
+            Next i
         End If
-        Set r = om.Range
-        r.Font.Size = mainSize
-        xml = r.WordOpenXML
-        newXml = Lp_Eq_Xml_Resize(xml, mainSize, (om.Type = wdOMathInline))
-        If newXml <> xml Then r.InsertXML newXml
-    Next i
+    End If
 
     ' Superscript and subscript formatting outside the equations.
     sz = Round(baseSize / 0.62 * 2) / 2
