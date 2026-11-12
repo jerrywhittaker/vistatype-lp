@@ -10813,6 +10813,11 @@ End Sub   '*** end of Dx_Convert_Hyperliks_To_Text macro ***
 '---------------------------------------------------------------------------------------------------
 ' Dx_Hyperlinks_To_Text - every web and email link in doc becomes its address, as text.
 '
+' Version: 1.1  Date: 11/12/2026 - a picture's address line is in Body Text (Normal when the book
+'                                 has no Body Text), with no character formatting of its own,
+'                                 instead of the style of the paragraph above it - a logo anchored
+'                                 to a heading made its address a heading (Jerry). A link Word
+'                                 will not take off a picture no longer stops the cleanup
 ' Version: 1.0  Date: 11/12/2026 - new (issue #54, Jerry): the loop from Dx_Convert_Hyperliks_To_Text,
 '                                 plus links on pictures
 '
@@ -10837,6 +10842,7 @@ Private Sub Dx_Hyperlinks_To_Text(ByVal doc As Document)
     Dim i As Long, j As Long, n As Long, hl As Hyperlink
     Dim pics() As Object, paraStart() As Long, picTop() As Single, picLeft() As Single
     Dim para As Range, rng As Range, tObj As Object, tL As Long, tS As Single
+    Dim bodyStyle As Variant
 
     ' 1. The links on pictures, with where each picture sits.
     ReDim pics(1 To doc.Hyperlinks.count + 1)
@@ -10882,14 +10888,22 @@ Private Sub Dx_Hyperlinks_To_Text(ByVal doc As Document)
         Next j
     Next i
 
-    ' 3. Last first, each address straight after its paragraph's text; then the link comes off.
+    ' 3. Last first, each address straight after its paragraph's text, in Body Text with no
+    '    character formatting of its own (Jerry, 11/12/2026); then the link comes off. If Word will
+    '    not take it off (a picture in a group, say), the address is in and the cleanup goes on.
+    If Sh_Style_Exists(doc, "Body Text") Then bodyStyle = "Body Text" Else bodyStyle = wdStyleNormal
     For i = n To 1 Step -1
         Set para = doc.Range(paraStart(i), paraStart(i)).Paragraphs(1).Range
         Set rng = para.Duplicate
         rng.MoveEnd wdCharacter, -1                           ' before its paragraph mark
         rng.Collapse wdCollapseEnd
         rng.InsertAfter vbCr & pics(i).Hyperlink.Address
+        Set rng = rng.Paragraphs.Last.Range                   ' the address's own paragraph
+        rng.Style = doc.Styles(bodyStyle)
+        rng.Font.Reset
+        On Error Resume Next
         pics(i).Hyperlink.Delete
+        On Error GoTo 0
     Next i
 
     ' 4. The links on text: each one's words become its address, which takes the link with them.

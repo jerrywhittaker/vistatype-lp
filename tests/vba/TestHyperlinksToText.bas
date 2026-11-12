@@ -8,6 +8,9 @@ Attribute VB_Name = "TestHyperlinksToText"
 ' second run changes nothing. Made with Visible:=False, never touches the Selection, closed
 ' unsaved whatever happens, every error caught as a failure (README.md).
 '
+' Version: 1.1  Date: 11/12/2026 - "Follow us:" is a Heading 2 and the book has a Body Text style:
+'                                 the address lines are Body Text (built into every Word document)
+'                                 and not bold, the heading stays
 ' Version: 1.0  Date: 11/12/2026
 '
 Option Explicit
@@ -33,6 +36,8 @@ Private Sub TestHyperlinksToText_In_A_Book(ByVal T As TestCase)
     Set d = Documents.Add(Visible:=False)
     d.Content.Text = "Follow us:" & vbCr & "See the index." & vbCr & "The end."
     d.Bookmarks.Add "Ix", d.Paragraphs(3).Range
+    d.Paragraphs(1).Style = d.Styles(wdStyleHeading2)
+    d.Paragraphs(1).Range.Font.Bold = True
     Set r = d.Paragraphs(1).Range
     Set shp1 = d.Shapes.AddShape(msoShapeRectangle, 10, 10, 20, 20, r)
     Set shp2 = d.Shapes.AddShape(msoShapeRectangle, 40, 10, 20, 20, r)
@@ -59,6 +64,10 @@ Private Sub TestHyperlinksToText_In_A_Book(ByVal T As TestCase)
     T.IsEqual d.Hyperlinks.Count, 1, "only the link within the book is left"
     T.IsEqual d.Hyperlinks(1).SubAddress, "Ix", "and it is the link within the book"
     T.IsEqual d.Shapes.Count, 2, "both pictures are kept"
+    T.IsEqual d.Paragraphs(1).Style.NameLocal, d.Styles(wdStyleHeading2).NameLocal, "the heading stays a heading"
+    T.IsEqual d.Paragraphs(2).Style.NameLocal, "Body Text", "the first address line is Body Text"
+    T.IsEqual d.Paragraphs(3).Style.NameLocal, "Body Text", "the second address line is Body Text"
+    T.IsEqual d.Paragraphs(2).Range.Font.Bold, False, "and carries no bold from the heading"
 
     stage = "running it a second time"
     Dx_Hyperlinks_To_Text d
