@@ -118,6 +118,10 @@ Public Sub VtRunAllTests()
     Set Suite = TestMathMLTables_Suite()
     Reporter.ListenTo Suite
 
+    Reporter.Trace "building Web links on pictures become text (issue #54)"
+    Set Suite = TestHyperlinksToText_Suite()
+    Reporter.ListenTo Suite
+
     Reporter.Finish
     Exit Sub
 

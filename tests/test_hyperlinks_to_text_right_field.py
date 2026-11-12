@@ -19,7 +19,8 @@ import pytest
 
 from test_toc_never_deletes_a_line import module_text, procedures, strip_comment
 
-TO_TEXT = ["Lp_Convert_Hyperliks_To_Text", "Dx_Convert_Hyperliks_To_Text"]
+# The braille loop moved into Dx_Hyperlinks_To_Text on 11/12/2026 (issue #54).
+TO_TEXT = ["Lp_Convert_Hyperliks_To_Text", "Dx_Hyperlinks_To_Text"]
 TO_ADDRESSES = ["Lp_Convert_Hyper_To_Addresses", "Dx_Convert_Hyper_To_Addresses"]
 
 
@@ -32,7 +33,7 @@ def _code(repo_root, sub):
 @pytest.mark.parametrize("sub", TO_TEXT + TO_ADDRESSES)
 def test_only_links_with_an_address_are_touched(repo_root, sub):
     code = _code(repo_root, sub)
-    assert any(re.search(r"\.Address\s*<>\s*\"\"", c) for c in code), (
+    assert any(re.search(r"(\.Address|\baddr)\s*<>\s*\"\"", c) for c in code), (
         f"{sub} must leave a link with no Address - a link within the book - alone (issue #14).")
 
 
@@ -45,3 +46,19 @@ def test_internal_links_are_not_unlinked_or_deleted(repo_root, sub):
     assert not hits, (
         f"{sub} works on links within the book again - Jerry's rule is to ignore them, and the "
         f"old pass froze the wrong field (issue #14): {hits}")
+
+
+def test_braille_link_on_a_picture_does_not_read_its_range(repo_root):
+    """Issue #54, Jerry 11/12/2026: braille Full File Cleanup stopped with 4680 - Word has no
+    Range for a web link on a floating picture. The braille loop lives in Dx_Hyperlinks_To_Text,
+    reads .Range only for a link on text, and writes a picture's address out as text. Tested for
+    real in Word by tests/vba/TestHyperlinksToText.bas."""
+    assert any("Dx_Hyperlinks_To_Text ActiveDocument" in c
+               for c in _code(repo_root, "Dx_Convert_Hyperliks_To_Text"))
+    code = "\n".join(_code(repo_root, "Dx_Hyperlinks_To_Text"))
+    assert re.search(r'If hl\.Type = msoHyperlinkRange Then\s+If hl\.Address <> "" Then hl\.Range\.Text = hl\.Address', code)
+    assert "tObj.Anchor" in code, "a floating picture's address goes after the paragraph it is attached to"
+    assert re.search(r'If hl\.Type <> msoHyperlinkRange And hl\.Address <> "" Then', code), (
+        "links within the book must still be left alone (issue #14)")
+    runner = (repo_root / "tests" / "vba" / "VtRunTests.bas").read_bytes().decode("latin-1")
+    assert "TestHyperlinksToText_Suite()" in runner

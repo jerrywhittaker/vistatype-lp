@@ -18,7 +18,10 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - DN  - 11/12/2026 - EQUATIONS (398): "PICTURES OF THE EQUATIONS" NO LONGER GRAYED OUT
+' Notes:    - BRL - 11/12/2026 - A WEB LINK ON A PICTURE NO LONGER STOPS BRAILLE FULL FILE CLEANUP
+'           - BRL - 11/12/2026 - with 4680 (issue #54, Jerry): its address is written as text on a line
+'           - BRL - 11/12/2026 - of its own after the picture's paragraph. A TEST.
+'           - DN  - 11/12/2026 - EQUATIONS (398): "PICTURES OF THE EQUATIONS" NO LONGER GRAYED OUT
 '           - DN  - 11/12/2026 - for braille (Jerry); all three choices are offered for both.
 '           - Sh  - 11/11/2026 - PRODNOTES IN THIS DOCUMENT (361) REWORDED (Jerry): the note's
 '           - Sh  - 11/11/2026 - text replaced with his; it sends large print to Prodnote Review
@@ -10755,6 +10758,12 @@ End Sub   '*** End of Dx_Compress_Linear_Math macro ***
 
 Sub Dx_Convert_Hyperliks_To_Text()
     '
+    ' Version: 1.2  Date: 11/12/2026 - A WEB LINK ON A PICTURE NO LONGER STOPS THE CLEANUP WITH 4680
+    '                                 (issue #54, Jerry): Word has no Range for a link on a floating
+    '                                 picture, and Full File Cleanup keeps pictures since 3.0.649.
+    '                                 The loop moved into Dx_Hyperlinks_To_Text, which writes such a
+    '                                 picture's address as text on a line of its own after the
+    '                                 paragraph it is attached to, and takes the link off the picture
     ' Version: 1.1  Date: 10/7/2026 - links WITHIN the book are left alone (Jerry); only web and
     '                                 email links are converted. The pass that unlinked internal
     '                                 links is gone: it unlinked .Range.Fields(i), where i counts
@@ -10770,22 +10779,14 @@ Sub Dx_Convert_Hyperliks_To_Text()
     ' long or shortened, are this macro's business. Braille and paper large print take them as
     ' text; a large print book for a screen keeps them clickable (Lp_Convert_Hyper_To_Addresses).
     
-    Dim i As Long, rng As Range
     
     Dim su_Prev As Boolean
     su_Prev = Application.ScreenUpdating
     Application.ScreenUpdating = False    ' Turn screen updating off
     Application.ScreenRefresh
     
-    ' convert web links and "here" type email addresses. A link with no Address points WITHIN
-    ' the book and is left exactly as it is; writing its empty Address over it erased its words.
-    With ActiveDocument
-        For i = .Hyperlinks.count To 1 Step -1
-            If .Hyperlinks(i).Address <> "" Then
-                .Hyperlinks(i).Range.Text = .Hyperlinks(i).Address
-            End If
-         Next i
-    End With
+    ' convert web links and "here" type email addresses, on text and on pictures (issue #54)
+    Dx_Hyperlinks_To_Text ActiveDocument
     
     ' remove "mailto:" from email addresses
     Selection.Find.ClearFormatting
@@ -10808,6 +10809,97 @@ Sub Dx_Convert_Hyperliks_To_Text()
     Application.ScreenRefresh
 
 End Sub   '*** end of Dx_Convert_Hyperliks_To_Text macro ***
+
+'---------------------------------------------------------------------------------------------------
+' Dx_Hyperlinks_To_Text - every web and email link in doc becomes its address, as text.
+'
+' Version: 1.0  Date: 11/12/2026 - new (issue #54, Jerry): the loop from Dx_Convert_Hyperliks_To_Text,
+'                                 plus links on pictures
+'
+' A LINK ON TEXT: its words are replaced by its address, which takes the link with them.
+'
+' A LINK ON A PICTURE (Jerry, 11/12/2026: "write them out as text"): Word has no Range for one on
+' a floating picture - reading .Range raises 4680, "That property is not supported for this
+' object", which stopped braille Full File Cleanup on Basic Math & Pre-Algebra For Dummies (8 such
+' links, all on floating pictures). Its address goes in as a paragraph of its own straight after
+' the paragraph the picture is attached to (its anchor, or the paragraph an in-line picture sits
+' in), and the link is taken off the picture, so a second cleanup does not write it again.
+'
+' THE PICTURES ARE PUT IN READING ORDER FIRST - by paragraph, then top to bottom, then left to
+' right. Word's Hyperlinks collection does not list a paragraph's pictures in that order: on the
+' build box, two shapes on one paragraph came out reversed when taken in collection order
+' (measured, 11/12/2026). Inserting each straight after the paragraph's text, last first, leaves
+' them in reading order.
+'
+' A link with no Address points WITHIN the book and is left exactly as it is (issue #14); writing
+' its empty Address over it erased its words.
+Private Sub Dx_Hyperlinks_To_Text(ByVal doc As Document)
+    Dim i As Long, j As Long, n As Long, hl As Hyperlink
+    Dim pics() As Object, paraStart() As Long, picTop() As Single, picLeft() As Single
+    Dim para As Range, rng As Range, tObj As Object, tL As Long, tS As Single
+
+    ' 1. The links on pictures, with where each picture sits.
+    ReDim pics(1 To doc.Hyperlinks.count + 1)
+    ReDim paraStart(1 To doc.Hyperlinks.count + 1)
+    ReDim picTop(1 To doc.Hyperlinks.count + 1)
+    ReDim picLeft(1 To doc.Hyperlinks.count + 1)
+    For i = 1 To doc.Hyperlinks.count
+        Set hl = doc.Hyperlinks(i)
+        If hl.Type <> msoHyperlinkRange And hl.Address <> "" Then
+            Set para = Nothing: Set tObj = Nothing
+            On Error Resume Next
+            If hl.Type = msoHyperlinkShape Then
+                Set tObj = hl.Shape
+                Set para = tObj.Anchor.Paragraphs(1).Range
+                tS = tObj.Top: picLeft(n + 1) = tObj.Left
+            Else
+                Set tObj = hl.Range.InlineShapes(1)           ' an in-line picture
+                Set para = hl.Range.Paragraphs(1).Range
+                tS = hl.Range.Start: picLeft(n + 1) = 0
+            End If
+            On Error GoTo 0
+            If Not para Is Nothing And Not tObj Is Nothing Then
+                n = n + 1
+                Set pics(n) = tObj
+                paraStart(n) = para.Start
+                picTop(n) = tS
+            End If
+        End If
+    Next i
+
+    ' 2. Reading order: paragraph, then top, then left (a short list - a simple sort).
+    For i = 2 To n
+        For j = i To 2 Step -1
+            If paraStart(j) < paraStart(j - 1) Or (paraStart(j) = paraStart(j - 1) And _
+               (picTop(j) < picTop(j - 1) Or (picTop(j) = picTop(j - 1) And picLeft(j) < picLeft(j - 1)))) Then
+                Set tObj = pics(j): Set pics(j) = pics(j - 1): Set pics(j - 1) = tObj
+                tL = paraStart(j): paraStart(j) = paraStart(j - 1): paraStart(j - 1) = tL
+                tS = picTop(j): picTop(j) = picTop(j - 1): picTop(j - 1) = tS
+                tS = picLeft(j): picLeft(j) = picLeft(j - 1): picLeft(j - 1) = tS
+            Else
+                Exit For
+            End If
+        Next j
+    Next i
+
+    ' 3. Last first, each address straight after its paragraph's text; then the link comes off.
+    For i = n To 1 Step -1
+        Set para = doc.Range(paraStart(i), paraStart(i)).Paragraphs(1).Range
+        Set rng = para.Duplicate
+        rng.MoveEnd wdCharacter, -1                           ' before its paragraph mark
+        rng.Collapse wdCollapseEnd
+        rng.InsertAfter vbCr & pics(i).Hyperlink.Address
+        pics(i).Hyperlink.Delete
+    Next i
+
+    ' 4. The links on text: each one's words become its address, which takes the link with them.
+    For i = doc.Hyperlinks.count To 1 Step -1
+        Set hl = doc.Hyperlinks(i)
+        If hl.Type = msoHyperlinkRange Then
+            If hl.Address <> "" Then hl.Range.Text = hl.Address
+        End If
+    Next i
+End Sub   '*** end of Dx_Hyperlinks_To_Text ***
 
 Sub Dx_Replace_Fraction_Text_With_Compact_Fractions()
 '
