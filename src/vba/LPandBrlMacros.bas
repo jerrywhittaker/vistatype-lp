@@ -26103,6 +26103,8 @@ End Sub  '***** end of Lp_Enlarge_Tiny_Pictures *****
 ' Lp_Size_Equations - every character of every Word equation, and every superscript and subscript,
 ' PRINTS at the book's size (Jerry, 11/12/2026). Large print only: called from the LP attach alone.
 '
+' Version: 1.2  Date: 11/12/2026 - a space just before a plain superscript or subscript is taken
+'                                 out (Jerry): at full size "3 " + raised "2" broke between them
 ' Version: 1.1  Date: 11/12/2026 - the book's XML read once, not each equation's: 21+ minutes, and
 '                                 equations lost, became seconds and none lost (SPEED, below)
 ' Version: 1.0  Date: 11/12/2026 - new
@@ -26203,8 +26205,38 @@ Private Sub Lp_Size_Equations(ByVal doc As Document, ByVal baseSize As Single)
 End Sub   '*** end of Lp_Size_Equations ***
 
 ' Every run with superscript (or subscript) formatting in the main text set to sz.
+'
+' THE SPACE BEFORE IT GOES (Jerry, 11/12/2026: "take the space out"). The Basic Math book has
+' "3 " followed by a raised "2"; at full size the raised 2 dropped to the next line on its own,
+' where it reads as an ordinary 2. Any spaces (ordinary or non-breaking) just before the raised or
+' lowered text, or at its own start, are deleted before it is enlarged.
 Private Sub Lp_Size_Raised_Lowered(ByVal doc As Document, ByVal raised As Boolean, ByVal sz As Single)
-    Dim r As Range
+    Dim r As Range, c As Range, guard As Long
+
+    Set r = doc.Content
+    With r.Find
+        .ClearFormatting
+        .Text = ""
+        .Format = True
+        .Forward = True
+        .Wrap = wdFindStop
+        .MatchWildcards = False
+        If raised Then .Font.Superscript = True Else .Font.Subscript = True
+    End With
+    Do While r.Find.Execute
+        guard = guard + 1
+        If guard > 100000 Or r.End <= r.Start Then Exit Do
+        Do While r.End > r.Start And (r.Characters(1).Text = " " Or r.Characters(1).Text = ChrW(160))
+            r.Characters(1).Delete
+        Loop
+        Do While r.Start > 0
+            Set c = doc.Range(r.Start - 1, r.Start)
+            If c.Text <> " " And c.Text <> ChrW(160) Then Exit Do
+            c.Delete
+        Loop
+        r.Collapse wdCollapseEnd
+    Loop
+
     Set r = doc.Content
     With r.Find
         .ClearFormatting

@@ -11,6 +11,7 @@ Attribute VB_Name = "TestEquationSize"
 ' and a second run changing nothing. Visible:=False, no Selection, closed unsaved, every error a
 ' failure (README.md).
 '
+' Version: 1.2  Date: 11/12/2026 - "3 " and a raised "2": the space is taken out (Jerry)
 ' Version: 1.1  Date: 11/12/2026 - two equations in one paragraph, both with exponents (the pass now
 '                                 reads the book's XML once and cuts each equation out of it)
 ' Version: 1.0  Date: 11/12/2026
@@ -72,7 +73,7 @@ Private Sub TestEquationSize_In_A_Book(ByVal T As TestCase)
     stage = "making the scratch book"
     Set d = Documents.Add(Visible:=False)
     d.Styles(wdStyleNormal).Font.Size = 24
-    d.Content.Text = "Take 3/4 of the cake." & vbCr & "2^3+10^5" & vbCr & "105" & vbCr & "x^2 and y^3"
+    d.Content.Text = "Take 3/4 of the cake." & vbCr & "2^3+10^5" & vbCr & "105" & vbCr & "x^2 and y^3" & vbCr & "read 3 2 as"
     d.Content.Font.Size = 24
 
     Set r = d.Paragraphs(1).Range
@@ -95,6 +96,9 @@ Private Sub TestEquationSize_In_A_Book(ByVal T As TestCase)
     r.OMaths.Add r
     d.OMaths(3).BuildUp
     T.IsEqual d.OMaths.Count, 4, "the scratch book has 4 equations"
+    Set r = d.Paragraphs(5).Range
+    r.SetRange r.Start + 7, r.Start + 8
+    r.Font.Superscript = True
     T.IsEqual d.OMaths(1).Type, wdOMathInline, "the fraction is in a line of text"
     pc = d.Paragraphs.Count
 
@@ -114,6 +118,8 @@ Private Sub TestEquationSize_In_A_Book(ByVal T As TestCase)
         T.IsEqual d.OMaths(2).Functions(1).ScrSup.Sup.Range.Font.Size, 36.5, "pass " & pass & ": its exponent at 36.5"
         T.IsEqual d.Paragraphs(3).Range.Characters(3).Font.Size, 38.5, "pass " & pass & ": the raised 5 at 38.5"
         T.IsEqual d.Paragraphs(3).Range.Characters(1).Font.Size, 24, "pass " & pass & ": the 10 left at 24"
+        T.IsEqual d.Paragraphs(5).Range.Text, "read 32 as" & vbCr, "pass " & pass & ": the space before the raised 2 is gone"
+        T.IsEqual d.Paragraphs(5).Range.Characters(7).Font.Size, 38.5, "pass " & pass & ": and the 2 is at 38.5"
         T.IsEqual InStr(1, d.Paragraphs(1).Range.Text, "Take "), 1, "pass " & pass & ": the text before the fraction kept"
         T.IsEqual InStr(1, d.Paragraphs(1).Range.Text, " of the cake."), Len(d.Paragraphs(1).Range.Text) - 13, _
                   "pass " & pass & ": and after it - got " & d.Paragraphs(1).Range.Text
