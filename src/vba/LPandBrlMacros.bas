@@ -24,6 +24,8 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - LP  - 11/12/2026 - and limits at full size, its fractions within a line of text written
 '           - LP  - 11/12/2026 - across (3/4), and plain superscripts and subscripts at full size.
 '           - LP  - 11/12/2026 - Lp_Size_Equations; measured 99% at 18, 24, 36 pt. A TEST.
+'           - LP  - 11/12/2026 - The same for the selected paragraphs, from Selected Cleanup (352) >
+'           - LP  - 11/12/2026 - Miscellaneous, for an equation put in after the attach (Jerry).
 '           - BRL - 11/12/2026 - A WEB LINK ON A PICTURE NO LONGER STOPS BRAILLE FULL FILE CLEANUP
 '           - BRL - 11/12/2026 - with 4680 (issue #54, Jerry): its address is written as text on a line
 '           - BRL - 11/12/2026 - of its own after the picture's paragraph. A TEST.
@@ -20977,6 +20979,28 @@ Sub Lp_Compress_Linear_Math_In_Selection()
 
 End Sub   '*** end of Lp_Compress_Linear_Math_In_Selection ***
 
+Sub Lp_Size_Equations_In_Selection()
+'
+' Version: 1.0  Date: 11/12/2026
+'
+' Author: Jerry Whittaker - jerry@vistatypelp.org
+'
+' Selected Cleanup (352) > Miscellaneous > "Enlarge equations, superscripts and subscripts" (Jerry,
+' 11/12/2026). A Word equation put in after the large print template was attached is at Word's own
+' size, with small exponents and a stacked fraction; this does to the selected paragraphs what the
+' attach does to the whole book (Lp_Size_Equations): every equation, superscript and subscript in
+' them printed at the book's size, fractions within a line of text written across, and the space
+' before a plain superscript or subscript taken out. The selection is widened to whole paragraphs,
+' so an equation only partly selected is still done whole. The size is the Normal style's, as on
+' attach. The form has already checked that something is selected and the LP template is attached.
+'
+    Dim r As Range
+    Set r = Selection.Range.Duplicate
+    r.Expand wdParagraph
+    Lp_Size_Equations_In r, ActiveDocument.Styles(wdStyleNormal).Font.Size
+
+End Sub   '*** end of Lp_Size_Equations_In_Selection ***
+
 ' COMPRESSING TEXT EQUATIONS WITHOUT BEING TOLD WHERE THEY ARE. Jerry, 9/15/2026: Compress Linear
 ' Math moved off the ribbon and into Fix Common File Errors and Selected Cleanup, finding the
 ' equations itself and asking nothing. Until then the transcriber selected ONE equation and
@@ -26103,6 +26127,9 @@ End Sub  '***** end of Lp_Enlarge_Tiny_Pictures *****
 ' Lp_Size_Equations - every character of every Word equation, and every superscript and subscript,
 ' PRINTS at the book's size (Jerry, 11/12/2026). Large print only: called from the LP attach alone.
 '
+' Version: 1.3  Date: 11/12/2026 - works on a range (Lp_Size_Equations_In) as well as the whole book,
+'                                 for Selected Cleanup (352) > Miscellaneous (Jerry): a transcriber
+'                                 who puts in a new equation sizes just that part of the book
 ' Version: 1.2  Date: 11/12/2026 - a space just before a plain superscript or subscript is taken
 '                                 out (Jerry): at full size "3 " + raised "2" broke between them
 ' Version: 1.1  Date: 11/12/2026 - the book's XML read once, not each equation's: 21+ minutes, and
@@ -26141,21 +26168,26 @@ End Sub  '***** end of Lp_Enlarge_Tiny_Pictures *****
 ' XML step is not done at all, rather than risk putting one equation's XML in another's place.
 ' doc.OMaths(i) by index throughout: For Each over OMaths took 27 minutes on that book.
 Private Sub Lp_Size_Equations(ByVal doc As Document, ByVal baseSize As Single)
+    Lp_Size_Equations_In doc.Content, baseSize
+End Sub   '*** end of Lp_Size_Equations ***
+
+' The same, for the equations, superscripts and subscripts inside scope only.
+Private Sub Lp_Size_Equations_In(ByVal scope As Range, ByVal baseSize As Single)
     Dim n As Long, i As Long, rngs() As Range, mains() As Single, inl() As Boolean
     Dim allXml As String, els() As String, found As Long
     Dim p As Long, a As Long, z As Long, newEl As String
     Dim sz As Single
 
     If baseSize <= 0 Then Exit Sub
-    n = doc.OMaths.count
+    n = scope.OMaths.count
 
     If n > 0 Then
         ReDim rngs(1 To n)
         ReDim mains(1 To n)
         ReDim inl(1 To n)
         For i = 1 To n
-            Set rngs(i) = doc.OMaths(i).Range.Duplicate
-            inl(i) = (doc.OMaths(i).Type = wdOMathInline)
+            Set rngs(i) = scope.OMaths(i).Range.Duplicate
+            inl(i) = (scope.OMaths(i).Type = wdOMathInline)
             If rngs(i).Font.Name = "Cambria Math" Then
                 mains(i) = Round(baseSize * 18.12 / 16.44 * 2) / 2
             Else
@@ -26165,7 +26197,7 @@ Private Sub Lp_Size_Equations(ByVal doc As Document, ByVal baseSize As Single)
         Next i
 
         ' The scripts and the in-line fractions, through the XML.
-        allXml = doc.Content.WordOpenXML
+        allXml = scope.WordOpenXML
         ReDim els(1 To n)
         p = 1
         Do
@@ -26200,9 +26232,9 @@ Private Sub Lp_Size_Equations(ByVal doc As Document, ByVal baseSize As Single)
 
     ' Superscript and subscript formatting outside the equations.
     sz = Round(baseSize / 0.62 * 2) / 2
-    Lp_Size_Raised_Lowered doc, True, sz
-    Lp_Size_Raised_Lowered doc, False, sz
-End Sub   '*** end of Lp_Size_Equations ***
+    Lp_Size_Raised_Lowered scope, True, sz
+    Lp_Size_Raised_Lowered scope, False, sz
+End Sub   '*** end of Lp_Size_Equations_In ***
 
 ' Every run with superscript (or subscript) formatting in the main text set to sz.
 '
@@ -26210,10 +26242,10 @@ End Sub   '*** end of Lp_Size_Equations ***
 ' "3 " followed by a raised "2"; at full size the raised 2 dropped to the next line on its own,
 ' where it reads as an ordinary 2. Any spaces (ordinary or non-breaking) just before the raised or
 ' lowered text, or at its own start, are deleted before it is enlarged.
-Private Sub Lp_Size_Raised_Lowered(ByVal doc As Document, ByVal raised As Boolean, ByVal sz As Single)
+Private Sub Lp_Size_Raised_Lowered(ByVal scope As Range, ByVal raised As Boolean, ByVal sz As Single)
     Dim r As Range, c As Range, guard As Long
 
-    Set r = doc.Content
+    Set r = scope.Duplicate
     With r.Find
         .ClearFormatting
         .Text = ""
@@ -26225,19 +26257,19 @@ Private Sub Lp_Size_Raised_Lowered(ByVal doc As Document, ByVal raised As Boolea
     End With
     Do While r.Find.Execute
         guard = guard + 1
-        If guard > 100000 Or r.End <= r.Start Then Exit Do
+        If guard > 100000 Or r.End <= r.Start Or r.Start >= scope.End Then Exit Do
         Do While r.End > r.Start And (r.Characters(1).Text = " " Or r.Characters(1).Text = ChrW(160))
             r.Characters(1).Delete
         Loop
         Do While r.Start > 0
-            Set c = doc.Range(r.Start - 1, r.Start)
+            Set c = scope.Document.Range(r.Start - 1, r.Start)
             If c.Text <> " " And c.Text <> ChrW(160) Then Exit Do
             c.Delete
         Loop
         r.Collapse wdCollapseEnd
     Loop
 
-    Set r = doc.Content
+    Set r = scope.Duplicate
     With r.Find
         .ClearFormatting
         .Replacement.ClearFormatting

@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_Selected_Cleanup_Form 
    Caption         =   "Selected Cleanup (352)"
-   ClientHeight    =   9525.001
+   ClientHeight    =   9915.001
    ClientLeft      =   120
    ClientTop       =   450
    ClientWidth     =   8310.001
@@ -17,6 +17,9 @@ Attribute VB_Exposed = False
 
 ' Lp_Selected_Cleanup_Form
 '
+' Version: 2.2  Date: 11/12/2026 - added Size_Equations under Miscellaneous: every Word equation,
+'                                superscript and subscript in the selected paragraphs printed at the
+'                                book's size, as the LP attach does to the whole book (Jerry)
 ' Version: 2.1  Date: 10/9/2026 - Cancel no longer ends with End, which closed every box that stays
 '                                open, such as Resize Pictures (375) (issue #18)
 ' Version: 2.0  Date: 10/6/2026 - Italics to Dashed Underline stays inside the selection: passes
@@ -100,6 +103,12 @@ Private Sub OkayButton_Click()
         ' from the module stops the build instead of the transcriber.
         Lp_Is_Text_Selected
         Lp_Compress_Linear_Math_In_Selection
+    ElseIf Size_Equations Then
+        ' The selected paragraphs only (Jerry, 11/12/2026), at the book's size, so the LP template
+        ' must be attached. Called directly, so a missing macro stops the build, not the transcriber.
+        Lp_Is_Lp_Template_Attached
+        Lp_Is_Text_Selected
+        Lp_Size_Equations_In_Selection
     Else
         MsgBox "No selection made from Selected Cleanup menu!", , "VistaType LP (163)"
         Lp_Selected_Cleanup_Form.Show

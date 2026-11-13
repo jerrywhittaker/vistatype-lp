@@ -1,5 +1,6 @@
 Attribute VB_Name = "TestEquationSize"
 '@uses Lp_Size_Equations
+'@uses Lp_Size_Equations_In
 '@uses Lp_Eq_Xml_Resize
 '@uses Lp_Size_Raised_Lowered
 '
@@ -11,6 +12,8 @@ Attribute VB_Name = "TestEquationSize"
 ' and a second run changing nothing. Visible:=False, no Selection, closed unsaved, every error a
 ' failure (README.md).
 '
+' Version: 1.3  Date: 11/12/2026 - Selected Cleanup (352): sizing one paragraph leaves the paragraphs
+'                                either side of it as they were
 ' Version: 1.2  Date: 11/12/2026 - "3 " and a raised "2": the space is taken out (Jerry)
 ' Version: 1.1  Date: 11/12/2026 - two equations in one paragraph, both with exponents (the pass now
 '                                 reads the book's XML once and cuts each equation out of it)
@@ -60,6 +63,7 @@ Public Function TestEquationSize_Suite() As TestSuite
     End With
 
     TestEquationSize_In_A_Book Suite.Test("in a book at 24 pt: equations, fraction and raised text sized, twice the same")
+    TestEquationSize_In_A_Range Suite.Test("Selected Cleanup: only the selected paragraph is sized")
 
     Set TestEquationSize_Suite = Suite
 End Function
@@ -124,6 +128,52 @@ Private Sub TestEquationSize_In_A_Book(ByVal T As TestCase)
         T.IsEqual InStr(1, d.Paragraphs(1).Range.Text, " of the cake."), Len(d.Paragraphs(1).Range.Text) - 13, _
                   "pass " & pass & ": and after it - got " & d.Paragraphs(1).Range.Text
     Next pass
+
+    d.Close SaveChanges:=False
+    Exit Sub
+
+Failed:
+    T.Fail "VBA error " & Err.Number & " while " & stage & " - " & Err.Description
+    On Error Resume Next
+    If Not d Is Nothing Then d.Close SaveChanges:=False
+    Err.Clear
+End Sub
+
+' Three paragraphs, each "2^3" with a raised "5" after it; only the middle one is sized.
+Private Sub TestEquationSize_In_A_Range(ByVal T As TestCase)
+    Dim d As Document, r As Range, k As Long
+    Dim stage As String
+
+    On Error GoTo Failed
+    stage = "making the scratch book"
+    Set d = Documents.Add(Visible:=False)
+    d.Styles(wdStyleNormal).Font.Size = 24
+    d.Content.Text = "a 2^3 b 5" & vbCr & "a 2^3 b 5" & vbCr & "a 2^3 b 5"
+    d.Content.Font.Size = 24
+    For k = 1 To 3
+        Set r = d.Paragraphs(k).Range
+        r.SetRange r.Start + 8, r.Start + 9
+        r.Font.Superscript = True
+        Set r = d.Paragraphs(k).Range
+        r.SetRange r.Start + 2, r.Start + 5
+        r.OMaths.Add r
+        d.OMaths(k).BuildUp
+    Next k
+    T.IsEqual d.OMaths.Count, 3, "the scratch book has 3 equations"
+
+    stage = "sizing the middle paragraph"
+    Lp_Size_Equations_In d.Paragraphs(2).Range, 24
+    T.IsEqual d.OMaths.Count, 3, "still 3 equations"
+    T.IsEqual d.OMaths(2).Functions(1).ScrSup.Sup.Range.Font.Size, 36.5, "the middle exponent at 36.5"
+    T.IsEqual d.OMaths(1).Functions(1).ScrSup.Sup.Range.Font.Size, 24, "the first left at 24"
+    T.IsEqual d.OMaths(3).Functions(1).ScrSup.Sup.Range.Font.Size, 24, "the last left at 24"
+    T.IsEqual d.OMaths(1).Range.Font.Size, 24, "the first equation left at 24"
+    T.IsEqual d.Paragraphs(2).Range.Characters(d.Paragraphs(2).Range.Characters.Count - 1).Font.Size, 38.5, _
+              "the middle raised 5 at 38.5"
+    T.IsEqual d.Paragraphs(1).Range.Characters(d.Paragraphs(1).Range.Characters.Count - 1).Font.Size, 24, _
+              "the first raised 5 left at 24"
+    T.IsEqual d.Paragraphs(3).Range.Characters(d.Paragraphs(3).Range.Characters.Count - 1).Font.Size, 24, _
+              "the last raised 5 left at 24"
 
     d.Close SaveChanges:=False
     Exit Sub
