@@ -17,6 +17,7 @@ Attribute VB_Exposed = False
 
 ' Lp_Selected_Cleanup_Form
 '
+' Version: 2.3  Date: 11/12/2026 - Size_Equations reads "Enlarge OMML equations, ..." (Jerry)
 ' Version: 2.2  Date: 11/12/2026 - added Size_Equations under Miscellaneous: every Word equation,
 '                                superscript and subscript in the selected paragraphs printed at the
 '                                book's size, as the LP attach does to the whole book (Jerry)
