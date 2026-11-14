@@ -18,7 +18,10 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - LP  - 11/12/2026 - EQUATIONS, SUPERSCRIPTS AND SUBSCRIPTS AT THE BOOK'S SIZE (Jerry): the LP
+' Notes:    - LP  - 11/14/2026 - CAPTION PARAGRAPHS BECOME BOX RED (Jerry): a new pass in Normalize
+'           - LP  - 11/14/2026 - Styles, straight after the italics step so the caption keeps its
+'           - LP  - 11/14/2026 - dashed underline. Lp_Captions_To_Box_Red. A TEST.
+'           - LP  - 11/12/2026 - EQUATIONS, SUPERSCRIPTS AND SUBSCRIPTS AT THE BOOK'S SIZE (Jerry): the LP
 '           - LP  - 11/12/2026 - attach sets every Word equation so its characters print as tall as the
 '           - LP  - 11/12/2026 - text (Cambria Math is 90% at the same size), its exponents, subscripts
 '           - LP  - 11/12/2026 - and limits at full size, its fractions within a line of text written
@@ -22636,7 +22639,7 @@ DoEvents
     ' before the cleanup, and a re-attach keeps floating pictures floating (Jerry, 10/12/2026).
     Lp_ResizePicturesAndShapesToFitPageWidthAndPageHeight
     
-    ' It owns 74 to 90 of the bar, its 13 passes counting 0 to 100 inside that slice.
+    ' It owns 74 to 90 of the bar, its 14 passes counting 0 to 100 inside that slice.
     ' The trailing comment here used to read "this routine sets it's on non-modal
     ' messages" - it does still set its own, but on the bar now, through Lp_Ns_Step.
     Sh_Progress_Span 74, 90
@@ -30399,6 +30402,8 @@ End Function   '*** end of Sh_Number_To_Roman ***
 
 Sub Lp_Normalize_Styles()
     '
+    ' Version: 3.9  Date: 11/14/2026 - Caption paragraphs become Box Red (Jerry), straight after
+    '                               the italics step - see Lp_Captions_To_Box_Red. 14 passes
     ' Version: 3.8  Date: 9/18/2026 - RUN-TIME ERROR 5843 AT "Setting table border weights" on a book
     '                               holding a SINGLE-CELL table, reported by Jerry attaching a large
     '                               print template. The loop here was an unguarded copy of
@@ -30449,6 +30454,14 @@ Sub Lp_Normalize_Styles()
 
     Lp_Ns_Step stepNo, "Underlining Italics"
     Application.Run MacroName:="Lp_Italics_To_Dashed_Underline"
+
+    ' Caption paragraphs become Box Red (Jerry, 11/14/2026). AFTER the italics step on purpose:
+    ' Caption's italic comes from the style, and the step above has just turned it into direct
+    ' dashed underline, which stays with the text when the style changes. Box Red is not where
+    ' that italic came from, so done the other way round the caption would lose its dashes.
+    ' BEFORE the box border steps, so the new Box Red paragraphs get their borders in this run.
+    Lp_Ns_Step stepNo, "Converting Caption paragraphs to Box Red"
+    Lp_Captions_To_Box_Red ActiveDocument
 
     Dim LoopCounter As Integer
     Dim BxClr As String
@@ -30762,12 +30775,64 @@ Private Sub Lp_Ns_Step(ByRef stepNo As Long, ByVal what As String)
 ' there before: these thirteen lines used to be written into Sh_NonModalMessageForm, and merely
 ' naming that form LOADS it, so the messages ran into a form nobody had shown.
 
-    Const LP_NS_STEPS As Long = 14
+    Const LP_NS_STEPS As Long = 15      ' 14 passes from 11/14/2026 (Caption to Box Red)
 
     stepNo = stepNo + 1
     Sh_Progress_Say 100# * stepNo / LP_NS_STEPS, what
 
 End Sub  '*** end of Lp_Ns_Step ***
+
+Private Sub Lp_Captions_To_Box_Red(ByVal doc As Document)
+'
+' Version: 1.0  Date: 11/14/2026
+'
+' Author: Jerry Whittaker - jerry@vistatypelp.org
+'
+' Every paragraph in Word's Caption style becomes Box Red - one of Lp_Normalize_Styles's passes
+' (Jerry, 11/14/2026). Characters keep their direct formatting, so the dashed underline the
+' italics step has already put on the caption's text stays.
+'
+' Caption is found by wdStyleCaption, not by its English name, so a Word in another language
+' finds it too. Box Red comes from the LP template, which the attach has just put on; if either
+' style is missing, or Caption has never been used, there is nothing to do.
+'
+' One Replace All on the main text, no undo record (Lp_Normalize_Styles ends in UndoClear).
+' Captions in a text box or a header are left as they are. Two captions one after the other
+' make one red box, as any two Box Red paragraphs do.
+
+    Dim capStyle As Style
+    Dim boxStyle As Style
+    Dim rng As Range
+
+    On Error Resume Next
+    Set capStyle = doc.Styles(wdStyleCaption)
+    Set boxStyle = doc.Styles("Box Red")
+    On Error GoTo 0
+    If capStyle Is Nothing Or boxStyle Is Nothing Then Exit Sub
+    If Not capStyle.InUse Then Exit Sub
+
+    Set rng = doc.Content
+    With rng.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
+        .Text = ""
+        .Replacement.Text = ""
+        .Style = capStyle
+        .Replacement.Style = boxStyle
+        .Format = True
+        .Forward = True
+        .Wrap = wdFindContinue
+        .MatchCase = False
+        .MatchWholeWord = False
+        .MatchWildcards = False
+        .MatchSoundsLike = False
+        .MatchAllWordForms = False
+        .Execute Replace:=wdReplaceAll
+        .ClearFormatting
+        .Replacement.ClearFormatting
+    End With
+
+End Sub  '*** end of Lp_Captions_To_Box_Red ***
 
 
 Private Sub Lp_TOC_Space_A_Heading(ByVal para As Paragraph)
