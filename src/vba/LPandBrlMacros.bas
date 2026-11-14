@@ -19,8 +19,9 @@ Attribute VB_Name = "LPandBrlMacros"
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
 ' Notes:    - LP  - 11/14/2026 - CAPTION PARAGRAPHS BECOME BOX RED (Jerry): a new pass in Normalize
-'           - LP  - 11/14/2026 - Styles, straight after the italics step so the caption keeps its
-'           - LP  - 11/14/2026 - dashed underline. Lp_Captions_To_Box_Red. A TEST.
+'           - LP  - 11/14/2026 - Styles, before the italics step. The caption's italic is kept
+'           - LP  - 11/14/2026 - character by character and then dashed - a plain style change
+'           - LP  - 11/14/2026 - lost it (measured). Lp_Captions_To_Box_Red. A TEST.
 '           - LP  - 11/12/2026 - EQUATIONS, SUPERSCRIPTS AND SUBSCRIPTS AT THE BOOK'S SIZE (Jerry): the LP
 '           - LP  - 11/12/2026 - attach sets every Word equation so its characters print as tall as the
 '           - LP  - 11/12/2026 - text (Cambria Math is 90% at the same size), its exponents, subscripts
@@ -30402,7 +30403,7 @@ End Function   '*** end of Sh_Number_To_Roman ***
 
 Sub Lp_Normalize_Styles()
     '
-    ' Version: 3.9  Date: 11/14/2026 - Caption paragraphs become Box Red (Jerry), straight after
+    ' Version: 3.9  Date: 11/14/2026 - Caption paragraphs become Box Red (Jerry), just before
     '                               the italics step - see Lp_Captions_To_Box_Red. 14 passes
     ' Version: 3.8  Date: 9/18/2026 - RUN-TIME ERROR 5843 AT "Setting table border weights" on a book
     '                               holding a SINGLE-CELL table, reported by Jerry attaching a large
@@ -30452,16 +30453,17 @@ Sub Lp_Normalize_Styles()
     Lp_Base_Font_Name = ActiveDocument.Styles(wdStyleNormal).Font.Name
     If Len(Trim(Lp_Base_Font_Name)) = 0 Then Lp_Base_Font_Name = LP_FONT_TAHOMA
 
-    Lp_Ns_Step stepNo, "Underlining Italics"
-    Application.Run MacroName:="Lp_Italics_To_Dashed_Underline"
-
-    ' Caption paragraphs become Box Red (Jerry, 11/14/2026). AFTER the italics step on purpose:
-    ' Caption's italic comes from the style, and the step above has just turned it into direct
-    ' dashed underline, which stays with the text when the style changes. Box Red is not where
-    ' that italic came from, so done the other way round the caption would lose its dashes.
-    ' BEFORE the box border steps, so the new Box Red paragraphs get their borders in this run.
+    ' Caption paragraphs become Box Red (Jerry, 11/14/2026). BEFORE the italics step on purpose:
+    ' Lp_Captions_To_Box_Red keeps the italic the caption showed as direct italic, and the
+    ' italics step then dashes it like any other. MEASURED on vistabuild 11/14/2026: done AFTER
+    ' the italics step, the style change stripped most of the dashes and turned the caption's
+    ' non-italic words italic. BEFORE the box border steps, so the new Box Red paragraphs get
+    ' their borders in this run.
     Lp_Ns_Step stepNo, "Converting Caption paragraphs to Box Red"
     Lp_Captions_To_Box_Red ActiveDocument
+
+    Lp_Ns_Step stepNo, "Underlining Italics"
+    Application.Run MacroName:="Lp_Italics_To_Dashed_Underline"
 
     Dim LoopCounter As Integer
     Dim BxClr As String
@@ -30784,25 +30786,39 @@ End Sub  '*** end of Lp_Ns_Step ***
 
 Private Sub Lp_Captions_To_Box_Red(ByVal doc As Document)
 '
-' Version: 1.0  Date: 11/14/2026
+' Version: 1.1  Date: 11/14/2026 - keeps the italic the caption SHOWED, character by character,
+'                                  and runs BEFORE the italics step (was a Replace All after it)
 '
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
 ' Every paragraph in Word's Caption style becomes Box Red - one of Lp_Normalize_Styles's passes
-' (Jerry, 11/14/2026). Characters keep their direct formatting, so the dashed underline the
-' italics step has already put on the caption's text stays.
+' (Jerry, 11/14/2026). It runs BEFORE the italics step, and leaves the caption showing exactly
+' the italic it showed before, as direct italic, so the italics step dashes it like any other.
+'
+' WHY NOT A PLAIN STYLE CHANGE. Measured on vistabuild 11/14/2026 (LP template, two captions,
+' one with two words set not-italic): changing Caption to Box Red, by Replace All or by
+' Paragraph.Style, does not keep the characters' formatting. Caption is an italic style, so
+' Word re-reads the italic against the new style: the not-italic words came out ITALIC, and
+' the dashes the italics step had put on came off most of the caption. Box Red itself is not
+' italic, not underlined, not bold, automatic color. Done before the italics step with nothing
+' carried over, the caption came out plain - no dashes at all.
+'
+' So for each Caption paragraph: note which characters show italic, change the style, set the
+' paragraph not italic, then put the italic back on exactly those characters (Lp_Caption_To_Box).
 '
 ' Caption is found by wdStyleCaption, not by its English name, so a Word in another language
 ' finds it too. Box Red comes from the LP template, which the attach has just put on; if either
 ' style is missing, or Caption has never been used, there is nothing to do.
 '
-' One Replace All on the main text, no undo record (Lp_Normalize_Styles ends in UndoClear).
-' Captions in a text box or a header are left as they are. Two captions one after the other
-' make one red box, as any two Box Red paragraphs do.
+' No undo record (Lp_Normalize_Styles ends in UndoClear). Captions in a text box or a header are
+' left as they are. Two captions one after the other make one red box, as any two Box Red
+' paragraphs do.
 
     Dim capStyle As Style
     Dim boxStyle As Style
     Dim rng As Range
+    Dim para As Paragraph
+    Dim lastEnd As Long
 
     On Error Resume Next
     Set capStyle = doc.Styles(wdStyleCaption)
@@ -30811,28 +30827,93 @@ Private Sub Lp_Captions_To_Box_Red(ByVal doc As Document)
     If capStyle Is Nothing Or boxStyle Is Nothing Then Exit Sub
     If Not capStyle.InUse Then Exit Sub
 
-    Set rng = doc.Content
-    With rng.Find
-        .ClearFormatting
-        .Replacement.ClearFormatting
-        .Text = ""
-        .Replacement.Text = ""
-        .Style = capStyle
-        .Replacement.Style = boxStyle
-        .Format = True
-        .Forward = True
-        .Wrap = wdFindContinue
-        .MatchCase = False
-        .MatchWholeWord = False
-        .MatchWildcards = False
-        .MatchSoundsLike = False
-        .MatchAllWordForms = False
-        .Execute Replace:=wdReplaceAll
-        .ClearFormatting
-        .Replacement.ClearFormatting
-    End With
+    ' From a collapsed point, with wdFindStop: a Find on a range that already matches throughout
+    ' searches on from its end instead (see Lp_Dash_Italics_Pass_In_Range), so a book that was
+    ' all captions would be skipped. Each hit stops being Caption once it is converted.
+    Set rng = doc.Range(0, 0)
+    lastEnd = -1
+    Do
+        With rng.Find
+            .ClearFormatting
+            .Text = ""
+            .Style = capStyle
+            .Format = True
+            .Forward = True
+            .Wrap = wdFindStop
+            .MatchCase = False
+            .MatchWholeWord = False
+            .MatchWildcards = False
+            .MatchSoundsLike = False
+            .MatchAllWordForms = False
+        End With
+        If Not rng.Find.Execute Then Exit Do
+        If rng.End <= lastEnd Then Exit Do         ' no progress - never loop forever
+        lastEnd = rng.End
+
+        For Each para In rng.Paragraphs
+            Lp_Caption_To_Box para.Range, boxStyle
+        Next para
+
+        rng.Collapse wdCollapseEnd
+    Loop
+
+    rng.Find.ClearFormatting
 
 End Sub  '*** end of Lp_Captions_To_Box_Red ***
+
+Private Sub Lp_Caption_To_Box(ByVal r As Range, ByVal boxStyle As Style)
+'
+' Version: 1.0  Date: 11/14/2026
+'
+' Author: Jerry Whittaker - jerry@vistatypelp.org
+'
+' One Caption paragraph (r) to Box Red, showing the same italic afterwards as before - see
+' Lp_Captions_To_Box_Red for why the style change alone cannot be trusted with it.
+'
+' Most captions are italic from end to end, so the whole paragraph is read once. Only a mixed
+' paragraph is read word by word, and only a mixed word character by character. Formatting
+' changes move no text, so the start and end positions noted before the change still hold.
+
+    Dim whole As Long
+    Dim w As Range
+    Dim c As Range
+    Dim starts As Collection
+    Dim ends As Collection
+    Dim i As Long
+    Dim doc As Document
+
+    Set doc = r.Document
+    whole = r.Font.Italic
+
+    If whole = wdUndefined Then
+        Set starts = New Collection
+        Set ends = New Collection
+        For Each w In r.Words
+            Select Case w.Font.Italic
+                Case True
+                    starts.Add w.Start
+                    ends.Add w.End
+                Case wdUndefined
+                    For Each c In w.Characters
+                        If c.Font.Italic = True Then
+                            starts.Add c.Start
+                            ends.Add c.End
+                        End If
+                    Next c
+            End Select
+        Next w
+    End If
+
+    r.Style = boxStyle
+    r.Font.Italic = (whole = True)
+
+    If whole = wdUndefined Then
+        For i = 1 To starts.Count
+            doc.Range(starts(i), ends(i)).Font.Italic = True
+        Next i
+    End If
+
+End Sub  '*** end of Lp_Caption_To_Box ***
 
 
 Private Sub Lp_TOC_Space_A_Heading(ByVal para As Paragraph)
