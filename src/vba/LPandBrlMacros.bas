@@ -18,7 +18,14 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - LP  - 11/14/2026 - CAPTION PARAGRAPHS BECOME BOX RED (Jerry): a new pass in Normalize
+' Notes:    - Sh  - 11/15/2026 - THE LP ATTACH'S REOPEN TRIES UP TO 5 TIMES (issue #55): a tester
+'           - Sh  - 11/15/2026 - saving to OneDrive got 5825 "Object has been deleted" just after
+'           - Sh  - 11/15/2026 - the reopen. Sh_Close_And_Reopen checks the book is really there
+'           - Sh  - 11/15/2026 - (Sh_Doc_Still_There), looks for it by name (Sh_Find_Open_Doc),
+'           - Sh  - 11/15/2026 - waits 2 s between tries, then box 233. Cause NOT reproduced.
+'           - Sh  - 11/15/2026 - The error log now ends with the document's folder, path "...".
+'           - Sh  - 11/15/2026 - A TEST.
+'           - LP  - 11/14/2026 - CAPTION PARAGRAPHS BECOME BOX RED (Jerry): a new pass in Normalize
 '           - LP  - 11/14/2026 - Styles, before the italics step. The caption's italic is kept
 '           - LP  - 11/14/2026 - character by character and then dashed - a plain style change
 '           - LP  - 11/14/2026 - lost it (measured). Lp_Captions_To_Box_Red. A TEST.
@@ -17094,6 +17101,21 @@ End Function   '*** end of Sh_Para_Is_Empty_Line ***
 
 Function Sh_Close_And_Reopen(ByVal targetDoc As Document) As Document
 '
+' Version: 1.2  Date: 11/15/2026 - TRIES THE REOPEN UP TO 5 TIMES, 2 seconds apart, and checks
+'                               each time that the book Word hands back is really there (issue
+'                               #55). A tester saving to OneDrive got error 5825 "Object has been
+'                               deleted" from the attach straight after this ran (3.0.643): the
+'                               document Documents.Open returned was gone a moment later. THE
+'                               CAUSE IS A THEORY, NOT REPRODUCED - VistaBuild has no OneDrive.
+'                               Either the upload of the save was still running when the book was
+'                               reopened, and Word swapped in a fresh copy when it finished, or
+'                               FullName was an https:// address and Word reopened it from the
+'                               cloud - or both. Between tries it looks for the book among the
+'                               open documents by name before opening it again, since Word may
+'                               have reopened it by itself. A failed close or open now gets the
+'                               same tries instead of going straight to Bail. After the last try
+'                               it returns Nothing, so the caller shows box 233. The 5 and the 2
+'                               are GUESSES, not measured - REOPEN_TRIES and REOPEN_WAIT_SECONDS
 ' Version: 1.1  Date: 8/20/2026 - never returns a document other than the one asked for. 1.0 fell
 '                               back to ActiveDocument when the reopen raised, which on a machine
 '                               with a second document open handed back THAT one - and the caller
@@ -17149,10 +17171,18 @@ Function Sh_Close_And_Reopen(ByVal targetDoc As Document) As Document
 ' activates it and would otherwise run a full configuration switch for that document's type,
 ' rewriting the transcriber's AutoCorrect list on the way out and again on the way back.
 
+    ' Issue #55. Both GUESSED, not measured: nothing here has OneDrive to time an upload against.
+    ' Five tries means four waits of two seconds, plus however long each open takes, before
+    ' the caller shows box 233.
+    Const REOPEN_TRIES As Long = 5
+    Const REOPEN_WAIT_SECONDS As Single = 2
+
     Dim docPath As String
     Dim cc_Prev As Boolean
     Dim su_Prev As Boolean
     Dim reopened As Document
+    Dim tryNo As Long
+    Dim isReadOnly As Boolean
 
     Set Sh_Close_And_Reopen = targetDoc
 
@@ -17176,37 +17206,76 @@ Function Sh_Close_And_Reopen(ByVal targetDoc As Document) As Document
     ' through the Save As, so this is normally a no-op - but if anything is ever added between
     ' that save and this call, discarding it silently is how work disappears.
     If Not targetDoc.Saved Then targetDoc.Save
+    On Error GoTo 0
 
+    ' The close is allowed to fail (1.2). If it does, the book may well still be open, and the
+    ' look-by-name below finds it - which is a better answer than box 233 for a book that is
+    ' sitting on screen. The Save just above has already put the work on disk.
     Application.ScreenUpdating = False
+    On Error Resume Next
     targetDoc.Close SaveChanges:=wdDoNotSaveChanges
+    Err.Clear
+    On Error GoTo 0
     Application.ScreenUpdating = True
+    Set targetDoc = Nothing
 
     ' Same guard Sh_Show_Full_License uses: without it Word can stop on a "Convert File"
     ' question and the macro waits for a dialog nobody is looking at.
     Application.Options.ConfirmConversions = False
-    Set reopened = Documents.Open(FileName:=docPath, AddToRecentFiles:=True)
-    Application.Options.ConfirmConversions = cc_Prev
-    On Error GoTo 0
 
+    ' Issue #55. Each try first asks whether Word already has the book open - it may have reopened
+    ' it by itself, or swapped a fresh copy in for the one the last try got - and opens it only if
+    ' not. Documents.Open on a file that is already open hands back that same document, so a try
+    ' can never put a second copy on screen. A try counts only if Sh_Doc_Still_There can read the
+    ' book's name and its window: the 5825 came from a document object that Word had already
+    ' thrown away.
+    For tryNo = 1 To REOPEN_TRIES
+        If tryNo > 1 Then
+            Sh_Progress_Say 98, "Waiting for OneDrive to finish with the document (try " _
+                              & CStr(tryNo) & " of " & CStr(REOPEN_TRIES) & ")"
+            Sh_PauseSeconds REOPEN_WAIT_SECONDS
+        End If
+
+        Set reopened = Sh_Find_Open_Doc(docPath)
+        If reopened Is Nothing Then
+            On Error Resume Next
+            Set reopened = Documents.Open(FileName:=docPath, AddToRecentFiles:=True)
+            Err.Clear
+            On Error GoTo 0
+        End If
+
+        If Sh_Doc_Still_There(reopened) Then Exit For
+        Set reopened = Nothing
+    Next tryNo
+
+    Application.Options.ConfirmConversions = cc_Prev
+
+    ' Nothing after the last try: the caller shows box 233, which says the book is saved and
+    ' where to find it. That is the truth by now - the Save is done.
     Set Sh_Close_And_Reopen = reopened
+    If reopened Is Nothing Then Exit Function
 
     ' Word writes a hidden ~$ owner file beside an open document and does not always release it
     ' at once. Reopening the same path milliseconds after closing it - on OneDrive, SharePoint or
     ' a network share - is the setup for coming back READ-ONLY. Say so. The alternative is a
-    ' transcriber being told her file is saved and then typing into a book that will not take it.
-    If Not reopened Is Nothing Then
-        If reopened.ReadOnly Then
-            MsgBox "Your document was saved, but Word has reopened it as READ-ONLY." & vbCr & vbCr _
-                 & docPath & vbCr & vbCr _
-                 & "Close it and open it again before you carry on editing. This usually means a " _
-                 & "sync program - OneDrive or SharePoint - had not finished with the file.", _
-                 vbExclamation, "VistaType LP (232)"
-        End If
+    ' transcriber being told the file is saved and then typing into a book that will not take it.
+    ' Read under Resume Next (1.2): this line touched the reopened book with no handler at all.
+    isReadOnly = False
+    On Error Resume Next
+    isReadOnly = reopened.ReadOnly
+    Err.Clear
+    On Error GoTo 0
+    If isReadOnly Then
+        MsgBox "Your document was saved, but Word has reopened it as READ-ONLY." & vbCr & vbCr _
+             & docPath & vbCr & vbCr _
+             & "Close it and open it again before you carry on editing. This usually means a " _
+             & "sync program - OneDrive or SharePoint - had not finished with the file.", _
+             vbExclamation, "VistaType LP (232)"
     End If
     Exit Function
 
 Bail:
-    ' The close or the open failed. NEVER answer with whatever document happens to be active -
+    ' The save failed. NEVER answer with whatever document happens to be active -
     ' with a second book open that hands back the wrong one, and the caller activates it and
     ' announces the save as finished. Returning Nothing is the honest answer and the caller
     ' checks for it.
@@ -17217,6 +17286,64 @@ Bail:
     Set Sh_Close_And_Reopen = Nothing
 
 End Function   '***** end of Sh_Close_And_Reopen macro *****
+
+Private Function Sh_Doc_Still_There(ByVal d As Document) As Boolean
+'
+' True when d is a document Word still has: its name and its first window can both be read.
+' A document object Word has thrown away raises 5825 "Object has been deleted" on the first
+' thing that touches it, so this touches it - under Resume Next - before anyone else does.
+' Issue #55: the LP attach's reopen got such an object back on a OneDrive book.
+'
+' Version: 1.0  Date: 11/15/2026
+'
+    Dim probe As String
+    Dim winCount As Long
+
+    Sh_Doc_Still_There = False
+    If d Is Nothing Then Exit Function
+
+    On Error Resume Next
+    probe = d.FullName
+    If Err.Number <> 0 Then GoTo Done
+    winCount = d.Windows.count
+    If Err.Number <> 0 Or winCount < 1 Then GoTo Done
+    probe = d.Windows(1).Caption
+    If Err.Number <> 0 Then GoTo Done
+    Sh_Doc_Still_There = True
+
+Done:
+    Err.Clear
+    On Error GoTo 0
+End Function   '*** end of Sh_Doc_Still_There ***
+
+Private Function Sh_Find_Open_Doc(ByVal fullPath As String) As Document
+'
+' The open document whose FullName is fullPath, compared without regard to case, or Nothing.
+' Only a document Sh_Doc_Still_There passes is returned. For a book on OneDrive, FullName may be
+' an https:// address rather than a disk path; it is compared exactly as Word reports it.
+'
+' Version: 1.0  Date: 11/15/2026
+'
+    Dim d As Document
+    Dim thisName As String
+
+    Set Sh_Find_Open_Doc = Nothing
+    If Len(fullPath) = 0 Then Exit Function
+
+    On Error Resume Next
+    For Each d In Application.Documents
+        thisName = ""
+        thisName = d.FullName
+        If StrComp(thisName, fullPath, vbTextCompare) = 0 Then
+            If Sh_Doc_Still_There(d) Then
+                Set Sh_Find_Open_Doc = d
+                Exit For
+            End If
+        End If
+    Next d
+    Err.Clear
+    On Error GoTo 0
+End Function   '*** end of Sh_Find_Open_Doc ***
 
 ' The navigation pane has TWO halves and needs both written, which is not obvious and cost a
 ' build to find out. ActiveWindow.DocumentMap is a WINDOW property; CommandBars("Navigation") is
@@ -22205,6 +22332,11 @@ Sub Lp_Attach_The_Template()
 
     ' Attaches the LP template with style changes
     '
+    ' Version: 5.1  Date: 11/15/2026 - the finishing touches after the reopen (activate, Print
+    '                               Layout view, Styles pane) run under Resume Next, and
+    '                               Sh_Close_And_Reopen 1.2 retries a reopen whose book is not
+    '                               really there. A OneDrive book raised 5825 "Object has been
+    '                               deleted" here on 3.0.643 (issue #55)
     ' Version: 5.0  Date: 11/12/2026 - after the pictures, every Word equation and every superscript
     '                               and subscript is enlarged so its characters PRINT at the book's
     '                               size (Lp_Size_Equations, Jerry). Large print only
@@ -22917,6 +23049,14 @@ SaveTheFile:
         Exit Sub
     End If
 
+    ' Issue #55, 11/15/2026: from here to the Styles pane is finishing touches on a book that is
+    ' already saved, and on a OneDrive book the document Word handed back once vanished between
+    ' the reopen and these lines - error 5825 "Object has been deleted". Sh_Close_And_Reopen now
+    ' checks the book is really there before returning it, and these lines run under Resume Next
+    ' as well, so a book that goes in the next instant costs a view setting, not an error report.
+    ' Back to AttachFailed afterwards, not On Error GoTo 0.
+    On Error Resume Next
+
     'Re-assert dominance for your saved document AFTER the form is entirely gone
     Application.Activate
     doc.Activate
@@ -22932,6 +23072,8 @@ SaveTheFile:
     ' handler live, but on a machine where this book was the only one open the pane went when the
     ' document did, and Word does not always restore it from that.
     Lp_Turn_on_Styles_Pane
+    Err.Clear
+    On Error GoTo AttachFailed
 
     Sh_Progress_Say 100, "Finished"
     Sh_Progress_Close
@@ -35972,6 +36114,10 @@ End Function   '*** end of Sh_One_Log_Line ***
 ' any one of these reads may be the thing that raises. A partial line is worth having; a
 ' reporter that dies while reporting is worth nothing.
 '
+' Version: 1.1  Date: 11/15/2026 - ends with the folder the document is in, as  path "..."
+'                               (issue #55). For a book on OneDrive Word may report an https://
+'                               address here instead of a disk path, and that is what the log
+'                               needs to show. Last on the line so nothing before it moves
 ' Version: 1.0  Date: 8/26/2026
 '
 Private Function Sh_Error_Context() As String
@@ -36002,6 +36148,9 @@ Private Function Sh_Error_Context() As String
 
     s = s & "  " & ActiveDocument.Styles(wdStyleNormal).Font.Name _
           & " " & CStr(ActiveDocument.Styles(wdStyleNormal).Font.Size)
+
+    ' Issue #55. The folder only - the name is already on the line as doc "...".
+    s = s & "  path """ & ActiveDocument.Path & """"
 
     Sh_Error_Context = s
 End Function   '*** end of Sh_Error_Context ***
