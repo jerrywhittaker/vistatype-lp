@@ -8,7 +8,8 @@ OneDrive): the theory is that the upload of the save was still running, or that 
 https:// address, or both.
 
 The fix, 11/15/2026: Sh_Close_And_Reopen tries up to REOPEN_TRIES = 5 times, REOPEN_WAIT_SECONDS
-= 2 apart (both guesses), says so on the bar, looks for the book by name before opening it again,
+= 2 apart (both guesses), says so on the bar ("Waiting for Word to finish
+reopening the document" - not OneDrive, since it also shows for a network share or a locked file), looks for the book by name before opening it again,
 and accepts only a book Sh_Doc_Still_There can read. After the last try it returns Nothing, and
 the attach shows box 233. The finishing touches after the reopen run under Resume Next. The
 error log ends with the document's folder, `path "..."`, so the next report shows whether Word
@@ -36,9 +37,9 @@ def test_the_two_numbers_are_named_and_are_5_and_2(repo_root):
     assert "Sh_PauseSeconds REOPEN_WAIT_SECONDS" in body
 
 
-def test_the_bar_says_it_is_waiting_for_onedrive(repo_root):
+def test_the_bar_says_it_is_waiting_for_word(repo_root):
     body = _body(repo_root, REOPEN)
-    assert '"Waiting for OneDrive to finish with the document (try "' in body
+    assert '"Waiting for Word to finish reopening the document (try "' in body
     assert '" of " & CStr(REOPEN_TRIES) & ")"' in body
 
 
@@ -57,6 +58,10 @@ def test_a_failed_reopen_returns_nothing_so_the_attach_shows_box_233(repo_root):
     after = body[body.index("Next tryNo"):]
     assert "Set Sh_Close_And_Reopen = reopened" in after
     assert "If reopened Is Nothing Then Exit Function" in after
+    # Bail still answers Nothing, and restores nothing it never changed (1.3)
+    bail = body[body.index("Bail:"):]
+    assert "Set Sh_Close_And_Reopen = Nothing" in bail
+    assert "ConfirmConversions" not in bail and "ScreenUpdating" not in bail
     # the only other document ever handed back is the one asked for (early exits) - never ActiveDocument
     assert "ActiveDocument" not in body
     attach = _body(repo_root, ATTACH)

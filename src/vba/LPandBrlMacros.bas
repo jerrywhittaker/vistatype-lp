@@ -24,7 +24,8 @@ Attribute VB_Name = "LPandBrlMacros"
 '           - Sh  - 11/15/2026 - (Sh_Doc_Still_There), looks for it by name (Sh_Find_Open_Doc),
 '           - Sh  - 11/15/2026 - waits 2 s between tries, then box 233. Cause NOT reproduced.
 '           - Sh  - 11/15/2026 - The error log now ends with the document's folder, path "...".
-'           - Sh  - 11/15/2026 - A TEST.
+'           - Sh  - 11/15/2026 - A TEST. Then (1.3, vba-review): the wait says "Waiting for Word to
+'           - Sh  - 11/15/2026 - finish reopening the document", not OneDrive; dead Bail lines out.
 '           - LP  - 11/14/2026 - CAPTION PARAGRAPHS BECOME BOX RED (Jerry): a new pass in Normalize
 '           - LP  - 11/14/2026 - Styles, before the italics step. The caption's italic is kept
 '           - LP  - 11/14/2026 - character by character and then dashed - a plain style change
@@ -17101,6 +17102,13 @@ End Function   '*** end of Sh_Para_Is_Empty_Line ***
 
 Function Sh_Close_And_Reopen(ByVal targetDoc As Document) As Document
 '
+' Version: 1.3  Date: 11/15/2026 - the wait on the bar no longer names OneDrive, since it shows
+'                               for a network share or a locked file too: "Waiting for Word to
+'                               finish reopening the document (try N of 5)". Bail's restores of
+'                               ConfirmConversions and ScreenUpdating are gone - neither is
+'                               changed before the Save, the only line Bail covers, and Resume
+'                               Next catches nothing inside a handler anyway. su_Prev with them.
+'                               Bail still returns Nothing (vba-review)
 ' Version: 1.2  Date: 11/15/2026 - TRIES THE REOPEN UP TO 5 TIMES, 2 seconds apart, and checks
 '                               each time that the book Word hands back is really there (issue
 '                               #55). A tester saving to OneDrive got error 5825 "Object has been
@@ -17179,7 +17187,6 @@ Function Sh_Close_And_Reopen(ByVal targetDoc As Document) As Document
 
     Dim docPath As String
     Dim cc_Prev As Boolean
-    Dim su_Prev As Boolean
     Dim reopened As Document
     Dim tryNo As Long
     Dim isReadOnly As Boolean
@@ -17193,12 +17200,10 @@ Function Sh_Close_And_Reopen(ByVal targetDoc As Document) As Document
 
     docPath = targetDoc.FullName
 
-    ' Both captured BEFORE the error handler is armed. Read them after, and a raise inside the
-    ' close sends Bail off to "restore" them from uninitialized variables - which for
-    ' ConfirmConversions means switching OFF, application-wide and for good, a setting a
+    ' Captured BEFORE anything changes it, and put back after the tries. Lose it, and
+    ' ConfirmConversions is switched OFF, application-wide and for good - a setting a
     ' transcriber working from raw publisher .doc files may have turned on deliberately.
     cc_Prev = Application.Options.ConfirmConversions
-    su_Prev = Application.ScreenUpdating
 
     On Error GoTo Bail
 
@@ -17231,7 +17236,7 @@ Function Sh_Close_And_Reopen(ByVal targetDoc As Document) As Document
     ' thrown away.
     For tryNo = 1 To REOPEN_TRIES
         If tryNo > 1 Then
-            Sh_Progress_Say 98, "Waiting for OneDrive to finish with the document (try " _
+            Sh_Progress_Say 98, "Waiting for Word to finish reopening the document (try " _
                               & CStr(tryNo) & " of " & CStr(REOPEN_TRIES) & ")"
             Sh_PauseSeconds REOPEN_WAIT_SECONDS
         End If
@@ -17279,10 +17284,8 @@ Bail:
     ' with a second book open that hands back the wrong one, and the caller activates it and
     ' announces the save as finished. Returning Nothing is the honest answer and the caller
     ' checks for it.
-    On Error Resume Next
-    Application.Options.ConfirmConversions = cc_Prev
-    Application.ScreenUpdating = su_Prev
-    On Error GoTo 0
+    ' Nothing to put back (1.3): ConfirmConversions and ScreenUpdating are not touched until
+    ' after the Save, which is the only line this handler covers.
     Set Sh_Close_And_Reopen = Nothing
 
 End Function   '***** end of Sh_Close_And_Reopen macro *****
