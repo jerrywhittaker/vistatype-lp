@@ -18,7 +18,11 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Sh  - 11/15/2026 - THE LP ATTACH'S REOPEN TRIES UP TO 5 TIMES (issue #55): a tester
+' Notes:    - Sh  - 11/16/2026 - CTRL+ALT+SHIFT+I (DOCUMENT INFO) IN EVERY DOCUMENT (Jerry): the
+'           - Sh  - 11/16/2026 - shortcut is now stored in the add-in itself, not only in
+'           - Sh  - 11/16/2026 - LargePrintTemplate.dotx. No VBA changed: src/keymap/addin-keymap.xml
+'           - Sh  - 11/16/2026 - goes into the .dotm at build time. A TEST.
+'           - Sh  - 11/15/2026 - THE LP ATTACH'S REOPEN TRIES UP TO 5 TIMES (issue #55): a tester
 '           - Sh  - 11/15/2026 - saving to OneDrive got 5825 "Object has been deleted" just after
 '           - Sh  - 11/15/2026 - the reopen. Sh_Close_And_Reopen checks the book is really there
 '           - Sh  - 11/15/2026 - (Sh_Doc_Still_There), looks for it by name (Sh_Find_Open_Doc),

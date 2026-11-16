@@ -264,11 +264,18 @@ build: check-config test build-dispatch check-frm-eol check-vba-lines check-vba-
 	mkdir -p dist
 	scp -q "$(WIN_HOST):$(WIN_DIR)/dist/$(DOTM)" dist/$(DOTM)
 	python3 tools/lib/inject_customui.py dist/$(DOTM) src/ribbon/customUI14.xml
+	@# The add-in's own shortcuts. Word honors a key assignment stored in a loaded global add-in
+	@# in EVERY document, attached template or not - so Ctrl+Alt+Shift+I (Document Info) lives
+	@# here as well as in the template. This REPLACES word/customizations.xml, so the file must
+	@# carry every binding the shell .dotm already had (seven MathType keys and the toolbar
+	@# reference, as of 11/16/2026). Done on this side, before the copy to STARTUP and before
+	@# `stage`, so `make try` and `make installer` both carry it.
+	python3 tools/lib/inject_keymap.py dist/$(DOTM) src/keymap/addin-keymap.xml
 	@# The .dotx at the repo root is the shell; the keyboard shortcuts are text under
 	@# src/keymap/ and get injected here, the same way the ribbon goes into the .dotm.
 	cp $(DOTX) dist/$(DOTX)
 	python3 tools/lib/inject_keymap.py dist/$(DOTX) src/keymap/lp-template-keymap.xml
-	@echo "Built dist/$(DOTM) (embedded ribbon) + dist/$(DOTX) (keymap). Smoke-test in Word before deploying."
+	@echo "Built dist/$(DOTM) (embedded ribbon + keymap) + dist/$(DOTX) (keymap). Smoke-test in Word before deploying."
 
 # --- regenerate customUI14.xml from the legacy Word.officeUI (one-off / reference) ---
 ribbon:

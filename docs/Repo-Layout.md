@@ -150,11 +150,18 @@ src/ribbon/     customUI14.xml — embedded ribbon (source of truth); Word.offic
                 The embedded copies stay as the
                 fallback, hidden by getVisible when the user has their own. See DEVELOPMENT.md
                 "Embedded ribbon" for the two-homes table and the orphan-tab trade-off.
-src/keymap/     lp-template-keymap.xml — keyboard shortcuts, injected into LargePrintTemplate.dotx
+src/keymap/     lp-template-keymap.xml — the template's keyboard shortcuts, injected into LargePrintTemplate.dotx
                 at build time. Source of truth for the ~60 key assignments (53 style shortcuts,
                 8 VistaType macros, 1 MathType). Macro targets MUST read
                 LPANDBRL.LPANDBRLMACROS.<SUB>: they said NORMAL.NEWMACROS.<SUB> until 7/28/2026
                 and had been silently dead ever since the code left Normal.dotm.
+                addin-keymap.xml — the add-in's OWN shortcuts, injected into LPandBRL.dotm by
+                `make build` (11/16/2026). Word honors a shortcut stored in a loaded global add-in
+                in every document, attached template or not, so Ctrl+Alt+Shift+I (Sh_Doc_Info)
+                is here as well as in the template. It REPLACES the .dotm's keymap part, so it
+                also carries what the shell .dotm already had: seven MathType keys and the
+                attached-toolbars reference. Unlike the template's file, a change to this one
+                reaches Word on a `make try`. Test: tests/test_addin_keymap.py.
 LPandBRL.dotm   the .dotm shell/base (tracked): project references + non-VBA parts; build base
 LargePrintTemplate.dotx   the attached large-print template (styles/page setup)
 Word.officeUI   legacy global ribbon (no longer shipped; kept for reference)

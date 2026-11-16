@@ -101,3 +101,13 @@ def test_ordinary_vba_and_form_edits_are_a_fair_test_of_make_try():
     assert not matched("src/vba/LPandBrlMacros.bas")
     assert not matched("src/forms/Lp_Some_Form.frm")
     assert not matched("docs/Reported-Errors.md")
+
+
+def test_the_addin_keymap_is_a_fair_test_of_make_try():
+    """addin-keymap.xml is injected into the .dotm that `make try` copies, so it must not be
+    reported as needing an installer. The template's keymap still does."""
+    def matched(path):
+        return any(p.search(path) for p, _ in mod.NEEDS_INSTALLER)
+
+    assert not matched("src/keymap/addin-keymap.xml")
+    assert matched("src/keymap/lp-template-keymap.xml")

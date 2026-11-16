@@ -28,9 +28,12 @@ NEEDS_INSTALLER = [
      'the ribbon. The tabs ARE embedded in the .dotm, but on a machine the installer\n'
      '       has already set up, the copy in the user\'s own Word.officeUI is what shows and the\n'
      '       embedded one is hidden (VtTabVisible). So a tab change can look like it did nothing'),
-    (re.compile(r'^src/keymap/'),
-     'the keyboard shortcuts: they are injected into LargePrintTemplate.dotx, which\n'
-     '       only the installer puts in place'),
+    # Only the TEMPLATE's shortcuts. src/keymap/addin-keymap.xml goes into the .dotm itself,
+    # which is exactly what `make try` copies, so a change to it IS a fair test of try.
+    (re.compile(r'^src/keymap/lp-template-keymap\.xml$'),
+     'the template\'s keyboard shortcuts: they are injected into LargePrintTemplate.dotx,\n'
+     '       which only the installer puts in place (the add-in\'s own shortcuts, in\n'
+     '       src/keymap/addin-keymap.xml, travel in the .dotm and DO reach Word on a try)'),
     (re.compile(r'\.dotx$'),
      'the large print template: styles and page setup, installed to Templates'),
     (re.compile(r'^assets/fonts/'),
@@ -82,7 +85,7 @@ def main():
 
     print()
     print('  What this build does NOT put on the machine: the toolbar, the ribbon tabs the')
-    print('  installer writes, LargePrintTemplate.dotx, the keyboard shortcuts and the fonts.')
+    print('  installer writes, LargePrintTemplate.dotx and its keyboard shortcuts, and the fonts.')
 
     if not hits:
         print('  Nothing changed in the working tree needs them, so this is a fair test.')
