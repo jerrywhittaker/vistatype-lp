@@ -422,7 +422,7 @@ installer/      vistatype.iss is the product installer. From 8/24/2026 its [Code
                 user's machine with no warning.
 docs/           Reported-Errors.md (the register of reported faults and what fixed them - READ IT
                 BEFORE INVESTIGATING ANY REPORTED ERROR; see the rule below);
-                Daily-Workflow-and-Releases.md (Jerry's plain-language guide to dev/main, building, releasing, and what to ask Claude); Installation-Guide.md (end-user install); Build-VM-Setup.md (the Windows build/test box; VirtualBox since 9/20/2026); Software-Agreement.md (GPLv3 About-dialog text); Code-Signing.md (why Defender deleted the unsigned Setup.exe on 8/13-14/2026, what in the installer scores against it, how to test with `make scan` and MpCmdRun, and the signing options — note Azure Artifact Signing does NOT sign VBA projects, and EV no longer skips SmartScreen. Jerry bought the Certum open source card on 8/17/2026; the last section is the step-by-step for the day it arrives, what the build box already has, and the five things the card-free rehearsal proved); VistaTypeLP-Sans.md (what the bundled typeface covers and does not - languages, mathematics, science, medicine - measured face by face against Tahoma, plus the width and pagination trade-off. The Insert Symbol subset-list defect is FIXED (9/6/2026): Word builds that list from the OS/2 unicode-range flags, not from the character map, and 16 were unset - 11 are now claimed and 5 REFUSED on purpose, Arabic among them because the font has 62 of its characters and no arab shaping. Browsable went 45.7% -> 88.2%; the 695 characters still out of reach sit at code points no OS/2 block covers, so no flag can reach them. A block that is neither claimed nor refused now STOPS the font build)
+                Daily-Workflow-and-Releases.md (Jerry's plain-language guide to dev/main, building, releasing, and what to ask Claude); Installation-Guide.md (end-user install); Build-VM-Setup.md (the Windows build/test box; VirtualBox since 9/20/2026); Software-Agreement.md (GPLv3 About-dialog text); Code-Signing.md (why Defender deleted the unsigned Setup.exe on 8/13-14/2026, what in the installer scores against it, how to test with `make scan` and MpCmdRun, and the signing options — note Azure Artifact Signing does NOT sign VBA projects, and EV no longer skips SmartScreen. Certum was ABANDONED 11/22/2026 in favor of Azure Artifact Signing, which signs the Setup.exe and its uninstaller only - the section "Signing with Azure Artifact Signing" near the top says what the box has and that `make installer-signed` is the target. Jerry had bought the Certum open source card on 8/17/2026; the later sections, kept for the record, are the step-by-step for the day that card arrived, what the build box already has, and the five things the card-free rehearsal proved); VistaTypeLP-Sans.md (what the bundled typeface covers and does not - languages, mathematics, science, medicine - measured face by face against Tahoma, plus the width and pagination trade-off. The Insert Symbol subset-list defect is FIXED (9/6/2026): Word builds that list from the OS/2 unicode-range flags, not from the character map, and 16 were unset - 11 are now claimed and 5 REFUSED on purpose, Arabic among them because the font has 62 of its characters and no arab shaping. Browsable went 45.7% -> 88.2%; the 695 characters still out of reach sit at code points no OS/2 block covers, so no flag can reach them. A block that is neither claimed nor refused now STOPS the font build)
 reference/      generated read aids (gitignored mirror + interim form-code dump)
 tests/          the Python test suite over tools/lib - the build's own checkers and the files it
                 generates into a transcriber's Word.officeUI. Run with `make test`; needs pytest
@@ -482,7 +482,19 @@ assets/fonts/vistatypelp-sans/   the bundled typeface, VistaTypeLP Sans — four
 Makefile        pull / build / build-dispatch / ribbon / qat / read / fonts / try / test /
                 vba-test / vm-up / deploy /
                 branding / stage /
-                installer / font-installer / scan
+                installer / installer-signed / font-installer / font-installer-signed / scan
+                (`make installer` stays UNSIGNED, for testing on the box. `make installer-signed`,
+                 added 11/22/2026, is the release build: the same bump-then-build, with SIGN=1 so
+                 installer-build hands ISCC /DSign and a sign tool (/Ssigntool=...). Inno Setup
+                 then signs the embedded uninstaller AND the Setup.exe with Azure Artifact Signing,
+                 timestamped; a signtool step after ISCC could reach only the outer .exe. The
+                 [Setup] entries that ask for it are inside #ifdef Sign in both .iss files, so the
+                 unsigned build is unchanged. check-sign-config runs FIRST, before the bump, and
+                 stops if WIN_SIGNTOOL / WIN_SIGN_DLIB / WIN_SIGN_METADATA are unset in build.config
+                 or missing on the box - a missing metadata.json is reported as "signing is not set
+                 up yet". After ISCC, signtool verify /pa must pass AND report a timestamp, or the
+                 make fails. `font-installer-signed` does the same for the font-only installer.
+                 docs/Code-Signing.md, "Signing with Azure Artifact Signing")
                 (`make fonts` rebuilds VistaTypeLP Sans from the current Noto Sans, Noto Sans Math
                  and Noto Sans Symbols releases. It REACHES THE NETWORK, so it is deliberately not
                  part of `make installer`; twelve checks run at the end and it refuses to claim

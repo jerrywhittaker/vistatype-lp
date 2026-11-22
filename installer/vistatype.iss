@@ -140,6 +140,19 @@ UninstallDisplayName=VistaType LP + Braille Macros
 ; back on 8/8/2026 so the license is the second page and has some context in front of it.
 DisableWelcomePage=no
 
+; Signing - only when ISCC is given /DSign, which `make installer-signed` (and
+; `make font-installer-signed`) does along with the sign tool itself, /Ssigntool=<command>.
+; The command and its paths come from the per-machine build.config, never from this file.
+; Inno signs the uninstaller it embeds as well as the Setup.exe - SignedUninstaller is on by
+; default once SignTool is set and is written out so nobody has to know that. Without /DSign
+; none of this exists and the build is exactly the unsigned one used for testing.
+#ifdef Sign
+SignTool=signtool
+SignedUninstaller=yes
+SignToolRetryCount=3
+SignToolRetryDelay=2000
+#endif
+
 ; ----------------------------------------------------------------------------
 ;  Identity: the icon, the artwork, and the version block inside the .exe
 ;

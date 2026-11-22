@@ -16,8 +16,9 @@
 ;  elevation, no network. It carries a full version block and an icon, because "no version
 ;  information" sits beside "unsigned" as one of the two heavily-weighted factors behind the
 ;  machine-learning deletions that ate every build of the main Setup.exe on 8/13/2026 - see
-;  docs/Code-Signing.md. What it CANNOT be is signed, because the certificate is not in use yet.
-;  So it can still be flagged, and there is no way to promise otherwise. The .zip built beside it
+;  docs/Code-Signing.md. `make font-installer` builds it UNSIGNED; `make font-installer-signed`
+;  signs it (see #ifdef Sign below). Unsigned, it can still be flagged, and there is no way to
+;  promise otherwise. The .zip built beside it
 ;  is the answer to that: a font installed by right-click has no executable in it at all.
 ;
 ;  A DIFFERENT AppId FROM THE MAIN PRODUCT, and it must stay different. Inno identifies a product
@@ -78,6 +79,19 @@ OutputBaseFilename={#OutputBase}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+
+; Signing - only when ISCC is given /DSign, which `make installer-signed` (and
+; `make font-installer-signed`) does along with the sign tool itself, /Ssigntool=<command>.
+; The command and its paths come from the per-machine build.config, never from this file.
+; Inno signs the uninstaller it embeds as well as the Setup.exe - SignedUninstaller is on by
+; default once SignTool is set and is written out so nobody has to know that. Without /DSign
+; none of this exists and the build is exactly the unsigned one used for testing.
+#ifdef Sign
+SignTool=signtool
+SignedUninstaller=yes
+SignToolRetryCount=3
+SignToolRetryDelay=2000
+#endif
 UninstallDisplayName={#FontFamily} font
 
 SetupIconFile=branding\vistatype.ico

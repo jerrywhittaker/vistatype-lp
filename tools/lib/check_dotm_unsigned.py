@@ -2,10 +2,15 @@
 """Refuse to build from, or promote, a .dotm whose VBA project carries a digital signature.
 
 The repo-root LPandBRL.dotm is the BASE every build starts from: push-src sends it to the build
-box and Import-Vba.ps1 copies it and imports the modules into that copy. Once signing is wired
-in, the file in dist/ is signed -- and `make deploy` copies dist/LPandBRL.dotm to the repo root.
-A signed file reaching the root therefore seeds every later build with a signature that no
-longer matches the code once the modules are re-imported.
+box and Import-Vba.ps1 copies it and imports the modules into that copy. If the file in dist/
+were ever signed, `make deploy` would copy it to the repo root, and a signed file there seeds
+every later build with a signature that no longer matches the code once the modules are
+re-imported.
+
+`make installer-signed` (11/22/2026) does NOT sign the .dotm: Azure Artifact Signing signs only
+the Setup.exe and its uninstaller, inside ISCC, and cannot sign a VBA project. The guard stays,
+because Word re-signs on import with any code-signing certificate the build user holds (measured
+9/20/2026, docs/Code-Signing.md) -- so a signed .dotm can appear without anyone asking for one.
 
 Nothing else in this repo would notice. See docs/Code-Signing.md, "A signed .dotm must never
 travel back to this machine".

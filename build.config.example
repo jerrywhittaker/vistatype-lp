@@ -33,3 +33,22 @@ WIN_PWSH = powershell
 # click your name, API key. Leave it out and `make scan` simply says so.
 # This file is gitignored, so the key never reaches the repository. Never commit a key.
 # VT_API_KEY = 0000000000000000000000000000000000000000000000000000000000000000
+
+# OPTIONAL. Code signing, used only by `make installer-signed` and `make font-installer-signed`.
+# Leave these out and those two targets stop with a message saying which one is missing; the
+# ordinary `make installer` never reads them and stays unsigned. All three are paths ON THE BUILD
+# BOX, and all three are per-machine, which is why they live here and not in the Makefile - the
+# repository is public. See docs/Code-Signing.md, "Signing with Azure Artifact Signing".
+#
+# signtool: the x64 one from the Windows SDK Signing Tools (the x86 one fails on Office files).
+# WIN_SIGNTOOL = C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\signtool.exe
+#
+# The Azure Artifact Signing client library. A per-user install, so the path carries the build
+# user's own name:
+# WIN_SIGN_DLIB = C:\Users\<build user>\AppData\Local\Microsoft\MicrosoftArtifactSigningClientTools\Azure.CodeSigning.Dlib.dll
+#
+# The metadata.json naming the signing account and certificate profile. It exists only once an
+# Azure Artifact Signing account does; until then `make installer-signed` says signing is not set
+# up yet. Copy metadata.sample.json from the client-tools folder above and fill it in. Keep it
+# OUTSIDE the build folder, which the build wipes, and never commit it - it names the account.
+# WIN_SIGN_METADATA = C:\vt-signing\metadata.json

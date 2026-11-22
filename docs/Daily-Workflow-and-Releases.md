@@ -118,6 +118,7 @@ ever. Pushing just backs up your work to GitHub; it does **not** release anythin
 | Build the add-in from source | `make build` |
 | Put the built add-in in the repo root | `make deploy` |
 | Build the actual installer `.exe` | `make installer` |
+| Build the signed installer, for a release | `make installer-signed` |
 | Read the compiled code (no Windows needed) | `make read` |
 
 Or just ask Claude: **"try this"** or **"build the installer"**.
@@ -218,7 +219,14 @@ need editing.)
 
 ### Step 3 — Build the installer
 
-`make installer`
+`make installer-signed`
+
+This is the one that goes to transcribers: the `Setup.exe`, and the uninstaller it leaves on
+their machine, are both signed, so Windows and antivirus can see who made them. Everyday
+`make installer` builds stay unsigned — they are for testing on the build box.
+
+It stops straight away, before using up a version number, if signing is not set up on the build
+box. See `docs/Code-Signing.md`.
 
 ### Step 4 — Install it and test it
 

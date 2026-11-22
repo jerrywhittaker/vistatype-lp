@@ -3,6 +3,43 @@
 Written 8/13/2026, after Windows Defender began deleting the installer.
 Rewritten 8/15/2026 after a proper look at what was happening.
 
+## Signing with Azure Artifact Signing — 11/22/2026
+
+**Certum was abandoned on 11/22/2026.** The installer will be signed with Azure Artifact Signing
+instead. Everything below about the Certum card is kept for the record.
+
+**What it signs:** the `Setup.exe` and the uninstaller it leaves on a transcriber's machine. Not
+the VBA project inside the `.dotm` — Azure Artifact Signing cannot do that (see *The options*,
+below).
+
+**The target is `make installer-signed`.** It is `make installer` with the signing switched on:
+Inno Setup runs signtool itself, once for the uninstaller it embeds and once for the `Setup.exe`,
+always with a timestamp (an Azure certificate lives only 72 hours, so a signature without one
+stops being trusted three days later). Afterwards `signtool verify /pa` must pass and report the
+timestamp, or the build fails. Plain `make installer` stays unsigned, for testing on the box.
+`make font-installer-signed` does the same for the font-only installer.
+
+**The settings live in `build.config`, not in the repository**, which is public:
+`WIN_SIGNTOOL`, `WIN_SIGN_DLIB` and `WIN_SIGN_METADATA`, all paths on the build box.
+`build.config.example` lists them with their usual values. The metadata file, `C:\vt-signing\metadata.json`
+on the build box, names the Azure account and certificate profile; copy `metadata.sample.json` from
+the client-tools folder and fill it in. **It does not exist yet, because there is no Azure account
+yet** — until it does, `make installer-signed` stops before bumping the version and says signing
+is not set up.
+
+**What the build box already has**, installed 11/22/2026:
+
+- Artifact Signing client tools 1.0.0, in the build user's `AppData\Local\Microsoft\MicrosoftArtifactSigningClientTools`
+- signtool 10.0.26100.4188 (the x64 one, under `Windows Kits\10\bin\10.0.26100.0\x64`)
+- the signing library `Azure.CodeSigning.Dlib.dll` 1.0.119.0
+- .NET 10.0.15. The library is built for .NET 8 and set to roll forward to a newer major version,
+  so it should run on 10 — **but it has not yet been seen working**. The first real signing will
+  tell.
+
+**Proved 11/22/2026 without an Azure account**, using a throwaway self-signed certificate in a file:
+Inno Setup called the sign tool for both the uninstaller and the `Setup.exe` (main and font-only),
+and the Microsoft timestamp server stamped them. A real Azure signature has **not** been made yet.
+
 ## What happened, in order
 
 - **8/13–8/14/2026.** Windows Defender on the build box began deleting

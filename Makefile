@@ -27,11 +27,18 @@
 #                refuses to run if the generated files are missing.
 #   make stage   Copy the license into dist/ alongside the built shipping files.
 #   make installer  Compile the Inno Setup installer on the Windows box; copies the
-#                Setup.exe back to dist/. Ships the .dotm, the .dotx and the GPL.
+#                Setup.exe back to dist/. Ships the .dotm, the .dotx and the GPL. UNSIGNED -
+#                for testing on the build box.
+#   make installer-signed  The same, but the Setup.exe AND the uninstaller it leaves behind are
+#                signed and timestamped with Azure Artifact Signing, then checked with
+#                signtool verify. For a release. Needs WIN_SIGNTOOL, WIN_SIGN_DLIB and
+#                WIN_SIGN_METADATA in build.config, and stops before bumping if they are
+#                missing. See docs/Code-Signing.md.
 #   make font-installer  Build the standalone typeface installer (and a .zip of the fonts for
 #                anyone whose antivirus eats unsigned installers), and put both on the build
 #                box Desktop. Not part of `make installer`; build it when a tester needs the
 #                font on its own. See installer/vistatype-font-only.iss.
+#   make font-installer-signed  The same, with the font Setup.exe signed like installer-signed.
 #   make scan    Upload the newest dist/ Setup.exe to VirusTotal and report which of its
 #                ~70 engines flag it, and as what. Fails if Microsoft flags it (that is
 #                Defender, which is what a transcriber has) or if more than 3 do. Needs
@@ -83,6 +90,27 @@ SHIPFILES := $(DOTM) $(DOTX) LICENSE.txt $(FONTFILES)
 SSH := ssh $(WIN_HOST)
 WSCRIPTS := $(WIN_DIR)/tools/windows
 
+# --- signing (make installer-signed / font-installer-signed) ---
+# SIGN=1 makes installer-build and font-installer hand ISCC a sign tool, so Inno Setup signs the
+# Setup.exe AND the uninstaller it embeds - a signtool step run after ISCC could only reach the
+# outer .exe, and the unins000.exe left on a transcriber's machine would stay unsigned. With SIGN
+# unset the ISCC line is exactly what it always was, and the .iss files only ask for a sign tool
+# inside #ifdef Sign. The three paths are per-machine and live in build.config, never here.
+# Inside /S, Inno turns $q into a double quote and $f into the quoted name of the file to sign;
+# $q is used because a real " would have to survive bash, ssh and cmd on the way.
+# Timestamping is not optional: an Azure Artifact Signing certificate lives 72 hours, so a
+# signature without a timestamp stops being trusted three days after the build.
+SIGN_TS := http://timestamp.acs.microsoft.com
+ISCC_SIGN = /DSign "/Ssigntool=$$q$(WIN_SIGNTOOL)$$q sign /v /fd SHA256 /tr $(SIGN_TS) /td SHA256 /dlib $$q$(WIN_SIGN_DLIB)$$q /dmdf $$q$(WIN_SIGN_METADATA)$$q $$f"
+SIGNING = $(filter 1,$(SIGN))
+
+# Fail the make unless the named file on the box (under $(WIN_DIR)/dist/) carries a valid
+# signature with a timestamp on it. signtool verify /pa passes an untimestamped signature too, so
+# the timestamp line is checked separately.
+define verify-signed
+$(SSH) '$(WIN_PWSH) -NoProfile -Command "$$o = & \"$(WIN_SIGNTOOL)\" verify /pa /v \"$(WIN_DIR)/dist/$(1)\"; $$c = $$LASTEXITCODE; Write-Host ($$o -join [Environment]::NewLine); if ($$c -ne 0) { Write-Host \"ERROR: $(1) is NOT validly signed (signtool verify exit $$c).\"; exit 1 }; if (-not ($$o -match \"The signature is timestamped\")) { Write-Host \"ERROR: $(1) is signed but NOT timestamped - it would stop being trusted when the certificate lapses.\"; exit 1 }; Write-Host \"Verified: $(1) is signed and timestamped.\"; exit 0"'
+endef
+
 .DEFAULT_GOAL := help
 
 help:
@@ -91,6 +119,16 @@ help:
 check-config:
 	@test -f build.config || { echo "ERROR: copy build.config.example -> build.config and edit it."; exit 1; }
 	@test -n "$(WIN_HOST)" || { echo "ERROR: WIN_HOST not set in build.config."; exit 1; }
+
+# Everything signing needs, checked before anything is bumped or built, so a failed attempt costs
+# neither a build number nor a ten-minute build. The metadata.json is the one file that only
+# exists once an Azure Artifact Signing account does, so its absence gets its own message.
+check-sign-config: check-config vm-up
+	@test -n "$(WIN_SIGNTOOL)" || { echo "ERROR: WIN_SIGNTOOL is not set in build.config - see build.config.example."; exit 1; }
+	@test -n "$(WIN_SIGN_DLIB)" || { echo "ERROR: WIN_SIGN_DLIB is not set in build.config - see build.config.example."; exit 1; }
+	@test -n "$(WIN_SIGN_METADATA)" || { echo "ERROR: WIN_SIGN_METADATA is not set in build.config - see build.config.example."; exit 1; }
+	@$(SSH) '$(WIN_PWSH) -NoProfile -Command "if (-not (Test-Path -LiteralPath \"$(WIN_SIGNTOOL)\")) { Write-Host \"ERROR: signtool not found on the build box at $(WIN_SIGNTOOL)\"; exit 1 }; if (-not (Test-Path -LiteralPath \"$(WIN_SIGN_DLIB)\")) { Write-Host \"ERROR: the Artifact Signing library not found on the build box at $(WIN_SIGN_DLIB)\"; exit 1 }; if (-not (Test-Path -LiteralPath \"$(WIN_SIGN_METADATA)\")) { Write-Host \"ERROR: signing is not set up yet - there is no $(WIN_SIGN_METADATA) on the build box. See docs/Code-Signing.md, Signing with Azure Artifact Signing.\"; exit 1 }; exit 0"'
+	@echo "Signing settings found on $(WIN_HOST)."
 
 # --- push the working tree (source + scripts + shell .dotm) to the Windows box ---
 # scp only ADDS and OVERWRITES - it never deletes. So a file removed from src/ stayed on the
@@ -348,7 +386,10 @@ FONT_SETUP := VistaTypeLP-Sans-Font-Setup-1.1
 FONT_ZIP   := VistaTypeLP-Sans-Fonts.zip
 FONT_DESK  := VistaTypeLP Sans Font
 
-font-installer: check-config check-branding
+font-installer-signed: check-sign-config
+	@$(MAKE) --no-print-directory font-installer SIGN=1
+
+font-installer: check-config check-branding $(if $(SIGNING),check-sign-config)
 	mkdir -p dist
 	@for f in $(FONTFILES); do \
 	  test -f "$(FONTDIR)/$$f" || { echo "MISSING $(FONTDIR)/$$f"; exit 1; }; \
@@ -361,13 +402,14 @@ font-installer: check-config check-branding
 	$(SSH) '$(WIN_PWSH) -NoProfile -Command "Remove-Item -Recurse -Force \"$(WIN_DIR)/installer\" -ErrorAction SilentlyContinue; exit 0"'
 	scp -q -r installer "$(WIN_HOST):$(WIN_DIR)/"
 	scp -q $(addprefix dist/,$(FONTFILES)) "$(WIN_HOST):$(WIN_DIR)/dist/"
-	$(SSH) '$(WIN_ISCC) "/DSrcDir=$(WIN_DIR)/dist" "$(WIN_DIR)/installer/vistatype-font-only.iss"'
+	$(SSH) '$(WIN_ISCC) "/DSrcDir=$(WIN_DIR)/dist"$(if $(SIGNING), $(ISCC_SIGN)) "$(WIN_DIR)/installer/vistatype-font-only.iss"'
+	$(if $(SIGNING),$(call verify-signed,$(FONT_SETUP).exe))
 	scp -q "$(WIN_HOST):$(WIN_DIR)/dist/$(FONT_SETUP).exe" "dist/$(FONT_SETUP).exe"
 	scp -q "dist/$(FONT_ZIP)" "$(WIN_HOST):$(WIN_DIR)/dist/$(FONT_ZIP)"
 	$(SSH) '$(WIN_PWSH) -NoProfile -Command "$$d = Join-Path ([Environment]::GetFolderPath(\"Desktop\")) \"$(FONT_DESK)\"; if (-not (Test-Path $$d)) { New-Item -ItemType Directory -Force -Path $$d | Out-Null }; Copy-Item \"$(WIN_DIR)/dist/$(FONT_SETUP).exe\" $$d -Force; Copy-Item \"$(WIN_DIR)/dist/$(FONT_ZIP)\" $$d -Force"'
 	@echo ""
 	@echo "Put both in the \"$(FONT_DESK)\" folder on the $(WIN_HOST) Desktop:"
-	@echo "  $(FONT_SETUP).exe   - the installer (UNSIGNED: antivirus can still object)"
+	@echo "  $(FONT_SETUP).exe   - the installer ($(if $(SIGNING),signed and timestamped,UNSIGNED: antivirus can still object))"
 	@echo "  $(FONT_ZIP)         - the fonts to install by right-click (nothing to flag)"
 
 deploy:
@@ -425,7 +467,13 @@ installer: check-startup-unpulled-soft
 	@$(MAKE) --no-print-directory bump
 	@$(MAKE) --no-print-directory installer-build
 
-installer-build: check-config check-branding stage vba-test
+# make installer-signed is the same two steps with SIGN=1, after checking the signing settings
+# FIRST - before the bump, so a box that is not set up for signing does not use up a number.
+installer-signed: check-startup-unpulled-soft check-sign-config
+	@$(MAKE) --no-print-directory bump
+	@$(MAKE) --no-print-directory installer-build SIGN=1
+
+installer-build: check-config check-branding $(if $(SIGNING),check-sign-config) stage vba-test
 	$(SSH) "if not exist \"$(WIN_DIR)\" mkdir \"$(WIN_DIR)\""
 	$(SSH) "if not exist \"$(WIN_DIR)\\dist\" mkdir \"$(WIN_DIR)\\dist\""
 	@# Wipe installer/ on the box first, for the same reason push-src does it: scp only ADDS
@@ -443,7 +491,8 @@ installer-build: check-config check-branding stage vba-test
 	@# vistatype.iss names every Source: file explicitly - a leftover we no longer ship is never
 	@# compiled in, and one we DO ship is overwritten by this copy. Do not "fix" it by wiping.
 	scp -q $(addprefix dist/,$(SHIPFILES)) "$(WIN_HOST):$(WIN_DIR)/dist/"
-	$(SSH) '$(WIN_ISCC) "/DSrcDir=$(WIN_DIR)/dist" "/DAppVer=$(APPVER)" "$(WIN_DIR)/installer/vistatype.iss"'
+	$(SSH) '$(WIN_ISCC) "/DSrcDir=$(WIN_DIR)/dist" "/DAppVer=$(APPVER)"$(if $(SIGNING), $(ISCC_SIGN)) "$(WIN_DIR)/installer/vistatype.iss"'
+	$(if $(SIGNING),$(call verify-signed,$(SETUP_EXE)))
 	@# The installer name contains spaces. Quoting a spaced remote path through scp means
 	@# satisfying BOTH the local shell and Windows cmd, which does not strip single quotes -
 	@# they end up as part of the filename and the copy fails. Stage it under a space-free
@@ -452,7 +501,7 @@ installer-build: check-config check-branding stage vba-test
 	scp -q "$(WIN_HOST):$(WIN_DIR)/dist/setup-staged.exe" "dist/$(SETUP_EXE)"
 	$(SSH) '$(WIN_PWSH) -NoProfile -Command "Remove-Item \"$(WIN_DIR)/dist/setup-staged.exe\" -Force -ErrorAction SilentlyContinue"'
 	$(SSH) '$(WIN_PWSH) -NoProfile -Command "$$d = Join-Path ([Environment]::GetFolderPath(\"Desktop\")) \"VT Installer\"; if (-not (Test-Path $$d)) { New-Item -ItemType Directory -Force -Path $$d | Out-Null }; Copy-Item \"$(WIN_DIR)/dist/$(SETUP_EXE)\" $$d -Force"'
-	@echo "Built dist/$(SETUP_EXE)  (also copied to 'VT Installer' on the build box Desktop)"
+	@echo "Built dist/$(SETUP_EXE)  ($(if $(SIGNING),SIGNED and timestamped,UNSIGNED); also copied to 'VT Installer' on the build box Desktop)"
 
 # --- scan the built installer with about seventy antivirus engines ---
 # Deliberately NOT part of `make installer`: the upload is public and permanent, so it has to
@@ -477,4 +526,4 @@ scan:
 clean:
 	rm -rf dist build
 
-.PHONY: help check-config push-src pull build build-dispatch ribbon qat check-qat check-tabs check-frm-eol check-vba-lines read try try-build check-startup-unpulled check-startup-unpulled-soft deploy stage branding check-branding bump font-installer installer installer-build scan test vba-test vm-up clean
+.PHONY: help check-config push-src pull build build-dispatch ribbon qat check-qat check-tabs check-frm-eol check-vba-lines read try try-build check-startup-unpulled check-startup-unpulled-soft deploy stage branding check-branding bump check-sign-config font-installer font-installer-signed installer installer-signed installer-build scan test vba-test vm-up clean
