@@ -18,7 +18,9 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - LP  - 11/23/2026 - LINE SPACING AT LEAST TYPE SIZE + 4 (Jerry): a new pass at the end
+' Notes:    - LP  - 11/24/2026 - CLEAN AND FORMAT THE TOC KEEPS TOC 1 TO TOC 5 (Jerry): a line
+'           - LP  - 11/24/2026 - already in a TOC style keeps it; only other styles become TOC 1.
+'           - LP  - 11/23/2026 - LINE SPACING AT LEAST TYPE SIZE + 4 (Jerry): a new pass at the end
 '           - LP  - 11/23/2026 - of Normalize Styles, body text only - the Normal style at its size
 '           - LP  - 11/23/2026 - + 4; Heading 1-5, TOC Heading, TOC 1-5, the List styles (Bullet,
 '           - LP  - 11/23/2026 - Number, plain, Paragraph) and the Para colors are Single with
@@ -19305,6 +19307,17 @@ Public Function Lp_TOC_Is_Entry_Style(ByVal styleName As String) As Boolean
     End Select
 End Function  '***** end of Lp_TOC_Is_Entry_Style *****
 
+' True when the paragraph is already in TOC 1 to TOC 5 (Lp_TOC_Is_Entry_Style). Clean and format
+' the TOC leaves such a line's style alone - Jerry, 11/24/2026. Could not tell = False, which
+' leaves the macro doing what it did before.
+'
+' Version: 1.0  Date: 11/24/2026
+Private Function Lp_TOC_Para_Has_Entry_Style(ByVal paraRange As Range) As Boolean
+    On Error GoTo NotKnown
+    Lp_TOC_Para_Has_Entry_Style = Lp_TOC_Is_Entry_Style(paraRange.Paragraphs(1).Style.NameLocal)
+NotKnown:
+End Function  '***** end of Lp_TOC_Para_Has_Entry_Style *****
+
 ' True when any paragraph in rng is a TOC entry (Lp_TOC_Is_Entry_Style). Add Color Bars asks this
 ' before the colors box (353) comes up, so a selection with no entry in it is told so instead of
 ' being taken through two color choices that change nothing - Remove Color Bars already said so.
@@ -31981,6 +31994,13 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     ' into a tab, un-bolds the number, applies TOC 1, and lays a tab in front of the "pn" in each
     ' Print Pg Num paragraph.
     '
+    ' Version: 3.7  Date: 11/24/2026 - A LINE ALREADY IN TOC 1 TO TOC 5 KEEPS ITS STYLE. Jerry,
+    '                                11/24/2026: every entry came out TOC 1. Now only a line in
+    '                                another style is made TOC 1, and a TOC-styled line with no
+    '                                page number is no longer reset to Normal (it still gets the
+    '                                blank line before). Its tab and un-bolded page number are
+    '                                done as before. A TOC that ends the book keeps its last
+    '                                line's TOC style too.
     ' Version: 3.6  Date: 10/27/2026 - A BOLD SECTION LINE WITH ITS OWN PAGE NUMBER IS AN ENTRY when
     '                                the other entries' page numbers are bold too (issue #45).
     '                                Jerry's "Write Source": every page number bold, 104 wholly
@@ -32209,6 +32229,8 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     Dim numberBoldCount As Long
     Dim numberPlainCount As Long
     Dim spaceBeforePn As Boolean
+    Dim keepTocStyle As Boolean     ' this line is already TOC 1 to TOC 5 (11/24/2026)
+    Dim endStyle As String          ' the style of the last line of a TOC that ends the book
 
     ' A SELECTION INSIDE A TABLE IS REFUSED, not attempted. Lp_Table_Tools shows this dialog
     ' whenever the selection covers more than one paragraph, and it does that even when the cursor
@@ -32353,6 +32375,20 @@ Sub Lp_TOC_CleanAndFormat_TOC()
     Set paraRange = tempDoc.Paragraphs(2).Range
     paraRange.Collapse wdCollapseStart
     paraRange.FormattedText = homeRng.FormattedText
+
+    ' A TOC THAT ENDS THE BOOK: its last line's paragraph mark stayed behind (endClipped, above),
+    ' so that line arrived in the scratch document's own last paragraph, in Normal. Give it back
+    ' its TOC 1 to TOC 5 style, or the keep-the-TOC-style check below cannot see it and it comes
+    ' home TOC 1 (11/24/2026). Any other style is left as it was before.
+    If endClipped Then
+        On Error Resume Next
+        endStyle = vbNullString
+        endStyle = doc.Paragraphs(doc.Paragraphs.count).Style.NameLocal
+        If Lp_TOC_Is_Entry_Style(endStyle) Then
+            tempDoc.Paragraphs(tempDoc.Paragraphs.count).Style = endStyle
+        End If
+        On Error GoTo eom
+    End If
 
     ' Both live, both inside the scratch document from here to the end. workRng is the TOC;
     ' fixRng is the TOC with the empty paragraph's mark in front of it.
@@ -32704,11 +32740,20 @@ Sub Lp_TOC_CleanAndFormat_TOC()
         ' is "1.2 Perception Is Everything 6" by now and is found. The same pattern as regexNum.
         hasNumberOrRoman = Lp_TOC_Line_Ends_In_Page_Number(paraRange.Text)
 
+        ' A LINE ALREADY IN TOC 1 TO TOC 5 KEEPS ITS STYLE (Jerry, 11/24/2026): "If an entry is
+        ' already in a TOC style (1-5) then it should remain unchanged. Only non TOC styles
+        ' should be changed to TOC Styles." So it is not reset to Normal here, and the second
+        ' loop does not put TOC 1 on it.
+        ' It still gets the blank line in front when it has no page number (the 9/21/2026 rule
+        ' below); only the reset to Normal and its space after are left alone.
+        keepTocStyle = Lp_TOC_Para_Has_Entry_Style(paraRange)
+
         ' If no match, reset style to Normal but preserve bold map.
         ' tempDoc.Styles(wdStyleNormal), and the scratch document's Normal was set to the BOOK's
         ' face and size when it was made - see above. Naming ActiveDocument here would reach into
         ' the transcriber's book for a style and apply it to a paragraph in another document.
         If Not hasNumberOrRoman Then
+          If Not keepTocStyle Then
             charCount = paraRange.Characters.count - 1
             If charCount > 0 Then
                 ' Enumerate characters once each way (O(n)); indexed Characters(i) is O(n^2).
@@ -32731,6 +32776,7 @@ Sub Lp_TOC_CleanAndFormat_TOC()
                 para.Style = tempDoc.Styles(wdStyleNormal)
                 para.SpaceAfter = 0
             End If
+          End If
 
             ' AND A BLANK LINE IN FRONT OF IT - the same one a bold heading gets. Jerry, 9/21/2026:
             ' "the blank line goes before any line that has no associated page number." Before
@@ -32788,8 +32834,10 @@ SkipPara:
             ' character style keep it. Measured 9/28/2026 and deliberately LEFT: putting the bold
             ' back also changed Jerry's accepted "Problem TOC 2" to "Problem TOC 7", whose joined
             ' entries come out with plain titles.
+            ' Only a line not already in TOC 1 to TOC 5 - a TOC 3 entry stays TOC 3 (Jerry,
+            ' 11/24/2026). It still gets its tab and its un-bolded number above.
             On Error Resume Next
-            paraRange.Style = "TOC 1"
+            If Not Lp_TOC_Para_Has_Entry_Style(paraRange) Then paraRange.Style = "TOC 1"
             On Error GoTo eom
         End If
 
