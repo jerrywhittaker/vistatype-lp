@@ -1,17 +1,17 @@
-"""Normalize Styles sets line spacing to At least, type size + 4 points (Jerry, 11/23/2026).
+"""Normalize Styles sets line spacing to Multiple 1.25 (Jerry, 11/24/2026; At least size + 4 from 11/23).
 
-The Normal style only: it gets its own size + 4. Heading 1-5, TOC Heading, TOC 1-5, List Bullet
+The Normal style only: it gets Multiple 1.25 (LP_LINE_MULTIPLE). Heading 1-5, TOC Heading, TOC 1-5, List Bullet
 1-5, List 1-5, List Number 1-5, List Paragraph and the Para color styles would inherit that, so
 Heading 1-5 are set to Single with 0 after (Jerry, 11/23/2026), and the others take Normal's
-At least base + 4 with 0 after (Jerry, 11/24/2026: one rule, one number to offer the user).
+Normal's Multiple 1.25 with 0 after (Jerry, 11/24/2026: one rule, one number to offer the user).
 At least, not Exactly: Exactly was tried first and cut off anything taller than the line -
 pictures, equations, and the superscripts the attach enlarges afterward.
 
 What this checks, on the source (Normalize Styles reaches a Document, which the headless VBA
 runner cannot do - tests/vba/README.md):
 
-  1. Normal is set At least at its own Font.Size + 4.
-  2. Heading 1-5 Single; the others At least base + 4, on the style and on the paragraphs.
+  1. Normal is set to Multiple LP_LINE_MULTIPLE.
+  2. Heading 1-5 Single; the others Multiple 1.25, on the style and on the paragraphs.
   3. Nothing in the pass uses Exactly.
   4. The pass comes after the size passes (so the sizes read are final) and before
      Sh_Color_Dollar_PG_Red, which must stay last.
@@ -44,16 +44,16 @@ def first_line(lines, pattern):
     return next((i for i, c in enumerate(lines) if re.search(pattern, c)), None)
 
 
-def test_normal_is_at_least_its_size_plus_four(repo_root):
+def test_normal_is_multiple_1_25(repo_root):
     body = "\n".join(lines_of(repo_root, SUB))
     m = re.search(r"With ActiveDocument\.Styles\(wdStyleNormal\)(.*?)End With", body, re.S)
     assert m, "Normal's line spacing is not set"
-    assert re.search(r"\.ParagraphFormat\.LineSpacingRule = wdLineSpaceAtLeast", m.group(1))
-    assert re.search(r"\.ParagraphFormat\.LineSpacing = \.Font\.Size \+ 4", m.group(1))
+    assert re.search(r"\.ParagraphFormat\.LineSpacingRule = wdLineSpaceMultiple", m.group(1))
+    assert re.search(r"\.ParagraphFormat\.LineSpacing = LinesToPoints\(LP_LINE_MULTIPLE\)", m.group(1))
 
 
-def test_headings_single_the_rest_at_least_base_plus_four(repo_root):
-    """Jerry, 11/24/2026: TOC, List and Para color styles take Normal's At least base + 4;
+def test_headings_single_the_rest_multiple(repo_root):
+    """Jerry, 11/24/2026: TOC, List and Para color styles take Normal's Multiple 1.25;
     Heading 1-5 stay Single. No points are added to the headings."""
     lines = lines_of(repo_root, SUB)
     start = first_line(lines, r'"Setting line spacing"')
@@ -64,14 +64,14 @@ def test_headings_single_the_rest_at_least_base_plus_four(repo_root):
     got = set(re.findall(r'"([^"]+)"', names.group(1)))
     assert ALL_SINGLE <= got, f"missing: {sorted(ALL_SINGLE - got)}"
     assert re.search(r"Sh_Style_Exists\(ActiveDocument, CStr\(StyleNames\(i\)\)\)", body)
-    assert re.search(r"bodyLinePts = ActiveDocument\.Styles\(wdStyleNormal\)\.Font\.Size \+ 4", body)
+    assert re.search(r"bodyLinePts = LinesToPoints\(LP_LINE_MULTIPLE\)", body)
     assert re.search(r'isHeadingStyle = \(Left\$\(StyleNames\(i\), 8\) = "Heading "\)', body)
     assert re.search(r"If isHeadingStyle Then\s+sty\.ParagraphFormat\.LineSpacingRule = wdLineSpaceSingle\s+"
-                     r"Else\s+sty\.ParagraphFormat\.LineSpacingRule = wdLineSpaceAtLeast\s+"
+                     r"Else\s+sty\.ParagraphFormat\.LineSpacingRule = wdLineSpaceMultiple\s+"
                      r"sty\.ParagraphFormat\.LineSpacing = bodyLinePts", body)
     # Paragraphs carrying direct line spacing get it too, through the same Find and Replace.
     assert re.search(r"If Not isHeadingStyle Then\s+(?:'.*\s+)*"
-                     r"\.Replacement\.ParagraphFormat\.LineSpacingRule = wdLineSpaceAtLeast\s+"
+                     r"\.Replacement\.ParagraphFormat\.LineSpacingRule = wdLineSpaceMultiple\s+"
                      r"\.Replacement\.ParagraphFormat\.LineSpacing = bodyLinePts", body)
 
 
@@ -123,3 +123,9 @@ def test_the_bar_total_is_one_more_than_the_steps(repo_root):
     body = "\n".join(lines_of(repo_root, STEP))
     total = int(re.search(r"Const LP_NS_STEPS As Long = (\d+)", body).group(1))
     assert total == steps + 1, f"{steps} steps, so LP_NS_STEPS should be {steps + 1}, not {total}"
+
+
+def test_the_multiple_is_1_25(repo_root):
+    """Jerry, 11/24/2026: Multiple 1.25 - 1.5 times the type size in Tahoma, measured 18-28 pt."""
+    text = module_text(repo_root)
+    assert re.search(r"^Private Const LP_LINE_MULTIPLE As Single = 1\.25\b", text, re.M)

@@ -18,7 +18,9 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - LP  - 11/24/2026 - NORMALIZE STYLES: ONE LINE SPACING RULE (Jerry): TOC Heading, TOC 1-5,
+' Notes:    - LP  - 11/24/2026 - NORMALIZE STYLES: LINE SPACING MULTIPLE 1.25 (Jerry), not At least
+'           - LP  - 11/24/2026 - size + 4: 1.5 times the type size at every size (WCAG 1.4.8).
+'           - LP  - 11/24/2026 - NORMALIZE STYLES: ONE LINE SPACING RULE (Jerry): TOC Heading, TOC 1-5,
 '           - LP  - 11/24/2026 - the List styles and the Para colors are At least base + 4, 0 after,
 '           - LP  - 11/24/2026 - like Normal's lines; Heading 1-5 stay Single, 0 after.
 '           - LP  - 11/24/2026 - NORMALIZE STYLES: TEXT IN A TABLE GETS 0 PT AFTER (Jerry), not the
@@ -3694,6 +3696,12 @@ Private Const VT_STORE_STAMP_NOW As String = "13"
 ' between machines and between Office versions. It is the only large print template name the
 ' add-in has ever shipped.
 Private Const LP_TEMPLATE_FILE As String = "LargePrintTemplate.dotx"
+
+' The line spacing Normalize Styles gives Normal and the TOC, List and Para color styles, as a
+' Word "Multiple" (Jerry, 11/24/2026). 1.25 times Tahoma's single spacing is 1.5 times the type
+' size at every size - measured 18 to 28 pt: 27.15, 30.20, 36.20, 42.25 pt - which is WCAG
+' 1.4.8's space-and-a-half. One number, so it can be offered to the user later.
+Private Const LP_LINE_MULTIPLE As Single = 1.25
 
 ' Which of the three configurations is in force. Word's Options and AutoCorrect entries are
 ' per-APPLICATION, not per-document, so with an LP book and a braille file both open only one
@@ -30579,6 +30587,9 @@ End Function   '*** end of Sh_Number_To_Roman ***
 
 Sub Lp_Normalize_Styles()
     '
+    ' Version: 3.13 Date: 11/24/2026 - line spacing Multiple 1.25 (LP_LINE_MULTIPLE) on Normal and
+    '                               the TOC, List and Para color styles, in place of At least
+    '                               size + 4 (Jerry): 1.5 times the type size at every size
     ' Version: 3.12 Date: 11/24/2026 - the TOC, List and Para color styles take Normal's line
     '                               spacing, At least base + 4, with 0 after, in place of Single
     '                               with 4 after (Jerry); Heading 1-5 stay Single, 0 after
@@ -30937,20 +30948,20 @@ Sub Lp_Normalize_Styles()
     ' AFTER the size passes above, so the sizes read here are final; BEFORE
     ' Sh_Color_Dollar_PG_Red, which stays last.
     '
-    ' THE NORMAL STYLE ONLY gets points added (Jerry, 11/23/2026): line spacing At least its size
-    ' + 4. The TOC, List and Para color styles are given the same below (11/24/2026); Heading 1-5
-    ' are set to Single. All of them get 0 points after instead of the base size.
+    ' MULTIPLE 1.25 (LP_LINE_MULTIPLE; Jerry, 11/24/2026) on Normal, and the same below on the
+    ' TOC, List and Para color styles; Heading 1-5 are set to Single. The list styles get 0 after.
+    ' It replaced At least size + 4 (11/23/2026), which measured the same as Single from 20 pt up:
+    ' Tahoma's own single spacing is 1.207 times the size, more than size + 4 there.
     '
-    ' AT LEAST, NOT EXACTLY. Exactly was tried first and cuts off anything taller than the line:
-    ' pictures, equations, and the superscripts and subscripts the attach enlarges after this
-    ' (Lp_Size_Raised_Lowered, about 29 pt in an 18 pt book). At least lets such a line grow to
-    ' fit. Above about 20 pt the typeface's own single spacing is more than size + 4 and wins.
-    ' "1 point" is left alone: it carries its own Exactly 1 pt.
+    ' NOT EXACTLY. Exactly was tried first and cuts off anything taller than the line: pictures,
+    ' equations, and the superscripts and subscripts the attach enlarges after this
+    ' (Lp_Size_Raised_Lowered, about 29 pt in an 18 pt book). Multiple, like At least, lets such a
+    ' line grow to fit. "1 point" is left alone: it carries its own Exactly 1 pt.
     Lp_Ns_Step stepNo, "Setting line spacing"
 
     With ActiveDocument.Styles(wdStyleNormal)
-        .ParagraphFormat.LineSpacingRule = wdLineSpaceAtLeast
-        .ParagraphFormat.LineSpacing = .Font.Size + 4
+        .ParagraphFormat.LineSpacingRule = wdLineSpaceMultiple
+        .ParagraphFormat.LineSpacing = LinesToPoints(LP_LINE_MULTIPLE)
     End With
 
     ' Heading 1-5 SINGLE; the lists, the TOC and the Para color styles AT LEAST BASE + 4 (Jerry,
@@ -30972,14 +30983,14 @@ Sub Lp_Normalize_Styles()
                        "Para Green", "Para Tan", "Para Yellow")
 
     ' ONE RULE FOR THE BODY STYLES (Jerry, 11/24/2026): everything in the list except Heading 1-5
-    ' now takes the Normal style's line spacing - At least, base size + 4 - with 0 points after,
-    ' in place of Single with 4 after. Jerry found by trying it that it looks right, and one rule
-    ' is one number to offer the user later. Heading 1-5 stay Single with 0 after.
+    ' now takes the Normal style's line spacing - Multiple LP_LINE_MULTIPLE - with 0 points after,
+    ' in place of Single with 4 after. One rule is one number to offer the user later. Heading 1-5
+    ' stay Single with 0 after.
     Dim spaceAfterPts As Single
     Dim isHeadingStyle As Boolean
     Dim bodyLinePts As Single
 
-    bodyLinePts = ActiveDocument.Styles(wdStyleNormal).Font.Size + 4
+    bodyLinePts = LinesToPoints(LP_LINE_MULTIPLE)
 
     For i = LBound(StyleNames) To UBound(StyleNames)
         If Sh_Style_Exists(ActiveDocument, CStr(StyleNames(i))) Then
@@ -30989,7 +31000,7 @@ Sub Lp_Normalize_Styles()
             If isHeadingStyle Then
                 sty.ParagraphFormat.LineSpacingRule = wdLineSpaceSingle
             Else
-                sty.ParagraphFormat.LineSpacingRule = wdLineSpaceAtLeast
+                sty.ParagraphFormat.LineSpacingRule = wdLineSpaceMultiple
                 sty.ParagraphFormat.LineSpacing = bodyLinePts
             End If
             sty.ParagraphFormat.SpaceAfterAuto = False
@@ -31002,7 +31013,7 @@ Sub Lp_Normalize_Styles()
                     .Replacement.ParagraphFormat.SpaceAfter = spaceAfterPts
                     If Not isHeadingStyle Then
                         ' Direct line spacing on a paragraph (an import) beats the style.
-                        .Replacement.ParagraphFormat.LineSpacingRule = wdLineSpaceAtLeast
+                        .Replacement.ParagraphFormat.LineSpacingRule = wdLineSpaceMultiple
                         .Replacement.ParagraphFormat.LineSpacing = bodyLinePts
                     End If
                     .Text = ""
