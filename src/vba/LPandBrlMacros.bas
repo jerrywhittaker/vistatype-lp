@@ -18,7 +18,9 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - LP  - 11/24/2026 - CLEAN AND FORMAT THE TOC KEEPS TOC 1 TO TOC 5 (Jerry): a line
+' Notes:    - LP  - 11/24/2026 - NORMALIZE STYLES: TEXT IN A TABLE GETS 0 PT AFTER (Jerry), not the
+'           - LP  - 11/24/2026 - base size; line spacing stays At least size + 4.
+'           - LP  - 11/24/2026 - CLEAN AND FORMAT THE TOC KEEPS TOC 1 TO TOC 5 (Jerry): a line
 '           - LP  - 11/24/2026 - already in a TOC style keeps it; only other styles become TOC 1.
 '           - LP  - 11/23/2026 - LINE SPACING AT LEAST TYPE SIZE + 4 (Jerry): a new pass at the end
 '           - LP  - 11/23/2026 - of Normalize Styles, body text only - the Normal style at its size
@@ -30574,6 +30576,8 @@ End Function   '*** end of Sh_Number_To_Roman ***
 
 Sub Lp_Normalize_Styles()
     '
+    ' Version: 3.11 Date: 11/24/2026 - text in a table gets 0 points after, not the base size
+    '                               (Jerry); its line spacing is left as the style has it
     ' Version: 3.10 Date: 11/23/2026 - line spacing At least, type size + 4 (Jerry), body text only:
     '                               the Normal style at its size + 4; the headings, lists, TOC
     '                               and Para color styles are Single, 4 pt after (Heading 1-5: 0). At least, not Exactly, so nothing taller is cut
@@ -30995,6 +30999,18 @@ Sub Lp_Normalize_Styles()
             End If
         End If
     Next i
+
+    ' TEXT IN A TABLE GETS 0 POINTS AFTER (Jerry, 11/24/2026): the base size after every
+    ' paragraph, set above, is too much inside a table cell. Last, so it wins over the 4 points
+    ' the list and TOC styles were given above too. The line spacing is left as the style has it
+    ' (Normal: At least, size + 4 - "which is okay"). A table's range takes in any table nested
+    ' inside it. Main text only, the same story the base-size pass covers.
+    Dim spTbl As Table
+    On Error Resume Next
+    For Each spTbl In ActiveDocument.Tables
+        spTbl.Range.ParagraphFormat.SpaceAfter = 0
+    Next spTbl
+    On Error GoTo 0
     '*********** end line spacing **************
 
     ' LAST thing done to the document, and deliberately silent (Jerry, 7/30/2026).
