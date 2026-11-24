@@ -71,8 +71,8 @@ def test_headings_single_the_rest_multiple(repo_root):
                      r"sty\.ParagraphFormat\.LineSpacing = bodyLinePts", body)
     # Paragraphs carrying direct line spacing get it too, through the same Find and Replace.
     assert re.search(r"If Not isHeadingStyle Then\s+(?:'.*\s+)*"
-                     r"\.Replacement\.ParagraphFormat\.LineSpacingRule = wdLineSpaceMultiple\s+"
-                     r"\.Replacement\.ParagraphFormat\.LineSpacing = bodyLinePts", body)
+                     r"\.LineSpacingRule = wdLineSpaceMultiple\s+"
+                     r"\.LineSpacing = bodyLinePts", body)
 
 
 def test_nothing_in_the_pass_is_exactly(repo_root):
@@ -89,7 +89,7 @@ def test_space_after_on_the_named_styles(repo_root):
     lines = lines_of(repo_root, SUB)
     story = first_line(lines, r"ActiveDocument\.Content\.ParagraphFormat\.SpaceAfter = Lp_Base_Font_Size")
     style_set = first_line(lines, r"sty\.ParagraphFormat\.SpaceAfter = spaceAfterPts")
-    direct = first_line(lines, r"\.Replacement\.ParagraphFormat\.SpaceAfter = spaceAfterPts")
+    direct = first_line(lines, r"^\s*\.SpaceAfter = spaceAfterPts")
     assert story is not None and style_set is not None and direct is not None
     assert story < style_set < direct, "the 0 pt must come after the story-wide space after"
     lists = re.findall(r"StyleNames = Array\((.*?)\)\s*\n", "\n".join(lines[style_set - 45:style_set]), re.S)
@@ -100,7 +100,9 @@ def test_space_after_on_the_named_styles(repo_root):
     assert re.search(r"spaceAfterPts = 0\s*$", pick, re.M), "every one of these styles gets 0 after (11/24/2026)"
     assert not re.search(r"spaceAfterPts = [1-9]", pick), "no 4 pt after any more"
     body = "\n".join(lines[style_set:direct + 20])
-    assert ".Style = sty" in body and "Replace:=wdReplaceAll" in body and ".Format = True" in body
+    assert ".Style = sty" in body and ".Format = True" in body
+    assert re.search(r"Do While spRng\.Find\.Execute", body), "each run of the style is found in turn"
+    assert "With spRng.ParagraphFormat" in body
     # Auto space after shows as space even when SpaceAfter reads 0 (measured 11/23/2026).
     assert "sty.ParagraphFormat.SpaceAfterAuto = False" in "\n".join(lines[style_set - 3:style_set])
     # A Find and Replace cannot clear Auto (measured), so the paragraphs get it directly, story-wide,
@@ -129,3 +131,12 @@ def test_the_multiple_is_1_25(repo_root):
     """Jerry, 11/24/2026: Multiple 1.25 - 1.5 times the type size in Tahoma, measured 18-28 pt."""
     text = module_text(repo_root)
     assert re.search(r"^Private Const LP_LINE_MULTIPLE As Single = 1\.25\b", text, re.M)
+
+
+def test_no_replace_all_in_normalize_styles(repo_root):
+    """11/24/2026: the line-spacing pass sets each found run of a style directly instead of a
+    Find and Replace with replacement paragraph formatting. Tried while chasing issue #56 and
+    NOT a cure for it; this only holds the pass to the way it is written now."""
+    body = "\n".join(lines_of(repo_root, SUB))
+    assert "wdReplaceAll" not in body, "no replace-all in Normalize Styles"
+    assert ".Replacement.ParagraphFormat" not in body, "no replacement paragraph formatting"

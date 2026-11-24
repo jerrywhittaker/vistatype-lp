@@ -18,7 +18,9 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - LP  - 11/24/2026 - NORMALIZE STYLES: LETTER SPACING 0.12 x TYPE SIZE (Jerry), WCAG 1.4.12;
+' Notes:    - LP  - 11/24/2026 - Normalize Styles' line-spacing Find and Replace is now a plain Find, each
+'           - LP  - 11/24/2026 - run set. Tried for #56 (Word dies on a 2nd attach) - NOT a cure; #56 open.
+'           - LP  - 11/24/2026 - NORMALIZE STYLES: LETTER SPACING 0.12 x TYPE SIZE (Jerry), WCAG 1.4.12;
 '           - LP  - 11/24/2026 - headings at their own size. The two spacing tables are gone.
 '           - LP  - 11/24/2026 - NORMALIZE STYLES: LINE SPACING MULTIPLE 1.25 (Jerry), not At least
 '           - LP  - 11/24/2026 - size + 4: 1.5 times the type size at every size (WCAG 1.4.8).
@@ -30595,6 +30597,9 @@ End Function   '*** end of Sh_Number_To_Roman ***
 
 Sub Lp_Normalize_Styles()
     '
+    ' Version: 3.15 Date: 11/24/2026 - the line-spacing pass's Find and Replace is now a Find that
+    '                               sets each run of paragraphs directly - no replace-all. Tried
+    '                               for issue #56 (Word dying on a second attach); NOT a cure
     ' Version: 3.14 Date: 11/24/2026 - letter spacing 0.12 times the type size (LP_LETTER_SPACING)
     '                               on Normal, List Paragraph and each heading at its own size,
     '                               in place of the two spacing tables (Jerry)
@@ -30940,8 +30945,8 @@ Sub Lp_Normalize_Styles()
     ' Heading 1-5 SINGLE; the lists, the TOC and the Para color styles AT LEAST BASE + 4 (Jerry,
     ' 11/23 and 11/24/2026); 0 points after for all of them. "Setting spacing
     ' between paragraphs" above put the base size after EVERY paragraph as direct formatting,
-    ' which beats the style - so the style is set AND its paragraphs are given the value directly, by Find and Replace on the style (one pass per style
-    ' in use, not a loop over every paragraph). Main text only, the same story that pass covers.
+    ' which beats the style - so the style is set AND its paragraphs are given the value directly, by a Find on the style that steps through each run of
+    ' its paragraphs (one pass per style in use, not a loop over every paragraph; not a Replace - #56). Main text only, the same story that pass covers.
     ' A style missing from the book is skipped. The Find is cleared at the end of this sub.
     ' Auto space after is turned off on the style here; on the paragraphs it was turned off in
     ' "Setting spacing between paragraphs" above.
@@ -30962,6 +30967,8 @@ Sub Lp_Normalize_Styles()
     Dim spaceAfterPts As Single
     Dim isHeadingStyle As Boolean
     Dim bodyLinePts As Single
+    Dim spRng As Range              ' one run of paragraphs in the style (#56)
+    Dim spLastEnd As Long
 
     bodyLinePts = LinesToPoints(LP_LINE_MULTIPLE)
 
@@ -30978,19 +30985,17 @@ Sub Lp_Normalize_Styles()
             End If
             sty.ParagraphFormat.SpaceAfterAuto = False
             sty.ParagraphFormat.SpaceAfter = spaceAfterPts
+            ' A FIND, NOT A REPLACE (11/24/2026). Each run of paragraphs in the style is found and
+            ' its spacing set on the range directly. Direct spacing on a paragraph (the base size
+            ' after, set above, or an import's own line spacing) beats the style. Written while
+            ' chasing issue #56 - Word dying on a second attach in one session - and it did NOT cure
+            ' that (3.0.713 crashed too); kept because it does the same job without a replace-all.
             If sty.InUse Then
-                With ActiveDocument.Content.Find
+                Set spRng = ActiveDocument.Content
+                With spRng.Find
                     .ClearFormatting
                     .Style = sty
-                    .Replacement.ClearFormatting
-                    .Replacement.ParagraphFormat.SpaceAfter = spaceAfterPts
-                    If Not isHeadingStyle Then
-                        ' Direct line spacing on a paragraph (an import) beats the style.
-                        .Replacement.ParagraphFormat.LineSpacingRule = wdLineSpaceMultiple
-                        .Replacement.ParagraphFormat.LineSpacing = bodyLinePts
-                    End If
                     .Text = ""
-                    .Replacement.Text = ""
                     .Forward = True
                     .Wrap = wdFindStop
                     .Format = True
@@ -30999,8 +31004,21 @@ Sub Lp_Normalize_Styles()
                     .MatchWildcards = False
                     .MatchSoundsLike = False
                     .MatchAllWordForms = False
-                    .Execute Replace:=wdReplaceAll
                 End With
+                spLastEnd = -1
+                Do While spRng.Find.Execute
+                    ' A find that does not move on would loop for ever; stop instead.
+                    If spRng.End <= spLastEnd Then Exit Do
+                    spLastEnd = spRng.End
+                    With spRng.ParagraphFormat
+                        .SpaceAfter = spaceAfterPts
+                        If Not isHeadingStyle Then
+                            .LineSpacingRule = wdLineSpaceMultiple
+                            .LineSpacing = bodyLinePts
+                        End If
+                    End With
+                    spRng.Collapse wdCollapseEnd
+                Loop
             End If
         End If
     Next i

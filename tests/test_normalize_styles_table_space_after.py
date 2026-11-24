@@ -23,7 +23,7 @@ def first(lines, pattern, after=-1):
 def test_table_text_gets_zero_after_last(repo_root):
     lines = procedures(module_text(repo_root))[SUB]
     base = first(lines, r"Content\.ParagraphFormat\.SpaceAfter\s*=\s*Lp_Base_Font_Size")
-    loop = first(lines, r"\.Replacement\.ParagraphFormat\.SpaceAfter\s*=\s*spaceAfterPts")
+    loop = first(lines, r"^\s*\.SpaceAfter\s*=\s*spaceAfterPts")
     each = first(lines, r"For\s+Each\s+\w+\s+In\s+ActiveDocument\.Tables")
     zero = first(lines, r"\.Range\.ParagraphFormat\.SpaceAfter\s*=\s*0\s*$", each or -1)
     red = first(lines, r"Sh_Color_Dollar_PG_Red")
