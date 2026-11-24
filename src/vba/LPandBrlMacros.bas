@@ -18,7 +18,16 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Sh  - 11/16/2026 - CTRL+ALT+SHIFT+I (DOCUMENT INFO) IN EVERY DOCUMENT (Jerry): the
+' Notes:    - LP  - 11/23/2026 - LINE SPACING AT LEAST TYPE SIZE + 4 (Jerry): a new pass at the end
+'           - LP  - 11/23/2026 - of Normalize Styles, body text only - the Normal style at its size
+'           - LP  - 11/23/2026 - + 4; Heading 1-5, TOC Heading, TOC 1-5, the List styles (Bullet,
+'           - LP  - 11/23/2026 - Number, plain, Paragraph) and the Para colors are Single with
+'           - LP  - 11/23/2026 - 4 pt space after instead of the base size; Heading 1-5 get 0 after.
+'           - LP  - 11/23/2026 - EXPANDED SPACING COMES OUT AS THE TABLE SAYS (Jerry): Word dropped
+'           - LP  - 11/23/2026 - 0.05 pt from most sizes (measured); Lp_Spacing_For_Word rounds it.
+'           - LP  - 11/23/2026 - 38 pt body spacing 3.65 -> 3.8, the table's 0.25 step. A TEST. At least, not Exactly: Exactly cut off pictures,
+'           - LP  - 11/23/2026 - equations and enlarged superscripts. A TEST.
+'           - Sh  - 11/16/2026 - CTRL+ALT+SHIFT+I (DOCUMENT INFO) IN EVERY DOCUMENT (Jerry): the
 '           - Sh  - 11/16/2026 - shortcut is now stored in the add-in itself, not only in
 '           - Sh  - 11/16/2026 - LargePrintTemplate.dotx. No VBA changed: src/keymap/addin-keymap.xml
 '           - Sh  - 11/16/2026 - goes into the .dotm at build time. A TEST.
@@ -30552,6 +30561,11 @@ End Function   '*** end of Sh_Number_To_Roman ***
 
 Sub Lp_Normalize_Styles()
     '
+    ' Version: 3.10 Date: 11/23/2026 - line spacing At least, type size + 4 (Jerry), body text only:
+    '                               the Normal style at its size + 4; the headings, lists, TOC
+    '                               and Para color styles are Single, 4 pt after (Heading 1-5: 0). At least, not Exactly, so nothing taller is cut
+    '                               off. 15 passes. Expanded spacing is rounded for Word
+    '                               (Lp_Spacing_For_Word) and 38 pt is 3.8, not 3.65 (Jerry)
     ' Version: 3.9  Date: 11/14/2026 - Caption paragraphs become Box Red (Jerry), just before
     '                               the italics step - see Lp_Captions_To_Box_Red. 14 passes
     ' Version: 3.8  Date: 9/18/2026 - RUN-TIME ERROR 5843 AT "Setting table border weights" on a book
@@ -30678,7 +30692,14 @@ Sub Lp_Normalize_Styles()
     ' Same value on every paragraph => one story-level assignment instead of a per-paragraph
     ' loop. On Error Resume Next preserves the original no-op behavior when Lp_Base_Font_Size
     ' is "" (type mismatch, swallowed); a numeric string like "18" coerces to 18 pt as before.
+    '
+    ' Auto space after is turned off first, on every paragraph (11/23/2026). A paragraph from
+    ' imported HTML or DAISY can carry "Auto", which Word draws as about a line of space whatever
+    ' the number says - so neither the base size here nor the 0 the headings get further down
+    ' would show. MEASURED on vistabuild: a Find and Replace cannot clear Auto, a direct
+    ' assignment can.
     On Error Resume Next
+    ActiveDocument.Content.ParagraphFormat.SpaceAfterAuto = False
     ActiveDocument.Content.ParagraphFormat.SpaceAfter = Lp_Base_Font_Size
     On Error GoTo 0
     '***** End Setting space after para Size ****
@@ -30766,7 +30787,7 @@ Sub Lp_Normalize_Styles()
     Dim i As Long
     Dim StyleList As Variant
     Dim SpacingTable As Variant
-    Dim targetSpacing As Single
+    Dim targetSpacing As Double
     Dim sty As Style
 
     StyleList = Array("Normal", "List Paragraph")
@@ -30784,7 +30805,7 @@ Sub Lp_Normalize_Styles()
         32, 3.05, _
         34, 3.3, _
         36, 3.55, _
-        38, 3.65, _
+        38, 3.8, _
         40, 4.05, _
         42, 4.3)
 
@@ -30800,7 +30821,7 @@ Sub Lp_Normalize_Styles()
         Set sty = ActiveDocument.Styles(styleName)
 
         sty.AutomaticallyUpdate = True
-        sty.Font.spacing = targetSpacing
+        sty.Font.spacing = Lp_Spacing_For_Word(targetSpacing)
         sty.AutomaticallyUpdate = False
     Next i
     '********* End Expand Font Spacing Settings ******
@@ -30843,7 +30864,7 @@ Sub Lp_Normalize_Styles()
     
     Dim StyleNames As Variant
     Dim SizeOffsets As Variant
-    Dim headingSpacing As Single
+    Dim headingSpacing As Double
 
     StyleNames = Array("Heading 1", "Heading 2", "Heading 3", "Heading 4", "Heading 5")
     SizeOffsets = Array(10, 8, 6, 4, 2)
@@ -30871,7 +30892,7 @@ Sub Lp_Normalize_Styles()
         sty.Font.Size = base + SizeOffsets(i)
         sty.Font.Bold = True
         sty.Font.Position = 0
-        sty.Font.spacing = headingSpacing
+        sty.Font.spacing = Lp_Spacing_For_Word(headingSpacing)
     Next i
     '*********** end heading styles **************
 
@@ -30889,6 +30910,80 @@ Sub Lp_Normalize_Styles()
     Next i
     '********** End Set Base Font Size for Para Styles ***********
 
+    '*********** begin line spacing (Jerry, 11/23/2026) **************
+    ' AFTER the size passes above, so the sizes read here are final; BEFORE
+    ' Sh_Color_Dollar_PG_Red, which stays last.
+    '
+    ' THE NORMAL STYLE ONLY gets points added (Jerry, 11/23/2026): line spacing At least its size
+    ' + 4. Styles based on Normal inherit that unless they say otherwise, so the ones Jerry named
+    ' are set below to Single, with 4 points after instead of the base size.
+    '
+    ' AT LEAST, NOT EXACTLY. Exactly was tried first and cuts off anything taller than the line:
+    ' pictures, equations, and the superscripts and subscripts the attach enlarges after this
+    ' (Lp_Size_Raised_Lowered, about 29 pt in an 18 pt book). At least lets such a line grow to
+    ' fit. Above about 20 pt the typeface's own single spacing is more than size + 4 and wins.
+    ' "1 point" is left alone: it carries its own Exactly 1 pt.
+    Lp_Ns_Step stepNo, "Setting line spacing"
+
+    With ActiveDocument.Styles(wdStyleNormal)
+        .ParagraphFormat.LineSpacingRule = wdLineSpaceAtLeast
+        .ParagraphFormat.LineSpacing = .Font.Size + 4
+    End With
+
+    ' SINGLE (Jerry, 11/23/2026) for the headings, the lists, the TOC and the Para color styles,
+    ' with 0 points after for Heading 1-5 and 4 points after for the rest. "Setting spacing
+    ' between paragraphs" above put the base size after EVERY paragraph as direct formatting,
+    ' which beats the style - so the style is set AND its paragraphs are given the value directly, by Find and Replace on the style (one pass per style
+    ' in use, not a loop over every paragraph). Main text only, the same story that pass covers.
+    ' A style missing from the book is skipped. The Find is cleared at the end of this sub.
+    ' Auto space after is turned off on the style here; on the paragraphs it was turned off in
+    ' "Setting spacing between paragraphs" above.
+    StyleNames = Array("Heading 1", "Heading 2", "Heading 3", "Heading 4", "Heading 5", _
+                       "TOC Heading", "TOC 1", "TOC 2", "TOC 3", "TOC 4", "TOC 5", _
+                       "List", "List 2", "List 3", "List 4", "List 5", _
+                       "List Bullet", "List Bullet 2", "List Bullet 3", "List Bullet 4", _
+                       "List Bullet 5", _
+                       "List Number", "List Number 2", "List Number 3", "List Number 4", _
+                       "List Number 5", "List Paragraph", _
+                       "Para Aqua", "Para Black", "Para Black Inverted", "Para Blue", _
+                       "Para Green", "Para Tan", "Para Yellow")
+
+    Dim spaceAfterPts As Single
+
+    For i = LBound(StyleNames) To UBound(StyleNames)
+        If Sh_Style_Exists(ActiveDocument, CStr(StyleNames(i))) Then
+            If Left$(StyleNames(i), 8) = "Heading " Then
+                spaceAfterPts = 0
+            Else
+                spaceAfterPts = 4
+            End If
+            Set sty = ActiveDocument.Styles(StyleNames(i))
+            sty.ParagraphFormat.LineSpacingRule = wdLineSpaceSingle
+            sty.ParagraphFormat.SpaceAfterAuto = False
+            sty.ParagraphFormat.SpaceAfter = spaceAfterPts
+            If sty.InUse Then
+                With ActiveDocument.Content.Find
+                    .ClearFormatting
+                    .Style = sty
+                    .Replacement.ClearFormatting
+                    .Replacement.ParagraphFormat.SpaceAfter = spaceAfterPts
+                    .Text = ""
+                    .Replacement.Text = ""
+                    .Forward = True
+                    .Wrap = wdFindStop
+                    .Format = True
+                    .MatchCase = False
+                    .MatchWholeWord = False
+                    .MatchWildcards = False
+                    .MatchSoundsLike = False
+                    .MatchAllWordForms = False
+                    .Execute Replace:=wdReplaceAll
+                End With
+            End If
+        End If
+    Next i
+    '*********** end line spacing **************
+
     ' LAST thing done to the document, and deliberately silent (Jerry, 7/30/2026).
     ' It used to run near the top, before every style update above - and those updates reset
     ' the font color of the styles they touch, so the red could be undone again before the
@@ -30902,6 +30997,24 @@ Sub Lp_Normalize_Styles()
      Application.ScreenUpdating = su_Prev
 
 End Sub
+
+Private Function Lp_Spacing_For_Word(ByVal pts As Double) As Single
+'
+' Version: 1.0  Date: 11/23/2026
+'
+' An expanded character spacing in points, made safe to hand to Word's Font.Spacing.
+'
+' Word keeps the spacing in twentieths of a point and DROPS any fraction of one. Font.Spacing
+' is a Single, and a Single cannot hold most of the table's values exactly: 1.05 is stored as
+' 1.0499999, which is 20.999 twentieths, which Word keeps as 20 - so 1.05 came out 1.00.
+' MEASURED on vistabuild 11/23/2026 at every size from 14 to 42: 14 of the 15 body values and
+' 8 of the 15 heading values came out 0.05 point under the table.
+'
+' So the value is rounded to the nearest twentieth and a quarter of a twentieth is added. That
+' lands inside the right twentieth whether Word drops the fraction or rounds it.
+'
+    Lp_Spacing_For_Word = CSng((Round(pts * 20#, 0) + 0.25) / 20#)
+End Function   '*** end of Lp_Spacing_For_Word ***
 
 Private Sub Lp_Ns_Step(ByRef stepNo As Long, ByVal what As String)
 '
@@ -30926,7 +31039,7 @@ Private Sub Lp_Ns_Step(ByRef stepNo As Long, ByVal what As String)
 ' there before: these thirteen lines used to be written into Sh_NonModalMessageForm, and merely
 ' naming that form LOADS it, so the messages ran into a form nobody had shown.
 
-    Const LP_NS_STEPS As Long = 15      ' 14 passes from 11/14/2026 (Caption to Box Red)
+    Const LP_NS_STEPS As Long = 16      ' 15 passes from 11/23/2026 (line spacing)
 
     stepNo = stepNo + 1
     Sh_Progress_Say 100# * stepNo / LP_NS_STEPS, what
