@@ -18,7 +18,9 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - LP  - 11/24/2026 - NORMALIZE STYLES: LINE SPACING MULTIPLE 1.25 (Jerry), not At least
+' Notes:    - LP  - 11/24/2026 - NORMALIZE STYLES: LETTER SPACING 0.12 x TYPE SIZE (Jerry), WCAG 1.4.12;
+'           - LP  - 11/24/2026 - headings at their own size. The two spacing tables are gone.
+'           - LP  - 11/24/2026 - NORMALIZE STYLES: LINE SPACING MULTIPLE 1.25 (Jerry), not At least
 '           - LP  - 11/24/2026 - size + 4: 1.5 times the type size at every size (WCAG 1.4.8).
 '           - LP  - 11/24/2026 - NORMALIZE STYLES: ONE LINE SPACING RULE (Jerry): TOC Heading, TOC 1-5,
 '           - LP  - 11/24/2026 - the List styles and the Para colors are At least base + 4, 0 after,
@@ -3702,6 +3704,12 @@ Private Const LP_TEMPLATE_FILE As String = "LargePrintTemplate.dotx"
 ' size at every size - measured 18 to 28 pt: 27.15, 30.20, 36.20, 42.25 pt - which is WCAG
 ' 1.4.8's space-and-a-half. One number, so it can be offered to the user later.
 Private Const LP_LINE_MULTIPLE As Single = 1.25
+
+' The expanded letter spacing Normalize Styles gives body text and headings, as a share of the
+' type size (Jerry, 11/24/2026): 0.12 times the size, the letter spacing in WCAG 1.4.12. It
+' replaced a table that stepped 0.25 pt per size and sat about 1 pt under this at every size.
+' Headings get it on their OWN size. One number, so it can be offered to the user later.
+Private Const LP_LETTER_SPACING As Single = 0.12
 
 ' Which of the three configurations is in force. Word's Options and AutoCorrect entries are
 ' per-APPLICATION, not per-document, so with an LP book and a braille file both open only one
@@ -30587,6 +30595,9 @@ End Function   '*** end of Sh_Number_To_Roman ***
 
 Sub Lp_Normalize_Styles()
     '
+    ' Version: 3.14 Date: 11/24/2026 - letter spacing 0.12 times the type size (LP_LETTER_SPACING)
+    '                               on Normal, List Paragraph and each heading at its own size,
+    '                               in place of the two spacing tables (Jerry)
     ' Version: 3.13 Date: 11/24/2026 - line spacing Multiple 1.25 (LP_LINE_MULTIPLE) on Normal and
     '                               the TOC, List and Para color styles, in place of At least
     '                               size + 4 (Jerry): 1.5 times the type size at every size
@@ -30820,35 +30831,15 @@ Sub Lp_Normalize_Styles()
     Dim styleName As String
     Dim i As Long
     Dim StyleList As Variant
-    Dim SpacingTable As Variant
     Dim targetSpacing As Double
     Dim sty As Style
 
     StyleList = Array("Normal", "List Paragraph")
 
-    SpacingTable = Array( _
-        14, 0.8, _
-        16, 1.05, _
-        18, 1.3, _
-        20, 1.55, _
-        22, 1.8, _
-        24, 2.05, _
-        26, 2.3, _
-        28, 2.55, _
-        30, 2.8, _
-        32, 3.05, _
-        34, 3.3, _
-        36, 3.55, _
-        38, 3.8, _
-        40, 4.05, _
-        42, 4.3)
-
-    For i = LBound(SpacingTable) To UBound(SpacingTable) Step 2
-        If SpacingTable(i) = CLng(Lp_Base_Font_Size) Then
-            targetSpacing = SpacingTable(i + 1)
-            Exit For
-        End If
-    Next i
+    ' 0.12 TIMES THE TYPE SIZE (LP_LETTER_SPACING; Jerry, 11/24/2026), in place of the table that
+    ' ran 0.8 pt at 14 to 4.3 pt at 42. Lp_Spacing_For_Word puts it on Word's twentieth of a point:
+    ' 2.16 at 18 pt is kept as 2.15.
+    targetSpacing = LP_LETTER_SPACING * CDbl(Lp_Base_Font_Size)
 
     For i = LBound(StyleList) To UBound(StyleList)
         styleName = StyleList(i)
@@ -30898,35 +30889,17 @@ Sub Lp_Normalize_Styles()
     
     Dim StyleNames As Variant
     Dim SizeOffsets As Variant
-    Dim headingSpacing As Double
 
     StyleNames = Array("Heading 1", "Heading 2", "Heading 3", "Heading 4", "Heading 5")
     SizeOffsets = Array(10, 8, 6, 4, 2)
-
-    Select Case base
-        Case 14: headingSpacing = 1.8
-        Case 16: headingSpacing = 1.9
-        Case 18: headingSpacing = 2
-        Case 20: headingSpacing = 2.1
-        Case 22: headingSpacing = 2.2
-        Case 24: headingSpacing = 2.3
-        Case 26: headingSpacing = 2.4
-        Case 28: headingSpacing = 2.5
-        Case 30: headingSpacing = 2.6
-        Case 32: headingSpacing = 2.7
-        Case 34: headingSpacing = 2.8
-        Case 36: headingSpacing = 2.9
-        Case 38: headingSpacing = 3
-        Case 40: headingSpacing = 3.1
-        Case Else: headingSpacing = 3.2
-    End Select
 
     For i = LBound(StyleNames) To UBound(StyleNames)
         Set sty = ActiveDocument.Styles(StyleNames(i))
         sty.Font.Size = base + SizeOffsets(i)
         sty.Font.Bold = True
         sty.Font.Position = 0
-        sty.Font.spacing = Lp_Spacing_For_Word(headingSpacing)
+        ' 0.12 times THIS heading's size (Jerry, 11/24/2026), not one value for all five
+        sty.Font.spacing = Lp_Spacing_For_Word(LP_LETTER_SPACING * (base + SizeOffsets(i)))
     Next i
     '*********** end heading styles **************
 
