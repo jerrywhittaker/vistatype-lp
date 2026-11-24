@@ -18,7 +18,10 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - LP  - 11/24/2026 - NORMALIZE STYLES: TEXT IN A TABLE GETS 0 PT AFTER (Jerry), not the
+' Notes:    - LP  - 11/24/2026 - NORMALIZE STYLES: ONE LINE SPACING RULE (Jerry): TOC Heading, TOC 1-5,
+'           - LP  - 11/24/2026 - the List styles and the Para colors are At least base + 4, 0 after,
+'           - LP  - 11/24/2026 - like Normal's lines; Heading 1-5 stay Single, 0 after.
+'           - LP  - 11/24/2026 - NORMALIZE STYLES: TEXT IN A TABLE GETS 0 PT AFTER (Jerry), not the
 '           - LP  - 11/24/2026 - base size; line spacing stays At least size + 4.
 '           - LP  - 11/24/2026 - CLEAN AND FORMAT THE TOC KEEPS TOC 1 TO TOC 5 (Jerry): a line
 '           - LP  - 11/24/2026 - already in a TOC style keeps it; only other styles become TOC 1.
@@ -30576,6 +30579,9 @@ End Function   '*** end of Sh_Number_To_Roman ***
 
 Sub Lp_Normalize_Styles()
     '
+    ' Version: 3.12 Date: 11/24/2026 - the TOC, List and Para color styles take Normal's line
+    '                               spacing, At least base + 4, with 0 after, in place of Single
+    '                               with 4 after (Jerry); Heading 1-5 stay Single, 0 after
     ' Version: 3.11 Date: 11/24/2026 - text in a table gets 0 points after, not the base size
     '                               (Jerry); its line spacing is left as the style has it
     ' Version: 3.10 Date: 11/23/2026 - line spacing At least, type size + 4 (Jerry), body text only:
@@ -30932,8 +30938,8 @@ Sub Lp_Normalize_Styles()
     ' Sh_Color_Dollar_PG_Red, which stays last.
     '
     ' THE NORMAL STYLE ONLY gets points added (Jerry, 11/23/2026): line spacing At least its size
-    ' + 4. Styles based on Normal inherit that unless they say otherwise, so the ones Jerry named
-    ' are set below to Single, with 4 points after instead of the base size.
+    ' + 4. The TOC, List and Para color styles are given the same below (11/24/2026); Heading 1-5
+    ' are set to Single. All of them get 0 points after instead of the base size.
     '
     ' AT LEAST, NOT EXACTLY. Exactly was tried first and cuts off anything taller than the line:
     ' pictures, equations, and the superscripts and subscripts the attach enlarges after this
@@ -30947,8 +30953,8 @@ Sub Lp_Normalize_Styles()
         .ParagraphFormat.LineSpacing = .Font.Size + 4
     End With
 
-    ' SINGLE (Jerry, 11/23/2026) for the headings, the lists, the TOC and the Para color styles,
-    ' with 0 points after for Heading 1-5 and 4 points after for the rest. "Setting spacing
+    ' Heading 1-5 SINGLE; the lists, the TOC and the Para color styles AT LEAST BASE + 4 (Jerry,
+    ' 11/23 and 11/24/2026); 0 points after for all of them. "Setting spacing
     ' between paragraphs" above put the base size after EVERY paragraph as direct formatting,
     ' which beats the style - so the style is set AND its paragraphs are given the value directly, by Find and Replace on the style (one pass per style
     ' in use, not a loop over every paragraph). Main text only, the same story that pass covers.
@@ -30965,17 +30971,27 @@ Sub Lp_Normalize_Styles()
                        "Para Aqua", "Para Black", "Para Black Inverted", "Para Blue", _
                        "Para Green", "Para Tan", "Para Yellow")
 
+    ' ONE RULE FOR THE BODY STYLES (Jerry, 11/24/2026): everything in the list except Heading 1-5
+    ' now takes the Normal style's line spacing - At least, base size + 4 - with 0 points after,
+    ' in place of Single with 4 after. Jerry found by trying it that it looks right, and one rule
+    ' is one number to offer the user later. Heading 1-5 stay Single with 0 after.
     Dim spaceAfterPts As Single
+    Dim isHeadingStyle As Boolean
+    Dim bodyLinePts As Single
+
+    bodyLinePts = ActiveDocument.Styles(wdStyleNormal).Font.Size + 4
 
     For i = LBound(StyleNames) To UBound(StyleNames)
         If Sh_Style_Exists(ActiveDocument, CStr(StyleNames(i))) Then
-            If Left$(StyleNames(i), 8) = "Heading " Then
-                spaceAfterPts = 0
-            Else
-                spaceAfterPts = 4
-            End If
+            isHeadingStyle = (Left$(StyleNames(i), 8) = "Heading ")
+            spaceAfterPts = 0
             Set sty = ActiveDocument.Styles(StyleNames(i))
-            sty.ParagraphFormat.LineSpacingRule = wdLineSpaceSingle
+            If isHeadingStyle Then
+                sty.ParagraphFormat.LineSpacingRule = wdLineSpaceSingle
+            Else
+                sty.ParagraphFormat.LineSpacingRule = wdLineSpaceAtLeast
+                sty.ParagraphFormat.LineSpacing = bodyLinePts
+            End If
             sty.ParagraphFormat.SpaceAfterAuto = False
             sty.ParagraphFormat.SpaceAfter = spaceAfterPts
             If sty.InUse Then
@@ -30984,6 +31000,11 @@ Sub Lp_Normalize_Styles()
                     .Style = sty
                     .Replacement.ClearFormatting
                     .Replacement.ParagraphFormat.SpaceAfter = spaceAfterPts
+                    If Not isHeadingStyle Then
+                        ' Direct line spacing on a paragraph (an import) beats the style.
+                        .Replacement.ParagraphFormat.LineSpacingRule = wdLineSpaceAtLeast
+                        .Replacement.ParagraphFormat.LineSpacing = bodyLinePts
+                    End If
                     .Text = ""
                     .Replacement.Text = ""
                     .Forward = True

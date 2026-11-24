@@ -2,8 +2,8 @@
 
 The Normal style only: it gets its own size + 4. Heading 1-5, TOC Heading, TOC 1-5, List Bullet
 1-5, List 1-5, List Number 1-5, List Paragraph and the Para color styles would inherit that, so
-they are set to Single, with 4 pt after instead of the base size - 0 for Heading 1-5 (Jerry,
-11/23/2026).
+Heading 1-5 are set to Single with 0 after (Jerry, 11/23/2026), and the others take Normal's
+At least base + 4 with 0 after (Jerry, 11/24/2026: one rule, one number to offer the user).
 At least, not Exactly: Exactly was tried first and cut off anything taller than the line -
 pictures, equations, and the superscripts the attach enlarges afterward.
 
@@ -11,7 +11,7 @@ What this checks, on the source (Normalize Styles reaches a Document, which the 
 runner cannot do - tests/vba/README.md):
 
   1. Normal is set At least at its own Font.Size + 4.
-  2. Those styles are set to Single.
+  2. Heading 1-5 Single; the others At least base + 4, on the style and on the paragraphs.
   3. Nothing in the pass uses Exactly.
   4. The pass comes after the size passes (so the sizes read are final) and before
      Sh_Color_Dollar_PG_Red, which must stay last.
@@ -52,22 +52,27 @@ def test_normal_is_at_least_its_size_plus_four(repo_root):
     assert re.search(r"\.ParagraphFormat\.LineSpacing = \.Font\.Size \+ 4", m.group(1))
 
 
-def test_normal_only_the_named_styles_stay_single(repo_root):
-    """Jerry, 11/23/2026: points are added to the Normal style only. The headings, lists, TOC and
-    Para color styles are based on Normal, so they are set to Single rather than inheriting it."""
+def test_headings_single_the_rest_at_least_base_plus_four(repo_root):
+    """Jerry, 11/24/2026: TOC, List and Para color styles take Normal's At least base + 4;
+    Heading 1-5 stay Single. No points are added to the headings."""
     lines = lines_of(repo_root, SUB)
     start = first_line(lines, r'"Setting line spacing"')
     end = next(i for i in range(start, len(lines)) if "Sh_Color_Dollar_PG_Red" in lines[i])
     body = "\n".join(lines[start:end])
-    assert body.count("wdLineSpaceAtLeast") == 1, "only Normal gets At least"
     names = re.search(r"StyleNames = Array\((.*?)\)\s*\n", body, re.S)
-    assert names, "no list of heading styles kept Single"
-    want = ALL_SINGLE
+    assert names, "no list of styles"
     got = set(re.findall(r'"([^"]+)"', names.group(1)))
-    assert want <= got, f"not kept Single: {sorted(want - got)}"
+    assert ALL_SINGLE <= got, f"missing: {sorted(ALL_SINGLE - got)}"
     assert re.search(r"Sh_Style_Exists\(ActiveDocument, CStr\(StyleNames\(i\)\)\)", body)
-    assert re.search(r"\.ParagraphFormat\.LineSpacingRule = wdLineSpaceSingle", body)
-    assert not re.search(r"LineSpacing = .*\+", body.split("End With", 1)[1]), "no points added to headings"
+    assert re.search(r"bodyLinePts = ActiveDocument\.Styles\(wdStyleNormal\)\.Font\.Size \+ 4", body)
+    assert re.search(r'isHeadingStyle = \(Left\$\(StyleNames\(i\), 8\) = "Heading "\)', body)
+    assert re.search(r"If isHeadingStyle Then\s+sty\.ParagraphFormat\.LineSpacingRule = wdLineSpaceSingle\s+"
+                     r"Else\s+sty\.ParagraphFormat\.LineSpacingRule = wdLineSpaceAtLeast\s+"
+                     r"sty\.ParagraphFormat\.LineSpacing = bodyLinePts", body)
+    # Paragraphs carrying direct line spacing get it too, through the same Find and Replace.
+    assert re.search(r"If Not isHeadingStyle Then\s+(?:'.*\s+)*"
+                     r"\.Replacement\.ParagraphFormat\.LineSpacingRule = wdLineSpaceAtLeast\s+"
+                     r"\.Replacement\.ParagraphFormat\.LineSpacing = bodyLinePts", body)
 
 
 def test_nothing_in_the_pass_is_exactly(repo_root):
@@ -79,21 +84,21 @@ def test_nothing_in_the_pass_is_exactly(repo_root):
 
 
 def test_space_after_on_the_named_styles(repo_root):
-    """Jerry, 11/23/2026: the lists, TOC and Para colors get 4 pt after, Heading 1-5 get 0. The earlier pass puts the base size after every paragraph as DIRECT formatting, so the
+    """Jerry, 11/24/2026: all of these styles get 0 pt after (the lists, TOC and Para colors had 4). The earlier pass puts the base size after every paragraph as DIRECT formatting, so the
     style alone would never show - their paragraphs must be given it too, after that pass."""
     lines = lines_of(repo_root, SUB)
     story = first_line(lines, r"ActiveDocument\.Content\.ParagraphFormat\.SpaceAfter = Lp_Base_Font_Size")
     style_set = first_line(lines, r"sty\.ParagraphFormat\.SpaceAfter = spaceAfterPts")
     direct = first_line(lines, r"\.Replacement\.ParagraphFormat\.SpaceAfter = spaceAfterPts")
     assert story is not None and style_set is not None and direct is not None
-    assert story < style_set < direct, "the 4 pt must come after the story-wide space after"
-    lists = re.findall(r"StyleNames = Array\((.*?)\)\s*\n", "\n".join(lines[style_set - 30:style_set]), re.S)
+    assert story < style_set < direct, "the 0 pt must come after the story-wide space after"
+    lists = re.findall(r"StyleNames = Array\((.*?)\)\s*\n", "\n".join(lines[style_set - 45:style_set]), re.S)
     got = set(re.findall(r'"([^"]+)"', lists[-1]))
     want = ALL_SINGLE
-    assert want == got, f"4 pt after: expected {sorted(want)}, got {sorted(got)}"
-    pick = "\n".join(lines[style_set - 12:style_set])
-    assert re.search(r'Left\$\(StyleNames\(i\), 8\) = "Heading "\s*Then\s*spaceAfterPts = 0\s*Else\s*spaceAfterPts = 4', pick), \
-        "Heading 1-5 get 0 after, the rest 4"
+    assert want == got, f"0 pt after: expected {sorted(want)}, got {sorted(got)}"
+    pick = "\n".join(lines[style_set - 14:style_set])
+    assert re.search(r"spaceAfterPts = 0\s*$", pick, re.M), "every one of these styles gets 0 after (11/24/2026)"
+    assert not re.search(r"spaceAfterPts = [1-9]", pick), "no 4 pt after any more"
     body = "\n".join(lines[style_set:direct + 20])
     assert ".Style = sty" in body and "Replace:=wdReplaceAll" in body and ".Format = True" in body
     # Auto space after shows as space even when SpaceAfter reads 0 (measured 11/23/2026).
