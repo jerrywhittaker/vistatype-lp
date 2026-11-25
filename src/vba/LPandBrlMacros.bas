@@ -18,7 +18,10 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - LP  - 11/24/2026 - SPACING AND ITALICS SETTINGS (Jerry): line spacing (Multiple 1.00-2.00),
+' Notes:    - LP  - 11/25/2026 - SPACING AND ITALICS SETTINGS (424): W3C WCAG (1.25, 0.12) and VTLP V2
+'           - LP  - 11/25/2026 - (APH) (1.00, 0.07) buttons on both spacing rows, About line/letter
+'           - LP  - 11/25/2026 - spacing (429, text to come); the built-in values are now APH's (Jerry).
+'           - LP  - 11/24/2026 - SPACING AND ITALICS SETTINGS (Jerry): line spacing (Multiple 1.00-2.00),
 '           - LP  - 11/24/2026 - letter spacing (0.00-0.25 x size) and the italics marker (dash or a
 '           - LP  - 11/24/2026 - Text color style) are kept IN THE BOOK (LpLineMultiple, LpLetterSpacing,
 '           - LP  - 11/24/2026 - LpItalicsMarker), else the saved default ([LpBookDefaults] in
@@ -3731,18 +3734,27 @@ Private Const VT_STORE_STAMP_NOW As String = "13"
 Private Const LP_TEMPLATE_FILE As String = "LargePrintTemplate.dotx"
 
 ' The line spacing Normalize Styles gives Normal and the TOC, List and Para color styles, as a
-' Word "Multiple" (Jerry, 11/24/2026). 1.25 times Tahoma's single spacing is 1.5 times the type
-' size at every size - measured 18 to 28 pt: 27.15, 30.20, 36.20, 42.25 pt - which is WCAG
-' 1.4.8's space-and-a-half. The BUILT-IN value: a book's own, or the transcriber's saved
-' default, comes first - see Lp_Pref_Line_Multiple (Spacing and Italics Settings, 11/24/2026).
-Private Const LP_LINE_MULTIPLE As Single = 1.25
+' Word "Multiple". The BUILT-IN value is VTLP V2 (APH)'s, 1.00 - Word's single spacing (Jerry,
+' 11/25/2026; it was 1.25, the W3C WCAG value below, from 11/24/2026). A book's own, or the
+' transcriber's saved default, comes first - see Lp_Pref_Line_Multiple (Spacing and Italics
+' Settings, 11/24/2026). Normalize Styles still SETS it, as Multiple 1.00 - nothing skips it.
+Private Const LP_LINE_MULTIPLE As Single = 1
+
+' The W3C WCAG line spacing, for the W3C WCAG button in Spacing and Italics Settings (424). 1.25
+' times Tahoma's single spacing is 1.5 times the type size at every size - measured 18 to 28 pt:
+' 27.15, 30.20, 36.20, 42.25 pt - which is WCAG 1.4.8's space-and-a-half (Jerry, 11/24/2026).
+Private Const LP_WCAG_LINE_MULTIPLE As Single = 1.25
 
 ' The expanded letter spacing Normalize Styles gives body text and headings, as a share of the
-' type size (Jerry, 11/24/2026): 0.12 times the size, the letter spacing in WCAG 1.4.12. It
-' replaced a table that stepped 0.25 pt per size and sat about 1 pt under this at every size.
-' Headings get it on their OWN size. The BUILT-IN value: a book's own, or the transcriber's
-' saved default, comes first - see Lp_Pref_Letter_Spacing (11/24/2026).
-Private Const LP_LETTER_SPACING As Single = 0.12
+' type size. The BUILT-IN value is VTLP V2 (APH)'s, 0.07 times the size (Jerry, 11/25/2026; it was
+' 0.12, the W3C WCAG value below, from 11/24/2026). Headings get it on their OWN size. A book's
+' own, or the transcriber's saved default, comes first - see Lp_Pref_Letter_Spacing (11/24/2026).
+Private Const LP_LETTER_SPACING As Single = 0.07
+
+' The W3C WCAG letter spacing, for the W3C WCAG button in 424: 0.12 times the type size, the
+' letter spacing in WCAG 1.4.12 (Jerry, 11/24/2026). It replaced a table that stepped 0.25 pt per
+' size and sat about 1 pt under this at every size.
+Private Const LP_WCAG_LETTER_SPACING As Single = 0.12
 
 ' The italics marker built in (Jerry, 11/24/2026): italics become a dashed underline, as they
 ' always have. The other five choices are the LP template's Text color character styles - see
@@ -31190,6 +31202,8 @@ End Function   '*** end of Sh_Number_To_Roman ***
 
 Sub Lp_Normalize_Styles()
     '
+    ' Version: 3.17 Date: 11/25/2026 - the built-in spacings are VTLP V2 (APH)'s, Multiple 1.00
+    '                               and 0.07 times the type size (Jerry); 1.00 is still set
     ' Version: 3.16 Date: 11/24/2026 - line spacing and letter spacing are THE BOOK'S (Spacing and
     '                               Italics Settings, Jerry): Lp_Pref_Line_Multiple and
     '                               Lp_Pref_Letter_Spacing in place of the two constants, which
@@ -31446,7 +31460,8 @@ Sub Lp_Normalize_Styles()
 
     StyleList = Array("Normal", "List Paragraph")
 
-    ' 0.12 TIMES THE TYPE SIZE built in (LP_LETTER_SPACING; Jerry, 11/24/2026) - the book's own
+    ' 0.07 TIMES THE TYPE SIZE built in (LP_LETTER_SPACING, VTLP V2 (APH); Jerry, 11/25/2026;
+    ' 0.12 from 11/24/2026) - the book's own
     ' share is nsLetter, from Lp_Pref_Letter_Spacing - in place of the table that
     ' ran 0.8 pt at 14 to 4.3 pt at 42. Lp_Spacing_For_Word puts it on Word's twentieth of a point:
     ' 2.16 at 18 pt is kept as 2.15.
@@ -31509,7 +31524,7 @@ Sub Lp_Normalize_Styles()
         sty.Font.Size = base + SizeOffsets(i)
         sty.Font.Bold = True
         sty.Font.Position = 0
-        ' 0.12 times THIS heading's size (Jerry, 11/24/2026), not one value for all five
+        ' The book's share of THIS heading's size (Jerry, 11/24/2026), not one value for all five
         sty.Font.spacing = Lp_Spacing_For_Word(nsLetter * (base + SizeOffsets(i)))
     Next i
     '*********** end heading styles **************
@@ -31532,7 +31547,8 @@ Sub Lp_Normalize_Styles()
     ' AFTER the size passes above, so the sizes read here are final; BEFORE
     ' Sh_Color_Dollar_PG_Red, which stays last.
     '
-    ' MULTIPLE 1.25 built in (LP_LINE_MULTIPLE; Jerry, 11/24/2026) - the book's own is nsLine,
+    ' MULTIPLE 1.00 built in (LP_LINE_MULTIPLE, VTLP V2 (APH); Jerry, 11/25/2026; 1.25 from
+    ' 11/24/2026) - the book's own is nsLine,
     ' from Lp_Pref_Line_Multiple - on Normal, and the same below on the
     ' TOC, List and Para color styles; Heading 1-5 are set to Single. The list styles get 0 after.
     ' It replaced At least size + 4 (11/23/2026), which measured the same as Single from 20 pt up:
@@ -31679,8 +31695,8 @@ End Function   '*** end of Lp_Spacing_For_Word ***
 ' SPACING AND ITALICS SETTINGS (Jerry, 11/24/2026)
 ' ================================================================================================
 ' Three large print choices a transcriber can make for a book: the line spacing (a Word Multiple,
-' 1.00 to 2.00 in steps of 0.05, built in 1.25), the letter spacing (a share of the type size,
-' 0.00 to 0.25 in steps of 0.01, built in 0.12) and the italics marker (a dashed underline, built
+' 1.00 to 2.00 in steps of 0.05, built in 1.00), the letter spacing (a share of the type size,
+' 0.00 to 0.25 in steps of 0.01, built in 0.07) - VTLP V2 (APH)'s, 11/25/2026 - and the italics marker (a dashed underline, built
 ' in, or one of the LP template's five Text color character styles).
 '
 ' Each comes from THE BOOK first (a document variable written by Lp_Attach_The_Template), then
@@ -31695,11 +31711,14 @@ End Function   '*** end of Lp_Spacing_For_Word ***
 ' For the box (Spacing and Italics Settings): Lp_Pref_Line_Values / Lp_Pref_Letter_Values /
 ' Lp_Pref_Marker_Names fill the three lists, Lp_Pref_Number_Text and Lp_Pref_Marker_Caption give
 ' each item's text, the *_Index functions find a value's place in its list, Lp_Pref_Line_Label and
-' Lp_Pref_Letter_Label give the "= 27 pt at 18 pt" text, and the Lp_Pref_Builtin_* trio is what
-' Reset puts back. Its Okay sets the Lp_Pref_Chosen* publics.
+' Lp_Pref_Letter_Label give the "= 27 pt at 18 pt" text, the Lp_Pref_Builtin_* trio is what the
+' VTLP V2 (APH) buttons and the italics Reset put back, and the Lp_Pref_Wcag_* pair is what the
+' W3C WCAG buttons put in. Its Okay sets the Lp_Pref_Chosen* publics.
 
-' The built-in values, for the box's Reset buttons.
+' The built-in values - VTLP V2 (APH)'s for the two spacings (11/25/2026) - for the box's VTLP V2
+' (APH) buttons and its italics Reset.
 '
+' Version: 1.1  Date: 11/25/2026 - the spacings are VTLP V2 (APH)'s, 1.00 and 0.07 (Jerry)
 ' Version: 1.0  Date: 11/24/2026
 Public Function Lp_Pref_Builtin_Line_Multiple() As Single
     Lp_Pref_Builtin_Line_Multiple = LP_LINE_MULTIPLE
@@ -31712,6 +31731,17 @@ End Function  '*** end of Lp_Pref_Builtin_Letter_Spacing ***
 Public Function Lp_Pref_Builtin_Italics_Marker() As String
     Lp_Pref_Builtin_Italics_Marker = LP_ITALICS_DEFAULT
 End Function  '*** end of Lp_Pref_Builtin_Italics_Marker ***
+
+' The W3C WCAG values, 1.25 and 0.12, for the box's W3C WCAG buttons (Jerry, 11/25/2026).
+'
+' Version: 1.0  Date: 11/25/2026
+Public Function Lp_Pref_Wcag_Line_Multiple() As Single
+    Lp_Pref_Wcag_Line_Multiple = LP_WCAG_LINE_MULTIPLE
+End Function  '*** end of Lp_Pref_Wcag_Line_Multiple ***
+
+Public Function Lp_Pref_Wcag_Letter_Spacing() As Single
+    Lp_Pref_Wcag_Letter_Spacing = LP_WCAG_LETTER_SPACING
+End Function  '*** end of Lp_Pref_Wcag_Letter_Spacing ***
 
 ' The line spacings offered: 1.00 to 2.00 in steps of 0.05 (Jerry, 11/24/2026), 21 of them, as a
 ' Variant holding Single(0 To 20). Each is worked out from a whole number of hundredths, so 1.25
@@ -32025,7 +32055,7 @@ End Function  '*** end of Lp_Pref_Doc_Var ***
 
 ' THE BOOK'S LINE SPACING, as a Word Multiple: the book's own (document variable LpLineMultiple),
 ' else the saved default (VistaType.ini, [LpBookDefaults] LineMultiple), else built in
-' (LP_LINE_MULTIPLE, 1.25). Read by Lp_Normalize_Styles.
+' (LP_LINE_MULTIPLE, 1.00). Read by Lp_Normalize_Styles.
 '
 ' Version: 1.0  Date: 11/24/2026
 Public Function Lp_Pref_Line_Multiple(ByVal doc As Document) As Single
@@ -32034,7 +32064,7 @@ Public Function Lp_Pref_Line_Multiple(ByVal doc As Document) As Single
 End Function  '*** end of Lp_Pref_Line_Multiple ***
 
 ' THE BOOK'S LETTER SPACING, as a share of the type size: the book's own (LpLetterSpacing), else
-' the saved default ([LpBookDefaults] LetterSpacing), else built in (LP_LETTER_SPACING, 0.12).
+' the saved default ([LpBookDefaults] LetterSpacing), else built in (LP_LETTER_SPACING, 0.07).
 '
 ' Version: 1.0  Date: 11/24/2026
 Public Function Lp_Pref_Letter_Spacing(ByVal doc As Document) As Single

@@ -6,12 +6,27 @@ Jerry on 11/24/2026 and first built in 3.0.717.
 
 | Setting | Choices | Built-in default |
 |---|---|---|
-| Line spacing | Multiple 1.00 to 2.00, in steps of 0.05 | 1.25 (1.5 × the type size in Tahoma) |
-| Letter spacing | 0.00 to 0.25 × the type size, in steps of 0.01 | 0.12 (WCAG 1.4.12) |
+| Line spacing | Multiple 1.00 to 2.00, in steps of 0.05 | 1.00, VTLP V2 (APH) |
+| Letter spacing | 0.00 to 0.25 × the type size, in steps of 0.01 | 0.07, VTLP V2 (APH) |
 | Italics shown as | Dashed underline, Blue, Green, Orange, Red, Violet | Dashed underline |
 
-Each row has a **Reset** button that puts back the built-in default. At the bottom, **This
-document only** or **Save as my default** decides where the choice is kept.
+The two spacing rows each have two buttons, one for each spacing standard (Jerry, 11/25/2026):
+
+| Button | Line spacing | Letter spacing | Alt keys |
+|---|---|---|---|
+| **W3C WCAG** | 1.25 (1.5 × the type size in Tahoma, WCAG 1.4.8) | 0.12 (WCAG 1.4.12) | Alt+W line, Alt+G letter |
+| **VTLP V2 (APH)** | 1.00 | 0.07 | Alt+V line, Alt+P letter |
+
+The VTLP V2 (APH) values are the ones the box starts with, and what a book gets when neither it
+nor the user has a value saved. From 11/24 to 11/25/2026 the built-in values were the W3C WCAG
+ones, and the W3C WCAG buttons were called Reset. A book attached in that time keeps 1.25 and
+0.12, because they were written into it.
+
+The buttons only change the list: nothing is kept until Okay. The italics row still has a
+**Reset** button (Alt+S) that puts back the dashed underline. **About line/letter spacing**
+(Alt+A) will explain the two standards; until Jerry writes that text it shows message 429, saying
+the explanation is still to come. At the bottom, **This document only** or **Save as my default**
+decides where the choice is kept.
 
 ## Where the values live
 
@@ -20,7 +35,8 @@ document only** or **Save as my default** decides where the choice is kept.
 - **The user's saved defaults:** `%AppData%\VistaType LP Settings\VistaType.ini`, section
   `[LpBookDefaults]`. The uninstaller leaves this file alone.
 - **Built-in:** the constants `LP_LINE_MULTIPLE`, `LP_LETTER_SPACING` and `LP_ITALICS_DEFAULT`
-  in `LPandBrlMacros.bas`.
+  in `LPandBrlMacros.bas`. The W3C WCAG buttons' values are `LP_WCAG_LINE_MULTIPLE` and
+  `LP_WCAG_LETTER_SPACING`.
 
 ## Which value is used (Jerry's rules, 11/24/2026)
 
@@ -57,7 +73,9 @@ document only** or **Save as my default** decides where the choice is kept.
   italics turn into the Italics style with bold and superscript kept. Footnote references,
   Words bars, hyperlinks and hand-applied Text Red are left alone. Back to Dash and on to Red
   convert exactly as above. Each pass took well under a second on the sample.
-- **Line spacing:** Multiple 1.25 at 18 to 28 pt gives 1.51 × the type size.
+- **Line spacing:** Multiple 1.25 at 18 to 28 pt gives 1.51 × the type size. Multiple 1.00 is
+  Word's single spacing, about 1.21 × the type size in Tahoma (worked out from the same
+  measurement, not measured on its own).
 
 ## Not yet measured
 

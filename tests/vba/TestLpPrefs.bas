@@ -21,6 +21,8 @@ Attribute VB_Name = "TestLpPrefs"
 '@uses Lp_Pref_Builtin_Line_Multiple
 '@uses Lp_Pref_Builtin_Letter_Spacing
 '@uses Lp_Pref_Builtin_Italics_Marker
+'@uses Lp_Pref_Wcag_Line_Multiple
+'@uses Lp_Pref_Wcag_Letter_Spacing
 '
 ' Spacing and Italics Settings (Jerry, 11/24/2026): the pure helpers behind the book's line
 ' spacing, letter spacing and italics marker - the lists the box offers, the checks a stored
@@ -31,6 +33,7 @@ Attribute VB_Name = "TestLpPrefs"
 '
 ' Numbers are compared as Lp_Pref_Number_Text strings: a Single 0.12 is not the Double 0.12.
 '
+' Version: 1.2  Date: 11/25/2026 - built in is VTLP V2 (APH), 1.00 and 0.07; W3C WCAG is 1.25 and 0.12
 ' Version: 1.1  Date: 11/24/2026 - the marker's style is the tag "Italics X", based on "Text X"
 ' Version: 1.0  Date: 11/24/2026
 '
@@ -130,17 +133,31 @@ Public Function TestLpPrefs_Suite() As TestSuite
         .IsEqual Lp_Pref_Number_Text(Lp_Pref_Pick_Line("1.50", "1.75")), "1.50"
         .IsEqual Lp_Pref_Number_Text(Lp_Pref_Pick_Line("", "1.75")), "1.75"
         .IsEqual Lp_Pref_Number_Text(Lp_Pref_Pick_Line("9", "1.75")), "1.75"
-        .IsEqual Lp_Pref_Number_Text(Lp_Pref_Pick_Line("", "")), "1.25"
-        .IsEqual Lp_Pref_Number_Text(Lp_Pref_Pick_Line("bad", "worse")), "1.25"
-        .IsEqual Lp_Pref_Number_Text(Lp_Pref_Builtin_Line_Multiple()), "1.25"
+        .IsEqual Lp_Pref_Number_Text(Lp_Pref_Pick_Line("", "")), "1.00"
+        .IsEqual Lp_Pref_Number_Text(Lp_Pref_Pick_Line("bad", "worse")), "1.00"
+        .IsEqual Lp_Pref_Number_Text(Lp_Pref_Builtin_Line_Multiple()), "1.00"
+        ' a saved 1.25 (the old built-in) is still a choice, not "nothing saved"
+        .IsEqual Lp_Pref_Number_Text(Lp_Pref_Pick_Line("", "1.25")), "1.25"
     End With
 
     With Suite.Test("the book's own letter spacing wins, and 0 is a real choice")
         .IsEqual Lp_Pref_Number_Text(Lp_Pref_Pick_Letter("0.20", "0.05")), "0.20"
         .IsEqual Lp_Pref_Number_Text(Lp_Pref_Pick_Letter("0.00", "0.05")), "0.00"
         .IsEqual Lp_Pref_Number_Text(Lp_Pref_Pick_Letter("", "0.05")), "0.05"
-        .IsEqual Lp_Pref_Number_Text(Lp_Pref_Pick_Letter("", "")), "0.12"
-        .IsEqual Lp_Pref_Number_Text(Lp_Pref_Builtin_Letter_Spacing()), "0.12"
+        .IsEqual Lp_Pref_Number_Text(Lp_Pref_Pick_Letter("", "")), "0.07"
+        .IsEqual Lp_Pref_Number_Text(Lp_Pref_Builtin_Letter_Spacing()), "0.07"
+        .IsEqual Lp_Pref_Number_Text(Lp_Pref_Pick_Letter("", "0.12")), "0.12"
+    End With
+
+    ' --- the two standards on the box's buttons (Jerry, 11/25/2026)
+    With Suite.Test("VTLP V2 (APH) is built in; W3C WCAG is 1.25 and 0.12, and both are on the lists")
+        .IsEqual Lp_Pref_Number_Text(Lp_Pref_Wcag_Line_Multiple()), "1.25"
+        .IsEqual Lp_Pref_Number_Text(Lp_Pref_Wcag_Letter_Spacing()), "0.12"
+        .IsEqual Lp_Pref_Line_Index(Lp_Pref_Wcag_Line_Multiple()), 5
+        .IsEqual Lp_Pref_Letter_Index(Lp_Pref_Wcag_Letter_Spacing()), 12
+        .IsEqual Lp_Pref_Line_Index(Lp_Pref_Builtin_Line_Multiple()), 0
+        .IsEqual Lp_Pref_Letter_Index(Lp_Pref_Builtin_Letter_Spacing()), 7
+        .IsEqual Lp_Pref_Letter_Label(Lp_Pref_Builtin_Letter_Spacing(), 18), "= 1.25 pt at 18 pt"
     End With
 
     With Suite.Test("the book's own marker wins, and a missing one is Dash")

@@ -130,10 +130,12 @@ def test_the_bar_total_is_one_more_than_the_steps(repo_root):
     assert total == steps + 1, f"{steps} steps, so LP_NS_STEPS should be {steps + 1}, not {total}"
 
 
-def test_the_multiple_is_1_25(repo_root):
-    """Jerry, 11/24/2026: Multiple 1.25 - 1.5 times the type size in Tahoma, measured 18-28 pt."""
+def test_the_multiple_is_aph_built_in_and_wcag_on_its_button(repo_root):
+    """Jerry, 11/25/2026: built in is VTLP V2 (APH)'s Multiple 1.00; W3C WCAG's 1.25 (1.5 times the
+    type size in Tahoma, measured 18-28 pt, 11/24/2026) is the W3C WCAG button's value."""
     text = module_text(repo_root)
-    assert re.search(r"^Private Const LP_LINE_MULTIPLE As Single = 1\.25\b", text, re.M)
+    assert re.search(r"^Private Const LP_LINE_MULTIPLE As Single = 1(\.0+)?#?\s*$", text, re.M)
+    assert re.search(r"^Private Const LP_WCAG_LINE_MULTIPLE As Single = 1\.25\b", text, re.M)
 
 
 def test_no_replace_all_in_normalize_styles(repo_root):

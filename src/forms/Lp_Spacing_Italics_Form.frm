@@ -4,7 +4,7 @@ Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Lp_Spacing_Italics_Form
    ClientHeight    =   3615
    ClientLeft      =   120
    ClientTop       =   465
-   ClientWidth     =   9435.001
+   ClientWidth     =   11835
    OleObjectBlob   =   "Lp_Spacing_Italics_Form.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
@@ -19,10 +19,17 @@ Attribute VB_Exposed = False
 '
 ' Three large print choices for the book being attached (Jerry, 11/24/2026): the line spacing (a
 ' Word Multiple, 1.00 to 2.00), the letter spacing (a share of the type size, 0.00 to 0.25), and
-' how italics are shown (dashed underline, or one of the five Text color styles). Each row has a
-' Reset that puts the built-in value back (Alt+R, Alt+E, Alt+S); the row labels' Alt keys (Alt+L,
+' how italics are shown (dashed underline, or one of the five Text color styles).
+'
+' The two spacing rows each have two buttons that put a standard's value in the list (Jerry,
+' 11/25/2026): W3C WCAG, 1.25 and 0.12 (Alt+W line, Alt+G letter), and VTLP V2 (APH), 1.00 and
+' 0.07 (Alt+V line, Alt+P letter) - the APH values are the built-in ones the box starts with. The
+' italics row's Reset puts the built-in marker back (Alt+S). The row labels' Alt keys (Alt+L,
 ' Alt+T, Alt+I) move to their lists. "This document only" (Alt+D) or "Save as my default" (Alt+M)
-' covers all three.
+' covers all three. "About line/letter spacing" (Alt+A) explains the two standards.
+'
+' The wording of the labels and buttons is set in UserForm_Initialize, so it can be read here and
+' not only in the .frx.
 '
 ' The box opens on the book's own values (Lp_Pref_Line_Multiple and the rest: the book's, else
 ' the saved default, else built in), or on what was chosen here already when it is reopened
@@ -34,6 +41,9 @@ Attribute VB_Exposed = False
 ' still changes nothing. Cancel and the red X leave the publics alone - a plain close is already
 ' Cancel, so the form has no UserForm_QueryClose.
 '
+' Version: 1.1  Date: 11/25/2026 - W3C WCAG and VTLP V2 (APH) buttons on both spacing rows (the
+'                               Reset buttons became W3C WCAG), About line/letter spacing, and
+'                               the box starts on the APH values (Jerry); wider box
 ' Version: 1.0  Date: 11/24/2026
 
 Private Function TypeSizeNow() As Double
@@ -69,12 +79,29 @@ Private Sub LetterList_Change()
     ShowPoints
 End Sub
 
+' W3C WCAG (the buttons were Reset until 11/25/2026). Like the other buttons in the rows, they
+' only change the list - nothing is kept until Okay.
 Private Sub LineReset_Click()
-    LineList.ListIndex = Lp_Pref_Line_Index(Lp_Pref_Builtin_Line_Multiple())
+    LineList.ListIndex = Lp_Pref_Line_Index(Lp_Pref_Wcag_Line_Multiple())
 End Sub
 
 Private Sub LetterReset_Click()
+    LetterList.ListIndex = Lp_Pref_Letter_Index(Lp_Pref_Wcag_Letter_Spacing())
+End Sub
+
+' VTLP V2 (APH) - the built-in values (Jerry, 11/25/2026).
+Private Sub LineAph_Click()
+    LineList.ListIndex = Lp_Pref_Line_Index(Lp_Pref_Builtin_Line_Multiple())
+End Sub
+
+Private Sub LetterAph_Click()
     LetterList.ListIndex = Lp_Pref_Letter_Index(Lp_Pref_Builtin_Letter_Spacing())
+End Sub
+
+' The explanation of the two standards is still to come from Jerry (11/25/2026).
+Private Sub AboutSpacing_Click()
+    Sh_Say "The explanation of the line and letter spacing standards is still to come.", _
+           "VistaType LP (429)"
 End Sub
 
 Private Sub MarkerReset_Click()
@@ -120,6 +147,25 @@ Private Sub UserForm_Initialize()
     Dim iLine As Long
     Dim iLetter As Long
     Dim iMarker As Long
+
+    ' The words on the box, here rather than only in the .frx (Jerry, 11/25/2026).
+    LineLabel.Caption = "Line spacing"
+    LetterLabel.Caption = "Letter spacing"
+    LineReset.Caption = "W3C WCAG"
+    LineReset.Accelerator = "W"
+    LineReset.ControlTipText = "W3C WCAG Line Spacing Button"
+    LetterReset.Caption = "W3C WCAG"
+    LetterReset.Accelerator = "G"
+    LetterReset.ControlTipText = "W3C WCAG Letter Spacing Button"
+    LineAph.Caption = "VTLP V2 (APH)"
+    LineAph.Accelerator = "V"
+    LineAph.ControlTipText = "VTLP V2 (APH) Line Spacing Button"
+    LetterAph.Caption = "VTLP V2 (APH)"
+    LetterAph.Accelerator = "P"
+    LetterAph.ControlTipText = "VTLP V2 (APH) Letter Spacing Button"
+    AboutSpacing.Caption = "About line/letter spacing"
+    AboutSpacing.Accelerator = "A"
+    AboutSpacing.ControlTipText = "About Line/Letter Spacing Button"
 
     LineList.Clear
     For Each v In Lp_Pref_Line_Values()

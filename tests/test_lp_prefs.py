@@ -298,3 +298,31 @@ def test_no_doevents_in_the_walk(repo_root):
                  "Lp_Pref_Italics_Style"):
         code = "\n".join(body(repo_root, name))
         assert "DoEvents" not in code, name
+
+
+def test_the_spacing_buttons_on_424(repo_root):
+    """Jerry, 11/25/2026: each spacing row has a W3C WCAG button (LineReset / LetterReset, Reset
+    until then) giving 1.25 and 0.12, and a VTLP V2 (APH) button (LineAph / LetterAph) giving the
+    built-in 1.00 and 0.07. They only change the list; nothing is kept until Okay. About line/letter
+    spacing says its text is to come, through Sh_Say with message 429."""
+    import pathlib
+    frm = (pathlib.Path(repo_root) / "src/forms/Lp_Spacing_Italics_Form.frm").read_bytes().decode("latin-1")
+    subs = dict(re.findall(r"Private Sub (\w+)_Click\(\)\r\n(.*?)End Sub", frm, re.S))
+    assert re.fullmatch(r"\s*LineList\.ListIndex = Lp_Pref_Line_Index\(Lp_Pref_Wcag_Line_Multiple\(\)\)\s*",
+                        subs["LineReset"])
+    assert re.fullmatch(r"\s*LetterList\.ListIndex = Lp_Pref_Letter_Index\(Lp_Pref_Wcag_Letter_Spacing\(\)\)\s*",
+                        subs["LetterReset"])
+    assert re.fullmatch(r"\s*LineList\.ListIndex = Lp_Pref_Line_Index\(Lp_Pref_Builtin_Line_Multiple\(\)\)\s*",
+                        subs["LineAph"])
+    assert re.fullmatch(r"\s*LetterList\.ListIndex = Lp_Pref_Letter_Index\(Lp_Pref_Builtin_Letter_Spacing\(\)\)\s*",
+                        subs["LetterAph"])
+    assert '"VistaType LP (429)"' in subs["AboutSpacing"] and "Sh_Say" in subs["AboutSpacing"]
+    assert "MsgBox" not in frm
+    text = module_text(repo_root)
+    for name, const in (("Lp_Pref_Wcag_Line_Multiple", "LP_WCAG_LINE_MULTIPLE"),
+                        ("Lp_Pref_Wcag_Letter_Spacing", "LP_WCAG_LETTER_SPACING")):
+        assert re.search(rf"^Public Function {name}\(\) As Single\r?\n\s+{name} = {const}\r?$", text, re.M), name
+    # the Alt keys, one letter each, none used twice on the box
+    keys = re.findall(r'^\s+(\w+)\.Accelerator = "(\w)"\r?$', frm, re.M)
+    assert dict(keys) == {"LineReset": "W", "LetterReset": "G", "LineAph": "V", "LetterAph": "P",
+                          "AboutSpacing": "A"}
