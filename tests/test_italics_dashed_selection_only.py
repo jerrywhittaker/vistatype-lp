@@ -206,5 +206,9 @@ def test_equations_are_out_while_the_replace_alls_run(repo_root):
     assert re.search(r"TrackRevisions\s*=\s*tracking", joined), "and put back as it was"
     assert re.search(r"<>\s*lenBefore\s*-\s*eqLen", joined), "every Delete must be checked to shorten the story by the equation"
     sub = [strip_comment(c) for c in _sub(repo_root, SUB)]
-    assert any(re.search(r"If\s+" + AROUND + r"\(story\)\s+Then\s+Exit\s+Sub", c) for c in sub), (
+    # From 11/24/2026 the success path marks the italics in the book's color before it leaves
+    # (Lp_Italics_Marker_Walk), so the Exit Sub may sit in an If block rather than on the If line.
+    flat = re.sub(r"\s+", " ", " ".join(sub))
+    assert re.search(r"If " + AROUND + r"\(story\) Then (Exit Sub|Lp_Italics_Marker_Walk [^ ]+ [^ ]+ [^ ]+ Exit Sub End If)",
+                     flat), (
         f"when {AROUND} cannot take the equations out cleanly, {SUB} must walk the story instead")

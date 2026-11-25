@@ -10,7 +10,8 @@ pictures, equations, and the superscripts the attach enlarges afterward.
 What this checks, on the source (Normalize Styles reaches a Document, which the headless VBA
 runner cannot do - tests/vba/README.md):
 
-  1. Normal is set to Multiple LP_LINE_MULTIPLE.
+  1. Normal is set to Multiple nsLine - the book's own line spacing, from Lp_Pref_Line_Multiple
+     (Spacing and Italics Settings, 11/24/2026); LP_LINE_MULTIPLE is the built-in value.
   2. Heading 1-5 Single; the others Multiple 1.25, on the style and on the paragraphs.
   3. Nothing in the pass uses Exactly.
   4. The pass comes after the size passes (so the sizes read are final) and before
@@ -49,7 +50,9 @@ def test_normal_is_multiple_1_25(repo_root):
     m = re.search(r"With ActiveDocument\.Styles\(wdStyleNormal\)(.*?)End With", body, re.S)
     assert m, "Normal's line spacing is not set"
     assert re.search(r"\.ParagraphFormat\.LineSpacingRule = wdLineSpaceMultiple", m.group(1))
-    assert re.search(r"\.ParagraphFormat\.LineSpacing = LinesToPoints\(LP_LINE_MULTIPLE\)", m.group(1))
+    assert re.search(r"\.ParagraphFormat\.LineSpacing = LinesToPoints\(nsLine\)", m.group(1))
+    # The book's own line spacing (Spacing and Italics Settings, Jerry, 11/24/2026), 1.25 built in.
+    assert re.search(r"^\s*nsLine = Lp_Pref_Line_Multiple\(ActiveDocument\)\s*$", body, re.M)
 
 
 def test_headings_single_the_rest_multiple(repo_root):
@@ -64,7 +67,7 @@ def test_headings_single_the_rest_multiple(repo_root):
     got = set(re.findall(r'"([^"]+)"', names.group(1)))
     assert ALL_SINGLE <= got, f"missing: {sorted(ALL_SINGLE - got)}"
     assert re.search(r"Sh_Style_Exists\(ActiveDocument, CStr\(StyleNames\(i\)\)\)", body)
-    assert re.search(r"bodyLinePts = LinesToPoints\(LP_LINE_MULTIPLE\)", body)
+    assert re.search(r"bodyLinePts = LinesToPoints\(nsLine\)", body)
     assert re.search(r'isHeadingStyle = \(Left\$\(StyleNames\(i\), 8\) = "Heading "\)', body)
     assert re.search(r"If isHeadingStyle Then\s+sty\.ParagraphFormat\.LineSpacingRule = wdLineSpaceSingle\s+"
                      r"Else\s+sty\.ParagraphFormat\.LineSpacingRule = wdLineSpaceMultiple\s+"

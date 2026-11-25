@@ -349,6 +349,12 @@ Sub Lp_Import_Exported_Selection_File()
     '
     ' Imports another Word file into this one at the cursor.
     '
+    ' Version: 1.4  Date: 11/24/2026
+    '   - the imported text takes THIS BOOK'S spacing and italics settings (Jerry): the book's
+    '     line spacing, letter spacing and italics marker are copied onto the hidden file
+    '     before Normalize Styles runs on it, and italics the file already marked another way
+    '     are converted to this book's marker. The file is closed without saving, so it is
+    '     not changed on disk
     ' Version: 1.3  Date: 9/18/2026
     '   - says so when no document is open, instead of failing on its first line. It read
     '     ActiveDocument straight away, which with nothing on screen is run-time error 4248.
@@ -370,6 +376,8 @@ Sub Lp_Import_Exported_Selection_File()
     Dim targetRange As Range
     Dim errNum As Long
     Dim errText As String
+    Dim srcMarker As String
+    Dim bookMarker As String
 
     ' A DOCUMENT HAS TO BE ON SCREEN, and this is the first thing the macro does, because the
     ' very next statement reads ActiveDocument. Sh_Is_Doc_Open stops the macro itself.
@@ -425,6 +433,19 @@ Sub Lp_Import_Exported_Selection_File()
     sourceDoc.Activate
     ' Using a separate function check
     If Lp_Is_The_Attached_Template_LP = True Then
+        ' THIS BOOK'S SETTINGS, not the file's (Jerry, 11/24/2026). Normalize Styles and its
+        ' italics step read the document they run on, which here is the hidden file - so the
+        ' book's three settings are put on it first. Italics the file had already marked its own
+        ' way (another color, or dashes) are converted to the book's marker. Read the file's
+        ' marker BEFORE the book's settings overwrite it.
+        srcMarker = Lp_Pref_Italics_Marker(sourceDoc)
+        bookMarker = Lp_Pref_Italics_Marker(destDoc)
+        Lp_Pref_Set_For_Doc sourceDoc, Lp_Pref_Line_Multiple(destDoc), _
+                            Lp_Pref_Letter_Spacing(destDoc), bookMarker
+        If StrComp(srcMarker, bookMarker, vbBinaryCompare) <> 0 Then
+            Call Lp_Italics_Convert_Marker(srcMarker, bookMarker)
+        End If
+
         ' Normalize Styles counts thirteen passes of its own, so it is handed a slice of the
         ' bar rather than being allowed to drive the whole of it - see Sh_Progress_Span. This
         ' is the slow part of an import, which is why the slice is the widest.

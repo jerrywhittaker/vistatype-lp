@@ -68,7 +68,7 @@ Send independent jobs in **one message** so they run at once, and never do a sea
 | Word configuration and the settings ledger | `docs/Word-Configuration-Rules.md`, then `docs/User-Settings-And-Word-Configuration.md`; the transcriber-facing version is `docs/How-Word-Settings-Work.md` |
 | Installing, updating, troubleshooting (for transcribers) | `docs/Installation-Guide.md` |
 | Code signing, and why antivirus eats the installer | `docs/Code-Signing.md` |
-| The bundled typeface: coverage, and what it will not set | `docs/VistaTypeLP-Sans.md` |
+| The bundled typeface; LP line/letter spacing and italics settings (424) | `docs/VistaTypeLP-Sans.md`; `docs/Spacing-And-Italics-Settings.md` |
 | Moving a macro onto a range, and the traps | `docs/Temp-Doc-Conversion-Checklist.md` |
 | What to press when testing the ribbon | `docs/Ribbon-Test-Checklist.md` |
 | The undo cost of every macro (closed survey) | `docs/Undo-Audit.md` |

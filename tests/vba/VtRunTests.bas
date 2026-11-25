@@ -126,6 +126,10 @@ Public Sub VtRunAllTests()
     Set Suite = TestEquationSize_Suite()
     Reporter.ListenTo Suite
 
+    Reporter.Trace "building Spacing and Italics Settings"
+    Set Suite = TestLpPrefs_Suite()
+    Reporter.ListenTo Suite
+
     Reporter.Finish
     Exit Sub
 

@@ -13,7 +13,8 @@ What this checks, on the source (it reaches a Document, which the headless VBA r
   1. Both spacing assignments go through Lp_Spacing_For_Word.
   2. The helper's formula, run here with Single precision, lands in the intended twentieth for
      every value 0.12 x size gives from 14 to 52 pt - whether Word drops the fraction or rounds it.
-  3. The constant is 0.12 and both assignments use it, headings on their own size.
+  3. The built-in constant is 0.12, and both assignments use the book's own share (nsLetter, from
+     Lp_Pref_Letter_Spacing, which falls back to it - 11/24/2026), headings on their own size.
 """
 import math
 import re
@@ -45,8 +46,10 @@ def test_both_assignments_use_the_helper(repo_root):
     body = "\n".join(procs(repo_root)[SUB])
     assigns = re.findall(r"sty\.Font\.spacing = (.+)", body, re.I)
     assert assigns == ["Lp_Spacing_For_Word(targetSpacing)",
-                       "Lp_Spacing_For_Word(LP_LETTER_SPACING * (base + SizeOffsets(i)))"]
-    assert re.search(r"targetSpacing = LP_LETTER_SPACING \* CDbl\(Lp_Base_Font_Size\)", body)
+                       "Lp_Spacing_For_Word(nsLetter * (base + SizeOffsets(i)))"]
+    assert re.search(r"targetSpacing = nsLetter \* CDbl\(Lp_Base_Font_Size\)", body)
+    # The book's own letter spacing (Spacing and Italics Settings, Jerry, 11/24/2026), 0.12 built in.
+    assert re.search(r"^\s*nsLetter = Lp_Pref_Letter_Spacing\(ActiveDocument\)\s*$", body, re.M)
     assert "SpacingTable" not in body and "headingSpacing" not in body, "the old tables are gone"
 
 

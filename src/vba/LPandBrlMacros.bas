@@ -18,7 +18,17 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - LP  - 11/24/2026 - Normalize Styles' line-spacing Find and Replace is now a plain Find, each
+' Notes:    - LP  - 11/24/2026 - SPACING AND ITALICS SETTINGS (Jerry): line spacing (Multiple 1.00-2.00),
+'           - LP  - 11/24/2026 - letter spacing (0.00-0.25 x size) and the italics marker (dash or a
+'           - LP  - 11/24/2026 - Text color style) are kept IN THE BOOK (LpLineMultiple, LpLetterSpacing,
+'           - LP  - 11/24/2026 - LpItalicsMarker), else the saved default ([LpBookDefaults] in
+'           - LP  - 11/24/2026 - VistaType.ini), else built in. Lp_Pref_*; the attach writes them;
+'           - LP  - 11/24/2026 - Normalize Styles reads them; a changed marker is converted on re-attach.
+'           - LP  - 11/24/2026 - The saved default MARKER is for new books only; an old book is Dash.
+'           - LP  - 11/24/2026 - A color marker is its own style, "Italics Red" (based on Text Red), so
+'           - LP  - 11/24/2026 - going back to Dash converts only what VistaType LP colored. A run in
+'           - LP  - 11/24/2026 - another character style keeps its dash; a run that fails is skipped.
+'           - LP  - 11/24/2026 - Normalize Styles' line-spacing Find and Replace is now a plain Find, each
 '           - LP  - 11/24/2026 - run set. Tried for #56 (Word dies on a 2nd attach) - NOT a cure; #56 open.
 '           - LP  - 11/24/2026 - NORMALIZE STYLES: LETTER SPACING 0.12 x TYPE SIZE (Jerry), WCAG 1.4.12;
 '           - LP  - 11/24/2026 - headings at their own size. The two spacing tables are gone.
@@ -3250,6 +3260,25 @@ Public Lp_GP_String_2 As String
 ' features and never cleared - see the note at the top of Lp_Attach_Lp_Template. 8/12/2026
 Public Lp_Doc_Was_Already_LP As Boolean
 
+' SPACING AND ITALICS SETTINGS (Jerry, 11/24/2026). Set by that box's Okay, read by
+' Lp_Attach_The_Template - which runs later, through Application.OnTime, after the attach dialog
+' (338) has gone, so these publics are the only carrier. Lp_Pref_Chosen is True only when the
+' transcriber opened the box and pressed Okay; Lp_Attach_Lp_Template clears it before 338
+' opens and the attach clears it once used, so a choice never reaches another attach.
+' Lp_Pref_Chosen_AsDefault is "Save as my default": the attach writes VistaType.ini as well.
+' The marker is one of Lp_Pref_Marker_Names.
+Public Lp_Pref_Chosen As Boolean
+Public Lp_Pref_Chosen_Line As Single
+Public Lp_Pref_Chosen_Letter As Single
+Public Lp_Pref_Chosen_Marker As String
+Public Lp_Pref_Chosen_AsDefault As Boolean
+
+' How many marked runs the last italics conversion (Lp_Italics_Convert_Marker) left as they were:
+' a run in a character style of its own (a footnote reference, a TOC bar, a hyperlink), one of
+' mixed superscript or small caps, or one Word would not change. Kept for a message later; the
+' attach does not show it yet. 11/24/2026.
+Public Lp_Italics_Runs_Left As Long
+
 ' The markers Remove_Txt_Bxs_And_Frames leaves around rescued text, so a transcriber can find
 ' where it came from. Sh_Text_Frame_Warning_To_Red colors these, so all three macros have to
 ' agree on the wording character for character - which is why they are constants. 8/13/2026
@@ -3704,14 +3733,40 @@ Private Const LP_TEMPLATE_FILE As String = "LargePrintTemplate.dotx"
 ' The line spacing Normalize Styles gives Normal and the TOC, List and Para color styles, as a
 ' Word "Multiple" (Jerry, 11/24/2026). 1.25 times Tahoma's single spacing is 1.5 times the type
 ' size at every size - measured 18 to 28 pt: 27.15, 30.20, 36.20, 42.25 pt - which is WCAG
-' 1.4.8's space-and-a-half. One number, so it can be offered to the user later.
+' 1.4.8's space-and-a-half. The BUILT-IN value: a book's own, or the transcriber's saved
+' default, comes first - see Lp_Pref_Line_Multiple (Spacing and Italics Settings, 11/24/2026).
 Private Const LP_LINE_MULTIPLE As Single = 1.25
 
 ' The expanded letter spacing Normalize Styles gives body text and headings, as a share of the
 ' type size (Jerry, 11/24/2026): 0.12 times the size, the letter spacing in WCAG 1.4.12. It
 ' replaced a table that stepped 0.25 pt per size and sat about 1 pt under this at every size.
-' Headings get it on their OWN size. One number, so it can be offered to the user later.
+' Headings get it on their OWN size. The BUILT-IN value: a book's own, or the transcriber's
+' saved default, comes first - see Lp_Pref_Letter_Spacing (11/24/2026).
 Private Const LP_LETTER_SPACING As Single = 0.12
+
+' The italics marker built in (Jerry, 11/24/2026): italics become a dashed underline, as they
+' always have. The other five choices are the LP template's Text color character styles - see
+' Lp_Pref_Marker_Names.
+Private Const LP_ITALICS_DEFAULT As String = "Dash"
+
+' SPACING AND ITALICS SETTINGS (Jerry, 11/24/2026) - where a book's three choices are kept.
+' The book's own are document variables, written by Lp_Attach_The_Template; the transcriber's
+' saved default is a section of VistaType.ini (Sh_Setting_Read / Sh_Setting_Write), which the
+' uninstaller leaves alone. Not part of the settings ledger, so no VT_STORE_STAMP bump. Numbers
+' are stored with a period, whatever the machine's decimal separator - see Lp_Pref_Number_Text.
+Private Const LP_PREF_INI_SECTION As String = "LpBookDefaults"
+Private Const LP_PREF_KEY_LINE As String = "LineMultiple"
+Private Const LP_PREF_KEY_LETTER As String = "LetterSpacing"
+Private Const LP_PREF_KEY_MARKER As String = "ItalicsMarker"
+Private Const LP_PREF_VAR_LINE As String = "LpLineMultiple"
+Private Const LP_PREF_VAR_LETTER As String = "LpLetterSpacing"
+Private Const LP_PREF_VAR_MARKER As String = "LpItalicsMarker"
+
+' Tahoma's single line spacing as a share of the type size, for the "= 27 pt at 18 pt" text in
+' Spacing and Italics Settings only - Word itself is handed a Multiple. MEASURED on vistabuild
+' 11/24/2026: Multiple 1.25 came out 27.15, 30.20, 36.20 and 42.25 pt at 18, 20, 24 and 28 pt,
+' which is 1.207 times the size. VistaTypeLP Sans is close but was not measured.
+Private Const LP_TAHOMA_SINGLE As Double = 1.207
 
 ' Which of the three configurations is in force. Word's Options and AutoCorrect entries are
 ' per-APPLICATION, not per-document, so with an LP book and a braille file both open only one
@@ -11846,6 +11901,9 @@ Sub Lp_Attach_Lp_Template()
     '
     ' Description: Attaches large print template to document
     '
+    ' Version: 2.5  Date: 11/24/2026 - clears Lp_Pref_Chosen before 338 opens, so a Spacing and
+    '                               Italics Settings choice from an attach that was cancelled
+    '                               never reaches this one (Jerry)
     ' Version: 2.4  Date: 8/12/2026 - records "was this document already large print?" in its own
     '                               Lp_Doc_Was_Already_LP, on EVERY path through this macro.
     '
@@ -11928,6 +11986,11 @@ Sub Lp_Attach_Lp_Template()
     ' here would send exactly the book that most needs the warning through without one.
     Lp_Doc_Was_Already_LP = (Lp_Was_Made_As_An_Lp_Book() = True And _
                              InStr(UCase(ActiveDocument.AttachedTemplate.Name), UCase("Normal.do")) = 0)
+
+    ' Nothing chosen in Spacing and Italics Settings for THIS attach yet - its Okay sets it. Fresh
+    ' every time, for the same reason as the line above: a stale True would hand this book the
+    ' choices made for another one (Jerry, 11/24/2026).
+    Lp_Pref_Chosen = False
 
     If Lp_Doc_Was_Already_LP Then
         Lp_ReAttachWarning_Form.Show
@@ -12660,6 +12723,12 @@ Sub Lp_Italics_To_Dashed_Underline(Optional ByVal selectionOnly As Boolean = Fal
 '
 ' Author: Jerry Whittaker - jerry@vistatypelp.org
 '
+' Version: 1.7  Date: 11/24/2026 - THE ITALICS MARKER (Jerry, Spacing and Italics Settings): the book's
+'                                 marker comes from Lp_Pref_Italics_Marker. Dash: exactly as before. A
+'                                 Text color: the same passes dash the italics first, then every dashed
+'                                 run in the same story or selection becomes that color, not underlined
+'                                 (Lp_Italics_Marker_Walk) - so the punctuation, spaces and equations
+'                                 the passes skip are skipped in color too, and bold is kept
 ' Version: 1.6  Date: 11/2/2026 - FAST AGAIN WITH EQUATIONS (Jerry: a book stalled on 373 for 25 minutes and
 '                                 more). A story with equations is no longer walked hit by hit: the
 '                                 equations are taken out into a hidden document, the Replace Alls run, and
@@ -12730,13 +12799,28 @@ Sub Lp_Italics_To_Dashed_Underline(Optional ByVal selectionOnly As Boolean = Fal
     ' MERGED two equations with italic text between them into one display equation.
     Dim sel As Range
     Dim story As Range
+    Dim marker As String
+
+    ' THE ITALICS MARKER (Jerry, 11/24/2026). Every path below dashes the italics exactly as it
+    ' always has, and then, just before it ends, hands the same story or selection to
+    ' Lp_Italics_Marker_Walk, which does nothing for Dash and otherwise turns each dashed run into
+    ' the book's Text color. Dashing first is deliberate: the 12 passes already know which
+    ' characters to leave alone - spaces, punctuation, equations - and a color pass of its own
+    ' would have to learn them all again. The cost, accepted: in a book marked in color, a dashed
+    ' underline that was already there becomes that color too.
+    marker = Lp_Pref_Italics_Marker(ActiveDocument)
+
     If Not selectionOnly Then
         Set story = ActiveDocument.StoryRanges(Selection.StoryType)
         If story.OMaths.count = 0 Then
             Lp_Dash_Italics_Replace_All
+            Lp_Italics_Marker_Walk ActiveDocument.StoryRanges(story.StoryType), LP_ITALICS_DEFAULT, marker
             Exit Sub
         End If
-        If Lp_Dash_Italics_Around_Equations(story) Then Exit Sub
+        If Lp_Dash_Italics_Around_Equations(story) Then
+            Lp_Italics_Marker_Walk ActiveDocument.StoryRanges(story.StoryType), LP_ITALICS_DEFAULT, marker
+            Exit Sub
+        End If
         ' The equations would not come out cleanly; they are all back as they were. Walk the story
         ' hit by hit instead, as 11/1/2026 did - slow, but it never touches an equation.
         Set sel = ActiveDocument.StoryRanges(Selection.StoryType)
@@ -12762,6 +12846,7 @@ Sub Lp_Italics_To_Dashed_Underline(Optional ByVal selectionOnly As Boolean = Fal
         Lp_Dash_Italics_Pass_In_Range sel, ";", -1, wdUnderlineDash, -1, wdUnderlineNone
         Lp_Dash_Italics_Pass_In_Range sel, ChrW(191), -1, wdUnderlineDash, -1, wdUnderlineNone  ' inverted ?
         Lp_Dash_Italics_Pass_In_Range sel, ChrW(161), -1, wdUnderlineDash, -1, wdUnderlineNone  ' inverted !
+        Lp_Italics_Marker_Walk sel, LP_ITALICS_DEFAULT, marker
         Exit Sub
     End If
 End Sub '  ***** End of Lp_Italics_To_Dashed_Underline Macro *****************
@@ -13186,6 +13271,435 @@ Private Sub Lp_Dash_Italics_Pass_In_Range(ByVal within As Range, _
     Loop
 
 End Sub '  ***** End of Lp_Dash_Italics_Pass_In_Range *****************
+
+Public Function Lp_Italics_Convert_Marker(ByVal fromMarker As String, ByVal toMarker As String) As Long
+'
+' Author: Jerry Whittaker - jerry@vistatypelp.org
+'
+' Version: 1.1  Date: 11/24/2026 - a Function: answers how many marked runs it left as they were.
+'                                 From a color, only the "Italics X" tag style is converted, never
+'                                 Text X put on by hand (Jerry)
+' Version: 1.0  Date: 11/24/2026
+'
+' Description:  The book's italics marker has changed (Spacing and Italics Settings, Jerry,
+'               11/24/2026): every run marked the old way, in the main text, is marked the new way.
+'               Jerry: "converts text already marked with the old marker to the new one".
+'               fromMarker and toMarker are names from Lp_Pref_Marker_Names - "Dash" or a Text color.
+'               From Dash means every run with a dashed underline, including any the publisher put
+'               there for something else; Jerry accepted that. From a color means exactly the runs
+'               in that color's tag style, "Italics Red" and so on (Lp_Pref_Marker_Style_Name), so
+'               Text Red a transcriber put on by hand is left alone (Jerry, 11/24/2026). Equations
+'               are stepped over, as the italics passes step over them. Called by
+'               Lp_Attach_The_Template on a book that was already large print, before Normalize
+'               Styles. Answers the number of marked runs it left as they were - see
+'               Lp_Italics_Mark_Run.
+
+    Dim f As String
+    Dim t As String
+
+    f = Lp_Pref_Marker_Canonical(fromMarker)
+    t = Lp_Pref_Marker_Canonical(toMarker)
+    If f = "" Or t = "" Or f = t Then Exit Function
+    Lp_Italics_Convert_Marker = Lp_Italics_Marker_Walk(ActiveDocument.StoryRanges(wdMainTextStory), f, t)
+
+End Function '  ***** End of Lp_Italics_Convert_Marker *****
+
+Private Function Lp_Pref_Italics_Style(ByVal doc As Document, ByVal marker As String, _
+        ByVal makeIt As Boolean) As Style
+'
+' Author: Jerry Whittaker - jerry@vistatypelp.org
+'
+' Version: 1.0  Date: 11/24/2026
+'
+' Description:  The tag style for a color marker in doc - "Italics Blue" for TextBlue - or Nothing
+'               for Dash. With makeIt, a style the book has not got yet is ADDED: a character style
+'               based on the LP template's "Text Blue", so it looks exactly the same and follows any
+'               change to it (the face Lp_Apply_Base_Font_To_Styles sets, the size Normalize Styles
+'               sets). Kept out of the Quick Style gallery - it is put on by the italics pass, not
+'               by hand. Nothing when the book has not got "Text Blue" either: a book the LP
+'               template has not been attached to yet.
+'
+'               Kept through a re-attach and File Cleanup by Lp_Remove_All_Styles_Except_Lp_Styles'
+'               keep-list. Not in the LP template, so attaching it never replaces or removes it.
+
+    Dim nm As String
+    Dim lookName As String
+    Dim s As Style
+    Dim baseSty As Style
+
+    nm = Lp_Pref_Marker_Style_Name(marker)
+    lookName = Lp_Pref_Marker_Look_Name(marker)
+    If nm = "" Then Exit Function
+
+    On Error Resume Next
+    Set s = doc.Styles(nm)
+    Err.Clear
+    If s Is Nothing And makeIt Then
+        Set baseSty = doc.Styles(lookName)
+        Err.Clear
+        If Not baseSty Is Nothing Then
+            Set s = doc.Styles.Add(Name:=nm, Type:=wdStyleTypeCharacter)
+            If Err.Number <> 0 Then
+                Set s = Nothing
+            Else
+                s.BaseStyle = lookName
+                s.QuickStyle = False
+                If Err.Number <> 0 Then Set s = Nothing     ' not a style that looks right
+            End If
+            Err.Clear
+        End If
+    End If
+    On Error GoTo 0
+    Set Lp_Pref_Italics_Style = s
+
+End Function '  ***** End of Lp_Pref_Italics_Style *****
+
+Private Function Lp_Italics_Marker_Walk(ByVal within As Range, ByVal fromMarker As String, _
+        ByVal toMarker As String) As Long
+'
+' Author: Jerry Whittaker - jerry@vistatypelp.org
+'
+' Version: 1.1  Date: 11/24/2026 - a Function, answering how many runs it left as they were. The tag
+'                                 style is added to the book only once a run needs it
+' Version: 1.0  Date: 11/24/2026
+'
+' Description:  Every run inside within marked with fromMarker is marked with toMarker instead -
+'               one run at a time (Lp_Italics_Mark_Run). Does nothing when the two are the same,
+'               which is how Lp_Italics_To_Dashed_Underline can call it for Dash and nothing happens.
+'               From Dash: runs with a dashed underline. From a color: runs in its tag style
+'               ("Italics Red"). A book with no "Text Red" - File Cleanup on a book that has not had
+'               the LP template yet - is left as it is: the dashes stay, and the attach's Normalize
+'               Styles colors them once the template has brought the style.
+'
+'               A FIND THAT STEPS, NOT A REPLACE ALL. The same shape as Lp_Dash_Italics_Pass_In_Range:
+'               each Find starts from a collapsed point (a range that already matches throughout is
+'               searched on from its end - issue #4), a hit is cut off at the end of within, and an
+'               equation is never changed (issue #48). Two reasons it is not a Replace All with
+'               Replacement.Style: a character style laid over text strips its direct bold and italic
+'               (measured 10/11/2026, issue #17), and only a run in hand can be remembered and put
+'               back; and a Replace All with replacement formatting is the suspect, NOT proven, in
+'               issue #56 (Word dying on a second attach). Slower than a Replace All, but italics
+'               are a small share of a book.
+'
+'               NO DoEvents IN HERE, and none in Lp_Italics_Mark_Run - do not add one, nor a
+'               Sh_Spin_DoEvents for the spinner. Issue #56's crashes all came at a DoEvents point
+'               after a step; a walk that let Word catch up a run at a time would add hundreds.
+
+    Dim doc As Document
+    Dim fromStyle As Style
+    Dim toStyle As Style
+    Dim fromName As String
+    Dim toName As String
+    Dim hit As Range
+    Dim nextStart As Long
+    Dim rangeEnd As Long
+    Dim skipTo As Long
+    Dim leftAlone As Long
+
+    fromName = Lp_Pref_Marker_Style_Name(fromMarker)
+    toName = Lp_Pref_Marker_Style_Name(toMarker)
+    If fromName = toName Then Exit Function
+    Set doc = within.Document
+
+    If fromName <> "" Then
+        Set fromStyle = Lp_Pref_Italics_Style(doc, fromMarker, False)
+        If fromStyle Is Nothing Then Exit Function      ' nothing can be in a style it has not got
+    End If
+    If toName <> "" Then
+        ' Can the book take the new style at all? Its look, "Text Red", must be there. The tag
+        ' style itself is added below, only when the first run needs it.
+        If Lp_Pref_Italics_Style(doc, toMarker, False) Is Nothing Then
+            If Not Sh_Style_Exists(doc, Lp_Pref_Marker_Look_Name(toMarker)) Then Exit Function
+        End If
+    End If
+
+    nextStart = within.Start
+    rangeEnd = within.End
+    Do While nextStart < rangeEnd
+        Set hit = within.Duplicate
+        hit.SetRange nextStart, nextStart
+        With hit.Find
+            .ClearFormatting
+            If fromStyle Is Nothing Then
+                .Font.Underline = wdUnderlineDash
+            Else
+                .Style = fromStyle
+            End If
+            .Text = ""
+            .Forward = True
+            .Wrap = wdFindStop
+            .Format = True
+            .MatchCase = False
+            .MatchWholeWord = False
+            .MatchWildcards = False
+            .MatchSoundsLike = False
+            .MatchAllWordForms = False
+        End With
+        If Not hit.Find.Execute Then Exit Do
+        If hit.Start >= rangeEnd Then Exit Do
+        If hit.Start < nextStart Then hit.Start = nextStart
+        If hit.End > rangeEnd Then hit.End = rangeEnd
+        If hit.End <= nextStart Then Exit Do
+        ' An equation is never changed (issue #48): only the part of the hit before it is, and the
+        ' search goes on from the equation's end - as in Lp_Dash_Italics_Pass_In_Range.
+        skipTo = 0
+        If hit.OMaths.count > 0 Then
+            skipTo = hit.OMaths(1).Range.End
+            If hit.OMaths(1).Range.Start > hit.Start Then
+                hit.End = hit.OMaths(1).Range.Start
+            Else
+                hit.End = hit.Start
+            End If
+        End If
+        If hit.End > hit.Start Then
+            If toName <> "" And toStyle Is Nothing Then
+                Set toStyle = Lp_Pref_Italics_Style(doc, toMarker, True)
+                If toStyle Is Nothing Then Exit Do          ' could not be added: leave the rest
+            End If
+            leftAlone = leftAlone + Lp_Italics_Mark_Run(hit, fromStyle, toStyle)
+        End If
+        nextStart = hit.End
+        If skipTo > nextStart Then nextStart = skipTo
+        If nextStart <= hit.Start Then nextStart = hit.Start + 1
+    Loop
+
+    If Not hit Is Nothing Then hit.Find.ClearFormatting
+    Lp_Italics_Marker_Walk = leftAlone
+
+End Function '  ***** End of Lp_Italics_Marker_Walk *****
+
+Private Function Lp_Italics_Mark_Run(ByVal rr As Range, ByVal fromStyle As Style, _
+        ByVal toStyle As Style) As Long
+'
+' Author: Jerry Whittaker - jerry@vistatypelp.org
+'
+' Version: 1.0  Date: 11/24/2026
+'
+' Description:  One hit of Lp_Italics_Marker_Walk to the new marker. Answers how many pieces of it
+'               were left as they were (0 when all of it was marked).
+'
+'               A MIXED HIT IS SPLIT (Jerry, 11/24/2026, after a vba-test of 3.0.716 on vistabuild).
+'               Find hands back one hit for the whole dashed stretch, so "a note" plus its footnote
+'               reference was one hit, and so was "ital" + superscript "2" + "ic" - and a hit that
+'               mixes a character style, or superscript, subscript or small caps, was left dashed
+'               from end to end. Now such a hit is cut into the stretches where all four are the
+'               same, character by character, and each stretch is marked on its own by
+'               Lp_Italics_Mark_Uniform: plain text and superscript get the marker (keeping their
+'               superscript); a footnote reference, a Words color bar, a Hyperlink or a field's
+'               code is left as it is.
+'
+'               Only a mixed hit is read character by character - a plain one, the usual case, is
+'               one call. Formatting moves no text, so the stretches noted before the first change
+'               still hold. Fails soft like Lp_Italics_Mark_Uniform: a hit whose characters cannot
+'               be read is left whole and counted. No DoEvents - see Lp_Italics_Marker_Walk.
+
+    Dim c As Range
+    Dim part As Range
+    Dim key As String
+    Dim prevKey As String
+    Dim csName As String
+    Dim starts() As Long
+    Dim ends() As Long
+    Dim n As Long
+    Dim i As Long
+    Dim mixed As Boolean
+    Dim joinIt As Boolean
+    Dim leftAlone As Long
+
+    On Error Resume Next
+    csName = rr.CharacterStyle
+    mixed = (Err.Number <> 0)                 ' Nothing: more than one character style
+    Err.Clear
+    If Not mixed Then
+        mixed = (rr.Font.Superscript = wdUndefined Or rr.Font.Subscript = wdUndefined _
+                 Or rr.Font.SmallCaps = wdUndefined)
+        If Err.Number <> 0 Then mixed = True
+        Err.Clear
+    End If
+    On Error GoTo 0
+
+    If Not mixed Then
+        If Not Lp_Italics_Mark_Uniform(rr, fromStyle, toStyle) Then Lp_Italics_Mark_Run = 1
+        Exit Function
+    End If
+
+    ' The stretches: consecutive characters with the same style and the same three settings.
+    On Error Resume Next
+    ReDim starts(1 To 16)
+    ReDim ends(1 To 16)
+    For Each c In rr.Characters
+        csName = "?"
+        csName = c.CharacterStyle
+        Err.Clear
+        key = csName & "|" & CStr(c.Font.Superscript) & "|" & CStr(c.Font.Subscript) _
+              & "|" & CStr(c.Font.SmallCaps)
+        If Err.Number <> 0 Then key = "?" & CStr(n)  ' unreadable: a stretch of its own, left alone
+        Err.Clear
+        ' Nested, not And: VBA reads every part of an And, and ends(0) is out of range - under
+        ' Resume Next that error would fall into the Then and lose the first character.
+        joinIt = False
+        If n > 0 Then
+            If key = prevKey And c.Start = ends(n) Then joinIt = True
+        End If
+        If joinIt Then
+            ends(n) = c.End
+        Else
+            n = n + 1
+            If n > UBound(starts) Then
+                ReDim Preserve starts(1 To 2 * n)
+                ReDim Preserve ends(1 To 2 * n)
+            End If
+            starts(n) = c.Start
+            ends(n) = c.End
+            prevKey = key
+        End If
+    Next c
+    If Err.Number <> 0 Or n = 0 Then
+        Err.Clear
+        On Error GoTo 0
+        Lp_Italics_Mark_Run = 1                   ' could not be read: left whole
+        Exit Function
+    End If
+    On Error GoTo 0
+
+    Set part = rr.Duplicate
+    For i = 1 To n
+        part.SetRange starts(i), ends(i)
+        If part.End > part.Start Then
+            If Not Lp_Italics_Mark_Uniform(part, fromStyle, toStyle) Then leftAlone = leftAlone + 1
+        End If
+    Next i
+    Lp_Italics_Mark_Run = leftAlone
+
+End Function '  ***** End of Lp_Italics_Mark_Run *****
+
+Private Function Lp_Italics_Mark_Uniform(ByVal rr As Range, ByVal fromStyle As Style, _
+        ByVal toStyle As Style) As Boolean
+'
+' Author: Jerry Whittaker - jerry@vistatypelp.org
+'
+' Version: 1.2  Date: 11/24/2026 - was Lp_Italics_Mark_Run; a mixed hit is now split by the new
+'                                 Lp_Italics_Mark_Run, which hands each even stretch to this
+' Version: 1.1  Date: 11/24/2026 - review: a run in another character style is left alone; superscript,
+'                                 subscript and small caps are kept; a failure skips the run
+' Version: 1.0  Date: 11/24/2026
+'
+' Description:  One marked run (rr) to the new marker; True when it was changed. toStyle Nothing
+'               means Dash: the tag style comes off (Default Paragraph Font) and the dashed
+'               underline goes on. Otherwise the run takes toStyle, the tag style, with no underline.
+'
+'               Reached through Lp_Italics_Mark_Run, which hands it a run that is even throughout.
+'
+'               A RUN IN ANOTHER CHARACTER STYLE IS LEFT AS IT IS, and keeps its marker - False.
+'               Setting a style REPLACES the run's character style, so a footnote or endnote
+'               reference, a Words color bar in a TOC, or a Hyperlink would lose its own (review,
+'               11/24/2026). Only a run with no character style (Default Paragraph Font), or one
+'               already in fromStyle or toStyle, is changed. A run mixing two styles answers
+'               Nothing for its style and is left alone too - Lp_Italics_Mark_Run has split any
+'               mixed hit before this, so here that is only a safety net. Range.CharacterStyle is read by its
+'               default property, the style's name, so it does not matter whether Word hands back
+'               the Style or its name. NOT MEASURED: that a run with no character style answers
+'               Default Paragraph Font. If it does not, nothing is ever colored, and a vba-test on
+'               the box shows it at once.
+'
+'               BOLD IS KEPT, and so is "not italic". Setting a character style strips the run's
+'               DIRECT bold and italic (measured on vistabuild 10/11/2026, issue #17, the fault
+'               Lp_TOC_Remove_Color_Bars meets), so both are remembered with Lp_Remember_Bold_Italic
+'               and put back with Lp_Restore_Bold_Italic, per character where the run is mixed. Bold
+'               italic stays bold (Jerry, 9/20/2026). The italic matters too: a run in an italic
+'               paragraph style - Quote - was made not italic by the dash pass, and the style change
+'               would let the style's italic show through again.
+'
+'               SUPERSCRIPT, SUBSCRIPT AND SMALL CAPS are put back the same way, whether or not the
+'               style change takes them (not measured). A run that still MIXES any of the three is
+'               left alone - Lp_Italics_Mark_Run splits a mixed hit before this, so it should not.
+'
+'               The SIZE AND TYPEFACE are put back when the run had one of each. The Text styles name
+'               a size and Tahoma, the attach lays the book's own over every character as direct
+'               formatting, and whether a style change keeps that has not been measured - so it is
+'               put back rather than trusted. A run of mixed sizes is left to the style.
+'
+'               THE COLOR must show. A direct color left on the run (from the source file, or from
+'               a conversion before this one) would hide the style's color, so the style's color is
+'               set over it when it does not show; going back to Dash, a color that is the old
+'               style's goes back to automatic.
+'
+'               SO A DIRECT COLOR ON ITALIC TEXT IS LOST, and that is accepted (Jerry, 11/24/2026):
+'               green italic marked Blue shows blue, and going back to Dash leaves it automatic, not
+'               green (vba-test on vistabuild, 3.0.716, paragraph P11). Nothing remembers the old color.
+'
+'               FAILS SOFT (review, 11/24/2026). Its callers are reached through Application.Run,
+'               which shows Word's own error dialog and never hands an error back, so an error in
+'               one run's writes is caught here: that run is skipped - False - and the walk goes on.
+'               A run can then be part changed (its style on, its bold not yet back). Nothing in it
+'               calls DoEvents - see Lp_Italics_Marker_Walk.
+
+    Dim emph As Variant
+    Dim sz As Single
+    Dim nm As String
+    Dim oldColor As Long
+    Dim csName As String
+    Dim okStyle As Boolean
+    Dim sup As Long
+    Dim subs As Long
+    Dim smc As Long
+
+    On Error Resume Next
+
+    ' Which character style the run is in, if any - and leave it unless it is plain or ours
+    csName = rr.CharacterStyle
+    If Err.Number <> 0 Then GoTo Done                    ' mixed, or cannot tell: leave it
+    okStyle = (csName = rr.Document.Styles(wdStyleDefaultParagraphFont).NameLocal)
+    If Not fromStyle Is Nothing Then
+        If csName = fromStyle.NameLocal Then okStyle = True
+    End If
+    If Not toStyle Is Nothing Then
+        If csName = toStyle.NameLocal Then okStyle = True
+    End If
+    If Err.Number <> 0 Or Not okStyle Then GoTo Done
+
+    sup = rr.Font.Superscript
+    subs = rr.Font.Subscript
+    smc = rr.Font.SmallCaps
+    If sup = wdUndefined Or subs = wdUndefined Or smc = wdUndefined Then GoTo Done
+    emph = Lp_Remember_Bold_Italic(rr)
+    sz = rr.Font.Size
+    nm = rr.Font.Name
+    If Err.Number <> 0 Then GoTo Done                    ' nothing written yet
+
+    If toStyle Is Nothing Then
+        oldColor = fromStyle.Font.Color
+        rr.Style = rr.Document.Styles(wdStyleDefaultParagraphFont)
+    Else
+        rr.Style = toStyle
+    End If
+    If Err.Number <> 0 Then GoTo Done
+
+    Lp_Restore_Bold_Italic rr, emph
+    If rr.Font.Superscript <> sup Then rr.Font.Superscript = sup
+    If rr.Font.Subscript <> subs Then rr.Font.Subscript = subs
+    If rr.Font.SmallCaps <> smc Then rr.Font.SmallCaps = smc
+    If sz > 0 And sz < 1000 Then           ' wdUndefined (9999999) when mixed
+        If rr.Font.Size <> sz Then rr.Font.Size = sz
+    End If
+    If Len(nm) > 0 Then
+        If rr.Font.Name <> nm Then rr.Font.Name = nm
+    End If
+
+    If toStyle Is Nothing Then
+        If rr.Font.Color = oldColor Then rr.Font.Color = wdColorAutomatic
+        rr.Font.Underline = wdUnderlineDash
+    Else
+        If rr.Font.Color <> toStyle.Font.Color Then rr.Font.Color = toStyle.Font.Color
+        rr.Font.Underline = wdUnderlineNone
+    End If
+    Lp_Italics_Mark_Uniform = (Err.Number = 0)
+
+Done:
+    Err.Clear
+    On Error GoTo 0
+
+End Function '  ***** End of Lp_Italics_Mark_Uniform *****
 
 Sub Lp_Fix_Hyphen_Errors()
 '
@@ -22384,6 +22898,16 @@ Sub Lp_Attach_The_Template()
 
     ' Attaches the LP template with style changes
     '
+    ' Version: 5.2  Date: 11/24/2026 - SPACING AND ITALICS SETTINGS (Jerry): just after Media, the
+    '                               book's line spacing, letter spacing and italics marker are
+    '                               written into it - the ones chosen in that box, else the book's
+    '                               own, else the saved default, else built in - and into
+    '                               VistaType.ini too when "Save as my default" was picked. A
+    '                               book that was already large print and changes its marker has
+    '                               its marked text converted before Normalize Styles. The
+    '                               saved default marker is for a NEW book only, and a book
+    '                               already large print is told its new marker only once its
+    '                               marked text has been converted (Jerry; review)
     ' Version: 5.1  Date: 11/15/2026 - the finishing touches after the reopen (activate, Print
     '                               Layout view, Styles pane) run under Resume Next, and
     '                               Sh_Close_And_Reopen 1.2 retries a reopen whose book is not
@@ -22534,6 +23058,11 @@ Sub Lp_Attach_The_Template()
     Dim markRemoved As Boolean
     Dim lastPara As Paragraph
     Dim oldMedia As String
+    ' The book's spacing and italics marker, and the marker it had before (11/24/2026).
+    Dim prefLine As Single
+    Dim prefLetter As Single
+    Dim prefMarker As String
+    Dim prefOldMarker As String
 
     ' For the handler at the foot of this macro - see AttachFailed.
     Dim failNumber As Long
@@ -22567,6 +23096,48 @@ Sub Lp_Attach_The_Template()
     On Error GoTo AttachFailed
 
     Sh_Write_Document_Variables "Media", DM
+
+    ' SPACING AND ITALICS SETTINGS (Jerry, 11/24/2026). Written here, beside Media and for the
+    ' same reason: File Cleanup, just below, marks the italics and asks the book which marker.
+    ' Normalize Styles reads the two spacings back out of the book further down.
+    '
+    ' The values: what the transcriber chose in Spacing and Italics Settings, when the box was
+    ' opened and Okay pressed; otherwise the book's own, then the saved default, then built in -
+    ' Jerry: "the book's own settings win" (Lp_Pref_Line_Multiple and the other two).
+    '
+    ' The MARKER is not quite the same (Jerry, 11/24/2026): a book that is already large print
+    ' keeps its own, and one with none recorded counts as Dash; the saved default marker is for a
+    ' NEW book only, on its first attach - Lp_Pref_Attach_Marker.
+    '
+    ' The marker the book had BEFORE, read first, for the conversion further down. A large print
+    ' book with none recorded was made before there was a choice, and was dashed.
+    prefOldMarker = Lp_Pref_Italics_Marker(ActiveDocument)      ' none, or not one we know: Dash
+
+    If Lp_Pref_Chosen Then
+        prefLine = Lp_Pref_Chosen_Line
+        prefLetter = Lp_Pref_Chosen_Letter
+        prefMarker = Lp_Pref_Chosen_Marker
+    Else
+        prefLine = Lp_Pref_Line_Multiple(ActiveDocument)
+        prefLetter = Lp_Pref_Letter_Spacing(ActiveDocument)
+        prefMarker = Lp_Pref_Attach_Marker(ActiveDocument, Lp_Doc_Was_Already_LP)
+    End If
+    ' A choice that is not one the box offers is the built-in, as it will be written.
+    prefMarker = Lp_Pref_Pick_Marker(prefMarker, "")
+
+    ' A book that is ALREADY large print keeps its OLD marker in the book until its marked text
+    ' has been converted, just before Normalize Styles - so an attach that fails on the way never
+    ' leaves colored text under "Dash", or dashes under a color (review, 11/24/2026). A NEW book
+    ' has nothing marked yet, and File Cleanup, just below, must already mark with the new one.
+    If Lp_Doc_Was_Already_LP Then
+        Lp_Pref_Set_For_Doc ActiveDocument, prefLine, prefLetter, prefOldMarker
+    Else
+        Lp_Pref_Set_For_Doc ActiveDocument, prefLine, prefLetter, prefMarker
+    End If
+    If Lp_Pref_Chosen And Lp_Pref_Chosen_AsDefault Then
+        Lp_Pref_Save_Default prefLine, prefLetter, prefMarker
+    End If
+    Lp_Pref_Chosen = False       ' used once
 
     If Not Lp_Doc_Was_Already_LP Then  ' this only needs to be done on docs which are not lp
         ' The message belongs INSIDE the If. It used to be set just above it as well, so a
@@ -22824,6 +23395,24 @@ DoEvents
     ' before the cleanup, and a re-attach keeps floating pictures floating (Jerry, 10/12/2026).
     Lp_ResizePicturesAndShapesToFitPageWidthAndPageHeight
     
+    ' THE ITALICS MARKER CHANGED on a book that was already large print (Jerry, 11/24/2026): text
+    ' marked the old way is marked the new way. Here, after the template has brought the Text
+    ' color styles and before Lp_Normalize_Styles, whose italics step then marks any italic still
+    ' left with the new marker. A first attach is skipped: nothing in it was marked before, and
+    ' File Cleanup has just marked it with the new one.
+    '
+    ' The book is told its new marker only once the conversion is done (see above, after Media).
+    ' Lp_Italics_Runs_Left is how many marked runs the conversion left as they were - a run in
+    ' another character style, or one that would not change; nothing shows it yet.
+    If Lp_Doc_Was_Already_LP Then
+        If prefOldMarker <> prefMarker Then
+            Sh_Progress_Say 72, "Changing the italics marker"
+            DoEvents
+            Lp_Italics_Runs_Left = Lp_Italics_Convert_Marker(prefOldMarker, prefMarker)
+        End If
+        Lp_Pref_Set_Marker_For_Doc ActiveDocument, prefMarker
+    End If
+
     ' It owns 74 to 90 of the bar, its 14 passes counting 0 to 100 inside that slice.
     ' The trailing comment here used to read "this routine sets it's on non-modal
     ' messages" - it does still set its own, but on the bar now, through Lp_Ns_Step.
@@ -23925,6 +24514,9 @@ Sub Lp_Remove_All_Styles_Except_Lp_Styles()
 ' pane. Built-in Word styles (Heading 1-5, TOC 1-5, List Paragraph, List Bullet,
 ' Header, Footer, ...) are never touched: the BuiltIn = False guard protects them.
 '
+' Version: 1.5  Date: 11/24/2026 - added the five "Italics X" styles, the tags the italics marker
+'                                 puts on (Spacing and Italics Settings, Jerry), so a book's colored
+'                                 italics keep their style through a re-attach and File Cleanup
 ' Version: 1.4  Date: 7/21/2026 - added "Prodnote" to the LP keep-list so the DAISY/NIMAS
 '                                 converter's Prodnote-styled paragraphs survive template attach
 ' Version: 1.3  Date: 7/20/2026 - in-use non-LP custom paragraph/linked styles are now
@@ -23949,7 +24541,8 @@ Sub Lp_Remove_All_Styles_Except_Lp_Styles()
     & "Box Black,Box Blue,Box Orange,Box Red,Box Violet,Box White," _
     & "Words Aqua,Words Black,Words Blue,Words Green,Words Pink,Words Tan,Words Yellow," _
     & "Para Aqua,Para Black,Para Blue,Para Green,Para Tan,Para Yellow,Print Pg Num,Words Black Inverted," _
-    & "Para Black Inverted,Prodnote,"
+    & "Para Black Inverted,Prodnote," _
+    & "Italics Blue,Italics Green,Italics Orange,Italics Red,Italics Violet,"
 
     ' Pass 1: collect the non-built-in, non-LP style names. We do NOT delete inside this
     ' For Each -- removing items from the Styles collection mid-enumeration skips styles.
@@ -30597,6 +31190,10 @@ End Function   '*** end of Sh_Number_To_Roman ***
 
 Sub Lp_Normalize_Styles()
     '
+    ' Version: 3.16 Date: 11/24/2026 - line spacing and letter spacing are THE BOOK'S (Spacing and
+    '                               Italics Settings, Jerry): Lp_Pref_Line_Multiple and
+    '                               Lp_Pref_Letter_Spacing in place of the two constants, which
+    '                               are now the built-in values only
     ' Version: 3.15 Date: 11/24/2026 - the line-spacing pass's Find and Replace is now a Find that
     '                               sets each run of paragraphs directly - no replace-all. Tried
     '                               for issue #56 (Word dying on a second attach); NOT a cure
@@ -30665,6 +31262,14 @@ Sub Lp_Normalize_Styles()
     ' In the attach path this reads back exactly what was just written, so nothing is lost.
     Lp_Base_Font_Name = ActiveDocument.Styles(wdStyleNormal).Font.Name
     If Len(Trim(Lp_Base_Font_Name)) = 0 Then Lp_Base_Font_Name = LP_FONT_TAHOMA
+
+    ' This book's line spacing (a Multiple) and letter spacing (a share of the type size) - its own,
+    ' else the transcriber's saved default, else built in (Spacing and Italics Settings, Jerry,
+    ' 11/24/2026). Read once here; Lp_Attach_The_Template has just written them into the book.
+    Dim nsLine As Single
+    Dim nsLetter As Single
+    nsLine = Lp_Pref_Line_Multiple(ActiveDocument)
+    nsLetter = Lp_Pref_Letter_Spacing(ActiveDocument)
 
     ' Caption paragraphs become Box Red (Jerry, 11/14/2026). BEFORE the italics step on purpose:
     ' Lp_Captions_To_Box_Red keeps the italic the caption showed as direct italic, and the
@@ -30841,10 +31446,11 @@ Sub Lp_Normalize_Styles()
 
     StyleList = Array("Normal", "List Paragraph")
 
-    ' 0.12 TIMES THE TYPE SIZE (LP_LETTER_SPACING; Jerry, 11/24/2026), in place of the table that
+    ' 0.12 TIMES THE TYPE SIZE built in (LP_LETTER_SPACING; Jerry, 11/24/2026) - the book's own
+    ' share is nsLetter, from Lp_Pref_Letter_Spacing - in place of the table that
     ' ran 0.8 pt at 14 to 4.3 pt at 42. Lp_Spacing_For_Word puts it on Word's twentieth of a point:
     ' 2.16 at 18 pt is kept as 2.15.
-    targetSpacing = LP_LETTER_SPACING * CDbl(Lp_Base_Font_Size)
+    targetSpacing = nsLetter * CDbl(Lp_Base_Font_Size)
 
     For i = LBound(StyleList) To UBound(StyleList)
         styleName = StyleList(i)
@@ -30904,7 +31510,7 @@ Sub Lp_Normalize_Styles()
         sty.Font.Bold = True
         sty.Font.Position = 0
         ' 0.12 times THIS heading's size (Jerry, 11/24/2026), not one value for all five
-        sty.Font.spacing = Lp_Spacing_For_Word(LP_LETTER_SPACING * (base + SizeOffsets(i)))
+        sty.Font.spacing = Lp_Spacing_For_Word(nsLetter * (base + SizeOffsets(i)))
     Next i
     '*********** end heading styles **************
 
@@ -30926,7 +31532,8 @@ Sub Lp_Normalize_Styles()
     ' AFTER the size passes above, so the sizes read here are final; BEFORE
     ' Sh_Color_Dollar_PG_Red, which stays last.
     '
-    ' MULTIPLE 1.25 (LP_LINE_MULTIPLE; Jerry, 11/24/2026) on Normal, and the same below on the
+    ' MULTIPLE 1.25 built in (LP_LINE_MULTIPLE; Jerry, 11/24/2026) - the book's own is nsLine,
+    ' from Lp_Pref_Line_Multiple - on Normal, and the same below on the
     ' TOC, List and Para color styles; Heading 1-5 are set to Single. The list styles get 0 after.
     ' It replaced At least size + 4 (11/23/2026), which measured the same as Single from 20 pt up:
     ' Tahoma's own single spacing is 1.207 times the size, more than size + 4 there.
@@ -30939,11 +31546,11 @@ Sub Lp_Normalize_Styles()
 
     With ActiveDocument.Styles(wdStyleNormal)
         .ParagraphFormat.LineSpacingRule = wdLineSpaceMultiple
-        .ParagraphFormat.LineSpacing = LinesToPoints(LP_LINE_MULTIPLE)
+        .ParagraphFormat.LineSpacing = LinesToPoints(nsLine)
     End With
 
-    ' Heading 1-5 SINGLE; the lists, the TOC and the Para color styles AT LEAST BASE + 4 (Jerry,
-    ' 11/23 and 11/24/2026); 0 points after for all of them. "Setting spacing
+    ' Heading 1-5 SINGLE; the lists, the TOC and the Para color styles Multiple, the book's line
+    ' spacing (nsLine) like Normal (Jerry, 11/23 and 11/24/2026); 0 points after for all of them. "Setting spacing
     ' between paragraphs" above put the base size after EVERY paragraph as direct formatting,
     ' which beats the style - so the style is set AND its paragraphs are given the value directly, by a Find on the style that steps through each run of
     ' its paragraphs (one pass per style in use, not a loop over every paragraph; not a Replace - #56). Main text only, the same story that pass covers.
@@ -30961,7 +31568,7 @@ Sub Lp_Normalize_Styles()
                        "Para Green", "Para Tan", "Para Yellow")
 
     ' ONE RULE FOR THE BODY STYLES (Jerry, 11/24/2026): everything in the list except Heading 1-5
-    ' now takes the Normal style's line spacing - Multiple LP_LINE_MULTIPLE - with 0 points after,
+    ' now takes the Normal style's line spacing - Multiple nsLine - with 0 points after,
     ' in place of Single with 4 after. One rule is one number to offer the user later. Heading 1-5
     ' stay Single with 0 after.
     Dim spaceAfterPts As Single
@@ -30970,7 +31577,7 @@ Sub Lp_Normalize_Styles()
     Dim spRng As Range              ' one run of paragraphs in the style (#56)
     Dim spLastEnd As Long
 
-    bodyLinePts = LinesToPoints(LP_LINE_MULTIPLE)
+    bodyLinePts = LinesToPoints(nsLine)
 
     For i = LBound(StyleNames) To UBound(StyleNames)
         If Sh_Style_Exists(ActiveDocument, CStr(StyleNames(i))) Then
@@ -31026,7 +31633,7 @@ Sub Lp_Normalize_Styles()
     ' TEXT IN A TABLE GETS 0 POINTS AFTER (Jerry, 11/24/2026): the base size after every
     ' paragraph, set above, is too much inside a table cell. Last, so it wins over the 4 points
     ' the list and TOC styles were given above too. The line spacing is left as the style has it
-    ' (Normal: At least, size + 4 - "which is okay"). A table's range takes in any table nested
+    ' (Normal: Multiple, the book's line spacing). A table's range takes in any table nested
     ' inside it. Main text only, the same story the base-size pass covers.
     Dim spTbl As Table
     On Error Resume Next
@@ -31067,6 +31674,454 @@ Private Function Lp_Spacing_For_Word(ByVal pts As Double) As Single
 '
     Lp_Spacing_For_Word = CSng((Round(pts * 20#, 0) + 0.25) / 20#)
 End Function   '*** end of Lp_Spacing_For_Word ***
+
+' ================================================================================================
+' SPACING AND ITALICS SETTINGS (Jerry, 11/24/2026)
+' ================================================================================================
+' Three large print choices a transcriber can make for a book: the line spacing (a Word Multiple,
+' 1.00 to 2.00 in steps of 0.05, built in 1.25), the letter spacing (a share of the type size,
+' 0.00 to 0.25 in steps of 0.01, built in 0.12) and the italics marker (a dashed underline, built
+' in, or one of the LP template's five Text color character styles).
+'
+' Each comes from THE BOOK first (a document variable written by Lp_Attach_The_Template), then
+' from the transcriber's SAVED DEFAULT ([LpBookDefaults] in VistaType.ini), then from the BUILT-IN
+' constant. Jerry: "the book's own settings win". A value that is missing, not a number, out of
+' range or off the step falls through to the next source.
+'
+' The functions that take and give only strings and numbers are pure, so tests/vba/TestLpPrefs.bas
+' can run them; the Lp_Pref_Pick_* trio holds the order of the three sources. Only the getters,
+' Lp_Pref_Doc_Var and the two writers reach a Document or VistaType.ini.
+'
+' For the box (Spacing and Italics Settings): Lp_Pref_Line_Values / Lp_Pref_Letter_Values /
+' Lp_Pref_Marker_Names fill the three lists, Lp_Pref_Number_Text and Lp_Pref_Marker_Caption give
+' each item's text, the *_Index functions find a value's place in its list, Lp_Pref_Line_Label and
+' Lp_Pref_Letter_Label give the "= 27 pt at 18 pt" text, and the Lp_Pref_Builtin_* trio is what
+' Reset puts back. Its Okay sets the Lp_Pref_Chosen* publics.
+
+' The built-in values, for the box's Reset buttons.
+'
+' Version: 1.0  Date: 11/24/2026
+Public Function Lp_Pref_Builtin_Line_Multiple() As Single
+    Lp_Pref_Builtin_Line_Multiple = LP_LINE_MULTIPLE
+End Function  '*** end of Lp_Pref_Builtin_Line_Multiple ***
+
+Public Function Lp_Pref_Builtin_Letter_Spacing() As Single
+    Lp_Pref_Builtin_Letter_Spacing = LP_LETTER_SPACING
+End Function  '*** end of Lp_Pref_Builtin_Letter_Spacing ***
+
+Public Function Lp_Pref_Builtin_Italics_Marker() As String
+    Lp_Pref_Builtin_Italics_Marker = LP_ITALICS_DEFAULT
+End Function  '*** end of Lp_Pref_Builtin_Italics_Marker ***
+
+' The line spacings offered: 1.00 to 2.00 in steps of 0.05 (Jerry, 11/24/2026), 21 of them, as a
+' Variant holding Single(0 To 20). Each is worked out from a whole number of hundredths, so 1.25
+' is exactly the Single 1.25 and not a sum of twenty-five 0.05s.
+'
+' Version: 1.0  Date: 11/24/2026
+Public Function Lp_Pref_Line_Values() As Variant
+    Dim v() As Single
+    Dim i As Long
+
+    ReDim v(0 To 20)
+    For i = 0 To 20
+        v(i) = CSng((100 + 5 * i) / 100#)
+    Next i
+    Lp_Pref_Line_Values = v
+End Function  '*** end of Lp_Pref_Line_Values ***
+
+' The letter spacings offered: 0.00 to 0.25 times the type size in steps of 0.01 (Jerry,
+' 11/24/2026), 26 of them, as a Variant holding Single(0 To 25).
+'
+' Version: 1.0  Date: 11/24/2026
+Public Function Lp_Pref_Letter_Values() As Variant
+    Dim v() As Single
+    Dim i As Long
+
+    ReDim v(0 To 25)
+    For i = 0 To 25
+        v(i) = CSng(i / 100#)
+    Next i
+    Lp_Pref_Letter_Values = v
+End Function  '*** end of Lp_Pref_Letter_Values ***
+
+' The six italics markers, in the order the box lists them. These names are what is stored in the
+' book and in VistaType.ini; Lp_Pref_Marker_Style_Name turns one into its style.
+'
+' Version: 1.0  Date: 11/24/2026
+Public Function Lp_Pref_Marker_Names() As Variant
+    Lp_Pref_Marker_Names = Array("Dash", "TextBlue", "TextGreen", "TextOrange", "TextRed", "TextViolet")
+End Function  '*** end of Lp_Pref_Marker_Names ***
+
+' A marker name as stored - one of Lp_Pref_Marker_Names, whatever its case or spaces - or "" when
+' it is not one of them.
+'
+' Version: 1.0  Date: 11/24/2026
+Public Function Lp_Pref_Marker_Canonical(ByVal marker As String) As String
+    Dim names As Variant
+    Dim i As Long
+
+    marker = Replace(Trim$(marker), " ", "")
+    names = Lp_Pref_Marker_Names()
+    For i = LBound(names) To UBound(names)
+        If StrComp(marker, names(i), vbTextCompare) = 0 Then
+            Lp_Pref_Marker_Canonical = names(i)
+            Exit Function
+        End If
+    Next i
+End Function  '*** end of Lp_Pref_Marker_Canonical ***
+
+' Where a marker sits in Lp_Pref_Marker_Names, from 0; -1 when it is not one of them.
+'
+' Version: 1.0  Date: 11/24/2026
+Public Function Lp_Pref_Marker_Index(ByVal marker As String) As Long
+    Dim names As Variant
+    Dim i As Long
+
+    Lp_Pref_Marker_Index = -1
+    marker = Lp_Pref_Marker_Canonical(marker)
+    If marker = "" Then Exit Function
+    names = Lp_Pref_Marker_Names()
+    For i = LBound(names) To UBound(names)
+        If names(i) = marker Then
+            Lp_Pref_Marker_Index = i - LBound(names)
+            Exit Function
+        End If
+    Next i
+End Function  '*** end of Lp_Pref_Marker_Index ***
+
+' The character style a marker puts on: "TextBlue" is "Italics Blue". "" for Dash, which is a
+' dashed underline and no style, and for anything that is not a marker.
+'
+' A STYLE OF ITS OWN, AS A TAG (Jerry, 11/24/2026): going back from a color to Dash must convert
+' only what VistaType LP colored, never Text Red a transcriber put on by hand. So the color marker
+' is "Italics Red", based on "Text Red" (Lp_Pref_Marker_Look_Name) so it looks the same, and the
+' conversion finds exactly that style. The stored names stay "TextBlue" and so on.
+'
+' Version: 1.1  Date: 11/24/2026 - "Italics X", the tag style, not "Text X"
+' Version: 1.0  Date: 11/24/2026
+Public Function Lp_Pref_Marker_Style_Name(ByVal marker As String) As String
+    marker = Lp_Pref_Marker_Canonical(marker)
+    If marker = "" Or marker = LP_ITALICS_DEFAULT Then Exit Function
+    Lp_Pref_Marker_Style_Name = "Italics " & Mid$(marker, 5)
+End Function  '*** end of Lp_Pref_Marker_Style_Name ***
+
+' The LP template's style a marker's tag style is based on, for its look: "TextBlue" is
+' "Text Blue". "" for Dash and for anything that is not a marker.
+'
+' Version: 1.0  Date: 11/24/2026
+Public Function Lp_Pref_Marker_Look_Name(ByVal marker As String) As String
+    marker = Lp_Pref_Marker_Canonical(marker)
+    If marker = "" Or marker = LP_ITALICS_DEFAULT Then Exit Function
+    Lp_Pref_Marker_Look_Name = "Text " & Mid$(marker, 5)
+End Function  '*** end of Lp_Pref_Marker_Look_Name ***
+
+' What the box shows for a marker: "Dashed underline", or the color - "Blue". "" for anything
+' that is not a marker.
+'
+' Version: 1.0  Date: 11/24/2026
+Public Function Lp_Pref_Marker_Caption(ByVal marker As String) As String
+    marker = Lp_Pref_Marker_Canonical(marker)
+    If marker = "" Then Exit Function
+    If marker = LP_ITALICS_DEFAULT Then
+        Lp_Pref_Marker_Caption = "Dashed underline"
+    Else
+        Lp_Pref_Marker_Caption = Mid$(marker, 5)
+    End If
+End Function  '*** end of Lp_Pref_Marker_Caption ***
+
+' A spacing value as stored and as listed: two decimal places and always a PERIOD - "1.25",
+' "0.00", "2.00". Built from whole numbers, because Format and CStr write the machine's own
+' decimal separator, and a book or a VistaType.ini written on a machine that uses a comma must
+' still read back on one that does not. Lp_Pref_Parse reads it with Val, which only knows the
+' period.
+'
+' Version: 1.0  Date: 11/24/2026
+Public Function Lp_Pref_Number_Text(ByVal v As Double) As String
+    Dim n As Long
+
+    If v < 0 Then v = 0
+    n = CLng(Int(v * 100# + 0.5))
+    Lp_Pref_Number_Text = CStr(n \ 100) & "." & Right$("0" & CStr(n Mod 100), 2)
+End Function  '*** end of Lp_Pref_Number_Text ***
+
+' A stored spacing value read back: digits with at most one period - "1.25", "0", ".5". -1 for
+' anything else - empty, a comma, a sign, a letter - so a value Val would quietly read as 0 is
+' refused instead of becoming "no letter spacing".
+'
+' Version: 1.0  Date: 11/24/2026
+Public Function Lp_Pref_Parse(ByVal s As String) As Double
+    Dim i As Long
+    Dim ch As String
+    Dim dots As Long
+    Dim digits As Long
+
+    Lp_Pref_Parse = -1
+    s = Trim$(s)
+    If Len(s) = 0 Or Len(s) > 8 Then Exit Function
+    For i = 1 To Len(s)
+        ch = Mid$(s, i, 1)
+        If ch = "." Then
+            dots = dots + 1
+        ElseIf ch >= "0" And ch <= "9" Then
+            digits = digits + 1
+        Else
+            Exit Function
+        End If
+    Next i
+    If dots > 1 Or digits = 0 Then Exit Function
+    Lp_Pref_Parse = Val(s)
+End Function  '*** end of Lp_Pref_Parse ***
+
+' True when v lies from lo to hi and on a step of 1/stepsPerUnit - 20 for the line spacing's 0.05,
+' 100 for the letter spacing's 0.01. A little slack each way, for a value that came through a
+' Single.
+'
+' Version: 1.0  Date: 11/24/2026
+Public Function Lp_Pref_On_Step(ByVal v As Double, ByVal lo As Double, ByVal hi As Double, _
+                                ByVal stepsPerUnit As Long) As Boolean
+    Dim k As Double
+
+    If v < lo - 0.0001 Or v > hi + 0.0001 Then Exit Function
+    k = v * stepsPerUnit
+    Lp_Pref_On_Step = (Abs(k - Int(k + 0.5)) < 0.001)
+End Function  '*** end of Lp_Pref_On_Step ***
+
+' v put exactly on its step, as a Single: 1.2499999 is 1.25.
+'
+' Version: 1.0  Date: 11/24/2026
+Public Function Lp_Pref_Snap(ByVal v As Double, ByVal stepsPerUnit As Long) As Single
+    Lp_Pref_Snap = CSng(Int(v * stepsPerUnit + 0.5) / stepsPerUnit)
+End Function  '*** end of Lp_Pref_Snap ***
+
+' Whether a stored line spacing can be used: a number from 1.00 to 2.00 on a step of 0.05.
+'
+' Version: 1.0  Date: 11/24/2026
+Public Function Lp_Pref_Line_Valid(ByVal s As String) As Boolean
+    Lp_Pref_Line_Valid = Lp_Pref_On_Step(Lp_Pref_Parse(s), 1#, 2#, 20)
+End Function  '*** end of Lp_Pref_Line_Valid ***
+
+' Whether a stored letter spacing can be used: a number from 0.00 to 0.25 on a step of 0.01.
+'
+' Version: 1.0  Date: 11/24/2026
+Public Function Lp_Pref_Letter_Valid(ByVal s As String) As Boolean
+    Lp_Pref_Letter_Valid = Lp_Pref_On_Step(Lp_Pref_Parse(s), 0#, 0.25, 100)
+End Function  '*** end of Lp_Pref_Letter_Valid ***
+
+' THE ORDER OF THE SOURCES, for the line spacing: the book's own (fromDoc), else the saved default
+' (fromIni), else built in. Jerry, 11/24/2026: "the book's own settings win". Strings in, as they
+' come out of a document variable and VistaType.ini, so the order can be tested without either.
+'
+' Version: 1.0  Date: 11/24/2026
+Public Function Lp_Pref_Pick_Line(ByVal fromDoc As String, ByVal fromIni As String) As Single
+    If Lp_Pref_Line_Valid(fromDoc) Then
+        Lp_Pref_Pick_Line = Lp_Pref_Snap(Lp_Pref_Parse(fromDoc), 20)
+    ElseIf Lp_Pref_Line_Valid(fromIni) Then
+        Lp_Pref_Pick_Line = Lp_Pref_Snap(Lp_Pref_Parse(fromIni), 20)
+    Else
+        Lp_Pref_Pick_Line = LP_LINE_MULTIPLE
+    End If
+End Function  '*** end of Lp_Pref_Pick_Line ***
+
+' The same for the letter spacing: the book's own, else the saved default, else built in.
+'
+' Version: 1.0  Date: 11/24/2026
+Public Function Lp_Pref_Pick_Letter(ByVal fromDoc As String, ByVal fromIni As String) As Single
+    If Lp_Pref_Letter_Valid(fromDoc) Then
+        Lp_Pref_Pick_Letter = Lp_Pref_Snap(Lp_Pref_Parse(fromDoc), 100)
+    ElseIf Lp_Pref_Letter_Valid(fromIni) Then
+        Lp_Pref_Pick_Letter = Lp_Pref_Snap(Lp_Pref_Parse(fromIni), 100)
+    Else
+        Lp_Pref_Pick_Letter = LP_LETTER_SPACING
+    End If
+End Function  '*** end of Lp_Pref_Pick_Letter ***
+
+' The same for the italics marker: the book's own, else the saved default, else Dash.
+'
+' Version: 1.0  Date: 11/24/2026
+Public Function Lp_Pref_Pick_Marker(ByVal fromDoc As String, ByVal fromIni As String) As String
+    If Lp_Pref_Marker_Canonical(fromDoc) <> "" Then
+        Lp_Pref_Pick_Marker = Lp_Pref_Marker_Canonical(fromDoc)
+    ElseIf Lp_Pref_Marker_Canonical(fromIni) <> "" Then
+        Lp_Pref_Pick_Marker = Lp_Pref_Marker_Canonical(fromIni)
+    Else
+        Lp_Pref_Pick_Marker = LP_ITALICS_DEFAULT
+    End If
+End Function  '*** end of Lp_Pref_Pick_Marker ***
+
+' Where a line spacing sits in Lp_Pref_Line_Values, from 0; -1 when it is not one of them.
+'
+' Version: 1.0  Date: 11/24/2026
+Public Function Lp_Pref_Line_Index(ByVal v As Double) As Long
+    Lp_Pref_Line_Index = -1
+    If Not Lp_Pref_On_Step(v, 1#, 2#, 20) Then Exit Function
+    Lp_Pref_Line_Index = CLng(Int((v - 1#) * 20# + 0.5))
+End Function  '*** end of Lp_Pref_Line_Index ***
+
+' Where a letter spacing sits in Lp_Pref_Letter_Values, from 0; -1 when it is not one of them.
+'
+' Version: 1.0  Date: 11/24/2026
+Public Function Lp_Pref_Letter_Index(ByVal v As Double) As Long
+    Lp_Pref_Letter_Index = -1
+    If Not Lp_Pref_On_Step(v, 0#, 0.25, 100) Then Exit Function
+    Lp_Pref_Letter_Index = CLng(Int(v * 100# + 0.5))
+End Function  '*** end of Lp_Pref_Letter_Index ***
+
+' A number of points as the box shows it: no decimals when whole ("27"), otherwise as few as it
+' needs, to the hundredth ("2.15", "1.8"). Always a period - it is read, not stored, but the box
+' is written in American English.
+'
+' Version: 1.0  Date: 11/24/2026
+Public Function Lp_Pref_Points_Text(ByVal pts As Double) As String
+    Dim n As Long
+    Dim whole As Long
+    Dim frac As Long
+
+    If pts < 0 Then pts = 0
+    n = CLng(Int(pts * 100# + 0.5))
+    whole = n \ 100
+    frac = n Mod 100
+    If frac = 0 Then
+        Lp_Pref_Points_Text = CStr(whole)
+    ElseIf frac Mod 10 = 0 Then
+        Lp_Pref_Points_Text = CStr(whole) & "." & CStr(frac \ 10)
+    Else
+        Lp_Pref_Points_Text = CStr(whole) & "." & Right$("0" & CStr(frac), 2)
+    End If
+End Function  '*** end of Lp_Pref_Points_Text ***
+
+' The line spacing in points beside the list: "= 27 pt at 18 pt" for Multiple 1.25 in an 18 point
+' book. Tahoma's single spacing is 1.207 times the size (LP_TAHOMA_SINGLE, measured 11/24/2026), so
+' the line is multiple x 1.207 x size, to the nearest whole point. Worked out here rather than
+' asked of Word: the box has no document to ask, and a pure function can be tested.
+'
+' Version: 1.0  Date: 11/24/2026
+Public Function Lp_Pref_Line_Label(ByVal multiple As Double, ByVal typeSize As Double) As String
+    Lp_Pref_Line_Label = "= " & Lp_Pref_Points_Text(Int(multiple * LP_TAHOMA_SINGLE * typeSize + 0.5)) _
+                       & " pt at " & Lp_Pref_Points_Text(typeSize) & " pt"
+End Function  '*** end of Lp_Pref_Line_Label ***
+
+' The letter spacing in points beside the list: "= 2.15 pt at 18 pt" for 0.12 in an 18 point
+' book. Rounded to the twentieth of a point the way Lp_Spacing_For_Word hands it to Word, which
+' keeps twentieths only - so the box shows what the book will get.
+'
+' Version: 1.0  Date: 11/24/2026
+Public Function Lp_Pref_Letter_Label(ByVal share As Double, ByVal typeSize As Double) As String
+    Lp_Pref_Letter_Label = "= " & Lp_Pref_Points_Text(Round(share * typeSize * 20#, 0) / 20#) _
+                         & " pt at " & Lp_Pref_Points_Text(typeSize) & " pt"
+End Function  '*** end of Lp_Pref_Letter_Label ***
+
+' One document variable's value, or "" when the book has none. Read DIRECTLY under Resume Next,
+' as Lp_Doc_Is_Screen reads Media, not through Sh_Read_Document_Variables, which writes its answer
+' into the shared Sh_GP_String_1.
+'
+' Version: 1.0  Date: 11/24/2026
+Private Function Lp_Pref_Doc_Var(ByVal doc As Document, ByVal varName As String) As String
+    If doc Is Nothing Then Exit Function
+    On Error Resume Next
+    Lp_Pref_Doc_Var = doc.Variables(varName).Value
+    Err.Clear
+    On Error GoTo 0
+End Function  '*** end of Lp_Pref_Doc_Var ***
+
+' THE BOOK'S LINE SPACING, as a Word Multiple: the book's own (document variable LpLineMultiple),
+' else the saved default (VistaType.ini, [LpBookDefaults] LineMultiple), else built in
+' (LP_LINE_MULTIPLE, 1.25). Read by Lp_Normalize_Styles.
+'
+' Version: 1.0  Date: 11/24/2026
+Public Function Lp_Pref_Line_Multiple(ByVal doc As Document) As Single
+    Lp_Pref_Line_Multiple = Lp_Pref_Pick_Line(Lp_Pref_Doc_Var(doc, LP_PREF_VAR_LINE), _
+                            Sh_Setting_Read(LP_PREF_INI_SECTION, LP_PREF_KEY_LINE, ""))
+End Function  '*** end of Lp_Pref_Line_Multiple ***
+
+' THE BOOK'S LETTER SPACING, as a share of the type size: the book's own (LpLetterSpacing), else
+' the saved default ([LpBookDefaults] LetterSpacing), else built in (LP_LETTER_SPACING, 0.12).
+'
+' Version: 1.0  Date: 11/24/2026
+Public Function Lp_Pref_Letter_Spacing(ByVal doc As Document) As Single
+    Lp_Pref_Letter_Spacing = Lp_Pref_Pick_Letter(Lp_Pref_Doc_Var(doc, LP_PREF_VAR_LETTER), _
+                             Sh_Setting_Read(LP_PREF_INI_SECTION, LP_PREF_KEY_LETTER, ""))
+End Function  '*** end of Lp_Pref_Letter_Spacing ***
+
+' THE BOOK'S ITALICS MARKER, one of Lp_Pref_Marker_Names: the book's own (LpItalicsMarker), else
+' Dash. Read by Lp_Italics_To_Dashed_Underline (File Cleanup, Normalize Styles, Selected Cleanup).
+'
+' NO SAVED DEFAULT HERE, unlike the two spacings. Jerry, 11/24/2026: an old large print book with
+' no marker recorded was dashed, so it counts as Dash, and the saved default marker is for NEW
+' books only - Lp_Pref_Attach_Marker. Falling back to VistaType.ini here would let File Cleanup
+' or Normalize Styles color an old dashed book just because the transcriber's default is a color.
+'
+' Version: 1.1  Date: 11/24/2026 - the book's own, else Dash; the saved default is no longer read
+' Version: 1.0  Date: 11/24/2026
+Public Function Lp_Pref_Italics_Marker(ByVal doc As Document) As String
+    Lp_Pref_Italics_Marker = Lp_Pref_Pick_Marker(Lp_Pref_Doc_Var(doc, LP_PREF_VAR_MARKER), "")
+End Function  '*** end of Lp_Pref_Italics_Marker ***
+
+' The marker an attach gives this book when Spacing and Italics Settings was not used (Jerry,
+' 11/24/2026). A book that is ALREADY large print keeps its own, and one with none recorded is
+' Dash (Lp_Pref_Italics_Marker). A NEW book - the first attach - takes its own if it somehow has
+' one, else the saved default, else Dash. The box opens on this too.
+'
+' Version: 1.0  Date: 11/24/2026
+Public Function Lp_Pref_Attach_Marker(ByVal doc As Document, ByVal alreadyLp As Boolean) As String
+    If alreadyLp Then
+        Lp_Pref_Attach_Marker = Lp_Pref_Italics_Marker(doc)
+    Else
+        Lp_Pref_Attach_Marker = Lp_Pref_Pick_Marker(Lp_Pref_Doc_Var(doc, LP_PREF_VAR_MARKER), _
+                                Sh_Setting_Read(LP_PREF_INI_SECTION, LP_PREF_KEY_MARKER, ""))
+    End If
+End Function  '*** end of Lp_Pref_Attach_Marker ***
+
+' The italics marker alone written into the book. Lp_Attach_The_Template writes it for a book
+' that was already large print only AFTER the marked text has been converted, so a failed attach
+' never leaves runs in the new marker under the old name (review, 11/24/2026).
+'
+' Version: 1.0  Date: 11/24/2026
+Public Sub Lp_Pref_Set_Marker_For_Doc(ByVal doc As Document, ByVal marker As String)
+    If doc Is Nothing Then Exit Sub
+    Lp_Pref_Var_Write doc, LP_PREF_VAR_MARKER, Lp_Pref_Pick_Marker(marker, "")
+End Sub  '*** end of Lp_Pref_Set_Marker_For_Doc ***
+
+' One document variable written into doc - replaced if it is there. The delete is allowed to fail
+' (the variable was not there); the add is not, so a failure reaches the caller's handler.
+'
+' Version: 1.0  Date: 11/24/2026
+Private Sub Lp_Pref_Var_Write(ByVal doc As Document, ByVal varName As String, ByVal varValue As String)
+    On Error Resume Next
+    doc.Variables(varName).Delete
+    Err.Clear
+    On Error GoTo 0
+    doc.Variables.Add Name:=varName, Value:=varValue
+End Sub  '*** end of Lp_Pref_Var_Write ***
+
+' The three choices written INTO THE BOOK, so a reopened book keeps them (Jerry, 11/24/2026).
+' A value that is not one the box offers goes in as the built-in instead. Called by
+' Lp_Attach_The_Template, after Media.
+'
+' Version: 1.0  Date: 11/24/2026
+Public Sub Lp_Pref_Set_For_Doc(ByVal doc As Document, ByVal lineMult As Single, _
+                               ByVal letterSp As Single, ByVal marker As String)
+    If doc Is Nothing Then Exit Sub
+    Lp_Pref_Var_Write doc, LP_PREF_VAR_LINE, _
+        Lp_Pref_Number_Text(Lp_Pref_Pick_Line(Lp_Pref_Number_Text(lineMult), ""))
+    Lp_Pref_Var_Write doc, LP_PREF_VAR_LETTER, _
+        Lp_Pref_Number_Text(Lp_Pref_Pick_Letter(Lp_Pref_Number_Text(letterSp), ""))
+    Lp_Pref_Var_Write doc, LP_PREF_VAR_MARKER, Lp_Pref_Pick_Marker(marker, "")
+End Sub  '*** end of Lp_Pref_Set_For_Doc ***
+
+' The three choices saved as THE TRANSCRIBER'S DEFAULT, in VistaType.ini - used for new books and
+' books with no settings of their own. Called by Lp_Attach_The_Template when "Save as my default"
+' was picked. A value that is not one the box offers is saved as the built-in. Silently does
+' nothing if there is no settings file to write (Sh_Setting_Write).
+'
+' Version: 1.0  Date: 11/24/2026
+Public Sub Lp_Pref_Save_Default(ByVal lineMult As Single, ByVal letterSp As Single, _
+                                ByVal marker As String)
+    Sh_Setting_Write LP_PREF_INI_SECTION, LP_PREF_KEY_LINE, _
+        Lp_Pref_Number_Text(Lp_Pref_Pick_Line(Lp_Pref_Number_Text(lineMult), ""))
+    Sh_Setting_Write LP_PREF_INI_SECTION, LP_PREF_KEY_LETTER, _
+        Lp_Pref_Number_Text(Lp_Pref_Pick_Letter(Lp_Pref_Number_Text(letterSp), ""))
+    Sh_Setting_Write LP_PREF_INI_SECTION, LP_PREF_KEY_MARKER, Lp_Pref_Pick_Marker(marker, "")
+End Sub  '*** end of Lp_Pref_Save_Default ***
 
 Private Sub Lp_Ns_Step(ByRef stepNo As Long, ByVal what As String)
 '

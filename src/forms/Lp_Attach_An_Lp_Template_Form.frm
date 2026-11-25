@@ -14,9 +14,12 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
-
 ' Lp_Attach_An_Lp_Template_Form
 '
+' Version: 6.9  Date: 11/24/2026 - the Spacing and Italics Settings button (Alt+T) beside Okay and
+'                                Cancel opens Spacing and Italics Settings (424). Okay and Cancel
+'                                are narrowed to share the left column (177 points each), and the
+'                                new button sits under the Font Size and Font Choice frames
 ' Version: 6.8  Date: 9/6/2026 - opens the PROGRESS BAR instead of Sh_NonModalMessageForm. The
 '                               instruction paragraph goes with it: the bar names each stage,
 '                               which says more and says it as the work happens. The whole
@@ -161,6 +164,12 @@ Dim Hold_BMarginSizeValue As String
 Private Sub CancelButton_Click()
     Application.ScreenUpdating = True ' Turn screen updating on
     Unload Me
+End Sub
+
+' Spacing and Italics Settings (424): line spacing, letter spacing and the italics marker for this
+' book. It only records the choices; the attach writes them, after Okay here.
+Private Sub SpacingItalicsButton_Click()
+    Lp_Spacing_Italics_Form.Show
 End Sub
 
 Private Sub BindingWidthValue_Change()
