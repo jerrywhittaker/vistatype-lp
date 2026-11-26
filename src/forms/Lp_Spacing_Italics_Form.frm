@@ -24,9 +24,10 @@ Attribute VB_Exposed = False
 ' The two spacing rows each have two buttons that put a standard's value in the list (Jerry,
 ' 11/25/2026): W3C WCAG, 1.25 and 0.12 (Alt+W line, Alt+G letter), and VTLP V2 (APH), 1.00 and
 ' 0.07 (Alt+V line, Alt+P letter) - the APH values are the built-in ones the box starts with. The
-' italics row's Reset puts the built-in marker back (Alt+S). The row labels' Alt keys (Alt+L,
-' Alt+T, Alt+I) move to their lists. "This document only" (Alt+D) or "Save as my default" (Alt+M)
-' covers all three. "About line/letter spacing" (Alt+A) explains the two standards.
+' italics row's "Reset to dashed underline" puts the built-in marker back (Alt+S). The row labels'
+' Alt keys (Alt+L, Alt+T, Alt+I) move to their lists. "This document only" (Alt+D) or "Save as my
+' default" (Alt+M) covers all three. "About line/letter spacing" (Alt+A) opens About Line and
+' Letter Spacing (429), Jerry's explanation of the settings.
 '
 ' The wording of the labels and buttons is set in UserForm_Initialize, so it can be read here and
 ' not only in the .frx.
@@ -41,6 +42,9 @@ Attribute VB_Exposed = False
 ' still changes nothing. Cancel and the red X leave the publics alone - a plain close is already
 ' Cancel, so the form has no UserForm_QueryClose.
 '
+' Version: 1.2  Date: 11/26/2026 - the italics row's Reset says "Reset to dashed underline" and is
+'                               wider to fit; About line/letter spacing opens Jerry's text in About
+'                               Line and Letter Spacing (429) (Jerry)
 ' Version: 1.1  Date: 11/25/2026 - W3C WCAG and VTLP V2 (APH) buttons on both spacing rows (the
 '                               Reset buttons became W3C WCAG), About line/letter spacing, and
 '                               the box starts on the APH values (Jerry); wider box
@@ -98,10 +102,10 @@ Private Sub LetterAph_Click()
     LetterList.ListIndex = Lp_Pref_Letter_Index(Lp_Pref_Builtin_Letter_Spacing())
 End Sub
 
-' The explanation of the two standards is still to come from Jerry (11/25/2026).
+' Jerry's explanation of the spacing and italics settings, About Line and Letter Spacing (429)
+' (11/26/2026). It is a form because the text is too long for a message.
 Private Sub AboutSpacing_Click()
-    Sh_Say "The explanation of the line and letter spacing standards is still to come.", _
-           "VistaType LP (429)"
+    Lp_Spacing_About_Form.Show
 End Sub
 
 Private Sub MarkerReset_Click()
@@ -166,6 +170,9 @@ Private Sub UserForm_Initialize()
     AboutSpacing.Caption = "About line/letter spacing"
     AboutSpacing.Accelerator = "A"
     AboutSpacing.ControlTipText = "About Line/Letter Spacing Button"
+    MarkerReset.Caption = "Reset to dashed underline"
+    MarkerReset.Accelerator = "S"
+    MarkerReset.ControlTipText = "Reset to Dashed Underline Button"
 
     LineList.Clear
     For Each v In Lp_Pref_Line_Values()

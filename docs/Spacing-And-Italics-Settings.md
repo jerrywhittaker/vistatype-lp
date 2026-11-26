@@ -22,10 +22,14 @@ nor the user has a value saved. From 11/24 to 11/25/2026 the built-in values wer
 ones, and the W3C WCAG buttons were called Reset. A book attached in that time keeps 1.25 and
 0.12, because they were written into it.
 
-The buttons only change the list: nothing is kept until Okay. The italics row still has a
-**Reset** button (Alt+S) that puts back the dashed underline. **About line/letter spacing**
-(Alt+A) will explain the two standards; until Jerry writes that text it shows message 429, saying
-the explanation is still to come. At the bottom, **This document only** or **Save as my default**
+The buttons only change the list: nothing is kept until Okay. The italics row has a
+**Reset to dashed underline** button (Alt+S) that puts back the dashed underline (until
+11/26/2026 it said only Reset). **About line/letter spacing**
+(Alt+A) opens **About Line and Letter Spacing (429)** (`Lp_Spacing_About_Form`), Jerry's
+explanation of the two standards, the default and the italics choices. It is a read-only form
+rather than a message because the text, about 3,200 characters, is too long for one; it scrolls,
+and Okay (Alt+O) or the red X closes it. From 11/25 to 11/26/2026 the button showed a message
+numbered 429 saying the explanation was still to come. At the bottom, **This document only** or **Save as my default**
 decides where the choice is kept.
 
 ## Where the values live

@@ -18,7 +18,12 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Sh  - 11/26/2026 - $PG TAGS ARE NEVER ITALIC OR UNDERLINED (Jerry): Sh_Color_Dollar_PG_Red
+' Notes:    - LP  - 11/26/2026 - SPACING AND ITALICS SETTINGS (424): the italics row's Reset button now
+'           - LP  - 11/26/2026 - says "Reset to dashed underline" (still Alt+S) and is wider to fit (Jerry).
+'           - LP  - 11/26/2026 - ABOUT LINE AND LETTER SPACING (429): 424's About line/letter spacing
+'           - LP  - 11/26/2026 - button (Alt+A) opens Jerry's explanation in a new read-only form,
+'           - LP  - 11/26/2026 - Lp_Spacing_About_Form, in place of the "still to come" message.
+'           - Sh  - 11/26/2026 - $PG TAGS ARE NEVER ITALIC OR UNDERLINED (Jerry): Sh_Color_Dollar_PG_Red
 '           - Sh  - 11/26/2026 - sets both off on the tag, and first takes a character style such as
 '           - Sh  - 11/26/2026 - "Italics Red" off it, keeping its font and size. The page number is untouched.
 '           - LP  - 11/25/2026 - SPACING AND ITALICS SETTINGS (424): W3C WCAG (1.25, 0.12) and VTLP V2

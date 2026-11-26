@@ -33,6 +33,8 @@ X_CLEARS_THE_ANSWER = {
     "Lp_Prodnote_Box_Style_Form": "Lp_Cap_Style",   # 427, 11/8/2026
     # 424, 11/24/2026: only Okay sets the Lp_Pref_Chosen publics, so a plain close is Cancel
     "Lp_Spacing_Italics_Form": None,
+    # 429, 11/26/2026: a read-only note; Okay and the X only close it
+    "Lp_Spacing_About_Form": None,
 }
 
 

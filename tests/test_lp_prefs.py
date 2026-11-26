@@ -304,7 +304,8 @@ def test_the_spacing_buttons_on_424(repo_root):
     """Jerry, 11/25/2026: each spacing row has a W3C WCAG button (LineReset / LetterReset, Reset
     until then) giving 1.25 and 0.12, and a VTLP V2 (APH) button (LineAph / LetterAph) giving the
     built-in 1.00 and 0.07. They only change the list; nothing is kept until Okay. About line/letter
-    spacing says its text is to come, through Sh_Say with message 429."""
+    spacing opens Jerry's text, About Line and Letter Spacing (429), since 11/26/2026 (it said the
+    text was to come, through Sh_Say, until then)."""
     import pathlib
     frm = (pathlib.Path(repo_root) / "src/forms/Lp_Spacing_Italics_Form.frm").read_bytes().decode("latin-1")
     subs = dict(re.findall(r"Private Sub (\w+)_Click\(\)\r\n(.*?)End Sub", frm, re.S))
@@ -316,7 +317,7 @@ def test_the_spacing_buttons_on_424(repo_root):
                         subs["LineAph"])
     assert re.fullmatch(r"\s*LetterList\.ListIndex = Lp_Pref_Letter_Index\(Lp_Pref_Builtin_Letter_Spacing\(\)\)\s*",
                         subs["LetterAph"])
-    assert '"VistaType LP (429)"' in subs["AboutSpacing"] and "Sh_Say" in subs["AboutSpacing"]
+    assert re.fullmatch(r"\s*Lp_Spacing_About_Form\.Show\s*", subs["AboutSpacing"])
     assert "MsgBox" not in frm
     text = module_text(repo_root)
     for name, const in (("Lp_Pref_Wcag_Line_Multiple", "LP_WCAG_LINE_MULTIPLE"),
@@ -325,4 +326,18 @@ def test_the_spacing_buttons_on_424(repo_root):
     # the Alt keys, one letter each, none used twice on the box
     keys = re.findall(r'^\s+(\w+)\.Accelerator = "(\w)"\r?$', frm, re.M)
     assert dict(keys) == {"LineReset": "W", "LetterReset": "G", "LineAph": "V", "LetterAph": "P",
-                          "AboutSpacing": "A"}
+                          "AboutSpacing": "A", "MarkerReset": "S"}
+
+
+def test_the_italics_reset_button_on_424(repo_root):
+    """Jerry, 11/26/2026: the italics row's Reset says "Reset to dashed underline", keeps Alt+S
+    (an "s" in its own caption), and still puts the built-in marker back."""
+    import pathlib
+    frm = (pathlib.Path(repo_root) / "src/forms/Lp_Spacing_Italics_Form.frm").read_bytes().decode("latin-1")
+    init = re.search(r"Private Sub UserForm_Initialize\(\)\r\n(.*?)End Sub", frm, re.S).group(1)
+    assert 'MarkerReset.Caption = "Reset to dashed underline"' in init
+    assert 'MarkerReset.Accelerator = "S"' in init
+    assert 'MarkerReset.ControlTipText = "Reset to Dashed Underline Button"' in init
+    subs = dict(re.findall(r"Private Sub (\w+)_Click\(\)\r\n(.*?)End Sub", frm, re.S))
+    assert re.fullmatch(r"\s*MarkerList\.ListIndex = Lp_Pref_Marker_Index\(Lp_Pref_Builtin_Italics_Marker\(\)\)\s*",
+                        subs["MarkerReset"])
