@@ -62,6 +62,11 @@ decides where the choice is kept.
   TOC color bar (Words …), a hyperlink. A word that mixes them, like a word before a footnote
   number or one with a superscript inside it, is split, so the plain letters get the color
   and the rest keeps its own look.
+- **A `$pg` tag is never italic or underlined**, whichever marker is set (Jerry, 11/26/2026).
+  `Sh_Color_Dollar_PG_Red` runs after the italics step in File Cleanup and Normalize Styles.
+  It takes any character style off the tag (an Italics style, say), keeping its font and
+  size. Then it sets the tag red, not bold, not italic and not underlined. The page number
+  after the tag keeps whatever it had.
 - If an italic phrase had its own color, the marker's color replaces it, and going back to
   Dash makes it automatic. The original color isn't brought back.
 - The conversion is a Find that steps through the text, with no Replace All and no

@@ -54,6 +54,10 @@ catches every error as a failure. The same run found a real fault before it ship
 Range that holds the book's last paragraph mark raises 4608. Since 11/7/2026 it also covers the
 large print box (426): a second scratch book with its own Box Red and Box Blue styles.
 
+**`TestPgTags.bas`** ($pg tags never italic or underlined, 11/26/2026) uses the same kind of
+hidden scratch book, with its own "Italics Red" character style, and runs the two Range-based
+steps of `Sh_Color_Dollar_PG_Red` on it. It never touches the Selection.
+
 **One more exception, and it is careful: `TestAutoCorrectTables.bas`** runs `Sh_AutoCorrect_Switch`
 against Word's real AutoCorrect list and the real list files (issue #21). Word's list belongs to
 the application, not a document, so it does not hang. It backs up the three

@@ -130,6 +130,10 @@ Public Sub VtRunAllTests()
     Set Suite = TestLpPrefs_Suite()
     Reporter.ListenTo Suite
 
+    Reporter.Trace "building $pg tags are never italic or underlined"
+    Set Suite = TestPgTags_Suite()
+    Reporter.ListenTo Suite
+
     Reporter.Finish
     Exit Sub
 

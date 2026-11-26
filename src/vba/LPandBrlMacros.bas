@@ -18,7 +18,10 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - LP  - 11/25/2026 - SPACING AND ITALICS SETTINGS (424): W3C WCAG (1.25, 0.12) and VTLP V2
+' Notes:    - Sh  - 11/26/2026 - $PG TAGS ARE NEVER ITALIC OR UNDERLINED (Jerry): Sh_Color_Dollar_PG_Red
+'           - Sh  - 11/26/2026 - sets both off on the tag, and first takes a character style such as
+'           - Sh  - 11/26/2026 - "Italics Red" off it, keeping its font and size. The page number is untouched.
+'           - LP  - 11/25/2026 - SPACING AND ITALICS SETTINGS (424): W3C WCAG (1.25, 0.12) and VTLP V2
 '           - LP  - 11/25/2026 - (APH) (1.00, 0.07) buttons on both spacing rows, About line/letter
 '           - LP  - 11/25/2026 - spacing (429, text to come); the built-in values are now APH's (Jerry).
 '           - LP  - 11/24/2026 - SPACING AND ITALICS SETTINGS (Jerry): line spacing (Multiple 1.00-2.00),
@@ -29787,6 +29790,8 @@ Sub Sh_Remove_Hyperlinks(Optional ByVal target As Range)
 
 Sub Sh_Color_Dollar_PG_Red(Optional ByVal targetDoc As Document)
 '
+' Version: 1.7 Date: 11/26/2026 - the tag is never italic or underlined (Jerry), and a character
+'                                style on it - "Italics Red" and the like - is taken off first.
 ' Version: 1.6 Date: 9/17/2026 - takes an OPTIONAL targetDoc. Given one, it colours that document's
 '                                own range and never looks at Selection or ActiveDocument - see the
 '                                note in the body. Without one it behaves exactly as before, so the
@@ -29816,29 +29821,16 @@ Sub Sh_Color_Dollar_PG_Red(Optional ByVal targetDoc As Document)
     ' were. wdFindStop rather than wdFindContinue, because the range already IS the whole story
     ' and continuing past it is what the conversion checklist warns about.
     If Not targetDoc Is Nothing Then
-        With targetDoc.Content.Find
-            .ClearFormatting
-            .Replacement.ClearFormatting
-            .Replacement.Style = targetDoc.Styles(wdStyleNormal)
-            .Replacement.Font.Color = wdColorRed
-            .Replacement.Font.Bold = False
-            .Text = "$pg"
-            .Replacement.Text = "$pg"
-            .Forward = True
-            .Wrap = wdFindStop
-            .Format = True
-            .MatchCase = False
-            .MatchWholeWord = False
-            .MatchWildcards = False
-            .MatchSoundsLike = False
-            .MatchAllWordForms = False
-            .Execute Replace:=wdReplaceAll
-        End With
+        Sh_Pg_Tags_No_Char_Style targetDoc
+        Sh_Pg_Red_Replace targetDoc
         Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
         Exit Sub
     End If
 
     Application.Run MacroName:="Sh_Is_Doc_Open"
+
+    ' A $pg in a CHARACTER STYLE loses it first - see Sh_Pg_Tags_No_Char_Style.
+    Sh_Pg_Tags_No_Char_Style ActiveDocument
     
      Selection.Find.ClearFormatting
     Selection.Find.Replacement.ClearFormatting
@@ -29857,6 +29849,12 @@ Sub Sh_Color_Dollar_PG_Red(Optional ByVal targetDoc As Document)
     ' does every other word on the line. Jerry's instruction was to fix the $pg without changing
     ' the document's formatting, and that is the difference.
     Selection.Find.Replacement.Font.Bold = False
+
+    ' AND NEVER ITALIC OR UNDERLINED (Jerry, 11/26/2026). An italic run around a tag would make it
+    ' italic, and the italics step then dashes it. Direct formatting, like the bold above, and only
+    ' on the three characters of the tag: the page number after it keeps its own.
+    Selection.Find.Replacement.Font.Italic = False
+    Selection.Find.Replacement.Font.Underline = wdUnderlineNone
     
     With Selection.Find
         .Text = "$pg"
@@ -29876,6 +29874,112 @@ Sub Sh_Color_Dollar_PG_Red(Optional ByVal targetDoc As Document)
     Application.Run MacroName:="MS_Clear_F_and_R_Params_and_Clipboard"
     
 End Sub  '*** Sh_Color_Dollar_PG_Red Macro ***
+
+Private Sub Sh_Pg_Red_Replace(ByVal doc As Document)
+'
+' Version: 1.0 Date: 11/26/2026 - the targetDoc arm of Sh_Color_Dollar_PG_Red, moved out so the
+'                                VBA tests can run it on a scratch book (tests/vba/TestPgTags.bas)
+'
+' Every $pg in the book: Normal paragraph, red, not bold, not italic, not underlined. The font
+' settings reach the three characters of the tag only; the page number after it is untouched.
+    With doc.Content.Find
+        .ClearFormatting
+        .Replacement.ClearFormatting
+        .Replacement.Style = doc.Styles(wdStyleNormal)
+        .Replacement.Font.Color = wdColorRed
+        .Replacement.Font.Bold = False
+        .Replacement.Font.Italic = False
+        .Replacement.Font.Underline = wdUnderlineNone
+        .Text = "$pg"
+        .Replacement.Text = "$pg"
+        .Forward = True
+        .Wrap = wdFindStop
+        .Format = True
+        .MatchCase = False
+        .MatchWholeWord = False
+        .MatchWildcards = False
+        .MatchSoundsLike = False
+        .MatchAllWordForms = False
+        .Execute Replace:=wdReplaceAll
+    End With
+
+End Sub  '*** end of Sh_Pg_Red_Replace ***
+
+Private Sub Sh_Pg_Tags_No_Char_Style(ByVal doc As Document)
+'
+' Version: 1.0 Date: 11/26/2026 - Jerry: a $pg tag is never italic or underlined
+'
+' Takes a CHARACTER STYLE off every $pg tag that has one, keeping the tag's font and size.
+'
+' WHY A WALK AND NOT A REPLACE (measured on vistabuild, 11/26/2026, a scratch book with an
+' "Italics Red" character style on "$pg 12"):
+'   - Replacement.Style = Normal, which Sh_Color_Dollar_PG_Red has always used, is a PARAGRAPH
+'     style and LEAVES A CHARACTER STYLE IN PLACE: the tag stayed "Italics Red".
+'   - Replacement.Style = Default Paragraph Font does take it off, but it strips the tag's direct
+'     font and size too - 20 pt Arial came out 12 pt Calibri - and large print needs the tag at
+'     the size the book set.
+' So each tag in a character style is found first (a read-only walk), and only then is each one
+' set to Default Paragraph Font with its font and size put back - search first, edit after, as
+' in Lp_Style_To_Direct. A book with no styled tag, the usual case, is read and not changed.
+' Only the three characters of the tag are touched; the page number after it keeps its style.
+'
+' FAILS SOFT, like the italics marker walk: its callers are reached through Application.Run, so
+' an error on one tag skips that tag and the rest are still done.
+    Dim rr As Range
+    Dim starts As Collection
+    Dim dpf As String
+    Dim csName As String
+    Dim sz As Single
+    Dim nm As String
+    Dim i As Long
+    Dim guard As Long
+
+    On Error Resume Next
+    dpf = doc.Styles(wdStyleDefaultParagraphFont).NameLocal
+    Set starts = New Collection
+
+    Set rr = doc.Content
+    With rr.Find
+        .ClearFormatting
+        .Text = "$pg"
+        .Forward = True
+        .Wrap = wdFindStop
+        .Format = False
+        .MatchCase = False
+        .MatchWholeWord = False
+        .MatchWildcards = False
+        .MatchSoundsLike = False
+        .MatchAllWordForms = False
+        Do While .Execute
+            csName = ""
+            Err.Clear
+            csName = rr.CharacterStyle
+            ' Mixed, or cannot tell, counts as styled: setting it plain does no harm
+            If Err.Number <> 0 Or csName <> dpf Then starts.Add rr.Start
+            Err.Clear
+            rr.Collapse wdCollapseEnd
+            ' Bounded: under Resume Next a Find that errors would not end the loop
+            guard = guard + 1
+            If guard > 100000 Then Exit Do
+        Loop
+    End With
+
+    For i = 1 To starts.Count
+        Err.Clear
+        Set rr = doc.Range(starts(i), starts(i) + 3)
+        sz = rr.Font.Size
+        nm = rr.Font.Name
+        rr.Style = doc.Styles(wdStyleDefaultParagraphFont)
+        If sz > 0 And sz < 1000 Then            ' wdUndefined (9999999) when mixed
+            If rr.Font.Size <> sz Then rr.Font.Size = sz
+        End If
+        If Len(nm) > 0 Then
+            If rr.Font.Name <> nm Then rr.Font.Name = nm
+        End If
+    Next i
+    Err.Clear
+
+End Sub  '*** end of Sh_Pg_Tags_No_Char_Style ***
 
 Sub Sh_Apply_Title_Case_Capitalization()
     '
