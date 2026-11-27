@@ -157,8 +157,8 @@ def test_the_equations_are_parked_and_put_back(repo_root):
     quotes = _first(lines, r"Sh_Strip_Prodnote_Enclosing_Quotes finalDoc")
     assert park < imp < pics < back < font, "the equations are not parked before the import and put back after"
     assert quotes < back, "the equations go back before the prodnote quote pass, which deletes by position"
-    # The .txt and .html beside the book keep their MathML: the placeholders go in a file of their own.
-    assert _first(lines, r'importPath = folderPath & "~VistaType-import\.html"') > _first(lines, r"SaveToFile txtCopy")
+    # The .htm and .html beside the book keep their MathML: the placeholders go in a file of their own.
+    assert _first(lines, r'importPath = folderPath & "~VistaType-import\.html"') > _first(lines, r"SaveToFile htmCopy")
 
 
 def test_each_mode_puts_in_what_it_should(repo_root):

@@ -55,7 +55,7 @@ def _patterns(lines, lead="re.Pattern ="):
 
 def test_tables_are_taken_apart_after_the_uncommenting(repo_root):
     """After Sh_MathML_Uncomment, so the equations hidden in comments are seen; before the
-    equations are counted and parked; on the import text only, never the .txt and .html."""
+    equations are counted and parked; on the import text only, never the .htm and .html."""
     lines = _procs(repo_root)[CONVERTER]
     un = _index(lines, "importText = Sh_MathML_Uncomment(fileContent, mathPrefix)")
     ut = _index(lines, f"importText = {HELPER}(importText, mathPrefix)")
@@ -63,7 +63,7 @@ def test_tables_are_taken_apart_after_the_uncommenting(repo_root):
     park = _index(lines, "Sh_MathML_To_Placeholders(importText, mathPrefix)")
     assert un + 1 == ut and ut < frag and ut < park
     assert not any(f"{HELPER}(fileContent" in l for l in lines)
-    assert _index(lines, "outStream.SaveToFile txtCopy, 2") < ut
+    assert _index(lines, "outStream.SaveToFile htmCopy, 2") < ut
     # large print and braille alike: nothing between the uncommenting and the untabling asks which
     assert not any("Sh_GP_String_2" in l for l in lines[un:ut + 1])
 

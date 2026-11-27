@@ -18,7 +18,10 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - LP  - 11/26/2026 - ABOUT LINE AND LETTER SPACING (429): the note scrolls and its end can be
+' Notes:    - Sh  - 11/27/2026 - DAISY/NIMAS -> Word (308): the .txt written beside the book is now an
+'           - Sh  - 11/27/2026 - .htm that starts at <dtbook - written before the HTML wrapper goes
+'           - Sh  - 11/27/2026 - on - so Word can open it by hand (Jerry). The .html is unchanged.
+'           - LP  - 11/26/2026 - ABOUT LINE AND LETTER SPACING (429): the note scrolls and its end can be
 '           - LP  - 11/26/2026 - reached. The scroll bar never showed (Jerry, 3.0.720); the form now gives
 '           - LP  - 11/26/2026 - its text box the focus once when it opens, then hands it to Okay.
 '           - LP  - 11/26/2026 - SPACING AND ITALICS SETTINGS (424): the italics row's Reset button now
@@ -39926,6 +39929,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
 '
 ' Automatically converts an .xml (NIMAS or DAISY) file into a Word Document with reference pages tagged with $pg
 '
+' Version: 3.7  Date: 11/27/2026 - THE .txt BESIDE THE BOOK IS NOW AN .htm STARTING AT <dtbook (Jerry): written before VistaType LP's own <html><head>...<body> wrapper goes on, so nothing comes before <dtbook and it ends at </dtbook>. Word can open it by hand and gives the same book as the conversion, without the red on the $pg tags. Message 308 and the bar's line 3 say .htm. The .html and the import file are unchanged
 ' Version: 3.6  Date: 11/12/2026 - Equations (398) no longer grays out "Pictures of the equations" for braille; a braille book can take the EQ pictures as large print can (Jerry)
 ' Version: 3.5  Date: 11/1/2026 - NO MESSAGE 293 WITH NO DOCUMENT OPEN (Jerry): the conversion opens a book from a folder, so it no longer needs one open and no longer stops with "Cannot continue... no document is open." With none open it adds a blank document first, as Word shows at startup, because the window setup in Step 1 and the progress bar (373) both need a document to stand on
 ' Version: 3.4  Date: 10/28/2026 - ERROR 5825 WHILE PUTTING IN THE EQUATIONS (issue #47, Jerry): the converted book had been closed partway through, and ConvertFailed's own finalDoc.Activate then raised 5825 INSIDE the handler, where On Error Resume Next does not catch it; it escaped to RibbonAction, was logged as DN_Menu_Starter, and the first error was lost. ConvertFailed now runs On Error GoTo -1 straight after taking its copy of the error, so it finishes and reports under its own name; and when the converted book is gone, box 403 says so instead of asking for an error report
@@ -39965,7 +39969,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
             "A file selection dialog window will appear after this message is closed." & vbCrLf & vbCrLf & _
             "Select or open the folder which contains the DAISY or NIMAS book to be converted into a Word Document, then click OK." & vbCrLf & vbCrLf & _
             "Your screen will show a wait message until the book has been converted into a Word document." & vbCrLf & vbCrLf & _
-            "After completion, the folder will contain two new files: The .xml file in .txt format, and an .html file which can be opened with a web browser. Both files have the reference pages tagged with $pg.", _
+            "After completion, the folder will contain two new files: An .htm file holding the book's XML code, which Word can open, and an .html file which can be opened with a web browser. Both files have the reference pages tagged with $pg.", _
             vbOKCancel, _
             "Convert DAISY/NIMAS to Word Document (308)") = vbOK Then
     Else
@@ -39974,7 +39978,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
 
     Dim fldr As FileDialog
     Dim folderPath As String, fileName As String, baseFolder As String
-    Dim xmlFile As String, txtCopy As String, htmlPath As String
+    Dim xmlFile As String, htmCopy As String, htmlPath As String
     Dim finalDoc As Document
     Dim start As Single
     Dim fileContent As String
@@ -40043,7 +40047,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     ' anything is done to the book (Jerry, 10/12/2026, and issue #37). Reading takes well under
     ' a second; the files written beside the book come much later, in Step 8.
     xmlFile = folderPath & fileName
-    txtCopy = folderPath & Left(fileName, InStrRev(fileName, ".") - 1) & ".txt"
+    htmCopy = folderPath & Left(fileName, InStrRev(fileName, ".") - 1) & ".htm"
     htmlPath = folderPath & Left(fileName, InStrRev(fileName, ".") - 1) & ".html"
 
     Dim tStream As Object
@@ -40140,7 +40144,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     ' and every Advance and SpinTick exits at once, so it has never moved during a conversion
     ' (Jerry, 8/3/2026). The DoEvents through the rest of this macro are Sh_Spin_DoEvents for
     ' the same reason - the OnTime tick alone fires once a second at best.
-    Sh_Progress_Say 3, "Creating .txt file with .xml code and creating .html file"
+    Sh_Progress_Say 3, "Creating .htm file with .xml code and creating .html file"
     Sh_Spin_DoEvents
     Sh_PauseSeconds 0.3   'brief tick so the status form paints
 
@@ -40153,31 +40157,36 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     ' so the content must already be <p class="Prodnote"> by the time the HTML is imported.
     fileContent = Sh_Tag_Prodnotes_As_Prodnote_Style(fileContent)
 
+    ' --- Step 8: Save Outputs using UTF-8 Stream (Fixes Black Diamonds) ---
+    ' The .htm beside the book is written HERE, before the <html><head>...<body> wrapper below
+    ' goes on, so it starts at <dtbook and ends at </dtbook> (Jerry, 11/27/2026). Word can open
+    ' it by hand and gives the same book as the conversion, without the red on the $pg tags.
+    ' It was a .txt until then, the same as the .html, wrapper and all.
+    Dim outStream As Object
+    Set outStream = CreateObject("ADODB.Stream")
+    outStream.Type = 2
+    outStream.Charset = "utf-8"
+
+    outStream.Open
+    outStream.WriteText fileContent
+    outStream.SaveToFile htmCopy, 2
+    outStream.Close
+
     ' The mso-style-name rule is what makes Word's HTML importer map class="Prodnote"
     ' onto the Word paragraph style named "Prodnote".
     fileContent = "<html><head><meta charset=""UTF-8""><base href=""" & baseFolder & """>" & _
                   "<style>p.Prodnote{mso-style-name:""Prodnote"";}</style>" & _
                   "</head><body>" & fileContent & "</body></html>"
 
-    ' --- Step 8: Save Outputs using UTF-8 Stream (Fixes Black Diamonds) ---
-    Dim outStream As Object
-    Set outStream = CreateObject("ADODB.Stream")
-    outStream.Type = 2
-    outStream.Charset = "utf-8"
-    
+    ' The .html, wrapper and all, for a web browser.
     outStream.Open
     outStream.WriteText fileContent
     outStream.SaveToFile htmlPath, 2
     outStream.Close
-    
-    outStream.Open
-    outStream.WriteText fileContent
-    outStream.SaveToFile txtCopy, 2
-    outStream.Close
 
     ' The file Word imports. The same as the .html, except that each equation is parked as a
     ' VTEQnnnnnn placeholder, because the importer would drop it (issue #37). A file of its own,
-    ' so the .txt and .html beside the book keep their MathML exactly as before; it is deleted
+    ' so the .htm and .html beside the book keep their MathML exactly as before; it is deleted
     ' once the import is done. A book with no MathML imports the .html, as it always has.
     '
     ' A book may hide its equations in comments, each straight after the book's own picture of it -
@@ -40185,7 +40194,7 @@ Sub Sh_Convert_XML_File_To_Word_Document()
     ' comments, placeholder and all (issue #40). Sh_MathML_Uncomment brings each one out first and
     ' makes that picture its altimg, so the picture goes in only where the equation cannot (Jerry,
     ' 10/25/2026). Every other comment goes too, so no math is counted or parked inside one. The
-    ' import file only: the .txt and .html beside the book are as written above, and the book's
+    ' import file only: the .htm and .html beside the book are as written above, and the book's
     ' MathML prefix and 398 were read from fileContent before this.
     '
     ' Then every table that holds an equation is taken apart, each cell a paragraph of its own in
@@ -41083,7 +41092,7 @@ Private Function Sh_MathML_Uncomment(ByVal xml As String, ByVal prefix As String
     ' the import would drop it anyway, and math left inside one would be counted and parked for
     ' nothing. So the text this hands back has no comments at all. Math that already has an altimg
     ' keeps it, and the picture before it stays; so does a picture with no src, or one on the web
-    ' or in a data: URI. Only the import text comes here; the .txt and .html keep every comment.
+    ' or in a data: URI. Only the import text comes here; the .htm and .html keep every comment.
     '
     ' Jerry, 10/27/2026 (issue #46): a book's pictures of equations have "EQ" in their file names.
     ' So when a picture is straight before the comment, the math comes out only if that picture's

@@ -62,7 +62,7 @@ def _pattern(lines, lead):
 
 
 def test_the_import_text_is_uncommented_first(repo_root):
-    """The equations are counted and parked from the uncommented text, and the .txt and .html
+    """The equations are counted and parked from the uncommented text, and the .htm and .html
     beside the book are written before it, from the book as it is."""
     lines = _procs(repo_root)[CONVERTER]
     un = _index(lines, f"importText = {HELPER}(fileContent, mathPrefix)")
@@ -72,7 +72,7 @@ def test_the_import_text_is_uncommented_first(repo_root):
     assert not any("Sh_MathML_Fragments(fileContent" in l for l in lines)
     assert not any("Sh_MathML_To_Placeholders(fileContent" in l for l in lines)
     # the files beside the book, and the empty page number pass, come first and are untouched
-    assert _index(lines, "outStream.SaveToFile txtCopy, 2") < un
+    assert _index(lines, "outStream.SaveToFile htmCopy, 2") < un
     assert _index(lines, "fileContent = Sh_Tag_Empty_Pagenums(fileContent)") < un
 
 
