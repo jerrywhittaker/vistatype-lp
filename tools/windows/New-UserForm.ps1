@@ -112,6 +112,12 @@ try {
         # dies with "[System.Object[]] does not contain a method named 'op_Subtraction'".
         $textW     = $insideW - ($pad * 2)
 
+        # A NOTE LONG ENOUGH TO SCROLL needs code in the new form, not more here: MSForms does not
+        # draw this box's scroll bar for text put in during UserForm_Initialize until the box has
+        # had the focus, and with TabStop off it never gets it (429, Jerry, 3.0.720: "the text has
+        # been truncated and needs a scrollbar"). Give it a UserForm_Activate like
+        # Lp_Spacing_About_Form's: Info_Text.SetFocus, .SelStart = 0, .CurLine = 0, then
+        # Close_Me.SetFocus so Enter still closes it.
         $tb = $d.Controls.Add('Forms.TextBox.1', 'Info_Text', $true)
         # NOTE: setting $tb.Font.Size here throws a null reference. Leave the font alone --
         # the default Tahoma is what the rest of the forms use anyway.

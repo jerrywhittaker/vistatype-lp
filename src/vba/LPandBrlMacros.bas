@@ -18,7 +18,10 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - LP  - 11/26/2026 - SPACING AND ITALICS SETTINGS (424): the italics row's Reset button now
+' Notes:    - LP  - 11/26/2026 - ABOUT LINE AND LETTER SPACING (429): the note scrolls and its end can be
+'           - LP  - 11/26/2026 - reached. The scroll bar never showed (Jerry, 3.0.720); the form now gives
+'           - LP  - 11/26/2026 - its text box the focus once when it opens, then hands it to Okay.
+'           - LP  - 11/26/2026 - SPACING AND ITALICS SETTINGS (424): the italics row's Reset button now
 '           - LP  - 11/26/2026 - says "Reset to dashed underline" (still Alt+S) and is wider to fit (Jerry).
 '           - LP  - 11/26/2026 - ABOUT LINE AND LETTER SPACING (429): 424's About line/letter spacing
 '           - LP  - 11/26/2026 - button (Alt+A) opens Jerry's explanation in a new read-only form,

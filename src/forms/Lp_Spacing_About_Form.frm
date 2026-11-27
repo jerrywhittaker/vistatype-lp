@@ -24,6 +24,16 @@ Attribute VB_Exposed = False
 ' it - there is nothing to keep, so a plain close is already Cancel and the form has no
 ' UserForm_QueryClose.
 '
+' Version: 1.1  Date: 11/26/2026 - the scroll bar never showed and the note's end was out of
+'                                reach (Jerry, 3.0.720: "the text has been truncated and needs a
+'                                scrollbar"). The layout was right (read from the .frx: a
+'                                MultiLine, WordWrap, locked text box, vertical scroll bar, 564 x 390
+'                                points, inside a 588 x 450.75 client area, Okay below it), but the
+'                                box never has the focus (TabStop is off), and MSForms does not draw
+'                                a text box's scroll bar for text put in before the form is shown
+'                                until the box has had the focus. UserForm_Activate gives it the
+'                                focus once, puts the caret on the first line, and hands the focus
+'                                to Okay so Enter still closes it
 ' Version: 1.0  Date: 11/26/2026 - Jerry's text
 
 Private Sub Close_Me_Click()
@@ -117,4 +127,17 @@ Private Sub UserForm_Initialize()
     Me.StartUpPosition = 0
     Me.Left = Application.Left + (0.5 * Application.Width) - (0.5 * Me.Width)
     Me.Top = Application.Top + (0.5 * Application.Height) - (0.5 * Me.Height)
+End Sub
+
+' Draws the scroll bar. Text put into a text box before the form is on screen gets no scroll
+' bar until the box has had the focus, and this one never would (TabStop is off), so the note's
+' end could not be reached. Now the form is showing, the box has the focus once, the caret goes
+' to the first line, and the focus goes to Okay, so Enter still closes the form.
+Private Sub UserForm_Activate()
+    With Info_Text
+        .SetFocus
+        .selStart = 0
+        .CurLine = 0
+    End With
+    Close_Me.SetFocus
 End Sub
