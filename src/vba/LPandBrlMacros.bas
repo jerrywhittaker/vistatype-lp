@@ -18,7 +18,10 @@ Attribute VB_Name = "LPandBrlMacros"
 ' Released 7/19/2026 - Version 3.0 - performance pass (ScreenUpdating discipline, O(n) loops, DoEvents throttle), save-once/stabilize, idempotent config, QAT installer fix
 ' This code changed 2/22/2026 12:20 AM - Not Released - Fixes for new Version 2.2.3
 '
-' Notes:    - Sh  - 11/27/2026 - DAISY/NIMAS -> Word (308): the .txt written beside the book is now an
+' Notes:    - LP  - 11/27/2026 - SECOND-ATTACH CRASH (issue #56): Lp_Set_TOC_and_Print_Page_Num_Tab_Stops no
+'           - LP  - 11/27/2026 - longer calls TabStops.ClearAll, where both crash dumps die. A style already
+'           - LP  - 11/27/2026 - holding the one right tab is left alone; otherwise its stops go one at a time.
+'           - Sh  - 11/27/2026 - DAISY/NIMAS -> Word (308): the .txt written beside the book is now an
 '           - Sh  - 11/27/2026 - .htm that starts at <dtbook - written before the HTML wrapper goes
 '           - Sh  - 11/27/2026 - on - so Word can open it by hand (Jerry). The .html is unchanged.
 '           - LP  - 11/26/2026 - ABOUT LINE AND LETTER SPACING (429): the note scrolls and its end can be
@@ -23919,49 +23922,56 @@ Sub Lp_Set_TOC_and_Print_Page_Num_Tab_Stops()
 '
 ' Sets TOC and Print Page Number tab stops bases on the size of the paper/screen
 '
+' Version 2.0  Date: 11/27/2026 - NO TabStops.ClearAll (issue #56, Jerry): two crash dumps of the
+'                                 second-attach crash (11/25 and 11/27/2026) both die inside Word's
+'                                 TabStops.ClearAll, and these six are the only ClearAll calls in the
+'                                 attach. Each style is now left alone when it already holds just the
+'                                 one right tab stop, and otherwise has its tab stops cleared one at a
+'                                 time before the new one is added. The template's own tab is at 7.5",
+'                                 so the skip fires only for a book whose text width is 7.5". The
+'                                 position goes through Val rather than an implicit conversion. The
+'                                 unused With ActiveDocument.PageSetup is gone
 ' Version 1.0  Date: 4/2/2021
 
-    With ActiveDocument.PageSetup
-        
-        If Sh_Style_Exists(ActiveDocument, "TOC 1") Then
-        ActiveDocument.Styles("TOC 1").ParagraphFormat.TabStops.ClearAll
-        ActiveDocument.Styles("TOC 1").ParagraphFormat.TabStops.Add Position:= _
-            InchesToPoints(TOCTabSetting), Alignment:=wdAlignTabRight, Leader:=wdTabLeaderDots
-        End If
-        
-        If Sh_Style_Exists(ActiveDocument, "TOC 2") Then
-        ActiveDocument.Styles("TOC 2").ParagraphFormat.TabStops.ClearAll
-        ActiveDocument.Styles("TOC 2").ParagraphFormat.TabStops.Add Position:= _
-            InchesToPoints(TOCTabSetting), Alignment:=wdAlignTabRight, Leader:=wdTabLeaderDots
-        End If
-        
-        If Sh_Style_Exists(ActiveDocument, "TOC 3") Then
-        ActiveDocument.Styles("TOC 3").ParagraphFormat.TabStops.ClearAll
-        ActiveDocument.Styles("TOC 3").ParagraphFormat.TabStops.Add Position:= _
-            InchesToPoints(TOCTabSetting), Alignment:=wdAlignTabRight, Leader:=wdTabLeaderDots
-        End If
-        
-        If Sh_Style_Exists(ActiveDocument, "TOC 4") Then
-        ActiveDocument.Styles("TOC 4").ParagraphFormat.TabStops.ClearAll
-        ActiveDocument.Styles("TOC 4").ParagraphFormat.TabStops.Add Position:= _
-            InchesToPoints(TOCTabSetting), Alignment:=wdAlignTabRight, Leader:=wdTabLeaderDots
-        End If
-        
-        If Sh_Style_Exists(ActiveDocument, "TOC 5") Then
-        ActiveDocument.Styles("TOC 5").ParagraphFormat.TabStops.ClearAll
-        ActiveDocument.Styles("TOC 5").ParagraphFormat.TabStops.Add Position:= _
-            InchesToPoints(TOCTabSetting), Alignment:=wdAlignTabRight, Leader:=wdTabLeaderDots
-        End If
-        
-        If Sh_Style_Exists(ActiveDocument, "Print Pg Num") Then
-        ActiveDocument.Styles("Print Pg Num").ParagraphFormat.TabStops.ClearAll
-        ActiveDocument.Styles("Print Pg Num").ParagraphFormat.TabStops.Add Position:= _
-            InchesToPoints(TOCTabSetting), Alignment:=wdAlignTabRight, Leader:=wdTabLeaderSpaces
-        End If
-                      
-    End With
-    
+    Dim tabPos As Single
+    tabPos = InchesToPoints(Val(TOCTabSetting))
+
+    Lp_Set_One_Style_Tab "TOC 1", tabPos, wdTabLeaderDots
+    Lp_Set_One_Style_Tab "TOC 2", tabPos, wdTabLeaderDots
+    Lp_Set_One_Style_Tab "TOC 3", tabPos, wdTabLeaderDots
+    Lp_Set_One_Style_Tab "TOC 4", tabPos, wdTabLeaderDots
+    Lp_Set_One_Style_Tab "TOC 5", tabPos, wdTabLeaderDots
+    Lp_Set_One_Style_Tab "Print Pg Num", tabPos, wdTabLeaderSpaces
+
 End Sub   '*** end of Lp_Set_TOC_and_Print_Page_Num_Tab_Stops macro ***
+
+Private Sub Lp_Set_One_Style_Tab(ByVal styleName As String, ByVal tabPos As Single, ByVal tabLeader As Long)
+'
+' Gives a style one right-aligned tab stop at tabPos with the leader asked for, and no other.
+' Never calls TabStops.ClearAll - see Lp_Set_TOC_and_Print_Page_Num_Tab_Stops (issue #56).
+'
+' Version 1.0  Date: 11/27/2026
+
+    If Not Sh_Style_Exists(ActiveDocument, styleName) Then Exit Sub
+
+    Dim stops As TabStops
+    Dim i As Long
+    Set stops = ActiveDocument.Styles(styleName).ParagraphFormat.TabStops
+
+    ' Already right: touch nothing. (The template's styles carry one right tab at 7.5".)
+    If stops.Count = 1 Then
+        With stops(1)
+            If Abs(.Position - tabPos) < 0.5 And .Alignment = wdAlignTabRight _
+               And .Leader = tabLeader Then Exit Sub
+        End With
+    End If
+
+    For i = stops.Count To 1 Step -1
+        stops(i).Clear
+    Next i
+    stops.Add Position:=tabPos, Alignment:=wdAlignTabRight, Leader:=tabLeader
+
+End Sub   '*** end of Lp_Set_One_Style_Tab ***
 
 Function Lp_Border_Weight_For_Base_Font(Optional ByVal SizeOverride As String = "") As WdLineWidth
 '
